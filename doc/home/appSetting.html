@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title> App 환경설정 </title>
+</head>
+<body style="padding-top: 0">
+<div class="index">
+    <a href="#jump1">1. 최대 프로세스 수 설정</a><br>
+    <a href="#jump2">2. 텍스처 보정 설정</a><br>
+</div>
+<hr>
+<div class="content">
+    <h2 class="lead" id="jump1"> 1. 최대 프로세스 수 설정 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            한 프레임당 작업할 최대 프로세스 수를 설정할 수 있습니다. <br>
+            app 생성 시 <mark><strong>maxprocess 옵션 값</strong></mark>을 추가하거나,
+            U3dApp 함수 <mark><strong>setMaxProcess()</strong></mark>를 사용해 설정합니다. <br>
+            최대 프로세스 수가 클수록 연산 처리 성능은 빨라지지만,
+            메모리 부하나 UI 반응 속도 저하 등의 문제가 발생할 수 있으므로 적절히 조절해야 합니다.<br><br>
+            <mark>** 별도로 설정하지 않는 경우 사용자의 컴퓨터 성능에 따라 <strong>자동으로 조정됩니다.</strong> **</mark>
+        </div>
+        <div class="explane_api">
+            U3dApp.<span class="api_name">setMaxProcess(<span class="param_name">count</span>)</span> : 한 프레임당 작업할 최대 프로세스 수를 설정하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">count</span><span class="param_type">number</span> : 최대 프로세스 수
+            </div>
+        </div>
+        <label class="code-label">예시 코드</label>
+        <div class="code" id="text1-code"></div>
+        <div class="code-text" id="text1" hidden="hidden">
+            // app 생성 시 옵션 값으로 지정
+            const app = new GeOnDT.U3dAPP({
+                containername: 'map',
+                maxprocess: 12
+            });
+
+            // 또는 setMaxProcess 함수 사용
+            app.setMaxProcess(12);
+        </div>
+    </div>
+    <h2 class="lead" id="jump2"> 2. 텍스쳐 보정 설정 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            텍스처 보정 값은 화면에 출력되는 텍스처 품질을 조절할 때 사용합니다. <br>
+            app 생성 시 <mark><strong>improveTexture 옵션 값</strong></mark>을 추가하거나,
+            U3dApp 함수 <mark><strong>setImproveValue()</strong></mark>를 사용해 설정합니다. <br>
+            보정 값을 높이면 텍스처 품질은 좋아질 수 있지만, 사용 환경에 따라 성능 부담이 생길 수 있으므로 상황에 맞게 조절하는 것이 좋습니다.
+        </div>
+        <div class="explane_api">
+            U3dApp.<span class="api_name">setImproveValue(<span class="param_name">value</span>)</span> : 텍스처 보정 값을 설정하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">value</span><span class="param_type">string</span> : 텍스처 보정 값 (예: 'high')
+            </div>
+        </div>
+        <label class="code-label">예시 코드</label>
+        <div class="code" id="text2-code"></div>
+        <div class="code-text" id="text2" hidden="hidden">
+            // app 생성 시 옵션 값으로 지정
+            const app = new GeOnDT.U3dAPP({
+                containername: 'map',
+                improveTexture: 'high'
+            });
+
+            // 또는 setImproveValue 함수 사용
+            app.setImproveValue('high');
+        </div>
+        <label class="code-label">텍스처 보정 비교</label>
+        <div style="display: flex; gap: 10px;">
+            <figure style="width: 50%; text-align: center;">
+                <img src="./image/appSetting/텍스쳐보정_낮음.png" alt="텍스쳐보정_낮음" style="width: 100%; margin-bottom: 5px; object-fit: contain;">
+                <figcaption><strong>[ 텍스처 보정 - 낮음 ]</strong></figcaption>
+            </figure>
+            <figure style="width: 50%; text-align: center;">
+                <img src="./image/appSetting/텍스쳐보정_높음.png" alt="텍스쳐보정_높음" style="width: 100%; margin-bottom: 5px; object-fit: contain;">
+                <figcaption><strong>[텍스처 보정 - 높음 ]</strong></figcaption>
+            </figure>
+
+
+        </div>
+
+    </div>
+</div>
+</body>
+</html>

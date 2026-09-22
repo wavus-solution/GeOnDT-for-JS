@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>고도 범례 시작하기</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="고도-범례-시작하기">고도 범례 시작하기</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-%EA%B3%A0%EB%8F%84-%EB%B2%94%EB%A1%80-%ED%91%9C%EC%8B%9C%ED%95%98%EA%B8%B0">고도 범례 표시하기</a></li>
+<li><a href="#2-%EB%B2%94%EB%A1%80-%EC%8A%A4%ED%83%80%EC%9D%BC-%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0">범례 스타일 설정하기</a></li>
+<li><a href="#3-%EB%B2%94%EB%A1%80-%ED%95%AD%EB%AA%A9-%EC%B6%94%EA%B0%80%ED%95%98%EA%B3%A0-%EC%A0%9C%EA%B1%B0%ED%95%98%EA%B8%B0">범례 항목 추가하고 제거하기</a></li>
+<li><a href="#4-%ED%8A%B9%EC%A0%95-%EA%B0%9D%EC%B2%B4%EB%A5%BC-%EB%B2%94%EB%A1%80%EC%97%90%EC%84%9C-%EC%A0%9C%EC%99%B8%ED%95%98%EA%B8%B0">특정 객체를 범례에서 제외하기</a></li>
+<li><a href="#5-%EB%B2%94%EB%A1%80-%EC%83%81%ED%83%9C-%ED%99%95%EC%9D%B8%ED%95%98%EA%B3%A0-%EC%A2%85%EB%A3%8C%ED%95%98%EA%B8%B0">범례 상태 확인하고 종료하기</a></li>
+</ol>
+<div class="document-thumbnail" data-size="medium">
+<figure class="document-image">
+<img src="image/heightLegendStart/thumbnail.gif" alt="고도 범례가 적용된 비행체" loading="eager">
+<figcaption>고도 범례가 적용된 비행체</figcaption>
+</figure>
+</div>
+<p>고도 범례는 지형과 3D 객체의 고도에 따라 화면 색상을 다르게 적용하는 후처리 기능입니다.<br><code>UAnalyHeight</code>에 고도별 색상과 투명도를 설정하고 높이 색상 가시화를 켜면 지도에서 고도 구간을 구분할 수 있습니다.</p>
+<p>이 문서의 예제는 <code>app</code>이 생성되고 초기화된 상태를 전제로 합니다.<br>범례 설정값을 편집하는 HTML 패널은 애플리케이션에서 별도로 만들며, 실제 지도 색상은 <code>UAnalyHeight</code>가 적용합니다.</p>
+<hr>
+<h2 id="1-고도-범례-표시하기">1. 고도 범례 표시하기</h2>
+<p><code>app.getAnalysis(&#39;Height&#39;)</code>로 고도 분석 객체를 가져온 뒤 <code>setUserStyle()</code>에 범례 스타일을 전달합니다.<br>스타일 적용에 성공하면 <code>setHeightVisible(true)</code>를 호출해 고도 색상을 화면에 표시합니다.</p>
+<p><code>setHeightVisible()</code>은 클릭 위치의 고도를 측정하는 <code>active()</code> 상태와 별개입니다.<br>범례 색상만 표시할 때는 고도 분석을 클릭 측정 모드로 활성화할 필요가 없습니다.</p>
+<h4 class="api-heading" id="api">API</h4>
+<p>U3dApp.getAnalysis(<code>name</code>) : 이름에 해당하는 분석 객체를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>name</code> (<code>string</code>) : 분석 이름. 고도 범례는 <code>&#39;Height&#39;</code> 사용. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>UAnaly</code>) : 요청한 분석 객체</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>UAnalyHeight.setUserStyle(<code>style</code>) : 고도 기준별 색상과 표현 모드를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>style</code> (<code>Record&lt;string, string&gt;</code>) : <code>mode</code>와 고도 기준별 RGBA 색상을 가진 객체. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>boolean</code>) : 스타일 설정 성공 여부</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-2">API</h4>
+<p>UAnalyHeight.setHeightVisible(<code>visible</code>) : 고도 색상 가시화 여부를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>visible</code> (<code>boolean</code>) : <code>true</code>면 표시하고 <code>false</code>면 숨김. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>boolean</code>) : 가시화 설정 성공 여부</li>
+</ul>
+</details>
+<h3 id="1-기본-고도-범례-예제">1. 기본 고도 범례 예제</h3>
+<p>스타일 객체의 숫자 키는 고도 기준값(m)이고 값은 해당 기준에 적용할 CSS RGBA 색상입니다.<br>숫자 키는 전달 순서와 관계없이 고도 오름차순으로 처리됩니다.</p>
+<div class="document-sized-image" data-size="small">
+<figure class="document-image">
+<img src="image/heightLegendStart/고도범례.png" alt="기본 고도 범례" loading="eager">
+<figcaption>기본 고도 범례</figcaption>
+</figure>
+</div>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> heightAnalysis <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">getAnalysis</span><span class="token punctuation">(</span><span class="token string">'Height'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>heightAnalysis<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'Height 분석 객체를 찾을 수 없습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">const</span> heightStyle <span class="token operator">=</span> <span class="token punctuation">{</span>
+    <span class="token literal-property property">mode</span><span class="token operator">:</span> <span class="token string">'band'</span><span class="token punctuation">,</span>
+    <span class="token string-property property">'0'</span><span class="token operator">:</span> <span class="token string">'rgba(0, 0, 255, 0.5)'</span><span class="token punctuation">,</span>
+    <span class="token string-property property">'100'</span><span class="token operator">:</span> <span class="token string">'rgba(0, 255, 0, 0.5)'</span><span class="token punctuation">,</span>
+    <span class="token string-property property">'200'</span><span class="token operator">:</span> <span class="token string">'rgba(255, 255, 0, 0.5)'</span><span class="token punctuation">,</span>
+    <span class="token string-property property">'300'</span><span class="token operator">:</span> <span class="token string">'rgba(255, 149, 40, 0.5)'</span><span class="token punctuation">,</span>
+    <span class="token string-property property">'400'</span><span class="token operator">:</span> <span class="token string">'rgba(255, 0, 0, 0.5)'</span>
+<span class="token punctuation">}</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>heightAnalysis<span class="token punctuation">.</span><span class="token function">setUserStyle</span><span class="token punctuation">(</span>heightStyle<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'고도 범례 스타일을 적용하지 못했습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>heightAnalysis<span class="token punctuation">.</span><span class="token function">setHeightVisible</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'고도 범례를 표시하지 못했습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<p><code>setUserStyle()</code>은 전달받은 객체를 복사해 저장합니다.<br>적용 후 <code>heightStyle</code>을 수정해도 화면은 바뀌지 않으므로 변경한 스타일을 다시 <code>setUserStyle()</code>에 전달해야 합니다.</p>
+<hr>
+<h2 id="2-범례-스타일-설정하기">2. 범례 스타일 설정하기</h2>
+<p>범례 스타일은 <code>mode</code>, 고도 기준값, 색상과 투명도로 구성합니다.<br>사용할 수 있는 <code>mode</code>는 <code>&#39;band&#39;</code>와 <code>&#39;mix&#39;</code>입니다.</p>
+<div class="document-table">
+<table>
+<thead><tr><th>모드</th><th>표현 방식</th></tr></thead>
+<tbody><tr><td><code>&#39;band&#39;</code></td><td>각 고도 기준부터 다음 기준 직전까지 하나의 색상을 유지</td></tr>
+<tr><td><code>&#39;mix&#39;</code></td><td>인접한 두 고도 기준 사이의 색상과 투명도를 부드럽게 보간</td></tr></tbody>
+</table>
+</div>
+<p>첫 기준값보다 낮은 고도에는 첫 색상이 적용되고 마지막 기준값보다 높은 고도에는 마지막 색상이 적용됩니다.<br>RGBA의 alpha는 원래 화면 색상 위에 범례 색상을 섞는 비율이며, <code>0</code>이면 원래 색상이 보이고 <code>1</code>이면 범례 색상이 완전히 적용됩니다.</p>
+<p>숫자 형태의 고도 항목은 최대 <code>UAnalyHeight.MAX_STYLE_ENTRIES</code>개까지 사용할 수 있으며 현재 최대값은 <code>256</code>입니다.<br><code>mode</code>가 <code>&#39;band&#39;</code> 또는 <code>&#39;mix&#39;</code>가 아니거나 최대 항목 수를 초과하면 <code>setUserStyle()</code>은 <code>false</code>를 반환합니다.</p>
+<h3 id="1-구간-색상으로-스타일링하는-예제">1. 구간 색상으로 스타일링하는 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> bandStyle <span class="token operator">=</span> <span class="token punctuation">{</span>
+    <span class="token literal-property property">mode</span><span class="token operator">:</span> <span class="token string">'band'</span><span class="token punctuation">,</span>
+    <span class="token string-property property">'0'</span><span class="token operator">:</span> <span class="token string">'rgba(20, 70, 180, 0.35)'</span><span class="token punctuation">,</span>
+    <span class="token string-property property">'150'</span><span class="token operator">:</span> <span class="token string">'rgba(20, 180, 110, 0.45)'</span><span class="token punctuation">,</span>
+    <span class="token string-property property">'300'</span><span class="token operator">:</span> <span class="token string">'rgba(250, 200, 40, 0.55)'</span><span class="token punctuation">,</span>
+    <span class="token string-property property">'600'</span><span class="token operator">:</span> <span class="token string">'rgba(220, 50, 40, 0.7)'</span>
+<span class="token punctuation">}</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> applied <span class="token operator">=</span> heightAnalysis<span class="token punctuation">.</span><span class="token function">setUserStyle</span><span class="token punctuation">(</span>bandStyle<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>applied<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">warn</span><span class="token punctuation">(</span><span class="token string">'band 범례 스타일이 유효하지 않습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h3 id="2-색상-그라데이션으로-스타일링하는-예제">2. 색상 그라데이션으로 스타일링하는 예제</h3>
+<p>같은 기준값을 사용하면서 <code>mode</code>만 <code>&#39;mix&#39;</code>로 바꾸면 고도 사이의 색상이 이어집니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> mixStyle <span class="token operator">=</span> <span class="token punctuation">{</span>
+    <span class="token operator">...</span>bandStyle<span class="token punctuation">,</span>
+    <span class="token literal-property property">mode</span><span class="token operator">:</span> <span class="token string">'mix'</span>
+<span class="token punctuation">}</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>heightAnalysis<span class="token punctuation">.</span><span class="token function">setUserStyle</span><span class="token punctuation">(</span>mixStyle<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">warn</span><span class="token punctuation">(</span><span class="token string">'mix 범례 스타일이 유효하지 않습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<div class="document-image-grid" data-columns="2">
+<figure class="document-image">
+<img src="image/heightLegendStart/구간BAND.png" alt="band 모드 — 고도 구간 경계가 뚜렷하게 구분된 화면" loading="eager">
+<figcaption>band 모드 — 고도 구간 경계가 뚜렷하게 구분된 화면</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/heightLegendStart/구간MIX.png" alt="mix 모드 — 같은 기준값에서 구간 색상이 부드럽게 이어진 화면" loading="eager">
+<figcaption>mix 모드 — 같은 기준값에서 구간 색상이 부드럽게 이어진 화면</figcaption>
+</figure>
+</div>
+<h3 id="3-투명-영역을-만드는-예제">3. 투명 영역을 만드는 예제</h3>
+<p>특정 기준의 alpha를 <code>0</code>으로 설정하면 해당 색상은 원래 화면에 영향을 주지 않습니다.<br><code>mix</code> 모드에서는 인접 기준 사이의 alpha도 함께 보간됩니다.</p>
+<pre class="language-javascript"><code class="language-javascript">heightAnalysis<span class="token punctuation">.</span><span class="token function">setUserStyle</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">mode</span><span class="token operator">:</span> <span class="token string">'band'</span><span class="token punctuation">,</span>
+    <span class="token string-property property">'0'</span><span class="token operator">:</span> <span class="token string">'rgba(0, 80, 255, 0.6)'</span><span class="token punctuation">,</span>
+    <span class="token string-property property">'100'</span><span class="token operator">:</span> <span class="token string">'rgba(0, 0, 0, 0)'</span><span class="token punctuation">,</span>
+    <span class="token string-property property">'200'</span><span class="token operator">:</span> <span class="token string">'rgba(255, 210, 0, 0.5)'</span><span class="token punctuation">,</span>
+    <span class="token string-property property">'400'</span><span class="token operator">:</span> <span class="token string">'rgba(255, 40, 0, 0.8)'</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<div class="document-image-grid" data-columns="2">
+<figure class="document-image">
+<img src="image/heightLegendStart/구간별색상투명도.png" alt="고도 구간별 색상과 투명도가 반영되어 원래 지형 영상이 함께 비쳐 보이는 화면" loading="eager">
+<figcaption>고도 구간별 색상과 투명도가 반영되어 원래 지형 영상이 함께 비쳐 보이는 화면</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/heightLegendStart/구간선택가시화.png" alt="alpha를 0으로 둔 구간은 원래 화면이 그대로 보이고 선택한 고도 구간만 색상으로 표시된 모습" loading="eager">
+<figcaption>alpha를 0으로 둔 구간은 원래 화면이 그대로 보이고 선택한 고도 구간만 색상으로 표시된 모습</figcaption>
+</figure>
+</div>
+<hr>
+<h2 id="3-범례-항목-추가하고-제거하기">3. 범례 항목 추가하고 제거하기</h2>
+<p>사용자가 범례를 편집하는 화면을 제공하려면 배열 하나를 원본 상태로 관리하고, 배열을 스타일 객체로 변환해 <code>setUserStyle()</code>에 다시 전달합니다.<br>화면의 DOM만 수정하면 실제 지도 색상은 바뀌지 않으므로 설정 배열과 <code>UAnalyHeight</code>를 함께 갱신해야 합니다.</p>
+<p>다음 예제의 <code>heightLegendConfig</code>는 각 항목의 고도, 색상과 투명도를 보관합니다.<br><code>applyHeightLegend()</code>는 항목을 고도순으로 정렬하고 GeOnDT가 사용하는 스타일 객체로 변환합니다.</p>
+<h3 id="1-편집-가능한-범례-상태-만들기">1. 편집 가능한 범례 상태 만들기</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> heightLegendConfig <span class="token operator">=</span> <span class="token punctuation">[</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">value</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#0000ff'</span><span class="token punctuation">,</span> <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.5</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">value</span><span class="token operator">:</span> <span class="token number">100</span><span class="token punctuation">,</span> <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#00ff00'</span><span class="token punctuation">,</span> <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.5</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">value</span><span class="token operator">:</span> <span class="token number">200</span><span class="token punctuation">,</span> <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#ffff00'</span><span class="token punctuation">,</span> <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.5</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">value</span><span class="token operator">:</span> <span class="token number">400</span><span class="token punctuation">,</span> <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#ff0000'</span><span class="token punctuation">,</span> <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.5</span><span class="token punctuation">}</span>
+<span class="token punctuation">]</span><span class="token punctuation">;</span>
+
+<span class="token keyword">function</span> <span class="token function">hexToRgb</span><span class="token punctuation">(</span><span class="token parameter">hex</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> value <span class="token operator">=</span> Number<span class="token punctuation">.</span><span class="token function">parseInt</span><span class="token punctuation">(</span>hex<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token string">'#'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">16</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">{</span>
+        <span class="token literal-property property">r</span><span class="token operator">:</span> <span class="token punctuation">(</span>value <span class="token operator">>></span> <span class="token number">16</span><span class="token punctuation">)</span> <span class="token operator">&amp;</span> <span class="token number">255</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">g</span><span class="token operator">:</span> <span class="token punctuation">(</span>value <span class="token operator">>></span> <span class="token number">8</span><span class="token punctuation">)</span> <span class="token operator">&amp;</span> <span class="token number">255</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">b</span><span class="token operator">:</span> value <span class="token operator">&amp;</span> <span class="token number">255</span>
+    <span class="token punctuation">}</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">function</span> <span class="token function">applyHeightLegend</span><span class="token punctuation">(</span>mode <span class="token operator">=</span> <span class="token string">'band'</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> style <span class="token operator">=</span> <span class="token punctuation">{</span>mode<span class="token punctuation">}</span><span class="token punctuation">;</span>
+
+    heightLegendConfig
+        <span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+        <span class="token punctuation">.</span><span class="token function">sort</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">a<span class="token punctuation">,</span> b</span><span class="token punctuation">)</span> <span class="token operator">=></span> a<span class="token punctuation">.</span>value <span class="token operator">-</span> b<span class="token punctuation">.</span>value<span class="token punctuation">)</span>
+        <span class="token punctuation">.</span><span class="token function">forEach</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter"><span class="token punctuation">{</span>value<span class="token punctuation">,</span> color<span class="token punctuation">,</span> opacity<span class="token punctuation">}</span></span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+            <span class="token keyword">const</span> <span class="token punctuation">{</span>r<span class="token punctuation">,</span> g<span class="token punctuation">,</span> b<span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token function">hexToRgb</span><span class="token punctuation">(</span>color<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            style<span class="token punctuation">[</span><span class="token function">String</span><span class="token punctuation">(</span>value<span class="token punctuation">)</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">rgba(</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>r<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">, </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>g<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">, </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>b<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">, </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>opacity<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">)</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">return</span> heightAnalysis<span class="token punctuation">.</span><span class="token function">setUserStyle</span><span class="token punctuation">(</span>style<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token function">applyHeightLegend</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-범례-항목-추가-예제">2. 범례 항목 추가 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">addHeightLegendItem</span><span class="token punctuation">(</span><span class="token parameter">item</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>heightLegendConfig<span class="token punctuation">.</span><span class="token function">some</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter"><span class="token punctuation">{</span>value<span class="token punctuation">}</span></span><span class="token punctuation">)</span> <span class="token operator">=></span> value <span class="token operator">===</span> item<span class="token punctuation">.</span>value<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    heightLegendConfig<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span>item<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token function">applyHeightLegend</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token function">addHeightLegendItem</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">value</span><span class="token operator">:</span> <span class="token number">600</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#9c27b0'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.6</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="3-범례-항목-제거-예제">3. 범례 항목 제거 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">removeHeightLegendItem</span><span class="token punctuation">(</span><span class="token parameter">value</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> index <span class="token operator">=</span> heightLegendConfig<span class="token punctuation">.</span><span class="token function">findIndex</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">item</span><span class="token punctuation">)</span> <span class="token operator">=></span> item<span class="token punctuation">.</span>value <span class="token operator">===</span> value<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>index <span class="token operator">===</span> <span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    heightLegendConfig<span class="token punctuation">.</span><span class="token function">splice</span><span class="token punctuation">(</span>index<span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token function">applyHeightLegend</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token function">removeHeightLegendItem</span><span class="token punctuation">(</span><span class="token number">200</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>색상이나 투명도를 변경할 때도 해당 배열 항목을 먼저 수정한 뒤 <code>applyHeightLegend()</code>를 호출합니다.<br>편집 UI를 함께 사용한다면 설정 배열 변경 후 화면의 범례 행도 다시 렌더링합니다.</p>
+<hr>
+<h2 id="4-특정-객체를-범례에서-제외하기">4. 특정 객체를 범례에서 제외하기</h2>
+<p><code>setExceptObjects()</code>를 사용하면 지정한 객체에는 고도 범례와 등고선 후처리가 적용되지 않아 객체 본래 색상이 유지됩니다.<br>제외 대상은 Three.js <code>Object3D</code> 또는 <code>U3dComponentPosition</code>이며 하나의 대상이나 배열을 전달할 수 있습니다.</p>
+<p><code>Object3D</code>를 전달하면 렌더링 시점에 그 하위 객체까지 함께 제외됩니다.<br><code>U3dComponentPosition</code>을 전달하면 해당 컴포넌트만 제외되며, 인스턴스 컴포넌트도 같은 형상을 공유하는 다른 인스턴스에는 영향을 주지 않습니다.</p>
+<p><code>setExceptObjects()</code>를 다시 호출하면 기존 제외 목록은 새 목록으로 교체됩니다.<br>기존 목록에 대상을 하나씩 더하려면 <code>addExceptObject()</code>를 사용합니다.</p>
+<h4 class="api-heading" id="api-3">API</h4>
+<p>UAnalyHeight.setExceptObjects(<code>objects</code>) : 고도 후처리에서 제외할 대상 목록을 교체하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>objects</code> (<code>Object3D | U3dComponentPosition | Array&lt;Object3D | U3dComponentPosition&gt;</code>) : 제외할 대상 또는 대상 배열. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>boolean</code>) : 제외 목록 설정 성공 여부</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-4">API</h4>
+<p>UAnalyHeight.addExceptObject(<code>object</code>) : 기존 제외 목록에 대상 하나를 추가하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>object</code> (<code>Object3D | U3dComponentPosition</code>) : 추가로 제외할 대상. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>boolean</code>) : 추가 성공 여부</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-5">API</h4>
+<p>UAnalyHeight.removeExceptObject(<code>object</code>) : 제외 목록에서 대상 하나를 제거하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>object</code> (<code>Object3D | U3dComponentPosition</code>) : 제외를 해제할 대상. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>boolean</code>) : 목록에 있던 대상이 제거됐는지 여부</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-6">API</h4>
+<p>UAnalyHeight.clearExceptObjects() : 모든 제외 대상을 해제하는 함수</p>
+<h3 id="1-컴포넌트-하나를-제외하는-예제">1. 컴포넌트 하나를 제외하는 예제</h3>
+<p>다음 예제는 <code>animationLayer</code>에 <code>drone_01</code>이라는 컴포넌트가 생성된 상태를 전제로 합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> drone <span class="token operator">=</span> animationLayer<span class="token punctuation">.</span><span class="token function">getComponentByName</span><span class="token punctuation">(</span><span class="token string">'drone_01'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>drone<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">warn</span><span class="token punctuation">(</span><span class="token string">'제외할 드론을 찾을 수 없습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>heightAnalysis<span class="token punctuation">.</span><span class="token function">setExceptObjects</span><span class="token punctuation">(</span>drone<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">warn</span><span class="token punctuation">(</span><span class="token string">'드론을 고도 범례에서 제외하지 못했습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h3 id="2-컴포넌트와-비행-경로를-함께-제외하는-예제">2. 컴포넌트와 비행 경로를 함께 제외하는 예제</h3>
+<p>컴포넌트를 제외해도 별도로 만든 비행 경로 객체가 자동으로 제외되지는 않습니다.<br>드론과 경로를 모두 원래 색상으로 표시하려면 두 대상을 함께 전달합니다.</p>
+<p>다음 예제의 <code>flightPathMesh</code>는 비행 경로를 그리는 <code>Object3D</code>라고 가정합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> drone <span class="token operator">=</span> animationLayer<span class="token punctuation">.</span><span class="token function">getComponentByName</span><span class="token punctuation">(</span><span class="token string">'drone_01'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> exceptObjects <span class="token operator">=</span> <span class="token punctuation">[</span>drone<span class="token punctuation">,</span> flightPathMesh<span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">filter</span><span class="token punctuation">(</span>Boolean<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span>exceptObjects<span class="token punctuation">.</span>length <span class="token operator">!==</span> <span class="token number">2</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">warn</span><span class="token punctuation">(</span><span class="token string">'제외할 드론 또는 비행 경로가 아직 준비되지 않았습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>heightAnalysis<span class="token punctuation">.</span><span class="token function">setExceptObjects</span><span class="token punctuation">(</span>exceptObjects<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">warn</span><span class="token punctuation">(</span><span class="token string">'고도 범례 제외 목록을 설정하지 못했습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h3 id="3-제외-상태-변경-예제">3. 제외 상태 변경 예제</h3>
+<p>다음 예제의 <code>buildingMesh</code>는 제외 목록에 추가하거나 제거할 Three.js <code>Object3D</code>입니다.</p>
+<pre class="language-javascript"><code class="language-javascript">heightAnalysis<span class="token punctuation">.</span><span class="token function">addExceptObject</span><span class="token punctuation">(</span>buildingMesh<span class="token punctuation">)</span><span class="token punctuation">;</span>
+heightAnalysis<span class="token punctuation">.</span><span class="token function">removeExceptObject</span><span class="token punctuation">(</span>buildingMesh<span class="token punctuation">)</span><span class="token punctuation">;</span>
+heightAnalysis<span class="token punctuation">.</span><span class="token function">clearExceptObjects</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="5-범례-상태-확인하고-종료하기">5. 범례 상태 확인하고 종료하기</h2>
+<p><code>getUserStyle()</code>은 현재 적용된 스타일의 복사본을 반환합니다.<br>반환 객체를 수정해도 실제 범례는 바뀌지 않으므로 변경 결과를 적용하려면 <code>setUserStyle()</code>을 다시 호출합니다.</p>
+<p>범례 사용을 끝낼 때는 가시화를 끄고 제외 목록을 정리합니다.<br>분석 객체와 후처리 자원은 <code>app</code>이 관리하므로 <code>UAnalyHeight</code>를 직접 dispose하지 않습니다.</p>
+<h4 class="api-heading" id="api-7">API</h4>
+<p>UAnalyHeight.getUserStyle() : 현재 고도 범례 스타일의 복사본을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Record&lt;string, string&gt; | undefined</code>) : 현재 스타일 또는 설정되지 않은 경우 <code>undefined</code></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-8">API</h4>
+<p>UAnalyHeight.isHeightVisible() : 고도 색상이 현재 표시 중인지 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>boolean</code>) : 고도 색상 가시화 여부</li>
+</ul>
+</details>
+<h3 id="1-현재-범례-스타일-변경-예제">1. 현재 범례 스타일 변경 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> currentStyle <span class="token operator">=</span> heightAnalysis<span class="token punctuation">.</span><span class="token function">getUserStyle</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span>currentStyle<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    currentStyle<span class="token punctuation">.</span>mode <span class="token operator">=</span> <span class="token string">'mix'</span><span class="token punctuation">;</span>
+    heightAnalysis<span class="token punctuation">.</span><span class="token function">setUserStyle</span><span class="token punctuation">(</span>currentStyle<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h3 id="2-범례-종료-예제">2. 범례 종료 예제</h3>
+<pre class="language-javascript"><code class="language-javascript">heightAnalysis<span class="token punctuation">.</span><span class="token function">clearExceptObjects</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+heightAnalysis<span class="token punctuation">.</span><span class="token function">setHeightVisible</span><span class="token punctuation">(</span><span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+</main>
+</body>
+</html>
+

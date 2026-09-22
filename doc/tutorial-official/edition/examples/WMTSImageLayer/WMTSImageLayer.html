@@ -1,0 +1,46 @@
+<nav class="WMTSImageLayer-rail" data-example-rail aria-label="WMTSImageLayer 도구">
+    <button class="rail-button" type="button" data-panel-target="legacy-settings-panel" aria-expanded="false">
+        <span class="rail-icon">▦</span><span>설정</span>
+    </button>
+</nav>
+
+<aside class="glass-panel example-panel legacy-migration-panel" id="legacy-settings-panel" aria-hidden="true">
+    <header class="panel-header">
+        <div><span class="eyebrow">EXAMPLE SETTINGS</span>
+            <h2>WMTS 이미지 레이어 가시화</h2></div>
+        <button class="panel-close" type="button" data-panel-close="legacy-settings-panel" aria-label="설정 닫기">×</button>
+    </header>
+    <div class="panel-content">
+        <div class="legacy-control-content">
+            <div class="form-group div-layer">
+                <div id="layer-list">
+                    <div class="div-sub-category">
+                        <div class="sub-category-content" style="height: 200px; overflow: auto">
+                            <div class="checkbox"><label>
+                                <input class="input-showLayer" type="checkbox" target="satellite" disabled>
+                                VWorld Satellite (기본 Map)
+                            </label></div>
+                            <div class="checkbox"><label>
+                                <input class="input-showLayer" type="checkbox" target="Base" data-wmts="vworld"
+                                       disabled>
+                                VWorld Base WMTS
+                            </label></div>
+                            <div class="checkbox"><label>
+                                <input class="input-showLayer" type="checkbox" target="Hybrid" data-wmts="vworld"
+                                       disabled>
+                                VWorld Hybrid WMTS
+                            </label></div>
+                            <div class="checkbox"><label>
+                                <input class="input-showLayer" type="checkbox" target="geoserver_roads"
+                                       data-wmts="geoserver" disabled>
+                                GeoServer 도로 WMTS
+                            </label></div>
+                            <p id="vworld-status" class="help-block" role="status" hidden></p>
+                            <p id="geoserver-status" class="help-block" role="status" hidden></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</aside>

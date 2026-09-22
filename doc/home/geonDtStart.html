@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GeOnDT 시작</title>
+<body style="padding-top: 0">
+<div class="content">
+    <h2 class="lead"> 1. 시작하기 </h2>
+    <div class="doc">
+        <ul style="margin-bottom: 15px">
+            <li class="content-list-text"> GeOnDT.js를 시작하기 위해서는 당사의 인증 서버를 통해 <mark>라이센스 인증을 받거나 오프라인 라이센스를 발급</mark>받아 합니다.</li>
+            <li class="content-list-text"> GeOnDT.js 스크립트를 로드하기 전에, 발급된 <mark><strong>license.js</strong>를 먼저 로드</mark>하면 자동으로 라이센스 인증 기능을 수행합니다.</li>
+            <li class="content-list-text"> 이전 버전의 Union3D 명칭을 사용해도 되지만 <mark>현 명칭인 <strong>GeOnDT</strong> 사용을 권장</mark>합니다.</li>
+            <li class="content-list-text"> Script 호출시 <mark><strong>id 태그</strong>에 "GeOnDT"를 선언</mark>하여 호출 하는 것을 권장합니다.</li>
+            <li class="content-list-text"> <mark><strong>.ready()</strong>나 <strong>.then()</strong>을 사용</mark>해 GeOnDT가 잘 호출 되었는지 확인 후 U3dApp API를 생성합니다.</li>
+        </ul>
+        <label class="code-label">예시 코드</label>
+        <div class="code" id="text1-code">
+        </div>
+        <div class="code-text" id="text1" hidden="hidden">
+        &lt;!DOCTYPE html&gt;
+            &lt;html lang="en"&gt;
+            &lt;head&gt;
+                &lt;meta charset="UTF-8"&gt;
+                &lt;title&gt;GeOnDT&lt;/title&gt;
+            &lt;/head&gt;
+            &lt;body&gt;
+                &lt;div id="map"&gt;&lt;/div&gt;
+                &lt;script src="../dist/license.js" charset="utf-8"&gt;&lt;/script&gt;  &lt;!-- 인증을 위한 license.js 로드 --&gt;
+                &lt;script id="GeOnDT" src="../dist/GeOnDT.min.js"&gt; &lt;/script&gt; &lt;!-- GeOnDT min.js 로드 --&gt;
+                &lt;script&gt;
+                    GeOnDT.ready(function () {
+                        const app = new GeOnDT.U3dAPP({
+                            containername: 'map',  //+ U3dApp(지도영역)의 div ID, *필수 입력
+                        });
+                    });
+                &lt;/script&gt;
+            &lt;/body&gt;
+        &lt;/html&gt;
+        </div>
+    </div>
+    <h2 class="lead"> 2. 시작 위치 설정 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            app을 생성했다면, <mark><strong>setHomePosition</strong></mark> 함수를 통해 카메라가 최초 위치할 시작 위치를 설정할 수 있습니다.<br>
+            setHomePosition 후에는 반드시 <mark><strong>updateHomePosition</strong></mark> 함수를 호출하여 정보를 갱신해야합니다.
+            <div class="explane_api">
+                U3dAPP.<span class="api_name">setHomePosition</span>(<span class="param_name">geox, geoy, height, rotateleft, rotatedown</span>);
+                <div class="explane_api_param">
+                    <span class="param_name">geox</span><span class="param_type">number</span> : 위경도 x값 (경도) <br>
+                    <span class="param_name">geoy</span><span class="param_type">number</span> : 위경도 y값 (위도)  <br>
+                    <span class="param_name">height</span><span class="param_type">number</span> : 고도 <br>
+                    <span class="param_name">rotateleft</span><span class="param_type">number</span> : 방위각 (좌우각) <br>
+                    <span class="param_name">rotatedown</span><span class="param_type">number</span> : 고도각 (상하각)<br>
+                </div>
+            </div>
+        </div>
+        <label class="code-label">예시 코드</label>
+        <div class="code" id="text15-code"></div>
+        <div class="code-text" id="text15" hidden="hidden">
+            // 경도 : 126.4407, 위도:  37.4602, 고도: 700, 방위각 : 2, 고도각 : 60
+            app.setHomePosition(126.4407, 37.4602, 700, 2, 60);
+            app.updateHomePosition(); // setHomePosition 후에 필수로 호출해야함 !!!
+        </div>
+    </div>
+</div>
+</body>
+</html>

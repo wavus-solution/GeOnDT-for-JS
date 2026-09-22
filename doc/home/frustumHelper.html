@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>프러스텀 헬퍼 사용하기</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="프러스텀-헬퍼-사용하기">프러스텀 헬퍼 사용하기</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-%ED%94%84%EB%9F%AC%EC%8A%A4%ED%85%80-%ED%97%AC%ED%8D%BC-%EC%8B%9C%EC%9E%91%ED%95%98%EA%B8%B0">프러스텀 헬퍼 시작하기</a></li>
+<li><a href="#2-%EC%99%B8%EA%B3%BD%EC%84%A0-%EC%8A%A4%ED%83%80%EC%9D%BC%EA%B3%BC-%ED%91%9C%EC%8B%9C-%EC%83%81%ED%83%9C-%EB%B3%80%EA%B2%BD%ED%95%98%EA%B8%B0">외곽선 스타일과 표시 상태 변경하기</a></li>
+<li><a href="#3-%EC%B4%AC%EC%98%81-%EC%98%81%EC%97%AD%EC%9D%84-%EC%A7%80%ED%98%95%EC%97%90-%ED%91%9C%EC%8B%9C%ED%95%98%EA%B8%B0">촬영 영역을 지형에 표시하기</a></li>
+<li><a href="#4-%ED%94%84%EB%9F%AC%EC%8A%A4%ED%85%80-%ED%97%AC%ED%8D%BC-%EC%A0%95%EB%A6%AC%ED%95%98%EA%B8%B0">프러스텀 헬퍼 정리하기</a></li>
+</ol>
+<div class="document-thumbnail" data-size="medium">
+<figure class="document-image">
+<img src="image/frustumHelper/thumbnail.gif" alt="드론의 이동 방향을 따라 카메라 촬영 범위와 지형 촬영 영역이 갱신되는 모습" loading="eager">
+<figcaption>드론의 이동 방향을 따라 카메라 촬영 범위와 지형 촬영 영역이 갱신되는 모습</figcaption>
+</figure>
+</div>
+<p>프러스텀(frustum)은 카메라에 보이는 공간을 가까운 면과 먼 면으로 나타낸 입체 도형입니다.<br><code>UFrustumHelper</code>를 사용하면 드론 카메라나 CCTV의 촬영 방향과 범위를 3D 화면에서 확인할 수 있습니다.</p>
+<p>이 문서는 카메라 시야 설정이 끝난 <code>UFrustum</code> 객체가 준비되어 있다고 가정합니다.<br><code>UFrustumHelper</code>로 시야의 외곽선과 지형에 닿는 촬영 영역을 표시하는 방법만 설명합니다.</p>
+<blockquote>
+<ul>
+<li><strong>near 면</strong>: 카메라에서 가장 가까운 촬영 범위입니다.</li>
+<li><strong>far 면</strong>: 카메라에서 가장 먼 촬영 범위입니다.</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="1-프러스텀-헬퍼-시작하기">1. 프러스텀 헬퍼 시작하기</h2>
+<p>시야 설정이 끝난 <code>frustum</code>을 <code>app.setFrustumHelper()</code>에 전달해 헬퍼를 만든 뒤 외부 3D 화면에 추가합니다.</p>
+<p><code>app.setFrustumHelper()</code>는 헬퍼를 생성해서 반환하지만 화면에는 자동으로 추가하지 않습니다.<br>반환된 헬퍼를 <code>app.getExternalScene().add()</code>로 추가해야 화면에 보입니다.</p>
+<h4 class="api-heading" id="api">API</h4>
+<p>U3dApp.setFrustumHelper(<code>frustum</code>, <code>options</code>) : 입력한 프러스텀을 화면에 그릴 헬퍼를 생성하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>frustum</code> (<code>Frustum</code>) : 화면에 표시할 <code>UFrustum</code>. <strong>필수</strong></li>
+<li><code>options</code> (<code>object</code>) : 선, 면과 지형 표시 옵션</li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>UFrustumHelper | undefined</code>) : 생성된 프러스텀 헬퍼. <code>frustum</code>이 없으면 <code>undefined</code></li>
+</ul>
+</details>
+<h3 id="1-기본-프러스텀-헬퍼-생성-예제">1. 기본 프러스텀 헬퍼 생성 예제</h3>
+<p>다음 예제의 <code>frustum</code>은 카메라 시야와 위치, 방향 설정이 끝난 <code>UFrustum</code> 객체입니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> helper <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">setFrustumHelper</span><span class="token punctuation">(</span>frustum<span class="token punctuation">,</span> <span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'cameraUFrustumHelper'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#00ffff'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">lineWidth</span><span class="token operator">:</span> <span class="token number">3</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.9</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span>helper<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    app<span class="token punctuation">.</span><span class="token function">getExternalScene</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span>helper<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<hr>
+<h2 id="2-외곽선-스타일과-표시-상태-변경하기">2. 외곽선 스타일과 표시 상태 변경하기</h2>
+<p>프러스텀 헬퍼를 만든 뒤에도 외곽선의 색상, 두께와 투명도를 변경할 수 있습니다.<br><code>setVisible(false)</code>는 외곽선과 촬영 영역을 모두 숨기지만 헬퍼 객체는 삭제하지 않습니다.</p>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>UFrustumHelper.setColor(<code>color</code>) : 프러스텀 외곽선 색상을 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>color</code> (<code>ColorRepresentation</code>) : 변경할 외곽선 색상. <strong>필수</strong></li>
+</ul>
+</details>
+<div class="document-image-grid" data-columns="3">
+<figure class="document-image">
+<img src="image/frustumHelper/setColor1.png" alt="프러스텀 외곽선 색 변경1" loading="eager">
+<figcaption>프러스텀 외곽선 색 변경1</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/frustumHelper/setColor2.png" alt="프러스텀 외곽선 색 변경2" loading="eager">
+<figcaption>프러스텀 외곽선 색 변경2</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/frustumHelper/setColor3.png" alt="프러스텀 외곽선 색 변경3" loading="eager">
+<figcaption>프러스텀 외곽선 색 변경3</figcaption>
+</figure>
+</div>
+<h4 class="api-heading" id="api-2">API</h4>
+<p>UFrustumHelper.setLineWidth(<code>lineWidth</code>) : 프러스텀 외곽선 두께를 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>lineWidth</code> (<code>number</code>) : 변경할 선 두께. 기본 설정에서는 CSS 픽셀 단위. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-3">API</h4>
+<p>UFrustumHelper.setOpacity(<code>opacity</code>) : 프러스텀 외곽선 투명도를 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opacity</code> (<code>number</code>) : 변경할 투명도(0~1). <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-4">API</h4>
+<p>UFrustumHelper.setVisible(<code>visible</code>) : 프러스텀 헬퍼 전체의 표시 여부를 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>visible</code> (<code>boolean</code>) : <code>true</code>면 표시하고 <code>false</code>면 숨김. <strong>필수</strong></li>
+</ul>
+</details>
+<h3 id="1-외곽선-스타일과-표시-상태-변경-예제">1. 외곽선 스타일과 표시 상태 변경 예제</h3>
+<pre class="language-javascript"><code class="language-javascript">helper<span class="token punctuation">.</span><span class="token function">setColor</span><span class="token punctuation">(</span><span class="token string">'#ffff00'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+helper<span class="token punctuation">.</span><span class="token function">setLineWidth</span><span class="token punctuation">(</span><span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+helper<span class="token punctuation">.</span><span class="token function">setOpacity</span><span class="token punctuation">(</span><span class="token number">0.6</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+helper<span class="token punctuation">.</span><span class="token function">setVisible</span><span class="token punctuation">(</span><span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 프러스텀 헬퍼 숨기기</span>
+helper<span class="token punctuation">.</span><span class="token function">setVisible</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// 프러스텀 헬퍼 다시 표시하기</span>
+</code></pre>
+<hr>
+<h2 id="3-촬영-영역을-지형에-표시하기">3. 촬영 영역을 지형에 표시하기</h2>
+<p><code>terrain: true</code>로 설정하면 프러스텀의 먼 면을 평평하게 그리지 않고 실제 지형 높이에 맞춰 표시합니다.<br>이때 <code>fill</code>은 카메라가 촬영하는 영역의 내부를 어떻게 보여 줄지 정하는 핵심 옵션입니다.</p>
+<p><strong>촬영 영역의 내부를 보이게 하려면 <code>fill.enabled: true</code>를 반드시 설정해야 합니다.</strong><br><code>fill</code>을 생략하거나 <code>enabled</code>를 <code>false</code>로 두면 프러스텀 외곽선만 표시되고 내부 영역은 채워지지 않습니다.</p>
+<h3 id="1-fill-옵션-이해하기">1. fill 옵션 이해하기</h3>
+<p><code>fill</code>은 다음 네 가지 방식으로 사용할 수 있습니다.</p>
+<ul>
+<li><strong>단색</strong>: <code>color</code>와 <code>opacity</code>로 촬영 영역을 한 가지 색상으로 채웁니다.</li>
+<li><strong>그라데이션</strong>: <code>color</code>와 <code>gradientColor</code> 사이의 색상 변화를 표시합니다.</li>
+<li><strong>이미지</strong>: <code>texture</code>에 이미지 URL을 넣어 촬영 영역 위에 이미지를 표시합니다.</li>
+<li><strong>마스크</strong>: <code>stampMode: &#39;mask&#39;</code>와 <code>targetLayer</code>를 사용해 촬영 영역 안에서만 특정 영상 레이어를 보이게 합니다.</li>
+</ul>
+<p>가장 기본적인 설정은 다음과 같습니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token literal-property property">fill</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+    <span class="token literal-property property">enabled</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#ff55ea'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.28</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">stampMode</span><span class="token operator">:</span> <span class="token string">'fill'</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<p><code>color</code>는 채울 색상이고 <code>opacity</code>는 채운 영역의 투명도입니다.<br>지형이나 지도 영상이 함께 보여야 한다면 <code>opacity</code>를 <code>0.2</code>~<code>0.4</code> 정도로 낮게 설정하는 것이 좋습니다.</p>
+<p><code>sideColor</code> 또는 <code>sideOpacity</code>를 지정하면 카메라 위치에서 먼 면까지 이어지는 프러스텀 옆면도 함께 표시됩니다.<br>옆면이 필요하지 않다면 두 옵션을 모두 생략합니다.</p>
+<p><code>texture</code>를 지정하면 단색과 그라데이션보다 이미지가 먼저 적용됩니다.<br>이미지를 불러오는 동안에는 <code>color</code>가 대신 표시될 수 있으므로 이미지 모드에서도 <code>color</code>를 함께 지정하면 빈 영역이 보이는 것을 줄일 수 있습니다.</p>
+<p><code>stampMode</code>의 기본값은 <code>&#39;fill&#39;</code>입니다.<br>일반적인 단색·그라데이션·이미지 표시는 <code>&#39;fill&#39;</code>을 사용하고, 특정 레이어의 표시 범위를 제한할 때만 <code>&#39;mask&#39;</code>를 사용합니다.</p>
+<p>지형 높이를 자주 확인하므로 <code>sampleSpacing</code>이 너무 작으면 계산량이 늘어납니다.<br>지형의 굴곡을 더 자세히 표현해야 할 때만 값을 줄입니다.</p>
+<h4 class="api-heading" id="api-5">API</h4>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><strong>지형 표시 옵션</strong><ul>
+<li><code>options.terrain</code> (<code>boolean</code>) : 먼 면을 지형 높이에 맞춰 표시할지 여부. 기본값: <code>false</code></li>
+<li><code>options.sampleSpacing</code> (<code>number</code>) : 지형 높이를 확인할 좌표 사이의 간격(m). 기본값: <code>10</code></li>
+<li><code>options.smoothing</code> (<code>boolean</code>) : 지형 외곽선의 꺾임을 부드럽게 만들지 여부. 기본값: <code>false</code></li>
+<li><code>options.smoothingIterations</code> (<code>number</code>) : 부드럽게 만드는 계산을 반복할 횟수. 기본값: <code>2</code></li>
+<li><code>options.smoothingFactor</code> (<code>number</code>) : 부드럽게 만드는 강도. 기본값: <code>0.35</code></li>
+<li><code>options.cullByMainCamera</code> (<code>boolean</code>) : 메인 카메라 밖의 헬퍼 계산과 출력을 생략할지 여부. 기본값: <code>true</code></li>
+</ul>
+</details>
+</li>
+<li><strong>fill 기본 옵션</strong><ul>
+<li><code>options.fill.enabled</code> (<code>boolean</code>) : 촬영 영역 내부를 채울지 여부. 기본값: <code>false</code></li>
+<li><code>options.fill.color</code> (<code>ColorRepresentation</code>) : 단색 또는 그라데이션의 시작 색상. 이미지를 불러오기 전에는 대신 표시할 색상으로 사용</li>
+<li><code>options.fill.opacity</code> (<code>number</code>) : 단색과 그라데이션의 투명도(0~1). 기본값: <code>0.12</code></li>
+<li><code>options.fill.stampMode</code> (<code>string</code>) : 지형 영역 처리 방식. <code>&#39;fill&#39;</code> 또는 <code>&#39;mask&#39;</code>. 기본값: <code>&#39;fill&#39;</code></li>
+<li><code>options.fill.maxStampsPerTile</code> (<code>number</code>) : 지형 타일 하나에서 처리할 수 있는 촬영 영역의 최대 개수. 기본값: <code>128</code></li>
+<li><code>options.fill.terrainStampGridSize</code> (<code>number</code>) : 지형과 만나는 촬영 영역을 계산할 격자의 한 변 개수. 기본값: <code>7</code></li>
+</ul>
+</li>
+<li><strong>그라데이션 옵션</strong><ul>
+<li><code>options.fill.gradientColor</code> (<code>ColorRepresentation</code>) : 그라데이션에 사용할 두 번째 색상</li>
+<li><code>options.fill.gradientDirection</code> (<code>string</code>) : 그라데이션 방향. <code>&#39;vertical&#39;</code> 또는 <code>&#39;horizontal&#39;</code>. 기본값: <code>&#39;vertical&#39;</code></li>
+</ul>
+</li>
+<li><strong>옆면 옵션</strong><ul>
+<li><code>options.fill.sideColor</code> (<code>ColorRepresentation</code>) : 프러스텀 옆면 색상. <code>sideColor</code> 또는 <code>sideOpacity</code> 중 하나를 지정하면 옆면을 생성</li>
+<li><code>options.fill.sideOpacity</code> (<code>number</code>) : 프러스텀 옆면 투명도(0~1). <code>sideColor</code> 또는 <code>sideOpacity</code> 중 하나를 지정하면 옆면을 생성</li>
+</ul>
+</li>
+<li><strong>이미지 옵션</strong><ul>
+<li><code>options.fill.texture</code> (<code>string</code>) : 촬영 영역에 표시할 이미지 URL</li>
+<li><code>options.fill.textureOpacity</code> (<code>number</code>) : 이미지 전체 투명도(0~1). 기본값: <code>1</code></li>
+<li><code>options.fill.textureUseAlpha</code> (<code>boolean</code>) : PNG 등 이미지가 가진 투명도를 함께 사용할지 여부. 기본값: <code>true</code></li>
+<li><code>options.fill.textureScale</code> (<code>number</code>) : 이미지가 배치되는 범위를 중심 기준으로 확대하거나 축소하는 배율. 기본값: <code>1</code></li>
+<li><code>options.fill.textureFit</code> (<code>string</code>) : 이미지 배치 방식. <code>&#39;stretch&#39;</code> 또는 <code>&#39;contain&#39;</code>. 기본값: <code>&#39;stretch&#39;</code></li>
+</ul>
+</li>
+<li><strong>마스크 옵션</strong><ul>
+<li><code>options.fill.targetLayer</code> (<code>U3dLayer</code>) : <code>stampMode: &#39;mask&#39;</code>를 적용할 대상 영상 레이어. 마스크 모드에서 사용</li>
+</ul>
+</li>
+</ul>
+<p><code>maxStampsPerTile</code>을 낮추면 한 타일에서 처리하는 양은 줄지만, 촬영 영역이 많이 겹칠 때 일부 채움이 표시되지 않을 수 있습니다.<br><code>terrainStampGridSize</code>를 높이면 지형과 만나는 경계를 더 자세히 계산하지만 처리할 좌표도 늘어납니다.<br>특별히 품질이나 성능을 조절해야 하는 경우가 아니라면 두 옵션은 기본값을 사용합니다.</p>
+<p>생성된 헬퍼의 그라데이션 색상과 방향은 실행 중에도 변경할 수 있습니다.</p>
+<h4 class="api-heading" id="api-6">API</h4>
+<p>UFrustumHelper.setGradientColor(<code>color</code>) : 지형 촬영 영역 그라데이션의 두 번째 색상을 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>color</code> (<code>ColorRepresentation | undefined</code>) : 그라데이션 색상. <code>undefined</code>면 그라데이션을 해제</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-7">API</h4>
+<p>UFrustumHelper.setGradientDirection(<code>direction</code>) : 지형 촬영 영역의 그라데이션 방향을 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>direction</code> (<code>string</code>) : <code>&#39;vertical&#39;</code> 또는 <code>&#39;horizontal&#39;</code>. <strong>필수</strong></li>
+</ul>
+</details>
+<pre class="language-javascript"><code class="language-javascript">helper<span class="token punctuation">.</span><span class="token function">setGradientColor</span><span class="token punctuation">(</span><span class="token string">'#00e5ff'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+helper<span class="token punctuation">.</span><span class="token function">setGradientDirection</span><span class="token punctuation">(</span><span class="token string">'horizontal'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-지형-촬영-영역을-단색으로-표시하는-예제">2. 지형 촬영 영역을 단색으로 표시하는 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> terrainHelper <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">setFrustumHelper</span><span class="token punctuation">(</span>frustum<span class="token punctuation">,</span> <span class="token punctuation">{</span>
+    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#00ffff'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">lineWidth</span><span class="token operator">:</span> <span class="token number">3</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.9</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">terrain</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">sampleSpacing</span><span class="token operator">:</span> <span class="token number">5</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">fill</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+        <span class="token literal-property property">enabled</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#ff55ea'</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.28</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">sideColor</span><span class="token operator">:</span> <span class="token string">'#006dff'</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">sideOpacity</span><span class="token operator">:</span> <span class="token number">0.12</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">stampMode</span><span class="token operator">:</span> <span class="token string">'fill'</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span>terrainHelper<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    app<span class="token punctuation">.</span><span class="token function">getExternalScene</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span>terrainHelper<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<div class="document-sized-image" data-size="medium">
+<figure class="document-image">
+<img src="image/frustumHelper/frustum1.png" alt="단색으로 채운 지형 촬영 영역과 드론 프러스텀 외곽선" loading="eager">
+<figcaption>단색으로 채운 지형 촬영 영역과 드론 프러스텀 외곽선</figcaption>
+</figure>
+</div>
+<h3 id="3-지형-촬영-영역에-그라데이션-적용-예제">3. 지형 촬영 영역에 그라데이션 적용 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> gradientHelper <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">setFrustumHelper</span><span class="token punctuation">(</span>frustum<span class="token punctuation">,</span> <span class="token punctuation">{</span>
+    <span class="token literal-property property">terrain</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">fill</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+        <span class="token literal-property property">enabled</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#7c4dff'</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">gradientColor</span><span class="token operator">:</span> <span class="token string">'#00e5ff'</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">gradientDirection</span><span class="token operator">:</span> <span class="token string">'vertical'</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.3</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">stampMode</span><span class="token operator">:</span> <span class="token string">'fill'</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span>gradientHelper<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    app<span class="token punctuation">.</span><span class="token function">getExternalScene</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span>gradientHelper<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<div class="document-sized-image" data-size="medium">
+<figure class="document-image">
+<img src="image/frustumHelper/frustum3.png" alt="두 색상의 그라데이션으로 채운 지형 촬영 영역" loading="eager">
+<figcaption>두 색상의 그라데이션으로 채운 지형 촬영 영역</figcaption>
+</figure>
+</div>
+<h3 id="4-지형-촬영-영역에-이미지-텍스처-적용-예제">4. 지형 촬영 영역에 이미지 텍스처 적용 예제</h3>
+<p><code>texture</code>에 이미지 URL을 지정하면 단색 대신 이미지를 촬영 영역에 표시할 수 있습니다.<br><code>textureFit: &#39;stretch&#39;</code>는 기본 프레임을 기준으로 이미지를 배치하고 촬영 영역 밖을 자릅니다.<br><code>textureFit: &#39;contain&#39;</code>은 촬영 영역의 네 꼭짓점에 이미지를 맞추므로 영역 모양에 따라 이미지가 늘어나거나 찌그러질 수 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> textureHelper <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">setFrustumHelper</span><span class="token punctuation">(</span>frustum<span class="token punctuation">,</span> <span class="token punctuation">{</span>
+    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#ffd60a'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">lineWidth</span><span class="token operator">:</span> <span class="token number">3</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.95</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">terrain</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">fill</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+        <span class="token literal-property property">enabled</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">sideColor</span><span class="token operator">:</span> <span class="token string">'#ff9f0a'</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">sideOpacity</span><span class="token operator">:</span> <span class="token number">0.12</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">texture</span><span class="token operator">:</span> <span class="token string">'image/solution_GeOnDT.png'</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">textureOpacity</span><span class="token operator">:</span> <span class="token number">0.9</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">textureUseAlpha</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">textureFit</span><span class="token operator">:</span> <span class="token string">'stretch'</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">stampMode</span><span class="token operator">:</span> <span class="token string">'fill'</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span>textureHelper<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    app<span class="token punctuation">.</span><span class="token function">getExternalScene</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span>textureHelper<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<div class="document-sized-image" data-size="medium">
+<figure class="document-image">
+<img src="image/frustumHelper/frustum2.png" alt="이미지 텍스처로 채운 지형 촬영 영역" loading="eager">
+<figcaption>이미지 텍스처로 채운 지형 촬영 영역</figcaption>
+</figure>
+</div>
+<h3 id="5-특정-영상-레이어에-촬영-영역-표시-예제">5. 특정 영상 레이어에 촬영 영역 표시 예제</h3>
+<p><code>stampMode: &#39;mask&#39;</code>를 사용하면 프러스텀이 비추는 영역에서만 지정한 영상 레이어가 보이도록 만들 수 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> satelliteLayer <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">getLayerByName</span><span class="token punctuation">(</span><span class="token string">'satellite'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> maskHelper <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">setFrustumHelper</span><span class="token punctuation">(</span>frustum<span class="token punctuation">,</span> <span class="token punctuation">{</span>
+    <span class="token literal-property property">terrain</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">fill</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+        <span class="token literal-property property">enabled</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#ffffff'</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">stampMode</span><span class="token operator">:</span> <span class="token string">'mask'</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">targetLayer</span><span class="token operator">:</span> satelliteLayer
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span>maskHelper<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    app<span class="token punctuation">.</span><span class="token function">getExternalScene</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span>maskHelper<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    app<span class="token punctuation">.</span><span class="token function">restartQuadTree</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<div class="document-sized-image" data-size="medium">
+<figure class="document-image">
+<img src="image/frustumHelper/frustum4.png" alt="이미지 텍스처로 채운 지형 촬영 영역" loading="eager">
+<figcaption>이미지 텍스처로 채운 지형 촬영 영역</figcaption>
+</figure>
+</div>
+<p>마스크 대상이나 촬영 영역의 표시 방식을 바꾼 뒤에는 <code>app.restartQuadTree()</code>를 호출해 지형 타일에 변경 내용을 다시 반영합니다.</p>
+<hr>
+<h2 id="4-프러스텀-헬퍼-정리하기">4. 프러스텀 헬퍼 정리하기</h2>
+<p>이동체를 제거하거나 페이지를 닫을 때 <code>dispose()</code>를 호출해 헬퍼와 헬퍼가 사용한 메모리를 정리합니다.<br><code>dispose()</code>는 헬퍼를 부모 3D 화면에서 제거하므로 <code>removeFromParent()</code>를 따로 호출하지 않아도 됩니다.</p>
+<h4 class="api-heading" id="api-8">API</h4>
+<p>UFrustumHelper.dispose() : 프러스텀 헬퍼를 화면에서 제거하고 사용한 메모리와 변경 이벤트를 정리하는 함수</p>
+<h3 id="1-드론의-프러스텀-헬퍼-정리-예제">1. 드론의 프러스텀 헬퍼 정리 예제</h3>
+<p>헬퍼를 이동체의 <code>userData</code>에 저장하면 이동체를 제거할 때 쉽게 찾아서 정리할 수 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> <span class="token constant">HELPER_KEY</span> <span class="token operator">=</span> <span class="token string">'frustumHelper'</span><span class="token punctuation">;</span>
+
+drone<span class="token punctuation">.</span>userData<span class="token punctuation">[</span><span class="token constant">HELPER_KEY</span><span class="token punctuation">]</span> <span class="token operator">=</span> helper<span class="token punctuation">;</span>
+
+<span class="token keyword">function</span> <span class="token function">disposeDroneFrustumHelper</span><span class="token punctuation">(</span><span class="token parameter">drone</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> helper <span class="token operator">=</span> drone<span class="token punctuation">.</span>userData<span class="token operator">?.</span><span class="token punctuation">[</span><span class="token constant">HELPER_KEY</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>helper<span class="token punctuation">)</span> <span class="token keyword">return</span><span class="token punctuation">;</span>
+
+    helper<span class="token punctuation">.</span><span class="token function">dispose</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">delete</span> drone<span class="token punctuation">.</span>userData<span class="token punctuation">[</span><span class="token constant">HELPER_KEY</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<p>여러 드론을 모두 제거할 때는 각 드론의 헬퍼에 <code>dispose()</code>를 호출한 뒤 컴포넌트를 제거합니다.</p>
+</main>
+</body>
+</html>
+

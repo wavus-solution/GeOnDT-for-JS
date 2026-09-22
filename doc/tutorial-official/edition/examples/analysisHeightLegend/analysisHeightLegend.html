@@ -1,0 +1,156 @@
+<nav data-example-rail aria-label="고도 범례 분석 도구">
+    <button
+        class="rail-button"
+        type="button"
+        data-panel-target="height-analysis-panel"
+        aria-controls="height-analysis-panel"
+        aria-expanded="false"
+    >
+        <span class="rail-icon" aria-hidden="true">▤</span>
+        <span>분석</span>
+    </button>
+</nav>
+
+<aside
+    class="glass-panel example-panel height-analysis-panel"
+    id="height-analysis-panel"
+    aria-hidden="true"
+>
+    <header class="panel-header">
+        <div>
+            <span class="eyebrow">HEIGHT LEGEND</span>
+            <h2>고도 범례 분석</h2>
+        </div>
+        <button
+            class="panel-close"
+            type="button"
+            data-panel-close="height-analysis-panel"
+            aria-label="고도 범례 분석 닫기"
+        >×</button>
+    </header>
+
+    <div class="panel-content analysis-panel-content">
+        <p class="panel-description">
+            지형과 건물, 컴포넌트의 고도를 색상 범례와 등고선으로 확인합니다.
+        </p>
+
+        <section class="analysis-section" aria-labelledby="analysis-visibility-heading">
+            <h3 id="analysis-visibility-heading">분석 표시</h3>
+            <div class="analysis-toggle-list">
+                <label class="analysis-toggle-row" data-api-help="legend.visibility">
+                    <input type="checkbox" id="show-height-legend">
+                    <span class="analysis-toggle-copy">
+                        <strong>고도 범례 가시화</strong>
+                        <small>화면 픽셀의 고도를 범례 색상으로 채웁니다.</small>
+                    </span>
+                </label>
+
+                <label class="analysis-toggle-row" data-api-help="contour.visibility">
+                    <input type="checkbox" id="show-contour">
+                    <span class="analysis-toggle-copy">
+                        <strong>등고선 가시화</strong>
+                        <small>고도 구간마다 지정한 간격의 등고선을 그립니다.</small>
+                    </span>
+                </label>
+            </div>
+        </section>
+
+        <section class="analysis-section" id="height-legend-section" aria-labelledby="height-legend-heading" hidden>
+            <h3 id="height-legend-heading">고도 범례</h3>
+
+            <div class="legend-mode-grid" data-api-help="legend.mode">
+                <label>
+                    <input type="radio" name="height-legend-mode" value="band" checked>
+                    <span>band</span>
+                </label>
+                <label>
+                    <input type="radio" name="height-legend-mode" value="mix">
+                    <span>mix</span>
+                </label>
+            </div>
+
+            <div class="height-legend-list" id="height-legend-list" data-api-help="legend.style"></div>
+
+            <div class="legend-action-grid">
+                <button
+                    class="legend-action"
+                    type="button"
+                    id="height-legend-add-btn"
+                    title="범례 추가"
+                    data-api-help="legend.items"
+                >+</button>
+                <button
+                    class="legend-action"
+                    type="button"
+                    id="height-legend-remove-btn"
+                    title="범례 제거"
+                    data-api-help="legend.items"
+                >−</button>
+            </div>
+
+            <label class="analysis-toggle-row legend-except-row" data-api-help="legend.except">
+                <input type="checkbox" id="height-legend-except-drone">
+                <span class="analysis-toggle-copy">
+                    <strong>드론 일부와 경로 후처리 제외</strong>
+                    <small>지정한 드론·궤적과 비교 경로의 윗면까지만 후처리에서 제외합니다.</small>
+                </span>
+            </label>
+
+            <label class="analysis-toggle-row legend-except-row" data-api-help="legend.exceptExtra">
+                <input type="checkbox" id="height-legend-except-extra">
+                <span class="analysis-toggle-copy">
+                    <strong>추가 객체 후처리 제외</strong>
+                    <small>위 대상에 비교 경로의 아랫면 형상까지 더해 후처리에서 제외합니다.</small>
+                </span>
+            </label>
+            <p class="analysis-note" id="height-legend-except-note" hidden>
+                제외할 드론과 궤적이 아직 생성되지 않았습니다. 드론이 나타난 뒤 다시 선택하세요.
+            </p>
+        </section>
+
+        <section class="analysis-section" id="contour-style-section" aria-labelledby="contour-style-heading" hidden>
+            <h3 id="contour-style-heading">등고선 스타일</h3>
+
+            <div class="contour-style-controls">
+                <div class="contour-style-field" data-api-help="contour.width">
+                    <label for="contour-width">선 두께</label>
+                    <input type="number" id="contour-width" value="3" min="1" max="12" step="0.5">
+                </div>
+                <div class="contour-style-field" data-api-help="contour.fade">
+                    <label for="contour-fade-start">감쇠 시작 거리</label>
+                    <input type="number" id="contour-fade-start" value="2000" min="0" step="100">
+                </div>
+                <div class="contour-style-field" data-api-help="contour.fade">
+                    <label for="contour-fade-end">표현 종료 거리</label>
+                    <input type="number" id="contour-fade-end" value="80000" min="1" step="100">
+                </div>
+            </div>
+
+            <div class="contour-style-layout">
+                <div class="contour-opacity-control" data-api-help="contour.opacity">
+                    <span>투명도</span>
+                    <input type="range" class="contour-opacity-slider" id="contour-opacity" value="0.85" min="0" max="1" step="0.05">
+                    <output id="contour-opacity-value" for="contour-opacity">0.85</output>
+                </div>
+                <div class="contour-style-list" id="contour-style-list" data-api-help="contour.style"></div>
+            </div>
+
+            <div class="legend-action-grid contour-action-grid">
+                <button
+                    class="legend-action"
+                    type="button"
+                    id="contour-style-add-btn"
+                    title="등고선 구간 추가"
+                    data-api-help="contour.items"
+                >+</button>
+                <button
+                    class="legend-action"
+                    type="button"
+                    id="contour-style-remove-btn"
+                    title="등고선 구간 제거"
+                    data-api-help="contour.items"
+                >−</button>
+            </div>
+        </section>
+    </div>
+</aside>

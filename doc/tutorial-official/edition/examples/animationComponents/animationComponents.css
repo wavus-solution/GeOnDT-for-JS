@@ -1,0 +1,332 @@
+html, body {
+            height: 100%;
+        }
+
+        #analy-popup .div-popup {
+            width: min(760px, calc(100vw - 40px));
+            height: auto;
+            max-height: calc(100vh - 40px);
+            top: 20px;
+            overflow: hidden;
+        }
+
+        #analy-popup .div-popup-control {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: move;
+            user-select: none;
+        }
+
+        .analy-popup-title {
+            color: #fff;
+            font-weight: 600;
+        }
+
+        #open-analy-popup {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            z-index: 9998;
+            display: none;
+        }
+
+        .drone-action-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 4px;
+        }
+
+        #analy-popup .drone-action-buttons .btn {
+            padding-right: 4px;
+            padding-left: 4px;
+            font-size: 12px;
+        }
+
+        .drone-movement-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 4px;
+        }
+
+        #analy-popup .drone-movement-buttons .btn {
+            padding-right: 4px;
+            padding-left: 4px;
+            font-size: 12px;
+        }
+
+        .div-popup-content {
+            padding: 15px;
+            display: grid;
+            grid-template-columns: 210px minmax(0, 1fr);
+            gap: 14px;
+            overflow: auto;
+        }
+
+        .frustum-test-panel {
+            min-width: 0;
+            padding-left: 14px;
+            border-left: 1px solid rgba(255, 255, 255, 0.25);
+        }
+
+        .frustum-test-title {
+            margin: 0 0 4px;
+            font-size: 18px;
+        }
+
+        .frustum-test-description {
+            margin-bottom: 12px;
+            color: #d8d8d8;
+            font-size: 12px;
+        }
+
+        .frustum-test-workspace {
+            display: grid;
+            grid-template-columns: 135px minmax(260px, 1fr);
+            gap: 10px;
+        }
+
+        .drone-list-panel,
+        .frustum-settings-panel {
+            min-width: 0;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .frustum-settings-panel {
+            max-height: calc(100vh - 170px);
+            overflow-y: auto;
+        }
+
+        .drone-list-panel h4,
+        .frustum-settings-panel h4 {
+            margin: 0 0 10px;
+            font-size: 14px;
+        }
+
+        #drone-list {
+            display: grid;
+            gap: 6px;
+            max-height: 430px;
+            overflow-y: auto;
+        }
+
+        .drone-list-empty {
+            margin: 0;
+            color: #d8d8d8;
+            font-size: 12px;
+        }
+
+        #analy-popup .drone-list-button {
+            width: 100%;
+            overflow: hidden;
+            text-align: left;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #analy-popup .drone-list-button.is-selected {
+            background-color: rgb(43, 69, 140);
+            border-color: #8fb3ff;
+        }
+
+        .frustum-settings-empty {
+            margin: 0;
+            color: #d8d8d8;
+            font-size: 12px;
+        }
+
+        .frustum-helper-tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            margin-bottom: 8px;
+            border: 1px solid rgba(143, 201, 255, 0.55);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        #analy-popup .frustum-helper-tab {
+            min-width: 0;
+            padding: 8px 6px;
+            color: #dcecff;
+            background: rgba(13, 35, 53, 0.55);
+            border: 0;
+            font-size: 11px;
+            line-height: 1.3;
+            overflow-wrap: anywhere;
+        }
+
+        #analy-popup .frustum-helper-tab + .frustum-helper-tab {
+            border-left: 1px solid rgba(143, 201, 255, 0.4);
+        }
+
+        #analy-popup .frustum-helper-tab.is-selected {
+            color: #ffffff;
+            background: rgb(43, 69, 140);
+            box-shadow: inset 0 -2px 0 #8fc9ff;
+        }
+
+        #analy-popup .frustum-helper-tab:focus-visible {
+            outline: 2px solid #8fc9ff;
+            outline-offset: -2px;
+        }
+
+        .frustum-helper-mode-description {
+            margin: 0 0 12px;
+            color: #cbd7ec;
+            font-size: 11px;
+            line-height: 1.45;
+        }
+
+        .frustum-control-row {
+            margin-bottom: 10px;
+        }
+
+        .frustum-style-control-group {
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .frustum-style-control-group h5 {
+            margin: 0 0 10px;
+            font-size: 13px;
+        }
+
+        .frustum-style-control-note {
+            margin: -4px 0 10px;
+            color: #cbd7ec;
+            font-size: 11px;
+            line-height: 1.45;
+        }
+
+        .frustum-style-control-note strong {
+            display: block;
+            margin-top: 4px;
+            color: #ffffff;
+        }
+
+        .frustum-control-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px;
+            font-size: 12px;
+        }
+
+        .frustum-control-value,
+        .helper-style-control-value,
+        .path-style-control-value {
+            color: #8fc9ff;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #analy-popup .frustum-control,
+        #analy-popup .helper-style-range-control,
+        #analy-popup .path-style-range-control {
+            width: 100%;
+            padding: 0;
+        }
+
+        #analy-popup .helper-style-color-control,
+        #analy-popup .path-style-color-control {
+            width: 100%;
+            height: 30px;
+            padding: 2px;
+            cursor: pointer;
+        }
+
+        #analy-popup .path-style-control:disabled {
+            cursor: not-allowed;
+            opacity: 0.45;
+        }
+
+        #reset-frustum-settings {
+            margin-top: 4px;
+        }
+
+        .frustum-api-tooltip {
+            position: absolute;
+            width: 290px;
+            padding: 12px;
+            color: #eef5ff;
+            background: rgba(20, 30, 51, 0.97);
+            border: 1px solid #7fa9ff;
+            border-radius: 7px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            z-index: 10001;
+            pointer-events: none;
+        }
+
+        .frustum-api-tooltip[hidden] {
+            display: none;
+        }
+
+        .frustum-api-tooltip::before {
+            position: absolute;
+            top: var(--frustum-tooltip-arrow-top, 50%);
+            left: -9px;
+            width: 16px;
+            height: 16px;
+            content: '';
+            background: rgba(20, 30, 51, 0.97);
+            border-bottom: 1px solid #7fa9ff;
+            border-left: 1px solid #7fa9ff;
+            transform: translateY(-50%) rotate(45deg);
+        }
+
+        .frustum-api-tooltip.is-left::before {
+            right: -9px;
+            left: auto;
+            border: 0;
+            border-top: 1px solid #7fa9ff;
+            border-right: 1px solid #7fa9ff;
+        }
+
+        .frustum-api-tooltip-title {
+            display: block;
+            margin-bottom: 5px;
+            color: #9fc2ff;
+            font-size: 13px;
+        }
+
+        .frustum-api-tooltip-description {
+            margin: 0 0 8px;
+            color: #cbd7ec;
+            font-size: 11px;
+            line-height: 1.45;
+        }
+
+        .frustum-api-tooltip-description strong {
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        .frustum-api-tooltip pre {
+            margin: 0;
+            padding: 9px;
+            overflow: hidden;
+            color: #f6f8ff;
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 4px;
+            font-size: 11px;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        @media (max-width: 920px) {
+            .div-popup-content,
+            .frustum-test-workspace {
+                grid-template-columns: 1fr;
+            }
+
+            .frustum-test-panel {
+                padding-top: 18px;
+                padding-left: 0;
+                border-top: 1px solid rgba(255, 255, 255, 0.25);
+                border-left: 0;
+            }
+        }

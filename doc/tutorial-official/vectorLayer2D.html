@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>2D 객체 그리기</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        #analy-popup .div-popup {
+            width: 720px;
+            height: 320px;
+            top: 55vh;
+            padding-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> 2D 객체 그리기 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        지도 위에 포인트, 라인, 폴리곤 등 <strong>2D 객체를 생성</strong>하는 예제입니다.<br>
+        마우스 클릭으로 객체를 지도 위에 그리며 선 또는 채움 색상, 선 두께, 반경(포인트의 경우)을 편집하는 기능 또한 제공합니다.
+    </p>
+</div>
+<div id="map-wrapper">
+    <div id="map"></div>
+    <div id="div-left-menu">
+        <div>
+            <div style="display: inline-flex; position: relative">
+                <button id="analy-bnt" class="btn btn-xs menu-btn">
+                    <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+                <div class="div-btn-info" hidden>
+                    분석 팝업 열기
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="btn-group" id='top-sbar'>
+        <div class='btn-group-vertical-block' id='right-toolbar'>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                     src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                     alt="나침반">
+            </button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                    id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                    id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                    id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+            </button>
+        </div>
+        <div class='btn-group' id='bt-bottom-bar'>
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                   value="위경도: ##.####  ###.#### ">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                   value="고도:####">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                   value="각도: ##">
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu='return false'>
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content" style="margin:0 10px;">
+                <div class="col-sm-12" style="margin-bottom: 20px">
+                    <div class="radio">
+                        <label>
+                            <input type="radio" name="type" value="Point" checked>
+                            포인트
+                        </label>
+                        <label>
+                            <input type="radio" name="type" value="LineString">
+                            라인
+                        </label>
+                        <label>
+                            <input type="radio" name="type" value="Polygon">
+                            폴리곤
+                        </label>
+                    </div>
+                    <div class="btn btn-sm btn-default" id="clear">지우기</div>
+                    <div class="btn btn-sm btn-default" id="selectClear">검색객체 초기화</div>
+                    <div style="display: inline; margin-left: 20px">
+                        <label> 교차검색 모드
+                            <input type="checkbox" id="selectMode" target="selectMode">
+                        </label>
+                    </div>
+                </div>
+                <div class="col-sm-12" style="margin-bottom: 20px">
+                    <div class="form-group row">
+                        <label for="stroke" class="col-sm-2 control-label">선색상</label>
+                        <div class="col-sm-4">
+                            <input id="stroke" type="color" name="stroke" value="#000000">
+                        </div>
+                        <label for="fill" class="col-sm-2 control-label">채움색</label>
+                        <div class="col-sm-4">
+                            <input id="fill" type="color" name="fill" value="#ff0000">
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="width" class="col-sm-2 control-label">선두께</label>
+                        <div class="col-sm-4">
+                            <input id="width" type="text" name="width" value="0.3">
+                        </div>
+                        <label for="radius" class="col-sm-2 control-label">반경 (포인트만 해당)</label>
+                        <div class="col-sm-4">
+                            <input id="radius" type="text" name="radius" value="10">
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="strokeOpacity" class="col-sm-2 control-label">선 투명도 (0~1)</label>
+                        <div class="col-sm-4">
+                            <input id="strokeOpacity" type="number" name="strokeOpacity" value="1" min="0" max="1" step="0.1">
+                        </div>
+                        <label for="fillOpacity" class="col-sm-2 control-label">채움 투명도 (0~1)</label>
+                        <div class="col-sm-4">
+                            <input id="fillOpacity" type="number" name="fillOpacity" value="0.7" min="0" max="1" step="0.1">
+                        </div>
+                    </div>
+                    <div class="btn btn-sm btn-default" id="apply" style="margin: 0 10px; float: right">적용하기</div>
+                </div>
+                <div class="form-group row col-sm-12">
+                    <div class="form-group col-sm-12">
+                        <label for="sourceCRS">입력 데이터 EPSG</label>
+                        <input id="sourceCRS" type="text" name="sourceCRS" value="EPSG:3857" class="form-control" style="max-width: 180px">
+                        <p class="help-block">WKT, GeoJSON, TopoJSON 데이터의 원본 좌표계를 입력합니다. 위경도 좌표는 EPSG:4326을 사용합니다.</p>
+                    </div>
+                    <div class="form-group col-sm-12">
+                        <label>WKT 적용내용 입력 <br> (리스트형식으로 입력시, 리스트 안의 ' => "로 치환 후 입력, 단일 입력시 시작과 끝에 " 문자 사용)</label>
+                        <div class="btn btn-sm btn-default" id="wktAdd" style="margin: 6px 0; float: right">적용하기</div>
+                        <textarea id="wktText" class="form-control" style="min-height:130px"></textarea>
+                    </div>
+                    <div class="form-group col-sm-12">
+                        <label>GeoJSON 적용내용 입력</label>
+                        <div class="btn btn-sm btn-default" id="geojsonAdd" style="margin: 6px 0; float: right">적용하기
+                        </div>
+                        <textarea id="geojsonText" class="form-control" style="min-height:130px"></textarea>
+                    </div>
+                    <div class="form-group col-sm-12">
+                        <label>TopoJSON 적용내용 입력</label>
+                        <div class="btn btn-sm btn-default" id="topojsonAdd" style="margin: 6px 0; float: right">적용하기
+                        </div>
+                        <textarea id="topojsonText" class="form-control" style="min-height:130px"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    const CAMERA_UI_UPDATE_INTERVAL_MS = 100;
+    const compassElement = document.getElementById('compass-image-id');
+    const angleElement = document.getElementById('bottom-tbar-btn-angle');
+    const positionElement = document.getElementById('bottom-tbar-btn-pos');
+    const heightElement = document.getElementById('bottom-tbar-btn-height');
+    let lastCameraUiUpdateTime = 0;
+    let pendingCameraUiUpdateId;
+
+    /**
+     * 값이 실제로 달라질 때만 카메라 상태 UI를 갱신합니다.
+     *
+     * @param {HTMLInputElement | null} element 갱신할 input 요소입니다.
+     * @param {string} value 표시할 값입니다.
+     */
+    function updateCameraUiValue(element, value) {
+        if (element && element.value !== value) element.value = value;
+    }
+
+    /**
+     * 카메라 이동 중 DOM 갱신을 제한된 주기로 모아서 실행합니다.
+     */
+    function scheduleUpdatePosData() {
+        const now = performance.now();
+        const elapsed = now - lastCameraUiUpdateTime;
+        if (elapsed >= CAMERA_UI_UPDATE_INTERVAL_MS) {
+            lastCameraUiUpdateTime = now;
+            updatePosData();
+            return;
+        }
+        if (pendingCameraUiUpdateId !== undefined) return;
+
+        pendingCameraUiUpdateId = window.setTimeout(() => {
+            pendingCameraUiUpdateId = undefined;
+            lastCameraUiUpdateTime = performance.now();
+            updatePosData();
+        }, CAMERA_UI_UPDATE_INTERVAL_MS - elapsed);
+    }
+
+    /**
+     * 현재 카메라 상태를 overview map과 하단 상태 UI에 반영합니다.
+     */
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        if (compassElement && compassElement.style.transform !== value) {
+            compassElement.style.transform = value;
+        }
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        updateCameraUiValue(angleElement, angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        updateCameraUiValue(positionElement, pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        updateCameraUiValue(heightElement, height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script>
+    var GEOM_TYPE = 'Point';
+    var targetGeom;
+    window.fill = '#ff0000';
+    window.stroke = '#ff0000';
+    window.width = 200.3;
+    window.radius = 10;
+    window.fillOpacity = 0.7;
+    window.strokeOpacity = 1;
+
+    window.selectFill = '#7AFF7A';
+    window.selectStroke = '#ffff00';
+
+    //라이센스 인증
+    GeOnDT.ready(function () {
+
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// 지도 기본세팅 ///////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        var app = new GeOnDT.U3dAPP({
+            containername: 'map'
+        });
+        window.app = app;
+        app.setHomePosition(127.54986578024146, 36.70378269796982, 450, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+        app.updateHomePosition();
+        app.createloadingBar('load');
+        app.on('change', scheduleUpdatePosData);
+
+        //이미지 레이어 생성
+        var layer = new GeOnDT.image.U3dImageXYZLayer({
+            name: 'satellite',
+            baseurl: layerInfo.image.vworldsaturl,
+            reverseY: true
+        });
+        app.addLayer(layer);
+        app.showLayer('satellite', true);
+        //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+        app.setNameBaseLayer('satellite');
+        app.endloadingBar();
+        //고도 레이어 생성 /////////////////////////////////////////
+        const  terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+            name: 'Korea Terrain',  //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            ext: '.umf',  //+ 파일 확장자, *필수 입력
+            reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+            minlevel: 9, //+ 가시화 최소 레벨
+            maxlevel: 17, //+ 가시화 최대 레벨
+            useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+        });
+        app.addLayer(terrainLayer);
+        app.showLayer('Korea Terrain', true);
+
+
+        /**
+         * 도로/하천 WFS Terrain LOD 설정
+         * tile level이 높을수록 더 상세한 fclass를 요청합니다.
+         */
+        const VECTOR_FEATURE_MIN_LEVEL = 9;
+        const TERRAIN_WFS_MAX_CONCURRENCY = 2;
+        const TERRAIN_WFS_LOD_PROFILE = {
+            propertyName: 'fclass',
+            geometryName: 'geom',
+            layerTypes: {
+                'gcs:gis_osm_roads_free_1': 'road',
+                'gcs:gis_osm_waterways_free_1': 'water'
+            },
+            minLevels: {
+                road: {
+                    motorway: 9,
+                    motorway_link: 10,
+                    trunk: 9,
+                    trunk_link: 10,
+                    primary: 10,
+                    primary_link: 11,
+                    secondary: 11,
+                    secondary_link: 12,
+                    tertiary: 12,
+                    tertiary_link: 13,
+                    residential: 13,
+                    unclassified: 13,
+                    busway: 13,
+                    living_street: 14,
+                    service: 14,
+                    track_grade1: 14,
+                    pedestrian: 15,
+                    cycleway: 15,
+                    track: 15,
+                    track_grade2: 15,
+                    footway: 16,
+                    path: 16,
+                    bridleway: 16,
+                    track_grade3: 16,
+                    steps: 17,
+                    track_grade4: 17,
+                    track_grade5: 17,
+                    unknown: 18
+                },
+                water: {
+                    river: 9,
+                    canal: 10,
+                    stream: 12,
+                    drain: 15,
+                    unknown: 18
+                }
+            }
+        };
+
+        function escapeTerrainCqlValue(value) {
+            return "'" + String(value).replaceAll("'", "''") + "'";
+        }
+
+        function combineTerrainCql(baseCql, lodCql) {
+            const base = typeof baseCql === 'string' ? baseCql.trim() : '';
+            const lod = typeof lodCql === 'string' ? lodCql.trim() : '';
+            if (!base) return lod || undefined;
+            if (!lod) return base;
+            return '(' + base + ') AND (' + lod + ')';
+        }
+
+        /**
+         * U2dVectorShaderLayer의 setUrl()에서 호출되는 Terrain LOD query callback입니다.
+         *
+         * @param {number} level 현재 terrain tile level
+         * @param {object} profile LOD profile
+         * @param {{extent:number[], layerName:string, cql?:string}} context 요청 정보
+         * @returns {{layerName:string, cql?:string, params?:object}}
+         */
+        function terrainWfsLodQuery(level, profile, context) {
+            const layerType = profile.layerTypes?.[context.layerName];
+            const levelTable = profile.minLevels?.[layerType];
+            const geometryName = profile.geometryName || 'geom';
+            if (!layerType || !levelTable) {
+                return {
+                    layerName: context.layerName,
+                    cql: context.cql,
+                    geometryName: geometryName,
+                    params: {propertyName: geometryName}
+                };
+            }
+
+            const visibleCodes = [];
+            for (const [serviceCode, minLevel] of Object.entries(levelTable)) {
+                if (level >= Number(minLevel)) visibleCodes.push(serviceCode);
+            }
+
+            const propertyName = profile.propertyName || 'fclass';
+            const lodCql = visibleCodes.length > 0
+                ? propertyName + ' IN (' + visibleCodes.map(escapeTerrainCqlValue).join(',') + ')'
+                : 'EXCLUDE';
+
+            return {
+                layerName: context.layerName,
+                cql: combineTerrainCql(context.cql, lodCql),
+                geometryName: geometryName,
+                params: {propertyName: geometryName}
+            };
+        }
+
+
+        const baseWidth = 80;
+        const decay= 0.25
+        //+ 2D vector Layer 생성
+        const vectorLayer = new GeOnDT.vector.U2dVectorShaderLayer({
+            name: 'vectorLayer',
+            layername: 'z_kais_tl_spbd_buld_202007', // 건물
+            baseurl: 'https://3d.geon.kr/geoserver/digitaltwin/ows',
+            minlevel: VECTOR_FEATURE_MIN_LEVEL,
+            terrainLodProfile: TERRAIN_WFS_LOD_PROFILE,
+            terrainLodQuery: terrainWfsLodQuery,
+            terrainWfsMaxConcurrency: TERRAIN_WFS_MAX_CONCURRENCY,
+            terrainWfsCacheTtlMs: 30000,
+            transparent: true,
+            renderorder: 100,
+            styleFunction: function (feature, context) {
+                const level = context.tileLevel;
+
+                return {
+                    strokeColor: '#ff0000',
+                    strokeOpacity: 0.9,
+                    strokeWidth: getLodStrokeWidth(level, {
+                        baseLevel: 9,
+                        baseWidth: baseWidth,
+                        minWidth: 7,
+                        decay: decay
+                    }),
+                    fillOpacity: 0.5,
+                    excludeSearch: false,
+                    nonChanged: false
+                };
+            }
+        });
+        app.addLayer(vectorLayer);
+        app.showLayer('vectorLayer', true);
+
+        /**
+         * 타일 레벨이 증가할수록 선 두께를 감소시킵니다.
+         *
+         * @param {number} level 현재 타일 레벨
+         * @param {object} option 두께 설정
+         * @param {number} option.baseLevel 기준 레벨
+         * @param {number} option.baseWidth 기준 선 두께
+         * @param {number} option.minWidth 최소 선 두께
+         * @param {number} option.decay 레벨당 감소 비율
+         * @returns {number}
+         */
+        function getLodStrokeWidth(level, option) {
+            const baseLevel = option.baseLevel ?? 9;
+            const baseWidth = option.baseWidth ?? 2;
+            const minWidth = option.minWidth ?? 0.35;
+            const decay = option.decay ?? 0.82;
+
+            const levelDelta = Math.max(0, level - baseLevel);
+            const width = baseWidth * Math.pow(decay, levelDelta);
+
+            return Math.max(minWidth, width);
+        }
+
+        window.vectorLayer = vectorLayer // +debug용
+
+        const subVectorLayer = new GeOnDT.vector.U2dVectorShaderLayer({
+            name: 'subVectorLayer',
+            // vectorLayer(WFS 건물)와 같은 레벨부터 합성해야 GeoJSON이 부모 타일에서 비지 않습니다.
+            // 이 값이 더 크면 세분되지 않은 저레벨 타일에는 건물만 그려지고 GeoJSON 폴리곤은 빠집니다.
+            minLevel: VECTOR_FEATURE_MIN_LEVEL,
+            transparent: true,
+            renderOrder: 100,
+            styleFunction: function (feature) { //WFS 피처가 로드 될때마다 스타일콜백함수를 호출
+                return {
+                    fillColor: fill,
+                    fillOpacity: fillOpacity,
+                    strokeColor: stroke,
+                    strokeOpacity: strokeOpacity,
+                    strokeWidth: width,
+                    excludeSearch: false, // WFS 피처에 검색 제외를 적용할려면 스타일함수에 리턴으로 적용가능
+                    nonChanged: false //true 일시 생성 이외의 외부 스타일 변경등의 changed 제한, 기본값은 false
+                }
+            },
+        });
+        app.addLayer(subVectorLayer);
+        app.showLayer('subVectorLayer', true);
+        window.subVectorLayer = subVectorLayer // +debug용
+
+        const CIRCLE_SEGMENT_COUNT = 64;
+        const CIRCLE_RADIUS_LATITUDE = 0.00036;
+        const ORBIT_CENTER = [127.54986578024146, 36.70378269796982];
+        const ORBIT_RADIUS_LATITUDE = 0.0012;
+        const ORBIT_ANGLE_STEP = Math.PI / 360;
+        const ANIMATION_INTERVAL_MS = 1000 / 40;
+        const DEGREE_TO_RADIAN = Math.PI / 180;
+        const TWO_PI = Math.PI * 2;
+
+        // 원 만들기
+        // 원의 중심을 [0, 0]으로 두고, 원의 모양만 나타내는 로컬 좌표 목록을 한 번 생성한다.
+        const circleLongitudeRadius = CIRCLE_RADIUS_LATITUDE
+            / Math.cos(ORBIT_CENTER[1] * DEGREE_TO_RADIAN);
+        const circleLocalCoordinates = [];
+        for (let index = 0; index < CIRCLE_SEGMENT_COUNT; index++) {
+            const angle = TWO_PI * index / CIRCLE_SEGMENT_COUNT;
+            circleLocalCoordinates.push([
+                circleLongitudeRadius * Math.cos(angle),
+                CIRCLE_RADIUS_LATITUDE * Math.sin(angle)
+            ]);
+        }
+        const orbitLongitudeRadius = ORBIT_RADIUS_LATITUDE
+            / Math.cos(ORBIT_CENTER[1] * DEGREE_TO_RADIAN);
+        let orbitAngle = 0;
+
+        const movingCircle = new GeOnDT.geom.U2dPolygon({
+            fillColor: 'rgba(255, 255, 0, 0.0)',
+            strokeColor: '#ffff00',
+            strokeWidth: 2
+        });
+        let movingCircleRegistered = false;
+        let movingCircleCommitInFlight = false;
+        let pendingMovingCircleCoordinates;
+
+        /**
+         * 이전 composite build 중 들어온 좌표는 마지막 값만 남기고 순서대로 커밋한다.
+         */
+        async function commitMovingCirclePosition() {
+            if (movingCircleCommitInFlight) return;
+            movingCircleCommitInFlight = true;
+            try {
+                while (pendingMovingCircleCoordinates) {
+                    const nextCoordinates = pendingMovingCircleCoordinates;
+                    pendingMovingCircleCoordinates = undefined;
+
+                    subVectorLayer.beginFeatureUpdate(movingCircle);
+                    movingCircle.setPosition(nextCoordinates);
+                    await subVectorLayer.commitFeatureUpdate();
+                }
+            } finally {
+                movingCircleCommitInFlight = false;
+            }
+        }
+
+        /**
+         * 현재 회전 각도로 원 중심점과 원의 월드 좌표를 계산하여 U2dPolygon의 위치를 갱신한다.
+         */
+        function updateMovingCircle() {
+            // 원 바깥의 회전 중심점을 기준으로 원 중심점이 이동할 값을 계산한다.
+            const rotationMovement = [
+                orbitLongitudeRadius * Math.cos(orbitAngle),
+                ORBIT_RADIUS_LATITUDE * Math.sin(orbitAngle)
+            ];
+
+            //원 센터점 계산하기
+            const circleCenter = [
+                ORBIT_CENTER[0] + rotationMovement[0],
+                ORBIT_CENTER[1] + rotationMovement[1]
+            ];
+
+            // 원의 구성하는 정점에 계산된 센터점을 적용하여 지도에서 사용하는 월드 좌표를 만든다.
+            const circleWorldCoordinates = circleLocalCoordinates.map(function (localCoordinate) {
+                return [
+                    circleCenter[0] + localCoordinate[0],
+                    circleCenter[1] + localCoordinate[1]
+                ];
+            });
+
+            // 각도를 감소시키면 동쪽에서 남쪽으로 진행하므로 지도상에서 시계 방향으로 공전한다.
+            orbitAngle = (orbitAngle - ORBIT_ANGLE_STEP) % TWO_PI;
+
+            if (movingCircleRegistered) {
+                // Build가 느린 동안에는 대기 좌표를 덮어써 중간 revision이 worker queue에 쌓이지 않게 합니다.
+                pendingMovingCircleCoordinates = [circleWorldCoordinates];
+                void commitMovingCirclePosition().catch(function (error) {
+                    console.error('동적 원 위치 커밋에 실패했습니다.', error);
+                });
+            } else {
+                movingCircle.setPosition([circleWorldCoordinates]);
+            }
+
+            //렌더링 프레임 20프레임 시간까지는 idle 상태로 바꾸지 말고, work 상태로 유지하도록하는 API 호출, drawFast 가 이 호출되었다면 호출하지 않아도 됩니다.
+            app.drawWork(20);
+        }
+
+        updateMovingCircle();
+        subVectorLayer.addGeometry(movingCircle);
+        movingCircleRegistered = true;
+
+        const circleAnimationInterval = setInterval(updateMovingCircle, ANIMATION_INTERVAL_MS);
+        window.addEventListener('pagehide', function () {
+            clearInterval(circleAnimationInterval);
+        }, {once: true});
+
+
+        window.movingCircle = movingCircle;
+        window.circleAnimationInterval = circleAnimationInterval;
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// event 등록 ///////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        app.on('click', function (e) {
+            //클릭지점 위경도 좌표
+            let world = app.closestPointAtPixel(e);
+            let lonlat = app.vector3ToGeoGraphic(world);
+            if (lonlat === undefined) return;
+            console.log("worldX:" + world.x + " , worldY: " + world.y);
+            console.log("x:" + lonlat.x + " , y: " + lonlat.y);
+            const measure = vectorLayer.getFeatureByXY(lonlat.x, lonlat.y);//해당 위치에 해당하는 feature 정보 반환
+            console.log("At Position features :" );
+            console.log( measure );
+            drawGeom(GEOM_TYPE, lonlat); //+ 도형그리기, GEOM_TYPE : default - point
+
+            if (GEOM_TYPE === 'Point') {
+                //교차 검색 모드일시
+                if ($("#selectMode").prop("checked")) {
+                    let geomList = vectorLayer.getIntersects(targetGeom);
+                    for (let geom of geomList) {
+                        vectorLayer.setHighLight(geom); //setHighLight(geom, styleOption) styleOption 미입력시 기본 검색 스타일 적용
+                    }
+                    console.log(geomList);
+                }
+
+                targetGeom = undefined;
+            }
+        });
+
+        app.on('dblclick', function (e) {
+            let world = app.closestPointAtPixel(e);
+            let lonlat = app.vector3ToGeoGraphic(world);
+            if (lonlat === undefined) return;
+            console.log("x:" + lonlat.x + " , y: " + lonlat.y);
+            //교차 검색 모드일시
+            if ($("#selectMode").prop("checked")) {
+                let geomList = vectorLayer.getIntersects(targetGeom);
+                if(!geomList) return;
+                for (let geom of geomList) {
+                    vectorLayer.setHighLight(geom, {
+                        fillColor: "rgba(0,255,0,0.5)",
+                        strokeColor: '#FFFF00',
+                        storkeWidth: 1.5
+                    });
+                    //setHighLight(geom, styleOption) styleOption 미입력시 기본 검색 스타일 적용
+                    //레이어 스타일이 변경되더라도 setHighLight의 검색 스타일이 우선 적용 됩니다.
+                }
+                console.log(geomList);
+            }
+            targetGeom = undefined;
+        });
+
+        //+ radio 버튼 선택시 GEOM_TYPE 변경
+        //+ 포인트 / 라인 / 폴리곤
+        $('#wktAdd').on('click', function () {
+            let wkt = $('#wktText').val();
+            const sourceCRS = $('#sourceCRS').val().trim() || 'EPSG:3857';
+            wkt = JSON.parse(wkt);
+            console.time('create');
+
+            let processRate = 0;
+            vectorLayer.addGeometryAsWKT(wkt, sourceCRS, function (geometry, index) {
+                if (processRate < (index / wkt.length) * 100) {
+                    console.info("addGeometryAsWKT is in progress :" + processRate + "%");
+                    processRate = processRate + 10;
+                }
+                geometry.setMeta({"순서": index});
+                geometry.setFillColor(fill);
+                geometry.setStrokeColor(stroke);
+                geometry.setStrokeWidth(width);
+                //vectorLayer.setLabel(geometry,processCount,20);
+            }).then(() => {
+                console.timeEnd('create');
+                app.fitLayerExtent(vectorLayer.getName());
+            }).catch(function (e) {
+                console.error(e)
+                console.timeEnd('create');
+            });
+        });
+
+        $('#geojsonAdd').on('click', function () {
+            let geojson = $('#geojsonText').val();
+            const sourceCRS = $('#sourceCRS').val().trim() || 'EPSG:3857';
+            if (geojson && console !== '') {
+                geojson = JSON.parse(geojson);
+                console.time();
+                const subLayer = app.getLayerByName('subVectorLayer');
+                subLayer.clear();
+                app.showLayer('subVectorLayer', true);
+                subLayer.addGeometryAsGeojson(geojson, sourceCRS, function (geometry, index) {
+                    console.log(index);
+                }).then(() => {
+                    console.timeEnd();
+                    app.fitLayerExtent(subLayer.getName());
+                });
+            }
+        });
+
+        $('#topojsonAdd').on('click', function () {
+            let topojson = $('#topojsonText').val();
+            const sourceCRS = $('#sourceCRS').val().trim() || 'EPSG:3857';
+            if (topojson && console !== '') {
+                topojson = JSON.parse(topojson);
+                console.time()
+                const subLayer = app.getLayerByName('subVectorLayer');
+                subLayer.clear();
+                app.showLayer('subVectorLayer', true);
+                subLayer.addGeometryAsTopojson(topojson, sourceCRS, function (geometry, index) {
+                    console.log(index);
+                }).then(() => {
+                    console.timeEnd();
+                    app.fitLayerExtent('subVectorLayer');
+                });
+            }
+        });
+
+        //+ radio 버튼 선택시 GEOM_TYPE 변경
+        //+ 포인트 / 라인 / 폴리곤
+        $('input[name="type"]').on('change', function () {
+            GEOM_TYPE = this.value;
+            targetGeom = undefined; //+ 그리기 종료
+        });
+
+        //+ [지우기] 버튼 클릭시 도형 전체 지우기
+        $('#clear').on('click', function () {
+            vectorLayer.clear(); //+ 도형 전체 지우기
+            app.getLayerByName('subVectorLayer').clear();
+            targetGeom = undefined;
+        });
+        //+ [선색상] 변경시 선 색상 변경
+        $('#stroke').on('change', function () {
+            stroke = this.value;
+            targetGeom = undefined;
+        });
+        //+ [채움색] 변경시 채움색 변경
+        $('#fill').on('change', function () {
+            fill = this.value;
+            targetGeom = undefined;
+        });
+        //+ [선 투명도] 변경시 선 투명도 변경 (0: 완전 투명, 1: 완전 불투명)
+        $('#strokeOpacity').on('change', function () {
+            strokeOpacity = Number(this.value);
+            targetGeom = undefined;
+        });
+        //+ [채움 투명도] 변경시 채움 투명도 변경 (0: 완전 투명, 1: 완전 불투명)
+        $('#fillOpacity').on('change', function () {
+            fillOpacity = Number(this.value);
+            targetGeom = undefined;
+        });
+        //+ [선두께] 변경시 선두께 변경
+        $('#width').on('change', function (e) {
+            width = Number(this.value);
+            targetGeom = undefined;
+        });
+        //+ [반경] 변경시 포인트만 반경 변경
+        $('#radius').on('change', function (e) {
+            radius = Number(this.value);
+            targetGeom = undefined;
+        });
+
+        $('#selectClear').on('click', function (e) {
+            //vectorLayer.removeHigLight(geom); 개별 지우기 사용 가능
+            vectorLayer.removeHigLightAll();
+        });
+
+        $('#apply').on('click', function () {
+            console.log('스타일 변경 시작');
+            vectorLayer.setStyle({
+                fillColor: fill,  // 채우기 색
+                fillOpacity: fillOpacity, // 채움 투명도 (0: 완전 투명, 1: 완전 불투명)
+                strokeColor: stroke, // 선색
+                strokeOpacity: strokeOpacity, // 선 투명도 (0: 완전 투명, 1: 완전 불투명)
+                strokeWidth: width //선 넒이
+            }).then(function () {
+                console.log('스타일 변경 완료');
+            });
+        });
+
+        //+ 도형 그리기
+        function drawGeom(type, lonlat) {
+            if (targetGeom === undefined) {
+                createGeom(type);
+            }
+            switch (type) {
+                //+ point type
+                case 'Point':
+                    targetGeom.setPosition([lonlat.x, lonlat.y]);
+                    break;
+                case 'LineString':
+                case 'Polygon':
+                    targetGeom.addPosition([lonlat.x, lonlat.y]);//+ 라인 그리기에 필요한 좌표들 추가
+                    break;
+            }
+        }
+
+        function createGeom(type) {
+            let geom;
+
+            let option = {
+                fillColor: fill, //+ 채움색
+                fillOpacity: fillOpacity, //+ 채움 투명도
+                strokeColor: stroke, //+ 선색상
+                strokeOpacity: strokeOpacity, //+ 선 투명도
+                strokeWidth: width //+ 선두께
+            }
+
+            if ($("#selectMode").prop("checked")) {
+                option.fillColor = selectFill;
+                option.strokeColor = selectStroke;
+
+                option.excludeSearch = true; // 교차검색시 검색 제외 여부  입력하지 않을 시, 기본값은 false
+                option.nonChanged = true; //true 일시 생성 이외의 외부 스타일 변경등의 changed 제한, 기본값은 false
+            }
+
+            switch (type) {
+                case 'Point': //+ 포인트
+                    option.radius = radius; //반경
+                    geom = new Union3D.geom.U2dPoint(option);
+                    break;
+                case 'LineString': //+ 라인
+                    geom = new Union3D.geom.U2dLine(option);
+                    break;
+                case 'Polygon': //+ 폴리곤
+                    geom = new Union3D.geom.U2dPolygon(option);
+                    break;
+            }
+            vectorLayer.addGeometry(geom); //+ layer에 도형 추가, 맵에 도형 그리기
+            targetGeom = geom;
+        }
+        function setStyle (feature) { // 피처가 로드 될때마다 스타일 콜백함수를 호출
+            const properties = feature.properties;
+            if(!properties['gro_flo_co']) return;
+            const property = properties['gro_flo_co'];
+            const floco = Number(property); //층 수 관련된  property 컬럼명
+            let color = 0xff0000;
+            let strokeColor = 0xffff00; //선 색상
+            let fillOpacity = 0.5; // 채움 투명도
+            let strokeWidth = 0.5; // 선 너비, 두께
+            let strokeOpacity = 1.0; // 선 투명도
+            if(floco > 10){
+                color = 0x00ff00;
+                strokeColor = 0xff0000;
+                fillOpacity = 1.0;
+                strokeWidth = 1.0;
+                strokeOpacity = 0.5;
+            }else if(floco > 5){
+                color = 0x0000ff;
+                strokeColor = 0xffffff;
+                fillOpacity = 0.8;
+                strokeWidth = 0.8;
+                strokeOpacity = 0.7;
+
+            }else if(floco > 1){
+                color = 0x00ffff;
+                strokeColor = 0x550055;
+                fillOpacity = 0.3;
+                strokeWidth = 1.0;
+                strokeOpacity = 1.0;
+            }
+            return {
+                fillColor: color,
+                fillOpacity: fillOpacity,
+                strokeColor: strokeColor,
+                strokeWidth: strokeWidth,
+                strokeOpacity: strokeOpacity,
+                excludeSearch: false, // WFS 피처에 검색 제외를 적용할려면 스타일함수에 리턴으로 적용가능
+                nonChanged: false //true 일시 생성 이외의 외부 스타일 변경등의 changed 제한, 기본값은 false
+            }
+        }
+    });
+</script>
+</body>
+</html>

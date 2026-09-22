@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>조망권 분석 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        #analy-popup .div-popup {
+            width: 720px;
+            height: 400px;
+            top: 45vh;
+        }
+        .div-popup-content div {
+            margin-bottom: 10px;
+        }
+        .view-point {
+            max-height: 300px;
+            overflow-y: scroll;
+        }
+
+        .popup-capture {
+            display: none;
+            position: absolute;
+            width: 400px;
+            top: 20px;
+            left: calc(50% - 200px);
+            padding: 10px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .popup-capture > img {
+            width: 100%;
+        }
+
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> 조망권 분석 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        지도 위에 시점과 조망점을 추가하고 <strong>조망권을 분석</strong>하는 예제입니다.<br>
+        분석된 조망권은 가시선 그리기 기능을 통해 뷰콘 형태의 Mesh로 출력할 수 있습니다.
+        또한 층별 자동분석 기능을 통해 건물의 각 층에서 보는 조망권을 분석할 수도 있습니다.
+    </p>
+</div>
+<div id="map-wrapper">
+    <div id="map"></div>
+    <div id="div-left-menu">
+        <div>
+            <div style="display: inline-flex; position: relative">
+                <button id="analy-bnt" class="btn btn-xs menu-btn">
+                    <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+                <div class="div-btn-info" hidden>
+                    분석 팝업 열기
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="btn-group" id='top-sbar'>
+        <div class='btn-group-vertical-block' id='right-toolbar'>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                     src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                     alt="나침반">
+            </button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                    id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                    id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                    id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+            </button>
+        </div>
+        <div class='btn-group' id='bt-bottom-bar'>
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                   value="위경도: ##.####  ###.#### ">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                   value="고도:####">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                   value="각도: ##">
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu='return false'>
+        <div class="div-popup">
+            <div class="div-popup-control" style="height: 40px">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content">
+                <div class="col-sm-12">
+                    <span>현재 시점 : </span> <span id="view-point"></span><br>
+                    <span>현재 조망점 : </span><span id="view-target"></span>
+                </div>
+                <div class="col-sm-6 view-point">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <div class="d-flex" >
+                                <div>시점 목록</div>
+                                <div class="flex-1 text-right">
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-xs btn-add-view-point">추가</div>
+                                        <div class="btn btn-default btn-xs btn-load-view-point">불러오기</div>
+                                    </div>
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-xs btn-view-point-prev">이전</div>
+                                        <div class="btn btn-default btn-xs btn-view-point-next">다음</div>
+                                    </div>
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-xs btn-remove-view-point">전체지우기</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="view-point-list h-300 scroll-auto panel-body">
+                            <pre>시점을 등록해 주세요</pre>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6 view-point">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <div class="d-flex">
+                                <div>조망점 목록</div>
+                                <div class="flex-1 text-right">
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-xs btn-add-view-target">추가</div>
+                                        <div class="btn btn-default btn-xs btn-load-view-target">불러오기</div>
+                                    </div>
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-xs btn-view-target-prev">이전</div>
+                                        <div class="btn btn-default btn-xs btn-view-target-next">다음</div>
+                                    </div>
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-xs btn-remove-view-target">전체지우기</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="view-target-list h-300 scroll-auto panel-body">
+                            <pre>조망점을 등록해 주세요</pre>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-12">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">기타 기능</div>
+                        <div class="h-300 panel-body scroll-auto">
+                            <div class="col-sm-12">
+                                <label>애니메이션</label>
+                                <div class="form-group">
+                                    <div class="btn btn-default btn-sm btn-animate-start">시작</div>
+                                    <div class="btn btn-default btn-sm btn-animate-stop">중지</div>
+                                    <div class="btn btn-default btn-sm btn-panmode">지도모드</div>
+                                </div>
+                                <label>가시선</label>
+                                <div class="form-group">
+                                    <div class="btn btn-default btn-sm btn-draw-line">가시선 그리기</div>
+                                    <div class="btn btn-default btn-sm btn-remove-line">가시선 지우기</div>
+                                </div>
+                                <label>층별 자동분석</label>
+                                <div class="form-group form-inline">
+                                    <div class="form-group">
+                                        <div class="btn btn-sm btn-default btn-select">건물 선택</div>
+                                        <select class="form-control input-sm" name="type">
+                                            <option value="point">시점</option>
+                                            <option value="target">조망점</option>
+                                        </select>
+                                        <div class="btn btn-sm btn-default btn-compute-floor">자동분석</div>
+                                    </div>
+                                </div>
+                                <label>저장</label>
+                                <div class="form-group">
+                                    <div class="btn btn-default btn-sm btn-view-down">화면 저장</div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+<div class="popup-capture"></div>
+
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function() {
+        window.open('./runner.html?url=' + strings[strings.length-1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon : 37.52, height : 450, left : 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x : homePositon.lat, y : homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function(){
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            }
+            else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script>
+        var viewPointParamString  = '[{"position":{"x":126.93704311141911,"y":37.51846762133772,"z":60.99999999999997},"name":"시점1","color":"#ff654d","image":"image/marker.png","imageSize":30,"imageOffset":{"x":0,"y":-1},"label":"시점1","labelOffset":{"x":0,"y":-80}},{"position":{"x":126.93469850852723,"y":37.52050535818528,"z":7.999999999999972},"name":"시점2","color":"#ff654d","image":"image/marker.png","imageSize":30,"imageOffset":{"x":0,"y":-1},"label":"시점2","labelOffset":{"x":0,"y":-80}}]';
+        var viewTargetParamString = '[{"position":{"x":126.9393248322411,"y":37.51840349584845,"z":145},"name":"조망점1","color":"#ffffff","image":"image/marker.png","imageSize":30,"imageOffset":{"x":0,"y":-1},"label":"조망점1","labelOffset":{"x":0,"y":-80}},{"position":{"x":126.93922601755983,"y":37.518253869492504,"z":93.26854111666202},"name":"조망점2","color":"#ffffff","image":"image/marker.png","imageSize":30,"imageOffset":{"x":0,"y":-1},"label":"조망점2","labelOffset":{"x":0,"y":-80}},{"position":{"x":126.93920805125413,"y":37.519913992733805,"z":66.51345971170977},"name":"조망점3","color":"#ffffff","image":"image/marker.png","imageSize":30,"imageOffset":{"x":0,"y":-1},"label":"조망점3","labelOffset":{"x":0,"y":-80}}]';
+        //라이센스 인증
+        Union3D.ready(function () {
+            //지도 기본 세팅///////////////////////////////////////
+            var app    = new Union3D.U3dAPP({
+                containername: 'map'
+            });
+            window.app = app;
+            app.setHomePosition(129.155, 35.1596, 435, 0, 45); //경도, 위도, 높이, 방위각, 고도각
+            app.updateHomePosition();
+
+            //이미지 레이어 생성
+            var layer = new Union3D.image.U3dImageXYZLayer({
+                name    : 'satellite',
+                baseurl : layerInfo.image.vworldsaturl,
+                reverseY: true
+            });
+            app.addLayer(layer);
+            //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+            app.setNameBaseLayer('satellite');
+            app.showLayer('satellite', true);
+            app.createloadingBar('load');
+            app.on('change', updatePosData);
+
+            initModelLayers();
+
+            function initModelLayers() {
+                try {
+                    /* request U3f layers list */
+                    $.ajax({
+                        url: modelU3fURL,
+                        crossDomain: true,
+                        beforeSend: function (xhr) {
+                            xhr.setRequestHeader('User-Authorization', trdDimAPIKey);
+                            xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+                        },
+                        error: function (e) {
+                            console.info(e);
+                        }
+                    }).then(function (result) {
+                        let layers = result.params.data;
+                        for (let i = 0; i < layers.length; i++) {
+                            let layer = layers[i];
+
+                            /* 레이어 목록 중 발행중인 레이어만 요청 */
+                            if (layer.state === "ACTIVE") {
+                                if (layer.name.indexOf('kopss') !== -1) {
+                                    // createModelLayer(layer, kopssGroupLayer, 1000;
+                                    createModelLayer(layer, null, 1000)
+                                }
+                                else {
+                                    createModelLayer(layer, null)
+                                }
+                            }
+
+                            window.metalayers[layer.name] = layer;
+                        }
+                        //   UnionObj.showLayer(groupLayer.getName(), true);
+                    })
+                } catch (localBuldError) {
+                    console.log('Initialize Error Message : ' + localBuldError);
+                }
+                app.endloadingBar(100);
+            }
+            let maxprocess_model_ = 10;
+            let sizeblock_model_ = 10;
+            let updateimagedistance_ = 50;
+            var count = 0;
+            window.metalayers = {};
+            var createModelLayer = function (info, groupLayer, wrapping) {
+                var deferInitialized = $.Deferred();
+                let metaData = info.metaData;
+                let subLayerName = info.name;
+                let buldLayerConstruct = {};
+                Object.assign(buldLayerConstruct, {name: subLayerName});
+                Object.assign(buldLayerConstruct, {basename: subLayerName});
+                Object.assign(buldLayerConstruct, {baseurl: info.baseUrl});
+                Object.assign(buldLayerConstruct, {minlevel: metaData.minLevel});
+                Object.assign(buldLayerConstruct, {maxlevel: metaData.maxLevel});
+                Object.assign(buldLayerConstruct, {srs: metaData.srs});
+                Object.assign(buldLayerConstruct, {ext: '.' + metaData.ext});
+                // Object.assign(buldLayerConstruct, {boundingbox:
+                // metaData.boundingBox});
+                // Object.assign(buldLayerConstruct, {needXml: false});
+                Object.assign(buldLayerConstruct, {maxprocess: maxprocess_model_});
+                Object.assign(buldLayerConstruct, {sizeblock: sizeblock_model_});
+                Object.assign(buldLayerConstruct, {updateimagedistance: updateimagedistance_});
+                Object.assign(buldLayerConstruct, {grouplayer: groupLayer});
+                Object.assign(buldLayerConstruct, {wrapping: wrapping});
+                Object.assign(buldLayerConstruct, {renderorder: 0});
+                Object.assign(buldLayerConstruct, {useproxy: false});
+                // Object.assign(buldLayerConstruct, {promiseinitialized: deferInitialized});
+
+                let subLayer = app.create3DFModelLayer(buldLayerConstruct);
+                // app.showLayer(subLayer.getName(), true);
+                //     addSelectOption(count + ':' + subLayer.getName());
+                subLayer.then(function (layer) {
+                    app.showLayer(layer.getName(), true);
+                    count++;
+                }).fail(function (layer) {
+
+                });
+                return subLayer;
+            }
+
+            var terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+                name               : 'Korea Terrain',
+                baseurl            : layerInfo.height.url,
+                ext                : '.umf',
+                reverseY           : true,
+                minlevel           : 9,
+                maxlevel           : 15,
+                useproxy           : true,
+                maxprocess         : 2,
+                interpolationheight: true,
+                rectangle          : Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2)
+            });
+            app.addLayer(terrainLayer);
+            app.showLayer('Korea Terrain', true);
+
+            /////////////////////////////////////////////////////
+            var analy    = app.getAnalysis('LandScape');
+            window.analy = analy;
+            analy.active();
+            analy.selectPoiOptions = {
+                image      : 'image/marker.png',
+                imageSize  : 30,
+                imageOffset: {
+                    x: 0,
+                    y: -1
+                },
+                label      : '선택 지점',
+                labelOffset: {
+                    x: 0, y: -80
+                }
+            };
+            //시점 추가
+            $('.btn-add-view-point').on('click', function () {
+                alert('시점을 지도에서 선택하세요.');
+                removeEventHandler();
+                app.on('click', addViewPoint);
+            });
+            //시점 삭제
+            $('.btn-remove-view-point').on('click', function () {
+                analy.removeAllViewPoints();
+            });
+            //시점 불러오기
+            $('.btn-load-view-point').on('click', function () {
+                analy.removeAllViewPoints(); //불러오기전에 전체 삭제
+
+                var params = JSON.parse(viewPointParamString);
+                params.forEach(function (param) {
+                    analy.addViewPoint(param);
+                });
+
+                printList();
+            });
+            //조망점 추가
+            $('.btn-add-view-target').on('click', function () {
+                alert('조망점을 지도에서 선택하세요.');
+                removeEventHandler();
+                app.on('click', addViewTarget);
+            });
+            //조망점 삭제
+            $('.btn-remove-view-target').on('click', function () {
+                analy.removeAllViewTargets();
+            });
+            //조망점 불러오기
+            $('.btn-load-view-target').on('click', function () {
+                analy.removeAllViewTargets(); //불러오기전에 전체 삭제
+
+                var params = JSON.parse(viewTargetParamString);
+                params.forEach(function (param) {
+                    analy.addViewTarget(param);
+                });
+
+                printList();
+            });
+
+            //애니메이션 시작
+            $('.btn-animate-start').on('click', function () {
+                analy.animate({
+                    onStart: function (viewPoint, viewTarget) {
+                        updateState()
+                    },
+                    onEnd  : function (viewPoint, viewTarget) {
+
+                    }
+                });
+            });
+            //애니메이션 중지
+            $('.btn-animate-stop').on('click', function () {
+                analy.stopAnimate();
+            });
+            $('.btn-panmode').on('click', function () {
+                analy.stopAnimate();
+                app.setPanMode();
+            });
+            //다음 시점으로 이동
+            $('.btn-view-point-next').on('click', function () {
+                var promise = analy.nextViewPoint();
+                if (promise) {
+                    promise.then(function () {
+                        //카메라 이동 종료시점
+                        updateState();
+                    });
+                }
+            });
+            //이전 시점으로 이동
+            $('.btn-view-point-prev').on('click', function () {
+                var promise = analy.prevViewPoint();
+                if (promise) {
+                    promise.then(function () {
+                        //카메라 이동 종료시점
+                        updateState();
+                    });
+                }
+            });
+            //다음 조망점으로 이동
+            $('.btn-view-target-next').on('click', function () {
+                var promise = analy.nextViewTarget();
+                if (promise) {
+                    promise.then(function () {
+                        //카메라 이동 종료시점
+                        updateState();
+                    });
+                }
+            });
+            //이전 조망점으로 이동
+            $('.btn-view-target-prev').on('click', function () {
+                var promise = analy.prevViewTarget();
+                if (promise) {
+                    promise.then(function () {
+                        //카메라 이동 종료시점
+                        updateState();
+                    });
+                }
+            });
+            //가시선 그리기
+            $('.btn-draw-line').on('click', function () {
+                var start = analy.getCurrentViewPoint();
+                var end   = analy.getCurrentViewTarget();
+                if (start === undefined || end === undefined) {
+                    return alert('시점과 조망점이 설정되지 않았습니다.')
+                }
+                //가시선 그리기
+                analy.drawLine();
+                //가시선 충돌 체크연산
+                analy.detectCollision();
+            });
+            //가시선 지우기
+            $('.btn-remove-line').on('click', function () {
+                analy.removeLines();
+            });
+            //화면 저장
+            $('.btn-view-down').on('click', function () {
+                app.capture().then((image)=>{
+                    let img    = document.createElement('img');
+                    img.src    = image;
+                    $('.popup-capture').html(img);
+                    $('.popup-capture').show();
+                })
+            });
+            //캡쳐화면 클릭시 닫기
+            $('.popup-capture').on('click', function () {
+                $('.popup-capture').empty();
+                $('.popup-capture').hide();
+            });
+
+            function addViewPoint(e) {
+                //시점 추가 함수
+                var name = prompt('시점이름:', '');
+                if (isNullString(name)) {
+                    return alert('이름을 입력해주세요');
+                }
+                analy.addViewPoint({
+                    position   : e,
+                    name       : name,
+                    color      : '#ff654d',
+                    image      : 'image/marker.png',
+                    imageSize  : 30,
+                    imageOffset: {
+                        x: 0,
+                        y: -1
+                    },
+                    label      : name,
+                    labelOffset: {
+                        x: 0, y: -80
+                    }
+                });
+                printList(); // 목록 갱신
+                removeEventHandler(); //이벤트 제거
+            }
+
+            function addViewTarget(e) {
+                //조망점 추가 함수
+                var name = prompt('조망점이름:', '');
+                if (isNullString(name)) {
+                    return alert('이름을 입력해주세요');
+                }
+                analy.addViewTarget({
+                    position   : e,
+                    name       : name,
+                    color      : '#ffffff',
+                    image      : 'image/marker.png',
+                    imageSize  : 30,
+                    imageOffset: {
+                        x: 0,
+                        y: -1
+                    },
+                    label      : name,
+                    labelOffset: {
+                        x: 0, y: -80
+                    }
+                });
+                printList(); //목록갱신
+                removeEventHandler(); //이벤트 제거
+            }
+
+            function removeEventHandler() {
+                app.off('click', addViewTarget);
+                app.off('click', addViewPoint)
+            }
+
+
+            //리스트 버튼
+
+            //선택한 시점으로 카메라 이동
+            $(document).on('click', '.btn-set-view-point', function () {
+                var id = $(this).closest('.view-item').attr('target');
+                analy.setViewPoint(id);
+                updateState();
+            });
+            //선택한 시점 제거
+            $(document).on('click', '.btn-remove-view-point', function () {
+                var id = $(this).closest('.view-item').attr('target');
+                analy.removeViewPoint(id);
+                printList();
+            });
+
+            //선택한 조망점으로 카메라 이동
+            $(document).on('click', '.btn-set-view-target', function () {
+                var id = $(this).closest('.view-item').attr('target');
+                analy.setViewTarget(id);
+                updateState();
+
+            });
+            //선택한 조망점 제거
+            $(document).on('click', '.btn-remove-view-target', function () {
+                var id = $(this).closest('.view-item').attr('target');
+                analy.removeViewTarget(id);
+                printList();
+            });
+
+            //층별 자동 생성
+            $(document).on('click', '.btn-select', function () {
+                alert('지도에서 건물을 선택하세요');
+                analy.select(true);
+            });
+            $(document).on('click', '.btn-compute-floor', function () {
+                if (!analy.isSelected) {
+                    return alert('선택된 건물이 없습니다.');
+                }
+                var height   = analy.getBuildingHeight();
+                var maxFloor = Math.floor(height / analy.floorHeight);
+                var msg      = '시작층 종료층을 입력하세요 (예) 1-5\n' +
+                    '(분석 옵션정보)\n' +
+                    '층간높이: ' + analy.floorHeight + '\n' +
+                    '선택된 건물 높이: ' + height + '\n' +
+                    '최고층수 : ' + maxFloor;
+                var tmp      = prompt(msg, '').split('-');
+                if (tmp.length !== 2) {
+                    return alert('층수를 확인해 주세요 (예) 1-5')
+                }
+                var start = Number(tmp[0].trim());
+                var end   = Number(tmp[1].trim());
+                if (isNaN(start) || isNaN(end)) {
+                    return alert('숫자를 입력해주세요.');
+                }
+
+                if (maxFloor < end) {
+                    return alert('선택된 건물의 최대 층수를 초과했습니다.')
+                }
+
+                var type = $('select[name="type"]').val();
+                if (type === 'point') {
+                    analy.computeViewPointByFloor(start, end, {
+                        color      : '#ff654d',
+                        image      : 'image/marker.png',
+                        imageSize  : 30,
+                        imageOffset: {
+                            x: 0,
+                            y: -1
+                        },
+                        labelOffset: {
+                            x: 0, y: -80
+                        }
+                    });
+                } else if (type === 'target') {
+                    analy.computeViewTargetByFloor(start, end, {
+                        image      : 'image/marker.png',
+                        imageSize  : 30,
+                        imageOffset: {
+                            x: 0,
+                            y: -1
+                        },
+                        labelOffset: {
+                            x: 0, y: -80
+                        }
+                    });
+                }
+                printList();
+
+            });
+
+
+            //방위각, 고도각에 따른 조망점 생성
+            $(document).on('click', '.btn-from-view-point', function () {
+                var azimuth  = prompt('방위각(0~360)', '');
+                var polar    = prompt('고도각(-90~90)', '');
+                var distance = prompt('거리', '');
+                var name     = prompt('이름', '')
+                if (isNullString(azimuth) || isNullString(polar) || isNullString(distance) || isNullString(name)) return;
+                var id = $(this).closest('.view-item').attr('target');
+                analy.addViewTargetByViewPoint(id, {
+                    azimuth : Number(azimuth),
+                    polar   : Number(polar),
+                    distance: Number(distance),
+                    name    : name,
+                    label   : name
+                });
+                printList();
+            });
+
+            function printList() {
+                printViewPointList();
+                printViewTargetList();
+            }
+
+            function printViewPointList() {
+                var list = analy.getViewPointList();
+                var str  = '';
+                list.forEach(function (viewPoint) {
+                    str += '<div class="d-flex view-item" target="' + viewPoint.name + '">';
+                    str += '<div class="flex-1">' + viewPoint.name + '</div>';
+                    str += '<div class="text-right">';
+                    str += '<div class="btn-group">';
+                    str += '<div class="btn btn-xs btn-default btn-set-view-point">이동</div>';
+                    str += '</div>';
+                    str += '<div class="btn-group">';
+                    str += '<div class="btn btn-xs btn-default btn-from-view-point">조망점 계산</div>';
+                    str += '</div>';
+                    str += '<div class="btn-group">';
+                    str += '<div class="btn btn-xs btn-danger btn-remove-view-point">삭제</div>';
+                    str += '</div>';
+                    str += '</div>';
+                    str += '</div>';
+                });
+                str = str === '' ? '<pre>시점을 등록해 주세요</pre>' : str;
+                $('.view-point-list').html(str);
+            }
+
+            function printViewTargetList() {
+                var list = analy.getViewTargetList();
+                var str  = '';
+                list.forEach(function (viewTarget) {
+                    str += '<div class="d-flex view-item" target="' + viewTarget.name + '">';
+                    str += '<div class="flex-1">' + viewTarget.name + '</div>';
+                    str += '<div class="text-right">';
+                    str += '<div class="btn-group">';
+                    str += '<div class="btn btn-xs btn-default btn-set-view-target">이동</div>';
+                    str += '</div>';
+                    str += '<div class="btn-group">';
+                    str += '<div class="btn btn-xs btn-danger btn-remove-view-target">삭제</div>';
+                    str += '</div>';
+                    str += '</div>';
+                    str += '</div>';
+                });
+                str = str === '' ? '<pre>조망점을 등록해 주세요</pre>' : str;
+                $('.view-target-list').html(str);
+            }
+
+            function updateState() {
+                var viewPoint = analy.getCurrentViewPoint();
+                if(!viewPoint){
+                    console.log("적용 시점이 존재하지않습니다.");
+                    return;
+                }
+                $('#view-point').html(viewPoint.name);
+
+                var viewTarget = analy.getCurrentViewTarget();
+                if(!viewTarget){
+                    console.log("적용 조망점이 존재하지않습니다.");
+                    return;
+                }
+                $('#view-target').html(viewTarget.name);
+            }
+
+            function isNullString(v) {
+                return v === '' || v === null
+            }
+        });
+</script>
+</body>
+</html>

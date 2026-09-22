@@ -1,0 +1,116 @@
+// 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
+import * as three from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, ShaderMaterial, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
+import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
+import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
+import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
+import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
+import type { SimplifyPolicy_Option } from "./USimpleTail.types.js";
+import type { DeferredObject } from "../util/deferred.types.js";
+
+declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
+    static get IndicesPerFace(): number;
+    static get FacesPerQuad(): number;
+    static Shader: {
+        readonly BaseVertexVars: string;
+        BaseFragmentVars: string;
+        readonly BaseVertexShader: string;
+        readonly BaseFragmentShader: string;
+    };
+    static createMaterial(vertexShader: any, fragmentShader: any, customUniforms: any): three.ShaderMaterial;
+    constructor(opt?: {});
+    /** @type {boolean} */ _disposed: boolean;
+    scene: any;
+    name: any;
+    geometry: any;
+    mesh: any;
+    nodeCenters: any;
+    lastNodeCenter: any;
+    currentNodeCenter: any;
+    nodeIDs: any;
+    currentNodeID: any;
+    /** @type {number} */ maxLength: number;
+    /** @type {number} */ expandStepLength: number;
+    /** @type {number} */ maxDistance: number;
+    /** @type {number} */ pathDistance: number;
+    /** @type {number} */ visibleStartNode: number;
+    renderNodes: any[];
+    /** @type {number} */ lastDistanceFadeOutBoundary: number;
+    /** @type {function(object): void} */ onFadeOut: (arg0: object) => void;
+    currentLength: any;
+    currentEnd: any;
+    tempMatrix4: any;
+    tempPosition: three.Vector3;
+    tempOffset: three.Vector3;
+    tempQuaternion: three.Quaternion;
+    lastSimplifyIndex: number;
+    lastCapacityWarning: number;
+    colorFactor: number;
+    precision: any;
+    fixedCapacity: boolean;
+    fadeStart: any;
+    fadeEnd: any;
+    depthWidthScale: boolean;
+    widthFade: any;
+    alphaFade: any;
+    simplifyPolicy: SimplifyPolicy_Option;
+    _origin: three.Vector3;
+    initialize(material: any, length: any, targetObject: any, perMaxNode: any): DeferredObject<unknown>;
+    length: any;
+    perMaxNode: any;
+    targetObject: any;
+    material: any;
+    initializeBillboardGeometryLayout(): void;
+    VerticesPerNode: number;
+    FacesPerNode: number;
+    FaceIndicesPerNode: number;
+    initializeGeometry(): void;
+    vertexCount: number;
+    faceCount: number;
+    zeroIndices(): void;
+    initializeMesh(): void;
+    destroyMesh(): void;
+    reset(): void;
+    lastSimplifyKm: number;
+    lastMemoryCheck: number;
+    _positionPool: Float32Array<ArrayBuffer>;
+    _indexPool: Uint32Array<ArrayBuffer>;
+    _colorPool: Float32Array<ArrayBuffer>;
+    _widthFadePool: Float32Array<ArrayBuffer>;
+    _alphaFadePool: Float32Array<ArrayBuffer>;
+    _sidePool: Float32Array<ArrayBuffer>;
+    _startCapPool: Float32Array<ArrayBuffer>;
+    _endCapPool: Float32Array<ArrayBuffer>;
+    _previousPool: Float32Array<ArrayBuffer>;
+    _nextPool: Float32Array<ArrayBuffer>;
+    expandGeometryBuffer(newLength: any): void;
+    rebuildFromNodeCenters(): void;
+    advanceGeometry(transformMatrix: any, cumulativeDist: any, fps: any, maxFps?: number): void;
+    updateNodeCenter(nodeIndex: any, nodeCenter: any, colorFactor: number, cumulativeDist: any): void;
+    updateNodePositionsFromTransformMatrix(nodeIndex: any, transformMatrix: any, cumulativeDist: any): void;
+    connectNodes(srcNodeIndex: any, destNodeIndex: any): void;
+    setColor(color: any): void;
+    setOpacity(opacity: any): void;
+    setGradation(enabled: any): void;
+    /**
+     * Trail 너비를 설정하는 함수
+     * @param {number} width 설정할 너비
+     */
+    setWidth(width: number): void;
+    setTailPolicy(policy?: {}): void;
+    setFade(start: any, end: any): void;
+    appendPoint(worldPosition: any, cumulativeDist: any, colorFactor: any, fps: any, maxFps?: number): void;
+    getMesh(): any;
+    getNodeCenters(): any;
+    simplifyRDP(points: any, epsilon: any): any[];
+    computingBounding(point: any): void;
+    simplifyTrail(epsilon?: number): void;
+    simplifyTrailToTarget(targetCount: any, epsilonStart?: number, epsilonStep?: number): void;
+    updateTrailDrawRangeInFrustum(frustum: any): void;
+    dropOldestNodes(dropNodes: any): void;
+    raycast(): void;
+    #private;
+}
+
+export type { USimpleTail };

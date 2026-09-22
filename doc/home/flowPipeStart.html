@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>흐름 객체 (파이프)</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="흐름-객체-파이프">흐름 객체 (파이프)</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-%ED%9D%90%EB%A6%84-%EA%B0%9D%EC%B2%B4-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">흐름 객체 생성하기</a></li>
+<li><a href="#2-%EA%B2%BD%EB%A1%9C-%EC%97%B0%EC%9E%A5%ED%95%98%EA%B8%B0">경로 연장하기</a></li>
+<li><a href="#3-%ED%9D%90%EB%A6%84-%EC%83%89%EC%83%81%EA%B3%BC-%ED%83%80%EC%9E%85-%EB%B3%80%EA%B2%BD%ED%95%98%EA%B8%B0">흐름 색상과 타입 변경하기</a></li>
+<li><a href="#4-%EC%95%A0%EB%8B%88%EB%A9%94%EC%9D%B4%EC%85%98-%EC%A0%9C%EC%96%B4%ED%95%98%EA%B8%B0">애니메이션 제어하기</a></li>
+<li><a href="#5-%ED%9D%90%EB%A6%84-%EC%9D%B4%EB%B2%A4%ED%8A%B8-%EC%82%AC%EC%9A%A9%ED%95%98%EA%B8%B0">흐름 이벤트 사용하기</a></li>
+<li><a href="#6-%EB%AF%B8%EB%A6%AC%EB%B3%B4%EA%B8%B0-%ED%8C%8C%EC%9D%B4%ED%94%84-%EC%82%AC%EC%9A%A9%ED%95%98%EA%B8%B0">미리보기 파이프 사용하기</a></li>
+<li><a href="#7-%EA%B5%AC%EA%B0%84-%EA%B0%95%EC%A1%B0%ED%95%98%EA%B8%B0">구간 강조하기</a></li>
+</ol>
+<p>흐름 객체는 유속·전류·유체처럼 경로를 따라 이동하는 데이터를 3D 파이프 형상으로 표현하는 객체입니다. 파이프 몸통은 배경으로 그려지고, 그 위를 색 띠·채움·화살표가 지나가는 애니메이션으로 흐름을 표현합니다.</p>
+<blockquote>
+<ul>
+<li><strong>파이프 몸통(base)</strong>: 경로 전체를 감싸는 배경 튜브입니다. <code>color</code>, <code>opacity</code>, <code>piperadius</code>로 지정합니다.</li>
+<li><strong>흐름(flow)</strong>: 몸통 위를 지나가는 움직이는 부분입니다. <code>flowType</code>과 <code>flowStyle</code>로 모양을, <code>flowSpeed</code>로 속도를 지정합니다.</li>
+<li><strong>구간(section)</strong>: 파이프의 일부만 다른 색으로 강조한 영역입니다. 흐름이 이 영역에 들어오고 나가는 시점을 이벤트로 받을 수 있습니다.</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="1-흐름-객체-생성하기">1. 흐름 객체 생성하기</h2>
+<p><code>U3dFlowPipe</code> 생성자로 흐름 객체를 만들고, <code>U3dVectorLayer.addGeometry</code>로 레이어에 등록하면 화면에 표시됩니다.<br>레이어를 만들고 도형을 등록·제거하는 방법은 <a href="vectorLayerStart.html#2-%EB%8F%84%ED%98%95-%EB%93%B1%EB%A1%9D%ED%95%98%EA%B3%A0-%EC%A0%9C%EA%B1%B0%ED%95%98%EA%B8%B0">3D Geometry 시작하기 - 도형 등록하고 제거하기</a>에서 설명합니다.</p>
+<p>흐름 표현 방식은 <code>flowType</code>으로 고릅니다. <code>COLOR_BAND</code>는 일정 길이의 색 띠 여러 개가 지나가고, <code>COLOR_FILL</code>은 파이프가 앞에서부터 채워지며, <code>ARROW</code>는 화살표가 이동합니다.</p>
+<p><strong>흐름 애니메이션은 <code>flowStart()</code>를 호출하기 전까지 움직이지 않습니다.</strong></p>
+<h4 class="api-heading" id="api">API</h4>
+<p>U3dFlowPipe(<code>opt</code>) : 흐름 파이프 객체를 생성하는 생성자</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opt</code> (<code>object</code>) : 흐름 객체 생성 옵션</li>
+<li><code>opt.name</code> (<code>string</code>) : 흐름 객체 이름</li>
+<li><code>opt.flowType</code> (<code>string</code>) : 흐름 타입 (<code>&#39;COLOR_BAND&#39;</code>, <code>&#39;COLOR_FILL&#39;</code>, <code>&#39;ARROW&#39;</code>). 기본값: <code>&#39;COLOR_BAND&#39;</code></li>
+<li><code>opt.flowStyle</code> (<code>object</code>) : 흐름 스타일</li>
+<li><code>opt.flowSpeed</code> (<code>number</code>) : 흐름 애니메이션 속도(m/s). 기본값: <code>100</code></li>
+<li><code>opt.loop</code> (<code>boolean</code>) : 흐름 애니메이션 반복 여부. 기본값: <code>true</code></li>
+<li><code>opt.color</code> (<code>ColorRepresentation</code>) : 파이프 몸통 색상. 기본값: <code>0xff0000</code></li>
+<li><code>opt.opacity</code> (<code>number</code>) : 파이프 몸통 투명도(0~1)</li>
+<li><code>opt.piperadius</code> (<code>number</code>) : 파이프 반지름. 기본값: <code>2</code></li>
+<li><code>opt.tension</code> (<code>number</code>) : 경로 곡률(0~1). <code>0</code>이면 직선으로 이어집니다. 기본값: <code>0.5</code></li>
+<li><code>opt.radiusSegments</code> (<code>number</code>) : 원둘레 세분화 정도. 기본값: <code>16</code></li>
+<li><code>opt.closed</code> (<code>boolean</code>) : 파이프 양끝을 이어 닫을지 여부. 기본값: <code>false</code></li>
+<li><code>opt.vertices</code> (<code>Array&lt;WorldPositionVector3&gt;</code>) : 경로를 이루는 정점 배열 (월드 좌표, EPSG:3857)</li>
+</ul>
+</details>
+<p><strong>흐름 스타일</strong></p>
+<p><code>flowStyle</code>은 흐름 부분의 모양을 정하는 옵션 묶음입니다.</p>
+<ul>
+<li><code>flowStyle.color</code> (<code>ColorRepresentation</code>) : 흐름 색상. 기본값: <code>&#39;#ffcc00&#39;</code></li>
+<li><code>flowStyle.opacity</code> (<code>number</code>) : 흐름 투명도(0~1). 기본값: <code>1</code></li>
+<li><code>flowStyle.bandLength</code> (<code>number</code>) : 띠·화살표 하나의 길이(m). 기본값: <code>30</code></li>
+<li><code>flowStyle.bandNum</code> (<code>number</code>) : 한 번에 흐르는 띠·화살표 개수. 기본값: <code>10</code></li>
+<li><code>flowStyle.bandGap</code> (<code>number</code>) : 띠·화살표 사이의 간격(m). 기본값: <code>10</code></li>
+<li><code>flowStyle.softness</code> (<code>number</code>) : 흐름 앞뒤 끝을 흐리게 만드는 정도. 권장 범위 0~0.25. 기본값: <code>0.5</code></li>
+<li><code>flowStyle.autoNum</code> (<code>boolean</code>) : 경로 길이에 맞춰 개수를 자동으로 늘릴지 여부. 기본값: <code>false</code></li>
+<li><code>flowStyle.isWave</code> (<code>boolean</code>) : 파형 표현 사용 여부. 기본값: <code>true</code></li>
+<li><code>flowStyle.arrowWidth</code> (<code>number</code>) : 화살표 너비 (<code>ARROW</code>일 때). 기본값: <code>3</code></li>
+<li><code>flowStyle.aroundRepeat</code> (<code>number</code>) : 파이프 둘레를 따라 반복할 화살표 개수 (<code>ARROW</code>일 때). 기본값: <code>1</code></li>
+</ul>
+<h3 id="1-흐름-객체-생성-예제">1. 흐름 객체 생성 예제</h3>
+<p>색 띠(<code>COLOR_BAND</code>) 모드로 흐름 객체를 만들어 벡터 레이어에 등록하는 예제입니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> app <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>U3dAPP</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">containername</span><span class="token operator">:</span> <span class="token string">'map'</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> vectorLayer <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>vector<span class="token punctuation">.</span>U3dVectorLayer</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'vector'</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> flowPipe <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>geom<span class="token punctuation">.</span>U3dFlowPipe</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'flow_1'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#ffffff'</span><span class="token punctuation">,</span>         <span class="token comment">// 파이프 몸통 색상</span>
+    <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.1</span><span class="token punctuation">,</span>             <span class="token comment">// 파이프 몸통 투명도</span>
+    <span class="token literal-property property">piperadius</span><span class="token operator">:</span> <span class="token number">5</span><span class="token punctuation">,</span>            <span class="token comment">// 파이프 반지름</span>
+    <span class="token literal-property property">tension</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>               <span class="token comment">// 0이면 직선</span>
+    <span class="token literal-property property">flowType</span><span class="token operator">:</span> <span class="token string">'COLOR_BAND'</span><span class="token punctuation">,</span>   <span class="token comment">// 색 띠 모드</span>
+    <span class="token literal-property property">flowSpeed</span><span class="token operator">:</span> <span class="token number">50</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">flowStyle</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+        <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#ff0000'</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">softness</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">bandLength</span><span class="token operator">:</span> <span class="token number">30</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">bandNum</span><span class="token operator">:</span> <span class="token number">10</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">bandGap</span><span class="token operator">:</span> <span class="token number">10</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+vectorLayer<span class="token punctuation">.</span><span class="token function">addGeometry</span><span class="token punctuation">(</span>flowPipe<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 벡터 레이어에 추가</span>
+flowPipe<span class="token punctuation">.</span><span class="token function">flowStart</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>              <span class="token comment">// 애니메이션 시작</span>
+</code></pre>
+<h3 id="2-흐름-타입별-표현-차이">2. 흐름 타입별 표현 차이</h3>
+<p>같은 경로에 흐름 타입만 바꿔 적용한 결과입니다.</p>
+<figure class="document-image">
+<img src="image/flowPipe/mode.png" alt="위에서부터 색 띠 모드, 채움 모드, 화살표 모드를 적용한 파이프" loading="eager">
+<figcaption>위에서부터 색 띠 모드, 채움 모드, 화살표 모드를 적용한 파이프</figcaption>
+</figure>
+<hr>
+<h2 id="2-경로-연장하기">2. 경로 연장하기</h2>
+<p>레이어에 등록한 뒤 <code>addWorldPosition</code>으로 월드 좌표를 순서대로 넣으면 그 좌표까지 파이프가 이어집니다. 입력한 좌표는 경로의 기준점이 되어 경로 확장과 곡률 계산에 함께 반영됩니다.</p>
+<p><code>tension</code>이 <code>0</code>보다 크면 기준점 사이가 곡선으로 이어지므로, 좌표를 촘촘히 넣을수록 원래 경로에 가깝게 표현됩니다.</p>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>U3dFlowPipe.addWorldPosition(<code>x</code>, <code>y</code>, <code>z</code>) : 파이프를 해당 월드 좌표까지 연장하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>x</code> (<code>number</code>) : X 월드 좌표 (EPSG:3857)</li>
+<li><code>y</code> (<code>number</code>) : Y 월드 좌표 (EPSG:3857)</li>
+<li><code>z</code> (<code>number</code>) : Z 월드 좌표 (EPSG:3857)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-2">API</h4>
+<p>U3dFlowPipe.getLength() : 경로의 전체 길이를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>number | undefined</code>) : 경로 길이(m). 경로가 아직 없으면 <code>undefined</code></li>
+</ul>
+</details>
+<h3 id="1-클릭한-지점으로-경로-연장-예제">1. 클릭한 지점으로 경로 연장 예제</h3>
+<p>지도를 클릭할 때마다 그 지점까지 파이프를 연장하는 예제입니다.</p>
+<pre class="language-javascript"><code class="language-javascript">app<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> flowPipe <span class="token operator">=</span> vectorLayer<span class="token punctuation">.</span><span class="token function">getGeometryByName</span><span class="token punctuation">(</span><span class="token string">'flow_1'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">const</span> world <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">closestPointAtPixel</span><span class="token punctuation">(</span>e<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>world<span class="token punctuation">)</span> <span class="token keyword">return</span><span class="token punctuation">;</span>
+
+    <span class="token comment">// 클릭한 좌표까지 흐름 파이프를 연장합니다.</span>
+    flowPipe<span class="token punctuation">.</span><span class="token function">addWorldPosition</span><span class="token punctuation">(</span>world<span class="token punctuation">.</span>x<span class="token punctuation">,</span> world<span class="token punctuation">.</span>y<span class="token punctuation">,</span> world<span class="token punctuation">.</span>z<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="3-흐름-색상과-타입-변경하기">3. 흐름 색상과 타입 변경하기</h2>
+<p>생성 후에도 흐름 부분과 파이프 몸통의 색을 각각 바꿀 수 있습니다. 흐르는 부분은 <code>setFlowColor</code>, <code>setFlowOpacity</code>로, 배경이 되는 몸통은 <code>setBaseColor</code>로 제어합니다.</p>
+<p>표현 방식 자체를 바꾸려면 <code>changeFlowType</code>을 사용합니다. 타입을 바꾸면 셰이더 재질이 교체되지만, 색상·속도 같은 현재 설정값은 그대로 옮겨집니다.</p>
+<h4 class="api-heading" id="api-3">API</h4>
+<p>U3dFlowPipe.setFlowColor(<code>color</code>, <code>opacity</code>) : 흐르는 부분의 색상과 투명도를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>color</code> (<code>ColorRepresentation</code>) : 흐름 색상</li>
+<li><code>opacity</code> (<code>number</code>) : 흐름 투명도(0~1). 생략하면 기존 값을 유지합니다</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-4">API</h4>
+<p>U3dFlowPipe.setFlowOpacity(<code>opacity</code>) : 흐르는 부분의 투명도를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opacity</code> (<code>number</code>) : 흐름 투명도(0~1)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-5">API</h4>
+<p>U3dFlowPipe.setBaseColor(<code>color</code>, <code>opacity</code>) : 파이프 몸통의 색상과 투명도를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>color</code> (<code>ColorRepresentation</code>) : 몸통 색상</li>
+<li><code>opacity</code> (<code>number</code>) : 몸통 투명도(0~1). 생략하면 기존 값을 유지합니다</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-6">API</h4>
+<p>U3dFlowPipe.changeFlowType(<code>type</code>) : 흐름 표현 타입을 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>type</code> (<code>string</code>) : 변경할 흐름 타입 (<code>&#39;COLOR_BAND&#39;</code>, <code>&#39;COLOR_FILL&#39;</code>, <code>&#39;ARROW&#39;</code>)</li>
+</ul>
+</details>
+<h3 id="1-색상과-타입-변경-예제">1. 색상과 타입 변경 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> flowPipe <span class="token operator">=</span> vectorLayer<span class="token punctuation">.</span><span class="token function">getGeometryByName</span><span class="token punctuation">(</span><span class="token string">'flow_1'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+flowPipe<span class="token punctuation">.</span><span class="token function">setFlowColor</span><span class="token punctuation">(</span><span class="token string">'#00b3ff'</span><span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// 흐름 색상과 투명도</span>
+flowPipe<span class="token punctuation">.</span><span class="token function">setBaseColor</span><span class="token punctuation">(</span><span class="token string">'#333333'</span><span class="token punctuation">,</span> <span class="token number">0.2</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 파이프 몸통 색상과 투명도</span>
+
+flowPipe<span class="token punctuation">.</span><span class="token function">changeFlowType</span><span class="token punctuation">(</span><span class="token string">'ARROW'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>      <span class="token comment">// 화살표 모드로 전환</span>
+</code></pre>
+<hr>
+<h2 id="4-애니메이션-제어하기">4. 애니메이션 제어하기</h2>
+<p>흐름 애니메이션은 시작·정지·일시정지·재개를 직접 제어합니다. <code>flowStart</code>를 호출하기 전에는 파이프 몸통만 보이고 흐름은 움직이지 않습니다.</p>
+<p><code>setLoop(false)</code>로 반복을 끄면 흐름이 경로 끝에 도달한 뒤 멈춥니다. 반복이 켜져 있으면 끝에 도달할 때마다 처음부터 다시 시작합니다.</p>
+<h4 class="api-heading" id="api-7">API</h4>
+<p>U3dFlowPipe.flowStart() : 흐름 애니메이션을 시작하는 함수</p>
+<h4 class="api-heading" id="api-8">API</h4>
+<p>U3dFlowPipe.flowStop(<code>isInit</code>) : 흐름 애니메이션을 정지하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>isInit</code> (<code>boolean</code>) : <code>true</code>면 정지와 함께 애니메이션 상태를 처음으로 되돌립니다. 기본값: <code>false</code></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-9">API</h4>
+<p>U3dFlowPipe.flowPause() : 흐름 애니메이션을 일시정지하는 함수</p>
+<h4 class="api-heading" id="api-10">API</h4>
+<p>U3dFlowPipe.flowResume() : 일시정지된 흐름 애니메이션을 재개하는 함수</p>
+<h4 class="api-heading" id="api-11">API</h4>
+<p>U3dFlowPipe.setLoop(<code>isLoop</code>) : 흐름 애니메이션의 반복 여부를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>isLoop</code> (<code>boolean</code>) : 애니메이션 반복 여부</li>
+</ul>
+</details>
+<h3 id="1-애니메이션-제어-예제">1. 애니메이션 제어 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> flowPipe <span class="token operator">=</span> vectorLayer<span class="token punctuation">.</span><span class="token function">getGeometryByName</span><span class="token punctuation">(</span><span class="token string">'flow_1'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+flowPipe<span class="token punctuation">.</span><span class="token function">flowStart</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>           <span class="token comment">// 애니메이션 시작</span>
+
+<span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>              <span class="token comment">// 1초 후 일시정지</span>
+    flowPipe<span class="token punctuation">.</span><span class="token function">flowPause</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token number">1000</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>              <span class="token comment">// 2초 후 재개</span>
+    flowPipe<span class="token punctuation">.</span><span class="token function">flowResume</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token number">2000</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>              <span class="token comment">// 3초 후 정지</span>
+    flowPipe<span class="token punctuation">.</span><span class="token function">flowStop</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token number">3000</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p><code>show</code>와 <code>hide</code>는 표시 여부와 애니메이션을 함께 제어합니다. 숨기면 애니메이션도 일시정지되므로, 다시 표시할 때 이어서 재생됩니다.</p>
+<pre class="language-javascript"><code class="language-javascript">flowPipe<span class="token punctuation">.</span><span class="token function">hide</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 숨기고 일시정지</span>
+flowPipe<span class="token punctuation">.</span><span class="token function">show</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 표시하고 재개</span>
+</code></pre>
+<hr>
+<h2 id="5-흐름-이벤트-사용하기">5. 흐름 이벤트 사용하기</h2>
+<p>흐름 상태가 변할 때마다 발생하는 이벤트에 동작을 연결할 수 있습니다. 이벤트 이름 목록은 <code>GeOnDT.geom.U3dFlowPipe.EVENT</code>에서 확인할 수 있습니다.</p>
+<p><strong>이벤트 종류</strong></p>
+<ul>
+<li><code>flowUpdate</code> : 애니메이션이 갱신될 때마다 발생합니다. <code>e.data</code>는 <code>{timeSec, progress}</code>입니다</li>
+<li><code>flowHit</code> : 흐름의 머리가 경로 끝에 처음 도달할 때 발생합니다. <code>e.data</code>는 <code>{timeSec, bandIndex}</code>입니다</li>
+<li><code>flowEnd</code> : 흐름의 꼬리까지 끝에 도달해 한 주기가 끝날 때 발생합니다. <code>e.data</code>는 <code>{timeSec, progress}</code>입니다</li>
+<li><code>enter</code> : 흐름이 강조 구간에 진입할 때 발생합니다. <code>e.data</code>는 <code>{timeSec, progress, section}</code>입니다</li>
+<li><code>exit</code> : 흐름이 강조 구간을 이탈할 때 발생합니다. <code>e.data</code>는 <code>{timeSec, progress, section}</code>입니다</li>
+</ul>
+<p><code>progress</code>는 한 주기의 진행도를 0~1로 나타낸 값이고, <code>timeSec</code>은 애니메이션이 시작된 뒤 경과한 시간(초)입니다.</p>
+<h4 class="api-heading" id="api-12">API</h4>
+<p>U3dFlowPipe.setOnUpdate(<code>func</code>) : 애니메이션이 갱신될 때 호출할 콜백을 등록하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>func</code> (<code>function</code>) : <code>(timeSec, progress)</code>를 인자로 받는 콜백 함수. <strong>필수</strong></li>
+</ul>
+</details>
+<h3 id="1-진행도에-따라-색을-바꾸는-예제">1. 진행도에 따라 색을 바꾸는 예제</h3>
+<p><code>flowUpdate</code> 이벤트는 매 프레임 발생하므로, 진행도에 따라 흐름 색을 바꿀 수 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> flowPipe <span class="token operator">=</span> vectorLayer<span class="token punctuation">.</span><span class="token function">getGeometryByName</span><span class="token punctuation">(</span><span class="token string">'flow_1'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+flowPipe<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'flowUpdate'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> target <span class="token operator">=</span> e<span class="token punctuation">.</span>target<span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>target<span class="token punctuation">)</span> <span class="token keyword">return</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">const</span> <span class="token punctuation">{</span>timeSec<span class="token punctuation">,</span> progress<span class="token punctuation">}</span> <span class="token operator">=</span> e<span class="token punctuation">.</span>data<span class="token punctuation">;</span>
+
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>progress <span class="token operator">></span> <span class="token number">0.6</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        target<span class="token punctuation">.</span><span class="token function">setFlowColor</span><span class="token punctuation">(</span><span class="token string">'#0015ff'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token punctuation">(</span>progress <span class="token operator">></span> <span class="token number">0.3</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        target<span class="token punctuation">.</span><span class="token function">setFlowColor</span><span class="token punctuation">(</span><span class="token string">'#e600ff'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+        target<span class="token punctuation">.</span><span class="token function">setFlowColor</span><span class="token punctuation">(</span><span class="token string">'#fff000'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-종료-시점을-받는-예제">2. 종료 시점을 받는 예제</h3>
+<pre class="language-javascript"><code class="language-javascript">flowPipe<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'flowEnd'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> <span class="token punctuation">{</span>timeSec<span class="token punctuation">}</span> <span class="token operator">=</span> e<span class="token punctuation">.</span>data<span class="token punctuation">;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'흐름 종료 : '</span><span class="token punctuation">,</span> timeSec<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="6-미리보기-파이프-사용하기">6. 미리보기 파이프 사용하기</h2>
+<p>경로를 만드는 동안 다음 좌표가 어디로 이어질지 미리 보여 주는 미리보기 파이프를 사용할 수 있습니다. 마우스를 움직이며 경로·방향·곡률·크기를 확인한 뒤 실제 좌표를 확정할 수 있습니다.</p>
+<p>미리보기 파이프는 마지막으로 확정된 좌표에서 지정한 좌표까지만 그려지며, <code>addWorldPosition</code>으로 좌표가 확정되면 자동으로 정리됩니다.</p>
+<p><strong>미리보기 파이프는 흐름 객체가 레이어에 등록된 뒤에만 만들어집니다.</strong></p>
+<h4 class="api-heading" id="api-13">API</h4>
+<p>U3dFlowPipe.previewPipe(<code>x</code>, <code>y</code>, <code>z</code>) : 미리보기 파이프를 생성하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>x</code> (<code>number</code>) : X 월드 좌표 (EPSG:3857)</li>
+<li><code>y</code> (<code>number</code>) : Y 월드 좌표 (EPSG:3857)</li>
+<li><code>z</code> (<code>number</code>) : Z 월드 좌표 (EPSG:3857)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-14">API</h4>
+<p>U3dFlowPipe.endPreviewPipe() : 미리보기 파이프를 감추고 정리하는 함수</p>
+<h4 class="api-heading" id="api-15">API</h4>
+<p>U3dFlowPipe.updatePreviewPipe(<code>opt</code>) : 미리보기 파이프의 스타일을 갱신하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opt</code> (<code>object</code>) : 갱신할 스타일 객체</li>
+<li><code>opt.color</code> (<code>ColorRepresentation</code>) : 미리보기 색상</li>
+<li><code>opt.opacity</code> (<code>number</code>) : 미리보기 투명도(0~1)</li>
+</ul>
+</details>
+<h3 id="1-미리보기-파이프-생성-예제">1. 미리보기 파이프 생성 예제</h3>
+<p>마우스가 움직일 때마다 커서 위치까지 미리보기를 그리는 예제입니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> hoverID <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'mousemove'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> world <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">closestPointAtPixel</span><span class="token punctuation">(</span>e<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>world<span class="token punctuation">)</span> <span class="token keyword">return</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">const</span> flowPipe <span class="token operator">=</span> vectorLayer<span class="token punctuation">.</span><span class="token function">getGeometryByName</span><span class="token punctuation">(</span><span class="token string">'flow_1'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    flowPipe<span class="token punctuation">.</span><span class="token function">previewPipe</span><span class="token punctuation">(</span>world<span class="token punctuation">.</span>x<span class="token punctuation">,</span> world<span class="token punctuation">.</span>y<span class="token punctuation">,</span> world<span class="token punctuation">.</span>z<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-미리보기-파이프-종료-예제">2. 미리보기 파이프 종료 예제</h3>
+<p>경로 작성을 끝낼 때는 미리보기를 정리하고 등록한 이벤트도 함께 해제합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> flowPipe <span class="token operator">=</span> vectorLayer<span class="token punctuation">.</span><span class="token function">getGeometryByName</span><span class="token punctuation">(</span><span class="token string">'flow_1'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+flowPipe<span class="token punctuation">.</span><span class="token function">endPreviewPipe</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+app<span class="token punctuation">.</span><span class="token function">unkey</span><span class="token punctuation">(</span><span class="token string">'mousemove'</span><span class="token punctuation">,</span> hoverID<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// mousemove 이벤트 해제</span>
+</code></pre>
+<h3 id="3-미리보기-파이프-스타일-변경-예제">3. 미리보기 파이프 스타일 변경 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> flowPipe <span class="token operator">=</span> vectorLayer<span class="token punctuation">.</span><span class="token function">getGeometryByName</span><span class="token punctuation">(</span><span class="token string">'flow_1'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+flowPipe<span class="token punctuation">.</span><span class="token function">updatePreviewPipe</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#fff000'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.5</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="7-구간-강조하기">7. 구간 강조하기</h2>
+<p>파이프의 특정 구간만 다른 색과 투명도로 강조할 수 있습니다. 구간은 실제 길이(m)로 지정하거나, 전체 길이를 0~1로 본 비율로 지정합니다.</p>
+<p>강조 구간을 지정하면 흐름이 그 구간에 진입할 때 <code>enter</code>, 이탈할 때 <code>exit</code> 이벤트가 발생하므로 구간 단위의 상태 판단 로직을 붙일 수 있습니다.</p>
+<p>투명도를 <code>0</code>으로 주면 해당 구간이 보이지 않게 되므로, 파이프를 부분적으로 끊어진 것처럼 표현할 수도 있습니다.</p>
+<h4 class="api-heading" id="api-16">API</h4>
+<p>U3dFlowPipe.setSectionHighlightByLength(<code>startMeter</code>, <code>endMeter</code>, <code>color</code>, <code>opacity</code>) : 실제 길이를 기준으로 구간을 강조하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>startMeter</code> (<code>number</code>) : 구간 시작 위치(m)</li>
+<li><code>endMeter</code> (<code>number</code>) : 구간 끝 위치(m)</li>
+<li><code>color</code> (<code>ColorRepresentation</code>) : 강조 색상</li>
+<li><code>opacity</code> (<code>number</code>) : 강조 투명도(0~1)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-17">API</h4>
+<p>U3dFlowPipe.setSectionHighlightNormalized(<code>start</code>, <code>end</code>, <code>color</code>, <code>opacity</code>) : 전체 길이 비율을 기준으로 구간을 강조하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>start</code> (<code>number</code>) : 구간 시작 비율(0~1)</li>
+<li><code>end</code> (<code>number</code>) : 구간 끝 비율(0~1)</li>
+<li><code>color</code> (<code>ColorRepresentation</code>) : 강조 색상</li>
+<li><code>opacity</code> (<code>number</code>) : 강조 투명도(0~1)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-18">API</h4>
+<p>U3dFlowPipe.clearSectionHighlight() : 지정한 구간 강조를 모두 해제하는 함수</p>
+<h3 id="1-구간-지정과-이벤트-예제">1. 구간 지정과 이벤트 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> flowPipe <span class="token operator">=</span> vectorLayer<span class="token punctuation">.</span><span class="token function">getGeometryByName</span><span class="token punctuation">(</span><span class="token string">'flow_1'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 길이(m)로 지정 : 파이프의 100m ~ 200m 구간</span>
+flowPipe<span class="token punctuation">.</span><span class="token function">setSectionHighlightByLength</span><span class="token punctuation">(</span><span class="token number">100</span><span class="token punctuation">,</span> <span class="token number">200</span><span class="token punctuation">,</span> <span class="token string">'#ffff00'</span><span class="token punctuation">,</span> <span class="token number">0.5</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 비율(0~1)로 지정 : 전체 길이의 40% ~ 60% 구간</span>
+flowPipe<span class="token punctuation">.</span><span class="token function">setSectionHighlightNormalized</span><span class="token punctuation">(</span><span class="token number">0.4</span><span class="token punctuation">,</span> <span class="token number">0.6</span><span class="token punctuation">,</span> <span class="token string">'#ffff00'</span><span class="token punctuation">,</span> <span class="token number">0.5</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 구간 진입 이벤트</span>
+flowPipe<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'enter'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> <span class="token punctuation">{</span>timeSec<span class="token punctuation">,</span> progress<span class="token punctuation">}</span> <span class="token operator">=</span> e<span class="token punctuation">.</span>data<span class="token punctuation">;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'구간 진입'</span><span class="token punctuation">,</span> timeSec<span class="token punctuation">,</span> progress<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 구간 이탈 이벤트</span>
+flowPipe<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'exit'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> <span class="token punctuation">{</span>timeSec<span class="token punctuation">,</span> progress<span class="token punctuation">}</span> <span class="token operator">=</span> e<span class="token punctuation">.</span>data<span class="token punctuation">;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'구간 이탈'</span><span class="token punctuation">,</span> timeSec<span class="token punctuation">,</span> progress<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 구간 강조 해제</span>
+flowPipe<span class="token punctuation">.</span><span class="token function">clearSectionHighlight</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-강조-투명도에-따른-차이">2. 강조 투명도에 따른 차이</h3>
+<p>같은 구간을 투명도만 다르게 강조한 결과입니다.</p>
+<div class="document-image-grid" data-columns="2">
+<figure class="document-image">
+<img src="image/flowPipe/section.png" alt="강조 투명도를 0.5로 지정한 구간. 노란색이 반투명하게 겹쳐 보입니다" loading="eager">
+<figcaption>강조 투명도를 0.5로 지정한 구간. 노란색이 반투명하게 겹쳐 보입니다</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/flowPipe/section2.png" alt="강조 투명도를 0으로 지정한 구간. 해당 구간이 비어 있는 것처럼 표시됩니다" loading="eager">
+<figcaption>강조 투명도를 0으로 지정한 구간. 해당 구간이 비어 있는 것처럼 표시됩니다</figcaption>
+</figure>
+</div>
+</main>
+</body>
+</html>
+

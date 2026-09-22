@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>바람길 예제(전국)</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        #analy-popup .div-popup {
+            width: 450px;
+            height: 350px;
+            top: 50vh;
+            padding-bottom: 10px;
+        }
+
+        .slider-wrapper {
+            --list-length: 170px;
+            width: var(--list-length);
+            margin-left: 10px;
+            margin-right: 60px;
+        }
+
+        #custom-handle {
+
+            height: 23px;
+            width: 50px;
+            text-align: center;
+            top: -5px;
+            background-color: black;
+            color: white;
+
+        }
+
+        .form-group {
+            margin-bottom: 5px;
+        }
+        .legend-input::-webkit-color-swatch {
+            border: none;
+        }
+
+        .my-legend .legend-title {
+            text-align: left;
+            margin-bottom: 8px;
+            font-weight: bold;
+            font-size: 90%;
+        }
+
+        .my-legend .legend-scale ul {
+            margin: 0;
+            padding: 0;
+            float: left;
+            list-style: none;
+        }
+
+        .my-legend .legend-scale ul li {
+            display: block;
+            float: left;
+            width: 50px;
+            margin-bottom: 6px;
+            text-align: center;
+            font-size: 80%;
+            list-style: none;
+        }
+
+        .my-legend ul.legend-labels li span {
+            display: block;
+            float: left;
+            height: 15px;
+            width: 50px;
+        }
+
+        .my-legend .legend-source {
+            font-size: 70%;
+            color: #999;
+            clear: both;
+        }
+
+        .my-legend a {
+            color: #777;
+        }
+
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> 바람길 예제(전국)</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        기상데이터를 받아와 <strong>바람길 형상을 3D 지도 화면 </strong>에서 가시화 할수 있는 예제입니다.<br>
+        범례 색상을 지정하여 설정할수 있습니다.
+        속도를 조절하여 설정 할수 있습니다.
+        해당 예제의 경우 setDynamic 속성값을 설정하여 맵 이동 및 줌 변경시에 동적으로 particle이 재생성 되어 보여집니다.
+    </p>
+</div>
+<div id="map-wrapper">
+    <div id="map"></div>
+    <div id="div-left-menu">
+        <div>
+            <div style="display: inline-flex; position: relative">
+                <button id="analy-bnt" class="btn btn-xs menu-btn">
+                    <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+                <div class="div-btn-info" hidden>
+                    분석 팝업 열기
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="btn-group" id='top-sbar'>
+        <div class='btn-group-vertical-block' id='right-toolbar'>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                     src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                     alt="나침반">
+            </button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                    id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                    id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                    id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+            </button>
+        </div>
+        <div class='btn-group' id='bt-bottom-bar'>
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                   value="위경도: ##.####  ###.#### ">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                   value="고도:####">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                   value="각도: ##">
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu='return false'>
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content" style="margin:0 5px;">
+                <div class="form-group" hidden>
+                    <label class="col-sm-4 control-label" style=" margin-top: 10px">타입</label>
+                    <div claee="col-sm-4 form-inline" style="display: flex; margin-left: 10%; padding-left: 15px">
+                        <div class="radio" style="margin-left: 2%; margin-top: 10px">
+                            <label>
+                                <input type="radio" name="type" value="rain" checked>
+                                wind Test
+                            </label>
+                        </div>
+
+                    </div>
+                    <label class="col-sm-4 control-label">이미지</label>
+                    <div class="col-sm-4">
+                        <div class="form-inline">
+                            <input class="form-control param" type="text" name="particleImage"
+                                   value="image/cloud1.png" style="">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group" hidden>
+                    <div class="col-sm-5">
+                        <label for="colorStart" class=" control-label">시작 색상</label>
+                        <input id="colorStart" type="color" name="colorStart" value="#768C8F">
+                    </div>
+                    <div class="col-sm-5">
+                        <label for="colorEnd" class=" control-label">종료 색상</label>
+                        <input id="colorEnd" type="color" name="colorEnd" value="#806D08">
+                    </div>
+                </div>
+
+
+                <div class="form-group" style="margin:20px 15px;">
+                    <div style="margin-bottom: 10px">
+
+                    </div>
+                    <label>[날짜 / 시간] | 설정된 시간 : <samp id="current-time"></samp></label>
+
+                    <div class="form-inline" style="margin-left: 6px; margin-bottom: 10px">
+                        <div class="form-group">
+                            <input class="form-control" type="date" id="date-select">
+                            <div class="form-group slider-wrapper">
+                                <div id="time-slider">
+                                    <div id="custom-handle" class="ui-slider-handle"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class='my-legend'>
+                    <div class='legend-title'>[범례]</div>
+                    <div class='legend-scale'>
+                        <ul class='legend-labels'>
+                            <li><input type="color" class="legend-input" name ="0" value="#d7191c" style='background:#d7191c;'>0 - 20%</li>
+                            <li><input type="color" class="legend-input" name ="1" value="#fdae61" style='background:#fdae61;'>40%</li>
+                            <li><input type="color" class="legend-input" name ="2" value="#ffffbf" style='background:#ffffbf;'>60%</li>
+                            <li><input type="color" class="legend-input" name ="3" value="#abd9e9" style='background:#abd9e9;'>80%</li>
+                            <li><input type="color" class="legend-input" name ="4" value="#2c7bb6" style='background:#2c7bb6;'>100%</li>
+                        </ul>
+                    </div>
+                    <div class='legend-source' ></div>
+                        <label class=" control-label">[속도]</label>
+                                <input class="form-control" style="width: 80px" type="number" id="speed" value="100">
+                </div>
+
+                <label style="margin-top:20px">
+                    <input type="button" class="btn  btn-default" name="wind" value="바람길 객체 생성">
+                </label>
+            </div>
+
+
+        </div>
+    </div>
+</div>
+<div id="load">
+    <img src="image/loading.svg" alt="loading">
+</div>
+
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script>
+    //라이센스 인증
+    Union3D.ready(function () {
+
+        const options = {
+            "wind": {
+                positionSpread : { x: 10000, y: 10000, z: 0 },//초기 생성 및 재생성시 particle 무작위 범위 지정
+                particleImage: Union3D.UDefaultSource.PARTICLE_CIRCLE_IMAGE, // particle texture 설정
+                sizeBase: 3000.0, // size 설정
+                position: {x:0,y:0,z:0}, // 생성 하려는 기준 위치 설정 -> 바람길 예제의 경우 extents를 설정 하게 되면서 position의 설정은 적용되지 않음
+
+                colorBase: {x: 0, y: 1.0, z: 0.5}, // H,S,L particle color 설정
+                opacityBase: 1, // 투명도 설정
+
+                particlesPerSecond: 10000, // 초당 particle 생성 갯수 작을수록 적게 생성
+                particleDeathAge: 1, // particle 객체들의 생명시간 - 재생성에 필요한 삭제 particle의 유지시간이 길어짐
+                emitterDeathAge: Number.MAX_VALUE, // 방출 시간( 생성 시간 ) 해당 시간이 작을 수록 시뮬레이션의 시간이 감소
+                speed: 100,
+                setEffect: true, //particle 흐름 효과 출력 여부
+                setDynamic: true, // 카메라 및 높이 이동시 particle 사이즈, segments 변경하여 재생성 여부
+                setheight: false, // 각 particle의 위치에서 지면 높이 적용 여부
+
+                extents : [[124, 33], [131, 40]], //표출 범위 설정 (ex - 우리나라 위경도 범위)
+                //opt.windData = window.windData; //바람 데이터 지정
+                // segments 설정 ( 현재 예제 페이지에서 요청하는 사이트에 경우에 위경도 좌표 0.5 단위의 데이트를 전달 받아 세부적인 데이터 내용 부족 -> 세분화 하여 데이터 나눔)
+                // 높게 설정할수록 데이터, particle의 수량이 많아져 과부하 심해짐, 성능 측면을 고려해서 조절 필요
+                segments : 5,
+                height : 5000,
+                type : 'wind',
+                name : 'wind_particle',
+                legend : getLegend() // function (strength) 콜백 함수 전달 하여 범례 설정
+            },
+        }
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// 지도 기본세팅 /////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+        let app = new GeOnDT.U3dAPP({
+            containername: 'map', //+ U3dApp(지도영역)의 div ID, *필수 입력
+            usefog: false
+        });
+        window.app = app;
+        app.setHomePosition(127.846, 37.091, 500000, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+        app.updateHomePosition();
+        app.createloadingBar('load');
+        app.on('change', updatePosData);
+
+        //이미지 레이어 생성
+        let layer = new Union3D.image.U3dImageXYZLayer({
+            name: 'satellite',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.image.vworldsaturl,  //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+        });
+        app.addLayer(layer);
+        //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+        app.setNameBaseLayer('satellite');
+        app.showLayer('satellite', true);
+        app.endloadingBar();
+
+        //+ u3f 모델 //////////////////////////////////////////////
+        initModelLayers();
+
+        let terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+            name: 'Korea Terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            ext: '.umf', //+ 파일 확장자,  *필수 입력
+            reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false), *필수 입력
+            minlevel: 9,  //+ 가시화 최소 레벨
+            maxlevel: 15, //+ 가시화 최대 레벨
+            useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+            maxprocess: 2, //+ process 최대값
+            interpolationheight: true,  //+ 고도보간 기능 사용 여부
+            rectangle: Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수
+        });
+        app.addLayer(terrainLayer);
+        app.showLayer('Korea Terrain', true);
+        let analy = app.getAnalysis('Particle');
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////// event 등록 //////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////'
+
+        $(document).on('click', 'input[name="wind"]', function (e) {
+            createSpread(); //particle 객체 생성 함수
+        })
+
+        function createSpread() {
+
+            let position = app.getCameraPosition();
+            let param = options['wind'];
+
+            opt = options['wind'];
+            let url = setUrlByDate(); // 해당 날짜에 바람 데이터 요청하여 받아오기
+            //let url = "https://pae-paha.pacioos.hawaii.edu/erddap/griddap/ncep_global.json?ugrd10m%5B(2023-07-19T00:00:00Z)%5D%5B(33.0):(40.0)%5D%5B(124.0):(131.0)%5D,vgrd10m%5B(2023-07-19T00:00:00Z)%5D%5B(33.0):(40.0)%5D%5B(124.0):(131.0)%5D&.draw=vectors&.vars=longitude%7Clatitude%7Cugrd10m%7Cvgrd10m&.color=0x000000&.bgColor=0xffccccff"
+            if (!!url)
+                getWindData(url, opt);
+        }
+
+        function setUrlByDate() {
+            if (window.targetTime) {
+                let targetTime = window.targetTime;
+                let currentTime = new Date();
+                if (currentTime.getTime() < targetTime.getTime()) {
+                    alert('현재 시간 이후에 시간으로 설정 할수 없습니다.')
+                    return;
+                }
+
+                let year = targetTime.getFullYear();
+                let month = targetTime.getMonth() + 1;
+                if (Number(month) < 10) month = '0' + month
+                let date = targetTime.getDate();
+                if (Number(date) < 10) date = '0' + date
+                let hour = window.targetTime.getHours();
+                if (Number(hour) < 10) hour = '0' + hour
+                console.log('요청 데이터 날짜/시간 : ',`${year}-${month}-${date}T${hour}:00`);
+                return `https://pae-paha.pacioos.hawaii.edu/erddap/griddap/ncep_global.json?ugrd10m%5B(${year}-${month}-${date}T${hour}:00:00Z)%5D%5B(33.0):(40.0)%5D%5B(124.0):(131.0)%5D,vgrd10m%5B(${year}-${month}-${date}T${hour}:00:00Z)%5D%5B(33.0):(40.0)%5D%5B(124.0):(131.0)%5D&.draw=vectors&.vars=longitude%7Clatitude%7Cugrd10m%7Cvgrd10m&.color=0x000000&.bgColor=0xffccccff`;
+            }
+        }
+
+        function getWindData(url, opt) {
+                const segments = 5;
+                // get responseData;
+                const xhr = new XMLHttpRequest();
+                xhr.open('get', url, true);
+                let windData = []
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState !== 4 || !xhr.responseText) {
+                        if (xhr.readyState !== 3 && xhr.status === 404) {
+                            alert('해당 날짜에 데이터가 존재하지 않습니다.');
+                        }
+                        return;
+                    }
+
+                    let serverResponse = JSON.parse(xhr.responseText);
+                    let table = serverResponse['table'];
+                    let data = table['rows'];
+                    let maxVelocityLength = 0;
+                    let lat, lon, texCoord, x, y, index, wData1;
+                    data.forEach(function (rows) {
+                        //바람데이터 받아서 index 설정해주기
+                        //  let time = Date.parse(rows[0]);
+                        lat = rows[1];
+                        lon = rows[2];
+                        wData1 = {
+                            lat: rows[1],
+                            lon: rows[2],
+                            ugrd: rows[3],
+                            vgrd: rows[4],
+                        }
+                        maxVelocityLength = Math.max(maxVelocityLength, Math.hypot(rows[3],rows[4]));
+                        windData.push(wData1);
+                    })
+
+                    let data_ = windData;
+                    data_ = data_.filter(function (obj) {
+                        if (!obj.ugrd === undefined || !obj.vgrd === undefined) {
+                            return false;
+                        }
+                        return true;
+                    })
+                    console.log('데이터 : ');
+                    console.log(data_);
+
+                    window.windData = data_;
+                    window.maxLegendValue = maxVelocityLength;
+                };
+                xhr.send();
+                xhr.onloadend = function () {
+                    if (window.currentParticle) analy.clear();
+                    Union3D.UDEF.INVALID = 2000; //setHeight 설정시 값을 못 찾을 경우 높이 값의 최대값
+                    opt.windData = window.windData;
+                    opt.legend = getLegend();
+                    window.currentParticle = analy.initialize(opt); // particle 생성
+                    analy.active();
+                }
+                xhr.onerror = function (e) {
+                    console.error('데이터가 존재 하지 않습니다.', e)
+                }
+                xhr.abort = function (e) {
+                    console.error('데이터가 존재 하지 않습니다.', e)
+                }
+            }
+
+        window.metalayers = {};
+        //legend 범례 지정 및 설정
+        function getLegend(){
+            let legend = {};
+            let colors = $('.legend-input');
+            for (let i = 0; i< colors.length; i++) {
+                legend[i] = colors[i].value;
+            }
+            function setLegendFunc(strength){
+                let max = 10
+                if(window.maxLegendValue){
+                    max = window.maxLegendValue;
+                }
+                let offset = Math.floor(max / colors.length);
+                let value = strength / offset;
+                if(strength > max || value >= colors.length ){
+                    return legend[colors.length-1];
+                }else{
+                    return legend[Math.floor(strength/offset)];
+                }
+            }
+            return setLegendFunc;
+        }
+
+        $(document).on('change', '.legend-input', function () {
+            this.style.background = this.value;
+        });
+        $(document).on('change', '#speed', function () {
+            options['wind'].speed = Number(this.value);
+        });
+        let now = new Date();
+        let handle = $("#custom-handle");
+        $('#date-select').on('change', function (e) {
+            let date = this.value;
+            if (window.targetTime) {
+                let time = (targetTime.getHours() - (targetTime.getHours() % 3)) * 60;
+                let time_ = minuteToString(time);
+                date = new Date(date + ' ' + time_);
+            }
+            getCurrentTime(new Date(date));
+        });
+        $('input[type=date]').val(now.format('yyyy-MM-dd')); //+ 날짜 형식
+        getCurrentTime(new Date());
+        $('#time-slider').slider({
+            value: now.getHours() * 60 + now.getMinutes(),
+            min: 0, // min value
+            max: 1440, // max value
+            step: 180, // 3시간 단위
+            create: function () {
+                var val = $(this).slider("value");
+                var time = minuteToString(val);
+                handle.text(time);
+            },
+            slide: function (event, ui) {
+                var val = ui.value;
+                var time = minuteToString(val);
+                handle.text(time);
+
+                //+ 날짜
+                var date = $('input[type=date]').val();
+                //+ slider bar 이동시 해당 시간대 분석 시작
+                let currentDate = new Date(date + ' ' + time);
+                // app.setTimeSun(new Date(date + ' ' + time));
+                getCurrentTime(currentDate);
+
+            }
+        });
+
+        //+ minute String으로 변환
+        function minuteToString(ms) {
+            var h = Math.floor(ms / 60);
+            var m = ms - (h * 60);
+            return pad(h, 2) + ':' + pad(m, 2);
+        }
+
+        //+ 시간형식 hh:mm 변경
+        function pad(n, width) {
+            n = n + '';
+            return n.length >= width ? n : new Array(width - n.length + 1).join('0') + n;
+        }
+
+        function getCurrentTime(currentDate) {
+            // var curTime = app.getTimeSun();
+            window.targetTime = currentDate;
+            printTime(currentDate);
+            return currentDate;
+        }
+
+        //+ 현재 분석 중인 시간 '설정된 시간'에 출력
+        function printTime(date) {
+            if (date === undefined) return;
+            $('#current-time').html(date.format('yyyy-MM-dd a/p hh:mm'));
+        }
+
+        function initModelLayers() {
+            try {
+                modelayers = app.createModelGroupLayer({
+                    maxlevel: 19,
+                    minlevel: 17,
+                    name: 'u3f'
+                });
+                /* request U3f layers list */
+                $.ajax({
+                    url: modelU3fURL,
+                    crossDomain: true,
+                    beforeSend: function (xhr) {
+                        xhr.setRequestHeader('User-Authorization', trdDimAPIKey);
+                        xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+                    },
+                    error: function (e) {
+                        console.info(e);
+                    }
+                }).then(function (result) {
+                    let infos = result.params.data;
+                    for (let i = 0; i < infos.length; i++) {
+                        let info = infos[i];
+                        /* 레이어 목록 중 발행중인 레이어만 요청 */
+                        if (info.state === "ACTIVE") {
+                            let baseName = info.fileName;
+                            if(!baseName || baseName ==='')
+                                baseName = info.name;
+                            let options = {
+                                name: info.name,
+                                basename: baseName,
+                                baseurl: info.baseUrl,
+                                useproxy: false,
+                                minlevel: info.metaData.minLevel,
+                                maxlevel: info.metaData.maxLevel,
+                                compressmodel: true,
+                                isShareMaterial: false,
+                                makeU3FPackage: 1
+                            };
+                            let subLayer = app.create3DFModelLayer(options);
+                            if(subLayer !== false){
+                                subLayer.then(function (layer) {
+                                    modelayers.addLayer(subLayer);
+                                    if(i === infos.length -1){
+                                        console.log("u3f model layer load");
+                                        app.showLayer(modelayers.getName(),true);
+                                    }
+                                }).fail(function (layer) {
+
+                                });
+                            }
+                        }
+                        window.metalayers[info.name] = info;
+                    }
+                })
+            } catch (localBuldError) {
+                console.log('Initialize Error Message : ' + localBuldError);
+            }
+        }
+
+    });
+</script>
+</body>
+</html>

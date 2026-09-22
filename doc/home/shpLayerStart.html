@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D SHP 레이어 (U3dModelShapeLayer)</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="3d-shp-레이어-u3dmodelshapelayer">3D SHP 레이어 (U3dModelShapeLayer)</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-3d-shp-%EB%A0%88%EC%9D%B4%EC%96%B4-%EC%9D%B4%ED%95%B4%ED%95%98%EA%B3%A0-%EC%8B%9C%EC%9E%91%ED%95%98%EA%B8%B0">3D SHP 레이어 이해하고 시작하기</a></li>
+<li><a href="#2-shp-%ED%8C%8C%EC%9D%BC%EC%9D%84-%EC%9D%BD%EC%96%B4-3d-%EA%B1%B4%EB%AC%BC%EB%A1%9C-%ED%91%9C%EC%8B%9C%ED%95%98%EA%B8%B0">SHP 파일을 읽어 3D 건물로 표시하기</a></li>
+<li><a href="#3-%EA%B1%B4%EB%AC%BC-%EB%86%92%EC%9D%B4%EC%99%80-%EB%9D%BC%EB%B2%A8-%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0">건물 높이와 라벨 설정하기</a></li>
+<li><a href="#4-%EC%83%89%EC%83%81%EA%B3%BC-%ED%85%8D%EC%8A%A4%EC%B2%98-%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0">색상과 텍스처 설정하기</a></li>
+<li><a href="#5-%EA%B1%B4%EB%AC%BC%EA%B3%BC-%EC%9B%90%EB%B3%B8-feature-%EC%A1%B0%ED%9A%8C%ED%95%98%EA%B8%B0">건물과 원본 Feature 조회하기</a></li>
+<li><a href="#6-%EA%B1%B4%EB%AC%BC-%EC%B8%B5-%EC%A1%B0%ED%9A%8C%ED%95%98%EA%B3%A0-%EC%84%A0%ED%83%9D%ED%95%98%EA%B8%B0">건물 층 조회하고 선택하기</a></li>
+<li><a href="#7-%EA%B1%B4%EB%AC%BC-%EC%A0%9C%EA%B1%B0%ED%95%98%EA%B3%A0-%EB%A0%88%EC%9D%B4%EC%96%B4-%EC%A0%95%EB%A6%AC%ED%95%98%EA%B8%B0">건물 제거하고 레이어 정리하기</a></li>
+<li><a href="#8-%EC%A2%8C%ED%91%9C%EA%B3%84%EC%99%80-%EB%8D%B0%EC%9D%B4%ED%84%B0-%EC%A0%9C%EC%95%BD-%ED%99%95%EC%9D%B8%ED%95%98%EA%B8%B0">좌표계와 데이터 제약 확인하기</a></li>
+</ol>
+<div class="document-thumbnail" data-size="medium">
+<figure class="document-image">
+<img src="image/shapeLayerStart/thumbnail.png" alt="3D SHP 레이어로 아파트 단지를 표시한 모습" loading="eager">
+<figcaption>3D SHP 레이어로 아파트 단지를 표시한 모습</figcaption>
+</figure>
+</div>
+<p><code>U3dModelShapeLayer</code>는 SHP 파일에서 변환한 GeoJSON <code>FeatureCollection</code>의 면 도형을 높이가 있는 3D 건물 Mesh로 만드는 레이어입니다.<br>이 문서는 <a href="../tutorial-official/complexShp.html">3D SHP 실행 예제</a>를 바탕으로 파일 읽기, 높이와 스타일 설정, 건물 조회와 제거, 층 선택 및 자원 정리 흐름을 설명합니다.</p>
+<hr>
+<h2 id="1-3d-shp-레이어-이해하고-시작하기">1. 3D SHP 레이어 이해하고 시작하기</h2>
+<p><code>U3dModelShapeLayer</code>는 건물 외곽선과 속성 정보가 들어 있는 SHP 데이터를 3D로 돌출해 표시할 때 사용합니다.<br>높이가 필요 없는 지표면 도형은 <a href="shpLayer2DStart.html#1-2d-shp-%EB%A0%88%EC%9D%B4%EC%96%B4-%EC%9D%B4%ED%95%B4%ED%95%98%EA%B3%A0-%EC%8B%9C%EC%9E%91%ED%95%98%EA%B8%B0">2D SHP 레이어 - 2D SHP 레이어 이해하고 시작하기</a>를 사용합니다.</p>
+<p>레이어를 만들기 전에 지형 또는 이미지 지도와 <code>U3dApp</code>의 초기화가 끝나 있어야 합니다.<br>이 문서에서는 준비된 앱 객체의 이름을 <code>app</code>으로 사용합니다.</p>
+<h4 class="api-heading" id="api">API</h4>
+<p>new GeOnDT.model.U3dModelShapeLayer(<code>options</code>) : GeoJSON 면 도형을 3D 건물로 생성할 레이어를 만드는 생성자</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>options</code> (<code>U3dModelShapeLayerCO</code>) : 레이어 생성 옵션. 모든 속성을 생략할 수 있음</li>
+<li><code>options.name</code> (<code>string</code>) : 앱에서 레이어를 찾을 때 사용할 이름. 생략하면 GUID를 자동 생성</li>
+<li><code>options.drawline</code> (<code>boolean</code>) : 건물 외곽선 생성 여부. 기본값: <code>true</code></li>
+<li><code>options.crs</code> (<code>string</code>) : 레이어가 사용하는 월드 좌표계. 기본값: <code>EPSG:3857</code></li>
+<li><code>options.sourceCRS</code> (<code>string</code>) : 원본 데이터 좌표계 정보로 보관할 값. 기본값: <code>EPSG:5179</code></li>
+<li><code>options.minlevel</code> (<code>number</code>) : 건물을 표시할 타일 레벨. 기본값: <code>17</code></li>
+<li><code>options.style</code> (<code>object</code>) : 모든 건물에 적용할 기본 스타일</li>
+<li><code>options.style.color</code> (<code>THREE.ColorRepresentation</code>) : 기본 건물 색상. 기본값: <code>0xfaebd7</code></li>
+<li><code>options.style.opacity</code> (<code>number</code>) : 기본 불투명도. <code>0</code>은 완전 투명, <code>1</code>은 완전 불투명. 기본값: <code>1</code></li>
+<li><code>options.style.visible</code> (<code>boolean</code>) : 건물 표시 여부. 기본값: <code>true</code></li>
+<li><code>options.setTopSideStyle</code> (<code>boolean</code>) : 윗면과 옆면에 서로 다른 재질을 사용할지 여부. 기본값: <code>false</code></li>
+<li><code>options.showLabel</code> (<code>boolean</code>) : 건물별 라벨 생성 여부. 기본값: <code>false</code></li>
+<li><code>options.fieldheight</code> (<code>string</code>) : 건물 전체 높이를 읽을 Feature 속성 이름</li>
+<li><code>options.fieldlandheight</code> (<code>string</code>) : 지면에서 띄울 높이를 읽을 Feature 속성 이름</li>
+<li><code>options.fieldlabeltext</code> (<code>string</code>) : 라벨 문자열을 읽을 Feature 속성 이름</li>
+<li><code>options.fieldFloor</code> (<code>string</code>) : 층수를 읽을 Feature 속성 이름</li>
+<li><code>options.heightFunction</code> (<code>function(U3dModelShapeFeature): number</code>) : Feature별 건물 전체 높이를 반환하는 함수</li>
+<li><code>options.landHeightFunction</code> (<code>function(U3dModelShapeFeature): number</code>) : Feature별 지면 기준 높이를 반환하는 함수</li>
+<li><code>options.styleFunction</code> (<code>function(U3dModelShapeFeature): object</code>) : Feature별 표시 스타일을 반환하는 함수</li>
+<li><code>options.depthOffset</code> (<code>number</code>) : 반투명 건물의 깊이 충돌을 줄이는 오프셋. 기본값: <code>1</code></li>
+<li><code>options.usetexture</code> (<code>boolean</code>) : 생성 시 텍스처를 적용할지 여부. 기본값: <code>false</code></li>
+<li><code>options.textureurl</code> (<code>string | Array&lt;string&gt;</code>) : 미리 불러올 텍스처 URL 또는 URL 배열</li>
+<li><code>options.featureCollection</code> (<code>U3dModelShapeFeatureCollection</code>) : 설정값으로 보관할 FeatureCollection</li>
+</ul>
+</details>
+<p><code>featureCollection</code> 생성자 옵션은 컬렉션을 내부 목록에 보관하지만 건물 Mesh를 만들지는 않습니다.<br>건물을 생성하려면 앱에 레이어를 등록한 뒤 <code>addFeatureCollection()</code>을 호출해야 합니다.</p>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>U3dApp.addLayer(<code>layer</code>) : 생성한 레이어를 앱에 등록하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>layer</code> (<code>U3dLayer</code>) : 등록할 3D SHP 레이어. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>U3dLayer | undefined</code>) : 등록한 레이어 또는 등록하지 못한 경우 <code>undefined</code></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-2">API</h4>
+<p>U3dApp.showLayer(<code>name</code>, <code>show</code>) : 레이어를 표시하거나 숨기고 로딩이 끝날 때 완료되는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>name</code> (<code>string</code>) : 표시 상태를 바꿀 레이어 이름. <strong>필수</strong></li>
+<li><code>show</code> (<code>boolean</code>) : <code>true</code>이면 표시하고 <code>false</code>이면 숨김. 기본값: <code>true</code></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Promise&lt;{result: string, content: U3dLayer}&gt; | false</code>) : 로딩 완료 Promise. 앱이나 지도가 준비되지 않았으면 <code>false</code></li>
+</ul>
+</details>
+<p>텍스처 URL을 생성자에 전달했다면 <code>showLayer()</code>의 Promise가 완료될 때까지 기다린 뒤 Feature를 추가합니다.<br>텍스처를 사용하지 않아도 같은 순서를 따르면 초기화 시점 차이 없이 안전하게 작업할 수 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> shpLayer <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>model<span class="token punctuation">.</span>U3dModelShapeLayer</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'buildings-3d'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">minlevel</span><span class="token operator">:</span> <span class="token number">17</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">drawline</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">style</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+        <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token number">0xd4d6d7</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.9</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">visible</span><span class="token operator">:</span> <span class="token boolean">true</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>app<span class="token punctuation">.</span><span class="token function">addLayer</span><span class="token punctuation">(</span>shpLayer<span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'3D SHP 레이어를 앱에 등록하지 못했습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> showResult <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">showLayer</span><span class="token punctuation">(</span>shpLayer<span class="token punctuation">.</span><span class="token function">getName</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span>showResult <span class="token operator">===</span> <span class="token boolean">false</span><span class="token punctuation">)</span>
+    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'지도가 아직 준비되지 않았습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">await</span> showResult<span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="2-shp-파일을-읽어-3d-건물로-표시하기">2. SHP 파일을 읽어 3D 건물로 표시하기</h2>
+<p><code>UShpParser</code>는 <code>.shp</code>의 도형, <code>.prj</code>의 좌표계와 <code>.dbf</code>의 속성을 GeoJSON <code>FeatureCollection</code>으로 변환합니다.<br><code>.shp</code>와 <code>.dbf</code>는 <code>ArrayBuffer</code>로 읽고 <code>.prj</code>는 문자열로 읽습니다.</p>
+<h4 class="api-heading" id="api-3">API</h4>
+<p>UShpParser.parseShp(<code>shpFile</code>, <code>projFile</code>) : SHP 도형을 <code>EPSG:4326</code> 위경도 GeoJSON 도형 목록으로 변환하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>shpFile</code> (<code>{result: ArrayBuffer}</code>) : <code>.shp</code> 파일을 읽은 결과. <strong>필수</strong></li>
+<li><code>projFile</code> (<code>{result: string} | string</code>) : <code>.prj</code> 파일을 읽은 결과 또는 실제 원본 좌표계의 EPSG 코드. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Array&lt;object&gt; | undefined</code>) : 변환한 GeoJSON 도형 목록. 입력이 없으면 <code>undefined</code></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-4">API</h4>
+<p>UShpParser.parseDbf(<code>dbfFile</code>, <code>encoding</code>) : DBF 속성 테이블을 Feature 순서의 속성 객체 목록으로 변환하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>dbfFile</code> (<code>{result: ArrayBuffer}</code>) : <code>.dbf</code> 파일을 읽은 결과. <strong>필수</strong></li>
+<li><code>encoding</code> (<code>string</code>) : 문자열 인코딩. 한글이 깨지면 <code>euc-kr</code>을 사용. 기본값: <code>utf8</code></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Array&lt;object&gt; | undefined</code>) : Feature 속성 객체 목록</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-5">API</h4>
+<p>UShpParser.combine(<code>arr</code>) : 도형 목록과 속성 목록을 GeoJSON FeatureCollection으로 결합하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>arr</code> (<code>[Array&lt;object&gt;, Array&lt;object&gt; | undefined]</code>) : <code>[도형 목록, 속성 목록]</code> 순서의 배열. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>U3dModelShapeFeatureCollection</code>) : <code>features</code> 배열을 가진 FeatureCollection</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-6">API</h4>
+<p>U3dModelShapeLayer.addFeatureCollection(<code>featureCollection</code>) : 컬렉션의 Feature를 3D 건물로 생성해 레이어에 추가하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>featureCollection</code> (<code>U3dModelShapeFeatureCollection</code>) : 3D 건물로 만들 Feature 목록. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Promise&lt;unknown&gt;</code>) : Feature 처리가 끝나면 완료되고 처리 중 오류가 발생하면 거부되는 Promise</li>
+</ul>
+</details>
+<p>이 함수는 기존 건물을 교체하지 않고 새 컬렉션과 건물을 계속 추가합니다.<br>등록 과정에서 컬렉션과 각 Feature에 Mesh를 연결하는 <code>uuid</code>가 추가되므로 입력 객체가 변경됩니다.</p>
+<h3 id="1-파일-세트-읽기">1. 파일 세트 읽기</h3>
+<p>같은 기본 이름의 <code>.shp</code>, <code>.prj</code>, <code>.dbf</code>를 한 번에 선택하고 확장자에 맞는 방식으로 읽습니다.<br><code>.shp</code>는 필수이고 <code>.prj</code>와 <code>.dbf</code>는 선택 사항입니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">readShapefilePart</span><span class="token punctuation">(</span><span class="token parameter">file</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">Promise</span><span class="token punctuation">(</span><span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token parameter">resolve<span class="token punctuation">,</span> reject</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">const</span> dotIndex <span class="token operator">=</span> file<span class="token punctuation">.</span>name<span class="token punctuation">.</span><span class="token function">lastIndexOf</span><span class="token punctuation">(</span><span class="token string">'.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">const</span> name <span class="token operator">=</span> file<span class="token punctuation">.</span>name<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">,</span> dotIndex<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">const</span> ext <span class="token operator">=</span> file<span class="token punctuation">.</span>name<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span>dotIndex <span class="token operator">+</span> <span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toLowerCase</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token punctuation">[</span><span class="token string">'shp'</span><span class="token punctuation">,</span> <span class="token string">'prj'</span><span class="token punctuation">,</span> <span class="token string">'dbf'</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">includes</span><span class="token punctuation">(</span>ext<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            <span class="token function">reject</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'지원하지 않는 파일 형식입니다: '</span> <span class="token operator">+</span> file<span class="token punctuation">.</span>name<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">return</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span>
+
+        <span class="token keyword">const</span> reader <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">FileReader</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        reader<span class="token punctuation">.</span><span class="token function-variable function">onload</span> <span class="token operator">=</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            <span class="token function">resolve</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">result</span><span class="token operator">:</span> reader<span class="token punctuation">.</span>result<span class="token punctuation">,</span> <span class="token literal-property property">ext</span><span class="token operator">:</span> ext<span class="token punctuation">,</span> <span class="token literal-property property">name</span><span class="token operator">:</span> name<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span><span class="token punctuation">;</span>
+        reader<span class="token punctuation">.</span><span class="token function-variable function">onerror</span> <span class="token operator">=</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            <span class="token function">reject</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'파일을 읽지 못했습니다: '</span> <span class="token operator">+</span> file<span class="token punctuation">.</span>name<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span><span class="token punctuation">;</span>
+
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>ext <span class="token operator">===</span> <span class="token string">'prj'</span><span class="token punctuation">)</span>
+            reader<span class="token punctuation">.</span><span class="token function">readAsText</span><span class="token punctuation">(</span>file<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">else</span>
+            reader<span class="token punctuation">.</span><span class="token function">readAsArrayBuffer</span><span class="token punctuation">(</span>file<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">readShapefileSet</span><span class="token punctuation">(</span><span class="token parameter">files</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> parts <span class="token operator">=</span> <span class="token keyword">await</span> Promise<span class="token punctuation">.</span><span class="token function">all</span><span class="token punctuation">(</span>files<span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span>readShapefilePart<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">const</span> fileSet <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token literal-property property">name</span><span class="token operator">:</span> parts<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>name<span class="token punctuation">}</span><span class="token punctuation">;</span>
+    parts<span class="token punctuation">.</span><span class="token function">forEach</span><span class="token punctuation">(</span><span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token parameter">part</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>part<span class="token punctuation">.</span>name <span class="token operator">!==</span> fileSet<span class="token punctuation">.</span>name<span class="token punctuation">)</span>
+            <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'.shp, .prj, .dbf 파일 이름이 서로 같아야 합니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        fileSet<span class="token punctuation">[</span>part<span class="token punctuation">.</span>ext<span class="token punctuation">]</span> <span class="token operator">=</span> part<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>fileSet<span class="token punctuation">.</span>shp<span class="token punctuation">)</span>
+        <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'.shp 파일을 반드시 선택해야 합니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> fileSet<span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h3 id="2-선택한-파일로-3d-건물-생성하기">2. 선택한 파일로 3D 건물 생성하기</h3>
+<p>다음 예제는 <code>&lt;input type=&quot;file&quot; id=&quot;shp-files&quot; accept=&quot;.shp,.prj,.dbf&quot; multiple&gt;</code> 요소와 1절에서 만든 <code>shpLayer</code>를 사용합니다.<br><code>.prj</code>가 없다면 데이터의 실제 좌표계 코드를 기본값 자리에 지정해야 합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> fileInput <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'#shp-files'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+fileInput<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'change'</span><span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token parameter">event</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> files <span class="token operator">=</span> Array<span class="token punctuation">.</span><span class="token function">from</span><span class="token punctuation">(</span>event<span class="token punctuation">.</span>target<span class="token punctuation">.</span>files <span class="token operator">||</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>files<span class="token punctuation">.</span>length <span class="token operator">===</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token keyword">return</span><span class="token punctuation">;</span>
+
+    fileInput<span class="token punctuation">.</span>disabled <span class="token operator">=</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+    <span class="token keyword">try</span> <span class="token punctuation">{</span>
+        <span class="token keyword">const</span> fileSet <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">readShapefileSet</span><span class="token punctuation">(</span>files<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">const</span> parser <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>parser<span class="token punctuation">.</span>UShpParser</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">const</span> geometries <span class="token operator">=</span> parser<span class="token punctuation">.</span><span class="token function">parseShp</span><span class="token punctuation">(</span>fileSet<span class="token punctuation">.</span>shp<span class="token punctuation">,</span> fileSet<span class="token punctuation">.</span>prj <span class="token operator">||</span> <span class="token string">'EPSG:5179'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>geometries <span class="token operator">||</span> geometries<span class="token punctuation">.</span>length <span class="token operator">===</span> <span class="token number">0</span><span class="token punctuation">)</span>
+            <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'SHP 파일에 생성할 도형이 없습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token keyword">const</span> attributes <span class="token operator">=</span> fileSet<span class="token punctuation">.</span>dbf
+            <span class="token operator">?</span> parser<span class="token punctuation">.</span><span class="token function">parseDbf</span><span class="token punctuation">(</span>fileSet<span class="token punctuation">.</span>dbf<span class="token punctuation">,</span> <span class="token string">'euc-kr'</span><span class="token punctuation">)</span>
+            <span class="token operator">:</span> <span class="token keyword">undefined</span><span class="token punctuation">;</span>
+        <span class="token keyword">const</span> featureCollection <span class="token operator">=</span> parser<span class="token punctuation">.</span><span class="token function">combine</span><span class="token punctuation">(</span><span class="token punctuation">[</span>geometries<span class="token punctuation">,</span> attributes<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">await</span> shpLayer<span class="token punctuation">.</span><span class="token function">addFeatureCollection</span><span class="token punctuation">(</span>featureCollection<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token keyword">await</span> app<span class="token punctuation">.</span><span class="token function">fitLayerExtent</span><span class="token punctuation">(</span>shpLayer<span class="token punctuation">.</span><span class="token function">getName</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">,</span> <span class="token number">800</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token number">45</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>fileSet<span class="token punctuation">.</span>name <span class="token operator">+</span> <span class="token string">'.shp 생성 완료: '</span> <span class="token operator">+</span> featureCollection<span class="token punctuation">.</span>features<span class="token punctuation">.</span>length <span class="token operator">+</span> <span class="token string">'개 건물'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>error<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        console<span class="token punctuation">.</span><span class="token function">error</span><span class="token punctuation">(</span>error <span class="token keyword">instanceof</span> <span class="token class-name">Error</span> <span class="token operator">?</span> error<span class="token punctuation">.</span>message <span class="token operator">:</span> <span class="token function">String</span><span class="token punctuation">(</span>error<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span> <span class="token keyword">finally</span> <span class="token punctuation">{</span>
+        fileInput<span class="token punctuation">.</span>disabled <span class="token operator">=</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+        fileInput<span class="token punctuation">.</span>value <span class="token operator">=</span> <span class="token string">''</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p><code>addFeatureCollection()</code>은 각 Feature를 동기적으로 Mesh로 만들고 Deferred 객체를 완료합니다.<br>화면에는 현재 카메라와 타일 레벨에 해당하는 건물부터 순차적으로 나타납니다.</p>
+<hr>
+<h2 id="3-건물-높이와-라벨-설정하기">3. 건물 높이와 라벨 설정하기</h2>
+<p>건물 전체 높이는 미터 단위이며 다음 우선순위로 결정됩니다.</p>
+<ol>
+<li><code>heightFunction(feature)</code>의 반환값</li>
+<li>Feature의 <code>hg</code> 속성</li>
+<li>Feature의 <code>bd_height</code> 속성</li>
+<li><code>fieldheight</code>가 가리키는 속성</li>
+<li><code>fieldFloor</code>가 가리키는 층수에 층 높이를 곱한 값</li>
+<li>위 값이 모두 없으면 <code>100m</code></li>
+</ol>
+<p>층 높이는 기본 <code>4m</code>입니다.<br>현재 구현은 생성자 옵션 <code>floorHeight</code>로 공통 층 높이를 받고 <code>fieldFloorHeight</code>가 가리키는 Feature 속성으로 건물마다 층 높이를 바꿀 수 있습니다.</p>
+<p>지면 기준 높이는 <code>landHeightFunction(feature)</code>, Feature의 <code>el</code>, <code>fieldlandheight</code>가 가리키는 속성 순서로 결정되며 기본값은 <code>0m</code>입니다.</p>
+<h3 id="1-속성-이름으로-높이-설정하기">1. 속성 이름으로 높이 설정하기</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> shpLayer <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>model<span class="token punctuation">.</span>U3dModelShapeLayer</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'buildings-by-field'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">fieldFloor</span><span class="token operator">:</span> <span class="token string">'FLR_NO'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">floorHeight</span><span class="token operator">:</span> <span class="token number">3.3</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">fieldlandheight</span><span class="token operator">:</span> <span class="token string">'LAND_HG'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">fieldlabeltext</span><span class="token operator">:</span> <span class="token string">'BLD_NM'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">showLabel</span><span class="token operator">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>DBF의 숫자 속성은 문자열일 수 있지만 레이어가 <code>Number()</code>로 변환합니다.<br>숫자로 변환할 수 없는 지면 높이는 <code>0</code>으로 처리됩니다.</p>
+<h3 id="2-콜백으로-높이-설정하기">2. 콜백으로 높이 설정하기</h3>
+<p>콜백은 Mesh 생성 시 Feature마다 한 번 호출됩니다.<br>콜백 안에서 속성이 없거나 숫자가 아닌 경우를 처리하고 유효한 미터 값을 반환합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">heightFunction</span><span class="token punctuation">(</span><span class="token parameter">feature</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> properties <span class="token operator">=</span> feature<span class="token punctuation">.</span>properties <span class="token operator">||</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">;</span>
+    <span class="token keyword">const</span> floorCount <span class="token operator">=</span> <span class="token function">Number</span><span class="token punctuation">(</span>properties<span class="token punctuation">.</span><span class="token constant">FLR_NO</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">const</span> floorHeight <span class="token operator">=</span> <span class="token function">Number</span><span class="token punctuation">(</span>properties<span class="token punctuation">.</span><span class="token constant">EXTR_HG</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>Number<span class="token punctuation">.</span><span class="token function">isFinite</span><span class="token punctuation">(</span>floorCount<span class="token punctuation">)</span> <span class="token operator">||</span> <span class="token operator">!</span>Number<span class="token punctuation">.</span><span class="token function">isFinite</span><span class="token punctuation">(</span>floorHeight<span class="token punctuation">)</span><span class="token punctuation">)</span>
+        <span class="token keyword">return</span> <span class="token number">10</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> Math<span class="token punctuation">.</span><span class="token function">max</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">,</span> floorCount <span class="token operator">*</span> floorHeight<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">function</span> <span class="token function">landHeightFunction</span><span class="token punctuation">(</span><span class="token parameter">feature</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> landHeight <span class="token operator">=</span> <span class="token function">Number</span><span class="token punctuation">(</span><span class="token punctuation">(</span>feature<span class="token punctuation">.</span>properties <span class="token operator">||</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token constant">LAND_HG</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> Number<span class="token punctuation">.</span><span class="token function">isFinite</span><span class="token punctuation">(</span>landHeight<span class="token punctuation">)</span> <span class="token operator">?</span> landHeight <span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">const</span> shpLayer <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>model<span class="token punctuation">.</span>U3dModelShapeLayer</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'buildings-by-function'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">heightFunction</span><span class="token operator">:</span> heightFunction<span class="token punctuation">,</span>
+    <span class="token literal-property property">landHeightFunction</span><span class="token operator">:</span> landHeightFunction
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h4 class="api-heading" id="api-7">API</h4>
+<p>U3dModelShapeLayer.showLabel(<code>show</code>) : 모든 건물의 속성 라벨을 표시하거나 숨기는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>show</code> (<code>boolean</code>) : <code>true</code>이면 라벨을 생성하거나 표시하고 <code>false</code>이면 제거. <strong>필수</strong></li>
+</ul>
+</details>
+<p><code>fieldlabeltext</code>가 지정되어 있으면 해당 Feature 속성을 라벨로 사용합니다.<br>지정하지 않으면 Mesh 이름을 사용하므로 의미 있는 라벨을 표시하려면 DBF 필드 이름을 설정하는 것이 좋습니다.</p>
+<pre class="language-javascript"><code class="language-javascript">shpLayer<span class="token punctuation">.</span><span class="token function">showLabel</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+shpLayer<span class="token punctuation">.</span><span class="token function">showLabel</span><span class="token punctuation">(</span><span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="4-색상과-텍스처-설정하기">4. 색상과 텍스처 설정하기</h2>
+<p>공통 <code>style</code>은 모든 건물에 적용되고 <code>styleFunction</code>은 Feature별 스타일을 우선 적용합니다.<br><code>styleFunction</code>의 반환값을 바꾼 뒤에는 <code>updateStyle()</code>을 호출해야 기존 Mesh의 재질이 다시 생성됩니다.</p>
+<h4 class="api-heading" id="api-8">API</h4>
+<p>U3dModelShapeLayer.setStyle(<code>style</code>) : 기존 건물의 공통 색상과 불투명도를 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>style</code> (<code>object</code>) : 변경할 스타일. 기본값: <code>{}</code></li>
+<li><code>style.color</code> (<code>THREE.ColorRepresentation</code>) : 건물 색상</li>
+<li><code>style.opacity</code> (<code>number</code>) : 불투명도. <code>0</code> 초과 <code>1</code> 이하 사용 권장</li>
+<li><code>style.label</code> (<code>string</code>) : 레이어 전체 바운딩 박스 중심에 표시할 공통 라벨</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-9">API</h4>
+<p>U3dModelShapeLayer.getStyle() : 현재 공통 스타일 객체를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>object</code>) : 레이어가 직접 사용하는 스타일 객체</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-10">API</h4>
+<p>U3dModelShapeLayer.updateStyle() : <code>styleFunction</code>을 다시 실행하고 모든 건물의 재질을 갱신하는 함수</p>
+<pre class="language-javascript"><code class="language-javascript">shpLayer<span class="token punctuation">.</span><span class="token function">setStyle</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#4c8bf5'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.75</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>shpLayer<span class="token punctuation">.</span><span class="token function">getStyle</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p><code>getStyle()</code>은 복사본이 아니라 내부 객체를 반환합니다.<br>속성을 직접 바꿨다면 화면 반영을 위해 <code>updateStyle()</code>을 호출합니다.</p>
+<h3 id="1-feature별-스타일-설정하기">1. Feature별 스타일 설정하기</h3>
+<p><code>styleFunction(feature)</code>은 <code>color</code>, <code>opacity</code>, <code>visible</code>, <code>imgvisible</code>, <code>imgurl</code>, <code>multipleTexture</code>, <code>multiSideFunction</code>을 포함하는 객체를 반환할 수 있습니다.<br>반환값이 없으면 공통 <code>style</code>을 사용합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">let</span> highlightPublicBuildings <span class="token operator">=</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+
+<span class="token keyword">function</span> <span class="token function">styleFunction</span><span class="token punctuation">(</span><span class="token parameter">feature</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> properties <span class="token operator">=</span> feature<span class="token punctuation">.</span>properties <span class="token operator">||</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>highlightPublicBuildings <span class="token operator">&amp;&amp;</span> properties<span class="token punctuation">.</span><span class="token constant">BUILDING_TYPE</span> <span class="token operator">===</span> <span class="token string">'PUBLIC'</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> <span class="token punctuation">{</span>
+            <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#ffb300'</span><span class="token punctuation">,</span>
+            <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+            <span class="token literal-property property">visible</span><span class="token operator">:</span> <span class="token boolean">true</span>
+        <span class="token punctuation">}</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+    <span class="token keyword">return</span> <span class="token punctuation">{</span>
+        <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#d4d6d7'</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.7</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">visible</span><span class="token operator">:</span> <span class="token boolean">true</span>
+    <span class="token punctuation">}</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">const</span> shpLayer <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>model<span class="token punctuation">.</span>U3dModelShapeLayer</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'styled-buildings'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">styleFunction</span><span class="token operator">:</span> styleFunction
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+highlightPublicBuildings <span class="token operator">=</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+shpLayer<span class="token punctuation">.</span><span class="token function">updateStyle</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-기본-텍스처-적용하기">2. 기본 텍스처 적용하기</h3>
+<p>텍스처는 생성자에서 먼저 불러오므로 <code>showLayer()</code> 완료 후 Feature를 추가합니다.<br>브라우저가 직접 읽을 수 있도록 같은 출처의 URL을 사용하거나 서버에 올바른 CORS 헤더를 설정해야 합니다.<br>다음 예제의 <code>featureCollection</code>은 2절에서 <code>parser.combine()</code>으로 만든 객체입니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> texturedLayer <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>model<span class="token punctuation">.</span>U3dModelShapeLayer</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'textured-buildings'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">usetexture</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">textureurl</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+        <span class="token string">'/assets/building-roof.png'</span><span class="token punctuation">,</span>
+        <span class="token string">'/assets/building-wall.png'</span>
+    <span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">setTopSideStyle</span><span class="token operator">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>app<span class="token punctuation">.</span><span class="token function">addLayer</span><span class="token punctuation">(</span>texturedLayer<span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'텍스처 레이어를 등록하지 못했습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> textureReady <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">showLayer</span><span class="token punctuation">(</span>texturedLayer<span class="token punctuation">.</span><span class="token function">getName</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span>textureReady <span class="token operator">===</span> <span class="token boolean">false</span><span class="token punctuation">)</span>
+    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'지도가 아직 준비되지 않았습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">await</span> textureReady<span class="token punctuation">;</span>
+<span class="token keyword">await</span> texturedLayer<span class="token punctuation">.</span><span class="token function">addFeatureCollection</span><span class="token punctuation">(</span>featureCollection<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p><code>setTopSideStyle</code>이 <code>true</code>이면 <code>textureurl[0]</code>은 윗면, <code>textureurl[1]</code>은 옆면에 사용됩니다.<br>두 번째 URL이 없으면 첫 번째 텍스처를 양쪽에 사용합니다.</p>
+<h3 id="3-면마다-텍스처-선택하기">3. 면마다 텍스처 선택하기</h3>
+<p>여러 재질을 사용하려면 <code>styleFunction</code>이 <code>multipleTexture: true</code>와 <code>multiSideFunction</code>을 반환해야 합니다.<br><code>multiSideFunction(mesh, vertices, width, floor, normal)</code>은 각 면을 순회하며 사용할 재질 인덱스와 반복 설정을 반환합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">multiSideFunction</span><span class="token punctuation">(</span><span class="token parameter">mesh<span class="token punctuation">,</span> vertices<span class="token punctuation">,</span> width<span class="token punctuation">,</span> floor<span class="token punctuation">,</span> normal</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>floor <span class="token operator">===</span> <span class="token string">'roof'</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> <span class="token punctuation">{</span>
+            <span class="token literal-property property">materialIndex</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+            <span class="token literal-property property">imageSize</span><span class="token operator">:</span> <span class="token number">1024</span><span class="token punctuation">,</span>
+            <span class="token literal-property property">repeat</span><span class="token operator">:</span> <span class="token number">5</span>
+        <span class="token punctuation">}</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token keyword">return</span> <span class="token punctuation">{</span>
+        <span class="token literal-property property">materialIndex</span><span class="token operator">:</span> width <span class="token operator">&lt;</span> <span class="token number">10</span> <span class="token operator">?</span> <span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span> <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">imageScale</span><span class="token operator">:</span> <span class="token number">0.7</span>
+    <span class="token punctuation">}</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">function</span> <span class="token function">texturedStyleFunction</span><span class="token punctuation">(</span><span class="token parameter">feature</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">return</span> <span class="token punctuation">{</span>
+        <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#ffffff'</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">visible</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">imgvisible</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">multipleTexture</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">multiSideFunction</span><span class="token operator">:</span> multiSideFunction
+    <span class="token punctuation">}</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<p><code>materialIndex</code>는 <code>textureurl</code> 배열의 인덱스이며 필수입니다.<br>두 인덱스를 반환하면 두 번째 이미지를 첫 번째 이미지 위에 합성하고 <code>imageScale</code>로 합성 크기를 조절합니다.<br><code>repeat</code>을 사용하려면 양의 <code>imageSize</code>도 함께 반환합니다.</p>
+<div class="document-sized-image" data-size="large">
+<figure class="document-image">
+<img src="image/shapeLayerStart/multisideFunction.png" alt="여러 외벽 텍스처와 로고 텍스처를 건물 면마다 다르게 적용한 결과" loading="eager">
+<figcaption>여러 외벽 텍스처와 로고 텍스처를 건물 면마다 다르게 적용한 결과</figcaption>
+</figure>
+</div>
+<hr>
+<h2 id="5-건물과-원본-feature-조회하기">5. 건물과 원본 Feature 조회하기</h2>
+<p>FeatureCollection과 Feature에는 건물 생성 시 Mesh와 연결되는 <code>uuid</code>가 기록됩니다.<br>공개 검색 API를 사용하면 내부 <code>_modelList</code>에 직접 접근하지 않고 원본 데이터와 Mesh를 서로 찾을 수 있습니다.</p>
+<h4 class="api-heading" id="api-11">API</h4>
+<p>U3dModelShapeLayer.getFeatureCollection() : 레이어에 등록된 FeatureCollection 목록을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Array&lt;U3dModelShapeFeatureCollection&gt;</code>) : 등록 순서의 FeatureCollection 배열</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-12">API</h4>
+<p>U3dModelShapeLayer.searchModelAsFeatureCollection(<code>featureCollection</code>) : 컬렉션에 속한 모든 건물 Mesh를 찾는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>featureCollection</code> (<code>U3dModelShapeFeatureCollection</code>) : 조회할 컬렉션. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Array&lt;UMesh&gt;</code>) : 조회된 건물 Mesh 배열. 없으면 빈 배열</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-13">API</h4>
+<p>U3dModelShapeLayer.searchModelAsFeature(<code>feature</code>) : 단일 Feature에 해당하는 건물 Mesh를 찾는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>feature</code> (<code>U3dModelShapeFeature</code>) : 조회할 Feature. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>UMesh | undefined</code>) : 연결된 건물 Mesh 또는 <code>undefined</code></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-14">API</h4>
+<p>U3dModelShapeLayer.searchFeatureAsMesh(<code>mesh</code>) : 건물 Mesh에 연결된 원본 Feature와 FeatureCollection을 찾는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>mesh</code> (<code>UMesh</code>) : 조회할 건물 Mesh. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>{featureCollection: U3dModelShapeFeatureCollection | undefined, feature: U3dModelShapeFeature | undefined}</code>) : 원본 데이터 조회 결과</li>
+</ul>
+</details>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> collections <span class="token operator">=</span> shpLayer<span class="token punctuation">.</span><span class="token function">getFeatureCollection</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> firstCollection <span class="token operator">=</span> collections<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span>firstCollection<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> models <span class="token operator">=</span> shpLayer<span class="token punctuation">.</span><span class="token function">searchModelAsFeatureCollection</span><span class="token punctuation">(</span>firstCollection<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">const</span> firstFeature <span class="token operator">=</span> firstCollection<span class="token punctuation">.</span>features<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+    <span class="token keyword">const</span> firstModel <span class="token operator">=</span> firstFeature
+        <span class="token operator">?</span> shpLayer<span class="token punctuation">.</span><span class="token function">searchModelAsFeature</span><span class="token punctuation">(</span>firstFeature<span class="token punctuation">)</span>
+        <span class="token operator">:</span> <span class="token keyword">undefined</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>firstModel<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">const</span> source <span class="token operator">=</span> shpLayer<span class="token punctuation">.</span><span class="token function">searchFeatureAsMesh</span><span class="token punctuation">(</span>firstModel<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>source<span class="token punctuation">.</span>feature <span class="token operator">&amp;&amp;</span> source<span class="token punctuation">.</span>feature<span class="token punctuation">.</span>properties<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'건물 수:'</span><span class="token punctuation">,</span> models<span class="token punctuation">.</span>length<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h4 class="api-heading" id="api-15">API</h4>
+<p>U3dModelShapeLayer.getParam() : 저장 가능한 현재 레이어 설정을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>U3dModelShapeLayerParam</code>) : 이름, 레벨, URL, 좌표계, 스타일, 높이 필드와 텍스처 설정</li>
+</ul>
+</details>
+<p><code>getParam()</code>에는 FeatureCollection과 콜백 함수가 포함되지 않습니다.<br>복원하려면 <code>getFeatureCollection()</code> 결과를 별도로 저장하고 <code>heightFunction</code>, <code>landHeightFunction</code>, <code>styleFunction</code>을 코드에서 다시 지정합니다.</p>
+<hr>
+<h2 id="6-건물-층-조회하고-선택하기">6. 건물 층 조회하고 선택하기</h2>
+<p>층 API는 건물 생성 시 계산한 층별 면 정보를 사용합니다.<br><code>floorHeight</code>, <code>fieldFloorHeight</code> 또는 전체 높이와 층수가 올바르지 않으면 층 판정 결과도 올바르지 않습니다.</p>
+<h4 class="api-heading" id="api-16">API</h4>
+<p>U3dModelShapeLayer.traverseAllFloor(<code>mesh</code>, <code>callback</code>) : 건물의 모든 층과 면을 순회하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>mesh</code> (<code>UMesh</code>) : 순회할 건물 Mesh. <strong>필수</strong></li>
+<li><code>callback</code> (<code>function(UMesh, Array&lt;WorldPositionVector3&gt;, number, number | &#39;roof&#39;, Vector3): void</code>) : Mesh, 면의 월드 정점, 너비, 층 번호 또는 <code>roof</code>, 법선 벡터를 받는 함수. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-17">API</h4>
+<p>U3dModelShapeLayer.traverseFloor(<code>mesh</code>, <code>floor</code>, <code>callback</code>) : 지정한 층의 면만 순회하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>mesh</code> (<code>UMesh</code>) : 순회할 건물 Mesh. <strong>필수</strong></li>
+<li><code>floor</code> (<code>number</code>) : 순회할 층 번호. <strong>필수</strong></li>
+<li><code>callback</code> (<code>function(UMesh, Array&lt;WorldPositionVector3&gt;, number, number, Vector3): void</code>) : 층의 각 면 정보를 받는 함수. <strong>필수</strong></li>
+</ul>
+</details>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> models <span class="token operator">=</span> shpLayer<span class="token punctuation">.</span><span class="token function">searchModelAsFeatureCollection</span><span class="token punctuation">(</span>firstCollection<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> model <span class="token operator">=</span> models<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span>model<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    shpLayer<span class="token punctuation">.</span><span class="token function">traverseFloor</span><span class="token punctuation">(</span>model<span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">,</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token parameter">mesh<span class="token punctuation">,</span> vertices<span class="token punctuation">,</span> width<span class="token punctuation">,</span> floor<span class="token punctuation">,</span> normal</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'층:'</span><span class="token punctuation">,</span> floor<span class="token punctuation">,</span> <span class="token string">'면 너비:'</span><span class="token punctuation">,</span> width<span class="token punctuation">,</span> <span class="token string">'정점:'</span><span class="token punctuation">,</span> vertices<span class="token punctuation">,</span> <span class="token string">'법선:'</span><span class="token punctuation">,</span> normal<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h4 class="api-heading" id="api-18">API</h4>
+<p>U3dModelShapeLayer.getFloor(<code>model</code>, <code>vertices</code>) : 월드 좌표 정점이 속한 층 번호를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>model</code> (<code>THREE.Mesh</code>) : 대상 건물 Mesh. <strong>필수</strong></li>
+<li><code>vertices</code> (<code>WorldPositionVector3 | Array&lt;WorldPositionVector3&gt;</code>) : 한 점 또는 같은 면의 점 목록. <code>EPSG:3857</code> 월드 좌표. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>number | undefined</code>) : 층 번호 또는 찾지 못한 경우 <code>undefined</code></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-19">API</h4>
+<p>U3dModelShapeLayer.setSelectFloor(<code>model</code>, <code>target</code>, <code>option</code>) : 건물의 한 층을 강조하거나 투명하게 잘라내는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>model</code> (<code>THREE.Mesh</code>) : 대상 건물 Mesh. <strong>필수</strong></li>
+<li><code>target</code> (<code>WorldPositionVector3 | Array&lt;WorldPositionVector3&gt; | number</code>) : 층을 판정할 월드 좌표 또는 층 번호. <strong>필수</strong></li>
+<li><code>option</code> (<code>object</code>) : 선택 스타일. 기본값: <code>{}</code></li>
+<li><code>option.color</code> (<code>THREE.ColorRepresentation</code>) : 강조 색상. 기본값: <code>0x00ff00</code></li>
+<li><code>option.opacity</code> (<code>number</code>) : 강조 불투명도. 기본값: <code>0.7</code>. <code>0</code>이면 해당 층을 투명하게 잘라냄</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-20">API</h4>
+<p>U3dModelShapeLayer.clearSelectFloor(<code>mesh</code>) : 선택한 층의 강조와 클리핑을 해제하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>mesh</code> (<code>THREE.Mesh</code>) : 선택을 해제할 건물. 생략하면 레이어의 모든 층 선택을 해제</li>
+</ul>
+</details>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">if</span> <span class="token punctuation">(</span>model<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    shpLayer<span class="token punctuation">.</span><span class="token function">setSelectFloor</span><span class="token punctuation">(</span>model<span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+        <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#e00000'</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.5</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    shpLayer<span class="token punctuation">.</span><span class="token function">clearSelectFloor</span><span class="token punctuation">(</span>model<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    shpLayer<span class="token punctuation">.</span><span class="token function">clearSelectFloor</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<div class="document-image-grid" data-columns="2">
+<figure class="document-image">
+<img src="image/shapeLayerStart/층선택.png" alt="여러 건물에서 선택한 층을 빨간색으로 강조한 모습" loading="eager">
+<figcaption>여러 건물에서 선택한 층을 빨간색으로 강조한 모습</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/shapeLayerStart/투명하게선택.png" alt="선택한 층을 투명하게 잘라 건물 내부가 보이는 모습" loading="eager">
+<figcaption>선택한 층을 투명하게 잘라 건물 내부가 보이는 모습</figcaption>
+</figure>
+</div>
+<p><code>opacity: 0</code> 선택은 렌더러의 로컬 클리핑을 사용합니다.<br>선택을 끝냈다면 <code>clearSelectFloor()</code>를 호출해 클리핑 평면을 제거합니다.</p>
+<hr>
+<h2 id="7-건물-제거하고-레이어-정리하기">7. 건물 제거하고 레이어 정리하기</h2>
+<p>일부 건물만 제거할 때는 원본 Feature 또는 FeatureCollection을 사용합니다.<br>레이어 전체가 더 이상 필요하지 않으면 <code>app.removeLayer()</code>를 사용해야 Mesh, 라벨, 텍스처와 자동 지면 높이 갱신이 함께 해제됩니다.</p>
+<h4 class="api-heading" id="api-21">API</h4>
+<p>U3dModelShapeLayer.removeModelAsFeatureCollection(<code>featureCollection</code>) : 컬렉션에 속한 모든 건물을 제거하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>featureCollection</code> (<code>U3dModelShapeFeatureCollection</code>) : 제거할 컬렉션. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-22">API</h4>
+<p>U3dModelShapeLayer.removeModel(<code>feature</code>) : Feature 또는 같은 <code>uuid</code>를 가진 Mesh에 해당하는 건물을 제거하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>feature</code> (<code>U3dModelShapeFeature | UMesh</code>) : 제거할 건물의 Feature 또는 Mesh. <strong>필수</strong></li>
+</ul>
+</details>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> collections <span class="token operator">=</span> shpLayer<span class="token punctuation">.</span><span class="token function">getFeatureCollection</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> targetCollection <span class="token operator">=</span> collections<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span>targetCollection<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> targetFeature <span class="token operator">=</span> targetCollection<span class="token punctuation">.</span>features<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>targetFeature<span class="token punctuation">)</span>
+        shpLayer<span class="token punctuation">.</span><span class="token function">removeModel</span><span class="token punctuation">(</span>targetFeature<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span>targetCollection<span class="token punctuation">)</span>
+    shpLayer<span class="token punctuation">.</span><span class="token function">removeModelAsFeatureCollection</span><span class="token punctuation">(</span>targetCollection<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h4 class="api-heading" id="api-23">API</h4>
+<p>U3dApp.removeLayer(<code>name</code>) : 앱에서 레이어를 제거하고 레이어의 <code>dispose()</code>를 호출하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>name</code> (<code>string | U3dLayer</code>) : 제거할 레이어 이름 또는 객체. <strong>필수</strong></li>
+</ul>
+</details>
+<pre class="language-javascript"><code class="language-javascript">shpLayer<span class="token punctuation">.</span><span class="token function">clearSelectFloor</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+app<span class="token punctuation">.</span><span class="token function">removeLayer</span><span class="token punctuation">(</span>shpLayer<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p><code>dispose()</code>는 텍스처, Mesh 재질과 Geometry, 라벨, 타일 인덱스 및 자동 높이 갱신 등록을 정리합니다.<br>앱에 등록한 레이어에는 <code>dispose()</code>를 직접 호출하지 말고 <code>app.removeLayer()</code>를 사용합니다.</p>
+<hr>
+<h2 id="8-좌표계와-데이터-제약-확인하기">8. 좌표계와 데이터 제약 확인하기</h2>
+<p><code>UShpParser.parseShp()</code>의 결과 좌표는 <code>EPSG:4326</code>의 <code>[경도, 위도]</code> 순서입니다.<br><code>U3dModelShapeLayer</code>의 Mesh 생성 코드는 이 좌표를 위경도로 간주해 <code>EPSG:3857</code> 월드 좌표로 변환합니다.<br>생성자의 <code>sourceCRS</code> 값만 바꿔서는 좌표가 변환되지 않으므로 원본 SHP 좌표계는 <code>.prj</code> 또는 <code>parseShp()</code>의 두 번째 인자로 정확히 전달해야 합니다.</p>
+<p>현재 Mesh 생성이 정상적으로 지원하는 핵심 도형은 닫힌 <code>Polygon</code>입니다.<br>구현은 Polygon의 첫 번째 좌표 링만 사용하므로 내부 구멍이 있는 폴리곤은 구멍이 채워질 수 있습니다.<br><code>MultiPolygon</code> 처리 경로는 중첩 좌표를 완전하게 펼치지 않으므로 여러 분리 면을 표시하려면 파싱 후 Polygon Feature로 분리합니다.<br><code>Point</code>와 그 밖의 도형 타입은 3D 건물로 생성되지 않습니다.</p>
+<p>Feature의 좌표 배열이 비었거나 도형이 지원되지 않으면 해당 Feature는 건너뜁니다.<br>높이 콜백과 스타일 콜백에서 예외가 발생하지 않도록 속성 존재 여부와 숫자 변환 결과를 확인합니다.<br>많은 Feature를 한 레이어에 추가하면 각 Feature마다 Geometry, 재질, 선택 Mesh와 타일 인덱스가 생성되므로 파일 크기와 건물 수를 제한하고 사용이 끝난 레이어를 제거합니다.</p>
+<hr>
+<p>문제가 발생하면 다음 순서로 확인합니다.</p>
+<ol>
+<li><code>.shp</code>, <code>.prj</code>, <code>.dbf</code>의 기본 파일명이 같은지 확인합니다.</li>
+<li><code>.prj</code>가 없으면 실제 EPSG 코드를 <code>parseShp()</code>에 전달합니다.</li>
+<li>파싱 결과의 <code>features</code>가 비어 있지 않은지 확인합니다.</li>
+<li>각 Feature의 도형 타입과 좌표 중첩 구조를 확인합니다.</li>
+<li>높이와 지면 높이 속성이 유효한 숫자로 변환되는지 확인합니다.</li>
+<li>현재 지도 레벨이 레이어의 <code>minlevel</code>에 도달했는지 확인합니다.</li>
+<li>텍스처 요청의 URL, CORS 응답과 네트워크 오류를 확인합니다.</li>
+</ol>
+</main>
+</body>
+</html>
+

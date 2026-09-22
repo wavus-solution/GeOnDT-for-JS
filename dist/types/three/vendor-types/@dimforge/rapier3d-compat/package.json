@@ -1,0 +1,9 @@
+{
+    "name": "@dimforge/rapier3d-compat",
+    "version": "0.12.0",
+    "private": true,
+    "geondtVendoredTypesOnly": true,
+    "description": "3-dimensional physics engine in Rust - official JS bindings. Compatibility package with inlined webassembly as base64.",
+    "license": "Apache-2.0",
+    "types": "rapier.d.ts"
+}

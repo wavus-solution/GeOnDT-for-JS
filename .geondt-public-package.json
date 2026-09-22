@@ -1,0 +1,14 @@
+{
+  "generator": "GeOnDT publicPackage",
+  "paths": [
+    "src",
+    "dist",
+    "doc",
+    "markdown",
+    "README.md",
+    "api-index.json",
+    "package-manifest.json",
+    ".nojekyll",
+    ".geondt-public-package.json"
+  ]
+}

@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>고도, 심도 측정 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        .slider-root-wrapper {
+            display: grid;
+        }
+
+        .form-group {
+            margin-bottom: 0;
+        }
+
+        .slider-wrapper {
+            width: 300px;
+            margin-left: 10px;
+            margin-right: 60px;
+            display: -webkit-inline-flex;
+        }
+
+        .flex-1 {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #opacity-handle, #m-opacity-handle {
+            height: 20px;
+            width: 40px;
+            text-align: center;
+            top: -5px;
+            background-color: black;
+            color: white;
+            border-radius: 5px;
+            border: 1px solid #6b6b6b;
+        }
+
+        #opacity, #m-opacity {
+            width: 400px;
+            border: 1px solid black;
+        }
+
+        ol, ul {
+            list-style: none;
+            padding-left: 0;
+            display: -webkit-inline-flex;
+        }
+
+        li {
+            padding-right: 20px;
+        }
+
+        #analy-popup .div-popup {
+            width: 720px;
+            height: 280px;
+            top: 60vh;
+            padding-bottom: 10px;
+        }
+
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> 고도, 심도 측정 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        마우스 클릭을 통해 원하는 지점의 <strong>고도와 심도를 측정하는</strong>하는 예제입니다.<br>
+        시작점과 끝점의 직선거리 또한 측정이 가능하며 마우스 클릭 외 위경도 좌표를 직접 입력하여 측정하는 기능도 제공합니다.
+    </p>
+</div>
+<div id="map-wrapper">
+    <div id="map"></div>
+    <div id="div-left-menu">
+        <div>
+            <div style="display: inline-flex; position: relative">
+                <button id="analy-bnt" class="btn btn-xs menu-btn">
+                    <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+                <div class="div-btn-info" hidden>
+                    분석 팝업 열기
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="btn-group" id='top-sbar'>
+        <div class='btn-group-vertical-block' id='right-toolbar'>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                     src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                     alt="나침반">
+            </button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                    id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                    id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                    id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+            </button>
+        </div>
+        <div class='btn-group' id='bt-bottom-bar'>
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                   value="위경도: ##.####  ###.#### ">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                   value="고도:####">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                   value="각도: ##">
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu='return false'>
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content" style="margin:0 10px;">
+                <div class="form-group">
+                    <label style="margin-left: 20px">[ 가이드라인 선택 ]</label>
+                    <label style="margin-left: 15%">[ 분석 대상 선택 ]</label>
+                    <div class="checkbox" style="display: ruby">
+
+
+                        <select class="form-control input-sm select-target-layer" style="width:180px; margin-left: 10%">
+                            <option value="basic"> 기본 </option>
+                        </select>
+                        <br>
+                        <label>
+                            <input type="radio" class="basic" name="type" value="extensions" checked>
+                            확장형
+                        </label>
+
+                        <label>
+                            <input type="radio" class="basic" name="type" value="base">
+                            기본형
+                        </label>
+                        <label style="margin-left: 8%; font-weight:bold">
+                            [ 라벨 가시화 ]
+                        </label>
+                        <div class="checkbox" style="display: flex; margin-left: 5%">
+                            bottom <input class="showLabel" type="checkbox" value="bottom" checked>
+                        </div>
+                        <div class="checkbox" style="display: flex; margin-left: 5%">
+                            vertical <input class="showLabel" type="checkbox" value="vertical" checked>
+                        </div>
+                        <div class="checkbox" style="display: flex; margin-left: 5%">
+                            base <input class="showLabel" type="checkbox" value="base" checked>
+                        </div>
+                        <div class="checkbox" style="display: flex; margin-left: 5%">
+                            distance <input class="showLabel" type="checkbox" value="distance" checked>
+                        </div>
+
+
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-12">
+                        <div class="panel panel-default">
+                            <div class="panel-heading">
+                                <div class="d-flex">
+                                    <div>거리측정 목록</div>
+                                    <div class="flex-1 text-right">
+                                        <div class="btn-group">
+                                            <div class="btn btn-default btn-xs btn-remove-all">전체지우기</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="distance-list h-300  panel-body" style="height: 100px; overflow-y: scroll">
+                                <pre>내용이 없습니다.</pre>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-12">
+                        <div class="panel panel-default" style="height: 160px">
+                            <div class="panel-heading">
+                                <div class="d-flex">
+                                    <label style="">위경도 좌표로 추가하기</label>
+                                </div>
+                            </div>
+                            <div class="panel-body">
+                                <div style="text-align: left">
+                                    <label style="margin-right: 10px; ">좌표1 : </label>
+                                    경도 :
+                                    <input type="number" name="x-coordi-first" style="width: 40px">
+                                    위도 :
+                                    <input type="number" name="y-coordi-first" style="width: 40px">
+                                    높이 :
+                                    <input type="number" name="z-coordi-first" style="width: 40px">
+                                </div>
+                                <div style="text-align: left; margin-top: 4px ">
+                                    <label style="margin-right: 10px">좌표2 : </label>
+                                    경도 :
+                                    <input type="number" name="x-coordi-second" style="width: 40px">
+                                    위도 :
+                                    <input type="number" name="y-coordi-second" style="width: 40px">
+                                    높이 :
+                                    <input type="number" name="z-coordi-second" style="width: 40px">
+                                    <div class="btn btn-default btn-xs btn-coordi-add"
+                                         style="float: right; margin-top: 10px">추가
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                    <div class="form-group col-sm-12 slider-root-wrapper">
+                        <div class="checkbox">
+                            <label>
+                                <input type="checkbox" target="opacity_yn" checked>
+                                영상투명도 여부
+                            </label>
+                        </div>
+                        <div class="form-group slider-wrapper">
+                            <ul>
+                                <li>
+                                    <div style="width:80px">
+                                        영상 투명도
+                                    </div>
+                                </li>
+                                <li>
+                                    <div style="padding: 4px">
+                                        <div id="opacity">
+                                            <div id="opacity-handle" class="ui-slider-handle"></div>
+                                        </div>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="checkbox">
+                            <label>
+                                <input type="checkbox" target="m_opacity_yn">
+                                모델투명도 여부
+                            </label>
+                        </div>
+                        <div class="form-group slider-wrapper">
+                            <ul>
+                                <li>
+                                    <div style="width:80px">
+                                        모델 투명도
+                                    </div>
+                                </li>
+                                <li>
+                                    <div style="padding: 4px">
+                                        <div id="m-opacity">
+                                            <div id="m-opacity-handle" class="ui-slider-handle"></div>
+                                        </div>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script>
+    var defined = defined || {};
+    defined = function (value) {
+        return value !== undefined && value !== null;
+    }
+
+    //+ 라이센스 인증
+    Union3D.ready(function () {
+        var layers = {};
+        //레이어 생성자 옵션
+        var LAYER_OPT = {
+            //+ 고도////////////////////////////////////////////////////////
+            korea_terrain: {
+                name: 'korea_terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+                baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+                ext: '.umf', //+ 파일 확장자, *필수 입력
+                reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+                minlevel: 9,  //+ 가시화 최소 레벨
+                maxlevel: 17, //+ 가시화 최대 레벨
+                useproxy: false //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+            },
+
+            //+ 건물 ///////////////////////////////////////////////////////
+            u3f: {
+                name: 'u3f', //+ U3F 3D 모델 레이어 이름, *필수 입력
+                useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, false);
+                baseurl: layerInfo.model.busanu3furl, //+ U3F 데이터 경로의 기본 URL, *필수 입력
+                basename: layerInfo.model.busanu3fname, //+ U3F 데이터dml 정보가 있는 U3G 파일 이름, *필수 입력
+                minlevel: 17,  //+ 가시화 최소레벨
+                maxlevel: 17,  //+ 가시화 최대레벨
+                opacity: 1  //+ 투명화 여부 true 일 경우, 투명도 설정값으로 적용
+            }
+        };
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// 지도 기본세팅 /////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        let app = new Union3D.U3dAPP({
+            methodheight: '1_0', //+ 지형처리방법
+            containername: 'map',  //+ U3dApp(지도영역)의 div ID, *필수 입력
+        });
+
+        window.app = app;
+        window.THREE = app._THREE;
+        let targetList = [];
+        let targetType;
+        //+ 처음카메라 위치 조정 (부산)
+        app.setHomePosition(129.146, 35.162, 435, 0, 45); //경도, 위도, 높이, 방위각, 고도각
+        app.updateHomePosition().then(function () {
+            //+ 카메라 지하 이동 가능
+            app.setUnderGroundMode();
+        });
+        app.createloadingBar('load');
+        app.on('change', updatePosData);
+
+        //+ analysis Depth 활성화
+        var analy = app.getAnalysis('Depth');
+        analy.active();
+        //+ 격자 이미지 설정 setGridSpriteImage( image_Url, size, opacity )
+        //+ 거리측정 목록 새로고침 이벤트 분석모드에 이벤트 등록
+        //analy.passToClickEvent(printDistanceList);
+        analy.on('end', function (e) {
+            printDistanceList()
+        })
+
+        //+ 이미지
+        var layer = new Union3D.image.U3dImageXYZLayer({
+            name: 'satellite', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldsaturl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true  //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+        });
+        app.addLayer(layer);
+
+        //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+        app.setNameBaseLayer('satellite');
+        app.showLayer('satellite', true);
+        app.endloadingBar();
+
+        //+ 고도
+        createLayer('korea_terrain');
+        app.showLayer('korea_terrain', true);
+
+        //+ 건물
+        createLayer('u3f');
+        app.showLayer('u3f', true);
+
+        layer = new Union3D.model.U3dModelWFSLayer({
+            name: 'UDG_CNTS_LI', //+ WFS 3D 모델 레이어 이름, defaultValue(opt.name, Guid())  : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            layername: 'UDG_CNTS_LI', //+ 레이어 이름, *필수 입력
+            baseurl: layerInfo.wfs_korea.baseurl,  //+ baseurl, *필수 입력
+            minlevel: 17, //+ 가시화 최소레벨, defaultValue(opt.minlevel, 17)
+            drawline: false, //+ WFS 모델에 테투리 추가 여부
+            useterrain: false, //+ WFS 고도정보 사용 여부, defaultValue(opt.useterrain, true);
+            version: '1.0.0', //+ WFS 서비스 버전, defaultValue(opt.version, '1.1.0')
+            useproxy: true, //+ 프록시 사용 여부
+            color: '#FFD817', //+ WFS model 색상
+            piperadius: 0.5, // 파이프 직경
+            featureType: '3d', // 출력 형태 (3d => 파이프 , 2d => 라인)
+            heightFunction: function (feature){
+                return -20;
+            }
+        });
+        app.addLayer(layer);
+        layer.then((layer)=>{
+            app.showLayer(layer.getName(),true);
+        });
+
+        layer = new Union3D.model.U3dModelWFSLayer({
+            name: 'UDG_DRASY_LI', //+ WFS 3D 모델 레이어 이름, defaultValue(opt.name, Guid())  : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            layername: 'UDG_DRASY_LI', //+ 레이어 이름, *필수 입력
+            baseurl: layerInfo.wfs_korea.baseurl,  //+ baseurl, *필수 입력
+            minlevel: 17,  //+ 가시화 최소레벨, defaultValue(opt.minlevel, 17)
+            drawline: false,  //+ WFS 모델에 테투리 추가 여부
+            useterrain: false,  //+ WFS 고도정보 사용 여부, defaultValue(opt.useterrain, true);
+            version: '1.0.0', //+ WFS 서비스 버전, defaultValue(opt.version, '1.1.0')
+            useproxy: true, //+ 프록시 사용 여부
+            color: '#FF851C', //+ WFS model 색상
+            piperadius: 0.5, // 파이프 직경
+            featureType: '3d', // 출력 형태 (3d => 파이프 , 2d => 라인)
+            heightFunction: function (feature){
+                return -30;
+            }
+        });
+        app.addLayer(layer);
+        layer.then((layer)=>{
+            app.showLayer(layer.getName(),true);
+        });
+
+        layer = new Union3D.model.U3dModelWFSLayer({
+            name: 'UDG_SWDPI_LI', //+ WFS 3D 모델 레이어 이름, defaultValue(opt.name, Guid())  : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            layername: 'UDG_SWDPI_LI', //+ 레이어 이름, *필수 입력
+            baseurl: layerInfo.wfs_korea.baseurl, //+ baseurl, *필수 입력
+            minlevel: 17, //+ 가시화 최소레벨, defaultValue(opt.minlevel, 17)
+            drawline: false, //+ WFS 모델에 테투리 추가 여부
+            useterrain: false, //+ WFS 고도정보 사용 여부, defaultValue(opt.useterrain, true);
+            version: '1.0.0', //+ WFS 서비스 버전, defaultValue(opt.version, '1.1.0')
+            useproxy: true, //+ 프록시 사용 여부
+            color: '#2DE0AE', //+ WFS model 색상
+            piperadius: 0.5, // 파이프 직경
+            featureType: '3d', // 출력 형태 (3d => 파이프 , 2d => 라인)
+            heightFunction: function (feature) {
+                //피쳐 개별의 속성을 확인하여 고도값을 다르게 적용할 수 있습니다.
+                if (feature.properties.regu_cd === "26410100")
+                    return -30
+                else
+                    return -20;
+            }
+        })
+        app.addLayer(layer);
+        layer.then((layer)=>{
+            app.showLayer(layer.getName(),true);
+        });
+
+        layer = new Union3D.model.U3dModelWFSLayer({
+            name: 'UDG_SWPI_LI', //+ WFS 3D 모델 레이어 이름, defaultValue(opt.name, Guid())  : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            layername: 'UDG_SWPI_LI', //+ 레이어 이름, *필수 입력
+            baseurl: layerInfo.wfs_korea.baseurl,  //+ baseurl, *필수 입력
+            minlevel: 17,  //+ 가시화 최소레벨, defaultValue(opt.minlevel, 17)
+            drawline: false, //+ WFS 모델에 테투리 추가 여부
+            useterrain: false,  //+ WFS 고도정보 사용 여부, defaultValue(opt.useterrain, true);
+            version: '1.0.0', //+ WFS 서비스 버전, defaultValue(opt.version, '1.1.0')
+            useproxy: true, //+ 프록시 사용 여부
+            color: '#4DB8DB', //+ WFS model 색상
+            piperadius: 0.5, // 파이프 직경
+            featureType: '3d', // 출력 형태 (3d => 파이프 , 2d => 라인)
+            heightFunction: function (feature){
+                // feature의 coordinates 높이값 개별로 입력하면 개별 정점 마다 높이가 적용 됩니다.
+                const coordinates = feature.geometry.coordinates;
+                for (let line of coordinates) {
+                    for(let vertex of line){
+                        if(vertex[2])
+                            vertex[2] = -20;
+                        else
+                            vertex.push(-20);
+                    }
+                }
+                return 0;
+            }
+        })
+        app.addLayer(layer);
+        layer.then((layer)=>{
+            app.showLayer(layer.getName(),true);
+        });
+
+        initSlider('opacity');
+        app.setEnableOpacityImageLayers(true);
+        app.setOpacityImageLayers(0.5);
+        $('#opacity').slider("value", 0.5);
+        $('#opacity-handle').text(0.5);
+
+        initSlider('m-opacity');
+        addSelctOtion();
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        /////////////////////////////////////////// 이벤트 등록 /////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        //+ 가이드라인 선택
+        //+ 확장형 (extension) : 해당 지점의 높이, 밑점의 높이, 두 점사이의 거리 표시
+        //+ 기본형 (base) : 두 점 사이의 거리만 표시
+        $(document).on('click', '.basic', function (e) {
+            var target = e.target.value;
+            analy.setType(target);
+        });
+
+        const labelVisibility = { // 라벨 가시화 설정
+            bottom: true, // 지표면 고도값 라벨
+            vertical: true, // 사용자가 지정한 위치에서 지표면과의 수직 거리
+            base: true, // 사용자가 지정한 위치의 고도 값
+            distance: true // 사용자가 지정한 위치들 사이의 거리
+        }
+
+        //+ [라벨 가시화] 거리의 수치를 나타내는 라벨의 가시화를 설정 (기본값 [true, true, true, true])
+        //+ setLabelVisibility (valueList) - valueList는 Array 타입 ( length = 4 )
+        //+ valueList = [ 지표면의 고도값 라벨, 사용자가 지정한 위치에서 지표면과의 수직 거리, 사용자가 지정한 위치의 고도 값, 사용자가 지정한 위치들 사이의 거리 ]
+        $(document).on('change', '.showLabel', function (e) {
+            const key = e.target.value;
+            labelVisibility[key] = e.target.checked;
+            const valueList = Object.values(labelVisibility);
+            analy.setLabelVisibility(valueList);
+        });
+
+        //+ [삭제] 버튼 클릭시 해당 POI GROUP 삭제
+        $(document).on("click", ".btn-poi-remove", function (e) {
+            var target = e.target.id;
+            analy.removePOI(target);
+        });
+        //+ [전체지우기] 버튼 클릭시 목록, 맵상에 그려진 POI 전체 지우기
+        $(document).on("click", ".btn-remove-all", function (e) {
+            analy.clear();
+        });
+
+        //+ | 위경도 좌표로 추가하기 |
+        //+ [추가] 버튼 / 첫점과 끝점의 위경도 및 높이를 입력 받아 지도상에 결과값 출력
+        $(document).on("click", ".btn-coordi-add", function (e) {
+
+            //+ 첫 점의 경도
+            var x1 = Number($('input[name="x-coordi-first"]').val());
+            //+ 첫 점의 위도
+            var y1 = Number($('input[name="y-coordi-first"]').val());
+            //+ 첫 점의 높이
+            var z1 = Number($('input[name="z-coordi-first"]').val());
+
+            //+ 끝 점의 경도
+            var x2 = Number($('input[name="x-coordi-second"]').val());
+            //+ 끝 점의 위도
+            var y2 = Number($('input[name="y-coordi-second"]').val());
+            //+ 끝 점의 높이
+            var z2 = Number($('input[name="z-coordi-second"]').val());
+
+            var point1 = {
+                x: x1,
+                y: y1,
+                z: z1
+            };
+
+            var point2 = {
+                x: x2,
+                y: y2,
+                z: z2
+            };
+            //+ 두점의 좌표를 전달해 getGeographicToWorld로 World 좌표로 변환 후
+            //+ 가이드라인 타입에 따라 확장형, 기본형을 구분하여
+            //+ 변환 된 World 좌표로 POI와 LINE을 화면 상에 출력하고 거리측정 목록에 추가합니다.
+            analy.getResultFromCoordinate(point1, point2);
+        });
+
+        //+ 지하 시설물, 건물 선택시 체크박스 이벤트
+        $(document).on('click', 'input[type=checkbox]', checked);
+
+        $(document).on("change",'.select-target-layer', function(){
+            let val = this.value;
+            targetType = val;
+            if(!analy) return;
+            if(val === 'basic'){
+                //self.analy.setIntersectFunction();
+                analy.setIntersectTarget();  //기본 모드시 해당 함수들 초기화 필요
+                return;
+            }
+
+            let layers = app.getInstanceByClassTypeLayers(val)
+            let scenes =[];
+            for (let i = 0; i < layers.length; i++) {
+                let layer = layers[i];
+                if (!layer.getVisible()) {
+                    continue;
+                }
+                scenes.push(layer.getScene())
+            }
+            // if(!self.analy.getIntersectFunction())
+            //     self.analy.setIntersectFunction(intersectFunction.bind(self)); // 세부적인 목록 선정시에 설정하여 사용
+            analy.setIntersectTarget(scenes);
+        })
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        /////////////////////////////////////////// function 생성 //////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+        function checked(e) {
+            var $checkbox = $(e.target);
+            var name = $checkbox.attr('target');
+            //+ 영상 투명화 여부
+            if (name == 'opacity_yn') {
+                if ($checkbox[0].checked) {
+                    app.setEnableOpacityImageLayers(true)
+                    app.setEnableOpacityModelLayers(true)
+                    app.setEnableOpacityModelLayers(false)
+                } else {
+                    app.setEnableOpacityImageLayers(false)
+                }
+                return;
+            }
+
+            //+ 모델 투명화 여부
+            if (name == 'm_opacity_yn') {
+                if ($checkbox[0].checked) {
+                    app.setEnableOpacityModelLayers(true)
+                } else {
+                    app.setEnableOpacityModelLayers(false)
+                }
+                return;
+            } else if (LAYER_OPT[name] != undefined) {
+                //+ name 해당하는 Layer show or hide
+                createLayer(name);
+                if ($checkbox[0].checked) {
+                    app.showLayer(name, true)
+                } else {
+                    app.showLayer(name, false)
+                }
+                app.setUpdateDate();
+            }
+        }
+
+        //+ Layer 생성
+        function createLayer(name) {
+            var layer = layers[name];
+            if (layer === undefined) {
+                //레이어 생성 및 APP에 레이어 추가
+                let options = LAYER_OPT[name];
+                switch (name) {
+                    //+ 건물 //////////////////////////////////////////
+                    case 'xdo':
+                        //+ vworld Model layer
+                        layer = new Union3D.model.U3dModelVWorldLayer(options);
+                        app.addLayer(layer);
+                        break;
+                    case 'u3f':
+                        //+ u3f model layer
+                        layer = new Union3D.model.U3dModelU3FLayer(options);
+                        app.addLayer(layer);
+                        break;
+                    case '_25d':
+                        //+ wfs Model Layer
+                        layer = new Union3D.model.U3dModelWFSLayer(options);
+                        app.addLayer(layer);
+                        break;
+
+                    //+ 고도 /////////////////////////////////////////////
+                    case 'korea_terrain':
+
+                        layer = new Union3D.terrain.U3dHeightXYZLayer(options);
+                        app.addLayer(layer);
+                        break;
+
+                    //+ 이미지 //////////////////////////////////////////
+                    case 'emapbase':
+                        //+ EmapBase
+                        layer = app.createEmapBaseLayer(options);
+                        break;
+                    case 'emapsat':
+                        //+ Emap 위성
+                        layer = app.createEmapSatLayer(options);
+                        break;
+
+                    case 'base':
+                        layer = new Union3D.image.U3dImageXYZLayer(options);
+                        break;
+
+                    default :
+                        //레이어 생성 및 APP에 레이어 추가
+                        //+ 지하시설물 wfs model layer 추가
+                        options = LAYER_OPT[name];
+                        layer = new Union3D.model.U3dModelWFSLayer(options);
+                        app.addLayer(layer);
+                }
+                layers[name] = layer;
+            }
+        }
+
+        //+ 영상, 모델 투명도 설정 slider
+        function initSlider(type) {
+            var id = '';
+            var idhandle = '';
+            var step = 0.01;
+            switch (type) {
+                case  'opacity': {
+                    id = '#opacity';
+                    idhandle = '#opacity-handle';
+                }
+                    break;
+                case  'm-opacity': {
+                    id = '#m-opacity';
+                    idhandle = '#m-opacity-handle';
+                }
+                    break;
+            }
+
+            var handle = $(idhandle);
+            $(id).slider({
+                orientation: "horizontal",
+                range: "min",
+                value: 1,
+                min: 0, // min value
+                max: 1,
+                step: step,
+                create: function () {
+                    var val = $(this).slider("value");
+                    handle.text(val.toFixed(2));
+                },
+                slide: function (event, ui) {
+                    handle.text(ui.value.toFixed(2));
+                    switch (id) {
+                        case  '#opacity': {
+                            app.setOpacityImageLayers(ui.value);
+                        }
+                            break;
+                        case  '#m-opacity': {
+                            app.setOpacityModelLayers(ui.value);
+                        }
+                            break;
+                    }
+                },
+                change: function (event, ui) {
+                }
+            });
+        }
+
+        //+ 대상 레이어 select option 추가
+        function addSelctOtion (){
+            let self = this;
+            let dom = $('.select-target-layer');
+            let layers = app.getLayers();
+            layers.forEach(function(layer){
+                let classtype = layer._classtype;
+                let type = layer._type;
+                if(type ==='model' && !targetList.includes(classtype))
+                    targetList.push(classtype);
+            })
+            dom.empty();
+            let basic = $("<option value='basic'>기본</option>");
+            dom.append(basic)
+            targetList.forEach(function (type){
+                let option =  $(`<option value=${type}>${type}</option>`);
+                dom.append(option);
+            })
+
+        }
+        //+ 클릭 대상 선정 방법 설정 함수
+        //+ AnalyDepth.setIntersectTarget 으로 설정 후에 자세한 항목으로 선정이 필요한 경우 설정하여 사용
+        function intersectFunction(intersects){
+            if(!intersects || intersects.length ===0) return;
+            let result;
+            for (let i = 0; i < intersects.length; i++) {
+                let intersect = intersects[i];
+                let object = intersect.object;
+                let layerName = object.getLayerName();
+                let layer = app.getLayerByName(layerName);
+                if(!layer || layer._classtype !== targetType) continue;
+                if (isNaN(intersect.point.z)) {
+                    continue;
+                }
+                result = intersect;
+                break;
+            }
+            return result
+        }
+
+        //+ 거리측정 목록 갱신
+        function printDistanceList() {
+            let self = this;
+            let str = '';
+            //+ getDistanceList 현재 거리측정 목록에 저장 되어있는 POI Group의 ID를 반환합니다.
+            let dist = analy.getDistanceList();
+            if (dist.length > 0) {
+                dist.forEach(function (id) {
+                    //+ getDistanceObject 해당 거리측정 목록에 정보를 저장하고 있는 객체
+                    //+ length - 두점 사이의 거리
+                    //+ point x, y, z - 점의 좌표
+                    //+ fromTerrain 지표면에서 부터의 거리
+                    //+ fromPrePoint 이전 지점과의 거리
+
+                    let obj = analy.getDistanceObject();
+                    if (!!(obj[id])) {
+                        let distance = obj[id].length
+                        let points =obj[id].points;
+                        str += '<div class="d-flex edit-item" target="' + id + '">';
+                        str += '<div class="flex-1"><label> id : ' + id + '</label>';
+                        points.forEach(function(info, idx){
+                            //+ POI 의 알람 목록
+                            if (!!(info)) {
+                                str += '<div class="flex-1">' +
+                                    '  경도 ' +(idx+1)+' : ' + info.x + '<br>' +
+                                    '  위도 ' +(idx+1)+' : ' + info.y + '<br>' +
+                                    '  높이 ' +(idx+1)+' : ' + info.z + '<br>' +
+                                    '  지표면에서 부터의 거리 ' +(idx+1)+' : ' + info.fromTerrain + '<br>' +
+                                    '  이전 지점과의 거리 ' +(idx+1)+' : ' + info.fromPrePoint + '<br><br>';
+                            }
+                        })
+
+                        str += '<div class="flex-1"><label> 측정 거리 : ' + distance + ' m </label>';
+                        str += '<div class="text-right">';
+                        str += '<div class="btn-group">';
+                        str += '<div class="btn btn-xs btn-danger btn-poi-remove" id="' + id + '">삭제</div>';
+                        str += '</div>';
+                        str += '<hr style="border-width:1px 0 0 0; border-color:rgba(152,152,152,0.57);">';
+                        str += '</div>';
+                        str += '</div>';
+                    }
+                });
+            }
+            str = str === '' ? '<pre>추가된 내용이 없습니다</pre>' : str;
+            $('.distance-list').html(str);
+            $('.btn-poi-remove').off().on('click', function (e) {
+                if(!analy) analy = app.getAnalysis('Depth');
+                analy.removePOI(this.id);
+                printDistanceList.call(self);
+            });
+        }
+    });
+
+</script>
+</body>
+</html>

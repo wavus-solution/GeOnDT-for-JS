@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>파이프 (Pipe)</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="파이프-pipe">파이프 (Pipe)</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-%ED%8C%8C%EC%9D%B4%ED%94%84-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">파이프 생성하기</a></li>
+<li><a href="#2-%EA%B2%BD%EB%A1%9C-%EC%A7%80%EC%A0%95%ED%95%98%EA%B8%B0">경로 지정하기</a></li>
+<li><a href="#3-%ED%98%95%ED%83%9C-%EC%A1%B0%EC%A0%88%ED%95%98%EA%B8%B0">형태 조절하기</a></li>
+<li><a href="#4-%EC%83%89%EC%83%81%EA%B3%BC-%ED%88%AC%EB%AA%85%EB%8F%84-%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0">색상과 투명도 설정하기</a></li>
+<li><a href="#5-%EC%86%8D%EC%84%B1%EC%A0%95%EB%B3%B4%EC%99%80-%ED%95%B4%EC%A0%9C">속성정보와 해제</a></li>
+</ol>
+<div class="document-thumbnail" data-size="medium">
+<figure class="document-image">
+<img src="image/pipeStart/thumbnail.png" alt="경로를 따라 휘어진 파이프" loading="eager">
+<figcaption>경로를 따라 휘어진 파이프</figcaption>
+</figure>
+</div>
+<p><code>U3dPipe</code>는 여러 좌표를 부드러운 곡선으로 이어 원형 단면의 관을 만드는 도형입니다.<br>상하수도관, 전선, 배관 경로처럼 이어지는 시설물을 표현할 때 사용합니다.</p>
+<p>경로 좌표는 Catmull-Rom 곡선으로 보간되므로, 좌표를 듬성듬성 찍어도 매끄럽게 휘어지는 관이 만들어집니다.</p>
+<p>흐름 애니메이션이 필요하다면 <code>U3dPipe</code>를 상속한 <a href="flowPipeStart.html">흐름 객체 (파이프)</a>를 사용합니다.</p>
+<hr>
+<h2 id="1-파이프-생성하기">1. 파이프 생성하기</h2>
+<p><code>U3dPipe</code> 생성자로 객체를 만들고, <code>U3dVectorLayer.addGeometry</code>로 레이어에 등록한 뒤 경로 좌표를 지정하면 화면에 표시됩니다.<br>레이어를 만들고 도형을 등록·제거하는 방법은 <a href="vectorLayerStart.html#2-%EB%8F%84%ED%98%95-%EB%93%B1%EB%A1%9D%ED%95%98%EA%B3%A0-%EC%A0%9C%EA%B1%B0%ED%95%98%EA%B8%B0">3D Geometry 시작하기 - 도형 등록하고 제거하기</a>에서 설명합니다.</p>
+<p>파이프는 좌표를 이어 만드는 도형이므로 <strong>경로 좌표가 두 개 이상</strong>이어야 그려집니다.<br>생성 시점에는 좌표 없이 옵션만 지정하고, 등록 후 경로를 넣는 방식으로 사용합니다.</p>
+<p>반지름(<code>piperadius</code>) 단위는 미터입니다.</p>
+<h4 class="api-heading" id="api">API</h4>
+<p>U3dPipe(<code>opt</code>) : 파이프 객체를 생성하는 생성자</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opt</code> (<code>object</code>) : 파이프 생성 옵션</li>
+<li><code>opt.name</code> (<code>string</code>) : 객체 이름. 지정하지 않으면 자동으로 생성됩니다</li>
+<li><code>opt.piperadius</code> (<code>number</code>) : 파이프 반지름(m). 기본값: <code>2</code></li>
+<li><code>opt.tension</code> (<code>number</code>) : 경로 곡률(0~1). 클수록 좌표를 팽팽하게 지납니다. 기본값: <code>0.5</code></li>
+<li><code>opt.closed</code> (<code>boolean</code>) : 마지막 좌표와 첫 좌표를 이어 닫을지 여부. 기본값: <code>false</code></li>
+<li><code>opt.pathsegments</code> (<code>number</code>) : 경로 방향 세분화 정도. 클수록 곡선이 매끄러워집니다. 최소 <code>3</code>. 기본값: <code>64</code></li>
+<li><code>opt.radiussegments</code> (<code>number</code>) : 원둘레 세분화 정도. 클수록 단면이 원에 가까워집니다. 최소 <code>3</code>. 기본값: <code>16</code></li>
+<li><code>opt.color</code> (<code>ColorRepresentation</code>) : 색상. 기본값: <code>&#39;#ff0000&#39;</code></li>
+<li><code>opt.opacity</code> (<code>number</code>) : 투명도(0~1). 기본값: <code>0.7</code></li>
+<li><code>opt.wireframe</code> (<code>boolean</code>) : 와이어프레임 표시 여부. 기본값: <code>false</code></li>
+<li><code>opt.coordinates</code> (<code>Array&lt;GeoPositionVector3&gt;</code>) : 경로 좌표 배열 (위경도, EPSG:4326)</li>
+<li><code>opt.properties</code> (<code>KeyValue</code>) : 사용자 정의 속성정보</li>
+</ul>
+</details>
+<h3 id="1-파이프-생성-예제">1. 파이프 생성 예제</h3>
+<p>좌표 세 개를 이어 반지름 2m의 관을 만드는 예제입니다.<br>상하수도관이나 배관 경로를 표현할 때 쓰는 기본 형태입니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> app <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>U3dAPP</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">containername</span><span class="token operator">:</span> <span class="token string">'map'</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> vectorLayer <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>vector<span class="token punctuation">.</span>U3dVectorLayer</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'vector'</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> pipe <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>geom<span class="token punctuation">.</span>U3dPipe</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'pipe_01'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">piperadius</span><span class="token operator">:</span> <span class="token number">2</span><span class="token punctuation">,</span>        <span class="token comment">// 반지름 2m</span>
+    <span class="token literal-property property">tension</span><span class="token operator">:</span> <span class="token number">0.5</span><span class="token punctuation">,</span>         <span class="token comment">// 곡선으로 부드럽게 연결</span>
+    <span class="token literal-property property">pathsegments</span><span class="token operator">:</span> <span class="token number">64</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">radiussegments</span><span class="token operator">:</span> <span class="token number">16</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#f39c12'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">1</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+vectorLayer<span class="token punctuation">.</span><span class="token function">addGeometry</span><span class="token punctuation">(</span>pipe<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 벡터 레이어에 등록</span>
+
+<span class="token comment">// 경로 좌표를 지정하면 그때 파이프가 만들어집니다.</span>
+pipe<span class="token punctuation">.</span><span class="token function">setPositions</span><span class="token punctuation">(</span><span class="token punctuation">[</span>
+    <span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span><span class="token number">126.9390</span><span class="token punctuation">,</span> <span class="token number">37.5190</span><span class="token punctuation">,</span> <span class="token number">30</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span><span class="token number">126.9400</span><span class="token punctuation">,</span> <span class="token number">37.5195</span><span class="token punctuation">,</span> <span class="token number">30</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span><span class="token number">126.9410</span><span class="token punctuation">,</span> <span class="token number">37.5192</span><span class="token punctuation">,</span> <span class="token number">30</span><span class="token punctuation">)</span>
+<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="2-경로-지정하기">2. 경로 지정하기</h2>
+<p>경로는 위경도 좌표의 배열로 지정합니다.<br>좌표 전체를 한 번에 넣으려면 <code>setPositions</code>를, 하나씩 이어 붙이려면 <code>addPosition</code>을 사용합니다.</p>
+<p>지정한 위경도는 레이어가 그릴 때 월드 좌표로 변환되어 반영됩니다.<br>변환된 월드 좌표는 <code>getVertex</code>로 확인할 수 있습니다.</p>
+<p>좌표의 세 번째 값은 고도(m)이며 파이프 중심선이 지나는 높이가 됩니다.<br>지형 높이를 자동으로 조회하거나 따라가지 않으므로, 지면을 따라 놓으려면 각 지점의 지형 고도를 더합니다.<br>지형 고도는 <code>app.getHeightAtGeographicPoint({x, y})</code>로 조회하며, 지형 로딩이 끝난 뒤에 호출해야 실제 값을 얻습니다.</p>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>U3dPipe.setPositions(<code>coordinates</code>) : 경로 좌표 배열 전체를 지정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>coordinates</code> (<code>Array&lt;GeoPositionVector3&gt;</code>) : 경로 좌표 배열 (위경도, EPSG:4326)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-2">API</h4>
+<p>U3dPipe.addPosition(<code>x</code>, <code>y</code>, <code>z</code>) : 경로 끝에 좌표를 하나 추가하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>x</code> (<code>number | Vector3</code>) : 경도. <code>Vector3</code>를 넘기면 좌표 객체 하나로 지정합니다</li>
+<li><code>y</code> (<code>number</code>) : 위도</li>
+<li><code>z</code> (<code>number</code>) : 높이(m)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-3">API</h4>
+<p>U3dPipe.addWorldPosition(<code>x</code>, <code>y</code>, <code>z</code>) : 월드 좌표를 위경도로 변환해 경로 끝에 추가하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>x</code> (<code>number</code>) : X 월드 좌표 (EPSG:3857)</li>
+<li><code>y</code> (<code>number</code>) : Y 월드 좌표 (EPSG:3857)</li>
+<li><code>z</code> (<code>number</code>) : Z 월드 좌표 (EPSG:3857)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-4">API</h4>
+<p>U3dPipe.removePosition(<code>idx</code>) : 지정한 순번의 좌표를 제거하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>idx</code> (<code>number</code>) : 제거할 좌표 순번 (0부터 시작)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-5">API</h4>
+<p>U3dPipe.getPositions() : 경로 좌표 배열을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Array&lt;GeoPositionVector3&gt;</code>) : 경로 좌표 배열 (위경도, EPSG:4326)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-6">API</h4>
+<p>U3dPipe.getVertex() : 변환된 월드 좌표 배열을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Array&lt;WorldPositionVector3&gt;</code>) : 경로 좌표 배열 (월드 좌표, EPSG:3857)</li>
+</ul>
+</details>
+<h3 id="1-경로를-한-번에-지정하는-예제">1. 경로를 한 번에 지정하는 예제</h3>
+<p>경로 좌표를 이미 알고 있을 때 배열로 한 번에 넘깁니다.<br>좌표를 다시 넘기면 기존 경로는 대체됩니다.</p>
+<pre class="language-javascript"><code class="language-javascript">pipe<span class="token punctuation">.</span><span class="token function">setPositions</span><span class="token punctuation">(</span><span class="token punctuation">[</span>
+    <span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span><span class="token number">126.9390</span><span class="token punctuation">,</span> <span class="token number">37.5190</span><span class="token punctuation">,</span> <span class="token number">30</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span><span class="token number">126.9400</span><span class="token punctuation">,</span> <span class="token number">37.5195</span><span class="token punctuation">,</span> <span class="token number">30</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span><span class="token number">126.9410</span><span class="token punctuation">,</span> <span class="token number">37.5192</span><span class="token punctuation">,</span> <span class="token number">30</span><span class="token punctuation">)</span>
+<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>pipe<span class="token punctuation">.</span><span class="token function">getPositions</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>length<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 3</span>
+</code></pre>
+<h3 id="2-클릭한-지점으로-경로를-이어-그리는-예제">2. 클릭한 지점으로 경로를 이어 그리는 예제</h3>
+<p>지도를 클릭할 때마다 그 지점을 경로에 더합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">app<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> world <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">closestPointAtPixel</span><span class="token punctuation">(</span>e<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>world<span class="token punctuation">)</span> <span class="token keyword">return</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">const</span> lonlat <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">vector3ToGeoGraphic</span><span class="token punctuation">(</span>world<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 월드 좌표를 위경도로 변환</span>
+
+    pipe<span class="token punctuation">.</span><span class="token function">addPosition</span><span class="token punctuation">(</span>lonlat<span class="token punctuation">.</span>x<span class="token punctuation">,</span> lonlat<span class="token punctuation">.</span>y<span class="token punctuation">,</span> lonlat<span class="token punctuation">.</span>z <span class="token operator">+</span> <span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>월드 좌표를 그대로 넘기려면 <code>addWorldPosition</code>을 사용합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> world <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">closestPointAtPixel</span><span class="token punctuation">(</span>e<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+pipe<span class="token punctuation">.</span><span class="token function">addWorldPosition</span><span class="token punctuation">(</span>world<span class="token punctuation">.</span>x<span class="token punctuation">,</span> world<span class="token punctuation">.</span>y<span class="token punctuation">,</span> world<span class="token punctuation">.</span>z<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="3-마지막-좌표를-되돌리는-예제">3. 마지막 좌표를 되돌리는 예제</h3>
+<p>사용자가 화면에서 경로를 그리다가 직전 점을 취소할 때 사용합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> positions <span class="token operator">=</span> pipe<span class="token punctuation">.</span><span class="token function">getPositions</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+pipe<span class="token punctuation">.</span><span class="token function">removePosition</span><span class="token punctuation">(</span>positions<span class="token punctuation">.</span>length <span class="token operator">-</span> <span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 마지막 좌표 제거</span>
+</code></pre>
+<hr>
+<h2 id="3-형태-조절하기">3. 형태 조절하기</h2>
+<p>파이프의 굵기와 곡선 모양은 <code>setParam</code>으로 바꿉니다.<br>전달한 값만 반영되고 나머지는 기존 값이 유지되며, 값을 바꾸면 경로가 즉시 다시 계산됩니다.</p>
+<p><code>tension</code>은 좌표를 지나는 곡선의 팽팽함입니다.<br><code>0</code>이면 좌표를 직선으로 잇고, 값이 커질수록 좌표를 팽팽하게 지나갑니다.</p>
+<p><code>closed</code>를 켜면 마지막 좌표와 첫 좌표가 이어져 고리 모양이 됩니다.<br>이때 시작점과 같은 좌표를 끝에 한 번 더 넣으면 겹치므로 빼고 넣습니다.</p>
+<h4 class="api-heading" id="api-7">API</h4>
+<p>U3dPipe.setParam(<code>param</code>) : 여러 속성을 한 번에 갱신하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>param</code> (<code>object</code>) : 변경할 속성 객체</li>
+<li><code>param.piperadius</code> (<code>number</code>) : 파이프 반지름(m)</li>
+<li><code>param.tension</code> (<code>number</code>) : 경로 곡률(0~1)</li>
+<li><code>param.closed</code> (<code>boolean</code>) : 마지막 좌표와 첫 좌표를 이어 닫을지 여부</li>
+<li><code>param.pathsegments</code> (<code>number</code>) : 경로 방향 세분화 정도</li>
+<li><code>param.radiussegments</code> (<code>number</code>) : 원둘레 세분화 정도</li>
+<li><code>param.color</code> (<code>ColorRepresentation</code>) : 색상</li>
+<li><code>param.opacity</code> (<code>number</code>) : 투명도(0~1)</li>
+<li><code>param.wireframe</code> (<code>boolean</code>) : 와이어프레임 표시 여부</li>
+<li><code>param.shadow</code> (<code>boolean</code>) : 그림자 사용 여부</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-8">API</h4>
+<p>U3dPipe.getParam() : 현재 속성을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>object</code>) : 반지름·세분화·닫힘·곡률·색상·투명도 등 현재 속성 객체</li>
+</ul>
+</details>
+<h3 id="1-굵기와-곡률-변경-예제">1. 굵기와 곡률 변경 예제</h3>
+<p>관경이 다른 구간을 구분해 보여주거나, 꺾인 배관처럼 직선으로 잇고 싶을 때 사용합니다.<br><code>tension</code>을 <code>0</code>으로 두면 좌표를 직선으로 잇습니다.</p>
+<pre class="language-javascript"><code class="language-javascript">pipe<span class="token punctuation">.</span><span class="token function">setParam</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">piperadius</span><span class="token operator">:</span> <span class="token number">5</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// 반지름 5m로 변경</span>
+pipe<span class="token punctuation">.</span><span class="token function">setParam</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">tension</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>      <span class="token comment">// 좌표를 직선으로 연결</span>
+
+<span class="token comment">// 여러 속성을 한 번에 변경</span>
+pipe<span class="token punctuation">.</span><span class="token function">setParam</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">piperadius</span><span class="token operator">:</span> <span class="token number">3</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">tension</span><span class="token operator">:</span> <span class="token number">0.8</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">radiussegments</span><span class="token operator">:</span> <span class="token number">24</span>    <span class="token comment">// 단면을 더 둥글게</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-고리-모양으로-닫는-예제">2. 고리 모양으로 닫는 예제</h3>
+<p>원형 경로를 만들어 <code>closed</code>로 이어 붙입니다.<br>마지막 좌표를 시작 좌표와 같게 넣지 않는 것이 요령입니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> centerLon <span class="token operator">=</span> <span class="token number">126.9393</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> centerLat <span class="token operator">=</span> <span class="token number">37.5194</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> step <span class="token operator">=</span> <span class="token number">48</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> coordinates <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+
+<span class="token comment">// i &lt; step 이므로 시작 좌표와 겹치는 마지막 좌표는 만들어지지 않습니다.</span>
+<span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">let</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> step<span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> angle <span class="token operator">=</span> <span class="token punctuation">(</span>Math<span class="token punctuation">.</span><span class="token constant">PI</span> <span class="token operator">*</span> <span class="token number">2</span> <span class="token operator">*</span> i<span class="token punctuation">)</span> <span class="token operator">/</span> step<span class="token punctuation">;</span>
+    coordinates<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span>
+        centerLon <span class="token operator">+</span> Math<span class="token punctuation">.</span><span class="token function">cos</span><span class="token punctuation">(</span>angle<span class="token punctuation">)</span> <span class="token operator">*</span> <span class="token number">0.0001</span><span class="token punctuation">,</span>
+        centerLat <span class="token operator">+</span> Math<span class="token punctuation">.</span><span class="token function">sin</span><span class="token punctuation">(</span>angle<span class="token punctuation">)</span> <span class="token operator">*</span> <span class="token number">0.0001</span><span class="token punctuation">,</span>
+        <span class="token number">10</span>
+    <span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+pipe<span class="token punctuation">.</span><span class="token function">setPositions</span><span class="token punctuation">(</span>coordinates<span class="token punctuation">)</span><span class="token punctuation">;</span>
+pipe<span class="token punctuation">.</span><span class="token function">setParam</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">closed</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 마지막 좌표와 첫 좌표를 연결</span>
+</code></pre>
+<div class="document-sized-image" data-size="medium">
+<figure class="document-image">
+<img src="image/pipeStart/closed_compare.png" alt="왼쪽은 closed를 끈 열린 경로, 오른쪽은 closed를 켜 첫 좌표와 끝 좌표가 이어진 고리" loading="eager">
+<figcaption>왼쪽은 closed를 끈 열린 경로, 오른쪽은 closed를 켜 첫 좌표와 끝 좌표가 이어진 고리</figcaption>
+</figure>
+</div>
+<h3 id="3-현재-형태-확인-예제">3. 현재 형태 확인 예제</h3>
+<p><code>getParam</code>이 돌려준 객체는 다른 파이프의 <code>setParam</code>에 그대로 넘겨 같은 형태로 맞출 수 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> param <span class="token operator">=</span> pipe<span class="token punctuation">.</span><span class="token function">getParam</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>param<span class="token punctuation">.</span>piperadius<span class="token punctuation">,</span> param<span class="token punctuation">.</span>tension<span class="token punctuation">,</span> param<span class="token punctuation">.</span>closed<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="4-색상과-투명도-설정하기">4. 색상과 투명도 설정하기</h2>
+<p>색상은 <code>setColor</code>, 투명도는 <code>setOpacity</code>로 바꿉니다.<br>두 함수 모두 재질에 즉시 반영됩니다.</p>
+<p>색상 값은 <code>&#39;#ff0000&#39;</code> 같은 hex 문자열, <code>&#39;rgb(255,0,0)&#39;</code> 문자열, <code>0xff0000</code> 숫자, <code>THREE.Color</code> 객체를 모두 받습니다.</p>
+<p><code>setOpacity</code>는 값이 <code>1</code> 미만이면 반투명 처리를 자동으로 켜고 <code>1</code>이면 끕니다.<br>그래서 보통은 <code>setOpacity</code> 하나만 쓰면 됩니다.</p>
+<p>현재 색상과 투명도는 <code>getParam()</code>으로 읽습니다.</p>
+<h4 class="api-heading" id="api-9">API</h4>
+<p>U3dPipe.setColor(<code>color</code>) : 색상을 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>color</code> (<code>ColorRepresentation</code>) : 색상 값</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-10">API</h4>
+<p>U3dPipe.setOpacity(<code>opacity</code>) : 투명도를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opacity</code> (<code>number</code>) : 투명도(0~1). <code>0</code>이면 완전 투명, <code>1</code>이면 불투명</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-11">API</h4>
+<p>U3dPipe.setTransparent(<code>val</code>) : 재질의 반투명 처리를 켜는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>val</code> (<code>boolean</code>) : 반투명 처리 사용 여부</li>
+</ul>
+</details>
+<h3 id="1-색상과-투명도-변경-예제">1. 색상과 투명도 변경 예제</h3>
+<p>관종별로 색을 달리하거나, 지하 배관이 지형에 가려질 때 투명도를 낮춰 확인합니다.<br>색상 값은 hex 문자열과 숫자를 모두 받습니다.</p>
+<pre class="language-javascript"><code class="language-javascript">pipe<span class="token punctuation">.</span><span class="token function">setColor</span><span class="token punctuation">(</span><span class="token string">'#00b3ff'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// hex 문자열</span>
+pipe<span class="token punctuation">.</span><span class="token function">setColor</span><span class="token punctuation">(</span><span class="token number">0x00b3ff</span><span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// 숫자</span>
+
+pipe<span class="token punctuation">.</span><span class="token function">setOpacity</span><span class="token punctuation">(</span><span class="token number">0.4</span><span class="token punctuation">)</span><span class="token punctuation">;</span>      <span class="token comment">// 반투명</span>
+pipe<span class="token punctuation">.</span><span class="token function">setOpacity</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>        <span class="token comment">// 불투명</span>
+</code></pre>
+<h3 id="2-현재-색상과-투명도-확인-예제">2. 현재 색상과 투명도 확인 예제</h3>
+<p><code>getParam</code>이 돌려주는 색상은 넘긴 값 그대로이므로, 비교하거나 계산하려면 <code>THREE.Color</code>로 감싸서 씁니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> <span class="token punctuation">{</span>color<span class="token punctuation">,</span> opacity<span class="token punctuation">}</span> <span class="token operator">=</span> pipe<span class="token punctuation">.</span><span class="token function">getParam</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>opacity<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 1</span>
+
+<span class="token comment">// Color 객체로 다루려면 THREE.Color로 감싸서 사용합니다.</span>
+<span class="token keyword">const</span> current <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Color</span><span class="token punctuation">(</span>color<span class="token punctuation">)</span><span class="token punctuation">;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>current<span class="token punctuation">.</span><span class="token function">getHexString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// '00b3ff'</span>
+</code></pre>
+<h3 id="3-와이어프레임-표시-예제">3. 와이어프레임 표시 예제</h3>
+<p>면을 채우지 않고 뼈대만 표시합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">pipe<span class="token punctuation">.</span><span class="token function">setParam</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">wireframe</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="5-속성정보와-해제">5. 속성정보와 해제</h2>
+<p>도형에는 id, 이름, 업무 데이터 같은 부가 정보를 key-value 형태로 담아 둘 수 있습니다.<br>클릭한 관로의 관리번호나 구경 같은 업무 정보를 표시할 때 주로 사용합니다.</p>
+<p>새 속성을 넣을 때는 <code>addProperties</code>, 기존 값을 바꿀 때는 <code>changeProperties</code>, 전체를 통째로 교체할 때는 <code>setProperties</code>를 사용합니다.</p>
+<p>더 이상 쓰지 않는 파이프는 <code>dispose</code>로 정리합니다.</p>
+<h4 class="api-heading" id="api-12">API</h4>
+<p>U3dPipe.getProperties() : 사용자 정의 속성정보를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>KeyValue</code>) : 사용자 정의 속성정보</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-13">API</h4>
+<p>U3dPipe.setProperties(<code>input</code>) : 사용자 정의 속성정보 전체를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>input</code> (<code>KeyValue | string</code>) : 속성 객체 또는 JSON 문자열</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-14">API</h4>
+<p>U3dPipe.addProperties(<code>key</code>, <code>value</code>) : 속성정보를 하나 추가하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>key</code> (<code>string</code>) : 속성 식별키</li>
+<li><code>value</code> (<code>*</code>) : 속성 값</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-15">API</h4>
+<p>U3dPipe.changeProperties(<code>key</code>, <code>value</code>) : 기존 속성정보의 값을 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>key</code> (<code>string</code>) : 변경할 속성 식별키</li>
+<li><code>value</code> (<code>*</code>) : 속성 값</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-16">API</h4>
+<p>U3dPipe.removeProperties(<code>key</code>) : 속성정보를 제거하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>key</code> (<code>string</code>) : 제거할 속성 식별키</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-17">API</h4>
+<p>U3dPipe.setShadow(<code>enabled</code>) : 그림자 사용 여부를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>enabled</code> (<code>boolean</code>) : 그림자 사용 여부. 기본값: <code>true</code></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-18">API</h4>
+<p>U3dPipe.isShadow() : 그림자 사용 여부를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>boolean</code>) : 그림자 사용 여부</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-19">API</h4>
+<p>U3dPipe.dispose() : 파이프와 관련 리소스를 해제하는 함수</p>
+<h3 id="1-속성정보-다루기-예제">1. 속성정보 다루기 예제</h3>
+<pre class="language-javascript"><code class="language-javascript">pipe<span class="token punctuation">.</span><span class="token function">addProperties</span><span class="token punctuation">(</span><span class="token string">'관종'</span><span class="token punctuation">,</span> <span class="token string">'주철관'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+pipe<span class="token punctuation">.</span><span class="token function">addProperties</span><span class="token punctuation">(</span><span class="token string">'관리번호'</span><span class="token punctuation">,</span> <span class="token string">'P-2048'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+pipe<span class="token punctuation">.</span><span class="token function">changeProperties</span><span class="token punctuation">(</span><span class="token string">'관종'</span><span class="token punctuation">,</span> <span class="token string">'강관'</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 기존 값 변경</span>
+pipe<span class="token punctuation">.</span><span class="token function">removeProperties</span><span class="token punctuation">(</span><span class="token string">'관리번호'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>      <span class="token comment">// 속성 제거</span>
+
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>pipe<span class="token punctuation">.</span><span class="token function">getProperties</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// {관종: '강관'}</span>
+</code></pre>
+<p>속성 전체를 한 번에 교체할 수도 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript">pipe<span class="token punctuation">.</span><span class="token function">setProperties</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">관종</span><span class="token operator">:</span> <span class="token string">'주철관'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">관리번호</span><span class="token operator">:</span> <span class="token string">'P-2048'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">매설년도</span><span class="token operator">:</span> <span class="token string">'2018'</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-해제-예제">2. 해제 예제</h3>
+<p>레이어에서 먼저 제거한 뒤 해제합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">vectorLayer<span class="token punctuation">.</span><span class="token function">removeGeometry</span><span class="token punctuation">(</span>pipe<span class="token punctuation">)</span><span class="token punctuation">;</span>
+pipe<span class="token punctuation">.</span><span class="token function">dispose</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+</main>
+</body>
+</html>
+

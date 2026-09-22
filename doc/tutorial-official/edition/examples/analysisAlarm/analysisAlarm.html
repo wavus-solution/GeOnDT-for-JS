@@ -1,0 +1,78 @@
+<nav class="analysisAlarm-rail" data-example-rail aria-label="analysisAlarm 도구">
+    <button id="analy-bnt" class="rail-button" type="button" data-legacy-toggle-state aria-pressed="false">
+        <span class="rail-icon">▦</span><span>분석</span>
+    </button>
+</nav>
+
+<div id="analy-popup" oncontextmenu="return false" class="legacy-floating-panel legacy-main-feature-panel legacy-migration-panel" style="display:none;">
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content" style="margin:0 10px;">
+                <div class="radio">
+                    <label style="margin-right: 15px; font-weight: bold"> 알람 객체 타입 : </label>
+                    <label>
+                        <input type="radio" class="basic" name="mode" value="pan" checked>
+                        기본 모드
+                    </label>
+                    <label>
+                        <input type="radio" class="basic" name="mode" value="POI">
+                        POI
+                    </label>
+
+                    <label style="margin-left: 10px;">
+                        <input type="radio" class="basic" name="mode" value="model">
+                        단일 객체
+                    </label>
+
+                    <label style="margin-left: 10px;">
+                        <input type="radio" class="basic" name="mode" value="group">
+                        다중 객체
+                    </label>
+
+                </div>
+                <div class="form-group">
+                    <button type="button" class="btn btn-default" id="reset">초기화</button>
+                </div>
+                <div class="col-sm-12">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <div class="d-flex">
+                                <div>알람편집 목록</div>
+                                <div class="flex-1 text-right">
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-xs btn-stop-all-alarm">전체알람정지</div>
+                                    </div>
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-xs btn-alarm-select">선택알람</div>
+                                        <div class="btn btn-default btn-xs btn-remove-all">전체삭제</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="alarm-target-list h-300 scroll-auto panel-body">
+                            <pre>추가된 알람이 없습니다.</pre>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-12">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <div class="d-flex">
+                                <div>cursor 상세 옵션</div>
+                                <div class="flex-1 text-right">
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-xs btn-removeDetail-all">전체삭제</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="detail-target-list h-300 scroll-auto panel-body">
+                            <pre> 추가된 상세 옵션이 없습니다.</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>

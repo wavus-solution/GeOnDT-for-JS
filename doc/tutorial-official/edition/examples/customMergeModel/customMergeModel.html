@@ -1,0 +1,186 @@
+<nav class="custom-model-rail" data-example-rail aria-label="가상건물 도구">
+    <button
+        class="rail-button"
+        type="button"
+        data-panel-target="custom-model-panel"
+        data-api-help="model.create"
+        aria-expanded="false"
+    >
+        <span class="rail-icon" aria-hidden="true">▲</span>
+        <span>가상건물</span>
+    </button>
+</nav>
+
+<aside
+    class="glass-panel example-panel custom-model-panel"
+    id="custom-model-panel"
+    aria-hidden="true"
+>
+    <header class="panel-header">
+        <div>
+            <span class="eyebrow">CUSTOM MERGE MODEL</span>
+            <h2>가상건물 추가</h2>
+        </div>
+        <button
+            class="panel-close"
+            type="button"
+            data-panel-close="custom-model-panel"
+            aria-label="가상건물 추가 닫기"
+        >×</button>
+    </header>
+
+    <div class="panel-content custom-model-content">
+        <p class="panel-description">
+            지도에 도형을 그려 가상건물을 만들고, 선택한 가상건물을 하나로 병합하거나 위치·속성을 편집합니다.
+        </p>
+
+        <p id="custom-model-message" class="custom-model-message" role="status" hidden></p>
+
+        <section class="custom-model-section" aria-labelledby="custom-model-mode-heading">
+            <h3 id="custom-model-mode-heading">편집 모드</h3>
+            <div class="custom-model-mode-grid" data-api-help="model.select-mode">
+                <label>
+                    <input type="radio" name="custom-model-mode" value="pan" checked>
+                    <span>기본</span>
+                </label>
+                <label>
+                    <input type="radio" name="custom-model-mode" value="edit">
+                    <span>건물 추가</span>
+                </label>
+                <label>
+                    <input type="radio" name="custom-model-mode" value="select">
+                    <span>단일 선택</span>
+                </label>
+                <label>
+                    <input type="radio" name="custom-model-mode" value="selectArea">
+                    <span>영역 선택</span>
+                </label>
+            </div>
+        </section>
+
+        <section class="custom-model-section" aria-labelledby="custom-model-draw-heading">
+            <h3 id="custom-model-draw-heading">새 가상건물</h3>
+            <p class="custom-model-hint" data-api-help="model.draw" tabindex="0">
+                건물 추가 모드에서 지도를 3번 이상 클릭한 뒤 더블클릭하면 이름과 높이를 입력하는 창이 열립니다.
+            </p>
+        </section>
+
+        <section class="custom-model-section" aria-labelledby="custom-model-edit-heading">
+            <h3 id="custom-model-edit-heading">선택 건물 편집</h3>
+            <p class="custom-model-selected" data-api-help="model.selected" tabindex="0">
+                선택 건물 <strong id="selected-model-name">선택 없음</strong>
+            </p>
+
+            <div class="custom-model-button-row" data-api-help="model.gizmo">
+                <button type="button" data-gizmo-mode="translate">위치편집</button>
+                <button type="button" data-gizmo-mode="rotate">회전편집</button>
+                <button type="button" data-gizmo-mode="scale">크기편집</button>
+            </div>
+
+            <div class="custom-model-merge-row" data-api-help="model.merge">
+                <input id="merge-name" type="text" placeholder="병합 후 건물 이름">
+                <button id="merge-models" class="custom-model-action primary" type="button">건물병합</button>
+            </div>
+        </section>
+
+        <section class="custom-model-section" aria-labelledby="custom-model-style-heading">
+            <h3 id="custom-model-style-heading">건물 표현</h3>
+            <div class="custom-model-style-list" data-api-help="model.style">
+                <div class="custom-model-style-row">
+                    <label for="model-color">건물 색상</label>
+                    <input id="model-color" type="color" value="#2d5625">
+                </div>
+                <div class="custom-model-style-row">
+                    <label for="model-opacity">투명도</label>
+                    <input id="model-opacity" type="range" min="0" max="1" step="0.1" value="1">
+                    <output id="model-opacity-value" for="model-opacity">1.00</output>
+                </div>
+                <div class="custom-model-style-row">
+                    <label for="model-texture">건물 텍스처</label>
+                    <select id="model-texture">
+                        <option value="">없음</option>
+                        <option value="./image/buld/buld_texture_1.jpg">텍스처1</option>
+                        <option value="./image/buld/buld_texture_2.jpg">텍스처2</option>
+                        <option value="./image/buld/buld_texture_3.jpg">텍스처3</option>
+                    </select>
+                </div>
+            </div>
+            <div class="custom-model-button-row">
+                <button id="apply-style" class="custom-model-action primary" type="button" data-api-help="model.style">적용</button>
+                <button id="delete-model" class="custom-model-action is-danger" type="button" data-api-help="model.delete">삭제</button>
+            </div>
+        </section>
+
+        <section class="custom-model-section" aria-labelledby="custom-model-property-heading">
+            <h3 id="custom-model-property-heading">건물 속성</h3>
+            <div class="custom-model-apply-row" data-api-help="model.label">
+                <label for="model-label">라벨</label>
+                <input id="model-label" type="text">
+                <button id="apply-label" class="custom-model-action" type="button">적용</button>
+            </div>
+            <div class="custom-model-apply-row" data-api-help="model.height">
+                <label for="model-height">건물 높이</label>
+                <input id="model-height" type="number" step="1">
+                <button id="apply-height" class="custom-model-action" type="button">적용</button>
+            </div>
+            <div class="custom-model-apply-row" data-api-help="model.land-height">
+                <label for="model-land-height">지상 높이</label>
+                <input id="model-land-height" type="number" step="1">
+                <button id="apply-land-height" class="custom-model-action" type="button">적용</button>
+            </div>
+        </section>
+
+        <section class="custom-model-section" aria-labelledby="custom-model-list-heading">
+            <div class="custom-model-list-heading">
+                <h3 id="custom-model-list-heading">가상건물 목록</h3>
+                <span id="custom-model-count">0개</span>
+            </div>
+            <div class="custom-model-button-row">
+                <button id="save-models" class="custom-model-action" type="button" data-api-help="model.save">저장</button>
+                <button id="load-models" class="custom-model-action" type="button" data-api-help="model.load">불러오기</button>
+                <button id="remove-all-models" class="custom-model-action is-danger" type="button" data-api-help="model.remove-all">전체지우기</button>
+            </div>
+            <div id="custom-model-list" class="custom-model-list" data-api-help="model.list" tabindex="0"></div>
+        </section>
+    </div>
+</aside>
+
+<div id="custom-model-create-overlay" class="custom-model-create-overlay" hidden>
+    <div class="custom-model-create-backdrop" data-create-cancel></div>
+    <div
+        class="glass-panel custom-model-create-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="custom-model-create-title"
+    >
+        <header class="panel-header">
+            <div>
+                <span class="eyebrow">NEW BUILDING</span>
+                <h2 id="custom-model-create-title">새 가상건물</h2>
+            </div>
+            <button
+                class="panel-close"
+                type="button"
+                data-create-cancel
+                aria-label="새 가상건물 닫기"
+            >×</button>
+        </header>
+
+        <div class="custom-model-create-body">
+            <p class="custom-model-hint">그린 도형으로 만들 가상건물의 이름과 높이를 입력하세요.</p>
+            <p id="custom-model-create-message" class="custom-model-message" role="status" hidden></p>
+            <form id="custom-model-create-form" class="custom-model-create-form">
+                <div class="custom-model-field-grid" data-api-help="model.add">
+                    <label for="draw-name">건물 이름</label>
+                    <input id="draw-name" type="text" value="가상건물 1" placeholder="건물 이름">
+                    <label for="draw-height">건물 높이(m)</label>
+                    <input id="draw-height" type="number" min="1" step="1" value="30">
+                </div>
+                <div class="custom-model-button-row">
+                    <button id="cancel-create-model" class="custom-model-action" type="button" data-create-cancel>취소</button>
+                    <button id="confirm-create-model" class="custom-model-action primary" type="submit">건물 만들기</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

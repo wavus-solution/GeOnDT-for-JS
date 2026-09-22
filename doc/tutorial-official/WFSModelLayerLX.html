@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WFS 가상건물 가시화</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/tutorial.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        html, body {
+            height: 100%;
+        }
+
+        .examples {
+            padding: 15px 30px 15px 30px;
+        }
+
+        .u3-popup {
+            position: absolute;
+            background-color: white;
+            -webkit-filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.2));
+            filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.2));
+            padding: 5px;
+            /*border-radius: 10px;*/
+            height: fit-content;
+            border: 1px solid #00000033;
+            bottom: 12px;
+            left: -50px;
+            min-width: 280px;
+            display: none;
+        }
+
+        .u3-popup:after, .u3-popup:before {
+            top: 100%;
+            border: solid transparent;
+            content: " ";
+            height: 0;
+            width: 0;
+            position: absolute;
+            pointer-events: none;
+        }
+
+        .u3-popup:after {
+            border-top-color: white;
+            border-width: 10px;
+            left: 48px;
+            margin-left: -10px;
+        }
+
+        .u3-popup:before {
+            border-top-color: #cccccc;
+            border-width: 11px;
+            left: 48px;
+            margin-left: -11px;
+        }
+
+        .modal-header {
+            border-bottom: none;
+            height: 20px;
+            padding: 0 5px 0 5px;
+            line-height: 20px;
+        }
+
+        .input-opacity-value {
+            width: 50px;
+            height: 20px;
+            margin-right: 5px;
+        }
+
+        codeEx {
+            padding: 2px 4px;
+            font-size: 90%;
+            color: #c7254e;
+            background-color: #f9f2f4;
+            border-radius: 4px;
+        }
+
+
+    </style>
+</head>
+<body>
+<div id="map-wrapper">
+    <div id="map"></div>
+</div>
+
+<div class="execute-popup">
+    <button>직접해보기</button>
+</div>
+<div class="examples row">
+    <div class="ex-explanation" hidden>
+        <p class="lead">
+            3D 모델 레이어 중, <strong>WFS 모델 레이어를 화면에 출력</strong>하는 예제입니다.<br>
+            다른 3D 모델 레이어와 달리 WFS 모델 레이어는 3D 가상 건물을 표출하는 레이어입니다.
+        </p>
+    </div>
+    <pre>WFS 레이어를 3D 가상건물로 가시화 할 수 있습니다.</pre>
+    <div class="form-group">
+        <div class="checkbox">
+            <label style="font-weight: bold;">
+                <input type="checkbox" class="layer" id="terrain">
+                고도레이어
+            </label>
+        </div>
+        <div class="checkbox">
+            <label style="font-weight: bold;">
+                <input type="checkbox" class="layer" id="wfs1">
+                WFS Roadcenterline 1
+            </label>
+            <label style="font-weight: bold;margin-right: 36px;margin-left: -10px;">
+                <input id="wfs1_fill" type="color" name="fill" value="#ffff00">
+                <codeEx> 투명도 :</codeEx>
+                <input type="number" class="input-opacity-value" id="wfs1_opacity" value="1" step="0.1" max = 1 min = 0>
+            </label>
+
+            <label style="font-weight: bold;">
+                <input type="checkbox" class="layer" id="wfs2">
+                WFS Roadcenterline 2
+            </label>
+            <label style="font-weight: bold;margin-right: 25px;margin-left: -10px;">
+                <input id="wfs2_fill" type="color" name="fill" value="#ff00ff">
+                <codeEx> 투명도 :</codeEx>
+                <input type="number" class="input-opacity-value" id="wfs2_opacity" value="0.6" step="0.1" max = 1 min = 0>
+            </label>
+            <label style="font-weight: bold;">
+                <input type="checkbox" class="layer" id="wfs3">
+                WFS Roadsurface
+            </label>
+            <label style="font-weight: bold;margin-right: 25px;margin-left: -10px;">
+                <input id="wfs3_fill" type="color" name="fill" value="#00ffff">
+                <codeEx> 투명도 :</codeEx>
+                <input type="number" class="input-opacity-value" id="wfs3_opacity" value="0.2" step="0.1" max = 1 min = 0>
+            </label>
+            <label style="font-weight: bold;">
+                <input type="checkbox" class="layer" id="wfs4">
+                WFS lxrdip
+            </label>
+            <label style="font-weight: bold;margin-right: 25px;margin-left: -10px;">
+                <input id="wfs4_fill" type="color" name="fill" value="#ffffcc">
+                <codeEx> 투명도 :</codeEx>
+                <input type="number" class="input-opacity-value" id="wfs4_opacity" value="1" step="1" max = 1 min = 0>
+            </label>
+        </div>
+        <div class="checkbox" style="margin-top: 10px;">
+            <label style="font-weight: bold; margin-right: 10px;">
+                <input type="checkbox" id="selectObject">
+                객체 선택 모드
+            </label>
+
+            <label style="font-weight: bold; margin-right: 10px;" >
+                <input type="checkbox" id="wireFrame">
+                Wireframe
+            </label>
+
+            <label style="font-weight: bold; margin-right: 10px;" >
+                <input type="checkbox" id="gridTile">
+                Grid Tile
+            </label>
+            <code> 높이 :</code>
+            <input type="number" class="input-axis-value" id="height" value="10" step="1">
+            <code> 사이즈 :</code>
+            <input type="number" class="input-axis-value" id="size" value="50" step="1">
+            <button type="button" class="btn btn-xs btn-default btn-set-gridTile">적용</button>
+        </div>
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script>
+    require(['app/Union3D'], function (Union3D) {
+        //라이센스 인증
+        Union3D.ready(function () {
+            //지도 기본 세팅///////////////////////////////////////
+            window.app = new Union3D.U3dAPP({
+                containername: 'map' //+ U3dApp(지도영역)의 div ID, *필수 입력
+            });
+            //app.setIntensityLight(0.8);
+            app.setHomePosition(127.131, 37.423, 680, 0, 45); //경도, 위도, 높이, 방위각, 고도각
+            app.updateHomePosition().then(function () {
+                app.setUnderGroundMode();
+            });
+
+            //이미지 레이어 생성
+            let imageLayer = new Union3D.image.U3dImageXYZLayer({
+                name: 'satellite',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+                baseurl: layerInfo.image.vworldsaturl, //+ 이미지 데이터 URL, *필수 입력
+                reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            });
+            app.addLayer(imageLayer);
+            //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+            app.showLayer('satellite', true);
+            app.setNameBaseLayer('satellite');
+
+            // 모델 정보 보기 모드 활성
+            let analy = app.getAnalysis('ObjectInfo');
+
+            let layer ={
+                show:function (){
+                    app.showLayer(this.layer.getName(), true);
+                },
+                hide:function (){
+                    app.showLayer(this.layer.getName(), false);
+                },
+                isCreate:function (){
+                    return this.layer !== undefined;
+                },
+                getLayer:function (){
+                    return this.layer;
+                }
+            }
+
+            let terrainLayer =Object.assign({
+                create:function () {
+                    this.layer = new Union3D.terrain.U3dHeightXYZLayer({
+                        name: 'Korea Terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+                        baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+                        ext: '.umf', //+ 파일 확장자, *필수 입력
+                        reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+                        minlevel: 9,  //+ 가시화 최소 레벨
+                        maxlevel: 15, //+ 가시화 최대 레벨
+                        useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+                        maxprocess: 2, //+ process 최대값
+                        rectangle: Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수
+                    });
+                    app.addLayer(this.layer);
+                }
+            },layer);
+
+            let wfs1Layer =Object.assign({
+                create:function () {
+                    this.layer = new Union3D.model.U3dModelWFSLayer({
+                        name: 'WFS1',
+                        layername: 'digitaltwin:RMF_001000L_roadcenterline_A2',
+                        baseurl: 'https://3d.geon.kr/geoserver/digitaltwin/ows',
+                        transperent: true,
+                        minlevel: 17,
+                        drawline: false,
+                        opacity:  parseFloat($('#wfs1_opacity').val()),
+                        piperadius: 0.5,
+                        useproxy: true,
+                        styleFunction:function (){
+                            return{color:$('#wfs1_fill').val()}
+                        }
+                    });
+                    app.addLayer(this.layer);
+                    let self =this;
+                    $('#wfs1_fill').on('change', function () {
+                        self.layer.updateStyle();
+                        app.updateData();
+                    });
+
+                    this.layer.setWireframe(window.wireFrame);
+                }
+            },layer);
+
+            let wfs2Layer =Object.assign({
+                create:function () {
+                    this.layer = new Union3D.model.U3dModelWFSLayer({
+                        name: 'WFS2',
+                        layername: 'digitaltwin:roadcenterline_A2',
+                        baseurl: 'https://3d.geon.kr/geoserver/digitaltwin/ows',
+                        transperent: true,
+                        minlevel: 17,
+                        drawline: false,
+                        opacity: parseFloat($('#wfs2_opacity').val()),
+                        useproxy: true,
+                        styleFunction:function (){
+                            return{color:$('#wfs2_fill').val()}
+                        }
+                    });
+                    app.addLayer(this.layer);
+                    let self =this;
+                    $('#wfs2_fill').on('change', function () {
+                        self.layer.updateStyle();
+                        app.updateData();
+                    });
+
+                    this.layer.setWireframe(window.wireFrame);
+                },
+            },layer);
+
+            let wfs3Layer =Object.assign({
+                create:function () {
+                    this.layer = new Union3D.model.U3dModelWFSLayer({
+                        name: 'WFS3',
+                        layername: 'digitaltwin:roadsurface',
+                        baseurl: 'https://3d.geon.kr/geoserver/digitaltwin/ows',
+                        transperent: true,
+                        minlevel: 17,
+                        drawline: false,
+                        opacity: parseFloat($('#wfs3_opacity').val()),
+                        useproxy: true,
+                        styleFunction:function (){
+                            return{color:$('#wfs3_fill').val()}
+                        }
+                    });
+                    app.addLayer(this.layer);
+                    let self =this;
+                    $('#wfs3_fill').on('change', function () {
+                        self.layer.updateStyle();
+                        app.updateData();
+                    });
+
+                    this.layer.setWireframe(window.wireFrame);
+                },
+            },layer);
+
+            let wfs4Layer =Object.assign({
+                create:function () {
+                    this.layer = new Union3D.model.U3dModelWFSLayer({
+                        name: 'WFS4',
+                        layername: 'lxrdip:rmf_013000p_41130',
+                        baseurl: 'http://lxrdip.iptime.org:9999/geoserver/lxrdip/ows',
+                        transperent: true,
+                        minlevel: 17,
+                        drawline: false,
+                        opacity: 1,
+                        useproxy: true,
+                        styleFunction:function (){
+                            return{color:$('#wfs4_fill').val()}
+                        }
+                    });
+                    app.addLayer(this.layer);
+                    let self =this;
+                    $('#wfs4_fill').on('change', function () {
+                        self.layer.updateStyle();
+                        app.updateData();
+                    });
+
+                    this.layer.setWireframe(window.wireFrame);
+                }
+            },layer);
+
+            window.layers = {
+                terrain:terrainLayer,
+                wfs1:wfs1Layer,
+                wfs2:wfs2Layer,
+                wfs3:wfs3Layer,
+                wfs4:wfs4Layer
+            }
+
+            $(document).on('click', 'input[type="checkbox"].layer', function (e) {
+                let id = e.target.id;
+                if (e.target.checked) {
+                    if(!layers[id].isCreate()){
+                        layers[id].create();
+                    }
+                    layers[id].show();
+                }else{
+                    layers[id].hide();
+                }
+            });
+
+            //+ 마우스 클릭 event 등록
+            app.on('click', function (e) {
+                if (!analy.isActive())
+                    return;
+
+                var obj = analy.intersectModel(e); //+ 마우스 클릭시 해당하는 model 찾기
+                if (obj === undefined || obj.length === 0) {
+                    //+ 해당하는 model이 없을 경우
+                    // analy.clear();
+                    return;
+                }
+
+                // var world = app.closestPointAtPixel(e);
+                var latlon = app.vector3ToGeoGraphic(obj[0].point); //+ vector 좌표 위경도 좌표로 변환
+                var overlay = createOverlay('overlay', obj[0], latlon); //+ 위경도 좌표에 overlay 생성
+                overlay.show(); //+ overlay 가시화
+            });
+
+
+            $(document).on('click', '#selectObject', selectObject);
+            $(document).on('click', '#wireFrame', setWireFrame);
+            $(document).on('click', '#gridTile', setGridTile);
+            $(document).on('click', '.btn-set-gridTile', updateGridTile);
+
+            function setGridTile(e){
+                let height = $('#height').val();
+                let size = $('#size').val();
+                if(!window.gridLayer){
+                    window.gridLayer= app.createGridTileLayer({
+                        name:'Grid_Tile', //+ NAME
+                        height:height, //+ 격자 타일 높이
+                        size:size, //+ 격자 타일 크기
+                        minlevel:17, //+ 최소 가시화 레벨
+                        gridColor:0xffffff, //+ 격자 타일 색상
+                        gridOpacity: 0.3, //+ 격자 타일 투명도
+                        showGridTile:true //+ 격자 타일 가시화 여부
+                    });
+                }else{
+                    if(height !==window.gridLayer.getHeight()){
+                        window.gridLayer.setHeight(height);
+                    }
+                    if(size !==window.gridLayer.getSize()){
+                        window.gridLayer.setSize(size);
+                    }
+                }
+                app.showLayer(window.gridLayer.getName(), e.target.checked);
+            }
+
+            function updateGridTile(e) {
+                if(window.gridLayer){
+                    var height = $('#height').val();
+                    var size = $('#size').val();
+                    window.gridLayer.setGridTile(true, height, size);
+                }
+                //+ setGridTile - gridTile 속성값 설정 함수 (isShow, height, size, minlevel, gridColor, gridOpacity)
+                // isShow = 가시화 여부 (default values - true)
+                // height = 격자 높이 (default values - 100)
+                // size = 격자 크기  (default values - 50)
+                // minlevel = 격자 가시화 최소 레벨 (default values - layer minlevel, 17)
+                // gridcolor = 격자 색상 (default values - 0xffffff)
+                // gridOpacity = 격자 투명도 (default values - 0.3)
+
+                // 또는
+                // gridTileLayer.setHeight(height);
+                // gridTileLayer.setSize(size);
+                // gridTileLayer.setGridColor('0xffffff');
+                // gridTileLayer.setGridOpacity(0.5);
+                // gridTileLayer.getMinLevel(16);
+                // 사용 가능
+            }
+
+            function setWireFrame(e){
+                let values = Object.values(layers);
+                for(let layer of values){
+                    if(layer.isCreate()){
+                        if (e.target.checked)
+                            layer.getLayer().setWireframe(true);
+                        else
+                            layer.getLayer().setWireframe(false);
+                    }
+                }
+                window.wireFrame = e.target.checked;
+            }
+
+            function selectObject(e) {
+                if (e.target.checked)
+                    analy.active();
+                else
+                    analy.deactive();
+            }
+
+            function createOverlay(name, obj, position) {
+                var html = printOverlayHtml(obj);//+ overlay UI
+                var overlay = new Union3D.overlay.U3dOverlay({
+                    name: name, //+ 오버레이 이름, * 필수 입력,  defaultValue(opt.name, undefined);
+                    id: obj.uuid, //+ 오버레이 ID, defaultValue(opt.id, Guid());
+                    element: html, //+ 오버레이 html의 문자열 또는 JQuery 객체, *필수 입력
+                    position: position, //+ 오버레이 위치(위경도), defaultValue(opt.position, undefined);, *필수 입력
+                    useanchor: false, //+ 클릭 지점에 따라 앵커 자동 변경,  defaultValue(opt.useanchor, true);
+                    balloon: {x: -50, y: 10} //+ balloon 위치,  defaultValue(opt.balloon, {x: 0, y: 0});
+                });
+                app.removeAllOverlay(); //+ 다른 overlay 전체 삭제
+                app.addOverlay(overlay); //+ 새로 만든 overlay 추가
+                var element = overlay.getElement();
+                //+ overlay에 닫기 event 추가
+                $(element).on('click', '.close', popUpCloseClick.bind(overlay));
+                return overlay;
+            }
+
+
+            //+ overlay UI
+            function printOverlayHtml(obj) {
+                var item = obj.object;
+                var str = '';
+                str += '<div class="u3-popup" id=' + obj.uuid + '>';
+                str += '<div class="u3-popup-content">';
+                str += '<div class="modal-header">';
+                str += '<button type="button" class="close"><span aria-hidden="true">&times;</span>';
+                str += '</button>';
+                str += '</div>';
+
+                str += '<div class="item-sub-title"><span class="text-icon">레이어 이름: </span>' + item._ulayername + '</div>';  //+ model layer Name
+                str += '<div class="item-sub-title"><span class="text-icon">번호: </span>' + item.uuid + '</div>'; //+ model UUID
+
+                if (item.userData.url !== undefined)
+                    str += '<div class="item-sub-title"><span class="text-icon">URL: </span>' + item.userData.url + '</div>'; //+ model UUID
+
+                if (obj.object.userData.id)
+                    str += '<div class="item-sub-title"><span class="text-icon">정보: </span>' + obj.object.userData.id + '</div>'; //+ model UUID
+
+                str += '</div>';
+                str += '</div>';
+                return str;
+            }
+
+            //+ overlay 닫기 event function
+            function popUpCloseClick() {
+                $(this.element).off('click', '.close', popUpCloseClick);
+                app.removeOverlay(this); //+ overlay 제거
+                analy.clear(); //+ 분석 내용 비우기
+            }
+        });
+    });
+</script>
+
+</body>
+</html>
+
+
+
+
+
+
+
+
+

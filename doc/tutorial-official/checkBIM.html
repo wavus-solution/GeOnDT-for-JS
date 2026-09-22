@@ -1,0 +1,2022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>BIM 객체 관리</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+
+        .panel-body {
+            padding: 10px;
+        }
+
+        .form-group {
+            margin-bottom: unset;
+        }
+
+        .control-info {
+            margin-top: 8px;
+            display: block;
+        }
+
+        .control-info-label {
+            display: inline;
+            cursor: pointer;
+        }
+
+        .control-info-btn {
+            float: right;
+            padding: 2px 5px;
+        }
+
+        #analy-popup .div-popup {
+            width: 900px;
+            height: 800px;
+            top: 10vh;
+            display: flow;
+        }
+
+        .panel {
+            margin-bottom: 3% !important;
+        }
+
+        code {
+            color: white;
+            background-color: rgba(23, 36, 75, 0.65);
+        }
+
+        .slidecontainer {
+            width: 100%; /* Width of the outside container */
+        }
+
+        .slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 15px;
+            border-radius: 5px;
+            background: #d3d3d3;
+            outline: none;
+            opacity: 0.7;
+            -webkit-transition: .2s;
+            transition: opacity .2s;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background-color: rgba(65, 102, 206, 1);;
+            cursor: pointer;
+        }
+
+        .slider::-moz-range-thumb {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background-color: rgba(65, 102, 206, 1);;
+            cursor: pointer;
+        }
+
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu="return false;">
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> BIM 객체 관리</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        서버에 등록된 ICF2OBJ 타입의 레이어를 조회하고, 출력합니다.<br>
+        객체별 메타정보를 연결하여 확인하고, BIM PROCESS STEP2를 실행하기 위한 Control Case를 관리합니다.
+        최종 변환 Tab에서는 3dTiles_BIM 타입의 레이어를 조회하고, 출력합니다.<br>
+        객체별 Batch Group 정보를 확인하고, Batch Group 별로 선택 하여 확인 할 수 있습니다.
+    </p>
+</div>
+<div id="map-wrapper" style="height: 100%; width:100%; position:absolute;">
+    <div>
+        <div id="map"></div>
+        <div id="div-left-menu">
+            <div id="left-menu-list-panel">
+                <div class="form-group div-layer">
+                    <div class="div-category">
+                        <label class="label-layerType">
+                            레이어
+                        </label>
+                    </div>
+                    <div id="layer-list">
+                        <div class="div-sub-category">
+                            <div class="sub-category-tile">
+                                <label class="label-layerType">
+                                    이미지 레이어
+                                </label>
+                                <div class="category-btn-group">
+                                    <label class="expand-btn layer">
+                                        <img src="image/btn_expand.svg" alt="">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sub-category-content">
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="satellite">
+                                        VWorld Satellite
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="hybrid">
+                                        VWorld Hybrid
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="div-sub-category">
+                            <div class="sub-category-tile">
+                                <label class="label-layerType">
+                                    지형 레이어
+                                </label>
+                                <div class="category-btn-group">
+                                    <label class="expand-btn layer">
+                                        <img src="image/btn_expand.svg" alt="">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sub-category-content">
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="korea_terrain">
+                                        전체 지형
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div style="display: inline-flex; position: relative">
+                    <button id="left-menu-bnt" class="btn btn-xs menu-btn">
+                        <img src="image/left_panel_open_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                    </button>
+                    <div class="div-btn-info" hidden>
+                        레이어 탭 열기
+                    </div>
+                </div>
+                <div style="display: inline-flex; position: relative">
+                    <button id="analy-bnt" class="btn btn-xs menu-btn">
+                        <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                    </button>
+                    <div class="div-btn-info" hidden>
+                        분석 팝업 열기
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="btn-group" id='top-sbar'>
+            <div class='btn-group-vertical-block' id='right-toolbar'>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                    <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                         src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                         alt="나침반">
+                </button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                        id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                        id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                        id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg"
+                                                                     alt="">
+                </button>
+            </div>
+            <div class='btn-group' id='bt-bottom-bar'>
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                       value="위경도: ##.####  ###.#### ">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                       value="고도:####">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                       value="각도: ##">
+            </div>
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu="return false;">
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content">
+                <div style="height: 100%; width:100%;">
+                    <div class="col-sm-12" role="tabpanel" style="margin-top:2%; height:100%;">
+                        <ul class="nav nav-tabs" role="tablist">
+                            <li role="presentation" class="active">
+                                <a href="#tab-step1" aria-controls="tab-step1" role="tab" data-toggle="tab">OBJ변환</a>
+                            </li>
+                            <li role="presentation">
+                                <a href="#tab-step2" aria-controls="tab-step2" role="tab" data-toggle="tab">최종변환</a>
+                            </li>
+                        </ul>
+                        <div class="tab-content" style="height:98%;">
+                            <div role="tabpanel" class="tab-pane active" id="tab-step1" style="height:100%;">
+                                <div class="col-sm-12" style="margin-top:3%;height:98%;">
+                                    <div class="panel panel-default" style="height:16%;  margin-bottom: 3%">
+                                        <div class="panel-heading">
+                                            <div class="d-flex">
+                                                <div>BIM OBJ 레이어 선택</div>
+                                                <div class="flex-1 text-right">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="scroll-auto panel-body" style="height:unset; ">
+                                            <div class="form-group col-sm-7">
+                                                <label>
+                                                    <select class="form-control input-sm select-server-step1">
+                                                    </select>
+                                                </label>
+                                            </div>
+                                            <div class="btn btn-default btn-sm btn-show toggle">보기</div>
+                                            <div class="btn btn-default btn-sm btn-layerInfo toggle">상세정보</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="panel panel-default" style="height:60%;  margin-bottom: 3%">
+                                        <div class="panel-heading">
+                                            <div class="d-flex">
+                                                <div>OBJ 레이어 객체 정보</div>
+                                                <div class="flex-1 text-right">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="scroll-auto panel-body" style="height:90%;">
+                                            <div class="form-group col-sm-6">
+                                                <label>
+                                                    <select class="form-control input-sm select-files">
+                                                    </select>
+                                                </label>
+                                            </div>
+                                            
+                                            <div class="btn btn-default btn-sm btn-clear-file toggle">초기화</div>
+                                            <div class="btn btn-default btn-sm btn-show-file toggle">조회</div>
+                                            <div style="width: 96%;height: 75%;margin: 2%;overflow-y: auto;border: black solid; max-height: 200px;">
+                                                <div id="file-meta-tree" style="font-size: 9px;"></div>
+                                            </div>
+                                            <div class="form-group col-sm-9">
+                                                <label>
+                                                    <input class="form-control input-sm input-meta-name" readonly>
+                                                </label>
+                                            </div>
+                                            <div class="btn btn-default btn-sm btn-show-meta toggle">내용보기</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="panel panel-default" style="height:14%;">
+                                        <div class="panel-heading">
+                                            <div class="d-flex">
+                                                <div>컨트롤 파일 관리</div>
+                                                <div class="flex-1 text-right">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="scroll-auto panel-body" style="height:87%;">
+                                            <div class="form-group col-sm-6">
+                                                <label>
+                                                    <select class="form-control input-sm select-controlCase">
+                                                    </select>
+                                                </label>
+                                            </div>
+                                            <div class="btn btn-default btn-sm btn-show-controlCase toggle">조회</div>
+                                            <div class="btn btn-default btn-sm btn-create-controlCase toggle">생성</div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                            <div role="tabpanel" class="tab-pane" id="tab-step2" style="height:100%;">
+                                <div class="col-sm-12" style="margin-top:3%;height:98%;">
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading">
+                                            <div class="d-flex">
+                                                <div>BIM 레이어 선택</div>
+                                                <div class="flex-1 text-right">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="scroll-auto panel-body" style="height:unset;">
+                                            <div class="form-group col-sm-7">
+                                                <label>
+                                                    <select class="form-control input-sm select-server-step2">
+                                                    </select>
+                                                </label>
+                                            </div>
+                                            <div class="btn btn-default btn-sm btn-show toggle">보기</div>
+                                            <div class="btn btn-default btn-sm btn-layerInfo toggle">상세정보</div>
+                                        </div>
+                                        <div class="scroll-auto panel-body" style="height:unset;">
+                                            <div class="form-group col-sm-8">
+                                                <label style="padding: 6px 6px; ">
+                                                    객체 선택시 그룹화 레벨 선택
+                                                </label>
+                                            </div>
+                                            <div class="form-group col-sm-43">
+                                                <label>
+                                                    <select class="form-control input-sm select-level-step2">
+                                                        <option value="-1" selected>단일선택</option>
+                                                        <option value="4">4</option>
+                                                        <option value="3">3</option>
+                                                        <option value="2">2</option>
+                                                        <option value="1">1</option>
+                                                        <option value="0">0</option>
+                                                    </select>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="scroll-auto panel-body" style="height:unset;">
+                                            <div class="form-group col-sm-4">
+                                                <label style="padding: 6px 6px; ">
+                                                    검색 방법
+                                                </label>
+                                            </div>
+                                            <div class="form-group col-sm-8">
+                                                <label>
+                                                    <input class="selectCheck" type="checkbox" target="point"
+                                                           checked="checked">
+                                                    단일
+                                                </label>
+                                                <label>
+                                                    <input class="selectCheck" type="checkbox" target="area">
+                                                    영역
+                                                </label>
+                                                <label>
+                                                    <input class="selectCheck" type="checkbox" target="line">
+                                                    선
+                                                </label>
+                                                <label>
+                                                    <input class="selectCheck" type="checkbox" target="circle">
+                                                    반경
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        <div class="scroll-auto panel-body" style="height:unset;">
+                                            <div class="form-group col-sm-7 slider-wrapper">
+                                                <div style="width:100%">
+                                                    <code> 선택 분류 높이 설정 :</code><label id="height"> 0 </label>
+                                                </div>
+                                                <div class="slidecontainer" style="display:flex">
+                                                    <input type="range" min="-100" max="100" value="0" class="slider"
+                                                           id="zRange"
+                                                           style="width: 200px; background-color:  rgb(223 236 235 / 60%);">
+                                                    <label class="col-sm-5" style="margin-left: 15%">
+                                                        <select class="form-control input-sm select-floor-step2">
+                                                            <option>분류</option>
+                                                        </select>
+                                                    </label>
+                                                </div>
+
+                                            </div>
+                                        </div>
+
+                                    </div>
+
+                                    <div class="panel panel-default" style="height:60%;">
+                                        <div class="panel-heading">
+                                            <div class="d-flex">
+                                                <div>BIM 레이어(3DTiles) 객체 정보</div>
+                                            </div>
+                                        </div>
+                                        <div class="scroll-auto panel-body" style="height:90%;">
+                                            <div class="form-group col-sm-4"
+                                                 style="text-align: center;margin-top: 5px; ">
+                                                <label>선택한 그룹 이름</label>
+                                            </div>
+                                            <div class="form-group col-sm-8" style=" margin-bottom: 10px;">
+                                                <label>
+                                                    <input class="form-control input-sm select-files-3dTiles" readonly>
+                                                </label>
+                                            </div>
+                                            <div style="width: 96%;height: 75%;margin: 2%;overflow-y: auto;border: black solid; max-height: 200px">
+                                                <div id="file-meta-tree-3dtiles" style="font-size: 9px;">
+                                                    <div class="control-info" id="mesh-group"
+                                                         style="margin-left:6px; overflow: auto; ">
+                                                    </div>
+                                                </div>
+
+                                            </div>
+                                            <div class="form-group col-sm-9">
+                                                <label style="display:block">
+                                                    <input class="form-control input-sm input-meta-name" readonly>
+                                                </label>
+                                            </div>
+                                            <div class="btn btn-default btn-sm btn-show-meta toggle">내용보기</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel panel-default" id="panel-layerInfo"
+                     style="position:fixed; width:40%;height:15%;top:18%;left: 50%; z-index: 9999"
+                     hidden>
+                    <div class="panel-heading">
+                        <div class="d-flex">
+                            <div style="display:inline;">레이어 상세정보</div>
+                            <div class="btn btn-default btn-sm btn-exit toggle" style="float:right; margin-top: -5px;">
+                                X
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="scroll-auto panel-body" style="height:unset;">
+                        <div class="col-sm-12">
+                            <div class="form-group col-sm-12">
+                                <label>BaseURL</label>
+                                <label>
+                                    <input type="text" name="baseUrl" class="form-control arg base">
+                                </label>
+                            </div>
+                            <div class="form-group col-sm-6">
+                                <label>MetaPath</label>
+                                <label>
+                                    <input type="text" name="metaPath" class="form-control arg base">
+                                </label>
+                            </div>
+                            <div class="form-group col-sm-6">
+                                <label>SRS</label>
+                                <label>
+                                    <input type="text" name="srs" class="form-control arg base">
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel panel-default" id="panel-metaInfo"
+                     style="position:fixed; width:35%;height:95%;top:3%;left: 60%; overflow: auto; max-height: 500px;"
+                     hidden>
+                    <div class="panel-heading">
+                        <div class="d-flex">
+                            <div style="display:inline;">객체 정보</div>
+                            <div class="btn btn-default btn-sm btn-exit toggle" style="float:right; margin-top: -5px;">
+                                X
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="scroll-auto panel-body" style="height:unset;">
+                        <div class="col-sm-12">
+                            <div class="form-group col-sm-12">
+                                <label>Name</label>
+                                <input type="text" name="name" class="form-control arg meta" readonly>
+                            </div>
+                            <div class="form-group col-sm-6">
+                                <label>ID</label>
+                                <input type="text" name="id" class="form-control arg meta" readonly>
+                            </div>
+                            <div class="form-group col-sm-6">
+                                <label>ParentID</label>
+                                <input type="text" name="parentId" class="form-control arg meta" readonly>
+                            </div>
+                            <div class="form-group col-sm-6">
+                                <label>FileName</label>
+                                <input type="text" name="fileName" class="form-control arg meta" readonly>
+                            </div>
+                            <div class="form-group col-sm-6">
+                                <label>RootName</label>
+                                <input type="text" name="rootName" class="form-control arg meta" readonly>
+                            </div>
+                            <div class="form-group col-sm-12">
+                                <label>Properties</label>
+                                <textarea name="properties" class="form-control arg meta"
+                                          style="min-height:400px"></textarea>
+                            </div>
+                            <div class="form-group col-sm-12 control-content"
+                                 style="margin-top:10px;border: gray solid 2px;">
+                                <div class="form-group col-sm-12"
+                                     style="text-align:center;font-size:16px;font-weight: 900;margin-top:7px;margin-bottom: 7px;">
+                                    수정내용
+                                </div>
+                                <div class="form-group col-sm-4">
+                                    <label style="margin-top:5px;">적용될 컨트롤 파일</label>
+                                </div>
+                                <div class="form-group col-sm-8">
+                                    <select class="form-control input-sm popup-select-controlCase">
+                                    </select>
+                                </div>
+                                <div class="form-group col-sm-12">
+                                    <label style="margin-top:5px;">
+                                        출력제외
+                                        <input type="checkbox" style="margin-left:5px;" id="check-control-exclusion">
+                                    </label>
+                                </div>
+                                <div class="form-group col-sm-12">
+                                    <label style="margin-top:5px;">
+                                        가시화 시작레벨 변경
+                                        <input type="checkbox" style="margin-left:5px;" id="check-control-changeLevel">
+                                    </label>
+                                    <input type="text" name="startLevel" class="form-control arg"
+                                           id="input-control-changeLevel"
+                                           style="width:15%;display:inline;float:right;">
+                                </div>
+                                <div class="form-group col-sm-12">
+                                    <label style="margin-top:5px;">
+                                        프로퍼티 변경
+                                        <input type="checkbox" style="margin-left:5px;"
+                                               id="check-control-changeProperties">
+                                    </label>
+                                    <textarea id="textarea-control-changeProperties" name="properties"
+                                              class="form-control arg"
+                                              style="min-height:50px"></textarea>
+                                </div>
+                                <div class="form-group col-sm-12" style="margin-top:10px; margin-bottom: 10px;">
+                                    <div class="btn btn-default btn-sm btn-save toggle" style="float:right;">저장</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel panel-default" id="panel-controlInfo"
+                     style="position:fixed; width:35%;height:95%;top:3%;left: 50%; overflow: auto; max-height: 500px;"
+                     hidden>
+                    <div class="panel-heading">
+                        <div class="d-flex">
+                            <div style="display:inline;">컨트롤 파일 정보</div>
+                            <div class="btn btn-default btn-sm btn-exit toggle" style="float:right; margin-top: -5px;">
+                                X
+                            </div>
+                        </div>
+                    </div>
+                    <div class="scroll-auto panel-body" style="height:95%;">
+                        <div class="col-sm-12" style="height:100%;">
+                            <div class="form-group col-sm-12">
+                                <label>컨트롤 파일 이름</label>
+                                <input type="text" name="name" class="form-control arg control" readonly>
+                            </div>
+                            <div class="form-group col-sm-3" style="margin-top: 10px;">
+                                <label style="margin-top:5px;">파일 선택</label>
+                            </div>
+                            <div class="form-group col-sm-9" style="margin-top: 10px;">
+                                <select class="form-control input-sm popup-select-files"
+                                        style="width: 68%;display: inline;">
+                                </select>
+                                <div class="btn btn-default btn-sm btn-show-controlCase toggle" style="float:right;">정보
+                                    적용하기
+                                </div>
+                            </div>
+                            <div class="form-group col-sm-12" style="margin-top: 10px;">
+                                <label style="margin-top:5px;">위치</label>
+                                <div class="btn btn-default btn-sm btn-save-position toggle"
+                                     style="float:right;margin-left: 10px;margin-top: 3px;">파일에 위치 적용
+                                </div>
+                                <input type="text" name="positionZ" class="form-control arg control"
+                                       style="float:right;display:inline; width:15%; margin-left: 10px;">
+                                <input type="text" name="positionY" class="form-control arg control"
+                                       style="float:right;display:inline; width:15%; margin-left: 10px;">
+                                <input type="text" name="positionX" class="form-control arg control"
+                                       style="float:right;display:inline; width:15%; margin-left: 10px;">
+
+                            </div>
+
+                            <div class="form-group col-sm-12" style="margin-top: 5px;">
+                                <label>제외 목록</label>
+                            </div>
+                            <div class="control-exclusion form-group col-sm-12"
+                                 style="border: gray solid 2px; overflow-y: auto; height:13%;margin-left:3%;margin-right: 3%;width:94%;">
+                                <div class="control-info">
+                                    <label class="control-info-label">Odjfiefj4233jdxx</label>
+                                    <div class="control-info-btn btn btn-default btn-sm btn-show-meta toggle">내용보기</div>
+                                    <div class="control-info-btn btn btn-default btn-sm btn-save-changeLevel toggle">
+                                        삭제
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group col-sm-12" style="margin-top: 5px;">
+                                <label>가시화 레벨 변경 목록</label>
+                            </div>
+                            <div class="control-changeLevel form-group col-sm-12"
+                                 style="border: gray solid 2px; overflow-y: auto; height:13%;margin-left:3%;margin-right: 3%;width:94%;">
+
+                            </div>
+                            <div class="form-group col-sm-12" style="margin-top: 5px;">
+                                <label style="display:inline;">가시화 레벨</label>
+                                <input type="text" name="changeLevel" class="form-control arg control"
+                                       style="display:inline; width:30%; margin-left: 10px;">
+                            </div>
+
+                            <div class="form-group col-sm-12" style="margin-top: 10px;">
+                                <label>프로퍼티 변경 목록</label>
+                            </div>
+                            <div class="control-changeProperties form-group col-sm-12"
+                                 style="border: gray solid 2px; overflow-y: auto; height:13%;margin-left:3%;margin-right: 3%;width:94%;">
+
+                            </div>
+                            <div class="form-group col-sm-12" style="margin-top:5px;">
+                                <label>
+                    <textarea name="changeProperties" class="form-control arg control"
+                              style="min-height:50px;display:inline;"></textarea>
+                                </label>
+                            </div>
+                            <div class="form-group col-sm-12" style="margin-top:5px;">
+                                <div class="btn btn-default btn-sm btn-remove-controlCase toggle" style="float:right;">
+                                    삭제
+                                </div>
+                                <div class="btn btn-default btn-sm btn-expert-controlCase toggle"
+                                     style="float:right;margin-right:10px;">저장
+                                </div>
+
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+<div style="height: 30%; width:20%; top:64%; left:79%; position:absolute; border: black 4px solid; z-index: 5000;">
+    <div id="miniMap" style="position: relative;width: 100%;height: 100%;float: left;overflow: hidden;"></div>
+</div>
+
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    $('.execute-popup').click(function () {
+        var strings = document.location.href.split('/');
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script id="set-imagelayer">
+    let ImageLayer = function (Union3D, app, opt) {
+        this._type = "ImageLayer";
+        this.layer = undefined;
+        this._union3d = Union3D;
+        this._app = app;
+        this._name = opt.name;
+        this.options = opt;
+        this.ready = $.Deferred();
+    }
+    ImageLayer.prototype.create = function () {
+        let self = this;
+        if (self._name === 'emapbase') {
+            self.layer = self._app.createEmapBaseLayer(this.options);
+        } else if (self._name === 'emapsat') {
+            self.layer = self._app.createEmapSatLayer(this.options);
+        } else {
+            self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
+            self._app.addLayer(this.layer);
+        }
+        this.layer.then(() => {
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+    ImageLayer.prototype.show = function (isShow) {
+        let promies = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow ? "시작" : "종료"));
+        this._app.showLayer(this.options.name, isShow).then(() => {
+            promies.resolve();
+        })
+        this.isShow = isShow;
+        return promies;
+    }
+</script>
+<script id="set-terrain">
+    let HeightLayer = function (Union3D, app, opt) {
+        this._type = "HeightLayer";
+        this.layer = undefined;
+        this._app = app;
+        if (opt.rectangle === undefined)
+            opt.rectangle = Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수
+        this.options = opt;
+        this._name = opt.name;
+        this.ready = $.Deferred();
+    }
+    HeightLayer.prototype.create = function () {
+        let self = this;
+        self.layer = this._app.createHeightXYZLayer(self.options);
+        self.layer.then(() => {
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+    HeightLayer.prototype.show = function (isShow) {
+        let promies = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow ? "시작" : "종료"));
+        this._app.showLayer(this.options.name, isShow).then(() => {
+            promies.resolve();
+        })
+        this.isShow = isShow;
+        return promies;
+    }
+</script>
+<script id="layer-setting">
+    const LAYER_OPT = {
+        satellite: {
+            name: 'satellite',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldsaturl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+        },
+        hybrid: {
+            name: 'hybrid', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldhybirdurl,  //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            transparent: true //+ layer 투명화 여부
+        },
+        korea_terrain: {
+            name: 'korea_terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            ext: '.umf', //+ 파일 확장자, *필수 입력
+            reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+            minlevel: 9,  //+ 가시화 최소 레벨
+            maxlevel: 15, //+ 가시화 최대 레벨
+            useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+            maxprocess: 2, //+ process 최대값
+            interpolationheight: true,  //+ 고도보간 기능 사용 여부
+        }
+    };
+
+    let LayerList = function (Union3D, app) {
+        return {
+            //이미지레이어
+            satellite: new ImageLayer(Union3D, app, LAYER_OPT.satellite),
+            hybrid: new ImageLayer(Union3D, app, LAYER_OPT.hybrid),
+            //고도레이어
+            korea_terrain: new HeightLayer(Union3D, app, LAYER_OPT.korea_terrain)
+        }
+    }
+</script>
+<script>
+    function refreshServerLayerList(domId, layerType, layerCategory) {
+        $(domId).empty();
+        getServerLayerList(layerType, layerCategory).then((infoList) => {
+            for (let info of infoList) {
+                let name = info.name;
+                $(domId).append(
+                    '<option value="' + name + '">' + name + '</option>'
+                );
+                layerInfoList[name] = info;
+            }
+            $(domId).children().first().attr("selected", "selected");
+        });
+    }
+
+    function getServerLayerList(type, category) {
+        var promise = $.Deferred();
+        let typeQuery = 'type=' + type;
+        let categoryQuery = '';
+        if (category) {
+            categoryQuery = '&category=' + category;
+        }
+        $.ajax({
+            url: serverURL + 'v1/layers?' + typeQuery + categoryQuery,
+            beforeSend: function (xhr) {
+                xhr.setRequestHeader('User-Authorization', API_KEY);
+            }
+        }).then(function (e) {
+            const infoList = e.params.data;
+            infoList.sort(function (a, b) {
+                if (a.name > b.name) return 1; else return -1;
+            });
+            promise.resolve(infoList);
+        });
+        return promise;
+    }
+
+    function setControlCase(layerName) {
+        let layer = layerList[layerName];
+        if (!layer) return;
+
+        let domId = ".select-controlCase";
+        let poppupDomId = ".popup-select-controlCase";
+        $(domId).empty();
+        $(poppupDomId).empty();
+
+        //layer.getControlCases => 컨트롤 케이스 객체를 리턴합니다.
+        for (let controlCase of Object.values(layer.getControlCases())) {
+            let name = controlCase.getName();
+            $(domId).append(
+                '<option value="' + name + '">' + name + '</option>'
+            );
+            $(poppupDomId).append(
+                '<option value="' + name + '">' + name + '</option>'
+            );
+        }
+        $(domId).children().first().attr("selected", "selected");
+        $(poppupDomId).children().first().attr("selected", "selected");
+    }
+
+    function setObjectFileName(layerName) {
+        let layer = layerList[layerName];
+        if (!layer) return;
+        let domId = ".select-files";
+        $(domId).empty();
+        for (let fileName of layer.getFileNames()) {
+            $(domId).append(
+                '<option value="' + fileName + '">' + fileName + '</option>'
+            );
+        }
+        $(domId).children().first().attr("selected", "selected");
+    }
+
+    //팝업 객체정보 내용 설정
+    function setMetaInfoPopup(meta) {
+        $(".input-meta-name").val(meta.getName());
+
+        let domStr = '#panel-metaInfo .arg.meta';
+        $(domStr + '[name=id]').val(meta.getId());
+        $(domStr + '[name=name]').val(meta.getName());
+        $(domStr + '[name=parentId]').val(meta.getParentId());
+        $(domStr + '[name=fileName]').val(meta.getFileName());
+        $(domStr + '[name=rootName]').val(meta.getRootName());
+        //properties 는 json 형식으로 출력됩니다.
+        $(domStr + '[name=properties]').val(JSON.stringify(meta.getProperties()));
+        $(".control-content").show();
+        $(".popup-select-controlCase").children().first().attr("selected", "selected");
+        $(".popup-select-controlCase").off("change");
+
+        //OBJ 레이어 객체 정보 팝업에서 수정내용 영역 컨트롤파일 select 변경시
+        $(".popup-select-controlCase").on("change", function (e) {
+            setChangeInfoPopup(meta);
+        });
+        setChangeInfoPopup(meta);
+    }
+
+    //팝업 객체정보 내용 설정
+    function setMetaInfoPopup_(meta) {
+        if(!meta) return;
+        $(".input-meta-name").val(meta.getName());
+        $(".btn-show-meta").attr("disabled", false);
+
+        let domStr = '#panel-metaInfo .arg.meta';
+        $(domStr + '[name=id]').val(meta.getId());
+        $(domStr + '[name=name]').val(meta.getName());
+        $(domStr + '[name=parentId]').val(meta.getParentId());
+        $(domStr + '[name=fileName]').val(meta.getFileName());
+        //$(domStr + '[name=rootName]').val(meta.getRootName());
+        //properties 는 json 형식으로 출력됩니다.
+        $(domStr + '[name=properties]').val(JSON.stringify(meta.getProperties()));
+
+        $(".control-content").hide();
+        //$(".popup-select-controlCase").off("change");
+
+        //OBJ 레이어 객체 정보 팝업에서 수정내용 영역 컨트롤파일 select 변경시
+        // $(".popup-select-controlCase").on("change", function (e) {
+        //     setChangeInfoPopup(meta);
+        // });
+        // setChangeInfoPopup(meta);
+    }
+
+    //팝업 수정내용 설정
+    function setChangeInfoPopup(meta) {
+        let layer = layerList[workLayerName];
+        if (!layer) return;
+        let controlCaseName = $(".popup-select-controlCase").val();
+
+        let isExclusion = layer.isExclusionControl(controlCaseName, meta.getRootName(), meta.getId());
+        let changeLevel = layer.getLevelControl(controlCaseName, meta.getRootName(), meta.getId());
+        let changeProperties = layer.getPropertiesControl(controlCaseName, meta.getRootName(), meta.getId());
+
+        if (isExclusion) {
+            $('#check-control-exclusion').prop("checked", true);
+        } else {
+            $('#check-control-exclusion').prop("checked", false);
+        }
+        if (changeLevel) {
+            $('#check-control-changeLevel').prop("checked", true);
+            $('#input-control-changeLevel').val(changeLevel);
+        } else {
+            $('#check-control-changeLevel').prop("checked", false);
+            $('#input-control-changeLevel').val('');
+        }
+        if (changeProperties) {
+            $('#check-control-changeProperties').prop("checked", true);
+            $('#textarea-control-changeProperties').val(JSON.stringify(changeProperties));
+        } else {
+            $('#check-control-changeProperties').prop("checked", false);
+            $('#textarea-control-changeProperties').val('');
+        }
+    }
+
+    // 객체 선택 하이라이팅 가시화
+    function selectObject(fileName, meta) {
+        let layer = layerList[workLayerName];
+        layer.clear();
+        layer.setOpacity(0.6, fileName);
+        //select 를 실행하면 select 된 객체는 투명도가 1로 표현됩니다.
+        layer.select(fileName, meta.getId(), 0xff0000, 1);
+        miniApp.updateData();
+    }
+
+    //화면 클릭시 클릭지점의 객체 가져오기
+    function getIntersect(e) {
+        let result = app.intersectAtPixel(e);
+        if (result && result.length > 0 && result[0].object) {
+            let object = result[0].object;
+            if (object.getMeta) {
+                let meta = object.getMeta();
+                setMetaInfoPopup(meta);
+                selectObject(meta.getRootName(), meta);
+            }
+        }
+    }
+
+    window.floorInfo = {};
+
+    //metaData 정보를 기반으로 층별로 분류 작업하는 함수
+    function setFloorModel(layerName) {
+        let layer = app.getLayerByName(layerName);
+        if (layer) {
+            let group = layer._group; // model이 Load 된 후에 group에 추가되므로 Load 된 이후에 작업 순서로 적합
+            if (group.children.length > 0 && group.traverse) {
+                group.traverse(function (obj) {
+                    if (obj.isMesh && obj.getBatchMeshName) {
+                        let data_ = layer.getMetaDataByName(obj.getBatchMeshName()); // mesh의 metaData 가져오기
+                        if(!data_) return;
+                        if (!data_.properties || !data_.properties['문자'] || !data_.properties['문자']['분류NO_위치']) return;
+                        let floorName = data_.properties['문자']['분류NO_위치']; // 층분류 정보가 담긴 Property 위치
+                        if (!window.floorInfo[floorName]) {
+                            window.floorInfo[floorName] = [];
+                            let selector_ = $(".select-floor-step2") // 층 분류 select Dom 객체
+                            selector_.append(
+                                '<option value="' + floorName + '">' + floorName + '</option>'
+                            );
+                        }
+                        window.floorInfo[floorName].push(obj);
+                    }
+                })
+            }
+        }
+    }
+
+    //컨트롤 파일 정보 팝업 설정
+    function setControlCasePopup(caseName, fileName) {
+        let layer = layerList[workLayerName];
+        if (!layer) return;
+
+        //컨트롤 파일 이름 넣기
+        let domStr = '#panel-controlInfo  .arg.control';
+        let controlCaseName = $(".select-controlCase").val();
+        if (caseName) {
+            controlCaseName = caseName;
+        }
+        $(domStr + '[name=name]').val(controlCaseName);
+
+        //파일 이름 설렉트 박스 내용 넣기
+        $(".popup-select-files").off("change");
+        $(".popup-select-files").on("change", function (e) {
+            setControlInfo(controlCaseName, $(".popup-select-files").val());
+        });
+
+        $(".popup-select-files").empty();
+        for (let name of layer.getFileNames()) {
+            $(".popup-select-files").append(
+                '<option value="' + name + '">' + name + '</option>'
+            );
+        }
+        if (fileName) {
+            $(".popup-select-files").val(fileName);
+        } else {
+            $(".popup-select-files").children().first().attr("selected", "selected");
+        }
+        $(".popup-select-files").change();
+    }
+
+    function setControlInfo(controlCaseName, fileName) {
+        let layer = layerList[workLayerName];
+        if (!layer || !fileName) return;
+        //위치 변경 내용 넣기
+        $('#panel-controlInfo  .arg.control[name=positionZ]').val('');
+        $('#panel-controlInfo  .arg.control[name=positionY]').val('');
+        $('#panel-controlInfo  .arg.control[name=positionX]').val('');
+        let changePosition = layer.getPositionControl(controlCaseName, fileName);
+        if (changePosition) {
+            $('#panel-controlInfo  .arg.control[name=positionZ]').val(changePosition.z);
+            $('#panel-controlInfo  .arg.control[name=positionY]').val(changePosition.y);
+            $('#panel-controlInfo  .arg.control[name=positionX]').val(changePosition.x);
+        }
+        //제외 목록 내용 넣기
+        $(".control-exclusion").empty();
+        let exclusionList = layer.getExclusionControlList(controlCaseName, fileName);
+        if (exclusionList) {
+            for (let exclusion of exclusionList) {
+                let domStr = `
+            <div class="control-info" name="changeExclusion">
+                    <label class="control-info-label">` + exclusion + `</label>
+                    <div class="control-info-btn btn btn-default btn-sm btn-show-control-object toggle">내용보기</div>
+                    <div class="control-info-btn btn btn-default btn-sm btn-remove-control-object toggle">삭제</div>
+            </div>
+            `;
+                $(".control-exclusion").append(domStr);
+            }
+        }
+        //가시화 레벨 변경 목록 내용 넣기
+        $(".control-changeLevel .control-info-label").off("click");
+        $(".control-changeLevel").empty();
+        let changeLevelList = layer.getLevelControlList(controlCaseName, fileName);
+        if (changeLevelList) {
+            for (let changeLevel of changeLevelList) {
+                let domStr = `
+            <div class="control-info" level="` + changeLevel.level + `" name="changeLevel">
+                    <label class="control-info-label">` + changeLevel.id + `</label>
+                    <div class="control-info-btn btn btn-default btn-sm btn-show-control-object toggle">내용보기</div>
+                    <div class="control-info-btn btn btn-default btn-sm btn-remove-control-object toggle">삭제</div>
+            </div>
+            `;
+                $(".control-changeLevel").append(domStr);
+            }
+            $(".control-changeLevel .control-info-label").on("click", function (e) {
+                let changeLevel = $(e.target).parent().attr('level');
+                $('#panel-controlInfo  .arg.control[name=changeLevel]').val(changeLevel);
+            });
+        }
+
+        //프로퍼티 변경 목록 내용 넣기
+        $(".control-changeProperties .control-info-label").off("click");
+        $(".control-changeProperties").empty();
+        let changePropertiesList = layer.getPropertiesControlList(controlCaseName, fileName);
+        if (changePropertiesList) {
+            for (let changeProperties of changePropertiesList) {
+                let domStr = `
+            <div class="control-info" name="changeProperties">
+                    <label class="control-info-label">` + changeProperties.id + `</label>
+                    <div class="control-info-btn btn btn-default btn-sm btn-show-control-object toggle">내용보기</div>
+                    <div class="control-info-btn btn btn-default btn-sm btn-remove-control-object toggle">삭제</div>
+            </div>
+            `;
+                $(".control-changeProperties").append(domStr);
+            }
+            $(".control-changeProperties .control-info-label").on("click", function (e) {
+                let id = $(e.target).text();
+                let properties = layer.getPropertiesControl(controlCaseName, fileName, id);
+                if (properties) {
+                    $('#panel-controlInfo  .arg.control[name=changeProperties]').val(JSON.stringify(properties));
+                }
+            });
+        }
+        //팝업에 버튼 이벤트 달기
+        $(".btn-show-control-object").off().on('click', function (e) {
+            let fileName = $(".popup-select-files").val();
+            let id = $(e.target).parents().children("label").text();
+            if (!fileName || !id) {
+                return;
+            }
+            let meta = layer.getMetaById(fileName, id);
+            if (meta) {
+                setMetaInfoPopup(meta);
+                layer.clear();
+                selectObject(fileName, meta);
+                $('#panel-metaInfo').show();
+            }
+        });
+        $(".btn-remove-control-object").off().on('click', function (e) {
+            let type = $(e.target).parents().attr('name');
+            let fileName = $(".popup-select-files").val();
+            let id = $(e.target).parents().children("label").text();
+            let caseName = $('#panel-controlInfo  .arg.control[name=name]').val();
+            if (!fileName || !id || !type) {
+                return;
+            }
+            let meta = layer.getMetaById(fileName, id);
+            let result;
+            if (meta) {
+                if (type === 'changeExclusion') {
+                    layer.showObject(fileName, id, true);
+                    //setExclusionControl(케이스파일이름, 파일 이름, 아이디, 제외여부, child 적용여부)
+                    layer.setExclusionControl(caseName, fileName, id, false, false);
+                } else if (type === 'changeLevel') {
+                    //setLevelControl(케이스파일이름, 파일 이름, 아이디, 변경값, child 적용여부)
+                    layer.setLevelControl(caseName, fileName, id, undefined, false);
+                } else {
+                    //setPropertiesControl(케이스파일이름, 파일 이름, 아이디, 변경값)
+                    layer.setPropertiesControl(caseName, fileName, id, undefined);
+                }
+
+                setMetaInfoPopup(meta);
+                $(e.target).parent().remove();
+            }
+        });
+    }
+</script>
+<script>
+    //BIM OBJ 레이어 선택 후 상세정보 버튼 클릭시
+    $("#tab-step1 .btn-layerInfo").on("click", function () {
+        let layerName = $(".select-server-step1").val();
+        let layerInfo = layerInfoList[layerName];
+        let dom = $("#panel-layerInfo");
+        if (dom.css("display") === "none") {
+            dom.show();
+            dom.find('.arg.base').each(function (i, v) {
+                let value = layerInfo[v.name];
+                if (value) v.value = value; else v.value = '';
+            });
+        } else {
+            dom.hide();
+        }
+    });
+
+    //BIM 3dTiles 레이어 선택 후 상세정보 버튼 클릭시
+    $("#tab-step2 .btn-layerInfo").on("click", function () {
+        let layerName = $(".select-server-step2").val();
+        let layerInfo = layerInfoList[layerName];
+        let dom = $("#panel-layerInfo");
+        if (dom.css("display") === "none") {
+            dom.show();
+            dom.find('.arg.base').each(function (i, v) {
+                let value = layerInfo[v.name];
+                if (value) v.value = value; else v.value = '';
+            });
+        } else {
+            dom.hide();
+        }
+    });
+
+    //BIM OBJ 레이어 선택 후 보기 버튼 클릭시
+    $("#tab-step1 .btn-show").on("click", function () {
+        let layerName = $(".select-server-step1").val();
+        let layerInfo = layerInfoList[layerName];
+
+        if ($("#tab-step1 .btn-show").text() === '진행중') {
+            return;
+        }
+
+        if (layerInfo) {
+            if (!layerList[layerName]) {
+                let split = layerInfo.metaPath.split('/');
+                let baseUrl = dataServerURL+'data';
+                for (let i = 0; i < split.length - 1; i++) {
+                    baseUrl = baseUrl + '/' + split[i];
+                }
+
+                let opt = {
+                    name: layerName,
+                    layername: layerName,
+                    baseurl: baseUrl,
+                    serverurl: dataServerURL,
+                    metaData: layerInfo.metaData,
+                    autoHeight: true,
+                    useproxy: false,
+                    proxyurl: './proxy.jsp?url='
+                };
+                $("#tab-step1 .btn-show").text("진행중");
+                let layer = app.createModelBIMObjLayer(opt);
+                miniApp.shareLayer(layer);
+
+                if (layer) {
+                    layer.ready.then(function () {
+                        let keys = Object.keys(layerList);
+                        for (let key of keys) {
+                            app.showLayer(key, false);
+                        }
+                        app.showLayer(layerName, true).then(()=>{
+
+                            app.fitLayerExtent(opt.name);
+                        });
+
+                        layerList[layerName] = layer;
+                        setControlCase(layerName);
+                        setObjectFileName(layerName)
+                        $("#tab-step1 .btn-show").text("보기");
+                        workLayerName = layerName;
+                    }).catch(function (e) {
+                        alert("[오류]: " + e);
+                        $("#tab-step1 .btn-show").text("보기");
+                    });
+                }
+            } else {
+                let keys = Object.keys(layerList);
+                for (let key of keys) {
+                    if (key === layerName) {
+                        app.showLayer(key, true);
+                        app.fitLayerExtent(layerName);
+                        setControlCase(layerName);
+                        setObjectFileName(layerName)
+                        workLayerName = layerName;
+                    } else {
+                        app.showLayer(key, false);
+                    }
+                }
+            }
+        }
+    });
+
+    //BIM OBJ 레이어 선택 후 보기 버튼 클릭시
+    $("#tab-step2 .btn-show").on("click", function () {
+        let layerName = $(".select-server-step2").val();
+        let layerInfo = layerInfoList[layerName];
+
+        if ($("#tab-step2 .btn-show").text() === '진행중') {
+            return;
+        }
+        const BIM_LEVEL_4_STR_LENGTH = 30;
+        const BIM_LEVEL_3_STR_LENGTH = 9;
+        const BIM_LEVEL_2_STR_LENGTH = 6;
+        const BIM_LEVEL_1_STR_LENGTH = 4;
+        const BIM_LEVEL_0_STR_LENGTH = 4;
+        const BIM_LEVEL_LENGTH_LIST = {
+            4: BIM_LEVEL_4_STR_LENGTH,
+            3: BIM_LEVEL_3_STR_LENGTH,
+            2: BIM_LEVEL_2_STR_LENGTH,
+            1: BIM_LEVEL_1_STR_LENGTH,
+            0: BIM_LEVEL_0_STR_LENGTH
+        }
+
+
+        if (layerInfo) {
+            if (!layerList[layerName]) {
+                var url = dataServerURL+'data/' + layerInfo.metaPath;
+                let opt = {
+                    name: layerName,
+                    baseurl: url,
+                    useproxy: false,
+                    ext: '.b3dm',
+                    minlevel: 17,
+                    maxlevel: 19,
+                    apikey: '',
+                    searchType: 'static',
+                    type: layerInfo.type,
+                    setLevelGroup: true,
+                    makeLevel: Object.values(BIM_LEVEL_LENGTH_LIST).length - 1,
+                    BIMLevelLengthList: BIM_LEVEL_LENGTH_LIST
+                };
+                if (layerInfo.metaData.batchGroupPath) {
+                    opt.batchGroupPath = layerInfo.metaData.batchGroupPath;
+                    //opt.setLevelGroup = true;
+                    //     opt.fileName = layerInfo.metaData.fileName;
+                }
+
+                $("#tab-step2 .btn-show").text("진행중");
+
+                let layer = new Union3D.model.U3dModelTilesLayer(opt);
+                if (layer) {
+                    app.addLayer(layer);
+                    miniApp.shareLayer(layer);
+                    layer.then(function () {
+                        let keys = Object.keys(layerList);
+                        for (let key of keys) {
+                            app.showLayer(key, false);
+                        }
+                        app.showLayer(layerName, true).then(function () {
+                            layer.on('layer-loaded', function () {
+                                // 층별로 분류
+                                setFloorModel(layerName);
+                            })
+                        });
+                        app.fitLayerExtent(layerName, false, 700).then(function () {
+                            let url;
+                            layer.loadMetaData(url);
+                            console.log(layerName + "이동 완료");
+                        }).catch(function () {
+                            console.log(layerName + "이동 오류");
+                        });
+
+                        layerList[layerName] = layer;
+                        $("#tab-step2 .btn-show").text("보기");
+                        workLayerName = layerName;
+                    }).catch(function (e) {
+                        alert("[오류]: " + e);
+                        $("#tab-step2 .btn-show").text("보기");
+                    });
+                }
+            } else {
+                let keys = Object.keys(layerList);
+                for (let key of keys) {
+                    if (key === layerName) {
+                        app.showLayer(key, true).then(function () {
+                            layerList[key].on('layer-loaded', function () {
+                                // 층별로 분류
+                                setFloorModel(layerName);
+                            })
+                        });
+                        app.fitLayerExtent(layerName)
+                        workLayerName = layerName;
+                    } else {
+                        app.showLayer(key, false);
+                    }
+                }
+            }
+        }
+    });
+
+    //팝업 종료 버튼 클릭시
+    $(".btn-exit").on("click", function (e) {
+        $(e.target).parent().parent().parent().hide();
+    });
+
+    //OBJ 레이어 객체 정보 선택 후 조회 버튼 클릭시
+    $("#tab-step1 .btn-show-file").on("click", function (e) {
+        let layer = layerList[workLayerName];
+        let fileName = $(".select-files").val();
+        if (layer && fileName) {
+            let metaDataTree = layer.getMateDataTree(fileName);
+
+            //traverse(function)을 통해 tree를 순회하며 입력한 function 등작
+            metaDataTree.traverse(function (meta) {
+                //순회 하면 동작 수행
+            });
+            $('#file-meta-tree')
+                .empty()
+                .off()
+                .on('select_node.jstree', function (e, data) {
+
+                    //let object = layer.getObjectById(fileName,data.node.id);
+                    let meta = layer.getMetaById(fileName, data.node.id);
+                    setMetaInfoPopup(meta);
+                    selectObject(fileName, meta);
+                }).jstree({'core': {'data': metaDataTree.getTree()}});
+
+        }
+    });
+
+    //OBJ 레이어 객체 정보 선택 후 초기화 버튼 클릭시
+    $("#tab-step1 .btn-clear-file").on("click", function (e) {
+        let layer = layerList[workLayerName];
+        //선택 초기화, 투명도 초기화
+        layer.clear();
+        //투명도 초기화 resetOpacity(파일이름) 파일이름이 있을시 해당 파일의 오브젝트를 초기화합니다.
+        layer.resetOpacity();
+
+        //포지션 초기화 resetPosition(파일이름) 파일이름이 있을시 해당 파일의 오브젝트를 초기화합니다.
+        layer.resetPosition();
+        app.fitLayerExtent(workLayerName);
+        //setAutoHeight(true) 실행시 지면 높이를 자동 적용하기 위해서는 지면 타일이 로드가 되었을때 높이값을 정확히 캐치하여 적용될수있습니다.
+        layer.setAutoHeight(true);
+
+        //인풋박스 초기화
+        $(".input-meta-name").val('');
+        //팝업 초기화
+        let dom = $("#panel-metaInfo");
+        dom.find('.arg.meta').each(function (i, v) {
+            v.value = ''
+        });
+    });
+
+    //OBJ 레이어 객체 정보 선택 후 내용보기 버튼 클릭시
+    $("#tab-step1 .btn-show-meta").on("click", function (e) {
+        let dom = $('#panel-metaInfo');
+        if (dom.css("display") === "none") {
+            dom.show();
+        } else {
+            dom.hide();
+        }
+    });
+
+    // 3DTiles 레이어 Mesh 선택 후 내용보기 버튼 클릭시
+    // 해당 Mesh에 대해서만 MetaData 출력
+    $("#tab-step2 .btn-show-meta").on("click", function (e) {
+        let dom = $('#panel-metaInfo');
+        if (dom.css("display") === "none") {
+            dom.show();
+        } else {
+            dom.hide();
+        }
+    });
+
+    //컨트롤 파일 선택 후 조회 버튼 클릭시
+    $("#tab-step1 .btn-show-controlCase").on("click", function (e) {
+        let dom = $('#panel-controlInfo');
+        if (dom.css("display") === "none") {
+            dom.show();
+            setControlCasePopup();
+        } else {
+            dom.hide();
+        }
+    });
+
+    //컨트롤 파일 관리 생성 버튼 클릭시
+    $("#tab-step1 .btn-create-controlCase").on("click", function (e) {
+        let layer = layerList[workLayerName];
+        if (!layer) return;
+
+        var jbResult = prompt('중복되지 않은 컨트롤 파일 이름을 입력하세요', '');
+        if (!jbResult || jbResult === '') return;
+
+        let controlCase = layer.createControlCase(jbResult);
+        if (!controlCase)
+            alert("컨트롤 파일을 생성하는 중 오류가 발생 하였습니다.");
+        else
+            alert("생성완료");
+        setControlCase(workLayerName);
+    });
+
+    //컨트롤 파일 정보 팝업 파일에 위치 적용 버튼 클릭시
+    $("#panel-controlInfo .btn-save-position").on("click", function (e) {
+        let layer = layerList[workLayerName];
+        let controlCaseName = $('#panel-controlInfo  .arg.control[name=name]').val();
+        let fileName = $(".popup-select-files").val();
+        //위치 변경 적용
+        let changeZ = $('#panel-controlInfo  .arg.control[name=positionZ]').val();
+        let changeY = $('#panel-controlInfo  .arg.control[name=positionY]').val();
+        let changeX = $('#panel-controlInfo  .arg.control[name=positionX]').val();
+
+        if (controlCaseName && fileName) {
+            let position = {
+                x: changeX,
+                y: changeY,
+                z: changeZ
+            }
+            let result = layer.setPositionControl(controlCaseName, fileName, position);
+            if (result) {
+                alert("위치 변경 저장 성공");
+            } else {
+                alert("위치 변경 저장 오류");
+            }
+        }
+    });
+
+    //컨트롤 파일 정보 팝업 저장 버튼 클릭시
+    $("#panel-controlInfo .btn-expert-controlCase").on("click", function (e) {
+        let layer = layerList[workLayerName];
+        let controlCaseName = $('#panel-controlInfo  .arg.control[name=name]').val();
+        if (!layer || !controlCaseName) return;
+
+        //서버 저장
+        layer.exportControlCase(controlCaseName).then(function (e) {
+            alert("저장 성공");
+        }).catch(function (e) {
+            alert("[오류]: " + e);
+        });
+    });
+
+    //컨트롤 파일 정보 팝업 정보 적용하기 버튼 클릭시
+    $("#panel-controlInfo .btn-show-controlCase").on("click", function (e) {
+        let layer = layerList[workLayerName];
+        let controlCaseName = $('#panel-controlInfo  .arg.control[name=name]').val();
+        let fileName = $(".popup-select-files").val()
+        if (!fileName || !layer || !controlCaseName) return;
+
+        let exclusionList = layer.getExclusionControlList(controlCaseName, fileName);
+        if (exclusionList) {
+            //선택 초기화, 투명도 초기화
+            layer.clear();
+            layer.resetOpacity();
+
+            for (let exclusion of exclusionList) {
+                layer.showObject(fileName, exclusion, false);
+            }
+
+            let position = layer.getPositionControl(controlCaseName, fileName);
+            if (position) {
+                // 지면 높이 자동조성 끄기
+                layer.setAutoHeight(false);
+                // position 위치로 이동
+                layer.setPosition(fileName, position);
+                app.fitLayerExtent(workLayerName);
+            }
+        }
+        if (app) {
+            app.updateData();
+        }
+    });
+
+    //OBJ 레이어 객체 정보 팝업에서 수정내용 저장 버튼 클릭시
+    $("#panel-metaInfo .btn-save").on("click", function (e) {
+        let layer = layerList[workLayerName];
+        let rootName = $('#panel-metaInfo .arg.meta[name=rootName]').val();
+        let id = $('#panel-metaInfo .arg.meta[name=id]').val();
+        let caseName = $(".popup-select-controlCase").val();
+
+        let isExclusion = $('#check-control-exclusion').prop("checked");
+
+        let isChangeStartLevel = $('#check-control-changeLevel').prop("checked");
+        let changeStartLevel = $('#input-control-changeLevel').val();
+
+        let isChangeProperties = $('#check-control-changeProperties').prop("checked");
+        let changeProperties = $('#textarea-control-changeProperties').val();
+        let result;
+        //setExclusionControl(케이스파일이름, 파일 이름, 아이디, 제외여부, child 적용여부)
+        result = layer.setExclusionControl(caseName, rootName, id, isExclusion, true);
+        if (isChangeStartLevel && changeStartLevel && changeStartLevel !== '') {
+            //setLevelControl(케이스파일이름, 파일 이름, 아이디, 변경값, child 적용여부)
+            result = layer.setLevelControl(caseName, rootName, id, changeStartLevel, true);
+        } else {
+            //setLevelControl(케이스파일이름, 파일 이름, 아이디, 변경값, child 적용여부)
+            result = layer.setLevelControl(caseName, rootName, id, undefined, true);
+        }
+        if (isChangeProperties && changeProperties && changeProperties !== '') {
+            //setPropertiesControl(케이스파일이름, 파일 이름, 아이디, 변경값)
+            result = layer.setPropertiesControl(caseName, rootName, id, changeProperties);
+        } else {
+            //setPropertiesControl(케이스파일이름, 파일 이름, 아이디, 변경값)
+            result = layer.setPropertiesControl(caseName, rootName, id, undefined);
+        }
+        if (result) {
+            alert("저장 완료");
+        } else {
+            alert("저장 실패");
+        }
+        //컨트롤 파일정보 팝업 show 후, 컨트롤 파일 정보도 새로고침
+        if ($('#panel-controlInfo').css("display") === "none") {
+            $('#panel-controlInfo').show();
+        }
+        setControlCasePopup(caseName, rootName);
+    });
+</script>
+<script>
+    const API_KEY = 'YKAFjxVvNJEA/S1xcEjprW49M6wQSAva3PC7u3KHJxrZ3ZaTVfN40QdiqzAYrFf5';
+    const serverURL = 'https://3d-dev.geon.kr/';
+    const dataServerURL = 'https://3d-dev.geon.kr/';
+    //const serverURL = 'http://localhost:8180/';
+    let layerInfoList = {};
+    let layerList = {};
+    let workLayerName;
+
+    //라이센스 인증
+    Union3D.ready(function () {
+        var app = new Union3D.U3dAPP({
+            containername: 'map',
+            methodheight: '1_0',
+            searchType: 'sphere'
+        });
+        app.setUnderGroundMode(true);
+
+        var miniApp = new Union3D.U3dAPP({
+            containername: 'miniMap',
+            methodheight: '1_0',
+            searchType: 'sphere'
+        });
+        miniApp.setUnderGroundMode(true);
+        miniApp.setStopUpdate(true);
+        window.app = app; //디버그용
+        window.miniApp = miniApp; //디버그용
+        window.Union3D = Union3D;
+        app.setHomePosition(126.9395, 37.52, 450, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+        app.updateHomePosition();
+
+        app.on('change', updatePosData);
+
+        app.createloadingBar('load');
+        app.loadingBar();
+
+        //이미지 레이어 생성
+        let layers = new LayerList(Union3D, app);
+        let initLayerList = ['korea_terrain', 'satellite'];
+        initLayar(initLayerList);
+
+
+        $(document).on('click', '.input-showLayer:input[type=checkbox]', function (e) {
+            const $checkbox = $(e.target);
+            const name = $checkbox.attr('target');
+            checkLayer(name, $checkbox[0].checked);
+        });
+
+        function checkLayer(name, checked) {
+            if (checked) {
+                if (layers[name].layer === undefined) {
+                    layers[name].create();
+                }
+                layers[name].show(true);
+            } else {
+                layers[name].show(false);
+            }
+        }
+
+        function initLayar(list) {
+            const basename = list[1];
+            Union3D.UDEF.createPromise((resolve) => {
+                list.forEach((name) => {
+                    if (layers[name].layer === undefined) {
+                        layers[name].create();
+                        layers[name].ready.then(() => {
+                            if (name === basename) {
+                                app.setNameBaseLayer(name);
+                            }
+                            app.showLayer(name, true);
+                            $('.input-showLayer:input[target=' + name + ']').prop("checked", true);
+                            if (name === 'satellite') {
+                                miniApp.shareLayer(layers[name].layer); //레이어를 공요합니다. 레이어를 공유하기 위해서 addLayer 대신 사용하여야 합니다.
+                                miniApp.setNameBaseLayer('satellite');
+                                miniApp.showLayer('satellite', true);
+                            }
+                        });
+                    }
+                });
+                resolve(true);
+            }).then((resolve) => {
+                if (resolve)
+                    app.endloadingBar();
+            });
+        }
+
+
+        app.on('click', getIntersect);
+
+        $("#tab-step2").on("click", function () {
+            app.off('click', getIntersect);
+            selectArea.on('point');
+        })
+        $("#tab-step1").on("click", function () {
+            app.on('click', getIntersect);
+            selectArea.off();
+        })
+
+        refreshServerLayerList(".select-server-step1", "ifc2obj");
+        refreshServerLayerList(".select-server-step2", "3dtiles");
+        //refreshServerLayerList(".select-server-step2","3dtiles_BIM");
+
+        app.syncCamera(miniApp, 3);
+        window.selector = new Union3D.select.U3dSelect({mode: 'point'});
+        app.addSelect(selector);
+        // selector 스타일 변경, addSelect() 실행 후, 아래 API 호출해야 적용가능
+        selector.setSelectorColor({ //선택 영역 스타일 변경, resetSelectorColor() -> 기본설정으로 초기화
+            stroke: {
+                color: 'rgba(255, 255, 0, 1.0)',
+                width: 3
+            },
+            fill: {
+                color: 'rgba(255,0,255,0.5)'
+            }
+        });
+        selector.setSelectedColor('rgba(255,100,0)', 0.4); //선택 객체 색 변경, resetSelectedColor() -> 기본설정으로 초기화
+        let selectArea = {
+            check: function (checked, name) {
+                if (checked) {
+                    $('.selectCheck[target!="' + name + '"]').prop("checked", false);
+                    this.on(name);
+                } else {
+                    this.off();
+                }
+            },
+            on: function (name) {
+                if (selector.getMode() !== name)
+                    selector.setMode(name);
+                app.removeAllOverlay(); //+ 다른 overlay 전체 삭제
+                if (!selector.isActive()) {
+                    selector.active();
+                    selector.on('change', this.change);
+                    selector.on('end', this.end);
+                }
+            },
+            off: function () {
+                app.removeAllOverlay(); //+ 다른 overlay 전체 삭제
+                selector.clear();
+                selector.deactive();
+                selector.off('change', this.change);
+                selector.off('end', this.end);
+            },
+            change: function (e) {
+                //    console.log('Change Event');
+                app.removeAllOverlay(); //+ 다른 overlay 전체 삭제
+            },
+            end: function (e) {
+                //   console.log('End Event');
+                $('#mesh-group').empty();
+
+                let objects = selector.getSelected();
+                let meshNameList = {};
+                let groupName;
+
+                if (objects.length === 0) {
+                    return;
+                }
+                for (let i = 0; i < objects.length; i++) {
+                    let layer = app.getLayer(objects[i].getLayerName());
+                    if (!layer) return;
+                    let batchGroupPath = layer.getBatchGroupPath();
+                    if (!batchGroupPath) {
+                        $(".input-meta-name").val(objects[i].name);
+                        $(".btn-show-meta").attr("disabled", true);
+                        let domId = ".select-files-3dTiles";
+                        $(domId).val('');
+                        $('#mesh-group').empty();
+                        return;
+                    }
+                    if (layer._classtype === 'U3dModelTilesLayer') {
+                        let selectedLevel = $('.select-level-step2').val();
+                        let parent = objects[i].getParentfromLevel(selectedLevel);
+                        if (parent) {
+                            let children = parent.getChildren();
+                            if (children.length > 0) {
+                                for (let i = 0; i < children.length; i++) {
+                                    let child = children[i];
+                                    child.traverse(function (mesh) {
+                                        if (mesh.type === "Mesh") {
+                                            let batchMeshName = mesh.getBatchMeshName();
+                                            if (batchMeshName) {
+                                                selector.addSelected(mesh);
+                                            }
+                                        }
+                                    })
+                                }
+                            }
+                        } else {
+                            selector.clear();
+                            return;
+                        }
+
+                        let groupName_ = parent.name;//Mesh의 batchGroup.json 에서 분류시에 사용된 mesh의 Group Name을 반환 받습니다.
+                        groupName = groupName_;
+                        if (!meshNameList[groupName_])
+                            meshNameList[groupName_] = [];
+                        let findMeshes = selector.getSelected();
+                        for (let i = 0; i < findMeshes.length; i++) {
+                            let meshName = findMeshes[i].getBatchMeshName(); //Mesh의 batchGroup.json 에서 분류시에 사용된 mesh Name을 반환 받습니다.
+                            let meshGroupName = findMeshes[i].getBatchGroupName();
+                            if(!meshGroupName) continue;
+                            if (meshGroupName.includes(groupName_) || findMeshes[i].name === groupName_) {
+                                meshNameList[groupName_].push(meshName);
+                            }
+                        }
+                        if (groupName) {
+                            // let groupProperty = layer.getBatchGroupProperty(groupName_);// batchGroup.json 에 저장된 해당 Group Name의 Property를 반환받습니다.
+                            let groupProperty = layer.getBatchGroupProperty(groupName);
+                            let idGroupName = groupName.replaceAll("#", "_");
+                            idGroupName = groupName.replaceAll("$", "_");
+                            let meshGroup = $('#mesh-group');
+                            let id = "mesh-group-details-" + idGroupName;
+                            let details = $("#" + id);
+                            if (details.length == 0) {
+                                meshGroup.append(`<details id="mesh-group-details-${idGroupName}"><summary style="font-size: 16px"><code> Group Name : ` + groupName + `</code></summary></details>`);
+                                details = $(`#mesh-group-details-${idGroupName}`);
+                                details.append(`<ul id="mesh-group-ul-${idGroupName}" style="font-size: 12px; margin-left: 20px; align-content:flex-start; flex-wrap: wrap;"></ul>`)
+                                let mesh_gourp_ul = $(`#mesh-group-ul-${idGroupName}`);
+                                mesh_gourp_ul.append(`<li><details id="meshes-${idGroupName}"><summary><code> Meshes</code></summary></details></li>`);
+                                let meshes = $(`#meshes-${idGroupName}`);
+
+                                //+ filter 내에 해당하는 건물이 있을 경우
+                                if (meshNameList[groupName].length > 0) {
+                                    meshes.append(`<ul id="meshes_ul-${idGroupName}" style ="display:flex; align-content:flex-start; flex-direction: column;flex-wrap: wrap;overflow: auto;"></ul>`);
+                                    let meshes_ul = $(`#meshes_ul-${idGroupName}`);
+                                    meshNameList[groupName].forEach(function (meshName, idx) {
+                                        meshes_ul.append('<li>' + (idx + 1) + '. Mesh Name: ' + meshName + '</li>');
+                                    })
+                                } else {
+                                    // str += ' 해당 하는 Mesh가 없습니다.   ';
+                                }
+
+                                mesh_gourp_ul.append(`<li><details id="properties-${idGroupName}"><summary><code> Properties</code></summary></details></li>`);
+                                let properties_ = $(`#properties-${idGroupName}`);
+
+                                if (groupProperty) {
+                                    if (Object.keys(groupProperty).length !== 1) {
+                                        properties_.append(`<ul id ="properties_li-${idGroupName}"><li>Name : ` + groupName + `</li></ul>`);
+                                        let properties_li = $(`#properties_li-${idGroupName}`);
+                                        let keys = Object.keys(groupProperty);
+                                        let idx = 1;
+                                        for (let key of keys) {
+                                            //let key = keys[i];
+                                            let content = groupProperty[key];
+                                            let jsonString = JSON.stringify(content)
+                                            properties_li.append(`<li><label style="font-weight: bold">Property_` + idx + ` : </label><br> ` + key + ` - ` + jsonString + `</li>`);
+                                            idx++;
+                                        }
+                                    } else {
+                                        Object.values(groupProperty).forEach(function (property) {
+
+                                            let groupName = property.name;
+                                            let keys = Object.keys(property.Properties);
+                                            properties_.append(`<ul id ="properties_li-${idGroupName}"><li>Name : ` + groupName + `</li></ul>`);
+                                            let idx = 1;
+                                            let properties_li = $(`#properties_li-${idGroupName}`);
+                                            for (let key of keys) {
+                                                //let key = keys[i];
+                                                let content = property.Properties[key];
+                                                let jsonString = JSON.stringify(content)
+                                                properties_li.append(`<li><label style="font-weight: bold">Property_` + idx + ` : </label><br> ` + key + ` - ` + jsonString + `</li>`);
+                                                idx++;
+                                            }
+                                        })
+                                    }
+                                }
+                            } else {
+                                //  str += ' 해당 하는 속성 값이 없습니다.   ';
+                            }
+                        }
+
+                        // mesh meta Data load layer.loadMetaData(url);
+                        // (url - default value) BatchGroupPath 와 같은 경로
+                        //   let url;
+                        //let data_= metaData[objects[0].getBatchMeshName()];
+                        let data_ = layer.getMetaDataByName(objects[i].getBatchMeshName());
+                        //U3DTiles.getMetaDataByName(MeshName); batchGroup.json에 등록된 meshName 입력시 해당 mesh의 metadata를 반환합니다.- return UmetaData
+                        setMetaInfoPopup_(data_)
+                        let domId = ".select-files-3dTiles";
+                        $(domId).empty();
+                        $(domId).val(groupName);
+                        console.info(data_);
+                    }
+                }
+
+                miniApp.updateData();
+            }
+        }
+
+        function checkedSelect(e) {
+            var $checkbox = $(e.target);
+            var name = $checkbox.attr('target');
+            selectArea.check($checkbox[0].checked, name);
+        }
+
+        $(document).on('click', '.selectCheck', checkedSelect);
+        selectArea.on('point');
+
+        //층별 분류 값 변경시 동작하는 이벤트
+        $(document).on('change', '.select-floor-step2', function (e) {
+            let selectName = $('.select-floor-step2').val();
+            console.log(selectName)
+            if (!!selectName) {
+                selector.clear();
+                setSelectFloor(selectName);
+            }
+        });
+
+        //해당 층에 mesh들 선택(하이라이트), 반환 하는 함수
+        function setSelectFloor(name) {
+            if (window.floorInfo[name]) {
+                selector.addSelected(window.floorInfo[name]);//해당 하는 mesh들 하이라이트( 선택 된 객체 목록에 추가 )
+                return window.floorInfo[name];
+            }
+        }
+
+        $('#zRange').on('input', changeSliderBar);
+
+        // 슬라이드 바 event 함수
+        function changeSliderBar(e) {
+            var zslider = document.getElementById("zRange");
+            var zhandle = $('#height');
+
+            zslider.oninput = function () {
+                let val = this.value * 1;
+                zhandle.text(val);
+                if (window.floorInfo && Object.keys(window.floorInfo)) {
+                    let keys = Object.keys(window.floorInfo);
+                    keys.forEach(function (key) {
+                        let offset = 0; //층 간격 수치
+                        if (key.equalIgnoreCase("지붕")) {
+                            offset = keys.length - 1;
+                        } else if (key.match(/[^0-9]/)) {
+                            const regex = /[^0-9]/g;
+                            const result = key.replace(regex, "");
+                            offset = parseInt(result) - 1;
+                        }
+                        if (window.floorInfo[key] && window.floorInfo[key].length > 0) {
+                            window.floorInfo[key].forEach(function (mesh) {
+                                // 슬라이드바 조정 값으로 대상 mesh의 위치 이동
+                                mesh.position.y = offset * Number(val);
+                            })
+                        }
+                    })
+                }
+            }
+        }
+    });
+</script>
+</body>
+</html>

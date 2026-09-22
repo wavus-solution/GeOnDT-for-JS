@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="../">
+    <title>WMTS 이미지 레이어 가시화</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <link rel="stylesheet" href="css/pastel-glass-map-theme.css" type="text/css">
+    <link rel="stylesheet" href="css/example-editor.css" type="text/css">
+    <link rel="stylesheet" href="edition/assets/monaco/monaco-editor.css?v=ebbbdcf5172a" type="text/css">
+    <style id="example-viewer-style">
+
+    </style>
+</head>
+<body>
+<!-- 자동 생성 파일입니다. 원본 tutorial-official/examples\WMTSImageLayer\WMTSImageLayer.md을(를) 수정하세요. -->
+<main id="example-viewer" class="example-app">
+    <div id="map-wrapper"><div id="map"></div></div>
+
+    <!-- 지도 화면에서 예제 목록으로 돌아가는 유일한 통로입니다.
+         브라우저 뒤로가기만 두면 새 탭이나 공유받은 주소로 들어온 사람은 목록을 찾을 수 없습니다. -->
+    <a class="example-brand" href="edition/index.html" title="예제 목록" aria-label="예제 목록으로 이동"><img src="image/geondt-loading-color-logo.png" alt=""></a>
+    <h1 class="example-title">WMTS 이미지 레이어 가시화</h1>
+
+    <nav class="example-rail" aria-label="예제 도구">
+        <button class="rail-button" type="button" data-panel-target="example-explanation" aria-expanded="false">
+            <span class="rail-icon">?</span><span>도움말</span>
+        </button>
+        <div data-common-ui-rail></div>
+        <div id="viewer-example-rail" class="viewer-example-rail">
+
+        </div>
+    </nav>
+
+    <button class="editor-mode-toggle" type="button" data-open-editor aria-pressed="false">
+        <span class="code-toggle-icon">&lt;/&gt;</span><span data-editor-toggle-label>코드 편집</span>
+    </button>
+
+    <aside class="glass-panel explanation-panel" id="example-explanation" aria-hidden="true">
+        <header class="panel-header">
+            <div><span class="eyebrow">EXAMPLE GUIDE</span><h2>WMTS 이미지 레이어 가시화</h2></div>
+            <button class="panel-close" type="button" data-panel-close="example-explanation" aria-label="도움말 닫기">×</button>
+        </header>
+        <div class="panel-content markdown-document">
+<h1>WMTS 이미지 레이어 가시화</h1>
+<p>브이월드의 <strong>Base·Hybrid WMTS 레이어</strong>와 GeoServer의 <strong>도로 WMTS 레이어를 지정 스타일로 화면에 출력</strong>하는 예제입니다.</p>
+        </div>
+    </aside>
+
+
+
+    <div data-common-ui-panels></div>
+    <div data-common-ui-tools></div>
+    <div data-common-ui-status></div>
+
+    <div id="load" class="loading-indicator" hidden><img src="image/loading.svg" alt="불러오는 중"></div>
+
+    <aside id="example-api-help" class="example-api-help" role="tooltip" hidden>
+        <header class="example-api-help-header">
+            <strong data-api-help-title></strong>
+            <button type="button" data-api-help-close aria-label="API 도움말 닫기">×</button>
+        </header>
+        <p data-api-help-description></p>
+        <section data-api-help-dynamic-section>
+            <b>현재 설정</b>
+            <pre><code data-api-help-code></code></pre>
+        </section>
+        <section data-api-help-source-section hidden>
+            <b>실제 구현</b>
+            <small data-api-help-source-location></small>
+            <pre><code data-api-help-source-code></code></pre>
+            <button type="button" data-api-help-open-source>코드에서 보기</button>
+        </section>
+        <p data-api-help-source-error hidden></p>
+    </aside>
+</main>
+
+<section id="example-editor" class="editor-workspace" hidden aria-label="예제 코드 편집기">
+    <header class="editor-toolbar">
+        <strong class="editor-title">WMTS 이미지 레이어 가시화</strong>
+        <div class="editor-toolbar-actions">
+            <button class="editor-search-toggle" type="button" data-editor-action="search" aria-expanded="false" aria-controls="editor-search" title="모든 탭에서 검색 (Ctrl+Shift+F)" aria-label="모든 탭에서 검색">
+                <img src="image/search_white_24dp.svg" alt=""><span>검색</span>
+            </button>
+            <button type="button" data-editor-action="reset">초기화</button>
+            <button type="button" data-editor-action="console" aria-expanded="false">Console</button>
+            <button class="editor-close-button" type="button" data-editor-action="viewer" title="코드 편집 닫기" aria-label="코드 편집 닫기">
+                <span class="editor-close-icon" aria-hidden="true">×</span><span>닫기</span>
+            </button>
+        </div>
+    </header>
+    <div class="editor-layout" id="editor-layout">
+        <section class="editor-pane" id="editor-pane" aria-label="코드 편집">
+            <div class="editor-tabs" role="tablist" aria-label="코드 종류">
+                <button type="button" role="tab" data-code-tab="javascript" aria-selected="true">JavaScript</button>
+                <button type="button" role="tab" data-code-tab="html" aria-selected="false">HTML</button>
+                <button type="button" role="tab" data-code-tab="css" aria-selected="false">CSS</button>
+                <button class="editor-run-button" type="button" data-editor-action="run"><span>▶</span> 실행</button>
+            </div>
+            <div id="monaco-editor" class="monaco-host"></div>
+            <div class="editor-search" id="editor-search" hidden>
+                <div class="editor-search-bar">
+                    <img class="editor-search-bar-icon" src="image/search_white_24dp.svg" alt="">
+                    <input class="editor-search-input" id="editor-search-input" type="search" placeholder="모든 탭에서 검색" autocomplete="off" spellcheck="false" aria-label="모든 탭에서 검색">
+                    <button class="editor-search-option" type="button" data-search-option="matchCase" aria-pressed="false" title="대소문자 구분">Aa</button>
+                    <button class="editor-search-option" type="button" data-search-option="regex" aria-pressed="false" title="정규식 사용">.*</button>
+                    <button class="editor-search-close" type="button" data-search-close aria-label="검색 닫기">×</button>
+                </div>
+                <p class="editor-search-summary" id="editor-search-summary" aria-live="polite">검색어를 입력하세요.</p>
+                <div class="editor-search-results" id="editor-search-results" role="listbox" aria-label="검색 결과"></div>
+            </div>
+            <!--+ 실행 콘솔은 편집 패널 안에 둔다. 미리보기 안에 두면 실행 뒤 `position: fixed`인 미리보기가
+                 쌓임 맥락을 만들어 편집 패널에 가려지고, 실행 전과 위치도 달라진다. -->
+            <section id="preview-console" class="preview-console" aria-label="실행 콘솔" aria-hidden="true">
+                <header><strong>Console</strong><span class="console-count" id="preview-console-count">0</span><button class="console-clear" type="button" data-console-clear>Clear</button><button type="button" data-console-close aria-label="콘솔 닫기">×</button></header>
+                <div id="preview-console-output" class="preview-console-output" aria-live="polite"><p class="console-empty">실행 로그가 여기에 표시됩니다.</p></div>
+            </section>
+        </section>
+        <div class="editor-splitter" id="editor-splitter" role="separator" aria-label="편집기와 미리보기 너비 조절" aria-orientation="vertical" tabindex="0"></div>
+        <section class="preview-pane" aria-label="실행 미리보기">
+            <div id="preview-frame-container" class="preview-frame-container"></div>
+        </section>
+    </div>
+    <div class="editor-mobile-notice" id="editor-mobile-notice" hidden>
+        <strong>코드 편집은 데스크톱 환경에서 지원합니다.</strong>
+        <p>더 넓은 화면에서 Editor를 열거나 지도 Viewer로 돌아가세요.</p>
+        <button type="button" data-editor-action="viewer">지도로 보기</button>
+    </div>
+    <div class="editor-hint-stack">
+        <div class="editor-hint" id="editor-hint" role="status" hidden>
+            <p>실행 전에는 <b>× 닫기</b>와 가장자리 <b>◀</b> 버튼으로 지도로 돌아갑니다.<br>실행한 뒤에는 같은 버튼이 편집 패널만 접고, 실행한 화면은 그대로 남습니다. 접으면 왼쪽 가장자리 <b>▶</b>로 다시 펼칩니다.</p>
+        </div>
+        <div class="editor-hint editor-shortcut-hint" id="editor-shortcut-hint" role="status" hidden>
+            <dl>
+                <dt><kbd>Ctrl</kbd><kbd>F</kbd></dt>
+                <dd>현재 파일에서 찾기</dd>
+                <dt><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>F</kbd></dt>
+                <dd>열린 파일 전체에서 찾기</dd>
+                <dt><kbd>Ctrl</kbd><kbd>Space</kbd></dt>
+                <dd>자동완성 보기</dd>
+                <dt><kbd>Esc</kbd></dt>
+                <dd>찾기 닫기</dd>
+            </dl>
+            <p class="editor-shortcut-note">macOS에서는 <kbd>Ctrl</kbd> 대신 <kbd>Cmd</kbd>를 사용합니다.</p>
+        </div>
+    </div>
+    <div class="editor-panel-resizer" id="editor-panel-resizer" role="separator" aria-label="코드 편집 패널 너비 조절" aria-orientation="vertical" tabindex="0" title="드래그하거나 방향키로 너비 조절"></div>
+</section>
+
+<button class="editor-edge-toggle" type="button" data-editor-edge-toggle aria-pressed="false" title="코드 편집 열기" aria-label="코드 편집 열기">
+    <span class="editor-edge-icon" data-editor-edge-icon aria-hidden="true">▶</span>
+</button>
+
+<script id="example-source" type="application/json">{"format":"manifest","helpHtml":"\u003ch1\u003eWMTS 이미지 레이어 가시화\u003c/h1\u003e\n\u003cp\u003e브이월드의 \u003cstrong\u003eBase·Hybrid WMTS 레이어\u003c/strong\u003e와 GeoServer의 \u003cstrong\u003e도로 WMTS 레이어를 지정 스타일로 화면에 출력\u003c/strong\u003e하는 예제입니다.\u003c/p\u003e","assetBaseUrl":"edition/examples/WMTSImageLayer/","runtime":{"home":{"longitude":126.9395,"latitude":37.52,"height":450,"duration":2,"pitch":60},"baseLayers":[],"terrain":{"enabled":false},"mapTools":["home","north","zoom-in","zoom-out"],"cameraStatus":true,"help":true,"loading":true},"imports":[],"dependencies":[],"commonUi":{"imageLayerPanel":true,"terrainLayerPanel":true},"sourceTokens":{},"sources":[{"id":"main","label":"main.js","path":"./WMTSImageLayer.main.js","language":"javascript","editable":true,"url":"edition/examples/WMTSImageLayer/WMTSImageLayer.main.js","content":"/**\r\n * WMTS GetCapabilities 기반 자동 구성 예제를 Common Runtime에서 실행합니다.\r\n * @param {Readonly\u003cRecord\u003cstring, unknown\u003e\u003e} context 공통 런타임 컨텍스트\r\n * @returns {Promise\u003cRecord\u003cstring, unknown\u003e\u003e} 예제 상태\r\n */\r\nexport async function initialize(context) {\r\n    // 브이월드에서 발급받은 웹 서비스 인증키를 입력합니다.\r\n    const VWORLD_API_KEY = '1D901079-C699-4CE9-8452-7B9667018F10';\r\n    // 브이월드 WMTS(api.vworld.kr/req/wmts/1.0.0)와 GeoServer WMTS는 CORS를 지원하지 않으므로\r\n    // Capabilities와 GetTile 모두 같은 출처의 프록시 경로를 사용합니다.\r\n    // 로컬은 _vite.config.js가 전달하며, 배포 서버에도 같은 경로의 역방향 프록시가 필요합니다.\r\n    const VWORLD_PROXY_URL = '/vworld';\r\n    const GEOSERVER_WMTS_URL = '/geoserver/gwc/service/wmts';\r\n    const GEOSERVER_LAYER_NAME = 'gcs:gis_osm_roads_free_1';\r\n    const GEOSERVER_STYLE_NAME = 'gcs:gis_osm_roads_free_1_default';\r\n    const layers = {};\r\n    window.layers = layers;\r\n\r\n    const app = context.app;\r\n    window.app = app;\r\n    app.setHomePosition(127.1201, 37.4207, 5000, 2, 0);\r\n    await app.updateHomePosition();\r\n\r\n    //이미지 레이어 생성\r\n    const layer = new GeOnDT.image.U3dImageXYZLayer({\r\n        name: 'satellite',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}\r\n        baseurl: \"https://xdworld.vworld.kr/2d/Satellite/service/{z}/{x}/{-y}.jpeg\", //+ 이미지 데이터 URL, *필수 입력\r\n        reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)\r\n    });\r\n    app.addLayer(layer);\r\n    //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.\r\n    app.showLayer('satellite', true);\r\n    app.setNameBaseLayer('satellite');\r\n    const satelliteCheckbox = document.querySelector('input[target=\"satellite\"]');\r\n    satelliteCheckbox.checked = true;\r\n    satelliteCheckbox.disabled = false;\r\n    satelliteCheckbox.addEventListener('change', function () {\r\n        app.showLayer('satellite', satelliteCheckbox.checked);\r\n    });\r\n    document.getElementById('load').hidden = true;\r\n\r\n    for (const checkbox of document.querySelectorAll('input[data-wmts]')) {\r\n        checkbox.addEventListener('change', function () {\r\n            app.showImageLayer(checkbox.getAttribute('target'), checkbox.checked);\r\n        });\r\n    }\r\n\r\n    /**\r\n     * WMTS 레이어를 만들고 Capabilities 로드 완료(ready)까지 기다립니다.\r\n     * 레이어가 Capabilities를 직접 읽어 ol.source.WMTS 옵션, 표출 level 범위, 데이터 범위를 구성하므로\r\n     * 예제는 서비스 주소와 레이어 식별자만 지정합니다.\r\n     * @param {object} options U3dImageWMTSLayer 생성 옵션\r\n     * @param {HTMLElement} status 타일 요청 장애 메시지를 표시할 요소\r\n     * @returns {Promise\u003cobject\u003e} ready가 완료된 레이어\r\n     */\r\n    function createWmtsLayer(options, status) {\r\n        return new Promise(function (resolve, reject) {\r\n            const wmtsLayer = app.create3dImageWMTSLayer(options);\r\n            if (!wmtsLayer) {\r\n                reject(new Error('WMTS 레이어를 생성하지 못했습니다: ' + options.name));\r\n                return;\r\n            }\r\n            layers[options.name] = wmtsLayer;\r\n            // 타일 요청이 연속 실패하면(인증키 만료, 프록시·서버 장애) 레이어가 SERVICE_ERROR를 한 번 발생시킵니다.\r\n            // 개별 실패는 TILE_ERROR로 매 건 전달되며 data에 TileMatrix·행·열·URL이 들어 있습니다.\r\n            wmtsLayer.on(GeOnDT.image.U3dImageWMTSLayer.EVENT.SERVICE_ERROR, function (event) {\r\n                status.textContent = options.name + ' 타일 요청이 ' + event.data.consecutiveErrors + '회 연속 실패했습니다. '\r\n                    + '인증키, 프록시 및 서버 상태를 확인하세요. (' + (event.data.lastTile.url || 'URL 확인 불가') + ')';\r\n                status.hidden = false;\r\n            });\r\n            wmtsLayer.ready(function () { resolve(wmtsLayer); });\r\n            wmtsLayer.catch(function (error) { reject(error); });\r\n        });\r\n    }\r\n\r\n    // 한 서비스의 인증·접속 실패나 지연이 다른 WMTS 레이어의 초기화를 막지 않게 합니다.\r\n    await Promise.all([initVworldWmts(), initGeoserverWmts()]);\r\n\r\n    async function initVworldWmts() {\r\n        const status = document.getElementById('vworld-status');\r\n        if (!VWORLD_API_KEY.trim() || VWORLD_API_KEY === 'YOUR_VWORLD_API_KEY') {\r\n            status.textContent = '브이월드 WMTS 인증키를 입력하세요.';\r\n            status.hidden = false;\r\n            return;\r\n        }\r\n        // 원본 서비스: https://api.vworld.kr/req/wmts/1.0.0\r\n        // CORS 미지원 API이므로 Capabilities와 GetTile 모두 같은 출처의 프록시(/vworld)를 사용합니다.\r\n        // 로컬은 _vite.config.js가 전달하며, 배포 서버에도 같은 경로의 역방향 프록시가 필요합니다.\r\n        const serviceUrl = VWORLD_PROXY_URL + '/req/wmts/1.0.0/' + encodeURIComponent(VWORLD_API_KEY);\r\n        try {\r\n            // Base(배경지도)와 Hybrid(하이브리드) 두 레이어가 같은 Capabilities를 쓰므로 문서는 한 번만 받아 공유합니다.\r\n            // 레이어 하나만 만들 때는 xmlUrl 옵션으로 레이어가 직접 받게 하면 됩니다.\r\n            const capabilities = await GeOnDT.image.U3dImageWMTSLayer.fetchCapabilities(serviceUrl + '/WMTSCapabilities.xml');\r\n            for (const name of ['Base', 'Hybrid']) {\r\n                const wmtsLayer = await createWmtsLayer({\r\n                    name: name,\r\n                    capabilities: capabilities,                      //+ 미리 받은 Capabilities 문서(xmlUrl 대신)\r\n                    layer: name,                                     //+ Capabilities Contents/Layer Identifier\r\n                    matrixSet: 'GoogleMapsCompatible',               //+ Web Mercator 타일 격자\r\n                    format: 'image/png',\r\n                    requestEncoding: 'REST',\r\n                    // 프록시 경로와 입력한 키를 유지하고 브이월드 공식 REST 경로를 사용합니다.\r\n                    urls: [serviceUrl + '/' + name + '/{TileMatrix}/{TileRow}/{TileCol}.png'],\r\n                    minlevel: 6,        //+ Capabilities가 제공하는 범위보다 좁게 제한할 때만 지정합니다.\r\n                    transparent: true\r\n                }, status);\r\n                app.showImageLayer(name, false);\r\n                // Capabilities에서 산출된 정보는 getLayerMetadata()/getSourceOptions()로 확인할 수 있습니다.\r\n                console.info('[WMTS] ' + name + ' ready', wmtsLayer.getLayerMetadata()?.WGS84BoundingBox);\r\n            }\r\n\r\n            for (const checkbox of document.querySelectorAll('input[data-wmts=\"vworld\"]')) {\r\n                checkbox.disabled = false;\r\n            }\r\n        } catch (error) {\r\n            // 브이월드는 인증키 오류·미등록 도메인에도 200으로 오류 문서를 반환하며, 레이어가 이를 판별해 reject 합니다.\r\n            status.textContent = '브이월드 WMTS를 불러오지 못했습니다: ' + (error?.message || error);\r\n            status.hidden = false;\r\n            console.error('브이월드 WMTS 초기화 실패', error);\r\n        }\r\n    }\r\n\r\n    async function initGeoserverWmts() {\r\n        const status = document.getElementById('geoserver-status');\r\n        try {\r\n            const name = 'geoserver_roads';\r\n            // EPSG:900913은 EPSG:3857과 같은 좌표계지만 타일 격자 식별자는 서버 선언값을 사용합니다.\r\n            // 기본 스타일은 line이며 Style Identifier를 직접 지정합니다.\r\n            await createWmtsLayer({\r\n                name: name,\r\n                xmlUrl: GEOSERVER_WMTS_URL + '?REQUEST=GetCapabilities\u0026SERVICE=WMTS',\r\n                layer: GEOSERVER_LAYER_NAME,\r\n                matrixSet: 'EPSG:900913',\r\n                style: GEOSERVER_STYLE_NAME,\r\n                format: 'image/png',\r\n                requestEncoding: 'KVP',\r\n                urls: [GEOSERVER_WMTS_URL],\r\n                minlevel: 6,\r\n                transparent: true\r\n            }, status);\r\n\r\n            // 예제를 열면 위성지도 위에 도로를 표시하고 체크박스로 가시성을 제어합니다.\r\n            app.showImageLayer(name, true);\r\n            const checkbox = document.querySelector('input[target=\"geoserver_roads\"]');\r\n            checkbox.checked = true;\r\n            checkbox.disabled = false;\r\n        } catch (error) {\r\n            // 프록시가 없는 개발 서버는 XML 대신 기본 HTML을 200으로 반환할 수 있으며, 레이어가 이를 판별해 reject 합니다.\r\n            status.textContent = 'GeoServer 도로 WMTS를 불러오지 못했습니다: ' + (error?.message || error);\r\n            status.hidden = false;\r\n            console.error('GeoServer 도로 WMTS 초기화 실패', error);\r\n        }\r\n    }\r\n\r\n    return {app: context.app};\r\n}\r\n\r\n/**\r\n * 예제의 Lifecycle 정리 함수를 호출합니다.\r\n * @param {Readonly\u003cRecord\u003cstring, unknown\u003e\u003e} context 공통 런타임 컨텍스트\r\n * @param {Record\u003cstring, unknown\u003e} example 예제 상태\r\n */\r\nexport async function dispose(context, example) {\r\n    if (example \u0026\u0026 typeof example.dispose === 'function') example.dispose();\r\n}\r\n"},{"id":"ui","label":"ui.js","path":"./WMTSImageLayer.ui.js","language":"javascript","editable":true,"url":"edition/examples/WMTSImageLayer/WMTSImageLayer.ui.js","content":"/**\r\n * 자동 이관된 기존 예제의 대표 패널 상태를 연결합니다.\r\n * @param {Readonly\u003cRecord\u003cstring, unknown\u003e\u003e} context 공통 런타임 컨텍스트\r\n * @param {Record\u003cstring, unknown\u003e} example 예제 상태\r\n * @returns {function(): void} UI 정리 함수\r\n */\r\nexport function initializeUI(context, example) {\r\n    const root = context.elements.root;\r\n    const rail = context.elements.rail || document;\r\n    const app = context.app;\r\n    const toggle = rail.querySelector('[data-legacy-toggle-state]');\r\n    const panel = root.querySelector('.legacy-main-feature-panel');\r\n    const legacyUiListeners = [];\r\n\r\n    $(document).on('mouseover.geondtExampleUi', '.info-box', function () {\r\n            $('.ex-explanation').show();\r\n        });\r\n        $(document).on('mouseout.geondtExampleUi', '.info-box', function () {\r\n            $('.ex-explanation').hide();\r\n        });\r\n        $(document).on('click.geondtExampleUi', '#left-menu-bnt', function () {\r\n            $(this).toggleClass('active');\r\n            $('#div-left-menu').css('width', $(this).hasClass('active') ? '350px' : '0');\r\n        });\r\n        $(document).on('click.geondtExampleUi', '.sub-category-tile', function (event) {\r\n            event.preventDefault();\r\n            $(this).toggleClass('active');\r\n            const expanded = $(this).hasClass('active');\r\n            $(this).next().css({height: expanded ? '200px' : '0', overflow: expanded ? 'auto' : 'hidden'});\r\n            $(this).find('.expand-btn img').css('rotate', expanded ? '180deg' : '0deg');\r\n        });\r\n        $(document).on('click.geondtExampleUi', '#compass-image-id', function () {\r\n            if (window.app) window.app.alignNorth();\r\n        });\r\n        $(document).on('click.geondtExampleUi', '#right-tbar-btn-zoomin', function () {\r\n            if (window.app) window.app.zoomIn();\r\n        });\r\n        $(document).on('click.geondtExampleUi', '#right-tbar-btn-zoomout', function () {\r\n            if (window.app) window.app.zoomOut();\r\n        });\r\n        $(document).on('click.geondtExampleUi', '#right-tbar-btn-flyto', function () {\r\n            if (window.app) window.app.updateHomePosition();\r\n        });\r\n        $(document).on('mouseover.geondtExampleUi', '.menu-btn', function () {\r\n            $(this).next().show();\r\n        });\r\n        $(document).on('mouseout.geondtExampleUi', '.menu-btn', function () {\r\n            $(this).next().hide();\r\n        });\r\n    \r\n        // 카메라 변경 이벤트에 맞춰 WMS 예제와 같은 나침반·좌표 표시를 갱신합니다.\r\n        function updatePosData() {\r\n            if (!window.app) return;\r\n            const info = window.app.getCameraState();\r\n            const degrees = ((-info.azimuth * 180 / Math.PI) % 360 + 360) % 360;\r\n            $('#compass-image-id').css('transform', 'rotate(' + -info.azimuth + 'rad)');\r\n            $('#bottom-tbar-btn-angle').val('각도: ' + degrees.toFixed(0) + '°');\r\n            $('#bottom-tbar-btn-pos').val('위경도: ' + Number(info.center.y).toFixed(3) + '°, ' + Number(info.center.x).toFixed(3) + '°');\r\n            $('#bottom-tbar-btn-height').val('높이: ' + Number(info.camera.z).toFixed(1) + 'm');\r\n        }\r\n\r\n    if (window.jQuery) {\r\n        legacyUiListeners.push(() =\u003e window.jQuery(document).off('.geondtExampleUi'));\r\n        legacyUiListeners.push(() =\u003e window.jQuery(root).find('*').addBack().off('.geondtExampleUi'));\r\n    }\r\n\r\n    if (toggle \u0026\u0026 panel) {\r\n        setLegacyPanelOpen(toggle, panel, panel.style.display !== 'none');\r\n\r\n    }\r\n\r\n    return function cleanupExampleUI() {\r\n        for (const removeListener of legacyUiListeners.reverse()) removeListener();\r\n    };\r\n}\r\n\r\n/**\r\n * 무거운 레거시 Main 초기화 전에 패널 이벤트를 연결합니다.\r\n * @param {Readonly\u003cRecord\u003cstring, unknown\u003e\u003e} context 공통 런타임 컨텍스트\r\n * @returns {function(): void} UI 정리 함수\r\n */\r\nexport function initializeUIBeforeMain(context) {\r\n    return initializeUI(context, {});\r\n}\r\n\r\n/**\r\n * 기존 대표 패널과 도구 버튼의 열림 상태를 맞춥니다.\r\n * @param {HTMLElement} toggle 패널 도구 버튼\r\n * @param {HTMLElement} panel 대표 기능 패널\r\n * @param {boolean} open 열림 여부\r\n */\r\nfunction setLegacyPanelOpen(toggle, panel, open) {\r\n    panel.style.display = open ? '' : 'none';\r\n    panel.setAttribute('aria-hidden', String(!open));\r\n    toggle.classList.toggle('active', open);\r\n    toggle.setAttribute('aria-pressed', String(open));\r\n}\r\n"},{"id":"html","label":"HTML","path":"./WMTSImageLayer.html","language":"html","editable":true,"url":"edition/examples/WMTSImageLayer/WMTSImageLayer.html","content":"\u003cnav class=\"WMTSImageLayer-rail\" data-example-rail aria-label=\"WMTSImageLayer 도구\"\u003e\r\n    \u003cbutton class=\"rail-button\" type=\"button\" data-panel-target=\"legacy-settings-panel\" aria-expanded=\"false\"\u003e\r\n        \u003cspan class=\"rail-icon\"\u003e▦\u003c/span\u003e\u003cspan\u003e설정\u003c/span\u003e\r\n    \u003c/button\u003e\r\n\u003c/nav\u003e\r\n\r\n\u003caside class=\"glass-panel example-panel legacy-migration-panel\" id=\"legacy-settings-panel\" aria-hidden=\"true\"\u003e\r\n    \u003cheader class=\"panel-header\"\u003e\r\n        \u003cdiv\u003e\u003cspan class=\"eyebrow\"\u003eEXAMPLE SETTINGS\u003c/span\u003e\r\n            \u003ch2\u003eWMTS 이미지 레이어 가시화\u003c/h2\u003e\u003c/div\u003e\r\n        \u003cbutton class=\"panel-close\" type=\"button\" data-panel-close=\"legacy-settings-panel\" aria-label=\"설정 닫기\"\u003e×\u003c/button\u003e\r\n    \u003c/header\u003e\r\n    \u003cdiv class=\"panel-content\"\u003e\r\n        \u003cdiv class=\"legacy-control-content\"\u003e\r\n            \u003cdiv class=\"form-group div-layer\"\u003e\r\n                \u003cdiv id=\"layer-list\"\u003e\r\n                    \u003cdiv class=\"div-sub-category\"\u003e\r\n                        \u003cdiv class=\"sub-category-content\" style=\"height: 200px; overflow: auto\"\u003e\r\n                            \u003cdiv class=\"checkbox\"\u003e\u003clabel\u003e\r\n                                \u003cinput class=\"input-showLayer\" type=\"checkbox\" target=\"satellite\" disabled\u003e\r\n                                VWorld Satellite (기본 Map)\r\n                            \u003c/label\u003e\u003c/div\u003e\r\n                            \u003cdiv class=\"checkbox\"\u003e\u003clabel\u003e\r\n                                \u003cinput class=\"input-showLayer\" type=\"checkbox\" target=\"Base\" data-wmts=\"vworld\"\r\n                                       disabled\u003e\r\n                                VWorld Base WMTS\r\n                            \u003c/label\u003e\u003c/div\u003e\r\n                            \u003cdiv class=\"checkbox\"\u003e\u003clabel\u003e\r\n                                \u003cinput class=\"input-showLayer\" type=\"checkbox\" target=\"Hybrid\" data-wmts=\"vworld\"\r\n                                       disabled\u003e\r\n                                VWorld Hybrid WMTS\r\n                            \u003c/label\u003e\u003c/div\u003e\r\n                            \u003cdiv class=\"checkbox\"\u003e\u003clabel\u003e\r\n                                \u003cinput class=\"input-showLayer\" type=\"checkbox\" target=\"geoserver_roads\"\r\n                                       data-wmts=\"geoserver\" disabled\u003e\r\n                                GeoServer 도로 WMTS\r\n                            \u003c/label\u003e\u003c/div\u003e\r\n                            \u003cp id=\"vworld-status\" class=\"help-block\" role=\"status\" hidden\u003e\u003c/p\u003e\r\n                            \u003cp id=\"geoserver-status\" class=\"help-block\" role=\"status\" hidden\u003e\u003c/p\u003e\r\n                        \u003c/div\u003e\r\n                    \u003c/div\u003e\r\n                \u003c/div\u003e\r\n            \u003c/div\u003e\r\n        \u003c/div\u003e\r\n    \u003c/div\u003e\r\n\u003c/aside\u003e\r\n"},{"id":"css","label":"CSS","path":"./WMTSImageLayer.css","language":"css","editable":true,"url":"edition/examples/WMTSImageLayer/WMTSImageLayer.css","content":"/* TODO: 예제 고유 스타일을 작성합니다. */"}]}</script>
+<script id="example-metadata" type="application/json">{"title":"WMTS 이미지 레이어 가시화","url":"WMTSImageLayer.html","category":"image","categoryLabel":"이미지 레이어","summary":"브이월드의 Base·Hybrid WMTS 레이어와 GeoServer의 도로 WMTS 레이어를 지정 스타일로 화면에 출력하는 예제입니다.","tags":[],"apis":["addLayer","create3dImageWMTSLayer","on","setHomePosition","setIntensityLight","setNameBaseLayer","showImageLayer","showLayer","U3dAPP","U3dImageXYZLayer","updateHomePosition"],"editor":true,"apiHelp":false,"imageLayerPanel":true,"terrainLayerPanel":true,"featured":false,"thumbnail":"https://dt-data.mappick.co.kr/ServiceData/thumbnails/edition/WMTSImageLayer.png","thumbnailMotion":"https://dt-data.mappick.co.kr/ServiceData/thumbnails/edition/WMTSImageLayer.webm","legacy":false,"manifest":true,"sourceFile":"examples\\WMTSImageLayer\\WMTSImageLayer.md"}</script>
+<script>
+window.__EXAMPLE_BUILD_CONFIG__ = {
+    targetPrefix: 'edition/',
+    runnerUrl: 'edition/runner.html',
+    monacoModuleUrl: 'edition/assets/monaco/monaco-editor.js?v=ebbbdcf5172a',
+    // GeOnDT 타입 선언 번들입니다. 값이 없으면 코드 편집기는 자동완성 없이 동작합니다.
+    monacoTypesUrl: 'edition/assets/monaco/geondt-types.json?v=dbfb352606d5'
+};
+// 예제는 코드 편집 패널을 연 상태로 시작하며, 닫으면 editor=0이 남아 선택이 유지됩니다.
+// 패널 너비는 지도 Engine 생성 전에 확정되므로 초기 화면이 다시 배치되지 않습니다.
+// 좁은 화면에서는 편집기가 화면 전체를 덮으므로 기본 열기를 적용하지 않습니다.
+(function () {
+    var editorParameter = new URLSearchParams(window.location.search).get('editor');
+    window.__EXAMPLE_EDITOR_MODE__ = editorParameter === '1'
+        || (editorParameter !== '0' && window.innerWidth > 760);
+})();
+</script>
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/filesaver/FileSaver.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script src="js/example-theme.js"></script>
+<script type="module">
+import(/* @vite-ignore */ new URL('js/example-page.js', document.baseURI).href);
+</script>
+</body>
+</html>
+

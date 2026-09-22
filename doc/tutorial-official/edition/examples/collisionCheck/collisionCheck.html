@@ -1,0 +1,32 @@
+<template data-example-rail>
+    <button class="rail-button" type="button" data-panel-target="collisionCheck-option-panel" aria-expanded="false">
+        <span class="rail-icon" aria-hidden="true">▦</span><span>충돌</span>
+    </button>
+</template>
+<aside class="glass-panel example-panel collisionCheck-option-panel" id="collisionCheck-option-panel" aria-hidden="true">
+    <header class="panel-header">
+        <div><span class="eyebrow">COLLIDER INTERSECTION LAB</span><h2>객체 교차 검사</h2></div>
+        <button class="panel-close" type="button" data-panel-close="collisionCheck-option-panel" aria-label="충돌 패널 닫기">×</button>
+    </header>
+    <div class="panel-content">
+        <section class="collisionCheck-section">
+            <h3>실시간 비행 현황</h3>
+            <div class="collisionCheck-counts"><span>전체 <strong data-drone-total>0</strong>대</span><span>충돌 <strong data-collision-count>0</strong>대</span></div>
+            <p>드론 100대가 무작위 목적지를 따라 계속 비행합니다. 충돌 중인 드론은 빨간색으로 표시됩니다.</p>
+            <label><input type="checkbox" data-collider-wireframe> Collider Wireframe</label>
+        </section>
+        <section class="collisionCheck-section">
+            <h3>추가 교차 조합 <small>자동 왕복</small></h3>
+            <ul class="collisionCheck-demo-list" data-intersection-demo-list>
+                <li>교차 예제를 준비하고 있습니다.</li>
+            </ul>
+            <p>초록색 이동 객체가 대상 도형을 왕복 통과합니다. 교차하면 빨간색으로 바뀌며, Wireframe을 켜면 실제 판정 영역을 확인할 수 있습니다.</p>
+        </section>
+        <section class="collisionCheck-section">
+            <h3>충돌 드론 <small>교차율 낮은 순</small></h3>
+            <div class="collisionCheck-list-heading"><span>드론 이름</span><span>교차율</span></div>
+            <ol data-collision-list><li>드론을 준비하고 있습니다.</li></ol>
+            <p>교차율 = 드론 외곽을 근사한 7각 프리즘 충돌체 중 구역 안에 들어간 부피 비율. 완전히 진입하면 100%, 이탈이 확인되면 목록에서 사라집니다. 드론별로 순차 검사하며 마지막 결과를 0.5초마다 표시합니다.</p>
+        </section>
+    </div>
+</aside>

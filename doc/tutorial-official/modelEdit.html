@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>모델 편집(위치,회전,크기) 예제</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/tutorial.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        .examples {
+            padding: 15px 30px 15px 30px;
+        }
+    </style>
+</head>
+<body>
+<div id="map-wrapper">
+    <div id="map"></div>
+</div>
+<div class="execute-popup">
+    <button>직접해보기</button>
+</div>
+<div class="examples row">
+    <div class="radio">
+        <label>
+            <input type="radio" name="mode" value="position">
+            위치 편집
+        </label>
+    </div>
+    <div class="radio">
+        <label>
+            <input type="radio" name="mode" value="rotation">
+            회전 편집
+        </label>
+    </div>
+    <div class="radio">
+        <label>
+            <input type="radio" name="mode" value="scale">
+            크기 편집
+        </label>
+    </div>
+    <div class="radio">
+        <label>
+            <input type="radio" name="mode" value="pan" checked>
+            기본 모드
+        </label>
+    </div>
+
+    <pre>모델 편집 기능
+
+        1. 편집 유형(위치편집, 회전 편집, 크기편집) 중 하나를 선택합니다.
+        2. 편집하고자 하는 모델을 클릭 합니다.
+        3. 모델을 클릭하게 되면, 편집 유형에 맞는 UI가 가시화 됩니다.
+        4. 가시화된 편집 UI를 활용하여 모델을 편집할 수 있습니다.</pre>
+</div>
+
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+
+<script>
+    require(['app/Union3D'], function (Union3D) {
+        //+ 라이센스 인증
+        Union3D.ready(function () {
+
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////
+            ///////////////////////////////////////// 지도 기본세팅 /////////////////////////////////////////////////
+            ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+            var app = new Union3D.U3dAPP({
+                containername: 'map' //+ U3dApp(지도영역)의 div ID, *필수 입력
+            });
+            app.setHomePosition(126.9395, 37.52, 450, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+            app.updateHomePosition();
+
+            //이미지 레이어 생성
+            var layer = new Union3D.image.U3dImageXYZLayer({
+                name: 'base',
+                baseurl: layerInfo.image.vworldsaturl,
+                reverseY: true
+            });
+            app.addLayer(layer);
+
+            // app.addLayer(layer);
+            //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+            app.setNameBaseLayer('base');
+            app.showImageLayer('base', true);
+
+            var terrainLayer = undefined;
+
+            terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+                name: 'Korea Terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+                baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+                ext: '.umf',  //+ 파일 확장자, *필수 입력
+                reverseY: true,  //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+                minlevel: 9,  //+ 가시화 최소 레벨
+                maxlevel: 15, //+ 가시화 최대 레벨
+                useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+                maxprocess: 2, //+ process 최대값
+                interpolationheight: true,  //+ 고도보간 기능 사용 여부
+                rectangle: Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수
+            });
+
+            app.addLayer(terrainLayer);
+            app.showLayer('Korea Terrain', true);
+
+            /////////////////////////////////////////////////////
+            //+ WFS 모델
+            //+ WFS 모델 ///////////////////////////////////////////////////////////////////
+            var wfsModel = new Union3D.model.U3dModelWFSLayer({
+                name: 'WFS Model',
+                layername: layerInfo.wfs_korea.layername, //+ 레이어 이름, *필수 입력
+                baseurl: layerInfo.wfs_korea.baseurl, //+ baseurl 지도 서비스 기본 URL, *필수 입력
+                //층수필드나 높이필드를 선택하여 사용
+                //fieldheight: layerInfo.wfs_korea.fieldheight, //+ 높이 필드 (속성테이블 칼럼명), defaultValue(opt.fieldheight, undefined)
+                fieldfloor: layerInfo.wfs_korea.fieldfloor, //+ 층수 필드 (속성테이블 칼럼명), defaultValue(opt.fieldheight, undefined)
+                fieldheightfloor:layerInfo.wfs_korea.fieldheightfloor,
+                floorheight:layerInfo.wfs_korea.floorheight, //+ 층수 높이 필드
+                fieldKind: layerInfo.wfs_korea.fieldKind,  //+ 종류 필드 (속성테이블 칼럼명), defaultValue(opt.fieldKind, undefined)
+                transperent: true, //+ 투명화 여부
+                minlevel: 17, //+ 가시화 최소레벨,defaultValue(opt.minlevel, 17)
+                drawline: false, //+ WFS 모델에 테투리 추가 여부
+                opacity: 0.8, //+ 투명화 여부 true 일 경우, 투명도 설정값으로 적용
+                textureurl: './image/buld/buld_texture_1.jpg',  //+ 텍스처 url, defaultValue(opt.textureurl, undefined)
+                useproxy:true
+            });
+
+            app.addLayer(wfsModel);
+            app.showLayer('WFS Model', true);
+
+
+            var vworldModel = undefined;
+            //createLayer();
+            function createLayer() {
+                if (vworldModel !== undefined) {
+                    return;
+                }
+                vworldModel = new Union3D.model.U3dModelVWorldLayer({
+                    name        : 'vworld model', //+ VWorld 3D 건물 레이어 이름, defaultValue(opt.name, Guid())  : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+                    useproxy: true, //+ 프록시 사용 여부, defaultValue(opt.useproxy, false);
+                    baseurl: layerInfo.model.vworldurl,  //+ VWorld 2D 지도 서비스 기본 URL , defaultValue(opt.baseurl, 'https://xdworld.vworld.kr/2d/Satellite/service/');  *필수 입력
+                    basemodelurl: layerInfo.model.vworldbasemodelurl,  //+ VWorld 3D 건물 모델 서비스 기본 URL, defaultValue(opt.basemodelurl, 'https://xdworld.vworld.kr/XDServer/requestLayerObject?Layer=facility_build');  *필수 입력
+                    ext: '.jpeg',  //+ 건물 이미지 포맷, defaultValue(opt.ext, '.jpg');
+                    partloading: true, //+ 군집화 로딩 여부(부분로딩), defaultValue(opt.partloading, true);
+                    opacity     : 0.3,  //+ 투명화 여부 true 일 경우, 투명도 설정값으로 적용
+                    animation   : true,
+                    minlevel    : Union3D.UDEF.isIE() ? 17 : 17,  //+ 가시화 최소레벨
+                    maxlevel    : Union3D.UDEF.isIE() ? 19 : 19,  //+ 가시화 최대레벨
+                    maxprocess  : 10, //+ 최대 process 값, defaultValue(opt.maxprocess, (UDEF.isIE() ? 2 : 5));
+                    sizeblock   : 10 //+ one per block model size,  defaultValue(opt.sizeblock, UDEF.isIE() ? 2 : 10)
+                });
+                app.addLayer(vworldModel);
+                app.showLayer('vworld model', true);
+            }
+
+
+            //+ radio 버튼 선택시
+            //+ [위치편집] - value : translate
+            //+ [회전편집] - value : rotate
+            //+ [크기편집] - value : scale
+            //+ [기본모드] - value : pan
+            $(document).on('click', 'input[type="radio"]', function (e) {
+                var target = e.target.value;
+                var analy = app.activeAnalysis('GizmoModel');//+ Gizmo Mode 활성화
+                if (target === 'position') {
+                    //+ [위치편집]
+                    analy.active();
+                    analy.setMode('translate');
+                    app.off('click');
+                    app.on('click', gizmoSelect);
+                } else if (target === 'rotation') {
+                    //+ [회전편집]
+                    analy.active();
+                    analy.setMode('rotate');
+                    app.off('click');
+                    app.on('click', gizmoSelect);
+                } else if (target === 'scale') {
+                    //+ [크기편집]
+                    analy.active();
+                    analy.setMode('scale');
+                    app.off('click');
+                    app.on('click', gizmoSelect);
+                } else {
+                    analy.deactive(); //+ Gizmo Mode 비활성화
+                }
+            });
+
+
+
+            var gizmoSelected = undefined;
+
+            function gizmoSelect(e) {
+                var gizmoAnaly = app.getAnalysis('GizmoModel');//+ Gizmo Mode 활성화
+                var intersects = gizmoAnaly.intersectModel(e); //+ 마우스 클릭시 해당하는 model 찾기
+                if (intersects.length === 0) { //+ 해당하는 model이 없을 경우
+                    gizmoSelected = undefined;
+                    return undefined;
+                }
+                gizmoAnaly.setObject(intersects[0].object);//+ 해당하는 model Gizmo 편집 대상으로 지정
+
+                return true;
+            }
+            //+ create Emap 위성 Layer
+            function createEmapSatLayer(name) {
+                var maxprocess_image = 5;
+                var key = 'emapsat';
+                var opt = {
+                    name: name  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+                    , maxprocess: maxprocess_image //+ 최대 process 값,
+                    , useProxy: true //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+                    //    ,burnlevels: [19]
+                    //  , burnlevels: [ 7, 9, 11, 13, 15,17, 19]
+                    // , burnlevels: [ 1,2,3,4,5,7,9, 11,13,14,15, 16,18, 19]
+                    //, burnlevels: [1,2,3,4,5,7,9,10,12,14,16,17,19]
+                }
+
+
+                var layer = app.createEmapSatLayer(opt);
+                return layer;
+            }
+        });
+    });
+
+
+</script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<nav class="custom-model-rail" data-example-rail aria-label="가상건물 도구">
+    <button class="rail-button" type="button" data-panel-target="custom-model-panel" data-api-help="custom.create" aria-expanded="false">
+        <span class="rail-icon" aria-hidden="true">▰</span>
+        <span>건물</span>
+    </button>
+</nav>
+
+<aside class="glass-panel example-panel custom-model-panel" id="custom-model-panel" aria-hidden="true">
+    <header class="panel-header">
+        <div>
+            <span class="eyebrow">CUSTOM BUILDING</span>
+            <h2>가상건물 추가</h2>
+        </div>
+        <button class="panel-close" type="button" data-panel-close="custom-model-panel" aria-label="가상건물 패널 닫기">×</button>
+    </header>
+
+    <div class="panel-content custom-model-content">
+        <p class="panel-description">꼭짓점을 3개 이상 지정하고 더블클릭하여 건물을 생성하세요.</p>
+
+        <section class="custom-section" aria-labelledby="custom-mode-heading">
+            <h3 id="custom-mode-heading">작업 모드</h3>
+            <div class="custom-mode-grid">
+                <label><input type="radio" name="custom-mode" value="pan" data-custom-mode checked><span>지도 이동</span></label>
+                <label><input type="radio" name="custom-mode" value="edit" data-custom-mode><span>건물 그리기</span></label>
+                <label><input type="radio" name="custom-mode" value="select" data-custom-mode><span>건물 선택</span></label>
+            </div>
+            <div class="custom-status" role="status"><span id="custom-status">건물 그리기 모드를 선택하세요.</span><b>꼭짓점 <span id="custom-point-count">0개</span></b></div>
+        </section>
+
+        <section class="custom-section" aria-labelledby="custom-create-heading" data-api-help="custom.create">
+            <h3 id="custom-create-heading">생성 설정</h3>
+            <div class="custom-form-grid">
+                <label>이름<input id="custom-name" type="text" value="가상건물 1" data-create-setting></label>
+                <label>높이(m)<input id="custom-height" type="number" min="1" step="1" value="30" data-create-setting></label>
+                <label>색상<input id="custom-color" type="color" value="#4f8cff" data-create-setting></label>
+                <label>투명도<input id="custom-opacity" type="number" min="0" max="1" step="0.1" value="0.8" data-create-setting></label>
+                <label class="wide-field">라벨<input id="custom-label" type="text" placeholder="선택 입력" data-create-setting></label>
+            </div>
+        </section>
+
+        <section class="custom-section" aria-labelledby="custom-edit-heading" data-api-help="custom.style">
+            <div class="custom-section-heading"><h3 id="custom-edit-heading">선택 건물 편집</h3><span id="selected-custom-name">선택 없음</span></div>
+            <fieldset id="selected-custom-fields" disabled>
+                <div class="custom-form-grid">
+                    <label>높이(m)<input id="selected-height" type="number" min="1" step="1"></label>
+                    <label>색상<input id="selected-color" type="color" value="#4f8cff"></label>
+                    <label>투명도<input id="selected-opacity" type="number" min="0" max="1" step="0.1"></label>
+                    <label>라벨<input id="selected-label" type="text"></label>
+                </div>
+                <button id="apply-custom-style" class="custom-primary" type="button">설정 적용</button>
+                <div class="custom-gizmo-grid" data-api-help="custom.gizmo">
+                    <button type="button" data-gizmo-mode="translate">위치</button>
+                    <button type="button" data-gizmo-mode="rotate">회전</button>
+                    <button type="button" data-gizmo-mode="scale">크기</button>
+                </div>
+            </fieldset>
+        </section>
+
+        <section class="custom-section" aria-labelledby="custom-list-heading">
+            <div class="custom-section-heading"><h3 id="custom-list-heading">가상건물 목록</h3></div>
+            <p id="custom-model-empty" class="custom-empty">생성된 가상건물이 없습니다.</p>
+            <ul id="custom-model-list" class="custom-model-list"></ul>
+        </section>
+
+        <section class="custom-section custom-work-actions" aria-label="가상건물 작업">
+            <button id="save-custom-models" type="button" data-api-help="custom.save">저장</button>
+            <button id="load-custom-models" type="button" disabled>불러오기</button>
+            <button id="clear-custom-models" class="danger" type="button">전체 삭제</button>
+        </section>
+    </div>
+</aside>

@@ -1,0 +1,161 @@
+<nav class="select-model-rail" data-example-rail aria-label="객체 조회 도구">
+    <button
+        class="rail-button"
+        type="button"
+        data-panel-target="object-query-panel"
+        data-api-help="select.create"
+        aria-expanded="false"
+    >
+        <span class="rail-icon" aria-hidden="true">⌖</span>
+        <span>정보조회</span>
+    </button>
+</nav>
+
+<aside
+    class="glass-panel example-panel query-panel"
+    id="object-query-panel"
+    aria-hidden="true"
+>
+    <header class="panel-header">
+        <div>
+            <span class="eyebrow">OBJECT QUERY</span>
+            <h2>객체 정보조회</h2>
+        </div>
+        <button
+            class="panel-close"
+            type="button"
+            data-panel-close="object-query-panel"
+            aria-label="객체 정보조회 닫기"
+        >×</button>
+    </header>
+
+    <div class="panel-content query-panel-content">
+        <p class="panel-description">
+            가시화된 모델을 직접 선택하여 소속 레이어와 객체 좌표를 확인합니다.
+        </p>
+
+        <section class="query-section" aria-labelledby="query-model-heading">
+            <h3 id="query-model-heading">조회 모델</h3>
+            <div class="query-model-list">
+                <label class="query-option-row" data-api-help="model.u3f-visibility">
+                    <input type="checkbox" data-model-layer="u3f" checked>
+                    <span class="query-option-copy">
+                        <strong>U3F 모델</strong>
+                        <small>발행된 3차원 모델 레이어</small>
+                    </span>
+                    <b data-model-badge="u3f">불러오는 중</b>
+                </label>
+
+                <label class="query-option-row" data-api-help="model.wfs-visibility">
+                    <input type="checkbox" data-model-layer="wfs">
+                    <span class="query-option-copy">
+                        <strong>WFS 모델</strong>
+                        <small>2.5D 건물 모델 레이어</small>
+                    </span>
+                    <b data-model-badge="wfs">숨김</b>
+                </label>
+            </div>
+        </section>
+
+        <section class="query-section" aria-labelledby="query-mode-heading">
+            <h3 id="query-mode-heading">선택 방식</h3>
+            <div class="selection-mode-grid" data-api-help="select.mode">
+                <label>
+                    <input type="radio" name="select-mode" value="point" checked>
+                    <span>점</span>
+                </label>
+                <label>
+                    <input type="radio" name="select-mode" value="area">
+                    <span>영역</span>
+                </label>
+                <label>
+                    <input type="radio" name="select-mode" value="line">
+                    <span>선</span>
+                </label>
+                <label>
+                    <input type="radio" name="select-mode" value="circle">
+                    <span>원</span>
+                </label>
+                <label>
+                    <input type="radio" name="select-mode" value="box">
+                    <span>박스</span>
+                </label>
+            </div>
+        </section>
+
+        <section class="query-section" aria-labelledby="query-style-heading">
+            <h3 id="query-style-heading">선택 표현</h3>
+            <div class="selection-type-grid" data-api-help="select.type">
+                <label>
+                    <input type="radio" name="select-type" value="outline" checked>
+                    <span>외곽선</span>
+                </label>
+                <label>
+                    <input type="radio" name="select-type" value="color">
+                    <span>색상</span>
+                </label>
+            </div>
+
+            <div class="style-control-list">
+                <div class="style-control-row color-control-row">
+                    <label for="selector-fill">선택 영역</label>
+                    <input id="selector-fill" type="color" value="#ff0000" data-api-help="select.area-style">
+                    <output id="selector-fill-value" for="selector-fill">#FF0000</output>
+                </div>
+
+                <div class="style-control-row color-control-row">
+                    <label for="selected-fill">선택 모델</label>
+                    <input id="selected-fill" type="color" value="#00ffcc" data-api-help="select.object-style">
+                    <output id="selected-fill-value" for="selected-fill">#00FFCC</output>
+                </div>
+
+                <div class="style-control-row range-control-row">
+                    <label for="selected-opacity">선택 투명도</label>
+                    <input
+                        id="selected-opacity"
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value="1"
+                        data-api-help="select.object-style"
+                    >
+                    <output id="selected-opacity-value" for="selected-opacity">1.00</output>
+                </div>
+
+                <label class="texture-option" for="except-texture" data-api-help="select.except-texture">
+                    <input id="except-texture" type="checkbox">
+                    <span>텍스처를 제외하고 선택</span>
+                </label>
+            </div>
+        </section>
+
+        <section class="query-section" aria-labelledby="query-history-heading">
+            <h3 id="query-history-heading">작업 이력</h3>
+            <div class="query-action-grid">
+                <button id="reload-select-work" class="query-action primary" type="button" data-api-help="select.redraw" disabled>
+                    마지막 영역 다시 그리기
+                </button>
+                <button id="clear-select-work" class="query-action" type="button" data-api-help="select.clear">
+                    초기화
+                </button>
+            </div>
+            <p id="redraw-notice" class="query-action-note" role="status" hidden></p>
+        </section>
+
+        <section class="query-section query-result-card" data-api-help="select.result" tabindex="0" aria-labelledby="query-result-heading">
+            <div class="result-heading">
+                <h3 id="query-result-heading">선택 결과</h3>
+                <span id="query-result-status">선택 대기</span>
+            </div>
+            <p id="query-result-empty">지도에서 조회할 객체를 선택하세요.</p>
+            <dl id="query-result-data" hidden>
+                <div><dt>레이어</dt><dd id="result-layer">-</dd></div>
+                <div><dt>객체 ID</dt><dd id="result-id">-</dd></div>
+                <div><dt>X</dt><dd id="result-x">-</dd></div>
+                <div><dt>Y</dt><dd id="result-y">-</dd></div>
+                <div><dt>Z</dt><dd id="result-z">-</dd></div>
+            </dl>
+        </section>
+    </div>
+</aside>

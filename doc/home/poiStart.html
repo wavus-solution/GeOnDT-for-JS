@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>POI 생성</title>
+</head>
+<body style="padding-top: 0">
+<div class="index">
+    <a href="#jump1">1. 생성하기</a><br>
+    <a href="#jump2">2. 조회하기</a><br>
+    <a href="#jump3">3. 관리하기</a><br>
+    <a href="#jump4">4. 제거하기</a><br>
+</div>
+<hr>
+<div class="content">
+    <h2 class="lead" id="jump1"> 1. 생성하기 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            POI(Point of Interest) 는 지도상의 특정 좌표에 이미지나 텍스트 형태의 마크를 표시하는 기능입니다.<br>
+            <strong>new GeOnDT.geom.U3dPOI(opt)</strong>로 POI를 생성한 뒤, <accent>U3dApp.addPOI(poi)</accent> API를 호출하여 화면에 등록·출력합니다.
+        </div>
+        <div class="explane_api">
+            <strong>GeOnDT.geom.U3dPOI</strong> (<span class="param_name">opt</span>)<br>
+            <div class="explane_api_param">
+                <span class="param_name">opt.position</span><span class="param_type">string</span> : POI 위치 (필수) <br>
+                <span class="param_name">opt.name</span><span class="param_type">string</span> : POI 식별 이름 <br>
+                <span class="param_name">opt.color</span><span class="param_type">string</span> : POI 색상 <br>
+                <span class="param_name">opt.image</span><span class="param_type">string</span> : POI 이미지 라벨 <br>
+                <span class="param_name">opt.imageSize</span><span class="param_type">string</span> : POI 이미지 라벨 사이즈 (기본 20) <br>
+                <span class="param_name">opt.label</span><span class="param_type">string</span> : POI Text 라벨 <br>
+                <span class="param_name">opt.size</span><span class="param_type">string</span> : POI Text 라벨 폰트 사이즈 <br>
+            </div>
+        </div>
+        <div class="explane_api">
+            U3dApp.<span class="api_name">addPOI(<span class="param_name">poi </span>)</span> : app에 생성한 POI를 등록하는 함수.
+            <div class="explane_api_param">
+                <span class="param_name">poi</span><span class="param_type">U3dPOI</span> : 등록할 POI
+            </div>
+        </div>
+        <label class="code-label">POI 시작하기</label>
+        <div class="code" id="text2-code"></div>
+        <div class="code-text" id="text2" hidden="hidden">
+            const worldPos = {x: -212028.5067, y: 103227.2844, z: 15} // 3D 월드 좌표
+
+            // POI 객체 생성
+            const poi = new GeOnDT.geom.U3dPOI({
+                position: worldPos,
+                image: 'image/marker.png',
+                label: 'POI Test'
+            });
+
+            app.addPOI(poi); // app에 POI 등록
+        </div>
+        <label class="code-label"> poi 예시 <br>
+            <img src="./image/poiStart/poi.png" alt= "style1" data-size="medium">
+        </label>
+        <label class="code-label">color/size 설정 <br>
+            <img src="./image/poiStart/poiCustom.png" alt="style2" data-size="medium">
+        </label>
+    </div>
+    <h2 class="lead" id="jump2"> 2. 조회하기 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            U3dApp에 등록된 POI 객체는 배열 형태로 저장되며, <accent>U3dApp.getPoiList()</accent> API를 통해 해당 배열을 조회할 수 있습니다.<br>
+            또한 POI의 고유 id를 사용해 <accent>U3dApp.getPoiById(id)</accent> API로 특정 POI를 조회할 수 있습니다.
+        </div>
+        <div class="explane_api">
+            U3dApp.<span class="api_name">getPoiList()</span> : app에 등록된 전체 POI를 조회하는 함수.
+        </div>
+        <div class="explane_api">
+            U3dApp.<span class="api_name">getPoiById(<span class="param_name">id </span>)</span> : ID로 특정 POI를 조회하는 함수.
+            <div class="explane_api_param">
+                <span class="param_name">id</span><span class="param_type">string</span> : 조회할 POI ID
+            </div>
+        </div>
+        <label class="code-label">POI 시작하기</label>
+        <div class="code" id="text3-code"></div>
+        <div class="code-text" id="text3" hidden="hidden">
+            const poiList = app.getPoiList(); // 전체 POI 조회
+            for(let i=0; i< poiList.length; i++) {
+                const poi = poiList[i];
+                console.log( `${i}번 POI ID : ${poi.uuid}` );
+            }
+
+            const id = poiList[0].uuid;
+            const poi = app.getPoiById(id); // 배열의 첫번째 POI 조회
+        </div>
+    </div>
+    <h2 class="lead" id="jump3"> 3. 관리하기 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            POI가 많아질수록 메모리 부하가 증가하므로, 적정 수준으로 관리하는 것이 중요합니다. <br>
+            그룹 단위로 묶어 가시화 레벨을 제어하거나, 현재 화면에 보이는 POI만 출력하는 등 다양한 관리 방식이 있습니다. <br> <br>
+
+            핵심은 POI를 <strong>매번 생성·제거하지 않는 것</strong>입니다. <br>
+            초기에 인스턴스화한 <accent>POI를 재사용</accent>하고, <accent>가시성(visible)을 제어</accent>하는 방식이 성능 측면에서 가장 효율적입니다. <br><br>
+
+            POI의 가시성을 제어하는 방법은 <accent>U3dApp의 API를 쓰는 방법, 직접 U3dPOI 객체를 제어하는 방법</accent> 두가지가 있습니다.
+        </div>
+        <div class="explane_api">
+            U3dApp.<span class="api_name">showPOI(<span class="param_name"> isShow, poi </span>)</span> : 파라미터로 입력받은 특정 POI 가시성 제어 함수
+            <div class="explane_api_param">
+                <span class="param_name">isShow</span><span class="param_type">boolean</span> : 가시화 여부
+                <span class="param_name">poi</span><span class="param_type">U3dPOI</span> : 대상 POI
+            </div>
+        </div>
+        <div class="explane_api">
+            U3dApp.<span class="api_name">showAllPOI(<span class="param_name"> isShow </span>)</span> : 전체 POI 가시성 제어 함수
+            <div class="explane_api_param">
+                <span class="param_name">isShow</span><span class="param_type">boolean</span> : 가시화 여부
+            </div>
+        </div>
+        <label class="code-label">U3dApp API로 가시성 제어</label>
+        <div class="code" id="text5-code"></div>
+        <div class="code-text" id="text5" hidden="hidden">
+            const poi = app.getPoiById(id);
+
+            app.showPOI(true, poi);  // 가시화 true
+            app.showPOI(false, poi); // 가시화 false
+
+            //또는 전체 POI 가시성 제어
+            app.showAllPOI(true);  // 가시화 true
+            app.showAllPOI(false); // 가시화 false
+        </div>
+        <div class="explane_api">
+            U3dPOI.<span class="api_name">show()</span> : POI 가시화(show) 함수
+        </div>
+        <div class="explane_api">
+            U3dPOI.<span class="api_name">hide()</span> : POI 비가시화(hide) 함수
+        </div>
+        <label class="code-label">U3dPOI 가시성 직접 제어</label>
+        <div class="code" id="text6-code"></div>
+        <div class="code-text" id="text6" hidden="hidden">
+            const poi = app.getPoiById(id);
+
+            poi.show(); // 가시화 true
+            poi.hide(); // 가시화 false
+        </div>
+        <div class="explane1" >
+            응용하면 POI가 화면에 표출될 때만 가시성을 활성화하고,
+            표출되지 않을 경우에는 가시성을 비활성화하여 메모리 사용을 절약할 수 있습니다.
+        </div>
+        <label class="code-label">U3dPOI 가시성 직접 제어</label>
+        <div class="code" id="text7-code"></div>
+        <div class="code-text" id="text7" hidden="hidden">
+            app.setRenderBefore('frustumCheck', frustumCheck);
+            function frustumCheck () {
+                const frustum = app._frustum;
+                const poiList = app.getPoiList();
+                if(!frustum) return;
+
+                for(let poi of poiList) {
+                    const geo = poi.getPosition();
+                    const pos = app.geographicToVector3(geo);
+
+                    // 카메라 프러스텀에 POI가 포함되는지 확인
+                    if(frustum.containsPoint(pos)) {
+                        poi.show();
+                    } else {
+                        poi.hide();
+                    }
+                }
+            }
+        </div>
+    </div>
+    <h2 class="lead" id="jump4"> 4. 제거하기 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            U3dApp에 등록된 POI는 <accent>U3dApp.removeAllPOI()</accent>로 전체 제거할 수 있으며,
+            <accent>U3dApp.removePOI(poi)</accent> API를 사용해 특정 POI만 선택적으로 제거할 수 있습니다.
+        </div>
+        <div class="explane_api">
+            U3dApp.<span class="api_name">removeAllPOI()</span> : app에 등록된 전체 POI를 조회하는 함수.
+        </div>
+        <div class="explane_api">
+            U3dApp.<span class="api_name">removePOI(c)</span> : 특정 POI를 제거하는 함수.
+            <div class="explane_api_param">
+                <span class="param_name">poi</span><span class="param_type">U3dPOI</span> : 제거할 POI
+            </div>
+        </div>
+        <label class="code-label">POI 시작하기</label>
+        <div class="code" id="text4-code"></div>
+        <div class="code-text" id="text4" hidden="hidden">
+            // POI 전체 제거
+            app.removeAllPOI();
+
+            // 또는 직접 순회하면서 하나씩 제거
+            const poiList = app.getPoiList(); // 전체 POI 조회
+            for(const poi of poiList) {
+                app.removePOI(poi);
+            }
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

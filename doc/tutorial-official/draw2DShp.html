@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>2D SHP 레이어 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        #shp-control {
+            position: absolute;
+            z-index: 1000;
+            top: 16px;
+            left: 16px;
+            width: 330px;
+            padding: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            border-radius: 6px;
+            background: rgba(20, 25, 35, 0.82);
+            color: #fff;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        #shp-control .help-text {
+            margin: 9px 0 0;
+            color: #d9e2ef;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        #shp-status {
+            display: block;
+            margin-top: 9px;
+            color: #fff;
+            font-size: 13px;
+        }
+
+        #shp-status.error {
+            color: #ff9b9b;
+        }
+
+        #shp-files {
+            width: 100%;
+            color: #fff;
+        }
+
+        #shp-files::file-selector-button {
+            margin-right: 8px;
+            padding: 6px 12px;
+            border: 0;
+            border-radius: 4px;
+            background: #337ab7;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        .style-controls {
+            margin-top: 13px;
+            padding-top: 11px;
+            border-top: 1px solid rgba(255, 255, 255, 0.25);
+        }
+
+        .style-controls legend {
+            margin-bottom: 8px;
+            border: 0;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .style-row {
+            display: grid;
+            grid-template-columns: 110px 1fr 38px;
+            align-items: center;
+            min-height: 34px;
+            gap: 8px;
+        }
+
+        .style-row label {
+            margin: 0;
+            font-weight: 400;
+        }
+
+        .style-row input[type="color"] {
+            width: 100%;
+            height: 28px;
+            padding: 1px 2px;
+            border: 0;
+            background: transparent;
+        }
+
+        .style-row input[type="range"] {
+            width: 100%;
+        }
+
+        .style-row output {
+            color: #d9e2ef;
+            text-align: right;
+        }
+
+        .style-row .form-control {
+            grid-column: 2 / 4;
+            height: 28px;
+            padding: 3px 7px;
+        }
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu="return false;">
+    <div>
+        <img src="image/solution_GeOnDT.png" alt="GeOnDT">
+        <span>2D SHP 레이어 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+</div>
+
+<div id="map-wrapper">
+    <div id="map"></div>
+    <div id="shp-control">
+        <input type="file" id="shp-files" accept=".shp,.prj,.dbf" multiple>
+        <p class="help-text">
+            같은 이름의 SHP 파일 세트를 선택하세요.<br>
+            .shp는 필수이며 .prj와 .dbf는 선택 사항입니다.
+        </p>
+        <fieldset class="style-controls">
+            <legend>2D SHP 스타일</legend>
+            <div class="style-row">
+                <label for="use-fill"><input type="checkbox" id="use-fill" checked> 채우기 사용</label>
+            </div>
+            <div class="style-row">
+                <label for="fill-color">채우기 색</label>
+                <input type="color" id="fill-color" value="#3399cc">
+            </div>
+            <div class="style-row">
+                <label for="fill-opacity">채우기 투명도</label>
+                <input type="range" id="fill-opacity" min="0" max="1" step="0.05" value="0.35">
+                <output id="fill-opacity-value" for="fill-opacity">0.35</output>
+            </div>
+            <div class="style-row">
+                <label for="use-stroke"><input type="checkbox" id="use-stroke" checked> 외곽선 사용</label>
+            </div>
+            <div class="style-row">
+                <label for="stroke-color">외곽선 색</label>
+                <input type="color" id="stroke-color" value="#0f4c75">
+            </div>
+            <div class="style-row">
+                <label for="stroke-width">외곽선 두께</label>
+                <input type="range" id="stroke-width" min="0" max="10" step="0.5" value="2">
+                <output id="stroke-width-value" for="stroke-width">2</output>
+            </div>
+            <div class="style-row">
+                <label for="feature-label">공통 라벨</label>
+                <input type="text" class="form-control" id="feature-label" placeholder="표시하지 않음">
+            </div>
+            <button type="button" class="btn btn-default btn-xs" id="reset-style">기본 스타일</button>
+        </fieldset>
+        <span id="shp-status" role="status" aria-live="polite">SHP 파일을 선택해 주세요.</span>
+    </div>
+</div>
+
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script src="js/layerInfo.js"></script>
+
+<script id="execute-event">
+    const pageName = document.location.href.split('/').pop();
+    $('.execute-popup').on('click', function () {
+        window.open('./runner.html?url=' + pageName + '&title=' + encodeURIComponent(document.title));
+    });
+</script>
+
+<script>
+    Union3D.ready(function () {
+        const app = new Union3D.U3dAPP({
+            containername: 'map'
+        });
+        window.app = app;
+
+        const shpLayers = new Map();
+        const fileInput = document.querySelector('#shp-files');
+        const status = document.querySelector('#shp-status');
+        const styleControls = {
+            useFill: document.querySelector('#use-fill'),
+            fill: document.querySelector('#fill-color'),
+            fillOpacity: document.querySelector('#fill-opacity'),
+            useStroke: document.querySelector('#use-stroke'),
+            stroke: document.querySelector('#stroke-color'),
+            width: document.querySelector('#stroke-width'),
+            label: document.querySelector('#feature-label')
+        };
+        let labelUpdateTimer;
+
+        app.setHomePosition(127.0, 37.5, 1800, 0, 45);
+        app.updateHomePosition();
+
+        const baseLayer = new Union3D.image.U3dImageXYZLayer({
+            name: 'satellite',
+            baseurl: layerInfo.image.vworldsaturl,
+            reverseY: true
+        });
+        app.addLayer(baseLayer);
+        baseLayer.then(function () {
+            app.setNameBaseLayer('satellite');
+            app.showLayer('satellite', true);
+        });
+
+        Object.values(styleControls).forEach(function (control) {
+            if (control === styleControls.label) return;
+            const eventName = control === styleControls.fill || control === styleControls.stroke
+                ? 'input'
+                : 'change';
+            control.addEventListener(eventName, applyStyleToLayers);
+        });
+        styleControls.fillOpacity.addEventListener('input', updateStyleOutputs);
+        styleControls.width.addEventListener('input', updateStyleOutputs);
+        styleControls.label.addEventListener('input', function () {
+            window.clearTimeout(labelUpdateTimer);
+            labelUpdateTimer = window.setTimeout(applyStyleToLayers, 200);
+        });
+        document.querySelector('#reset-style').addEventListener('click', resetStyle);
+
+        fileInput.addEventListener('change', async function (event) {
+            const files = Array.from(event.target.files || []);
+            if (files.length === 0) return;
+
+            setBusy(true, 'SHP 파일을 읽는 중입니다...');
+            try {
+                const fileSet = await readShapefileSet(files);
+                const parser = new Union3D.parser.UShpParser();
+                const geometries = parser.parseShp(fileSet.shp, fileSet.prj || 'EPSG:5179');
+                if (!geometries || geometries.length === 0)
+                    throw new Error('SHP 파일에 표시할 도형이 없습니다.');
+
+                const attributes = fileSet.dbf ? parser.parseDbf(fileSet.dbf) : [];
+                const featureCollection = parser.combine([geometries, attributes]);
+                const layerName = '2d-shp-' + fileSet.name;
+                const previousLayer = shpLayers.get(layerName);
+                if (previousLayer)
+                    app.removeLayer(previousLayer.getName());
+
+                const layer = new Union3D.image.U2dShpLayer({
+                    name: layerName,
+                    sourceCRS: 'EPSG:4326',
+                    crs: 'EPSG:3857',
+                    minLevel: 0,
+                    maxLevel: 19,
+                    transparent: true,
+                    style: getStyleFromControls()
+                });
+
+                layer.setLabelFunction(function (feature) {
+                    const properties = feature.getProperties();
+                    return properties.geometry.ol_uid + ' 동';
+                });
+
+                app.addLayer(layer);
+                app.showLayer(layer.getName(), true);
+                layer.addFeatureCollection(featureCollection);
+                shpLayers.set(layerName, layer);
+
+                moveToShapefile(app, geometries);
+                setStatus(fileSet.name + '.shp를 2D 레이어로 표시했습니다. (' + featureCollection.features.length + '개 피처)');
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                setStatus(message, true);
+            } finally {
+                fileInput.disabled = false;
+                fileInput.value = '';
+            }
+        });
+
+        function setBusy(isBusy, message) {
+            fileInput.disabled = isBusy;
+            setStatus(message);
+        }
+
+        function getStyleFromControls() {
+            return {
+                useFill: styleControls.useFill.checked,
+                fill: styleControls.fill.value,
+                fillOpacity: Number(styleControls.fillOpacity.value),
+                useStroke: styleControls.useStroke.checked,
+                stroke: styleControls.stroke.value,
+                width: Number(styleControls.width.value),
+                label: styleControls.label.value
+            };
+        }
+
+        function applyStyleToLayers() {
+            const style = getStyleFromControls();
+            shpLayers.forEach(function (layer) {
+                layer.setStyle(style);
+            });
+            updateStyleOutputs();
+            if (shpLayers.size > 0)
+                setStatus(shpLayers.size + '개 2D SHP 레이어에 스타일을 적용했습니다.');
+        }
+
+        function updateStyleOutputs() {
+            document.querySelector('#fill-opacity-value').value = styleControls.fillOpacity.value;
+            document.querySelector('#stroke-width-value').value = styleControls.width.value;
+        }
+
+        function resetStyle() {
+            styleControls.useFill.checked = true;
+            styleControls.fill.value = '#3399cc';
+            styleControls.fillOpacity.value = '0.35';
+            styleControls.useStroke.checked = true;
+            styleControls.stroke.value = '#0f4c75';
+            styleControls.width.value = '2';
+            styleControls.label.value = '';
+            applyStyleToLayers();
+        }
+
+        function setStatus(message, isError) {
+            status.textContent = message;
+            status.classList.toggle('error', isError === true);
+        }
+    });
+
+    async function readShapefileSet(files) {
+        const entries = await Promise.all(files.map(readFile));
+        const names = new Set(entries.map(function (entry) {
+            return entry.name.toLowerCase();
+        }));
+        if (names.size !== 1)
+            throw new Error('.shp, .prj, .dbf 파일 이름이 서로 같아야 합니다.');
+
+        const result = {name: entries[0].name};
+        entries.forEach(function (entry) {
+            if (result[entry.ext])
+                throw new Error('.' + entry.ext + ' 파일이 중복되었습니다.');
+            result[entry.ext] = entry;
+        });
+        if (!result.shp)
+            throw new Error('.shp 파일을 반드시 선택해야 합니다.');
+        return result;
+    }
+
+    function readFile(file) {
+        return new Promise(function (resolve, reject) {
+            const fileInfo = getFileInfo(file.name);
+            if (!['shp', 'prj', 'dbf'].includes(fileInfo.ext)) {
+                reject(new Error('지원하지 않는 파일 형식입니다: ' + file.name));
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function () {
+                resolve({
+                    result: reader.result,
+                    ext: fileInfo.ext,
+                    name: fileInfo.name
+                });
+            };
+            reader.onerror = function () {
+                reject(new Error('파일을 읽지 못했습니다: ' + file.name));
+            };
+
+            if (fileInfo.ext === 'prj')
+                reader.readAsText(file);
+            else
+                reader.readAsArrayBuffer(file);
+        });
+    }
+
+    function getFileInfo(fileName) {
+        const dotIndex = fileName.lastIndexOf('.');
+        if (dotIndex <= 0 || dotIndex === fileName.length - 1)
+            return {name: fileName, ext: ''};
+        return {
+            name: fileName.slice(0, dotIndex),
+            ext: fileName.slice(dotIndex + 1).toLowerCase()
+        };
+    }
+
+    function moveToShapefile(app, geometries) {
+        const first = geometries[0];
+        let longitude;
+        let latitude;
+        if (first && Array.isArray(first.bbox) && first.bbox.length >= 4) {
+            longitude = (first.bbox[0] + first.bbox[2]) / 2;
+            latitude = (first.bbox[1] + first.bbox[3]) / 2;
+        } else {
+            const coordinate = findCoordinate(first && first.coordinates);
+            if (coordinate) {
+                longitude = coordinate[0];
+                latitude = coordinate[1];
+            }
+        }
+
+        if (Number.isFinite(longitude) && Number.isFinite(latitude)) {
+            app.setHomePosition(longitude, latitude, 800, 0, 45);
+            app.updateHomePosition();
+        }
+    }
+
+    function findCoordinate(value) {
+        if (!Array.isArray(value) || value.length === 0) return undefined;
+        if (Number.isFinite(value[0]) && Number.isFinite(value[1]))
+            return value;
+        for (let index = 0; index < value.length; index++) {
+            const coordinate = findCoordinate(value[index]);
+            if (coordinate) return coordinate;
+        }
+        return undefined;
+    }
+</script>
+</body>
+</html>

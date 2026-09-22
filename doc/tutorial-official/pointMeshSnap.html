@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>점 스냅 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <style>
+        html, body { height: 100%; }
+        #snap-popup {
+            position: absolute;
+            top: 64px;
+            right: 12px;
+            z-index: 999;
+            width: 360px;
+            max-height: calc(100vh - 80px);
+            overflow-y: auto;
+            background: rgba(255,255,255,0.97);
+            border: 1px solid #aaa;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 13px;
+            line-height: 1.4;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+        }
+        #snap-popup h3 { font-size: 15px; margin: 0 0 6px 0; }
+        #snap-popup .step {
+            border-left: 4px solid #ccc;
+            padding: 5px 9px;
+            margin: 5px 0;
+            background: #f6f6f6;
+            border-radius: 0 4px 4px 0;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        #snap-popup .step.active {
+            background: #fff7d6;
+            border-left-color: #f0a000;
+            box-shadow: 0 0 0 2px rgba(240,160,0,0.2);
+        }
+        #snap-popup .step.done {
+            background: #e6f7e6;
+            border-left-color: #4caf50;
+        }
+        #snap-popup .step-title { font-weight: bold; margin-bottom: 4px; }
+        #snap-popup .step-body { font-size: 12px; color: #555; }
+        #snap-popup .picked { color: #0a6; font-weight: bold; }
+        #snap-popup .none   { color: #a00; }
+        #snap-popup .row { margin: 4px 0; }
+        #snap-popup label { display: inline-block; width: 70px; }
+        #snap-popup input[type=number] { width: 130px; }
+        #snap-popup .btn { margin-top: 8px; margin-right: 6px; }
+        #snap-popup hr { margin: 10px 0; }
+        #snap-popup .info {
+            font-family: 'Consolas', monospace;
+            font-size: 11px;
+            color: #333;
+            background: #f0f0f0;
+            padding: 6px 8px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+        #snap-popup .legend {
+            font-size: 11px;
+            color: #666;
+            margin-top: 6px;
+        }
+        #snap-popup .legend .dot {
+            display: inline-block;
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            margin-right: 4px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <span>점 스냅 예제 — 클릭한 위치를 mesh 표면으로 자동 스냅</span>
+    </div>
+</div>
+<div id="map-wrapper">
+    <div id="map"></div>
+
+    <div id="snap-popup">
+        <h3>점 스냅 테스트</h3>
+
+        <div class="step" id="step1">
+            <div class="step-title">STEP 1. 대상 mesh 선택</div>
+            <div class="step-body">스냅할 대상(건물 등 모델)을 클릭해 선택하세요.</div>
+            <div class="row">선택됨 : <span id="target-mesh-name" class="none">없음</span></div>
+        </div>
+
+        <div class="step" id="step2">
+            <div class="step-title">STEP 2. 위치 클릭 (또는 좌표 입력)</div>
+            <div class="step-body">화면을 <b>클릭</b>하면 그 위치가 입력점이 되고,
+                선택한 mesh의 <b>가장 가까운 면</b>으로 자동 스냅됩니다.</div>
+            <div class="row">입력점 : <span id="picked-point" class="none">없음</span></div>
+            <div class="row">
+                <label>경도(lon)</label><input id="in-lon" type="number" step="0.000001" value="129.146">
+            </div>
+            <div class="row">
+                <label>위도(lat)</label><input id="in-lat" type="number" step="0.000001" value="35.162">
+            </div>
+            <div class="row">
+                <label>높이(m)</label><input id="in-h" type="number" step="0.1" value="100">
+            </div>
+            <div class="row">
+                <label style="width:auto">
+                    <input type="checkbox" id="opt-lock-height">
+                    z축 고정 (수평 스냅)
+                </label>
+            </div>
+            <div class="row">
+                <label>정밀도</label><input id="opt-maxdist" type="number" step="1" min="0" placeholder="기본 50">
+                <span style="font-size:11px; color:#888"> m (z고정 허용 거리)</span>
+            </div>
+            <div>
+                <button class="btn btn-sm btn-primary" id="btn-snap">입력값으로 snap</button>
+                <button class="btn btn-sm btn-default" id="btn-restart">다시 선택</button>
+            </div>
+        </div>
+
+        <div class="step" id="step3">
+            <div class="step-title">STEP 3. 결과</div>
+            <div class="info" id="snap-info">아직 결과 없음</div>
+            <div class="legend">
+                <div><span class="dot" style="background:#ffaa00"></span> 선택된 mesh (윤곽/박스)</div>
+                <div><span class="dot" style="background:#3399ff"></span> 입력점 (클릭/입력)</div>
+                <div><span class="dot" style="background:#ff2266"></span> 스냅된 위치 (face 위)</div>
+                <div><span class="dot" style="background:#ffcc00"></span> 입력점 → 스냅점 연결선</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+
+<script>
+    GeOnDT.ready(function () {
+        if (!GeOnDT.util || !GeOnDT.util.SnapPointToMesh) {
+            console.error('GeOnDT.util.SnapPointToMesh 가 없습니다.');
+            return;
+        }
+        const snapPointToMesh = GeOnDT.util.SnapPointToMesh;
+        const UMathEngine = GeOnDT.UMathEngine;
+
+        const app = new GeOnDT.U3dAPP({ methodheight: '1_0', containername: 'map' });
+        window.app = app;
+        const THREE = app._THREE;
+
+        app.setHomePosition(129.146, 35.162, 600, 0, 50);
+        app.updateHomePosition();
+        app.createloadingBar('load');
+
+        // 배경 위성영상
+        const baseLayer = new GeOnDT.image.U3dImageXYZLayer({
+            name: 'satellite', baseurl: layerInfo.image.vworldsaturl, reverseY: true,
+        });
+        app.addLayer(baseLayer);
+        app.setNameBaseLayer('satellite');
+        app.showLayer('satellite', true);
+
+        // 지형
+        const terrainLayer = new GeOnDT.terrain.U3dHeightXYZLayer({
+            name: 'korea_terrain', baseurl: layerInfo.height.url, ext: '.umf',
+            reverseY: true, minlevel: 9, maxlevel: 17, useproxy: false,
+        });
+        app.addLayer(terrainLayer);
+        app.showLayer('korea_terrain', true);
+
+        // U3F 건물
+        const u3fLayer = new GeOnDT.model.U3dModelU3FLayer({
+            name: 'u3f', useproxy: false,
+            baseurl: layerInfo.model.busanu3furl, basename: layerInfo.model.busanu3fname,
+            minlevel: 17, maxlevel: 17, opacity: 1,
+        });
+        app.addLayer(u3fLayer);
+        app.showLayer('u3f', true);
+
+        app.endloadingBar();
+
+        // ── 상태: STEP 1(선택) → STEP 2(스냅) ──────────────────────────
+        const STEP = { SELECT_MESH: 1, PICK_POINT: 2 };
+        let phase = STEP.SELECT_MESH;
+        let targetMesh = null;
+
+        function setPhase(p) {
+            phase = p;
+            $('#step1').toggleClass('active', p === STEP.SELECT_MESH).toggleClass('done', p > STEP.SELECT_MESH);
+            $('#step2').toggleClass('active', p === STEP.PICK_POINT);
+        }
+        function setInfo(t) { $('#snap-info').text(t); }
+
+        // z축 고정 / 허용 거리 옵션을 UI에서 읽는다
+        function getOptions() {
+            const opt = { lockHeight: $('#opt-lock-height').is(':checked') };
+            const maxDist = parseFloat($('#opt-maxdist').val());
+            if (isFinite(maxDist) && maxDist > 0) opt.lockHeightMaxDistance = maxDist;
+            return opt;
+        }
+
+        // ── 가시화 그룹 ───────────────────────────────────────────────
+        const markerGroup = new THREE.Group();
+        markerGroup.name = 'snap-markers';
+        app.getSceneComment().add(markerGroup);
+
+        const highlightGroup = new THREE.Group();
+        highlightGroup.name = 'snap-highlight';
+        app.getSceneComment().add(highlightGroup);
+
+        function disposeGroup(group) {
+            while (group.children.length) {
+                const c = group.children[0];
+                group.remove(c);
+                if (c.geometry) c.geometry.dispose();
+                if (c.material) {
+                    if (Array.isArray(c.material)) c.material.forEach(m => m.dispose());
+                    else c.material.dispose();
+                }
+            }
+        }
+        function clearMarkers()   { disposeGroup(markerGroup); }
+        function clearHighlight() { disposeGroup(highlightGroup); }
+
+        // ── STEP 1: 대상 mesh 선택 ────────────────────────
+        const selector = new GeOnDT.select.U3dSelect({ mode: 'point', auto: false });
+        app.addSelect(selector);
+        selector.on('end', onMeshSelected);
+
+        function isModelMesh(mesh) {
+            if (!mesh || !mesh.geometry || !mesh.getLayerName) return false;
+            const layer = app.getLayerByName(mesh.getLayerName());
+            return !!(layer && layer._type === 'model');
+        }
+
+        function onMeshSelected(result) {
+            const data = (result && result.data) || [];
+            let picked = null, clickIndex = -1;
+            for (let i = 0; i < data.length; i++) {
+                if (isModelMesh(data[i])) { picked = data[i]; clickIndex = i; break; }
+            }
+            if (!picked) { setInfo('모델(건물)이 클릭되지 않았습니다. 건물 위를 더 정확히 클릭하세요.'); return; }
+
+            targetMesh = picked;
+            selector.deactive();
+
+            const clickWorld = result.work && result.work.worlds && result.work.worlds[clickIndex];
+            highlightMesh(picked, clickWorld);
+
+            const cls = picked._classtype || (picked.constructor && picked.constructor.name) || 'Mesh';
+            const layerName = picked._ulayername || '';
+            $('#target-mesh-name').removeClass('none').addClass('picked')
+                .text(cls + (layerName ? ' (' + layerName + ')' : ''));
+
+            app.on('click', onSnapClick);
+            setPhase(STEP.PICK_POINT);
+            setInfo('✅ STEP 1 완료 — 노란 윤곽이 선택된 mesh입니다.\nSTEP 2: 화면을 클릭하거나 위경도를 입력해 스냅하세요.');
+        }
+
+        function highlightMesh(mesh, clickWorld) {
+            clearHighlight();
+            mesh.updateMatrixWorld(true);
+
+            const posAttr = mesh.geometry.getAttribute('position');
+            if (posAttr && posAttr.count > 0 && posAttr.count <= 60000) {
+                const wire = new THREE.LineSegments(
+                    new THREE.WireframeGeometry(mesh.geometry),
+                    new THREE.LineBasicMaterial({ color: 0xffaa00, depthTest: false, transparent: true, opacity: 0.8 })
+                );
+                wire.applyMatrix4(mesh.matrixWorld);
+                wire.renderOrder = 9997;
+                highlightGroup.add(wire);
+            }
+            if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+            const box = new THREE.Box3().copy(mesh.geometry.boundingBox);
+            if (!box.isEmpty()) {
+                box.applyMatrix4(mesh.matrixWorld);
+                const helper = new THREE.Box3Helper(box, 0xffaa00);
+                helper.renderOrder = 9998;
+                highlightGroup.add(helper);
+            }
+            if (clickWorld) {
+                const s = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.7, 16, 12),
+                    new THREE.MeshBasicMaterial({ color: 0xff8800, depthTest: false, depthWrite: false })
+                );
+                s.position.copy(clickWorld);
+                s.renderOrder = 9999;
+                highlightGroup.add(s);
+            }
+        }
+
+        // ── STEP 2: 클릭 위치 → 입력점 ────────────────
+        function pickWorld(e) {
+            const p = app.closestPointAtPixel(e);
+            if (!p || isNaN(p.x) || isNaN(p.y) || isNaN(p.z)) return null;
+            return p.clone ? p.clone() : new THREE.Vector3(p.x, p.y, p.z);
+        }
+
+        function onSnapClick(e) {
+            if (phase !== STEP.PICK_POINT || !targetMesh) return;
+            const worldPoint = pickWorld(e);
+            if (!worldPoint) { setInfo('빈 영역(하늘)이 클릭되었습니다. 지형/건물 위를 클릭하세요.'); return; }
+
+            const geo = UMathEngine.getGoogleToGeographic(worldPoint.x, worldPoint.y, worldPoint.z);
+            $('#in-lon').val(geo.x.toFixed(6));
+            $('#in-lat').val(geo.y.toFixed(6));
+            $('#in-h').val(geo.z.toFixed(2));
+            $('#picked-point').removeClass('none').addClass('picked')
+                .text(`(${geo.x.toFixed(5)}, ${geo.y.toFixed(5)}, ${geo.z.toFixed(1)}m)`);
+
+            doSnap(geo, worldPoint, '클릭한 위치');
+        }
+
+        // ── 위경도 입력 → 스냅 ─────────────────────────────────────────
+        $('#btn-snap').on('click', function () {
+            if (!targetMesh) { setInfo('먼저 STEP 1에서 대상 mesh를 선택하세요.'); return; }
+            const lon = parseFloat($('#in-lon').val());
+            const lat = parseFloat($('#in-lat').val());
+            const h = parseFloat($('#in-h').val());
+            if (!isFinite(lon) || !isFinite(lat) || !isFinite(h)) { setInfo('위경도/높이가 유효하지 않습니다.'); return; }
+
+            const g = UMathEngine.getGeographicToGoogle(lon, lat, h);
+            $('#picked-point').removeClass('none').addClass('picked')
+                .text(`(${lon.toFixed(5)}, ${lat.toFixed(5)}, ${h.toFixed(1)}m) [입력]`);
+            doSnap({ x: lon, y: lat, z: h }, new THREE.Vector3(g.x, g.y, g.z), '입력칸 값');
+        });
+
+        // 선택된 mesh에 스냅
+        function doSnap(geo, inputWorld, src) {
+            if (!targetMesh) { setInfo('대상 mesh가 없습니다. STEP 1에서 먼저 선택하세요.'); return; }
+            const options = getOptions();
+            const result = snapPointToMesh(targetMesh, geo, options);
+            if (!result) { setInfo('스냅 실패 — 대상 mesh에 유효한 면이 없습니다.'); return; }
+            clearMarkers();
+            drawMarkers(inputWorld, result.position);
+            printInfo(geo, result, options, src);
+        }
+
+        function drawMarkers(inputWorld, snapPos) {
+            const addSphere = (pos, color) => {
+                const s = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.6, 16, 12),
+                    new THREE.MeshBasicMaterial({ color: color, depthTest: false, depthWrite: false })
+                );
+                s.position.copy(pos);
+                s.renderOrder = 9999;
+                markerGroup.add(s);
+            };
+            addSphere(inputWorld, 0x3399ff); // 파랑 = 입력점
+            addSphere(snapPos, 0xff2266);    // 빨강 = 스냅점
+            const line = new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints([inputWorld.clone(), snapPos.clone()]),
+                new THREE.LineBasicMaterial({ color: 0xffcc00, depthTest: false, depthWrite: false })
+            );
+            line.renderOrder = 9999;
+            markerGroup.add(line);
+        }
+
+        function printInfo(geoIn, result, options, src) {
+            const geoOut = UMathEngine.getGoogleToGeographic(result.position.x, result.position.y, result.position.z);
+            let lockLine = '';
+            if (options.lockHeight) {
+                lockLine = result.lockHeightApplied
+                    ? `[z축 고정] 적용됨 — 높이 ${(+geoIn.z).toFixed(2)}m 유지\n`
+                    : `[z축 고정] ⚠ 적용불가 → 3D 폴백 (${(+geoIn.z).toFixed(2)}m → ${geoOut.z.toFixed(2)}m)\n`;
+            }
+            setInfo(
+                `[${src}]\n` + lockLine +
+                `face index : ${result.faceIndex}\n` +
+                `거리       : ${result.distance.toFixed(2)} m\n` +
+                `입력 위경도: (${(+geoIn.x).toFixed(6)}, ${(+geoIn.y).toFixed(6)}, ${(+geoIn.z).toFixed(2)})\n` +
+                `스냅 위경도: (${geoOut.x.toFixed(6)}, ${geoOut.y.toFixed(6)}, ${geoOut.z.toFixed(2)})`
+            );
+        }
+
+        // ── 다시 선택 ─────────────────────────────────────────────────
+        $('#btn-restart').on('click', resetSelect);
+        function resetSelect() {
+            targetMesh = null;
+            clearMarkers();
+            clearHighlight();
+            app.off('click', onSnapClick);
+            selector.clearSelect();
+            selector.active();
+            $('#target-mesh-name').removeClass('picked').addClass('none').text('없음');
+            $('#picked-point').removeClass('picked').addClass('none').text('없음');
+            setPhase(STEP.SELECT_MESH);
+            setInfo('STEP 1: 건물(모델)을 클릭해 대상 mesh를 선택하세요.');
+        }
+
+        // ── 성능 측정: 콘솔에서 window.test(개수) ─────────────────────
+        // 선택된 mesh 주변으로 랜덤 위경도 N개를 생성해 snap하고, 콘솔에 평균 시간을 출력한다.
+        //   예) window.test()        → 1000개, 현재 UI 옵션(z고정/정밀도)으로 측정
+        //       window.test(5000)    → 5000개
+        //       window.test(1000, {lockHeight:true, lockHeightMaxDistance:30})
+        window.test = function (count, optsOverride) {
+            count = count || 1000;
+            if (!targetMesh) { console.warn('먼저 STEP 1에서 대상 mesh를 선택하세요.'); return; }
+            const options = optsOverride || getOptions();
+
+            // 대상 mesh의 bbox(월드) → 위경도 범위로 랜덤 입력점 생성
+            targetMesh.geometry.computeBoundingBox();
+            targetMesh.updateMatrixWorld(true);
+            const box = new THREE.Box3().copy(targetMesh.geometry.boundingBox).applyMatrix4(targetMesh.matrixWorld);
+            const a = UMathEngine.getGoogleToGeographic(box.min.x, box.min.y, box.min.z);
+            const b = UMathEngine.getGoogleToGeographic(box.max.x, box.max.y, box.max.z);
+            const lonMin = Math.min(a.x, b.x), lonMax = Math.max(a.x, b.x);
+            const latMin = Math.min(a.y, b.y), latMax = Math.max(a.y, b.y);
+            const hMin = Math.min(a.z, b.z), hMax = Math.max(a.z, b.z);
+            const padLon = (lonMax - lonMin) * 0.5 || 0.0005;
+            const padLat = (latMax - latMin) * 0.5 || 0.0005;
+
+            const geos = new Array(count);
+            for (let i = 0; i < count; i++) {
+                geos[i] = {
+                    x: lonMin - padLon + Math.random() * ((lonMax - lonMin) + 2 * padLon),
+                    y: latMin - padLat + Math.random() * ((latMax - latMin) + 2 * padLat),
+                    z: hMin + Math.random() * Math.max(1, hMax - hMin),
+                };
+            }
+
+            for (let i = 0; i < Math.min(50, count); i++) snapPointToMesh(targetMesh, geos[i], options); // warmup
+
+            let ok = 0, sink = 0;
+            const t0 = performance.now();
+            for (let i = 0; i < count; i++) {
+                const r = snapPointToMesh(targetMesh, geos[i], options);
+                if (r) { ok++; sink += r.faceIndex; }
+            }
+            const ms = performance.now() - t0;
+
+            const geom = targetMesh.geometry;
+            const tri = geom.index ? geom.index.count / 3 : geom.getAttribute('position').count / 3;
+            console.log(`%c[snap perf] ${count}회 · 삼각형 ${Math.round(tri).toLocaleString()} · lockHeight=${!!options.lockHeight}` +
+                (options.lockHeightMaxDistance ? ` · maxDist=${options.lockHeightMaxDistance}` : ''), 'font-weight:bold');
+            console.log(`평균 ${(ms / count * 1000).toFixed(1)}µs/call · ${Math.round(count / ms * 1000).toLocaleString()} calls/s · ` +
+                `삼각형당 ${(ms / count * 1e6 / tri).toFixed(1)}ns · 총 ${ms.toFixed(1)}ms · 성공 ${ok}/${count}`);
+            return { count, totalMs: ms, avgUs: ms / count * 1000, ok, sink };
+        };
+
+        selector.active();
+        setPhase(STEP.SELECT_MESH);
+        setInfo('STEP 1: 화면의 건물(모델)을 클릭해 대상 mesh를 선택하세요.');
+        console.log('[성능측정] 대상 mesh 선택 후 콘솔에서  window.test(1000)  실행');
+    });
+</script>
+</body>
+</html>

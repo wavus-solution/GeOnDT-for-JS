@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>지면 방향 Helper 시작하기</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="지면-방향-helper-시작하기">지면 방향 Helper 시작하기</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-%EC%A7%80%EB%A9%B4-%EB%B0%A9%ED%96%A5-helper-%ED%91%9C%EC%8B%9C%ED%95%98%EA%B8%B0">지면 방향 Helper 표시하기</a></li>
+<li><a href="#2-%EC%9D%B4%EB%8F%99%EC%B2%B4-%EC%9C%84%EC%B9%98%EB%A5%BC-%EC%8B%A4%EC%8B%9C%EA%B0%84%EC%9C%BC%EB%A1%9C-%EC%B6%94%EC%A0%81%ED%95%98%EA%B8%B0">이동체 위치를 실시간으로 추적하기</a></li>
+<li><a href="#3-%EA%B2%80%EC%83%89-%EB%B2%94%EC%9C%84%EC%99%80-%EB%B0%A9%ED%96%A5-%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0">검색 범위와 방향 설정하기</a></li>
+<li><a href="#4-%EA%B5%90%EC%B0%A8%EC%84%A0%EA%B3%BC-%EA%B5%90%EC%B0%A8%EC%A0%90-%EC%8A%A4%ED%83%80%EC%9D%BC-%EB%B3%80%EA%B2%BD%ED%95%98%EA%B8%B0">교차선과 교차점 스타일 변경하기</a></li>
+<li><a href="#5-helper-%EC%A0%9C%EA%B1%B0%ED%95%98%EA%B3%A0-%EC%9E%90%EC%9B%90-%EC%A0%95%EB%A6%AC%ED%95%98%EA%B8%B0">Helper 제거하고 자원 정리하기</a></li>
+</ol>
+<p><code>ULandNormalDirectionHelper</code>는 입력한 위경도 좌표에서 Z축 방향으로 지면을 검색하고, 시작점부터 지면까지의 교차선과 교차점 형상을 표시하는 객체입니다.<br>공중 이동체와 지면 사이의 거리와 방향을 확인하거나 이동 중인 드론 아래의 지면 위치를 표시할 때 사용할 수 있습니다.</p>
+<p>이 문서의 예제는 <code>app</code>이 초기화되고 지형 레이어가 등록된 상태를 전제로 합니다.<br>이동체 추적 예제의 <code>drone</code>은 <code>U3dMultipleComponentLayer.addPosition()</code>으로 만든 <code>U3dComponentPosition</code>이라고 가정합니다.<br>앱과 컴포넌트를 만드는 방법은 <a href="createComponent.html#1-%EB%A0%88%EC%9D%B4%EC%96%B4-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">3D 공간에 사물 출력 - 레이어 생성하기</a>와 <a href="createComponent.html#3-%EC%BB%B4%ED%8F%AC%EB%84%8C%ED%8A%B8-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">3D 공간에 사물 출력 - 컴포넌트 생성하기</a>를 참고합니다.</p>
+<hr>
+<h2 id="1-지면-방향-helper-표시하기">1. 지면 방향 Helper 표시하기</h2>
+<p>Helper를 생성할 때 검색 시작 위경도 좌표와 Z축 검색 방향을 전달합니다.<br>공중 객체에서 아래쪽 지면을 검색하려면 <code>direction</code>을 <code>-1</code>로 설정합니다.</p>
+<p>생성자는 최초 교차 상태를 즉시 계산하지만 Scene에는 자동으로 등록하지 않습니다.<br>생성한 Helper는 <code>app.getExternalScene()</code>이 반환하는 Scene에 직접 추가해야 화면에 표시됩니다.</p>
+<h4 class="api-heading" id="api">API</h4>
+<p>new GeOnDT.object.ULandNormalDirectionHelper(<code>options</code>) : 입력 좌표에서 지면을 검색하고 교차선과 교차점 형상을 만드는 생성자</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>options</code> (<code>ULandNormalDirectionHelperCO</code>) : Helper 생성 설정. <strong>필수</strong></li>
+<li><code>options.app</code> (<code>U3dApp</code>) : 좌표 변환과 지형 레이어 조회에 사용할 앱. <strong>필수</strong></li>
+<li><code>options.position</code> (<code>GeoPosition</code>) : 검색을 시작할 위경도 좌표. <code>x</code>는 경도, <code>y</code>는 위도, <code>z</code>는 고도입니다. <strong>필수</strong></li>
+<li><code>options.direction</code> (<code>number</code>) : Z축 검색 방향. <code>1</code>은 위쪽, <code>-1</code>은 아래쪽입니다. <strong>필수</strong></li>
+<li><code>options.layers</code> (<code>U3dLayer[]</code>) : 검색할 레이어. 생략하면 앱의 지형 레이어를 갱신할 때마다 조회합니다.</li>
+<li><code>options.maxLength</code> (<code>number</code>) : 지면 검색과 교차선 출력의 최대 길이. 기본값: <code>5000</code></li>
+<li><code>options.name</code> (<code>string</code>) : Helper 객체 이름. 기본값: <code>&#39;ULandNormalDirectionHelper&#39;</code></li>
+</ul>
+</details>
+<h3 id="1-아래쪽-지면을-표시하는-기본-예제">1. 아래쪽 지면을 표시하는 기본 예제</h3>
+<p><code>position</code>은 월드 좌표가 아니라 위경도 좌표입니다.<br><code>drone.getPosition()</code>처럼 위경도 좌표를 반환하는 값을 바로 사용할 수 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> landNormalHelper <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>object<span class="token punctuation">.</span>ULandNormalDirectionHelper</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    app<span class="token punctuation">,</span>
+    <span class="token literal-property property">position</span><span class="token operator">:</span> drone<span class="token punctuation">.</span><span class="token function">getPosition</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">direction</span><span class="token operator">:</span> <span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">maxLength</span><span class="token operator">:</span> <span class="token number">5000</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#ffff00'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">lineWidth</span><span class="token operator">:</span> <span class="token number">2</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+app<span class="token punctuation">.</span><span class="token function">getExternalScene</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span>landNormalHelper<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>검색 방향 안에서 교차점을 찾지 못하면 교차점 형상은 숨겨지고, 교차선만 <code>maxLength</code>까지 표시됩니다.<br><code>direction</code>에 <code>1</code> 또는 <code>-1</code> 이외의 값을 전달하거나 유효하지 않은 좌표를 전달하면 예외가 발생합니다.</p>
+<hr>
+<h2 id="2-이동체-위치를-실시간으로-추적하기">2. 이동체 위치를 실시간으로 추적하기</h2>
+<p><code>setPosition()</code>은 새로운 위경도 좌표를 저장하고 <code>update()</code>는 저장된 좌표에서 지면을 다시 검색해 화면을 갱신합니다.<br>따라서 이동체를 추적할 때는 새 Helper를 반복 생성하지 않고 기존 Helper 한 개에 두 함수를 순서대로 호출합니다.</p>
+<p>애니메이션 콜백이 월드 좌표를 전달한다면 먼저 <code>app.getGoogleToGeographic()</code>으로 위경도 좌표로 변환합니다.</p>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>ULandNormalDirectionHelper.setPosition(<code>position</code>) : 검색을 시작할 위경도 좌표를 저장하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>position</code> (<code>GeoPosition</code>) : 새 검색 시작 좌표. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>ULandNormalDirectionHelper</code>) : 현재 Helper</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-2">API</h4>
+<p>ULandNormalDirectionHelper.update(<code>options</code>) : 현재 좌표와 방향으로 교차선과 교차점 형상을 갱신하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>options</code> (<code>ULandNormalDirectionHelperUpdateOptions</code>) : 갱신 방식 설정. 기본값: <code>{}</code></li>
+<li><code>options.fast</code> (<code>boolean</code>) : <code>true</code>면 Raycaster 대신 현재 렌더 지형 높이를 사용하는 저비용 방식으로 갱신합니다. 기본값: <code>false</code></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>ULandNormalDirectionHelper</code>) : 현재 Helper</li>
+</ul>
+</details>
+<h3 id="1-드론-위치를-따라가는-예제">1. 드론 위치를 따라가는 예제</h3>
+<p><code>fast: true</code>는 Scene 탐색과 삼각형 Raycaster 검사를 생략하므로 매 프레임처럼 자주 갱신할 때 적합합니다.<br>이 방식은 현재 렌더 지형 높이를 사용하므로, <code>layers</code>로 지정한 특정 객체나 레이어의 정확한 표면 교차가 필요하면 기본 정밀 갱신인 <code>update()</code>를 사용합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">updateLandNormalHelper</span><span class="token punctuation">(</span><span class="token parameter">worldPosition</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> geoPosition <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">getGoogleToGeographic</span><span class="token punctuation">(</span>
+        worldPosition<span class="token punctuation">.</span>x<span class="token punctuation">,</span>
+        worldPosition<span class="token punctuation">.</span>y<span class="token punctuation">,</span>
+        worldPosition<span class="token punctuation">.</span>z
+    <span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    landNormalHelper<span class="token punctuation">.</span><span class="token function">setPosition</span><span class="token punctuation">(</span>geoPosition<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    landNormalHelper<span class="token punctuation">.</span><span class="token function">update</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">fast</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<p><code>setPosition()</code>만 호출하면 검색 결과는 바뀌지 않습니다.<br>좌표, 방향, 레이어 또는 최대 길이를 변경한 뒤에는 반드시 <code>update()</code>를 호출해야 변경 내용이 화면에 반영됩니다.</p>
+<p><code>update()</code> 도중 좌표 변환이나 지면 검색에 실패하면 Helper와 교차점 형상이 숨겨지고 예외가 다시 전달됩니다.<br>애니메이션 루프 전체가 중단되지 않아야 한다면 호출부에서 오류를 처리합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">try</span> <span class="token punctuation">{</span>
+    <span class="token function">updateLandNormalHelper</span><span class="token punctuation">(</span>currentWorldPosition<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>error<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">warn</span><span class="token punctuation">(</span><span class="token string">'지면 방향 Helper를 갱신하지 못했습니다.'</span><span class="token punctuation">,</span> error<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<hr>
+<h2 id="3-검색-범위와-방향-설정하기">3. 검색 범위와 방향 설정하기</h2>
+<p>검색 시작 위치 외에도 Z축 방향, 최대 검색 길이와 검색 대상 레이어를 실행 중에 바꿀 수 있습니다.<br>각 setter는 설정만 저장하므로 마지막에 <code>update()</code>를 호출합니다.</p>
+<h4 class="api-heading" id="api-3">API</h4>
+<p>ULandNormalDirectionHelper.setDirection(<code>direction</code>) : 지면을 검색할 Z축 방향을 저장하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>direction</code> (<code>number</code>) : <code>1</code> 또는 <code>-1</code>. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>ULandNormalDirectionHelper</code>) : 현재 Helper</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-4">API</h4>
+<p>ULandNormalDirectionHelper.setMaxLength(<code>maxLength</code>) : 지면 검색과 교차선 출력의 최대 길이를 저장하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>maxLength</code> (<code>number</code>) : <code>0</code>보다 큰 최대 길이. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>ULandNormalDirectionHelper</code>) : 현재 Helper</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-5">API</h4>
+<p>ULandNormalDirectionHelper.setLayers(<code>layers</code>) : 정밀 교차 검색에 사용할 레이어를 교체하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>layers</code> (<code>U3dLayer[] | undefined</code>) : 검색 대상 레이어 배열. <code>undefined</code>를 전달하면 앱의 지형 레이어를 사용합니다. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>ULandNormalDirectionHelper</code>) : 현재 Helper</li>
+</ul>
+</details>
+<h3 id="1-특정-레이어를-아래쪽으로-검색하는-예제">1. 특정 레이어를 아래쪽으로 검색하는 예제</h3>
+<pre class="language-javascript"><code class="language-javascript">landNormalHelper
+    <span class="token punctuation">.</span><span class="token function">setDirection</span><span class="token punctuation">(</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">setMaxLength</span><span class="token punctuation">(</span><span class="token number">3000</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">setLayers</span><span class="token punctuation">(</span><span class="token punctuation">[</span>terrainLayer<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+landNormalHelper<span class="token punctuation">.</span><span class="token function">update</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p><code>layers</code>는 <code>update()</code>의 기본 정밀 Raycaster 경로에서 사용됩니다.<br><code>update({fast: true})</code>는 앱의 현재 렌더 지형 높이를 조회하므로 지정한 <code>layers</code> 배열을 대상으로 교차 검사하지 않습니다.</p>
+<hr>
+<h2 id="4-교차선과-교차점-스타일-변경하기">4. 교차선과 교차점 스타일 변경하기</h2>
+<p>생성 옵션이나 <code>setLineStyle()</code>로 교차선의 색상, 굵기, 투명도와 점선 모양을 설정할 수 있습니다.<br>기본 <code>lineWidth</code> 단위는 CSS 픽셀이며 <code>worldUnits</code>를 <code>true</code>로 설정하면 월드 단위 굵기를 사용합니다.</p>
+<h4 class="api-heading" id="api-6">API</h4>
+<p>ULandNormalDirectionHelper.setLineStyle(<code>style</code>) : 전달된 교차선 스타일 속성을 한 번에 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>style</code> (<code>ULandNormalDirectionLineStyle</code>) : 변경할 선 스타일</li>
+<li><code>style.color</code> (<code>ColorRepresentation</code>) : 교차선 색상</li>
+<li><code>style.lineWidth</code> (<code>number</code>) : <code>0</code>보다 큰 교차선 굵기</li>
+<li><code>style.opacity</code> (<code>number</code>) : 교차선 투명도. 허용 범위: <code>0</code>~<code>1</code></li>
+<li><code>style.worldUnits</code> (<code>boolean</code>) : 선 굵기의 월드 단위 사용 여부</li>
+<li><code>style.dashed</code> (<code>boolean</code>) : 점선 사용 여부</li>
+<li><code>style.dashSize</code> (<code>number</code>) : <code>0</code>보다 큰 점선 한 구간의 길이</li>
+<li><code>style.gapSize</code> (<code>number</code>) : <code>0</code> 이상의 점선 사이 간격</li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>ULandNormalDirectionHelper</code>) : 현재 Helper</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-7">API</h4>
+<p>ULandNormalDirectionHelper.setLineVisible(<code>lineVisible</code>) : 교차선의 출력 여부만 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>lineVisible</code> (<code>boolean</code>) : 교차선 출력 여부. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>ULandNormalDirectionHelper</code>) : 현재 Helper</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-8">API</h4>
+<p>ULandNormalDirectionHelper.setIntersectionMesh(<code>intersectionMesh</code>) : 교차점에 표시할 사용자 Mesh로 교체하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>intersectionMesh</code> (<code>Mesh | U3dGeometry</code>) : THREE.js <code>Mesh</code> 또는 Mesh 기능이 결합된 <code>U3dGeometry</code>. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>ULandNormalDirectionHelper</code>) : 현재 Helper</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-9">API</h4>
+<p>ULandNormalDirectionHelper.setIntersectionMeshOffset(<code>intersectionMeshOffset</code>) : 교차점 Mesh의 로컬 위치 오프셋을 저장하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>intersectionMeshOffset</code> (<code>Vector3Like</code>) : 유한한 <code>x</code>, <code>y</code>, <code>z</code> 값을 가진 오프셋. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>ULandNormalDirectionHelper</code>) : 현재 Helper</li>
+</ul>
+</details>
+<h3 id="1-교차선을-점선으로-변경하는-예제">1. 교차선을 점선으로 변경하는 예제</h3>
+<p><code>setLineStyle()</code>은 전달한 속성만 변경하고 나머지 현재 스타일은 유지합니다.<br>색상, 굵기와 투명도만 바꿀 때는 각각 <code>setColor()</code>, <code>setLineWidth()</code>, <code>setOpacity()</code>를 사용할 수도 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript">landNormalHelper<span class="token punctuation">.</span><span class="token function">setLineStyle</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#ff3b30'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">lineWidth</span><span class="token operator">:</span> <span class="token number">3</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.85</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">dashed</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">dashSize</span><span class="token operator">:</span> <span class="token number">8</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">gapSize</span><span class="token operator">:</span> <span class="token number">12</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p><code>setLineVisible(false)</code>는 교차선만 숨깁니다.<br>교차점 Mesh는 현재 교차 결과에 따라 계속 표시될 수 있으며, Helper 전체를 숨기려면 Object3D의 <code>visible</code> 속성을 사용합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">landNormalHelper<span class="token punctuation">.</span><span class="token function">setLineVisible</span><span class="token punctuation">(</span><span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+landNormalHelper<span class="token punctuation">.</span>visible <span class="token operator">=</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-교차점-형상을-바꾸는-예제">2. 교차점 형상을 바꾸는 예제</h3>
+<p><code>intersectionMesh</code>를 생략하면 Helper가 기본 <code>U3dCylinder</code>를 생성하고 소유합니다.<br>사용자 Mesh를 전달하면 형상의 방향과 스타일은 호출자가 설정해야 합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> intersectionMarker <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>geom<span class="token punctuation">.</span>U3dCylinder</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">height</span><span class="token operator">:</span> <span class="token number">5</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">edge</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#ff3b30'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">depthOffset</span><span class="token operator">:</span> <span class="token number">10</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">dynamicDepthOffset</span><span class="token operator">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+intersectionMarker<span class="token punctuation">.</span>rotation<span class="token punctuation">.</span>x <span class="token operator">=</span> Math<span class="token punctuation">.</span><span class="token constant">PI</span> <span class="token operator">/</span> <span class="token number">2</span><span class="token punctuation">;</span>
+
+landNormalHelper<span class="token punctuation">.</span><span class="token function">setIntersectionMesh</span><span class="token punctuation">(</span>intersectionMarker<span class="token punctuation">)</span><span class="token punctuation">;</span>
+landNormalHelper<span class="token punctuation">.</span><span class="token function">setIntersectionMeshOffset</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+landNormalHelper<span class="token punctuation">.</span><span class="token function">update</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p><code>setIntersectionMeshOffset()</code>의 변경값은 다음 <code>update()</code>부터 적용됩니다.<br>사용자가 전달한 교차점 Mesh의 geometry와 material은 Helper가 해제하지 않으므로 더 이상 사용하지 않을 때 호출자가 직접 정리해야 합니다.</p>
+<hr>
+<h2 id="5-helper-제거하고-자원-정리하기">5. Helper 제거하고 자원 정리하기</h2>
+<p><code>dispose()</code>는 Helper가 소유한 교차선 geometry와 공유 material 참조, 기본 교차점 Mesh 자원을 정리합니다.<br>Scene에서는 자동으로 제거하지 않으므로 먼저 <code>removeFromParent()</code> 또는 <code>scene.remove()</code>를 호출합니다.</p>
+<h4 class="api-heading" id="api-10">API</h4>
+<p>ULandNormalDirectionHelper.dispose() : Helper가 소유한 렌더링 자원을 해제하는 함수</p>
+<h3 id="1-helper-한-개를-정리하는-예제">1. Helper 한 개를 정리하는 예제</h3>
+<pre class="language-javascript"><code class="language-javascript">landNormalHelper<span class="token punctuation">.</span><span class="token function">removeFromParent</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+landNormalHelper<span class="token punctuation">.</span><span class="token function">dispose</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>사용자 Mesh를 교차점 형상으로 전달했다면 Helper는 해당 Mesh를 분리만 합니다.<br>사용자 Mesh를 다른 곳에서 재사용하지 않을 경우에는 그 객체의 자원도 호출자가 정리합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">landNormalHelper<span class="token punctuation">.</span><span class="token function">removeFromParent</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+landNormalHelper<span class="token punctuation">.</span><span class="token function">dispose</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+intersectionMarker<span class="token punctuation">.</span><span class="token function">dispose</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p><code>dispose()</code>는 여러 번 호출해도 두 번째 호출부터는 아무 작업도 하지 않습니다.<br>정리한 Helper는 다시 사용하지 말고 새 인스턴스를 생성합니다.</p>
+<h3 id="2-여러-이동체를-추적할-때-정리하는-예제">2. 여러 이동체를 추적할 때 정리하는 예제</h3>
+<p>이동체마다 Helper 한 개를 연결했다면 <code>Map</code>에 함께 보관하고 이동체 삭제 시 같은 생명주기로 정리합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> landNormalHelpers <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Map</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">function</span> <span class="token function">removeLandNormalHelper</span><span class="token punctuation">(</span><span class="token parameter">drone</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> helper <span class="token operator">=</span> landNormalHelpers<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>drone<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>helper<span class="token punctuation">)</span> <span class="token keyword">return</span><span class="token punctuation">;</span>
+
+    helper<span class="token punctuation">.</span><span class="token function">removeFromParent</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    helper<span class="token punctuation">.</span><span class="token function">dispose</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    landNormalHelpers<span class="token punctuation">.</span><span class="token function">delete</span><span class="token punctuation">(</span>drone<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">function</span> <span class="token function">clearLandNormalHelpers</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> helper <span class="token keyword">of</span> landNormalHelpers<span class="token punctuation">.</span><span class="token function">values</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        helper<span class="token punctuation">.</span><span class="token function">removeFromParent</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        helper<span class="token punctuation">.</span><span class="token function">dispose</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    landNormalHelpers<span class="token punctuation">.</span><span class="token function">clear</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<p>이동 위치를 기록하려고 매 프레임 새 Helper를 생성하면 Scene 객체와 geometry가 계속 늘어납니다.<br>실시간 추적에는 기존 Helper를 <code>setPosition()</code>과 <code>update({fast: true})</code>로 재사용하고, 누적 표시가 필요한 경우에도 최대 개수와 제거 기준을 정해 자원을 정리합니다.</p>
+</main>
+</body>
+</html>
+

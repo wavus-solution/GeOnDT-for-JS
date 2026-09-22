@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>예제 템플릿</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span>예제 템플릿</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead" style="font-size: 16px">
+        <strong>
+            <mark>예제 템플릿</mark>
+        </strong>입니다.<br>
+        예제 템플릿 설명
+    </p>
+</div>
+<div id="map-wrapper">
+    <div>
+        <div id="map"></div>
+        <div class="btn-group" id='top-sbar'>
+            <div class='btn-group-vertical-block' id='right-toolbar'>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                    <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                         src="./image/compass1.png"
+                         alt="나침반">
+                </button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                        id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                        id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                        id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg"
+                                                                     alt="">
+                </button>
+            </div>
+            <div class='btn-group' id='bt-bottom-bar'>
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                       value="위경도: ##.####  ###.#### ">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                       value="고도:####">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                       value="각도: ##">
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script>
+    const imageBaseUrl = 'https://xdworld.vworld.kr/2d/Satellite/service/{z}/{x}/{-y}.jpeg';
+    const heightBaseUrl = 'https://dt-data.mappick.co.kr/ServiceData/dem/DEM_CS/Korean_peninsula/';
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60};
+
+    const drone1Option = {
+        name: 'Drone_02',
+        baseurl: 'https://dt-data.mappick.co.kr/ServiceData/component/drone/Drone_01/',
+        type: 'component',
+        fileName: 'Drone_01.3ds',
+        ext: '3ds',
+    }
+    const drone2Option = {
+        name: 'Drone_02',
+        baseurl: 'https://dt-data.mappick.co.kr/ServiceData/component/drone/Drone_02/',
+        type: 'component',
+        fileName: 'Drone_02.3ds',
+        ext: '3ds',
+    }
+    const uam1Option =  {
+        name: 'uam_01',
+        baseurl: 'https://dt-data.mappick.co.kr/ServiceData/component/DroneShow/UAM/', //+ 모델 데이터의 기본경로, *필수 입력
+        fileName: 'UAM_A_Anim_WA_001',
+        ext: 'fbx',
+    }
+
+    let app = null;
+</script>
+<script id="common">
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+        const height = '높이: ' + parseFloat(info.height).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        if (app === undefined) return;
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+</script>
+
+<script id="main" type="module">
+</script>
+
+</body>
+</html>

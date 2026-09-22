@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>클릭 이벤트</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/tutorial.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        html, body {
+            height: 100%;
+        }
+
+        .examples {
+            padding: 15px 30px 15px 30px;
+        }
+
+        .u3-popup {
+            position: absolute;
+            background-color: white;
+            -webkit-filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.2));
+            filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.2));
+            padding: 5px;
+            /*border-radius: 10px;*/
+            border: 1px solid #00000033;
+            bottom: 12px;
+            left: -50px;
+            min-width: 280px;
+            display: none;
+        }
+
+        .u3-popup:after, .u3-popup:before {
+            top: 100%;
+            border: solid transparent;
+            content: " ";
+            height: 0;
+            width: 0;
+            position: absolute;
+            pointer-events: none;
+        }
+
+        .u3-popup:after {
+            border-top-color: white;
+            border-width: 10px;
+            left: 48px;
+            margin-left: -10px;
+        }
+
+        .u3-popup:before {
+            border-top-color: #cccccc;
+            border-width: 11px;
+            left: 48px;
+            margin-left: -11px;
+        }
+    </style>
+</head>
+<body>
+<div id="map-wrapper">
+    <div id="map">
+    </div>
+</div>
+<div class="execute-popup"><button>직접해보기</button></div>
+<div class="examples row">
+    <pre>
+        지도 클릭 이벤트 예제
+       </pre>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function() {
+        window.open('./runner.html?url=' + strings[strings.length-1] + '&title=' + document.title);
+    })
+</script>
+<script>
+    require(['app/Union3D'], function (Union3D) {
+        Union3D.ready(function () {
+            //지도 기본 세팅///////////////////////////////////////
+            var app    = new Union3D.U3dAPP({
+                containername: 'map',
+                maxprocess   : 20
+            });
+            window.app = app;
+            app.setHomePosition(126.9395, 37.52, 450, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+            app.updateHomePosition();
+
+            //이미지 레이어 생성
+            var layer = new Union3D.image.U3dImageXYZLayer({
+                name    : 'satellite',
+                baseurl : layerInfo.image.vworldsaturl,
+                reverseY: true
+            });
+            app.addLayer(layer);
+            //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+            app.setNameBaseLayer('satellite');
+            app.showLayer('satellite', true);
+
+            //+ vworld xdo건물 ///////////////////////////////////////////////////////
+            var vworldxdo = true;
+            if(vworldxdo) {
+                // VWorld 모델 (속성없음)
+                var vworldModel = new Union3D.model.U3dModelVWorldLayer({
+                    name: 'vworld model',
+                    useproxy: false,
+                    baseurl: layerInfo.model.vworldurl,
+                    basemodelurl: layerInfo.model.vworldbasemodelurl,
+                    ext: '.jpeg',
+                    partloading: true,
+                    maxprocess: 1,
+                    minlevel: Union3D.UDEF.isIE() ? 18 : 18,
+                    maxlevel: 19,
+                    opacity: 0.3
+                });
+                app.addLayer(vworldModel);
+                app.showLayer('vworld model', true);
+            }
+
+
+            var terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+                name               : 'Korea Terrain',
+                baseurl            : layerInfo.height.url,
+                ext                : '.umf',
+                reverseY           : true,
+                minlevel           : 9,
+                maxlevel           : 15,
+                useproxy           : false,
+                maxprocess         : 2,
+                interpolationheight: true,
+                rectangle          : Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2)
+            });
+            app.addLayer(terrainLayer);
+            app.showLayer('Korea Terrain', true);
+            /////////////////////////////////////////////////////
+
+            // app.setPickMode();
+
+            app.on('click', click);
+
+            var idx = 0;
+
+            function createOverlay(name, id, position) {
+                var html    = printOverlayHtml(id);
+                var overlay = new Union3D.overlay.U3dOverlay({
+                    name    : name,
+                    id      : id,
+                    element : $(html),
+                    position: position,
+                    useanchor: false,
+                    balloon  : {x: -50, y: 10}
+                });
+                app.addOverlay(overlay);
+                var element = overlay.getElement();
+                $(element).on('click', '.close', popUpCloseClick.bind(overlay));
+                idx += 1;
+                return overlay;
+            }
+
+            function printOverlayHtml(id) {
+                var str = '';
+                str += '<div class="u3-popup" id=' + id + '>';
+                str +=      '<div class="u3-popup-content">';
+                str +=          '<div class="modal-header">';
+                str +=              '<button type="button" class="close"><span aria-hidden="true">&times;</span>';
+                str +=              '</button>';
+                str +=          '</div>';
+                str +=          '<div class="item-sub-title"><span class="text-icon">내용: </span>오버레이 가시화 예제 ' + id + '</div>';
+                str +=      '</div>';
+                str += '</div>';
+                return str;
+            }
+
+            function click(e) {
+                var id = 'test' + idx.toString();
+
+                var world  = app.closestPointAtPixel(e);
+                var lonlat = app.vector3ToGeoGraphic(world);
+
+                var overlay = createOverlay('name', id, lonlat);
+                overlay.show();
+            }
+
+            function popUpCloseClick(e) {
+                $(this.element).off('click', '.close', popUpCloseClick);
+                app.removeOverlay(this);
+            }
+
+            $('#add').on('click', function () {
+                var latlon = {
+                    x: Number($('input[id=x]').val()),
+                    y: Number($('input[id=y]').val()),
+                    z: Number($('input[id=z]').val())
+                }
+
+                var id      = 'test' + idx.toString();
+                var overlay = createOverlay('name', id, latlon);
+                overlay.show();
+            });
+
+            $('#remove-all').on('click', function () {
+                app.removeAllOverlay();
+            });
+        });
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>위치정보 조회 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        #analy-popup .div-popup {
+            width: 500px;
+            height: 280px;
+            top: 60vh;
+            padding-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> 위치정보 조회 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        마우스오버 이벤트를 입력받아 마우스가 올려진 지점의 <strong>위치 정보를 조회</strong>하는 예제입니다.<br>
+        조회되는 위치정보는 마우스 좌표, 3D좌표, 위경도값, 높이, 방위각을 포함합니다.
+    </p>
+</div>
+<div id="map-wrapper">
+    <div id="map"></div>
+    <div id="div-left-menu">
+        <div>
+            <div style="display: inline-flex; position: relative">
+                <button id="analy-bnt" class="btn btn-xs menu-btn">
+                    <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+                <div class="div-btn-info" hidden>
+                    분석 팝업 열기
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="btn-group" id='top-sbar'>
+        <div class='btn-group-vertical-block' id='right-toolbar'>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                     src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                     alt="나침반">
+            </button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                    id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                    id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                    id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+            </button>
+        </div>
+        <div class='btn-group' id='bt-bottom-bar'>
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                   value="위경도: ##.####  ###.#### ">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                   value="고도:####">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                   value="각도: ##">
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu='return false'>
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content" style="margin:0 10px;">
+                <div class="col-sm-12">
+                    <table class="table table-bordered table-condensed">
+                        <colgroup>
+                            <col class="col-xs-2">
+                            <col class="col-xs-7">
+                        </colgroup>
+                        <thead>
+                        <tr>
+                            <th>정보</th>
+                            <th>값</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr>
+                            <td>마우스 좌표</td>
+                            <td><samp id="pixel"></samp></td>
+                        </tr>
+                        <tr>
+                            <td>3D 좌표</td>
+                            <td><samp id="three"></samp></td>
+                        </tr>
+                        <tr>
+                            <td>위경도</td>
+                            <td><samp id="longlat"></samp></td>
+                        </tr>
+                        <tr>
+                            <td>높이</td>
+                            <td><samp id="height"></samp></td>
+                        </tr>
+                        <tr>
+                            <td>방위각</td>
+                            <td>
+                                <samp id="rotate"></samp>
+                                <img id="compass-image"
+                                     src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                                     alt="">
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    const strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script>
+    //라이센스 인증
+    GeOnDT.ready(function () {
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////// 지도 기본세팅 ////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        const app = new GeOnDT.U3dAPP({
+            containername: 'map', //+ U3dApp(지도영역)의 div ID, *필수 입력
+        });
+        app.setHomePosition(126.9395, 37.52, 450, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+        app.updateHomePosition();
+        app.createloadingBar('load');
+        app.on('change', updatePosData);
+
+        //이미지 레이어 생성
+        const layer = new GeOnDT.image.U3dImageXYZLayer({
+            name: 'satellite',  //+ 레이어 이름, default : Guid() : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldsaturl,  //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true //+ Y축 반전 여부, default : false
+        });
+        app.addLayer(layer);
+        //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+        app.setNameBaseLayer('satellite');
+        app.showLayer('satellite', true);
+        app.endloadingBar();
+
+        //+ 고도 layer
+        const  terrainLayer = new GeOnDT.terrain.U3dHeightXYZLayer({
+            name: 'Korea Terrain', //+ 레이어 이름, default : Guid() : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            ext: '.umf',  //+ 파일 확장자
+            reverseY: true, //+ X축 반전 여부, default : false
+            minlevel: 9, //+ 가시화 최소 레벨
+            maxlevel: 17, //+ 가시화 최대 레벨
+            useproxy: false, //+ 프록시 사용 여부, default : faLse
+        });
+
+        app.addLayer(terrainLayer);
+        app.showLayer('Korea Terrain', true);
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////// events 등록 /////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        const appChangeEvn = app.on('change', moveEnd);
+        const appMoveEvn = app.on('mousemove', mousemove);
+        const appClickEvn = app.on('click', click);
+
+        //이벤트 종료시 unkey를 사용합니다.
+        //app.off('change', appChangeEvn);
+        //app.off('mousemove', appMoveEvn);
+        //app.off('click', appClickEvn);
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////// function 선언 ///////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+        async function click(event) {
+            const pos3d = app.closestPointAtPixel(event, true); //+  X, Y, Z  좌표
+            if (pos3d) {
+                const geographic = app.vector3ToGeoGraphic(pos3d);
+                const google = app._drawArg.getWorldToGoogle(pos3d.x, pos3d.y);
+                console.log("=======================================================");
+                console.log("3D월드 좌표계:");
+                console.log('X:' + pos3d.x.toFixed(1) + ',  Y:' + pos3d.y.toFixed(1) + ',  Z:' + pos3d.z);
+                console.log("위경도 좌표계:");
+                console.log('X:' + geographic.x.toFixed(4) + ',  Y:' + geographic.y.toFixed(4) + ',  Z:' + geographic.z);
+                console.log("=======================================================");
+                try {
+                    const data = await getHeightToServer(google.x, google.y, 17);
+                    console.time('getHeight');
+                    console.table({
+                        sampled : data.sampled,
+                        skippedPointCount : data.skippedPointCount,
+                        invalidPointCount: data.invalidPointCount
+                    })
+                    console.info(data.skippedPoints)
+                    console.info(data.invalidPoints)
+
+                    console.table(
+                        data.results.map(r => ({
+                            x: r.x,
+                            y: r.y,
+                            level: r.level,
+                            height: r.height === null ?  r.warn : r.height
+                        }))
+                    );
+                    console.timeEnd('getHeight')
+
+                } catch (e) {
+                    console.error(e);
+                }
+
+            }
+        }
+        const demUrl = 'https://dt-data.mappick.co.kr/ServiceData/dem/DEM_CS/Korean_peninsula/';
+        function getHeightToServer (x, y, level, crs = null) {
+            const  url= "https://3d-api.geon.kr/dem/getHeight"
+            const testNum = 5010;
+            const points = []
+            const origin = new app._THREE.Vector2(x, y);
+            points.push(origin.clone()); // 원점 넣기
+            for(let i=0; i < testNum; i++ ) {
+                const point = origin.clone().add(new app._THREE.Vector2().random().multiplyScalar(5000));
+                points.push(point)
+            }
+            points.push({x:null, y: 1}) // 오류 검사
+            points.push({x:'1234', y: 1}) // 오류 검사
+            const data = {
+                url: demUrl,
+                crs : crs,
+                level: level,
+                points: points
+            }
+            return new Promise((resolve, reject) => {
+                $.ajax({
+                    url,
+                    type: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify(data),
+                    success: function (data) {
+                        resolve(data);
+                    },
+                    error: function (xhr, status, error) {
+                        console.error("요청 실패:", status, error);
+                        reject(error);
+                    }
+                });
+            });
+        }
+
+
+        //+ 마우스 클릭 event function / mousemove event 등록에 사용
+        function mousemove(event) {
+            //2D픽셀, 마우스 좌표
+            $('#pixel').html('X: ' + event.x + ', Y: ' + event.y);
+            //3D좌표
+            const pos3d = app.closestPointAtPixel(event, true); //+  X, Y, Z  좌표
+            if (pos3d) {
+                $('#three').html('X:' + pos3d.x.toFixed(1) + ',  Y:' + pos3d.y.toFixed(1) + ',  Z:' + pos3d.z.toFixed(2));
+            }
+        }
+
+        //+ change event 등록에 사용되는 function
+        function moveEnd(e) {
+            const info = app.getCameraState();//+ 카메라 상태 얻기
+            const rad = info.azimuth; //+ 방위각, 바닥면 (XY Plane)에서 다뤄지는 각도
+
+
+            //+ 방위각 - 해당 이미지 각도에 맞춰 회전하기, transform: 'rotate( -0 rad)'
+            const value = 'rotate(' + -rad + 'rad)';
+            $('#compass-image').css({transform: value});
+
+            //+ 각도
+            let deg = -rad * 180 / Math.PI;
+            if (deg < 0) deg += 360;
+
+            //+ 방위각 각도 출력
+            const degText = '각도: ' + deg.toFixed(0) + '°';
+            $('#rotate').html(degText);
+
+            //+ 위경도 값 출력
+            const geoText = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+            $('#longlat').html(geoText);
+
+            //+ 높이 값 출력
+            const heightText = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+            $('#height').html(heightText);
+        }
+
+        window.app = app;
+    });
+</script>
+</body>
+</html>

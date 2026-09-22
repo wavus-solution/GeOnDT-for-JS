@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>고도제한 분석 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        #analy-popup .div-popup {
+            width: 350px;
+            height: 180px;
+            top: 70vh;
+            padding-bottom: 10px;
+        }
+
+        .filter-state {
+            width: 300px;
+            min-height: 30px;
+            padding: 3px 10px;
+            background-color: rgba(128, 127, 127, 0.34);
+            border: 1px solid rgba(152, 152, 152, 0.47);
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> 고도제한 분석 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        분석 필터를 생성해 <strong>객체의 고도가 제한 영역의 고도값을 초과한는지 분석</strong>하는 예제입니다.<br>
+        마우스 클릭을 통해 밑 도형을 그리고 이를 기반으로 분석 필터를 생성합니다.
+        초과 되는 높이점, 얼마나 초과하는 지, 초과되는 전체 객체 수를 분석할 수 있습니다.
+    </p>
+</div>
+<div id="map-wrapper">
+    <div id="map"></div>
+    <div id="div-left-menu">
+        <div>
+            <div style="display: inline-flex; position: relative">
+                <button id="analy-bnt" class="btn btn-xs menu-btn">
+                    <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+                <div class="div-btn-info" hidden>
+                    분석 팝업 열기
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="btn-group" id='top-sbar'>
+        <div class='btn-group-vertical-block' id='right-toolbar'>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                     src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                     alt="나침반">
+            </button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                    id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                    id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                    id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+            </button>
+        </div>
+        <div class='btn-group' id='bt-bottom-bar'>
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                   value="위경도: ##.####  ###.#### ">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                   value="고도:####">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                   value="각도: ##">
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu='return false'>
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content" style="margin:0 10px;">
+                <div class="btn btn-default btn-sm btn-draw" style="margin-bottom: 20px">그리기</div>
+                <button class="btn btn-default btn-sm btn-clear" style="margin-bottom: 20px">초기화</button>
+                <br>
+                <label>[분석 결과]</label>
+                <div class="filter-state"></div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script>
+    //+ 라이센스 인증
+    GeOnDT.ready(function () {
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// 지도 기본세팅 /////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        var app = new GeOnDT.U3dAPP({
+            containername: 'map' //+ U3dApp(지도영역)의 div ID, *필수 입력
+        });
+        app.setHomePosition(126.752, 35.578, 1500, 0, 45); //경도, 위도, 높이, 방위각, 고도각
+        app.updateHomePosition(); //+ home position 수정
+        app.createloadingBar('load');
+        app.on('change', updatePosData);
+
+        //이미지 레이어 생성
+        let layer = new GeOnDT.image.U3dImageXYZLayer({
+            name: 'base', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldsaturl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+        });
+        app.addLayer(layer);
+
+        // app.addLayer(layer);
+        //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+        app.setNameBaseLayer('base');
+        app.showImageLayer('base', true);
+        app.endloadingBar();
+
+        const terrainLayer = new GeOnDT.terrain.U3dHeightXYZLayer({
+            name: 'Korea Terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            ext: '.umf', //+ 파일 확장자,  *필수 입력
+            reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false), *필수 입력
+            minlevel: 9,  //+ 가시화 최소 레벨
+            maxlevel: 17, //+ 가시화 최대 레벨
+            useproxy: false //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+          });
+
+        app.addLayer(terrainLayer);
+        app.showLayer('Korea Terrain', true);
+
+        //+ WFS 모델
+        var wfsModel;
+        wfsModel = new GeOnDT.model.U3dModelWFSLayer({
+            name: 'WFS Model', //+ WFS 3D 모델 레이어 이름, defaultValue(opt.name, Guid())  : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            layername: layerInfo.wfs_korea.layername, //+ 레이어 이름, *필수 입력
+            baseurl: layerInfo.wfs_korea.baseurl,  //+ baseurl 지도 서비스 기본 URL, *필수 입력
+            fieldfloor: layerInfo.wfs_korea.fieldfloor, //+ 필드 층 수
+            fieldheightfloor: layerInfo.wfs_korea.fieldheightfloor,
+            floorheight: layerInfo.wfs_korea.floorheight, //+ 필드 층 높이
+            fieldlabel: layerInfo.wfs_korea.fieldlabel,  //+ 필드 라벨
+            transperent: true, //+ 투명화 여부
+            minlevel: 17, //+ 가시화 최소레벨,defaultValue(opt.minlevel, 17)
+            drawline: false, //+ WFS 모델에 테투리 추가 여부
+            opacity: 1, //+ 투명화 여부 true 일 경우, 투명도 설정값으로 적용
+            version: '1.0.0',
+            textureurl: './image/buld/buld_texture_3.jpg', //+ 텍스처 url, defaultValue(opt.textureurl, undefined)
+            usetexture: true,
+            useproxy:  (window.location.hostname !== 'localhost')
+        });
+
+        app.addLayer(wfsModel);
+        app.showLayer('WFS Model', true);
+
+        let analy = app.getAnalysis('HeightLimit');
+        analy.active();
+        let draw = new GeOnDT.UDraw();
+        draw.setApp(app);
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////// event 등록 //////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        //+ 마우스 더블 클릭시 overlay 생성에 필요한 좌표값 전달
+        draw.on('end', function (e) {
+            let geom = e.data.getGeometry();
+            let coords = geom.getCoordinates()[0];
+            let point = coords[coords.length - 2];
+            createOverlay(e.data.getId(), {x: point[0], y: point[1]});
+            //+ draw 비활성화
+            draw.deactive();
+            //+ [그리기] 버튼 클릭 활성화
+            $('.btn-draw').removeClass('active');
+        })
+
+        //+ [그리기] 버튼 클릭시 동작하는 function
+        $('.btn-draw').on('click', function () {
+            toast('화면을 클릭하여 제한 영역을 그리세요.\n더블 클릭으로 그리기를 종료합니다.')
+            //+ 이전 draw 작업 초기화
+            draw.clear();
+            //+ draw Type - Polygon으로 지정
+            draw.setGeometryType('Polygon');
+            //+ draw 활성화
+            draw.active();
+            //+ [그리기] 버튼 클릭 비활성화
+            $(this).addClass('active');
+        })
+
+        $('.btn-clear').on('click', function () {
+            let analy = app.getAnalysis('HeightLimit');
+            if(analy) {
+                draw.clear();
+                analy.removeFilterAll();
+                app.removeAllPOI();
+                const div = document.querySelector('.filter-state');
+                div.innerHTML = '';
+            }
+        })
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////// fucntion 선언 ///////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+        let overlay;
+
+        //+ overlay create Function
+        function createOverlay(id, latlon) {
+            //+ overlay UI element
+            let html = `
+                    <div class="u3-popup">
+                        <div class="u3-popup-content" style="padding: 20px">
+                             <div class="form-group form-inline form-group-sm">
+                                <label>높이</label>
+                                <input class="form-control input-sm input-height" type="number">
+                                <input type="hidden" value="${id}"/>
+                            </div>
+                            <div class="btn btn-default btn-xs btn-submit">확인</div>
+                            <div class="btn btn-default btn-xs btn-cancel">취소</div>
+                        </div>
+                    </div>`;
+            //+ overlay 생성
+            overlay = new GeOnDT.overlay.U3dOverlay({
+                name: 'inputOverlay', //+ overlay name
+                element: html, //html
+                position: latlon, //위경도 좌표
+                autoAnchor: true //클릭지점에따라 앵커 자동변경
+            });
+            //+ overlay event 등록
+            initOverlayEvent(overlay);
+            app.addOverlay(overlay); //지도에 오버레이 추가
+            overlay.show(); //오버레이 display block
+        }
+
+        //오버레이 이벤트 등록
+        function initOverlayEvent(overlay) {
+            $(overlay.element).on('click', '.btn-submit', submit);
+            $(overlay.element).on('click', '.btn-cancel', cancel);
+        }
+
+        //+ 'btn-submit' [확인] 버튼 클릭시 동작하는 function
+        function submit(e) {
+            let $root = $(e.target).closest('.u3-popup');
+            let fid = $root.find('input[type="hidden"]').val();//+ filter ID
+            let height = Number($root.find('.input-height').val()); //+ 제한 높이
+            let feature = draw.getFeatureById(fid); //+ 지형에 그려진 feature 받아오기
+            let filter = analy.addFilter({
+                id: fid, //+ filter ID
+                geometry: feature.getGeometry(),  //+ 지형에 그려진 feature 좌표값
+                height: height //+ 제한 높이
+            });
+
+            //+ 사용자가 기입한 제한 높이에 해당하는 건물들 POI 생성
+            for (let i = 0; i < filter.result.length; i++) {
+                let poi = createPoi(filter.result[i]);
+                app.addPOI(poi);
+            }
+            //+ filter에 'change' eventListener 추가
+            filter.on('change', function (e) {
+                let poi = createPoi(e.data);
+                app.addPOI(poi);
+                printFilterState();
+            });
+            //+ filter에 걸리는 건물 결과 출력
+            //+ 높이 / 건물수
+            printFilterState();
+            //+ 높이를 입력 받는 overlay 제거
+            removeOverlay();
+
+            //디버그용
+            window.filter = filter;
+            console.log('result>>', filter.result);
+        }
+
+        //+ filter에 해당하는 건물들과 해당 높이부터 초과 높이를 지도상에 출력 하는 POI 생성
+        function createPoi(v) {
+            let over = ((v.groundHeight + v.meshHeight) - v.filterHeight); //초과높이
+            let meshStart = v.meshHeight - over; //건물의 초과높이 시작점
+            //+ 해당 건물 지점에 지도상 표시되는 text
+            let text = meshStart.toFixed(1) + 'm 부터\n' + over.toFixed(1) + 'm 초과';
+
+            return new GeOnDT.geom.U3dPOI({
+                id: v.mesh.uuid,
+                position: app.geographicToVector3({
+                    x: v.center.x, //+ X vector 좌표
+                    y: v.center.y, //+ Y vector 좌표
+                    z: v.groundHeight + v.meshHeight //+ 해당지점 ( 지형높이 + 건물높이 )
+                }),
+                label: text
+            })
+        }
+        //+ overlay [취소] 버튼 클릭시 해당 overlay 제거
+        function cancel(e) {
+            removeOverlay();
+        }
+
+        //오버레이 제거
+        function removeOverlay() {
+            if (overlay !== undefined) {
+                app.removeOverlay(overlay);
+                overlay = undefined;
+            }
+        }
+
+        //+ filter에 해당되는 건물들의 목록을 갱신해주는 function
+        //+ 제한높이 / 결과에 해당 하는 건물 수를 표시해줍니다.
+        function printFilterState() {
+            let $div = $('.filter-state');
+            let filterValues = Object.values(analy.filters);
+            if(filterValues.length === 0) return;
+            let filter = filterValues[filterValues.length - 1];
+            $div.append(`<span>높이 : ${filter.height}</span>
+                        <span>검색수 : ${filter.result.length}</span><br>`);
+        }
+
+        //+ Emap 위성사진 Layer 생성 function
+        function createEmapSatLayer(name) {
+            var maxprocess_image = 5;
+            var key = 'emapsat';
+            var geoextent = [124.281252, 33.276145, 129.563837, 38.593601];
+            var opt = {
+                name: name  //+ layer name
+                , maxprocess: maxprocess_image //+ 최대 process 값
+                , useProxy: true //+ 프록시 사용 여부, defaultValue(opt.useproxy, false)
+                , geoextent: geoextent //+ 영역, defaultValue(opt.geoextent, getEmapGeoExtent_());
+            }
+
+            var layer = app.createEmapSatLayer(opt);
+            return layer;
+        }
+
+        //디버그용
+        window.app = app;
+        window.draw = draw;
+        window.analy = analy;
+    });
+</script>
+</body>
+</html>

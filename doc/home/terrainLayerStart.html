@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>지형 레이어</title>
+</head>
+<body style="padding-top: 0">
+<div class="content">
+    <h2 class="lead"> 1. 시작하기 </h2>
+    <div class="doc">
+        <!------------------------------------------------------------------------------------------------->
+        <div class="explane1" >
+            * TerrainLayer를 시작하기 위해서 우선 생성 옵션 값이 필요합니다. 옵션 값의 자세한 내용은 API 페이지의 TerrainLayer 카테고리를 참고해 주세요.
+        </div>
+        <div class="explane1">
+            * 생성 옵션 값 중 <mark>baseurl, ext(.umf)</mark> 는 꼭 넣어 줘야하는 필수 옵션 값입니다.
+        </div>
+        <label class="code-label">지형 레이어 옵션</label>
+        <div class="code" id="text1-code">
+        </div>
+        <div class="code-text" id="text1" hidden="hidden">
+            const option = {
+                name: 'korea_terrain', // 레이어 이름
+                baseurl: 'https://dt-data.mappick.co.kr/ServiceData/dem/DEM_CS/Korean_peninsula/', // 고도 데이터 URL *필수 입력
+                ext: '.umf', // 파일 확장자, *필수 입력
+                reverseY: true, // X축 반전 여부, default false
+                minlevel: 9,  // 가시화 최소 레벨, default 0
+                maxlevel: 17, // 가시화 최대 레벨, default 19
+                useproxy: false, // 프록시 사용 여부, default false
+            }
+        </div>
+        <!------------------------------------------------------------------------------------------------->
+        <div class="explane1">
+            * TerrainLayer는 <mark><strong>app.createHeightXYZLayer(opt)</strong></mark> 함수를 호출하여 생성합니다.
+        </div>
+        <label class="code-label">지형 레이어 생성</label>
+        <div class="code" id="text2-code">
+        </div>
+        <div class="code-text" id="text2" hidden="hidden">
+            const layer = app.createHeightXYZLayer(option);
+        </div>
+        <!------------------------------------------------------------------------------------------------->
+        <div class="explane1">
+            * 모든 레이어 객체는 생성 후 <mark><strong>.ready()</strong> 또는 <strong>.then()</strong> 을 포함하는 promise 함수를 지원</mark>합니다. 해당 함수를 이용해 후처리를 수행할 수 있습니다.
+        </div>
+        <label class="code-label">지형 레이어 생성 후 이벤트</label>
+        <div class="code" id="text3-code">
+        </div>
+        <div class="code-text" id="text3" hidden="hidden">
+            layer.ready(() => {
+                console.log(name + " create success.");
+            }).then(() => {
+                console.log(name + " create success.");
+            }).catch(function (e) {
+                console.error("work fail : "  + e);
+            }).finally(() => {
+                console.log(name + " create end.");
+            });
+        </div>
+        <!------------------------------------------------------------------------------------------------->
+        <div class="explane1">
+            * 생성된 레이어는 <mark><strong>app.showLayer(layername, true/false)</strong></mark> 함수를 통해 가시화/비가시화가 가능합니다.
+        </div>
+        <label class="code-label">지형 레이어 생성 후 출력</label>
+        <div class="code" id="text4-code">
+        </div>
+        <div class="code-text" id="text4" hidden="hidden">
+            layer.ready(() => {
+                app.showLayer(name, true).then(()=>{
+                    console.log(name + " show.");
+                });
+            }).catch(function (e) {
+                console.error("work fail : "  + e);
+            });
+        </div>
+        <!------------------------------------------------------------------------------------------------->
+    </div>
+</div>
+</body>
+</html>

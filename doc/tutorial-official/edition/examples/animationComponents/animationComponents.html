@@ -1,0 +1,388 @@
+<nav class="animationComponents-rail" data-example-rail aria-label="animationComponents 도구">
+    <button id="analy-bnt" class="rail-button" type="button" data-legacy-toggle-state aria-pressed="false">
+        <span class="rail-icon">▦</span><span>분석</span>
+    </button>
+</nav>
+
+<div id="analy-popup" oncontextmenu="return false" class="legacy-floating-panel legacy-main-feature-panel legacy-migration-panel" style="display:none;">
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <span class="analy-popup-title">드론 애니메이션 테스트 설정</span>
+                <button class="label-popup-control btn btn-default btn-sm popup-exit" type="button">닫기</button>
+            </div>
+            <div class="div-popup-content">
+                <div class="demo-control-panel">
+                    <div id="drone-count" class="control-row">
+                        현재 드론 개수: <span id="drone-count-value">0</span>
+                    </div>
+                    
+                    <div id="land-normal-helper-count" class="control-row">
+                        누적 지면 Helper 수: <span id="land-normal-helper-count-value">0</span>
+                    </div>
+                    
+                    <div class="checkbox">
+                        <label>
+                            <input id="draw-cumulative-route" type="checkbox" checked>
+                            누적 경로 그리기
+                        </label>
+                    </div>
+                    
+                    <div class="checkbox">
+                        <label>
+                            <input id="show-direction-arrow" type="checkbox" checked>
+                            방향 보기
+                        </label>
+                    </div>
+                    
+                    <div class="checkbox">
+                        <label>
+                            <input id="show-frustum-helper" type="checkbox" checked>
+                            촬영 영역(Frustum) 보기
+                        </label>
+                    </div>
+                    <div class="checkbox">
+                        <label>
+                            <input id="show-height-legend" type="checkbox">
+                            고도 범례 표현
+                        </label>
+                    </div>
+                    <div class="checkbox">
+                        <label>
+                            <input id="show-contour" type="checkbox">
+                            등고선 표현
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label for="capture-area-style">촬영 영역 표현</label>
+                        <select class="form-control" id="capture-area-style">
+                            <option value="solid">단색</option>
+                            <option value="gradient">그라데이션</option>
+                            <option value="texture">이미지 텍스처</option>
+                            <option value="mask">항공영상 마스크</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>이동 방식</label>
+                        
+                        <div class="radio">
+                            <label>
+                                <input type="radio" name="move-mode" value="moveSmoothly" checked>
+                                moveSmoothly
+                            </label>
+                        </div>
+                        
+                        <div class="radio">
+                            <label>
+                                <input type="radio" name="move-mode" value="setPosition">
+                                setPosition
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group drone-movement-buttons" role="group" aria-label="전체 드론 이동 제어">
+                        <button class="btn btn-default" id="stop-drone-movement" type="button" aria-pressed="false">드론 정지</button>
+                        <button class="btn btn-default" id="start-drone-movement" type="button" aria-pressed="true" disabled>드론 이동</button>
+                    </div>
+                    <div class="form-group drone-action-buttons">
+                        <button type="button" class="btn btn-default" id="add">추가하기</button>
+                        <button type="button" class="btn btn-default" id="delete">삭제</button>
+                        <button type="button" class="btn btn-default" id="deleteAll">모두 삭제</button>
+                    </div>
+                </div>
+                <div class="frustum-test-panel">
+                    <h3 class="frustum-test-title">드론별 테스트 설정</h3>
+                    <p class="frustum-test-description">
+                        드론을 선택한 뒤 Frustum Helper와 누적 경로 표현을 실시간으로 조절합니다.
+                    </p>
+                    <div class="frustum-test-workspace">
+                        <section class="drone-list-panel" aria-labelledby="drone-list-title">
+                            <h4 id="drone-list-title">추가된 드론</h4>
+                            <div id="drone-list" role="listbox" aria-label="추가된 드론 목록">
+                                <p class="drone-list-empty">추가된 드론이 없습니다.</p>
+                            </div>
+                        </section>
+                        <section class="frustum-settings-panel" aria-labelledby="frustum-settings-title">
+                            <h4 id="frustum-settings-title">Frustum / 경로 설정</h4>
+                            <p id="frustum-settings-empty" class="frustum-settings-empty">
+                                설정할 드론을 목록에서 선택하세요.
+                            </p>
+                            <div id="frustum-settings-controls" hidden>
+                                <div class="frustum-helper-tabs" role="tablist" aria-label="Frustum Helper 유형">
+                                    <button class="frustum-helper-tab is-selected" type="button" role="tab" aria-selected="true" data-frustum-helper-mode="terrain" data-api-help="frustum.helper-create" style="min-width: 200px">
+                                        UFrustumTerrainProjectionHelper
+                                    </button>
+                                    <button class="frustum-helper-tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-frustum-helper-mode="frustum" data-api-help="frustum.standard-helper-create">
+                                        UFrustumHelper
+                                    </button>
+                                </div>
+                                <p id="frustum-helper-mode-description" class="frustum-helper-mode-description">
+                                    실제 지형과 교차하는 촬영 영역을 표시합니다.
+                                </p>
+                                <div class="frustum-control-row">
+                                <label class="frustum-control-label" for="frustum-fov" data-api-help="frustum.camera-info">
+                                        <span>FOV</span>
+                                        <output class="frustum-control-value" data-frustum-output="fov"></output>
+                                    </label>
+                                    <input id="frustum-fov" class="frustum-control" type="range" min="1" max="179" step="1" data-frustum-property="fov">
+                                </div>
+                                <div class="frustum-control-row">
+                                    <label class="frustum-control-label" for="frustum-aspect">
+                                        <span>Aspect</span>
+                                        <output class="frustum-control-value" data-frustum-output="aspect"></output>
+                                    </label>
+                                    <input id="frustum-aspect" class="frustum-control" type="range" min="0.2" max="4" step="0.1" data-frustum-property="aspect">
+                                </div>
+                                <div class="frustum-control-row">
+                                    <label class="frustum-control-label" for="frustum-near">
+                                        <span>Near</span>
+                                        <output class="frustum-control-value" data-frustum-output="near"></output>
+                                    </label>
+                                    <input id="frustum-near" class="frustum-control" type="range" min="0.1" max="100" step="0.1" data-frustum-property="near">
+                                </div>
+                                <div class="frustum-control-row">
+                                    <label class="frustum-control-label" for="frustum-far">
+                                        <span>Far</span>
+                                        <output class="frustum-control-value" data-frustum-output="far"></output>
+                                    </label>
+                                    <input id="frustum-far" class="frustum-control" type="range" min="500" max="20000" step="50" data-frustum-property="far">
+                                </div>
+                                <div class="frustum-control-row">
+                                <label class="frustum-control-label" for="frustum-pitch" data-api-help="frustum.rotation">
+                                        <span>Pitch</span>
+                                        <output class="frustum-control-value" data-frustum-output="pitch"></output>
+                                    </label>
+                                    <input id="frustum-pitch" class="frustum-control" type="range" min="-180" max="180" step="1" data-frustum-property="pitch">
+                                </div>
+                                <div class="frustum-control-row">
+                                    <label class="frustum-control-label" for="frustum-yaw">
+                                        <span>Yaw</span>
+                                        <output class="frustum-control-value" data-frustum-output="yaw"></output>
+                                    </label>
+                                    <input id="frustum-yaw" class="frustum-control" type="range" min="-180" max="180" step="1" data-frustum-property="yaw">
+                                </div>
+                                <div class="frustum-control-row">
+                                    <label class="frustum-control-label" for="frustum-roll">
+                                        <span>Roll</span>
+                                        <output class="frustum-control-value" data-frustum-output="roll"></output>
+                                    </label>
+                                    <input id="frustum-roll" class="frustum-control" type="range" min="-180" max="180" step="1" data-frustum-property="roll">
+                                </div>
+                                <div class="frustum-style-control-group" data-terrain-helper-controls>
+                                    <h5>Helper 품질 / 안정화</h5>
+                                    <p class="frustum-style-control-note">
+                                        지면 영역 관련 값은 실제로 보이는 지면의 모양을 조절합니다. 값을 올리면 더 자세해지지만 계산량이 늘어납니다.
+                                        움직임 관련 값은 프레임 사이 변화를 부드럽게 하지만, 값을 올리면 실제 드론 자세나 지면 변화의 반영이 늦어질 수 있습니다.
+                                        <strong>이 예제는 움직이는 드론에서 높은 안정화를 확인하기 위한 초기 설정을 사용합니다.</strong>
+                                    </p>
+                                    <div class="frustum-control-row">
+                                    <label class="frustum-control-label" for="helper-update-interval" data-api-help="frustum.helper-quality">
+                                            <span>Helper 고정 갱신 주기</span>
+                                            <output class="helper-style-control-value" data-helper-quality-output="updateIntervalMs"></output>
+                                        </label>
+                                        <input id="helper-update-interval" class="helper-quality-control helper-style-range-control" type="range" min="10" max="200" step="5" data-helper-quality-property="updateIntervalMs">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="helper-intersection-steps">
+                                            <span>지면 접촉 위치 정밀도</span>
+                                            <output class="helper-style-control-value" data-helper-quality-output="intersectionSteps"></output>
+                                        </label>
+                                        <input id="helper-intersection-steps" class="helper-quality-control helper-style-range-control" type="range" min="8" max="64" step="4" data-helper-quality-property="intersectionSteps">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="helper-terrain-grid-size">
+                                            <span>지면 영역 확인점 수</span>
+                                            <output class="helper-style-control-value" data-helper-quality-output="terrainStampGridSize"></output>
+                                        </label>
+                                        <input id="helper-terrain-grid-size" class="helper-quality-control helper-style-range-control" type="range" min="3" max="17" step="2" data-helper-quality-property="terrainStampGridSize">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="helper-boundary-refinement-steps">
+                                            <span>지면 외곽선 정밀도</span>
+                                            <output class="helper-style-control-value" data-helper-quality-output="terrainBoundaryRefinementSteps"></output>
+                                        </label>
+                                        <input id="helper-boundary-refinement-steps" class="helper-quality-control helper-style-range-control" type="range" min="0" max="12" step="1" data-helper-quality-property="terrainBoundaryRefinementSteps">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="helper-terrain-intersection-stabilization">
+                                            <span>지면 결과 안정화</span>
+                                            <output class="helper-style-control-value" data-helper-quality-output="terrainIntersectionStabilization"></output>
+                                        </label>
+                                        <input id="helper-terrain-intersection-stabilization" class="helper-quality-control" type="checkbox" data-helper-quality-property="terrainIntersectionStabilization">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="helper-terrain-intersection-median-window">
+                                            <span>최근 측정 비교 개수</span>
+                                            <output class="helper-style-control-value" data-helper-quality-output="terrainIntersectionMedianWindow"></output>
+                                        </label>
+                                        <input id="helper-terrain-intersection-median-window" class="helper-quality-control helper-style-range-control" type="range" min="1" max="31" step="2" data-helper-quality-property="terrainIntersectionMedianWindow">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="helper-terrain-intersection-half-life">
+                                            <span>지면 결과 부드러움 시간</span>
+                                            <output class="helper-style-control-value" data-helper-quality-output="terrainIntersectionHalfLifeMs"></output>
+                                        </label>
+                                        <input id="helper-terrain-intersection-half-life" class="helper-quality-control helper-style-range-control" type="range" min="0" max="500" step="10" data-helper-quality-property="terrainIntersectionHalfLifeMs">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="helper-terrain-intersection-max-lag">
+                                            <span>큰 경계 변화 1회 반영 거리</span>
+                                            <output class="helper-style-control-value" data-helper-quality-output="terrainIntersectionMaxLagDistance"></output>
+                                        </label>
+                                        <input id="helper-terrain-intersection-max-lag" class="helper-quality-control helper-style-range-control" type="range" min="0" max="300" step="5" data-helper-quality-property="terrainIntersectionMaxLagDistance">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="helper-terrain-intersection-hit-persistence">
+                                            <span>지면 영역 변경 확인 시간</span>
+                                            <output class="helper-style-control-value" data-helper-quality-output="terrainIntersectionHitPersistenceMs"></output>
+                                        </label>
+                                        <input id="helper-terrain-intersection-hit-persistence" class="helper-quality-control helper-style-range-control" type="range" min="0" max="300" step="10" data-helper-quality-property="terrainIntersectionHitPersistenceMs">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="helper-temporal-half-life">
+                                            <span>전체 움직임 부드러움</span>
+                                            <output class="helper-style-control-value" data-helper-quality-output="temporalHalfLifeMs"></output>
+                                        </label>
+                                        <input id="helper-temporal-half-life" class="helper-quality-control helper-style-range-control" type="range" min="10" max="1000" step="10" data-helper-quality-property="temporalHalfLifeMs">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="helper-temporal-hysteresis">
+                                            <span>작은 흔들림 무시 거리</span>
+                                            <output class="helper-style-control-value" data-helper-quality-output="temporalHysteresisDistance"></output>
+                                        </label>
+                                        <input id="helper-temporal-hysteresis" class="helper-quality-control helper-style-range-control" type="range" min="0" max="5" step="0.1" data-helper-quality-property="temporalHysteresisDistance">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="helper-temporal-far-smoothing">
+                                            <span>Far 회전 부드러움</span>
+                                            <output class="helper-style-control-value" data-helper-quality-output="temporalFarSmoothingFactor"></output>
+                                        </label>
+                                        <input id="helper-temporal-far-smoothing" class="helper-quality-control helper-style-range-control" type="range" min="0" max="4" step="0.05" data-helper-quality-property="temporalFarSmoothingFactor">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="helper-temporal-snap-gap">
+                                            <span>보정 이력 초기화 시간</span>
+                                            <output class="helper-style-control-value" data-helper-quality-output="temporalSnapGapMs"></output>
+                                        </label>
+                                        <input id="helper-temporal-snap-gap" class="helper-quality-control helper-style-range-control" type="range" min="250" max="5000" step="250" data-helper-quality-property="temporalSnapGapMs">
+                                    </div>
+                                </div>
+                                <div class="frustum-style-control-group">
+                                    <h5>누적 경로 표현</h5>
+                                    <p class="frustum-style-control-note">
+                                        선택한 드론의 경로 스타일과 오래된 경로가 사라지는 거리 기반 Fade를 공개 API로 즉시 변경합니다.
+                                        Fade는 경로 캐시를 삭제하지 않고 최신 위치부터 표시할 구간만 제한합니다.
+                                    </p>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="path-color">
+                                            <span>경로 색상</span>
+                                            <output class="path-style-control-value" data-path-style-output="color"></output>
+                                        </label>
+                                        <input id="path-color" class="path-style-control path-style-color-control" type="color" data-path-style-property="color" data-api-help="frustum.path-style">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="path-opacity">
+                                            <span>경로 투명도</span>
+                                            <output class="path-style-control-value" data-path-style-output="opacity"></output>
+                                        </label>
+                                        <input id="path-opacity" class="path-style-control path-style-range-control" type="range" min="0" max="1" step="0.05" data-path-style-property="opacity" data-api-help="frustum.path-style">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="path-width">
+                                            <span>경로 폭</span>
+                                            <output class="path-style-control-value" data-path-style-output="width"></output>
+                                        </label>
+                                        <input id="path-width" class="path-style-control path-style-range-control" type="range" min="0.5" max="20" step="0.5" data-path-style-property="width" data-api-help="frustum.path-style">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="path-fade-enabled">
+                                            <span>오래된 경로 Fade</span>
+                                            <output class="path-style-control-value" data-path-style-output="fadeEnabled"></output>
+                                        </label>
+                                        <input id="path-fade-enabled" class="path-style-control" type="checkbox" data-path-style-property="fadeEnabled" data-api-help="frustum.path-fade">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="path-max-distance">
+                                            <span>최대 표시 거리</span>
+                                            <output class="path-style-control-value" data-path-style-output="maxDistance"></output>
+                                        </label>
+                                        <input id="path-max-distance" class="path-style-control path-style-range-control" type="range" min="100" max="10000" step="100" data-path-style-property="maxDistance" data-path-fade-dependent data-api-help="frustum.path-fade">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="path-width-fade">
+                                            <span>폭 Fade 비율</span>
+                                            <output class="path-style-control-value" data-path-style-output="widthFade"></output>
+                                        </label>
+                                        <input id="path-width-fade" class="path-style-control path-style-range-control" type="range" min="0" max="1" step="0.05" data-path-style-property="widthFade" data-path-fade-dependent data-api-help="frustum.path-fade">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="path-alpha-fade">
+                                            <span>투명도 Fade 비율</span>
+                                            <output class="path-style-control-value" data-path-style-output="alphaFade"></output>
+                                        </label>
+                                        <input id="path-alpha-fade" class="path-style-control path-style-range-control" type="range" min="0" max="1" step="0.05" data-path-style-property="alphaFade" data-path-fade-dependent data-api-help="frustum.path-fade">
+                                    </div>
+                                </div>
+                                <div class="frustum-style-control-group">
+                                    <h5>Helper 표현</h5>
+                                    <p class="frustum-style-control-note">
+                                        두 Helper가 공통으로 제공하는 공개 setter로 현재 Helper에 즉시 반영합니다.
+                                    </p>
+                                    <div class="frustum-control-row">
+                                    <label class="frustum-control-label" for="helper-line-color" data-api-help="frustum.helper-style">
+                                            <span>옆면/외곽선 색상</span>
+                                            <output class="helper-style-control-value" data-helper-style-output="lineColor"></output>
+                                        </label>
+                                        <input id="helper-line-color" class="helper-style-control helper-style-color-control" type="color" data-helper-style-property="lineColor">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="helper-line-width">
+                                            <span>선 두께</span>
+                                            <output class="helper-style-control-value" data-helper-style-output="lineWidth"></output>
+                                        </label>
+                                        <input id="helper-line-width" class="helper-style-control helper-style-range-control" type="range" min="1" max="10" step="0.5" data-helper-style-property="lineWidth">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="helper-line-opacity">
+                                            <span>선 투명도</span>
+                                            <output class="helper-style-control-value" data-helper-style-output="lineOpacity"></output>
+                                        </label>
+                                        <input id="helper-line-opacity" class="helper-style-control helper-style-range-control" type="range" min="0" max="1" step="0.05" data-helper-style-property="lineOpacity">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="helper-fill-color" data-api-help="frustum.helper-fill">
+                                            <span>지면 영역 면 색상</span>
+                                            <output class="helper-style-control-value" data-helper-style-output="fillColor"></output>
+                                        </label>
+                                        <input id="helper-fill-color" class="helper-style-control helper-style-color-control" type="color" data-helper-style-property="fillColor">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="helper-fill-opacity">
+                                            <span>지면 영역 면 투명도</span>
+                                            <output class="helper-style-control-value" data-helper-style-output="fillOpacity"></output>
+                                        </label>
+                                        <input id="helper-fill-opacity" class="helper-style-control helper-style-range-control" type="range" min="0" max="1" step="0.05" data-helper-style-property="fillOpacity">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="helper-side-color">
+                                            <span>옆면 채움색</span>
+                                            <output class="helper-style-control-value" data-helper-style-output="sideColor"></output>
+                                        </label>
+                                        <input id="helper-side-color" class="helper-style-control helper-style-color-control" type="color" data-helper-style-property="sideColor">
+                                    </div>
+                                    <div class="frustum-control-row">
+                                        <label class="frustum-control-label" for="helper-side-opacity">
+                                            <span>옆면 채움 투명도</span>
+                                            <output class="helper-style-control-value" data-helper-style-output="sideOpacity"></output>
+                                        </label>
+                                        <input id="helper-side-opacity" class="helper-style-control helper-style-range-control" type="range" min="0" max="1" step="0.05" data-helper-style-property="sideOpacity">
+                                    </div>
+                                </div>
+                                <button id="reset-frustum-settings" class="btn btn-default btn-sm" type="button" data-api-help="frustum.helper-create">
+                                    선택 드론 설정 기본값으로 초기화
+                                </button>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>

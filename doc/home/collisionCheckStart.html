@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>충돌 검사</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="충돌-검사">충돌 검사</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-%EC%B6%A9%EB%8F%8C%EC%B2%B4-%EC%A2%85%EB%A5%98%EC%99%80-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">충돌체 종류와 생성하기</a></li>
+<li><a href="#2-%EC%B6%A9%EB%8F%8C%EC%B2%B4-%EC%88%98%EC%A0%95%ED%95%98%EA%B8%B0">충돌체 수정하기</a></li>
+<li><a href="#3-%EC%B6%A9%EB%8F%8C%EC%B2%B4-%EA%B0%80%EC%8B%9C%ED%99%94%ED%95%98%EA%B8%B0">충돌체 가시화하기</a></li>
+<li><a href="#4-%EA%B5%90%EC%B0%A8-%EA%B2%80%EC%82%AC%ED%95%98%EA%B8%B0">교차 검사하기</a></li>
+<li><a href="#5-%EA%B5%90%EC%B0%A8%EC%9C%A8%EA%B3%BC-%EC%98%A4%EC%B0%A8%EC%9C%A8-%ED%99%95%EC%9D%B8%ED%95%98%EA%B8%B0">교차율과 오차율 확인하기</a></li>
+<li><a href="#6-%EC%B6%A9%EB%8F%8C%EC%B2%B4-%EC%A0%9C%EA%B1%B0%EC%99%80-%EB%A9%94%EB%AA%A8%EB%A6%AC-%EC%A0%95%EB%A6%AC%ED%95%98%EA%B8%B0">충돌체 제거와 메모리 정리하기</a></li>
+</ol>
+<div class="document-thumbnail" data-size="medium">
+<figure class="document-image">
+<img src="image/collisionCheckStart/thumbnail.png" alt="프리즘 형태의 영역과 교차하는 드론 충돌체" loading="eager">
+<figcaption>프리즘 형태의 영역과 교차하는 드론 충돌체</figcaption>
+</figure>
+</div>
+<p>충돌 검사는 화면에 표시되는 도형이나 컴포넌트와 별개의 <strong>충돌체(Collider)</strong> 를 만들고, 충돌체끼리 교차하는지와 얼마나 겹치는지를 계산하는 기능입니다.<br><code>GeOnDT.collision</code> 네임스페이스가 충돌체 클래스를 제공하며, 충돌체는 화면에 그려지지 않는 순수 계산 객체입니다.<br>충돌체를 실제로 사용하는 전체 흐름은 <a href="../tutorial-official/collisionCheck.html">객체 교차 검사 실행 예제</a>에서 확인할 수 있습니다.</p>
+<blockquote>
+<ul>
+<li><strong>충돌체와 도형은 별개입니다.</strong> 도형이나 컴포넌트를 이동해도 충돌체는 따라 움직이지 않으므로 <a href="#2-%EC%B6%A9%EB%8F%8C%EC%B2%B4-%EC%88%98%EC%A0%95%ED%95%98%EA%B8%B0">2. 충돌체 수정하기</a>의 API로 직접 반영합니다.</li>
+<li><strong>충돌체의 모든 좌표와 길이는 월드 좌표(EPSG:3857, m) 단위입니다.</strong> 위·경도 좌표는 <code>app.getGeographicToWorld</code>로 변환해 사용합니다.</li>
+<li><strong>여러 충돌체를 하나로 묶어 관리하는 기능은 없습니다.</strong> 파이프를 덮는 구 묶음이나 경로의 선분별 프리즘처럼 여러 충돌체로 근사한 대상은 배열로 직접 보관하고, 이동·검사·해제도 각 충돌체에 대해 수행합니다.</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="1-충돌체-종류와-생성하기">1. 충돌체 종류와 생성하기</h2>
+<p>사용할 수 있는 충돌체는 두 종류입니다.</p>
+<div class="document-table">
+<table>
+<thead><tr><th>충돌체</th><th>형상</th><th>정의 방법</th><th>적합한 대상</th></tr></thead>
+<tbody><tr><td><code>UPolygonCollider</code></td><td>바닥 다각형과 윗면 다각형을 잇는 기둥(프리즘) 또는 Loft</td><td><code>bottom</code>, <code>top</code> 정점 배열</td><td>건물, 구역, Box, 경로 구간, 모델 외곽 근사</td></tr>
+<tr><td><code>USphereCollider</code></td><td>구</td><td><code>position</code>, <code>radius</code></td><td>구체, 파이프 단면, 점 형태의 이동 객체</td></tr></tbody>
+</table>
+</div>
+<p>두 종류는 같은 종류끼리는 물론 서로 다른 종류 사이에서도 교차 검사와 교차율 계산이 가능합니다.<br>하나의 충돌체로 표현하기 어려운 형상은 여러 충돌체로 나눠 근사합니다.<br>예를 들어 꺾이는 경로는 선분마다 프리즘 충돌체를, 파이프는 중심선을 따라 겹치도록 배치한 구 충돌체 묶음을 사용합니다.</p>
+<p>두 충돌체는 공통 생성 옵션을 가집니다.<br><code>position</code>은 이동과 회전의 기준점이며, 생략하면 <code>target</code>의 월드 위치를 사용합니다.<br><code>target</code>은 충돌체가 붙는 대상 객체이며, <code>position</code>을 생략한 <code>setPosition()</code>이 현재 월드 위치를 읽는 데 사용하고 검사 결과에서 대상 객체로 되돌아가는 참조로도 쓰입니다.<br><code>id</code>는 충돌체 식별자이며 생략하면 UUID가 부여됩니다.<br><strong>한 대상에 여러 충돌체를 붙일 때는 서로 다른 <code>id</code>를 지정합니다.</strong></p>
+<h3 id="1-다각형-충돌체-생성하기">1. 다각형 충돌체 생성하기</h3>
+<p><code>UPolygonCollider</code>는 바닥과 윗면 정점 배열을 받습니다.<br><strong>바닥과 윗면의 정점 수는 같고 3개 이상이어야 하며, 조건을 만족하지 않으면 오류 메시지를 출력하고 <code>Error</code>를 던집니다.</strong><br>정점은 <code>{x, y, z}</code> 형태의 월드 좌표이고, Z를 생략한 <code>{x, y}</code>도 허용됩니다.<br>바닥과 윗면의 XY가 같으면 기둥, 윗면이 축소·확대되거나 정점 높이가 다르면 Loft 형상이 됩니다.</p>
+<h4 class="api-heading" id="api">API</h4>
+<p>UPolygonCollider(<code>opt</code>) : 바닥·윗면 다각형으로 기둥 또는 Loft 형태의 충돌체를 생성하는 생성자</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opt</code> (<code>UPolygonColliderCO</code>) : 충돌체 생성 옵션</li>
+<li><code>opt.bottom</code> (<code>Array&lt;Vector2Like | Vector3Like&gt;</code>) : 바닥 다각형 정점 배열 (월드 좌표). 3개 이상. <strong>필수</strong></li>
+<li><code>opt.top</code> (<code>Array&lt;Vector2Like | Vector3Like&gt;</code>) : 윗면 다각형 정점 배열 (월드 좌표). <code>bottom</code>과 정점 수가 같아야 함. <strong>필수</strong></li>
+<li><code>opt.position</code> (<code>Vector3Like</code>) : 이동·회전의 기준점 (월드 좌표). 생략하면 <code>target</code>의 월드 위치, <code>target</code>도 없으면 정점의 평균 위치</li>
+<li><code>opt.target</code> (<code>unknown</code>) : 충돌체가 붙는 대상 객체</li>
+<li><code>opt.id</code> (<code>string</code>) : 충돌체 식별자. 생략하면 UUID</li>
+<li><code>opt.rotation</code> (<code>number | {z: number}</code>) : 입력 정점의 Z축 초기 회전(rad, +X 기준 반시계). 기본값: <code>0</code></li>
+<li><code>opt.precision</code> (<code>number</code>) : Loft 형상의 높이별 단면 계산 정밀도. 기본값: <code>6</code></li>
+</ul>
+</details>
+<p>정점을 직접 계산해 기둥 충돌체를 만드는 예제입니다.<br><code>app</code>은 <code>GeOnDT.U3dAPP</code> 인스턴스입니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> app <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>U3dAPP</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">containername</span><span class="token operator">:</span> <span class="token string">'map'</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 기준점을 중심으로 가로·세로 60m, 높이 40m인 사각 기둥을 만듭니다.</span>
+<span class="token keyword">const</span> center <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">getGeographicToWorld</span><span class="token punctuation">(</span><span class="token number">126.9393</span><span class="token punctuation">,</span> <span class="token number">37.5194</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> half <span class="token operator">=</span> <span class="token number">30</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> bottom <span class="token operator">=</span> <span class="token punctuation">[</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> center<span class="token punctuation">.</span>x <span class="token operator">-</span> half<span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> center<span class="token punctuation">.</span>y <span class="token operator">-</span> half<span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> center<span class="token punctuation">.</span>z<span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> center<span class="token punctuation">.</span>x <span class="token operator">+</span> half<span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> center<span class="token punctuation">.</span>y <span class="token operator">-</span> half<span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> center<span class="token punctuation">.</span>z<span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> center<span class="token punctuation">.</span>x <span class="token operator">+</span> half<span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> center<span class="token punctuation">.</span>y <span class="token operator">+</span> half<span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> center<span class="token punctuation">.</span>z<span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> center<span class="token punctuation">.</span>x <span class="token operator">-</span> half<span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> center<span class="token punctuation">.</span>y <span class="token operator">+</span> half<span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> center<span class="token punctuation">.</span>z<span class="token punctuation">}</span>
+<span class="token punctuation">]</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> top <span class="token operator">=</span> bottom<span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">point</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token operator">...</span>point<span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> point<span class="token punctuation">.</span>z <span class="token operator">+</span> <span class="token number">40</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> boxCollider <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>collision<span class="token punctuation">.</span>UPolygonCollider</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">id</span><span class="token operator">:</span> <span class="token string">'box-collider'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">position</span><span class="token operator">:</span> center<span class="token punctuation">,</span>
+    bottom<span class="token punctuation">,</span>
+    top
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>화면 도형과 같은 형상의 충돌체가 필요하면 도형이 계산한 정점을 그대로 사용합니다.<br><code>U3dPolygonLoftGeometry</code>는 <code>getBottomSlice()</code>와 <code>getTopSlice()</code>로 바닥·윗면 정점(월드 좌표)을 제공하며, Loft 객체 생성은 <a href="polygonLoftGeometry.html#1-loft-%EA%B0%9D%EC%B2%B4-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">3D Geometry 시작하기 - Loft 객체 생성하기</a>에서 설명합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token comment">// polygonLoft는 U3dVectorLayer에 등록한 U3dPolygonLoftGeometry입니다.</span>
+<span class="token keyword">const</span> loftCollider <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>collision<span class="token punctuation">.</span>UPolygonCollider</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">id</span><span class="token operator">:</span> <span class="token string">'loft-collider'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">target</span><span class="token operator">:</span> polygonLoft<span class="token punctuation">,</span>
+    <span class="token literal-property property">bottom</span><span class="token operator">:</span> polygonLoft<span class="token punctuation">.</span><span class="token function">getBottomSlice</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">top</span><span class="token operator">:</span> polygonLoft<span class="token punctuation">.</span><span class="token function">getTopSlice</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-구-충돌체-생성하기">2. 구 충돌체 생성하기</h3>
+<p><code>USphereCollider</code>는 중심 위치와 반지름으로 정의합니다.<br><strong><code>radius</code>는 0보다 큰 유한한 숫자여야 하며, 그렇지 않으면 오류 메시지를 출력하고 <code>Error</code>를 던집니다.</strong></p>
+<p><code>U3dSphere</code>나 <code>U3dPipe</code> 같은 도형의 반지름 옵션은 실제 미터이고 충돌체 반지름은 EPSG:3857 월드 단위이므로, <mark>도형과 크기를 맞추려면 위도에 따라 <code>1 / cos(위도)</code> 배율을 곱합니다.</mark></p>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>USphereCollider(<code>opt</code>) : 중심과 반지름으로 구 형태의 충돌체를 생성하는 생성자</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opt</code> (<code>object</code>) : 충돌체 생성 옵션</li>
+<li><code>opt.radius</code> (<code>number</code>) : 반지름 (월드 단위). 0보다 큰 유한한 숫자. 기본값: <code>1</code></li>
+<li><code>opt.position</code> (<code>Vector3Like</code>) : 구의 중심 (월드 좌표). 생략하면 <code>target</code>의 월드 위치</li>
+<li><code>opt.target</code> (<code>unknown</code>) : 충돌체가 붙는 대상 객체</li>
+<li><code>opt.id</code> (<code>string</code>) : 충돌체 식별자. 생략하면 UUID</li>
+</ul>
+</details>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> lat <span class="token operator">=</span> <span class="token number">37.5194</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> radiusMeters <span class="token operator">=</span> <span class="token number">25</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 실제 미터를 EPSG:3857 월드 단위로 바꾸는 배율입니다.</span>
+<span class="token keyword">const</span> worldScale <span class="token operator">=</span> <span class="token number">1</span> <span class="token operator">/</span> Math<span class="token punctuation">.</span><span class="token function">cos</span><span class="token punctuation">(</span>lat <span class="token operator">*</span> Math<span class="token punctuation">.</span><span class="token constant">PI</span> <span class="token operator">/</span> <span class="token number">180</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> sphereCollider <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>collision<span class="token punctuation">.</span>USphereCollider</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">id</span><span class="token operator">:</span> <span class="token string">'sphere-collider'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">position</span><span class="token operator">:</span> app<span class="token punctuation">.</span><span class="token function">getGeographicToWorld</span><span class="token punctuation">(</span><span class="token number">126.9400</span><span class="token punctuation">,</span> lat<span class="token punctuation">,</span> <span class="token number">20</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">radius</span><span class="token operator">:</span> radiusMeters <span class="token operator">*</span> worldScale
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="2-충돌체-수정하기">2. 충돌체 수정하기</h2>
+<p>충돌체는 생성 후 위치, 회전, 형상, 반지름을 바꿀 수 있습니다.<br>이동하는 대상은 매 검사 전에 <code>setPosition()</code> 또는 <code>setTransform()</code>으로 현재 위치를 반영하며, 형상이 바뀌지 않는 한 충돌체를 다시 만들지 않습니다.</p>
+<p><code>setPosition()</code>은 두 충돌체가 공통으로 제공하고, <code>UPolygonCollider</code>는 Z축 회전을 추가로 다룹니다.<br><code>setTransform()</code>은 위치와 Z축 회전을 한 번에 반영합니다.<br>회전은 라디안이며 +X 기준 반시계 방향이므로, 이동 방향 벡터의 <code>Math.atan2(dy, dx)</code> 값을 전달하면 충돌체의 로컬 +X가 진행 방향을 향합니다.</p>
+<p><code>setShape()</code>는 바닥·윗면 정점을 새 형상으로 교체합니다.<br>성공하면 기준점은 <code>target</code>의 월드 위치(없으면 새 정점의 평균)로, 회전은 <code>0</code>으로 재설정됩니다.<br>검증 규칙은 생성 시와 같고, 실패하면 기존 형상을 유지하고 <code>false</code>를 반환합니다.</p>
+<h4 class="api-heading" id="api-2">API</h4>
+<p>UCollider.setPosition(<code>position</code>) : 충돌체의 위치를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>position</code> (<code>WorldPositionVector3</code>) : 새 위치 (월드 좌표). 생략하면 <code>target</code>의 현재 월드 위치, <code>target</code>도 없으면 변경하지 않음</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-3">API</h4>
+<p>UCollider.getPosition() : 충돌체의 현재 위치 복사본을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>THREE.Vector3</code>) : 현재 위치 (월드 좌표). 설정된 위치가 없으면 <code>target</code>의 현재 월드 위치</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-4">API</h4>
+<p>UCollider.getAABB() : 충돌체를 감싸는 축 정렬 경계 상자를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>THREE.Box3</code>) : 월드 좌표 기준 경계 상자</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-5">API</h4>
+<p>UPolygonCollider.setTransform(<code>position</code>, <code>rotation</code>) : 충돌체의 위치와 Z축 회전을 함께 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>position</code> (<code>WorldPositionVector3</code>) : 새 위치 (월드 좌표). 생략하면 <code>target</code>의 현재 월드 위치, <code>target</code>도 없으면 위치 유지</li>
+<li><code>rotation</code> (<code>number | {z: number}</code>) : Z축 회전(rad, +X 기준 반시계). 생략하면 회전 유지</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-6">API</h4>
+<p>UPolygonCollider.setRotation(<code>rotation</code>) : 위치를 유지한 채 Z축 회전만 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>rotation</code> (<code>number | {z: number}</code>) : Z축 회전(rad, +X 기준 반시계). <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-7">API</h4>
+<p>UPolygonCollider.getRotation() : 현재 Z축 회전을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>number</code>) : Z축 회전(rad, +X 기준 반시계)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-8">API</h4>
+<p>UPolygonCollider.lookAt(<code>point</code>) : 현재 위치에서 대상 지점을 바라보도록 Z축 회전만 맞추는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>point</code> (<code>Vector2Like</code>) : 바라볼 지점 (월드 좌표). 현재 위치와 XY가 겹치면 회전을 바꾸지 않음. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-9">API</h4>
+<p>UPolygonCollider.setShape(<code>bottom</code>, <code>top</code>) : 바닥·윗면 정점을 새 형상으로 교체하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>bottom</code> (<code>Array&lt;Vector2Like | Vector3Like&gt;</code>) : 새 바닥 정점 배열 (월드 좌표). <strong>필수</strong></li>
+<li><code>top</code> (<code>Array&lt;Vector2Like | Vector3Like&gt;</code>) : 새 윗면 정점 배열 (월드 좌표). <code>bottom</code>과 정점 수가 같아야 함. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>boolean</code>) : 적용 여부. 검증에 실패하면 기존 형상을 유지하고 <code>false</code></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-10">API</h4>
+<p>UPolygonCollider.getShape() : 현재 바닥·윗면 정점의 복사본을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>{bottom: Array&lt;THREE.Vector3&gt;, top: Array&lt;THREE.Vector3&gt;}</code>) : 바닥·윗면 정점 배열 (월드 좌표)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-11">API</h4>
+<p>USphereCollider.setRadius(<code>radius</code>) : 구 충돌체의 반지름을 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>radius</code> (<code>number</code>) : 새 반지름 (월드 단위). 0보다 큰 유한한 숫자. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>boolean</code>) : 적용 여부. 잘못된 값이면 기존 값을 유지하고 <code>false</code></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-12">API</h4>
+<p>USphereCollider.getRadius() : 현재 반지름을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>number</code>) : 반지름 (월드 단위)</li>
+</ul>
+</details>
+<h3 id="1-위치와-회전-수정-예제">1. 위치와 회전 수정 예제</h3>
+<p><a href="#1-%EC%B6%A9%EB%8F%8C%EC%B2%B4-%EC%A2%85%EB%A5%98%EC%99%80-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">1. 충돌체 종류와 생성하기</a>에서 만든 <code>boxCollider</code>와 <code>sphereCollider</code>를 이동시키는 예제입니다.<br><code>previous</code>와 <code>next</code>는 대상 객체의 이전·현재 월드 좌표입니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token comment">// 구 충돌체는 위치만 갱신합니다.</span>
+sphereCollider<span class="token punctuation">.</span><span class="token function">setPosition</span><span class="token punctuation">(</span>next<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 다각형 충돌체는 진행 방향을 함께 반영합니다.</span>
+<span class="token keyword">const</span> dx <span class="token operator">=</span> next<span class="token punctuation">.</span>x <span class="token operator">-</span> previous<span class="token punctuation">.</span>x<span class="token punctuation">;</span>
+<span class="token keyword">const</span> dy <span class="token operator">=</span> next<span class="token punctuation">.</span>y <span class="token operator">-</span> previous<span class="token punctuation">.</span>y<span class="token punctuation">;</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span>Math<span class="token punctuation">.</span><span class="token function">hypot</span><span class="token punctuation">(</span>dx<span class="token punctuation">,</span> dy<span class="token punctuation">)</span> <span class="token operator">></span> Number<span class="token punctuation">.</span><span class="token constant">EPSILON</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    boxCollider<span class="token punctuation">.</span><span class="token function">setTransform</span><span class="token punctuation">(</span>next<span class="token punctuation">,</span> Math<span class="token punctuation">.</span><span class="token function">atan2</span><span class="token punctuation">(</span>dy<span class="token punctuation">,</span> dx<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+    boxCollider<span class="token punctuation">.</span><span class="token function">setPosition</span><span class="token punctuation">(</span>next<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token comment">// 특정 지점을 바라보게 하려면 lookAt을 사용합니다.</span>
+boxCollider<span class="token punctuation">.</span><span class="token function">lookAt</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> center<span class="token punctuation">.</span>x <span class="token operator">+</span> <span class="token number">100</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> center<span class="token punctuation">.</span>y<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>boxCollider<span class="token punctuation">.</span><span class="token function">getRotation</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// rad</span>
+</code></pre>
+<h3 id="2-형상과-반지름-수정-예제">2. 형상과 반지름 수정 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token comment">// 기둥의 높이를 40m에서 80m로 바꿉니다.</span>
+<span class="token keyword">const</span> <span class="token punctuation">{</span><span class="token literal-property property">bottom</span><span class="token operator">:</span> currentBottom<span class="token punctuation">}</span> <span class="token operator">=</span> boxCollider<span class="token punctuation">.</span><span class="token function">getShape</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> tallerTop <span class="token operator">=</span> currentBottom<span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">point</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> point<span class="token punctuation">.</span>x<span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> point<span class="token punctuation">.</span>y<span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> point<span class="token punctuation">.</span>z <span class="token operator">+</span> <span class="token number">80</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>boxCollider<span class="token punctuation">.</span><span class="token function">setShape</span><span class="token punctuation">(</span>currentBottom<span class="token punctuation">,</span> tallerTop<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">warn</span><span class="token punctuation">(</span><span class="token string">'형상 교체에 실패해 기존 형상을 유지합니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token comment">// 구의 반지름을 바꿉니다.</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>sphereCollider<span class="token punctuation">.</span><span class="token function">setRadius</span><span class="token punctuation">(</span><span class="token number">40</span> <span class="token operator">*</span> worldScale<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">warn</span><span class="token punctuation">(</span><span class="token string">'반지름이 유효하지 않아 기존 값을 유지합니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<hr>
+<h2 id="3-충돌체-가시화하기">3. 충돌체 가시화하기</h2>
+<p>충돌체는 화면에 그려지지 않으므로, 형상과 위치를 확인하려면 <code>createColliderHelper()</code>로 와이어프레임 헬퍼를 만들어 Scene에 추가합니다.<br>헬퍼는 <code>THREE.Object3D</code>이며, 사용자 객체를 넣는 <code>app.getExternalScene()</code>이 반환하는 Scene에 <code>add()</code>로 추가하면 표시됩니다.</p>
+<p><strong>헬퍼는 생성 시점의 형상을 그리므로 충돌체를 이동하거나 형상을 바꾼 뒤에는 <code>updateColliderHelper()</code>로 다시 그려야 합니다.</strong><br>같은 헬퍼 객체를 매 프레임 갱신해도 되며 헬퍼를 다시 만들 필요는 없습니다.<br>표시를 끝낼 때는 Scene에서 제거하고 <code>disposeDebugObject()</code>로 헬퍼가 소유한 지오메트리와 재질을 해제합니다.<br>아래 세 API는 <code>USphereCollider</code>도 같은 이름과 시그니처로 제공합니다.</p>
+<h4 class="api-heading" id="api-13">API</h4>
+<p>UPolygonCollider.createColliderHelper(<code>opt</code>) : 충돌체 형상을 그리는 와이어프레임 헬퍼 객체를 생성하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opt</code> (<code>object</code>) : 헬퍼 옵션</li>
+<li><code>opt.color</code> (<code>ColorRepresentation</code>) : 선 색상. 기본값: <code>UPolygonCollider</code>는 <code>0x00ff88</code>, <code>USphereCollider</code>는 <code>0x4dc3ff</code></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>THREE.Object3D</code>) : 헬퍼 객체. Scene에 직접 추가</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-14">API</h4>
+<p>UPolygonCollider.updateColliderHelper(<code>debugObject</code>, <code>opt</code>) : 충돌체의 현재 형상으로 헬퍼를 다시 그리는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>debugObject</code> (<code>THREE.Object3D</code>) : <code>createColliderHelper()</code>가 반환한 헬퍼 객체. <strong>필수</strong></li>
+<li><code>opt</code> (<code>object</code>) : 헬퍼 옵션</li>
+<li><code>opt.color</code> (<code>ColorRepresentation</code>) : 선 색상. 기본값: <code>UPolygonCollider</code>는 <code>0x00ff88</code>, <code>USphereCollider</code>는 <code>0x4dc3ff</code></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>THREE.Object3D</code>) : 갱신된 헬퍼 객체</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-15">API</h4>
+<p>UPolygonCollider.disposeDebugObject(<code>debugObject</code>) : 헬퍼 객체가 소유한 지오메트리와 재질을 해제하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>debugObject</code> (<code>THREE.Object3D</code>) : 해제할 헬퍼 객체. <strong>필수</strong></li>
+</ul>
+</details>
+<h3 id="1-헬퍼-표시-갱신-제거-예제">1. 헬퍼 표시, 갱신, 제거 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> scene <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">getExternalScene</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 표시</span>
+<span class="token keyword">const</span> boxHelper <span class="token operator">=</span> boxCollider<span class="token punctuation">.</span><span class="token function">createColliderHelper</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> sphereHelper <span class="token operator">=</span> sphereCollider<span class="token punctuation">.</span><span class="token function">createColliderHelper</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token number">0xff4d4f</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+scene<span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span>boxHelper<span class="token punctuation">)</span><span class="token punctuation">;</span>
+scene<span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span>sphereHelper<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 충돌체를 이동하거나 형상을 바꾼 뒤 다시 그립니다.</span>
+boxCollider<span class="token punctuation">.</span><span class="token function">setPosition</span><span class="token punctuation">(</span>next<span class="token punctuation">)</span><span class="token punctuation">;</span>
+boxCollider<span class="token punctuation">.</span><span class="token function">updateColliderHelper</span><span class="token punctuation">(</span>boxHelper<span class="token punctuation">)</span><span class="token punctuation">;</span>
+sphereCollider<span class="token punctuation">.</span><span class="token function">updateColliderHelper</span><span class="token punctuation">(</span>sphereHelper<span class="token punctuation">,</span> <span class="token punctuation">{</span><span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token number">0x22c55e</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 제거</span>
+scene<span class="token punctuation">.</span><span class="token function">remove</span><span class="token punctuation">(</span>boxHelper<span class="token punctuation">)</span><span class="token punctuation">;</span>
+scene<span class="token punctuation">.</span><span class="token function">remove</span><span class="token punctuation">(</span>sphereHelper<span class="token punctuation">)</span><span class="token punctuation">;</span>
+boxCollider<span class="token punctuation">.</span><span class="token function">disposeDebugObject</span><span class="token punctuation">(</span>boxHelper<span class="token punctuation">)</span><span class="token punctuation">;</span>
+sphereCollider<span class="token punctuation">.</span><span class="token function">disposeDebugObject</span><span class="token punctuation">(</span>sphereHelper<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="4-교차-검사하기">4. 교차 검사하기</h2>
+<p>교차 여부는 <code>intersects()</code>로 판정합니다.<br><code>UPolygonCollider</code>끼리, <code>USphereCollider</code>끼리, 그리고 두 종류 사이에서 동작하며 지원하지 않는 객체를 넘기면 <code>false</code>를 반환합니다.<br>판정 비용이 작으므로 이동하는 대상은 매 프레임 호출해도 됩니다.</p>
+<p><code>intersectsSegment()</code>는 충돌체 없이 선분과 교차하는지 판정합니다.<br>레이 캐스팅처럼 시작점과 끝점만 있는 경우나, 반지름을 주어 굵기가 있는 경로가 충돌체를 지나가는지 확인할 때 사용합니다.</p>
+<h4 class="api-heading" id="api-16">API</h4>
+<p>UCollider.intersects(<code>other</code>) : 다른 충돌체와 교차하는지 판정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>other</code> (<code>UCollider</code>) : 비교할 충돌체. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>boolean</code>) : 교차하면 <code>true</code>. 지원하지 않는 충돌체 종류이면 <code>false</code></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-17">API</h4>
+<p>UCollider.intersectsSegment(<code>start</code>, <code>end</code>, <code>radius</code>) : 선분(또는 반지름을 가진 캡슐)이 충돌체와 교차하는지 판정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>start</code> (<code>WorldPositionVector3</code>) : 선분 시작점 (월드 좌표). <strong>필수</strong></li>
+<li><code>end</code> (<code>WorldPositionVector3</code>) : 선분 끝점 (월드 좌표). <strong>필수</strong></li>
+<li><code>radius</code> (<code>number</code>) : 선분의 반지름 (월드 단위). 기본값: <code>0</code></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>boolean</code>) : 교차하면 <code>true</code></li>
+</ul>
+</details>
+<h3 id="1-충돌체-사이의-교차-검사-예제">1. 충돌체 사이의 교차 검사 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">if</span> <span class="token punctuation">(</span>boxCollider<span class="token punctuation">.</span><span class="token function">intersects</span><span class="token punctuation">(</span>sphereCollider<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'구가 기둥과 교차합니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token comment">// 여러 충돌체로 근사한 대상은 각 충돌체와 판정합니다.</span>
+<span class="token keyword">const</span> hits <span class="token operator">=</span> pipeColliders<span class="token punctuation">.</span><span class="token function">filter</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">collider</span><span class="token punctuation">)</span> <span class="token operator">=></span> sphereCollider<span class="token punctuation">.</span><span class="token function">intersects</span><span class="token punctuation">(</span>collider<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> collided <span class="token operator">=</span> hits<span class="token punctuation">.</span>length <span class="token operator">></span> <span class="token number">0</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-선분과의-교차-검사-예제">2. 선분과의 교차 검사 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> start <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">getGeographicToWorld</span><span class="token punctuation">(</span><span class="token number">126.9380</span><span class="token punctuation">,</span> <span class="token number">37.5194</span><span class="token punctuation">,</span> <span class="token number">10</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> end <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">getGeographicToWorld</span><span class="token punctuation">(</span><span class="token number">126.9410</span><span class="token punctuation">,</span> <span class="token number">37.5194</span><span class="token punctuation">,</span> <span class="token number">10</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 두 지점을 잇는 반지름 5m(월드 단위 환산) 경로가 기둥을 지나가는지 확인합니다.</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span>boxCollider<span class="token punctuation">.</span><span class="token function">intersectsSegment</span><span class="token punctuation">(</span>start<span class="token punctuation">,</span> end<span class="token punctuation">,</span> <span class="token number">5</span> <span class="token operator">*</span> worldScale<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'경로가 기둥을 통과합니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h3 id="3-검사-대상이-많을-때">3. 검사 대상이 많을 때</h3>
+<p>비교 대상이 하나이거나 이미 정해진 소수라면 위처럼 <code>intersects()</code>를 직접 호출합니다.<br>대상이 많으면 판정 전에 후보를 줄이는 것이 효과적입니다.<br>고정된 충돌체의 <code>getAABB()</code>를 이동 객체 크기만큼 확장한 상자를 만들어 두고, <code>Box3.containsPoint</code>로 상자 밖의 객체는 <code>setPosition()</code>과 판정을 모두 생략합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token comment">// 반지름 r인 구가 접근할 수 있는 범위로 기둥의 AABB를 확장합니다.</span>
+<span class="token keyword">const</span> r <span class="token operator">=</span> sphereCollider<span class="token punctuation">.</span><span class="token function">getRadius</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> nearBox <span class="token operator">=</span> boxCollider<span class="token punctuation">.</span><span class="token function">getAABB</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">expandByVector</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span>r<span class="token punctuation">,</span> r<span class="token punctuation">,</span> r<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">function</span> <span class="token function">checkSphere</span><span class="token punctuation">(</span><span class="token parameter">currentPosition</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>nearBox<span class="token punctuation">.</span><span class="token function">containsPoint</span><span class="token punctuation">(</span>currentPosition<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+    sphereCollider<span class="token punctuation">.</span><span class="token function">setPosition</span><span class="token punctuation">(</span>currentPosition<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> sphereCollider<span class="token punctuation">.</span><span class="token function">intersects</span><span class="token punctuation">(</span>boxCollider<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<hr>
+<h2 id="5-교차율과-오차율-확인하기">5. 교차율과 오차율 확인하기</h2>
+<p>교차율은 <code>computeIntersectionRatio()</code>로 계산합니다.<br><strong>호출한 충돌체의 부피를 기준으로</strong> 대상과 겹친 부피의 비율을 <code>0</code>~<code>1</code>로 반환하므로, <code>a.computeIntersectionRatio(b)</code>와 <code>b.computeIntersectionRatio(a)</code>는 부피가 다르면 값이 다릅니다.<br>호출한 충돌체가 대상 안에 완전히 들어가면 <code>1</code>이고, 경계에 막 닿은 순간에는 <code>intersects()</code>가 <code>true</code>여도 <code>0</code>에 가까운 값이 나올 수 있습니다.<br><strong>교차율 계산은 판정보다 비용이 크므로 <code>intersects()</code>가 <code>true</code>인 쌍에 대해서만 호출합니다.</strong></p>
+<p>교차율과 함께 오차율이 필요하면 <code>computeIntersectionDetails()</code>를 사용합니다.<br>교차율은 <code>computeIntersectionRatio()</code>와 같은 값이고, 오차율은 교차율이 얼마나 벗어날 수 있는지를 나타내는 추정치입니다.<br><code>USphereCollider</code>도 같은 이름과 시그니처로 제공합니다.<br><strong>오차율 계산은 비용이 크므로 개발 단계의 검증에 사용하고, 실시간 루프에서는 <code>computeIntersectionRatio()</code>를 사용합니다.</strong></p>
+<h4 class="api-heading" id="api-18">API</h4>
+<p>UCollider.computeIntersectionRatio(<code>targetCollider</code>) : 호출한 충돌체의 부피 기준으로 대상과 겹친 비율을 계산하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>targetCollider</code> (<code>UCollider</code>) : 비교할 충돌체. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>number</code>) : 교차율 (<code>0</code>~<code>1</code>). 지원하지 않는 종류이면 AABB 겹침 부피 비율</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-19">API</h4>
+<p>UPolygonCollider.computeIntersectionDetails(<code>targetCollider</code>, <code>opt</code>) : 교차율과 오차율을 함께 계산하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>targetCollider</code> (<code>UCollider</code>) : 비교할 충돌체. <strong>필수</strong></li>
+<li><code>opt</code> (<code>USphereColliderIntersectionDetailsOptions</code>) : 상세 계산 옵션</li>
+<li><code>opt.referencePrecision</code> (<code>number</code>) : 오차율 계산 정밀도. 대상이 구이면 8<del>64의 짝수(기본값 <code>24</code>), 다각형이면 4</del>64의 정수(기본값 <code>16</code>). 클수록 정밀하고 느림</li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>USphereColliderIntersectionDetails</code>) : 교차율과 오차율</li>
+<li><code>return.ratio</code> (<code>number</code>) : 교차율 (<code>0</code>~<code>1</code>). <code>computeIntersectionRatio()</code>와 같은 값</li>
+<li><code>return.referenceRatio</code> (<code>number | null</code>) : 오차율 계산에 사용한 기준 교차율. 지원하지 않는 조합이면 <code>null</code></li>
+<li><code>return.estimatedAbsoluteError</code> (<code>number | null</code>) : 절대 오차율. 지원하지 않는 조합이면 <code>null</code></li>
+<li><code>return.estimatedRelativeError</code> (<code>number | null</code>) : 상대 오차율. 기준 교차율이 <code>0</code>이거나 지원하지 않는 조합이면 <code>null</code></li>
+</ul>
+</details>
+<h3 id="1-교차율-계산-예제">1. 교차율 계산 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">if</span> <span class="token punctuation">(</span>sphereCollider<span class="token punctuation">.</span><span class="token function">intersects</span><span class="token punctuation">(</span>boxCollider<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token comment">// 구 부피 중 기둥 안에 들어간 비율</span>
+    <span class="token keyword">const</span> ratio <span class="token operator">=</span> sphereCollider<span class="token punctuation">.</span><span class="token function">computeIntersectionRatio</span><span class="token punctuation">(</span>boxCollider<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">교차율 </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span><span class="token punctuation">(</span>ratio <span class="token operator">*</span> <span class="token number">100</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toFixed</span><span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">%</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token comment">// 여러 충돌체로 근사한 대상은 겹친 충돌체 중 최댓값을 사용합니다.</span>
+<span class="token keyword">const</span> maxRatio <span class="token operator">=</span> hits<span class="token punctuation">.</span><span class="token function">reduce</span><span class="token punctuation">(</span>
+    <span class="token punctuation">(</span><span class="token parameter">max<span class="token punctuation">,</span> collider</span><span class="token punctuation">)</span> <span class="token operator">=></span> Math<span class="token punctuation">.</span><span class="token function">max</span><span class="token punctuation">(</span>max<span class="token punctuation">,</span> sphereCollider<span class="token punctuation">.</span><span class="token function">computeIntersectionRatio</span><span class="token punctuation">(</span>collider<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-오차율-확인-예제">2. 오차율 확인 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> details <span class="token operator">=</span> sphereCollider<span class="token punctuation">.</span><span class="token function">computeIntersectionDetails</span><span class="token punctuation">(</span>boxCollider<span class="token punctuation">)</span><span class="token punctuation">;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">교차율 </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span><span class="token punctuation">(</span>details<span class="token punctuation">.</span>ratio <span class="token operator">*</span> <span class="token number">100</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toFixed</span><span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">%</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span>details<span class="token punctuation">.</span>estimatedAbsoluteError <span class="token operator">===</span> <span class="token keyword">null</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'이 조합은 오차율 계산을 지원하지 않습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">오차율 ±</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span><span class="token punctuation">(</span>details<span class="token punctuation">.</span>estimatedAbsoluteError <span class="token operator">*</span> <span class="token number">100</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toFixed</span><span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">%p</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<hr>
+<h2 id="6-충돌체-제거와-메모리-정리하기">6. 충돌체 제거와 메모리 정리하기</h2>
+<p>충돌체는 GPU 자원을 갖지 않는 순수 JavaScript 객체이므로 별도의 해제 메서드가 없습니다.<br>다만 충돌체는 <code>target</code>으로 넘긴 대상 객체를 참조합니다.<br><strong>충돌체를 보관한 배열이나 <code>Map</code>에서 제거해 참조를 끊어야 충돌체와 <code>target</code>이 함께 가비지 컬렉션됩니다.</strong><br>대상 도형이나 컴포넌트를 제거한 뒤에도 충돌체를 계속 들고 있으면 대상 객체가 메모리에 남습니다.</p>
+<p>정리는 다음 순서로 진행합니다.</p>
+<ol>
+<li>검사 루프를 중단합니다. <code>requestAnimationFrame</code>으로 예약한 프레임은 <code>cancelAnimationFrame</code>으로 취소합니다.</li>
+<li>헬퍼를 표시 중이면 Scene에서 제거하고 <code>disposeDebugObject()</code>로 해제합니다. 이 단계는 GPU 자원이 걸린 유일한 단계입니다.</li>
+<li>충돌체를 보관한 컬렉션을 비우고 변수 참조를 끊습니다. 여러 충돌체로 근사한 묶음은 배열째 비웁니다.</li>
+<li>대상 도형과 레이어는 각 도형 문서의 방식대로 제거합니다.</li>
+</ol>
+<h3 id="1-정리-예제">1. 정리 예제</h3>
+<p><code>colliders</code>는 충돌체를 <code>id</code>로 보관한 <code>Map</code>이고, <code>helpers</code>는 표시 중인 헬퍼를 같은 <code>id</code>로 보관한 <code>Map</code>입니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> colliders <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Map</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token punctuation">[</span>boxCollider<span class="token punctuation">.</span>id<span class="token punctuation">,</span> boxCollider<span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">[</span>sphereCollider<span class="token punctuation">.</span>id<span class="token punctuation">,</span> sphereCollider<span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> helpers <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Map</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">let</span> checkFrame <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+
+<span class="token keyword">function</span> <span class="token function">tick</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    checkFrame <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+    <span class="token comment">// 위치 갱신과 교차 검사를 수행합니다.</span>
+    checkFrame <span class="token operator">=</span> <span class="token function">requestAnimationFrame</span><span class="token punctuation">(</span>tick<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+checkFrame <span class="token operator">=</span> <span class="token function">requestAnimationFrame</span><span class="token punctuation">(</span>tick<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">function</span> <span class="token function">disposeCollision</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token comment">// 1. 검사 루프 중단</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>checkFrame <span class="token operator">!==</span> <span class="token keyword">null</span><span class="token punctuation">)</span> <span class="token function">cancelAnimationFrame</span><span class="token punctuation">(</span>checkFrame<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    checkFrame <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+
+    <span class="token comment">// 2. 헬퍼 해제</span>
+    <span class="token keyword">const</span> scene <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">getExternalScene</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> <span class="token punctuation">[</span>id<span class="token punctuation">,</span> helper<span class="token punctuation">]</span> <span class="token keyword">of</span> helpers<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        scene<span class="token punctuation">.</span><span class="token function">remove</span><span class="token punctuation">(</span>helper<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        colliders<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>id<span class="token punctuation">)</span><span class="token operator">?.</span><span class="token function">disposeDebugObject</span><span class="token punctuation">(</span>helper<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+    helpers<span class="token punctuation">.</span><span class="token function">clear</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token comment">// 3. 충돌체 참조 해제</span>
+    colliders<span class="token punctuation">.</span><span class="token function">clear</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<p>충돌체 하나만 제거할 때도 같은 순서를 따릅니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">removeCollider</span><span class="token punctuation">(</span><span class="token parameter">id</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> helper <span class="token operator">=</span> helpers<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>id<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>helper<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        app<span class="token punctuation">.</span><span class="token function">getExternalScene</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">remove</span><span class="token punctuation">(</span>helper<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        colliders<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>id<span class="token punctuation">)</span><span class="token operator">?.</span><span class="token function">disposeDebugObject</span><span class="token punctuation">(</span>helper<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        helpers<span class="token punctuation">.</span><span class="token function">delete</span><span class="token punctuation">(</span>id<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+    colliders<span class="token punctuation">.</span><span class="token function">delete</span><span class="token punctuation">(</span>id<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+</main>
+</body>
+</html>
+

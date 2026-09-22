@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>열원 객체</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="열원-객체">열원 객체</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-%EC%97%B4%EC%9B%90-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">열원 생성하기</a></li>
+<li><a href="#2-%EC%97%B4%EC%9B%90-%EB%8C%80%EC%83%81-%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0">열원 대상 설정하기</a></li>
+<li><a href="#3-%EC%97%B4%EC%9B%90-%ED%99%9C%EC%84%B1%EB%B9%84%ED%99%9C%EC%84%B1-%EC%A0%9C%EC%96%B4%ED%95%98%EA%B8%B0">열원 활성/비활성 제어하기</a></li>
+<li><a href="#4-%EC%98%A8%EB%8F%84%EC%99%80-%EB%B2%94%EC%9C%84-%EC%A1%B0%EC%A0%88%ED%95%98%EA%B8%B0">온도와 범위 조절하기</a></li>
+<li><a href="#5-%EC%83%89%EC%83%81-%EB%B2%94%EB%A1%80-%EC%A7%80%EC%A0%95%ED%95%98%EA%B8%B0">색상 범례 지정하기</a></li>
+</ol>
+<p>열원(Heat Resource) 객체는 특정 지점의 열이 주변 객체에 어떻게 퍼지는지를 색으로 표현하는 분석 객체입니다. 열원 자체는 구체(<code>U3dSphere</code>) 형태로 그려지고, 열 분포는 열원에 등록한 <strong>대상 객체의 표면</strong>에 표시됩니다.</p>
+<blockquote>
+<ul>
+<li><strong>열원(heat resource)</strong>: 온도를 가진 발열 지점입니다. <code>U3dHeatGeometry</code> 한 개가 열원 한 개에 해당합니다.</li>
+<li><strong>대상(target)</strong>: 열 영향을 받아 표면 색이 바뀌는 객체입니다. 열원에 직접 등록해야 합니다.</li>
+<li><strong>범위(buffer)와 배율(outerFactor)</strong>: 열이 100% 전달되는 기본 반경과, 그 반경을 확장해 서서히 약해지는 감쇠 구간의 배율입니다.</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="1-열원-생성하기">1. 열원 생성하기</h2>
+<p><code>U3dHeatGeometry</code> 생성자로 열원을 만들고, <code>U3dVectorLayer.addGeometry</code>로 레이어에 등록하면 화면에 표시됩니다.<br>레이어를 만들고 도형을 등록·제거하는 방법은 <a href="vectorLayerStart.html#2-%EB%8F%84%ED%98%95-%EB%93%B1%EB%A1%9D%ED%95%98%EA%B3%A0-%EC%A0%9C%EA%B1%B0%ED%95%98%EA%B8%B0">3D Geometry 시작하기 - 도형 등록하고 제거하기</a>에서 설명합니다.</p>
+<p>열원의 위치·크기·색상은 구체 옵션(<code>radius</code>, <code>color</code>, <code>opacity</code>)을 그대로 사용하고, 열 표현과 관련된 값은 <code>temperature</code>, <code>buffer</code>, <code>outerFactor</code>로 지정합니다.</p>
+<p><mark>열원은 기본적으로 비활성 상태로 만들어집니다.</mark> 생성 옵션에 <code>available: true</code>를 넣거나, 생성 후 <code>setAvailable(true)</code>를 호출해야 대상 객체에 열 분포가 표시됩니다.</p>
+<h4 class="api-heading" id="api">API</h4>
+<p>U3dHeatGeometry(<code>opt</code>) : 열원 객체를 생성하는 생성자</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opt</code> (<code>object</code>) : 열원 생성 옵션</li>
+<li><code>opt.name</code> (<code>string</code>) : 열원 이름</li>
+<li><code>opt.temperature</code> (<code>number</code>) : 열원 중심 온도. 기본값: <code>0</code></li>
+<li><code>opt.minTemperature</code> (<code>number</code>) : 색상 범례의 하한 온도. 기본값: <code>0</code></li>
+<li><code>opt.maxTemperature</code> (<code>number</code>) : 색상 범례의 상한 온도. 기본값: <code>100</code></li>
+<li><code>opt.buffer</code> (<code>number</code>) : 열이 100% 전달되는 기본 반경. 기본값: <code>1</code></li>
+<li><code>opt.outerFactor</code> (<code>number</code>) : 기본 반경을 확장해 감쇠 구간을 만드는 배율. 기본값: <code>3</code></li>
+<li><code>opt.available</code> (<code>boolean</code>) : 열원 활성 여부. 기본값: <code>false</code></li>
+<li><code>opt.radius</code> (<code>number</code>) : 열원 구체의 반지름. 기본값: <code>5</code></li>
+<li><code>opt.color</code> (<code>ColorRepresentation</code>) : 열원 구체의 색상. 기본값: <code>&#39;#ff0000&#39;</code></li>
+<li><code>opt.opacity</code> (<code>number</code>) : 열원 구체의 투명도(0~1). 기본값: <code>1</code></li>
+<li><code>opt.properties</code> (<code>KeyValue</code>) : 열원 속성정보</li>
+</ul>
+</details>
+<h3 id="1-열원-생성-예제">1. 열원 생성 예제</h3>
+<p>온도 100도의 열원을 만들어 벡터 레이어에 등록하는 예제입니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> heat <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>geom<span class="token punctuation">.</span>U3dHeatGeometry</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'heat_01'</span><span class="token punctuation">,</span>              <span class="token comment">// 열원 이름</span>
+    <span class="token literal-property property">temperature</span><span class="token operator">:</span> <span class="token number">100</span><span class="token punctuation">,</span>             <span class="token comment">// 열원 중심 온도</span>
+    <span class="token literal-property property">radius</span><span class="token operator">:</span> <span class="token number">0.05</span><span class="token punctuation">,</span>                 <span class="token comment">// 열원 구체 반지름</span>
+    <span class="token literal-property property">buffer</span><span class="token operator">:</span> <span class="token number">0.3</span><span class="token punctuation">,</span>                  <span class="token comment">// 열원 범위</span>
+    <span class="token literal-property property">outerFactor</span><span class="token operator">:</span> <span class="token number">5</span><span class="token punctuation">,</span>               <span class="token comment">// 열원 범위 배율</span>
+    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#ff8000'</span><span class="token punctuation">,</span>             <span class="token comment">// 열원 구체 색상</span>
+    <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>                   <span class="token comment">// 열원 구체 투명도</span>
+    <span class="token literal-property property">available</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>              <span class="token comment">// 생성과 동시에 활성화</span>
+    <span class="token literal-property property">properties</span><span class="token operator">:</span> <span class="token punctuation">{</span><span class="token string-property property">'용도'</span><span class="token operator">:</span> <span class="token string">'열원'</span><span class="token punctuation">}</span>   <span class="token comment">// 열원 속성정보</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+vectorLayer<span class="token punctuation">.</span><span class="token function">addGeometry</span><span class="token punctuation">(</span>heat<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 벡터 레이어에 추가</span>
+</code></pre>
+<h3 id="2-온도에-따른-표현-차이">2. 온도에 따른 표현 차이</h3>
+<p>같은 대상 객체에 온도만 다른 열원을 적용한 결과입니다. 온도가 높을수록 색상 범례의 상한에 가까운 색으로 표시됩니다.</p>
+<figure class="document-image">
+<img src="image/heatGeom/열원적용.png" alt="왼쪽은 50도 열원, 오른쪽은 100도 열원을 적용한 결과. 오른쪽이 더 붉고 넓게 표현됩니다" loading="eager">
+<figcaption>왼쪽은 50도 열원, 오른쪽은 100도 열원을 적용한 결과. 오른쪽이 더 붉고 넓게 표현됩니다</figcaption>
+</figure>
+<hr>
+<h2 id="2-열원-대상-설정하기">2. 열원 대상 설정하기</h2>
+<p>열원은 만드는 것만으로는 아무 것도 칠하지 않습니다. <strong>열 영향을 받을 대상 객체를 반드시 등록해야</strong> 열 분포가 보입니다.</p>
+<p>대상은 <code>setTargets</code>로 등록하고, <code>getTargets</code>로 확인하며, <code>removeTargets</code>로 해제합니다. 세 함수 모두 객체 하나 또는 객체 배열을 받습니다.</p>
+<p>등록 대상은 <code>UMesh</code>, <code>UGroup</code> 같은 <code>Object3D</code> 객체여야 합니다. <mark>컴포넌트(<code>isComponent</code>)는 컴포넌트 자체가 아니라 내부 <code>_object</code>를 등록합니다.</mark></p>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>U3dHeatGeometry.setTargets(<code>objects</code>) : 열 영향을 받을 대상 객체를 등록하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>objects</code> (<code>Object3D | Array&lt;Object3D&gt;</code>) : 등록할 대상 객체 또는 객체 배열</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-2">API</h4>
+<p>U3dHeatGeometry.getTargets() : 등록된 대상 객체를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Set&lt;Object3D&gt;</code>) : 등록된 대상 객체 집합</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-3">API</h4>
+<p>U3dHeatGeometry.removeTargets(<code>objects</code>) : 등록한 대상 객체를 해제하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>objects</code> (<code>Object3D | Array&lt;Object3D&gt;</code>) : 해제할 대상 객체 또는 객체 배열</li>
+</ul>
+</details>
+<h3 id="1-대상-등록-예제">1. 대상 등록 예제</h3>
+<p>선택한 객체를 열원의 대상으로 등록하는 예제입니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> target <span class="token operator">=</span> u3dSelect<span class="token punctuation">.</span><span class="token function">getSelected</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+
+<span class="token comment">// target은 UMesh, UGroup 등 Object3D 객체여야 합니다.</span>
+<span class="token comment">// 컴포넌트는 컴포넌트가 감싸고 있는 _object를 등록합니다.</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span>target<span class="token punctuation">.</span>isComponent<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    heat<span class="token punctuation">.</span><span class="token function">setTargets</span><span class="token punctuation">(</span>target<span class="token punctuation">.</span>_object<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token punctuation">(</span>target<span class="token punctuation">.</span>isObject3D<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    heat<span class="token punctuation">.</span><span class="token function">setTargets</span><span class="token punctuation">(</span>target<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h3 id="2-대상-해제-예제">2. 대상 해제 예제</h3>
+<p><code>getTargets</code>는 <code>Set</code>을 돌려주므로 그대로 순회할 수 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> targets <span class="token operator">=</span> heat<span class="token punctuation">.</span><span class="token function">getTargets</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 등록된 대상 확인</span>
+
+<span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> target <span class="token keyword">of</span> targets<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    heat<span class="token punctuation">.</span><span class="token function">removeTargets</span><span class="token punctuation">(</span>target<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 대상 해제</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<p>여러 대상을 한 번에 해제할 때는 배열로 넘깁니다.</p>
+<pre class="language-javascript"><code class="language-javascript">heat<span class="token punctuation">.</span><span class="token function">removeTargets</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token operator">...</span>heat<span class="token punctuation">.</span><span class="token function">getTargets</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="3-열원-활성비활성-제어하기">3. 열원 활성/비활성 제어하기</h2>
+<p>열원을 활성화하면 설정된 온도를 기준으로 대상 객체에 열 분포가 표시됩니다. 비활성 상태에서는 대상에 아무 영향을 주지 않습니다.</p>
+<p>활성 상태를 바꾸면 활성 시 <code>active</code>, 비활성 시 <code>deactive</code> 이벤트가 발생하므로, 상태 변화에 맞춰 다른 동작을 연결할 수 있습니다.</p>
+<h4 class="api-heading" id="api-4">API</h4>
+<p>U3dHeatGeometry.setAvailable(<code>available</code>) : 열원 사용 여부를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>available</code> (<code>boolean</code>) : 열원 활성 여부 (<code>true</code>: 활성, <code>false</code>: 비활성)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-5">API</h4>
+<p>U3dHeatGeometry.getAvailable() : 열원 사용 여부를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>boolean</code>) : 열원 활성 여부</li>
+</ul>
+</details>
+<h3 id="1-활성-상태-토글-예제">1. 활성 상태 토글 예제</h3>
+<p>현재 상태를 확인해 반대 상태로 바꾸는 예제입니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> isActive <span class="token operator">=</span> heat<span class="token punctuation">.</span><span class="token function">getAvailable</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 열원 활성 여부 확인</span>
+
+<span class="token comment">// 활성 상태면 비활성으로, 비활성 상태면 활성으로 전환합니다.</span>
+heat<span class="token punctuation">.</span><span class="token function">setAvailable</span><span class="token punctuation">(</span><span class="token operator">!</span>isActive<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-상태-변화-이벤트-예제">2. 상태 변화 이벤트 예제</h3>
+<pre class="language-javascript"><code class="language-javascript">heat<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span>GeOnDT<span class="token punctuation">.</span>geom<span class="token punctuation">.</span>U3dHeatGeometry<span class="token punctuation">.</span><span class="token constant">EVENT</span><span class="token punctuation">.</span><span class="token constant">ACTIVE</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'열원 활성'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+heat<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span>GeOnDT<span class="token punctuation">.</span>geom<span class="token punctuation">.</span>U3dHeatGeometry<span class="token punctuation">.</span><span class="token constant">EVENT</span><span class="token punctuation">.</span><span class="token constant">DEACTIVE</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'열원 비활성'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="4-온도와-범위-조절하기">4. 온도와 범위 조절하기</h2>
+<p>생성한 뒤에도 온도와 열 전달 범위를 바꿀 수 있습니다. 값을 바꾸면 등록된 대상의 열 분포가 다시 계산되어 즉시 반영됩니다.</p>
+<p><code>buffer</code>는 열이 100% 전달되는 기본 반경이고, <code>outerFactor</code>는 그 반경을 몇 배까지 확장해 서서히 약해지는 감쇠 구간을 만들지 정하는 배율입니다. 두 값을 곱한 거리가 열이 닿는 최대 범위가 됩니다.</p>
+<p><code>minTemperature</code>와 <code>maxTemperature</code>는 색상 범례의 하한과 상한입니다. 온도 자체가 아니라 <strong>온도를 어떤 색에 대응시킬지</strong>를 정하는 값입니다.</p>
+<h4 class="api-heading" id="api-6">API</h4>
+<p>U3dHeatGeometry.setTemperature(<code>temperature</code>) : 열원의 온도를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>temperature</code> (<code>number</code>) : 열원 온도</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-7">API</h4>
+<p>U3dHeatGeometry.getTemperature() : 열원의 온도를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>number</code>) : 열원 온도</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-8">API</h4>
+<p>U3dHeatGeometry.setBuffer(<code>buffer</code>) : 열이 100% 전달되는 기본 반경을 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>buffer</code> (<code>number</code>) : 열원 범위</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-9">API</h4>
+<p>U3dHeatGeometry.getBuffer() : 열원의 기본 반경을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>number</code>) : 열원 범위</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-10">API</h4>
+<p>U3dHeatGeometry.setOuterFactor(<code>factor</code>) : 감쇠 구간을 만드는 범위 배율을 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>factor</code> (<code>number</code>) : 열원 범위 배율</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-11">API</h4>
+<p>U3dHeatGeometry.setMinTemperature(<code>temperature</code>) : 색상 범례의 하한 온도를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>temperature</code> (<code>number</code>) : 최소 온도</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-12">API</h4>
+<p>U3dHeatGeometry.setMaxTemperature(<code>temperature</code>) : 색상 범례의 상한 온도를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>temperature</code> (<code>number</code>) : 최대 온도</li>
+</ul>
+</details>
+<h3 id="1-온도와-범위-변경-예제">1. 온도와 범위 변경 예제</h3>
+<pre class="language-javascript"><code class="language-javascript">heat<span class="token punctuation">.</span><span class="token function">setTemperature</span><span class="token punctuation">(</span><span class="token number">80</span><span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// 온도를 80도로 변경</span>
+heat<span class="token punctuation">.</span><span class="token function">setBuffer</span><span class="token punctuation">(</span><span class="token number">0.5</span><span class="token punctuation">)</span><span class="token punctuation">;</span>       <span class="token comment">// 기본 반경을 0.5로 확대</span>
+heat<span class="token punctuation">.</span><span class="token function">setOuterFactor</span><span class="token punctuation">(</span><span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">;</span>    <span class="token comment">// 감쇠 구간을 기본 반경의 4배까지 확장</span>
+
+<span class="token comment">// 색상 범례가 대응할 온도 구간을 -20 ~ 120도로 조정합니다.</span>
+heat<span class="token punctuation">.</span><span class="token function">setMinTemperature</span><span class="token punctuation">(</span><span class="token operator">-</span><span class="token number">20</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+heat<span class="token punctuation">.</span><span class="token function">setMaxTemperature</span><span class="token punctuation">(</span><span class="token number">120</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="5-색상-범례-지정하기">5. 색상 범례 지정하기</h2>
+<p>열 분포에 사용할 온도-색상 범례(팔레트)를 직접 지정할 수 있습니다. <code>setHeatPalette</code>에 구간별 온도·색상·투명도를 담은 배열을 넘기면, 온도에 따라 두 구간의 색이 보간되어 표시됩니다.</p>
+<p>별도로 범례 지정하지 않으면 기본 색상 범례로 시각화됩니다.</p>
+<h4 class="api-heading" id="api-13">API</h4>
+<p>U3dHeatGeometry.setHeatPalette(<code>palette</code>) : 열원의 온도별 색상 범례를 지정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>palette</code> (<code>Array&lt;object&gt;</code>) : 색상 범례 정보</li>
+<li><code>palette[].temp</code> (<code>number</code>) : 온도</li>
+<li><code>palette[].color</code> (<code>ColorRepresentation</code>) : 해당 온도의 색상</li>
+<li><code>palette[].opacity</code> (<code>number</code>) : 해당 온도의 투명도(0~1). 기본값: <code>1</code></li>
+</ul>
+</details>
+<h3 id="1-색상-범례-지정-예제">1. 색상 범례 지정 예제</h3>
+<p><code>opacity</code>를 <code>0</code>으로 주면 해당 온도 구간을 보이지 않게 만들 수 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript">heat<span class="token punctuation">.</span><span class="token function">setHeatPalette</span><span class="token punctuation">(</span><span class="token punctuation">[</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">temp</span><span class="token operator">:</span> <span class="token operator">-</span><span class="token number">30</span><span class="token punctuation">,</span> <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#9955ff'</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">temp</span><span class="token operator">:</span>   <span class="token number">0</span><span class="token punctuation">,</span> <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#1100ff'</span><span class="token punctuation">,</span> <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token comment">// 0도 부근은 표시하지 않습니다.</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">temp</span><span class="token operator">:</span>  <span class="token number">20</span><span class="token punctuation">,</span> <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#ffa750'</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">temp</span><span class="token operator">:</span>  <span class="token number">60</span><span class="token punctuation">,</span> <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'rgb(255,128,0)'</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">temp</span><span class="token operator">:</span> <span class="token number">100</span><span class="token punctuation">,</span> <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'rgb(255,0,0)'</span><span class="token punctuation">}</span>
+<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+</main>
+</body>
+</html>
+

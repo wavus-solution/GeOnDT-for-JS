@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>맵 생성/지우기</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/tutorial.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        .examples {
+            padding: 15px 30px 15px 30px;
+        }
+
+    </style>
+</head>
+<body>
+<div id="map-wrapper">
+    <div id="map"></div>
+</div>
+<div class="execute-popup"><button>직접해보기</button></div>
+<div class="examples row">
+    <div class="btn btn-default" id="imagemap-create">이미지맵 생성</div>
+    <div class="btn btn-default" id="imagemap-delete">이미지맵 삭제</div>
+    <div class="btn btn-default" id="buildmap-create">건물맵 생성</div>
+    <div class="btn btn-default" id="buildmap-delete">건물맵 삭제</div>
+    <div class="btn btn-default" id="height-create">고도맵 생성</div>
+    <div class="btn btn-default" id="height-delete">고도맵 삭제</div>
+
+    
+    
+    
+    
+    
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function() {
+        window.open('./runner.html?url=' + strings[strings.length-1] + '&title=' + document.title);
+    })
+</script>
+<script>
+    require(['app/Union3D'], function (Union3D) {
+        //라이센스 인증
+        Union3D.ready(function () {
+            //지도 초기화
+            window.app = new Union3D.U3dAPP({
+                containername: 'map'
+            });
+            app.setHomePosition(126.9395, 37.52, 450, 0, 60); //경도, 위도, 높이, 방위각, 고도각
+            app.updateHomePosition();
+
+            //이미지 레이어 생성
+            var layer = new Union3D.image.U3dImageXYZLayer({
+                name    : 'satellite',
+                baseurl :  layerInfo.image.vworldsaturl,
+                reverseY: true
+            });
+            app.addLayer(layer);
+
+            //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+            app.setNameBaseLayer('satellite');
+            app.showLayer('satellite', true);
+
+
+            //+ 이미지맵 생성
+             $(document).on("click", "#imagemap-create", function () {
+                 //이미지 레이어 생성
+                 var layer = new Union3D.image.U3dImageXYZLayer({
+                     name    : 'satellite',
+                     baseurl : layerInfo.image.vworldsaturl,
+                     reverseY: true
+                 });
+                 app.addLayer(layer);
+
+                 //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+                 app.setNameBaseLayer('satellite');
+                 app.showLayer('satellite', true);
+             });
+
+
+            //+ 이미지 맵 삭제
+            $(document).on("click", "#imagemap-delete", function () {
+                app.removeLayer('satellite');
+            });
+
+
+            //+ 건물맵 생성
+            $(document).on("click", "#buildmap-create", function () {
+
+            });
+
+
+            //+ 건물맵 삭제
+            $(document).on("click", "#buildmap-delete", function () {
+
+            });
+
+
+            //+ 고도맵 생성
+            $(document).on("click", "#heightmap-create", function () {
+
+            });
+
+
+            //+ 고도맵 삭제
+            $(document).on("click", "#heightmap-delete", function () {
+
+            });
+
+
+            // $(document).on("click", "#home", function () {
+            //     app.goToHome(2000);
+            // });
+            // $(document).on("click", "#capitol", function () {
+            //     //국회의사당 x: 126.91415231094318, y: 37.53189615862187
+            //     var geox       = 126.91415231094318;
+            //     var geoy       = 37.53189615862187;
+            //     var height     = 300;
+            //     var rotateLeft = 0;
+            //     var rotateDown = 30;
+            //
+            //     app.setCameraGeographicPosition(geox, geoy, height, rotateLeft, rotateDown, undefined, 2000);
+            // });
+            //
+            // $(document).on("click", "#sewoon", function () {
+            //     // 세운상가 x: 126.995168, y: 37.569604
+            //     var geox       = 126.995168;
+            //     var geoy       = 37.569604;
+            //     var height     = 300;
+            //     var rotateLeft = 0;
+            //     var rotateDown = 30;
+            //
+            //     app.setCameraGeographicPosition(geox, geoy, height, rotateLeft, rotateDown, undefined, 2000);
+            // });
+            //
+            // $(document).on("click", "#seoulstn", function () {
+            //     // 서울역 x: 126.970702, y: 37.554690
+            //     var geox       = 126.970702;
+            //     var geoy       = 37.554690;
+            //     var height     = 300;
+            //     var rotateLeft = 0;
+            //     var rotateDown = 30;
+            //
+            //     app.setCameraGeographicPosition(geox, geoy, height, rotateLeft, rotateDown, undefined, 2000);
+            // });
+            //
+            // $(document).on("click", "#click", function () {
+            //     var $this = $(this);
+            //     if ($this.hasClass('active')) {
+            //         $this.removeClass('active');
+            //         app.off('click', click);
+            //         app.setPanMode(); //종료시 PanMode 설정
+            //     } else {
+            //         $this.addClass('active');
+            //         app.on('click', click);
+            //     }
+            // });
+            //
+            // // 클릭한 지점으로 이동
+            // function click(e) {
+            //     // 마우스 이벤트, 거리오프셋
+            //     app.flyToClick(e, 100);
+            // }
+        });
+    });
+</script>
+</body>
+</html>

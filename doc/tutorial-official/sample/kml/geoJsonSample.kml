@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document id="root_doc">
+<Schema name="geoJsonSample" id="geoJsonSample">
+	<SimpleField name="Description" type="string"></SimpleField>
+</Schema>
+<Folder><name>geoJsonSample</name>
+  <Placemark>
+	<name>재개발구역</name>
+	<description>L100002062.1</description>
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>
+                126.84844596642,37.4770401809613
+                126.850099989437,37.476878144202
+                126.849680703473,37.4757001376926
+                126.850345443309,37.475488001485
+                126.849786636405,37.474249699376
+                126.848457689435,37.4746144355719
+                126.848273939942,37.4742711299625
+                126.848919675918,37.474096102632
+                126.848690537248,37.4736037247159
+                126.847333394856,37.4739906162163
+                126.848498139674,37.476407972408
+                126.848288153086,37.4769351342838
+                126.84844596642,37.4770401809613
+            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+</Folder>
+</Document></kml>

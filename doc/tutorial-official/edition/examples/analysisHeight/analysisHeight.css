@@ -1,0 +1,50 @@
+#analy-popup .div-popup {
+            width: 220px;
+            height: 150px;
+            top: 74vh;
+            padding-bottom: 10px;
+        }
+
+/* 경사도 차트 dialog (jQuery UI dialog, dialogClass: slope-chart-dialog)
+   - 최초 출력 위치는 analysisHeight.main.js 의 SLOPE_DIALOG_OPTIONS.position 에서 조정 */
+.slope-chart-dialog.ui-dialog {
+    padding: 0;
+    border: 1px solid var(--theme-line, rgba(225, 243, 250, .29));
+    border-radius: 14px;
+    background: var(--theme-panel, rgba(47, 91, 116, .9));
+    box-shadow: var(--theme-shadow, 0 12px 30px rgba(8, 29, 43, .18));
+    -webkit-backdrop-filter: blur(12px) saturate(112%);
+    backdrop-filter: blur(12px) saturate(112%);
+    overflow: hidden;
+    z-index: 1200;
+}
+
+.slope-chart-dialog .ui-dialog-titlebar {
+    border: 0;
+    border-bottom: 1px solid var(--theme-line, rgba(225, 243, 250, .29));
+    border-radius: 0;
+    background: transparent;
+    color: var(--theme-text, #f1f8fb);
+    font-weight: 700;
+    padding: 10px 14px;
+}
+
+.slope-chart-dialog .ui-dialog-titlebar-close {
+    border: 0;
+    background: var(--theme-surface, rgba(232, 247, 252, .11));
+    border-radius: 50%;
+}
+
+.slope-chart-dialog .ui-dialog-titlebar-close:hover {
+    background: var(--theme-surface-hover, rgba(232, 247, 252, .19));
+}
+
+.slope-chart-dialog .ui-dialog-content {
+    padding: 12px;
+    background: #fff;           /* 차트 가독성을 위해 캔버스 영역은 흰 배경 유지 */
+    color: #222;
+}
+
+.slope-chart-dialog .ui-dialog-content canvas {
+    max-width: 100%;
+}

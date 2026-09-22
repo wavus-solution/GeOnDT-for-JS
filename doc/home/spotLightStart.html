@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>광원 시작하기</title>
+</head>
+<body style="padding-top: 0">
+<div class="index">
+    <a href="#jump1">1. 시작하기</a><br>
+    <a href="#jump2">2. 조회하기</a><br>
+    <a href="#jump3">3. 위치·회전 편집하기</a><br>
+    <a href="#jump4">4. 광원 설정하기</a><br>
+    <a href="#jump5">5. 광원 분석하기</a><br>
+    <a href="#jump6">6. 제거하기</a><br>
+</div>
+<hr>
+<div class="content">
+    <h2 class="lead" id="jump1"> 1. 시작하기</h2>
+    <div class="doc">
+        <div class="explane1" >
+            광원 클래스 USpotLight는 지도 상에 원뿔형 <accent>SpotLight를 생성</accent>하는 클래스입니다.<br>
+            커스텀 광원의 <strong>생성·편집을 지원하며, 광원 범위(가시 영역) 분석 </strong>기능을 포함합니다.
+        </div>
+        <div class="explane_api">
+            <strong>USpotLight</strong> (<span class="param_name">opt</span>)<br>
+            <div class="explane_api_param">
+                <span class="param_name">opt.name</span><span class="param_type">string</span> : 광원 이름  <br>
+                <span class="param_name">opt.drawArg</span><span class="param_type">UDrawArg</span> : 그리기 클래스  <br>
+                <span class="param_name">opt.position</span><span class="param_type">GeoPosition</span> : 광원 위치 <br>
+                <span class="param_name">opt.left</span><span class="param_type">number</span> : 광원 좌우 각도 <br>
+                <span class="param_name">opt.up</span><span class="param_type">number</span> : 광원 상하 각도<br>
+                <span class="param_name">opt.intensity</span><span class="param_type">number</span> : 광원 세기 <br>
+                <span class="param_name">opt.angle</span><span class="param_type">number</span> : 광원이 분산되는 최대 각도 (광원 사이각)   <br>
+                <span class="param_name">opt.distance</span><span class="param_type">number</span> : 광원 최대 거리 <br>
+                <span class="param_name">opt.color</span><span class="param_type">number</span> : 광원 색  <br>
+                <span class="param_name">opt.groundGap</span><span class="param_type">number</span> : 광원과 지면 사이 거리 <br>
+                <span class="param_name">opt.useHelperObj</span><span class="param_type">boolean</span> : 픽킹/편집용 가이드 객체 사용 여부  <br>
+                <span class="param_name">opt.objRadius</span><span class="param_type">number</span> : 가이드 객체 반지름 <br>
+            </div>
+        </div>
+        <label class="code-label">광원 추가</label>
+        <div class="code" id="text1-code"></div>
+        <div class="code-text" id="text1" hidden="hidden">
+            const position = {x: 126.9404, y: 37.5183, z: 12};
+
+            // 광원 생성
+            const light = new GeOnDT.view.USpotLight({
+                name: '가로등_1',
+                drawArg: app._drawArg,
+                left: 0,
+                up: 90,
+                position: position,
+                color: 0xffffff,
+                groundGap: 20,
+                useHelperObj: true,
+                angle : 90,
+                intensity: 10,
+                distance: 1000,
+                objRadius: 8
+            });
+
+            // 광원 app에 등록
+            app.addLight(light);
+        </div>
+        <label class="code-label">
+            <img src="./image/lightStart/lightEx.png" alt="style1" data-size="medium">
+        </label>
+    </div>
+
+    <h2 class="lead" id="jump2"> 2. 조회하기</h2>
+    <div class="doc">
+        <div class="explane1" >
+            광원 클래스 USpotLight는 지도 상에 원뿔형 SpotLight를 생성하는 클래스입니다.
+            커스텀 광원의 생성·편집을 지원하며, 광원 범위(가시 영역) 분석 기능을 포함합니다.
+        </div>
+
+        <div class="explane_api">
+            U3dView.<span class="api_name">findLightByName(<span class="param_name">name</span>)</span> : 광원 이름으로 특정 광원을 조회하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">name</span><span class="param_type">string</span> : 광원 이름
+            </div>
+            <div class="explane_api_return">
+                <span class="return_name">return </span><span class="param_type"> USpotLight </span> : 광원 <br>
+            </div>
+
+        </div>
+        <div class="explane_api">
+            U3dView.<span class="api_name">getLightList(<span class="param_name">degLeft</span>)</span> : 전체 광원 목록을 조회하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">degLeft</span><span class="param_type">Degree</span> : 카메라 뷰 좌우 각
+            </div>
+            <div class="explane_api_return">
+                <span class="return_name">return </span><span class="param_type"> USpotLight [] </span> : 전체 광원 목록 <br>
+            </div>
+        </div>
+        <label class="code-label">광원 조회</label>
+        <div class="code" id="text2-code"></div>
+        <div class="code-text" id="text2" hidden="hidden">
+            const name = '가로등_1';
+            const light = app.findLightByName(name);
+
+            //또는
+            const lightList = app.getLightList();
+            const find = lightList.find((light) =>{
+                return light.name === name;
+            });
+        </div>
+    </div>
+
+    <h2 class="lead" id="jump3"> 3. 위치·회전 편집하기</h2>
+    <div class="doc">
+        <div class="explane1" >
+            광원의 <strong>위치·회전</strong>를 편집하는 방법은 두 가지가 있습니다. <br>
+            하나는 USpotLight 클래스에서 제공하는 <accent>편집 관련 API를 사용</accent>하는 방법이며,
+            다른 하나는 <accent>Gizmo 툴을 사용해</accent> 조작하는 방법입니다.<br><br>
+
+            먼저 USpotLight 클래스에서 제공하는 편집 관련 API를 알아보겠습니다.
+        </div>
+        <div class="explane_api">
+            USpotLight.<span class="api_name">setRotationUp(<span class="param_name">degUp</span>)</span> : 광원 상하 각도를 상하 각을 편집하는 함수 (회전 편집)
+            <div class="explane_api_param">
+                <span class="param_name">degUp</span><span class="param_type">Degree</span> : 광원 상하 각도 (수직각)
+            </div>
+        </div>
+        <div class="explane_api">
+            USpotLight.<span class="api_name">setRotationLeft(<span class="param_name">degLeft</span>)</span> : 광원 좌우 각도를 편집하는 함수 (회전 편집)
+            <div class="explane_api_param">
+                <span class="param_name">degLeft</span><span class="param_type">Degree</span> : 광원 좌우 각도 (수평각)
+            </div>
+        </div>
+        <div class="explane_api">
+            USpotLight.<span class="api_name">setPosition(<span class="param_name">position</span>)</span> : 광원 위치를 편집하는 함수 (위치 편집)
+            <div class="explane_api_param">
+                <span class="param_name">position</span><span class="param_type">WorldPosition</span> : 이동할 위치 좌표 (3D월드 좌표)
+            </div>
+        </div>
+        <label class="code-label">API로 편집</label>
+        <div class="code" id="text3-code"></div>
+        <div class="code-text" id="text3" hidden="hidden">
+            const light = app.findLightByName('가로등_1');
+
+            // 회전 편집
+            light.setRotationLeft(20);
+            light.setRotationUp(50);
+
+            // 위치 편집
+            const position = {x: -211992.9599, y: 103254.0005, z: 17};
+            light.setPosition(position);
+        </div>
+
+        <div class="explane1" >
+            Gizmo 툴은 <accent>USpotLight.edit</accent> API를 통해 활성화합니다.<br>
+            <strong>Gizmo 툴을 사용하려면</strong> 기준점 역할을 하는 <accent>가이드 객체(HelperObject)가 반드시 필요</accent>합니다.<br><br>
+
+            <strong>useHelperObj 옵션은 기본값이 true</strong>이며,
+            해당 옵션이 비활성화되어 있는 경우에는 광원 생성 시 <accent>useHelperObj: true</accent> 옵션을 명시적으로 지정해 주세요.<br>
+            가이드 객체(HelperObject)는 필요에 따라 가시성을 제어할수 있습니다.
+        </div>
+        <div class="explane_api">
+            USpotLight.<span class="api_name">edit(<span class="param_name">state, mode</span>)</span> : 광원에 Gizmo를 추가해 편집하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">state</span><span class="param_type">boolean</span> : 작업 상태 (true면 gizmo ON, false면 gizmo OFF) <br>
+                <span class="param_name">mode</span><span class="param_type">string</span> : 편집 모드 (translate, rotate)
+            </div>
+        </div>
+        <div class="explane_api">
+            USpotLight.<span class="api_name">reset()</span> : 편집한 위치·회전 초기화 함수
+        </div>
+
+        <div class="explane_api">
+            USpotLight.<span class="api_name">showControlObj()</span> :광원 가이드 객체 (helperObject)를 켜는(show)하는 함수
+        </div>
+        <div class="explane_api">
+            USpotLight.<span class="api_name">hideControlObj()</span> : 광원 가이드 객체 (helperObject)를 끄는(hide)하는 함수
+        </div>
+        <label class="code-label">Gizmo로 편집</label>
+        <div class="code" id="text4-code"></div>
+        <div class="code-text" id="text4" hidden="hidden">
+            const light = app.findLightByName('가로등_1');
+
+            light.edit(true, 'translate');  // 이동 편집 모드
+            light.edit(true, 'rotate');     // 회전 편집 모드
+
+            light.edit(false); // 편집 종료
+
+            light.reset(); // 편집 초기화
+        </div>
+        <label class="code-label">HelperObject <br>
+            <img src="./image/lightStart/helperObj.png" alt="style1" data-size="medium">
+        </label>
+        <label class="code-label">Gizmo 이동 편집 모드 <br>
+            <img src="./image/lightStart/moveGizmo.png" alt="style2" data-size="small">
+        </label>
+        <label class="code-label">Gizmo 회전 편집 모드 <br>
+            <img src="./image/lightStart/rotateGizmo.png" alt="style2" data-size="small">
+        </label>
+    </div>
+
+    <h2 class="lead" id="jump4"> 4. 광원 설정하기</h2>
+    <div class="doc">
+        <div class="explane1" >
+            광원 설정 API를 통해 광원의 <strong> 세기(Intensity), 최대 거리(Far), 각도(Angle), 색상, 가시선 표시 여부</strong>를 설정할 수 있습니다.<br>
+        </div>
+        <label class="code-label">1. 세기 설정</label>
+        <div class="explane1" >
+            <accent>세기(Intensity)</accent>는 광원의 밝기 강도를 의미합니다.<br>
+            값이 클수록 빛이 강해지며, 조사되는 영역이 더 밝게 표현됩니다.
+        </div>
+        <div class="explane_api">
+            USpotLight.<span class="api_name">setIntensity(<span class="param_name">intensity</span>)</span> : 광원 세기를 설정하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">intensity</span><span class="param_type">number</span> : 광원 세기 <br>
+            </div>
+        </div>
+        <div class="code" id="text5-code"></div>
+        <div class="code-text" id="text5" hidden="hidden">
+            const light = app.findLightByName('가로등_1');
+
+            light.setIntensity(5); // 광원 세기 5 설정
+        </div>
+
+        <label class="code-label">2. 최대 거리 설정</label>
+        <div class="explane1" >
+            <accent>최대 거리(Far)</accent>는 광원이 영향을 미치는 최대 거리를 의미합니다.<br>
+            설정된 거리보다 먼 영역에는 빛의 영향이 적용되지 않습니다.
+        </div>
+        <div class="explane_api">
+            USpotLight.<span class="api_name">setDistance(<span class="param_name">distance</span>)</span> : 광원 최대 거리를 설정하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">distance</span><span class="param_type">number</span> : 광원 최대 거리 <br>
+            </div>
+        </div>
+        <div class="code" id="text6-code"></div>
+        <div class="code-text" id="text6" hidden="hidden">
+            const light = app.findLightByName('가로등_1');
+
+            light.setDistance(1000); // 1km 이상은 광원 영향 X
+        </div>
+
+        <label class="code-label">3. 각도 설정</label>
+        <div class="explane1" >
+            <accent>각도(Angle)</accent>는 광원이 퍼지는 조사 각도(확산 범위) 를 의미합니다.<br>
+            값이 클수록 넓은 영역을 비추고, 작을수록 집중된 빛을 형성합니다.
+        </div>
+        <div class="explane_api">
+            USpotLight.<span class="api_name">setAngle(<span class="param_name">angle</span>)</span> : 광원 조사 각도를 설정하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">angle</span><span class="param_type">number</span> : 광원 조사 각도  <br>
+            </div>
+        </div>
+        <div class="code" id="text7-code"></div>
+        <div class="code-text" id="text7" hidden="hidden">
+            const light = app.findLightByName('가로등_1');
+
+            light.setAngle(50);
+        </div>
+
+        <label class="code-label">4. 색상 설정</label>
+        <div class="explane_api">
+            USpotLight.<span class="api_name">setColor(<span class="param_name">color</span>)</span> : 광원 색상을 설정하는 함수.
+            <div class="explane_api_param">
+                <span class="param_name">color</span><span class="param_type">Color</span> : 광원 색상  <br>
+            </div>
+        </div>
+        <div class="code" id="text8-code"></div>
+        <div class="code-text" id="text8" hidden="hidden">
+            const light = app.findLightByName('가로등_1');
+
+            light.setColor("#fff000");  // 노란색으로 설정
+        </div>
+
+        <label class="code-label">5. 가시선 설정</label>
+        <div class="explane1" >
+            <accent>가시선</accent>은 광원의 방향, 각도, 최대 거리를 3D 공간에 시각적으로 표현해주는 보조선입니다.<br>
+            광원이 실제로 비추는 범위를 직관적으로 확인 가능합니다.
+        </div>
+        <div class="explane_api">
+            USpotLight.<span class="api_name">setAngle(<span class="param_name">angle</span>)</span> : 광원 가시선을 설정하는 함수.
+            <div class="explane_api_param">
+                <span class="param_name">angle</span><span class="param_type">number</span> : 광원 가시선 가시화 여부 (true면 켜고, false면 끈다.)  <br>
+            </div>
+        </div>
+        <div class="code" id="text9-code"></div>
+        <div class="code-text" id="text9" hidden="hidden">
+            const light = app.findLightByName('가로등_1');
+
+            light.showHelper(true);  // 가시선 켜기
+            light.showHelper(false); // 가시선 끄기
+        </div>
+        <label class="code-label">가시선 출력   <br>
+            <img src="./image/lightStart/가시선.png" alt="style1" data-size="medium">
+        </label>
+    </div>
+
+
+    <h2 class="lead" id="jump5"> 5. 광원 분석하기</h2>
+    <div class="doc">
+        <div class="explane1" >
+            광원의 조사 범위를 분석하여, 건물과의 차폐·충돌 여부 및 실제로 광원이 도달하는 공간을 3D 객체로 가시화할 수 있습니다.<br>
+            광원 분석은 <accent>USpotLight.analysisLight</accent> API를 사용해 수행합니다.<br><br>
+
+            파라미터 옵션의 type 값은 <accent>cone</accent>과 <accent>viewCone</accent> 두 가지로 설정할 수 있습니다.<br>
+            <strong>viewCone</strong>은 콘 형태의 높이가 없는 평면 Mesh(2D) 로 생성되며,
+            <strong>cone</strong>은 높이를 가진 콘 형태의 Mesh(3D) 로 생성됩니다.
+        </div>
+        <div class="explane_api">
+            USpotLight.<span class="api_name">analysisLight(<span class="param_name">opt</span>)</span> : 광원 범위를 분석하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">opt</span><span class="param_type">object</span> : 분석 객체 생성 옵션 <br>
+                <span class="param_name">opt.color</span><span class="param_type">Color</span> : 객체 색상 <br>
+                <span class="param_name">opt.opacity</span><span class="param_type">number</span> : 객체 투명도 <br>
+                <span class="param_name">opt.type</span><span class="param_type">string</span> : 객체 타입 (cone, viewCone) <br>
+                <span class="param_name">opt.azimuth</span><span class="param_type">number</span> : 객체 방위각 (수평각)  <br>
+                <span class="param_name">opt.distance</span><span class="param_type">number</span> : 객체 최대 거리(far)  <br>
+                <span class="param_name">opt.startOffset</span><span class="param_type">number</span> : 객체 시작 거리 (카메라 뷰와 객체 사이의 거리) <br>
+            </div>
+        </div>
+        <label class="code-label">광원 조사 범위 분석</label>
+        <div class="code" id="text10-code"></div>
+        <div class="code-text" id="text10" hidden="hidden">
+            const light = app.findLightByName('가로등_1');
+
+            // 광원 분석 실행
+            light.analysisLight({
+                type: 'cone',
+                color: "#fff000",
+                opacity: 0.5,
+                azimuth: 90,
+                distance: 1000,
+                startOffset : 10
+            }).then(()=>{
+                console.log('분석 성공!');
+            }).catch((e)=>{
+                console.error('분석 실패!');
+            });
+        </div>
+        <label class="code-label">viewCone 분석 (2D)  <br>
+            <img src="./image/lightStart/analyViewCone.png" alt="style1" data-size="medium">
+        </label>
+        <label class="code-label">Cone 분석 (3D) <br>
+            <img src="./image/lightStart/analyCone.png" alt="style2" data-size="medium">
+        </label>
+    </div>
+
+
+    <h2 class="lead" id="jump6"> 6. 제거하기</h2>
+    <div class="doc">
+        <div class="explane1" >
+            광원을 제거하는 방법은 <strong>U3dApp 클래스의 제거 API를 사용</strong>하는 것입니다. <br>
+            <accent>removeLight(light)</accent> API는 파라미터로 입력 받은 특정 광원을 제거하고, <accent>removeAllLight()</accent> API는 등록된 전체 광원을 제거합니다.
+        </div>
+
+        <div class="explane_api">
+            U3dApp.<span class="api_name">removeLight(<span class="param_name">light</span>)</span> : 파라미터로 입력 받은 광원을 제거하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">light</span><span class="param_type">USpotLight</span> : 제거할 광원
+            </div>
+        </div>
+        <div class="explane_api">
+            U3dApp.<span class="api_name">removeAllLight()</span> : 전체 광원을 제거하는 함수
+        </div>
+
+        <div class="explane1" >
+            또는 <strong>직접 USpotLight에 접근</strong>해 <accent>remove()</accent> API를 호출해 제거할 수 있습니다.
+        </div>
+        <div class="explane_api">
+            USpotLight.<span class="api_name">remove()</span> : 광원 제거 함수
+        </div>
+
+        <label class="code-label">카메라 뷰 제거</label>
+        <div class="code" id="text11-code"></div>
+        <div class="code-text" id="text11" hidden="hidden">
+            // 특정 광원 제거
+            const light = app.findLightByName('가로등_1');
+            app.removeLight(light);
+
+            // 전체 제거
+            app.removeAllLight();
+
+            //또는 직접 순회하면서 제거
+            const list = app.getLightList();
+            for(const light of list) {
+                light.remove();
+            }
+        </div>
+    </div>
+
+</div>
+
+</body>
+</html>

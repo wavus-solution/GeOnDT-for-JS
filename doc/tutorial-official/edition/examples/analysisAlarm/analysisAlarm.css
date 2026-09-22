@@ -1,0 +1,58 @@
+#analy-popup .div-popup {
+    width: min(720px, calc(100vw - 104px));
+    height: min(640px, calc(100dvh - 80px));
+    padding-bottom: 10px;
+}
+
+#analy-popup .alarm-target-list,
+#analy-popup .detail-target-list {
+    height: min(300px, 30dvh);
+    min-height: 140px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+#analy-popup .edit-item,
+#analy-popup .edit-detail-item {
+    margin-bottom: 8px;
+    padding: 10px;
+    background: rgba(232, 247, 252, .06);
+    border: 1px solid rgba(225, 243, 250, .18);
+    border-radius: 7px;
+}
+
+#analy-popup .alarm-type-options {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+#analy-popup .panel-body input:not([type="radio"]):not([type="checkbox"]):not([type="color"]) {
+    max-width: 100%;
+    min-height: 28px;
+    padding: 4px 7px;
+    color: #f1f8fb;
+    background: rgba(15, 48, 67, .72);
+    border: 1px solid rgba(225, 243, 250, .34);
+    border-radius: 5px;
+}
+
+#analy-popup .panel-body input:not([type="radio"]):not([type="checkbox"]):not([type="color"]):focus {
+    outline: none;
+    background: rgba(15, 48, 67, .9);
+    border-color: var(--theme-accent);
+    box-shadow: 0 0 0 2px rgba(103, 185, 217, .2);
+}
+
+/* 코드 편집 패널이 열리면 최소 지도 폭을 남기고 기능 패널을 줄인다. */
+@media (min-width: 761px) {
+    .example-editor-open #analy-popup .div-popup {
+        width: clamp(var(--theme-side-panel-width), calc(100vw - var(--editor-pane-width, min(40vw, 600px)) - 448px), 720px);
+    }
+}
+
+/* HTML 인라인 스타일에서 옮긴 예제 버튼 배치입니다. */
+#analy-popup #reset {
+    margin-left: 15px;
+}

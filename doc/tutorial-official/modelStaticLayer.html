@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>스태틱 모델 레이어 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        html, body {
+            height: 100%;
+        }
+
+        .execute-popup {
+            display: inline-block;
+            width: fit-content;
+        }
+
+        #load {
+            width: 100%;
+            height: 100%;
+            top: 25%;
+            left: 0;
+            position: fixed;
+            display: block;
+            opacity: 1;
+            z-index: 5000;
+            text-align: center;
+        }
+
+        #map {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .h-300 {
+            height: 300px;
+        }
+
+        .scroll-auto {
+            overflow: auto;
+        }
+
+        .popup-capture > img {
+            width: 100%;
+        }
+
+        .d-flex {
+            display: flex;
+        }
+
+        .flex-1 {
+            flex-grow: 1
+        }
+
+        /* tutorial.css에 대한 오버리아드 선언*/
+        /* overlay 사용시에 popup 클래스에 height 값은 반드시 필요한 속성*/
+
+        .u3-popup canvas {
+            position: relative;
+            width: 100%;
+            height: 75%;
+        }
+
+        .ui-draggable .head {
+            cursor: grab;
+        }
+
+        .ui-draggable.ui-draggable-dragging .head {
+            cursor: grabbing;
+        }
+
+        body.dragging, body.dragging {
+            cursor: move !important;
+        }
+
+
+        .button-upload-object-delete, .button-upload-object-move, .button-upload-object-show, .button-upload-object-up {
+            display: inline;
+            width: 10%;
+            padding: unset;
+            margin: 4px;
+        }
+
+        .button-upload-object-up {
+            width: 15%;
+        }
+
+
+        #analy-popup .div-popup {
+            width: 900px;
+            height: 300px;
+            top: 55vh;
+        }
+
+
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu="return false;">
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> 스태틱 모델 레이어 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        사용자가 원하는 모델을 등록하여 등록된 모델을 레이어로 출력하는 예제입니다.<br>
+        사용자는 파일 올리기를 통해 서버에 사용자 모델을 등록할 수 있으며 해당 모델들을 레이어에 추가할 수 있습니다.<br>
+    </p>
+    <pre>
+        1) 사용자 모델 등록
+            - 사용자 모델 파일 선택
+            - 모델 이름 입력 후 등록</pre>
+</div>
+<div id="map-wrapper">
+    <div>
+        <div id="map"></div>
+        <div id="div-left-menu">
+            <div id="left-menu-list-panel">
+                <div class="form-group div-layer">
+                    <div class="div-category">
+                        <label class="label-layerType">
+                            레이어
+                        </label>
+                    </div>
+                    <div id="layer-list">
+                        <div class="div-sub-category">
+                            <div class="sub-category-tile">
+                                <label class="label-layerType">
+                                    이미지 레이어
+                                </label>
+                                <div class="category-btn-group">
+                                    <label class="expand-btn layer">
+                                        <img src="image/btn_expand.svg" alt="">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sub-category-content">
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="satellite">
+                                        VWorld Satellite
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="hybrid">
+                                        VWorld Hybrid
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="div-sub-category">
+                            <div class="sub-category-tile">
+                                <label class="label-layerType">
+                                    지형 레이어
+                                </label>
+                                <div class="category-btn-group">
+                                    <label class="expand-btn layer">
+                                        <img src="image/btn_expand.svg" alt="">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sub-category-content">
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="korea_terrain">
+                                        전체 지형
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div style="display: inline-flex; position: relative">
+                    <button id="left-menu-bnt" class="btn btn-xs menu-btn">
+                        <img src="image/left_panel_open_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                    </button>
+                    <div class="div-btn-info" hidden>
+                        레이어 탭 열기
+                    </div>
+                </div>
+                <div style="display: inline-flex; position: relative">
+                    <button id="analy-bnt" class="btn btn-xs menu-btn">
+                        <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                    </button>
+                    <div class="div-btn-info" hidden>
+                        분석 팝업 열기
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="btn-group" id='top-sbar'>
+            <div class='btn-group-vertical-block' id='right-toolbar'>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                    <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                         src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                         alt="나침반">
+                </button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                        id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                        id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                        id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg"
+                                                                     alt="">
+                </button>
+            </div>
+            <div class='btn-group' id='bt-bottom-bar'>
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                       value="위경도: ##.####  ###.#### ">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                       value="고도:####">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                       value="각도: ##">
+            </div>
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu="return false;">
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content">
+                <div class="col-sm-12">
+                    <div class="col-sm-12">
+                        <div class="panel panel-default">
+                            <div class="panel-heading">
+                                <div class="d-flex">
+                                    <div>업로드 모델 리스트</div>
+                                    <div class="flex-1 text-right">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="h-300 scroll-auto panel-body" style="overflow: auto; max-height: 150px;">
+                                <div class="col-sm-3">
+                                    <label>모델 이름</label>
+                                </div>
+                                <div class="col-sm-9">
+                                    <label>모델 업로드 진행도</label>
+                                </div>
+                                <div class="div-upload-object-list">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-12" style="margin-top: 1%; margin-bottom: 2%">
+                        <div class="panel panel-default">
+                            <div class="panel-heading">
+                                <div class="d-flex">
+                                    <div>사용자 모델 등록</div>
+                                    <div class="flex-1 text-right">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="h-100 scroll-auto panel-body">
+                                <div class="col-sm-6">
+                                    <label>모델 파일 선택</label>
+                                    <input class="btn btn-default btn-block" type="file" name="buildFiles" multiple=""
+                                           webkitdirectory="">
+                                </div>
+                                <div class="col-sm-2">
+                                    <label>모델 이름</label>
+                                    <input type="text" name="tileName" class="form-control arg upload-object-name"
+                                           placeholder="모델 이름">
+                                </div>
+                                <div class="col-sm-2">
+                                    <label>좌표계</label>
+                                    <input type="text" name="tileName" class="form-control arg upload-object-crs"
+                                           placeholder="모델 좌표계">
+                                </div>
+                                <div class="col-sm-2">
+                                    <label> </label>
+                                    <button style="margin-top: 5px;" class="btn btn-primary btn-block"
+                                            name="submit-object" data-toggle="tooltip"
+                                            data-placement="top" title="파일이 선택되지 않았습니다.">등록
+                                    </button>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    });
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script id="set-imagelayer">
+    let ImageLayer = function (Union3D, app, opt) {
+        this._type = "ImageLayer";
+        this.layer = undefined;
+        this._union3d = Union3D;
+        this._app = app;
+        this._name = opt.name;
+        this.options = opt;
+        this.ready = $.Deferred();
+    }
+    ImageLayer.prototype.create = function () {
+        let self = this;
+        if (self._name === 'emapbase') {
+            self.layer = self._app.createEmapBaseLayer(this.options);
+        } else if (self._name === 'emapsat') {
+            self.layer = self._app.createEmapSatLayer(this.options);
+        } else {
+            self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
+            self._app.addLayer(this.layer);
+        }
+        this.layer.then(() => {
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+    ImageLayer.prototype.show = function (isShow) {
+        let promies = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow ? "시작" : "종료"));
+        this._app.showLayer(this.options.name, isShow).then(() => {
+            promies.resolve();
+        })
+        this.isShow = isShow;
+        return promies;
+    }
+</script>
+<script id="set-terrain">
+    let HeightLayer = function (Union3D, app, opt) {
+        this._type = "HeightLayer";
+        this.layer = undefined;
+        this._app = app;
+        if (opt.rectangle === undefined)
+            opt.rectangle = Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수
+        this.options = opt;
+        this._name = opt.name;
+        this.ready = $.Deferred();
+    }
+    HeightLayer.prototype.create = function () {
+        let self = this;
+        self.layer = this._app.createHeightXYZLayer(self.options);
+        self.layer.then(() => {
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+    HeightLayer.prototype.show = function (isShow) {
+        let promies = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow ? "시작" : "종료"));
+        this._app.showLayer(this.options.name, isShow).then(() => {
+            promies.resolve();
+        })
+        this.isShow = isShow;
+        return promies;
+    }
+</script>
+<script id="layer-setting">
+    const LAYER_OPT = {
+        satellite: {
+            name: 'satellite',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldsaturl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+        },
+        hybrid: {
+            name: 'hybrid', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldhybirdurl,  //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            transparent: true //+ layer 투명화 여부
+        },
+        korea_terrain: {
+            name: 'korea_terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            ext: '.umf', //+ 파일 확장자, *필수 입력
+            reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+            minlevel: 9,  //+ 가시화 최소 레벨
+            maxlevel: 15, //+ 가시화 최대 레벨
+            useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+            maxprocess: 2, //+ process 최대값
+            interpolationheight: true,  //+ 고도보간 기능 사용 여부
+        }
+    };
+
+    let LayerList = function (Union3D, app) {
+        return {
+            //이미지레이어
+            satellite: new ImageLayer(Union3D, app, LAYER_OPT.satellite),
+            hybrid: new ImageLayer(Union3D, app, LAYER_OPT.hybrid),
+            //고도레이어
+            korea_terrain: new HeightLayer(Union3D, app, LAYER_OPT.korea_terrain)
+        }
+    }
+</script>
+<script>
+    //라이센스 인증
+    Union3D.ready(function () {
+        //지도 기본 세팅///////////////////////////////////////
+        const app = new Union3D.U3dAPP({
+            containername: 'map', //+ U3dApp(지도영역)의 div ID, *필수 입력
+            uselimit: false, //+ 정적로딩시 거리제한 설정,  defaultValue(opt.uselimit, true);
+            methodheight: '1_0',
+            searchtype: 'sphere'
+        });
+        app.setUnderGroundMode(true);
+        window.app = app;
+        window.listModel = [];
+        window.infoListSize = 0;
+
+        app.on('change', updatePosData);
+        app.createloadingBar('load');
+        app.loadingBar();
+
+        const API_KEY = 'YKAFjxVvNJEA/S1xcEjprW49M6wQSAva3PC7u3KHJxrZ3ZaTVfN40QdiqzAYrFf5';
+        const serverURL = 'https://3d.geon.kr/';
+        //초기 지도 위치 설정 (여의도)
+        app.setHomePosition(126.91415231094318, 37.53189615862187, 450, 0, 60); //경도, 위도, 높이, 방위각, 고도각
+        app.updateHomePosition(); //+ home position 수정
+
+        //이미지 레이어 생성
+        let layers = new LayerList(Union3D, app);
+        let initLayerList = ['satellite', 'korea_terrain']
+        initLayar(initLayerList);
+
+        $(document).on('click', '.input-showLayer:input[type=checkbox]', function (e) {
+            const $checkbox = $(e.target);
+            const name = $checkbox.attr('target');
+            checkLayer(name, $checkbox[0].checked);
+        });
+
+        function checkLayer(name, checked) {
+            if (checked) {
+                if (layers[name].layer === undefined) {
+                    layers[name].create();
+                }
+                layers[name].show(true);
+            } else {
+                layers[name].show(false);
+            }
+        }
+
+        function initLayar(list) {
+            const basename = list[0];
+            Union3D.UDEF.createPromise((resolve) => {
+                list.forEach((name) => {
+                    if (layers[name].layer === undefined) {
+                        layers[name].create();
+                        layers[name].ready.then(() => {
+                            if (name === basename)
+                                app.setNameBaseLayer(name);
+
+                            app.showLayer(name, true);
+                            $('.input-showLayer:input[target=' + name + ']').prop("checked", true);
+                        });
+                    }
+                });
+                resolve(true);
+            }).then((resolve) => {
+                if (resolve)
+                    app.endloadingBar();
+            });
+        }
+
+        refreshObjectList();
+
+
+        function createModelStaticLayer(listModel) {
+            const opt = {
+                name: "staticLayer",
+                needtexture: true,
+                needxml: false,
+                drawline: false,
+                listmodel: listModel
+            }
+            let layer = new Union3D.model.U3dModelStaticLayer(opt);
+            app.addLayer(layer);
+            app.showLayer(layer.getName(), true);
+
+            layer.ready.then(function () {
+                app.fitLayerExtent(opt.name);
+            });
+
+            window.layer = layer;
+        }
+
+        ////////////////////////////////////////////////////////////////////////////////////
+
+        function refreshObjectList() {
+            $(".select-object-model").empty();
+            $(".select-object-road").empty();
+            $(".div-upload-object-list").empty();
+            const callback = function (infoList, selector) {
+                window.infoListSize += infoList.length;
+                for (let info of infoList) {
+                    let name = info.name;
+                    selector.append(
+                        '<option value="' + name + '">' + name + '</option>'
+                    );
+                    getRegisteredObject(name).then(function (info) {
+                        let listModel = {
+                            name: info.name,
+                            baseurl: info.baseUrl,
+                            fileName: info.metaData.modelURL,
+                            crs: 'EPSG:5186',
+                            ext: info.metaData.format
+                        }
+                        window.listModel.push(listModel);
+                        appendUploadList(name, '완료');
+                        if (--window.infoListSize === 0) {
+                            console.log("서버 정보 불러오기 완료");
+                            createModelStaticLayer(window.listModel);
+                        }
+                    }).catch(function () {
+                        console.log(name + "레이어 정보 불러오기 오류");
+                    });
+
+
+                }
+                selector.children().first().attr("selected", "selected");
+            }
+            //+ 서버에 등록된 컴포넌트 리스트 가져오기, getRegisteredObjectList(type);
+            getRegisteredObjectList("3ds").then((infoList) => {
+                callback(infoList, $(".select-object-model"));
+            });
+            getRegisteredObjectList("obj").then((infoList) => {
+                callback(infoList, $(".select-object-road"));
+            });
+        }
+
+        // 서버에서 받아온 Componenete들을 dom 객체에 append
+        function appendUploadList(name, process) {
+            let rowName = "upload-row-" + name
+            $(".div-upload-object-list").append(
+                '<div class="' + rowName + ' col-sm-12">' +
+                '<div class="rowName col-sm-3">' +
+                '<label class="' + rowName + ' row-name">' + name + '</label>' +
+                '</div>' +
+                '<div class="col-sm-3">' +
+                '<label class="' + rowName + ' row-process">' + process + '</label>' +
+                '</div>' +
+                '<div class="col-sm-6">' +
+                '<button class="btn btn-info btn-block button-upload-object-up ' + rowName + '" value="' + name + '" data-toggle="tooltip">100m 높이기</button>' +
+                '<button class="btn btn-info btn-block button-upload-object-move ' + rowName + '" value="' + name + '" data-toggle="tooltip">이동</button>' +
+                '<button class="btn btn-info btn-block button-upload-object-show ' + rowName + '" value="' + name + '" data-toggle="tooltip">끄기</button>' +
+                '<button class="btn btn-danger btn-block button-upload-object-delete ' + rowName + '" value="' + name + '" data-toggle="tooltip">삭제</button>' +
+                '</div>' +
+                '</div>'
+            );
+
+            //업로드 컴포넌트 삭제
+            $("button.button-upload-object-delete." + rowName).on("click", function (e) {
+                let name = $(e.target).val();
+                if (confirm("서버에 등록된 컴포넌트를 삭제합니다") === true) {
+                    deleteRegisteredObject(name).then(function () {
+                        refreshObjectList();
+                    });
+                }
+            });
+            //업로드 컴포넌트 이동
+            $("button.button-upload-object-move." + rowName).on("click", function (e) {
+                let name = $(e.target).val();
+                let object = layer.getObject(name);
+                if (object) {
+                    let position = object.position;
+                    app.setCameraPosition(position.x, position.y, position.z, 0, 45, 300, 1000);
+                }
+
+            });
+
+            //업로드 컴포넌트 이동
+            $("button.button-upload-object-up." + rowName).on("click", function (e) {
+                let name = $(e.target).val();
+                let object = layer.getObject(name);
+                if (object) {
+                    let position = object.position;
+                    if ($(e.target).text() === '100m 높이기') {
+                        position.z = position.z + 100;
+                        app.updateData();
+                        $(e.target).text('원복');
+                    } else {
+                        position.z = position.z - 100;
+                        app.updateData();
+                        $(e.target).text('100m 높이기');
+                    }
+                }
+
+            });
+            //업로드 컴포넌트 보기
+            $("button.button-upload-object-show." + rowName).on("click", function (e) {
+                let name = $(e.target).val();
+
+                if ($(e.target).text() === '끄기') {
+                    layer.showObject(name, false);
+                    $(e.target).text('켜기');
+                } else {
+                    layer.showObject(name, true);
+                    $(e.target).text('끄기');
+                }
+
+            });
+            return rowName;
+        }
+
+        //서버에 등록된 컴포넌트 리스트 가져오기
+        function getRegisteredObjectList(type) {
+            var promise = $.Deferred();
+            const SEARCH_TYPE = type;
+            let params = 'type=' + SEARCH_TYPE;
+            $.ajax({
+                url: serverURL + 'v1/layers?' + params,
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader('User-Authorization', API_KEY);
+                }
+            }).then(function (e) {
+                const infoList = e.params.data;
+                infoList.sort(function (a, b) {
+                    if (a.name > b.name) {
+                        return 1;
+                    } else {
+                        return -1;
+                    }
+
+                });
+                let resultList = [];
+                for (let info of infoList) {
+                    if (info.category === "object") {
+                        resultList.push(info);
+                    }
+                }
+                promise.resolve(resultList);
+            });
+            return promise;
+        }
+
+        //서버에 등록된 레이어의 정보를 가져옵니다.
+        function getRegisteredObject(name) {
+            let promise = $.Deferred();
+            $.ajax({
+                url: serverURL + 'v1/layer/' + name,
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader('User-Authorization', API_KEY);
+                }
+            }).then(function (e) {
+                promise.resolve(e.params.data);
+            }).catch(function (e) {
+                promise.reject(false);
+            });
+            return promise;
+        }
+
+
+        // 버튼토글, 클릭시 (활성화, 비활성화) 전환
+        $(document).on('click', '.btn', function () {
+            const $this = $(this);
+            if ($this.hasClass('toggle')) {
+                let active = $this.hasClass('active');
+                $('.btn').removeClass('active');
+                if (!active) {
+                    $this.addClass('active');
+                }
+            }
+        });
+
+        function upload() {
+            let name = $(".upload-object-name").val();
+            let crs = $(".upload-object-crs").val();
+            if (!name || name === "") {
+                alert("모델 이름을 입력해 주세요");
+                return false;
+            }
+            let files = $('input[type="file"]')[0].files;
+            if (files.length === 0) {
+                alert("파일을 선택해 주세요");
+                return false;
+            }
+            let formData = new FormData();
+            for (let i = 0; i < files.length; i++) {
+                formData.append('files', files[i]);
+            }
+            formData.append('name', name);
+            if (crs) {
+                formData.append('crs', crs);
+            }
+            formData.append('category', 'object');
+            const rowName = appendUploadList(name, "0 %");
+            return $.ajax({
+                url: serverURL + 'v1/ComponentLayer/upload',
+                method: 'POST',
+                enctype: 'multipart/form-data',
+                processData: false,
+                contentType: false,
+                cache: false,
+                data: formData,
+                xhr: function () {
+                    //bind LayerItem
+                    let xhr = $.ajaxSettings.xhr();
+                    xhr.upload.onprogress = function (e) {
+                        let per = e.loaded * 100 / e.total;
+                        $("." + rowName + ".row-process").text(per + " %");
+                    };
+                    return xhr;
+                },
+                success: function () {
+                    refreshObjectList()
+                },
+                error: function (e) {
+                    $("." + rowName + ".row-process").text("실패");
+                    if (e.responseJSON != null)
+                        console.log(e.responseJSON.message);
+                    else if (e.responseText != null) {
+                        console.log(e.responseText);
+                    }
+
+                }
+            });
+        }
+
+        function deleteRegisteredObject(name) {
+            return $.ajax({
+                url: serverURL + '/v1/layer/' + name,
+                method: "DELETE",
+                success: function (e) {
+                    console.log("등록된 컴포넌트 삭제 성공");
+                },
+                error: function (e) {
+                    console.log(e.responseJSON.message);
+                }
+            });
+        }
+
+        $('.btn[name="submit-object"]').on('click', function () {
+            upload();
+        });
+
+    });
+</script>
+</body>
+</html>

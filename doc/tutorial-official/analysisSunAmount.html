@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>일조량 분석 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        .examples {
+            padding: 15px 30px 15px 30px;
+        }
+
+        .slider-wrapper {
+            width: 400px;
+            margin-left: 10px;
+            margin-right: 60px;
+        }
+
+        #custom-handle {
+            height: 23px;
+            width: 60px;
+            text-align: center;
+            top: -5px;
+        }
+
+        #analy-popup .div-popup {
+            width: 500px;
+            height: 450px;
+            top: 35vh;
+        }
+
+        .form-inline{
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu="return false;">
+    <div>
+        <img src="image/solution_GeOnDT.png">
+        <span> 일조량 분석 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead" style="font-size: 16px">
+        1. 입력한 시간에 따른 건물의 그림자를 표출합니다.<br>
+        2. 일조량 지점 / 영역을 선택 하여 지도상에 마우스 좌클릭으로 생성합니다.<br>
+        3. 생선된 위치에서의 분석 결과와 일조유무를 확인 할수 있습니다.<br>
+    </p>
+</div>
+<div id="map-wrapper">
+    <div>
+        <div id="map"></div>
+        <div id="div-left-menu">
+            <div id="left-menu-list-panel">
+                <div class="form-group div-layer">
+                    <div class="div-category">
+                        <label class="label-layerType">
+                            레이어
+                        </label>
+                    </div>
+                    <div id="layer-list">
+                        <div class="div-sub-category">
+                            <div class="sub-category-tile">
+                                <label class="label-layerType">
+                                    이미지 레이어
+                                </label>
+                                <div class="category-btn-group">
+                                    <label class="expand-btn layer">
+                                        <img src="image/btn_expand.svg" alt="">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sub-category-content">
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="satellite">
+                                        VWorld Satellite
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="base">
+                                        VWorld Base
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="hybrid">
+                                        VWorld Hybrid
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="osm">
+                                        OSM
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="google">
+                                        Google
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="emapsat">
+                                        Emap Satellite
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="emapbase">
+                                        Emap Base
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="div-sub-category">
+                            <div class="sub-category-tile">
+                                <label class="label-layerType">
+                                    지형 레이어
+                                </label>
+                                <div class="category-btn-group">
+                                    <label class="expand-btn layer">
+                                        <img src="image/btn_expand.svg" alt="">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sub-category-content">
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="korea_terrain">
+                                        전체 지형
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div>
+                    <div style="display: inline-flex; position: relative">
+                        <button id="analy-bnt" class="btn btn-xs menu-btn">
+                            <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                        </button>
+                        <div class="div-btn-info" hidden>
+                            분석 팝업 열기
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="btn-group" id='top-sbar'>
+            <div class='btn-group-vertical-block' id='right-toolbar'>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                    <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                         src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                         alt="나침반">
+                </button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                        id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                        id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                        id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg"
+                                                                     alt="">
+                </button>
+            </div>
+            <div class='btn-group' id='bt-bottom-bar'>
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                       value="위경도: ##.####  ###.#### ">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                       value="고도:####">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                       value="각도: ##">
+            </div>
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu="return false;">
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content">
+                <div class="col-sm-12">
+                    <label>[모드]</label>
+                    <div class="form-inline">
+                        <div class="radio">
+                            <label>
+                                <input type="radio" name="mode" value="map" checked>
+                                기본지도 모드
+                            </label>
+                            <label>
+                                <input type="radio" name="mode" value="target">
+                                일조량 지점 선택
+                            </label>
+                            <label>
+                                <input type="radio" name="mode" value="area">
+                                일조량 영역 그리기
+                            </label>
+                        </div>
+                    </div>
+
+                    <label>[자유 분석] / 설정된 시간: <samp id="current-time"></samp></label>
+                    <div class="form-inline">
+                        <div class="form-group">
+                            <input class="form-control" type="date" id="free-analy">
+                        </div>
+                        <div class="form-group slider-wrapper">
+                            <div id="time-slider">
+                                <div id="custom-handle" class="ui-slider-handle"></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <button class="btn-default btn analy" id="sunraise">
+                                일출 <samp></samp>
+                            </button>
+                            <button class="btn-default btn analy" id="sunset">
+                                일몰 <samp></samp>
+                            </button>
+                        </div>
+                        <div class="form-group">
+                            <button class="btn btn-default analy" id="now">현재 시간으로</button>
+                        </div>
+                    </div>
+                    <label>[분단위 분석]</label>
+                    <div class="form-inline">
+                        <div class="form-group">
+                            <input class="form-control" type="date">
+                        </div>
+                        <div class="form-group">
+                            <input class="form-control" type="time" id="min-start">
+                        </div>
+                        <div class="form-group">
+                            <code> ~ </code>
+                        </div>
+                        <div class="form-group">
+                            <input class="form-control" type="time" id="min-end">
+                        </div>
+                        <div class="form-group">
+                            <button class="btn btn-default analy" id="analy-amount">분석</button>
+                        </div>
+                        <p></p>
+                    </div>
+                </div>
+
+                <div class="col-sm-12" style="margin-top: 1%">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <div class="d-flex" style="padding-bottom: 10px">
+                                <div>분석 결과 리스트
+                                    <button class="btn btn-default analy" id="analy-amount-clear" style="float: right;">초기화</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="h-300 scroll-auto panel-body">
+                            <div class="col-sm-12">
+                                <div id="result"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+            </div>
+        </div>
+    </div>
+
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "200px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script>
+
+    //라이센스 인증
+    GeOnDT.ready(function () {
+
+        //지도 기본 세팅///////////////////////////////////////
+        window.app = new GeOnDT.U3dAPP({
+            containername: 'map'
+        });
+        app.setHomePosition(129.155, 35.1596, 435, 0, 45); //경도, 위도, 높이, 방위각, 고도각
+        app.updateHomePosition();
+        app.createloadingBar('load');
+        app.on('change', updatePosData);
+        //app.setBoundingTree(true); // 건물 영역 정교화
+        //이미지 레이어 생성
+        let layer = new GeOnDT.image.U3dImageXYZLayer({
+            name: 'satellite',
+            baseurl: layerInfo.image.vworldsaturl,
+            reverseY: true
+        });
+        app.addLayer(layer);
+        //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+        app.setNameBaseLayer('satellite');
+        app.showLayer('satellite', true);
+
+        let terrainLayer = new GeOnDT.terrain.U3dHeightXYZLayer({
+            name: 'Korea Terrain',
+            baseurl: layerInfo.height.url,
+            ext: '.umf',
+            reverseY: true,
+            minlevel: 9,
+            maxlevel: 17,
+            useproxy: false
+         });
+        app.addLayer(terrainLayer);
+        app.showLayer('Korea Terrain', true);
+
+
+        //+ WFS 모델 ///////////////////////////////////////////////////////////////////
+        // let wfsModel;
+        // wfsModel = new GeOnDT.model.U3dModelWFSLayer({
+        //     name: 'WFS Model', //+ WFS 3D 모델 레이어 이름, defaultValue(opt.name, Guid())  : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+        //     layername: layerInfo.wfs_korea.layername, //+ 레이어 이름, *필수 입력
+        //     // sldurl:  layerInfo.wfs_unionit.sldurl,
+        //     baseurl: layerInfo.wfs_korea.baseurl, //+ baseurl 지도 서비스 기본 URL, *필수 입력
+        //     //층수필드나 높이필드를 선택하여 사용
+        //     //fieldheight: layerInfo.wfs_korea.fieldheight, //+ 높이 필드 (속성테이블 칼럼명), defaultValue(opt.fieldheight, undefined)
+        //     fieldfloor: layerInfo.wfs_korea.fieldfloor, //+ 층수 필드 (속성테이블 칼럼명), defaultValue(opt.fieldheight, undefined)
+        //     fieldheightfloor: layerInfo.wfs_korea.fieldheightfloor,
+        //     floorheight: layerInfo.wfs_korea.floorheight, //+ 층수 높이 필드
+        //     fieldKind: layerInfo.wfs_korea.fieldKind,  //+ 종류 필드 (속성테이블 칼럼명), defaultValue(opt.fieldKind, undefined)
+        //     transperent: false, //+ 투명화 여부
+        //     minlevel: 17, //+ 가시화 최소레벨,defaultValue(opt.minlevel, 17)
+        //     drawline: true, //+ WFS 모델에 테투리 추가 여부
+        //     opacity: 1, //+ 투명화 여부 true 일 경우, 투명도 설정값으로 적용
+        //     textureurl: './image/buld/buld_texture_1.jpg',  //+ 텍스처 url, defaultValue(opt.textureurl, undefined)
+        //     useproxy: true
+        // });
+        //
+        // app.addLayer(wfsModel);
+        // app.showLayer('WFS Model', true);
+
+        // U3F
+        initU3fModelLayers('u3fLayer');
+
+        // sun Amount Analysis
+        const analysis = app.getAnalysis("SunAmount");
+        analysis.active();
+        // var poi = undefined;
+        let poiList = [];
+        let now = new Date();
+        let sunset = app.getTimeSunset(now);
+        let sunraise = app.getTimeSunrise(now);
+        let handle = $("#custom-handle");
+        /////////////////////////////////////////////////////
+
+        app.setSunShineMode(true); //일조권 모드 Set
+        app.setTimeSun(now);// 현재시간으로 세팅
+        getCurrentTime();
+        app.endloadingBar();
+        //초기값 세팅/////////////////////////////////////////
+        $('input[type=date]').val(now.format('yyyy-MM-dd'));
+        // $('input[type=time]').val(now.format('HH:mm'));
+
+        const minStartTime = new Date(now);
+        const minEndTime = new Date(now);
+        minEndTime.setHours(minEndTime.getHours() + 5);
+
+        $('#min-start').val(minStartTime.format('HH:mm'));
+        $('#min-end').val(minEndTime.format('HH:mm'));
+
+
+        const analy =  app.getAnalysis("SunAmount");
+        $('#sunraise samp').html(sunraise.format('HH:mm:ss'));
+        $('#sunset samp').html(sunset.format('HH:mm:ss'));
+
+        /////////////////////////////////////////////////////
+        //현재시간으로
+        $('#now').on('click', function () {
+            app.setTimeSun(new Date());
+            let cur = getCurrentTime();
+            $('#time-slider').slider('value', cur.getHours() * 60 + cur.getMinutes());
+            handle.text(cur.format('HH:mm'));
+        });
+        //자유분석 날짜Input
+        $('#free-analy').on('change', function (e) {
+            app.setTimeSun(new Date(this.value));
+            getCurrentTime();
+            let time = app.getTimeSun();
+            let sunset = app.getTimeSunset(time);
+            let sunraise = app.getTimeSunrise(time);
+            $('#sunraise samp').html(sunraise.format('HH:mm:ss'));
+            $('#sunset samp').html(sunset.format('HH:mm:ss'));
+        });
+        //자유분석 슬라이드바
+        $('#time-slider').slider({
+            value: now.getHours() * 60 + now.getMinutes(),
+            min: 0, // min value
+            max: 1440,
+            create: function () {
+                let val = $(this).slider("value");
+                let time = minuteToString(val);
+                handle.text(time);
+            },
+            slide: function (event, ui) {
+                let val = ui.value;
+                let time = minuteToString(val);
+                handle.text(time);
+
+                let date = $('input[type=date]').val();
+                app.setTimeSun(new Date(date + ' ' + time));
+
+                if (poiList.length !== 0) {
+                    //각 시간별 그림자 유무 체크
+                    poiList.forEach(function (poi) {
+                        let isShadow = app.isShadowAtTime(new Date(date + ' ' + time), poi.getPosition());
+                        console.log('대상 : ' + poi.label + ' ( 시간 :' + date + ' ' + time + " / 일조유무: " + !isShadow + " )");
+                    })
+                }
+                getCurrentTime();
+            }
+        });
+        //일출,일몰시간
+        $('#sunraise,#sunset').on('click', function (e) {
+            let date = $('input[type=date]').val();
+            let time = $(this).find('samp').text();
+            app.setTimeSun(new Date(date + ' ' + time));
+            let cur = getCurrentTime();
+            $('#time-slider').slider('value', cur.getHours() * 60 + cur.getMinutes());
+            handle.text(cur.format('HH:mm'));
+        });
+        //일조량 분석
+
+        // analy.setUserStyle({
+        //     0 :  {min: 0, max: 200, color: "#ff0000"},
+        //     200 : {min: 200, max: 400, color: "#ff8000"},
+        //     400 : {min: 400, max: 600, color: "#ffbf00"},
+        //     600 : {min: 600, max: Infinity, color: "#fff700"},
+        // });
+
+        $('#analy-amount').on('click', function (e) {
+            let startDateStr = $(this).closest('.form-inline').find('input[type=date]').val();
+            let startTimeStr = $(this).closest('.form-inline').find('#min-start').val();
+            let start = getDateFromString(startDateStr, startTimeStr);
+
+            let endTimeStr = $(this).closest('.form-inline').find('#min-end').val();
+            let end = getDateFromString(startDateStr, endTimeStr);
+
+            $('#result').empty()
+            app.loadingBar();
+            let promises = [];
+            let promise, result;
+            poiList.forEach(function (poi) {
+                promise = GeOnDT.UDEF.createPromise(function (resolve) {
+                    result = app.analySunAmount(start, end, poi.getPosition(), 1, {
+                        name :  poi.label,
+                        isDraw : true, // 분석 mesh 큐브를 그릴지 여부
+                        type: "color", // color, cube
+                        boxNum : 100,
+                        styleFun : styleFun
+                    })
+                    printAmount(poi, result)
+                    resolve()
+                })
+                promises.push(promise);
+            });
+            Promise.all(promises).then(function () {
+                console.log('분석 종료');
+                app.endloadingBar();
+            })
+        });
+
+        function styleFun ( cubeMesh, sunAmount, type) {
+            if(type === "cube") {
+                if(sunAmount > 600) {
+                    return '#ff0000';
+                } else if (sunAmount <= 600 && sunAmount > 400) {
+                    return '#ff8000';
+                } else if (sunAmount <= 400 && sunAmount > 200) {
+                    return '#ffbf00';
+                } else {
+                    return '#fff700';
+                }
+            }
+        }
+
+        let clickKey;
+        $('input[name="mode"]').on('click', function () {
+            let mode = this.value;
+            if (mode === 'map') {
+                draw.deactive();
+                app.unkey('click', clickKey);
+            } else if (mode === 'target') {
+                draw.deactive();
+                clickKey = app.on('click', addTarget);
+            } else if (mode === 'area') {
+                app.unkey('click', clickKey);
+                draw.clear();
+                removePOI();
+                draw.active();
+            }
+        })
+        $('#analy-amount-clear').on('click',function (){
+            app.endAnalySunAmount(); // 분석 종류 후 해당 함수를 사용해야 그려진 분석 메시가 지워진다.
+            removePOI();
+            $('#result').text('');
+            let features = draw.getFeatures();
+            if(features && features.length > 0 )
+                features.forEach(feature =>{
+                    draw.removeFeature(feature);
+                })
+            draw.deactive();
+        })
+
+        let poiCount = 0;
+
+        function addTarget(e) {
+            let world = app.closestPointAtPixel(e); //클릭한 지점의 3D 좌표
+            if (poiList !== undefined) {
+                let poi = new GeOnDT.geom.U3dPOI({
+                    position: world,
+                    image: 'image/marker.png',
+                    label: '분석지점 ' + poiCount++ + '번',
+                    depthTest : false
+                });
+                app.addPOI(poi);
+                poiList.push(poi);
+            }
+        }
+
+        let draw = new GeOnDT.UDraw();
+        draw.setApp(app);
+        draw.setGeometryType('Polygon');
+        draw.on('end', function (e) {
+            let drawFeature = e.data;
+            let geom = drawFeature.getGeometry();
+            let coords = geom.getCoordinates()[0];
+
+            draw.clear();
+            draw.deactive();
+            $('.btn-draw').removeClass('active');
+
+            if (coords.length > 2) {
+                let points = getGridPoints(drawFeature.getGeometry());
+                for (let i = 0; i < points.length; i++) {
+                    let poi = new GeOnDT.geom.U3dPOI({
+                        position: points[i],
+                        image: 'image/marker.png',
+                        label: "영역 분석 " +  poiCount++ + "번"
+                    });
+                    app.addPOI(poi);
+                    poiList.push(poi);
+                }
+                $('#analy-amount').trigger('click');
+            } else {
+                alert('선택 지점이 3 이상이여야 합니다.');
+                draw.removeFeature(drawFeature);
+            }
+            $('input[value="map"]').prop('checked', true);
+        })
+
+        function getGridPoints(geometry) {
+            let nx = 10, ny = 10;
+            let box = geometry.getExtent();
+            let minX = box[0], maxY = box[3];
+            let dx = (box[2] - box[0]) / nx;
+            let dy = (box[3] - box[1]) / ny;
+
+            let result = [];
+            for (let j = 0; j < ny; j++) {
+                for (let i = 0; i < nx; i++) {
+                    let x = minX + dx * i;
+                    let y = maxY - dy * j;
+                    if (geometry.containsXY(x, y)) {
+                        let vec3 = app.geographicToVector3({x: x, y: y, z: 0});
+                        vec3.z = app.getRenderHeightAtPoint(vec3); //렌더링시 높이값
+                        result.push(vec3);
+                    }
+                }
+            }
+            return result;
+        }
+
+        function removePOI() {
+            if (poiList && poiList.length > 0) {
+                poiList.forEach(function (poi) {
+                    if (poi) {
+                        app.removePOI(poi);
+                    }
+                })
+                poiList = [];
+            }
+        }
+
+        function minuteToString(ms) {
+            let h = Math.floor(ms / 60);
+            let m = ms - (h * 60);
+            return pad(h, 2) + ':' + pad(m, 2);
+        }
+
+        function pad(n, width) {
+            n = n + '';
+            return n.length >= width ? n : new Array(width - n.length + 1).join('0') + n;
+        }
+
+        function getCurrentTime() {
+            let curTime = app.getTimeSun();
+            printTime(curTime);
+            return curTime;
+        }
+
+        function printTime(date) {
+            if (date === undefined) return;
+            $('#current-time').html(date.format('yyyy-MM-dd a/p hh:mm:ss'));
+        }
+
+        function printAmount(poi, result) {
+            let name = poi.label;
+            let id = poi.uuid;
+            let divId =  name+'_'+id;
+            divId = divId.replaceAll(' ','')
+            let str = '<div id ='+divId+'>' +
+                '<div><strong>분석지점 : ' + name + '</strong></div>';
+            let totalAmount = 0;
+
+            for (let i = 0; i < result.length; i++) {
+                let data = result[i];
+                let start = data.start.format('yyyy-MM-dd a/p hh:mm:ss')
+                let end = data.end.format('yyyy-MM-dd a/p hh:mm:ss')
+                str += '<div>'
+                str += '<div>' + (i + 1) + '. 일조시작 시간: ' + start + '</div>';
+                str += '<div>' + (i + 1) + '. 그림자가 드는 시간: ' + end + '</div>';
+                str += '<div>' + (i + 1) + '. 일조량: ' + data.amount + '분</div>';
+                str += '</div>';
+                str += '<br>';
+                totalAmount += data.amount;
+            }
+            str += `<div><strong>총일조량 : ` + totalAmount + `분</strong> <button class="btn btn-xs" id = `+id+` style="float:right">삭제</button></div>`
+            str += '<br/>'
+            str += '<hr>';
+            str += '</div>';
+            $('#result').append(str);
+
+            $(`#${id}`).on('click', function(){
+                let poi = poiList.find(function(poi_){
+                    return poi_.label === name
+                })
+                if(poi){
+                    app.removePOI(poi);
+                    app.removeAnalySunAmount(poi.label); // 일조량 분석 mesh 제거
+                    draw.clear();
+                    let idx_ = poiList.indexOf(poi);
+                    poiList.splice(idx_, 1);
+                }
+                $(`#${divId}`).text('')
+            })
+        }
+
+        function getDateFromString(dateString, timeString) {
+            let year = Number(dateString.split('-')[0]);
+            let month = Number(dateString.split('-')[1]);
+            let day = Number(dateString.split('-')[2]);
+            let hour = Number(timeString.split(':')[0]);
+            let minute = Number(timeString.split(':')[1]);
+            let date = new Date(year, pad(month - 1, 2), pad(day, 2));
+            date.setHours(hour);
+            date.setMinutes(minute);
+            return date;
+        }
+
+        function initU3fModelLayers(name) {
+            try {
+                let groupLayer = app.createModelGroupLayer({
+                    maxlevel: 19,
+                    minlevel: 17,
+                    name: name
+                });
+                /* request U3f layers list */
+                $.ajax({
+                    url: modelU3fURL,
+                    crossDomain: true,
+                    beforeSend: function (xhr) {
+                        xhr.setRequestHeader('User-Authorization', trdDimAPIKey);
+                        xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+                    },
+                    error: function (e) {
+                        console.info(e);
+                    }
+                }).then(function (result) {
+                    let infos = result.params.data;
+
+                    for (let i = 0; i < infos.length; i++) {
+                        let info = infos[i];
+                        /* 레이어 목록 중 발행중인 레이어만 요청 */
+                        if (info.state === "ACTIVE") {
+                            let baseName = info.fileName;
+                            if(!baseName || baseName ==='')
+                                baseName = info.name;
+                            let options = {
+                                name: info.name,
+                                basename: baseName,
+                                baseurl: info.baseUrl,
+                                useproxy: false,
+                                minlevel: info.metaData.minLevel,
+                                maxlevel: info.metaData.maxLevel,
+                                compressmodel: true,
+                                isShareMaterial: false,
+                                makeU3FPackage: 1
+                            };
+                            let subLayer = app.create3DFModelLayer(options);
+                            if(subLayer !== false){
+                                subLayer.then(function (layer) {
+                                    groupLayer.addLayer(subLayer);
+                                    if(i === infos.length -1){
+                                        console.log("u3f model layer load");
+                                        app.showLayer(groupLayer.getName(),true);
+                                    }
+                                }).fail(function (layer) {
+
+                                });
+                            }
+                        }
+                    }
+                })
+            } catch (localBuldError) {
+                console.log('Initialize Error Message : ' + localBuldError);
+            }
+        }
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Position</title>
+</head>
+<body style="padding-top: 0">
+<div class="content">
+    <div class="explane1">
+        GeOnDT에서는 크게 세 가지 좌표(Position) 체계를 사용합니다. <br><br>
+
+        1. <accent>World Position</accent><br>
+        three.js에서 사용하는 3D 월드 좌표로, 3차원 직교 좌표계입니다. <br>
+        렌더링 및 객체 배치, 이동·회전 계산에 사용됩니다. <br><br>
+
+        <label class="code-label">
+            <img src="./image/positionDoc/positionDoc.png" alt="style1" data-size="small">
+        </label>
+        <br><br>
+        2. <accent>Local / Model Position</accent><br>
+        객체 자체를 기준(영점)으로 하는 로컬 좌표계입니다. <br>
+        각 Mesh 내부에서의 위치 관계를 표현하며,
+        부모 객체의 변환(위치·회전·크기)에 따라 World Position으로 변환됩니다. <br><br>
+
+        <label class="code-label">
+            <img src="./image/positionDoc/positoinDoc2.jpg" alt="style1" data-size="small">
+        </label>
+        <br><br>
+        3.<accent> Geographic Position</accent><br>
+        위도(Latitude), 경도(Longitude) 기반의 지리 좌표로, 보통 위경도 좌표계 또는 EPSG:4326 좌표계라고 지칭합니다. <br>
+        실제 지도 위치 및 공간 데이터를 표현하는 데 사용됩니다.<br><br>
+
+        <label class="code-label">
+            <img src="./image/positionDoc/positionDoc3.png" alt="style1" data-size="small">
+        </label>
+    </div>
+</div>
+
+</body>
+</html>

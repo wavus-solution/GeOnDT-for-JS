@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>일조권 분석 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        .slider-wrapper {
+            width: 250px;
+            margin-left: 10px;
+            margin-right: 60px;
+        }
+
+        #custom-handle {
+            height: 23px;
+            width: 60px;
+            text-align: center;
+            top: -5px;
+            background-color: black;
+            color: white;
+        }
+
+        #analy-popup .div-popup {
+            width: 550px;
+            height: 300px;
+            top: 57vh;
+            padding-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> 일조권 분석 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        시간대 별로 <strong>일조권을 분석하여 그림자를 표출</strong>하는 예제입니다.<br>
+        자유 분석, 분단위/시간단위/일단위 분석 기능을 제공하며 설정 시간에 따른 일출, 일몰 시간을 자동으로 설정하여 일조권을 분석합니다.
+    </p>
+</div>
+<div id="map-wrapper">
+    <div id="map"></div>
+    <div id="div-left-menu">
+        <div>
+            <div style="display: inline-flex; position: relative">
+                <button id="analy-bnt" class="btn btn-xs menu-btn">
+                    <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+                <div class="div-btn-info" hidden>
+                    분석 팝업 열기
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="btn-group" id='top-sbar'>
+        <div class='btn-group-vertical-block' id='right-toolbar'>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                     src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                     alt="나침반">
+            </button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                    id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                    id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                    id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+            </button>
+        </div>
+        <div class='btn-group' id='bt-bottom-bar'>
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                   value="위경도: ##.####  ###.#### ">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                   value="고도:####">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                   value="각도: ##">
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu='return false'>
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content" style="margin-left:10px;">
+                <div style="margin-bottom: 20px">
+                    설정된 시간 : <samp id="current-time"></samp>
+                </div>
+                <div>
+                    <label>[자유 분석]</label>
+                    <div class="form-inline" style="margin-left: 6px; margin-bottom: 10px">
+                        <div class="form-group">
+                            <input class="form-control" type="date" id="free-analy">
+                        </div>
+                        <div class="form-group slider-wrapper">
+                            <div id="time-slider">
+                                <div id="custom-handle" class="ui-slider-handle"></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <button class="btn-default btn analy" id="sunraise">
+                                일출<samp></samp>
+                            </button>
+                            <button class="btn-default btn analy" id="sunset">
+                                일몰<samp></samp>
+                            </button>
+                        </div>
+                        <div class="form-group">
+                            <button class="btn btn-default analy" id="now">현재 시간으로</button>
+                        </div>
+                        <div class="form-group">
+                            <button class="btn btn-default" id="analy-cancel">분석 종료</button>
+                        </div>
+                    </div>
+                    <label>[분단위 분석]</label>
+                    <div class="form-inline" style="margin-left: 6px; margin-bottom: 10px">
+                        <div class="form-group">
+                            <input class="form-control" type="date">
+                        </div>
+                        <div class="form-group">
+                            <input class="form-control" type="time" id="min-start">
+                        </div>
+                        <div class="form-group">
+                            ~
+                        </div>
+                        <div class="form-group">
+                            <input class="form-control" type="time" id="min-end">
+                        </div>
+                        <div class="form-group">
+                            <button class="btn btn-default analy" id="min-analy">분석</button>
+                        </div>
+                    </div>
+                    <label>[시간대별 분석]</label>
+                    <div class="form-inline" style="margin-left: 6px; margin-bottom: 10px">
+                        <div class="form-group">
+                            <input class="form-control" type="date">
+                        </div>
+                        <div class="form-group">
+                            <input class="form-control" type="time" id="time-start">
+                        </div>
+                        <div class="form-group">
+                            ~
+                        </div>
+                        <div class="form-group">
+                            <input class="form-control" type="time" id="time-end">
+                        </div>
+                        <div class="form-group">
+                            <button class="btn btn-default analy" id="time-analy">분석</button>
+                        </div>
+                    </div>
+                    <label>[일자별 분석]</label>
+                    <div class="form-inline" style="margin-left: 6px; margin-bottom: 10px">
+                        <div class="form-group">
+                            <input class="form-control" type="date" id="day-start">
+                        </div>
+                        <div class="form-group">
+                            <input class="form-control" type="time">
+                        </div>
+                        <div class="form-group">
+                            ~
+                        </div>
+                        <div class="form-group">
+                            <input class="form-control" type="date" id="day-end">
+                        </div>
+                        <div class="form-group">
+                            <button class="btn btn-default analy" id="day-analy">분석</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script>
+    var isAnalysis = false;
+    //라이센스 인증
+    Union3D.ready(function () {
+        var maxprocess_model = 5;
+        var sizeblock_model = 5;
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// 지도 기본세팅 /////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        window.app = new Union3D.U3dAPP({
+            containername: 'map' //+ U3dApp(지도영역)의 div ID, *필수 입력
+        });
+        app.setHomePosition(126.9395, 37.52, 450, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+        app.updateHomePosition(); //+ home position 수정
+        app.createloadingBar('load');
+        app.on('change', updatePosData);
+
+        //이미지 레이어 생성
+        var layer = new Union3D.image.U3dImageXYZLayer({
+            name: 'satellite', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.image.vworldsaturl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+        });
+        app.addLayer(layer);
+        //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+        app.setNameBaseLayer('satellite');
+        app.showLayer('satellite', true);
+        app.endloadingBar();
+
+        var terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+            name: 'Korea Terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.height.url,//+ 고도 데이터 기본 URL, *필수 입력
+            ext: '.umf', //+ 파일 확장자,  *필수 입력
+            reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false), *필수 입력
+            minlevel: 9,  //+ 가시화 최소 레벨
+            maxlevel: 15, //+ 가시화 최대 레벨
+            useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+            maxprocess: 2, //+ process 최대값
+            interpolationheight: true,  //+ 고도보간 기능 사용 여부
+            rectangle: Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수
+        });
+        app.addLayer(terrainLayer);
+        app.showLayer('Korea Terrain', true);
+
+        initModelLayers();
+        window.metalayers = {};
+
+        function initModelLayers() {
+            try {
+                modelayers = app.createModelGroupLayer({
+                    maxlevel: 19,
+                    minlevel: 17,
+                    name: 'u3f'
+                });
+                /* request U3f layers list */
+                $.ajax({
+                    url: modelU3fURL,
+                    crossDomain: true,
+                    beforeSend: function (xhr) {
+                        xhr.setRequestHeader('User-Authorization', trdDimAPIKey);
+                        xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+                    },
+                    error: function (e) {
+                        console.info(e);
+                    }
+                }).then(function (result) {
+                    let maxprocess_model_ = 10;
+                    let sizeblock_model_ = 10;
+                    let updateimagedistance_ = 50;
+                    let wrapping = undefined;
+                    let infos = result.params.data;
+
+                    for (let i = 0; i < infos.length; i++) {
+                        let info = infos[i];
+                        /* 레이어 목록 중 발행중인 레이어만 요청 */
+                        if (info.state === "ACTIVE") {
+                            let metaData = info.metaData;
+                            let subLayerName = info.name;
+                            let buldLayerConstruct = {};
+                            Object.assign(buldLayerConstruct, {name: subLayerName});
+                            Object.assign(buldLayerConstruct, {basename: subLayerName});
+                            Object.assign(buldLayerConstruct, {baseurl: info.baseUrl});
+                            Object.assign(buldLayerConstruct, {minlevel: metaData.minLevel});
+                            Object.assign(buldLayerConstruct, {maxlevel: metaData.maxLevel});
+                            Object.assign(buldLayerConstruct, {srs: metaData.srs});
+                            Object.assign(buldLayerConstruct, {ext: '.' + metaData.ext});
+                            Object.assign(buldLayerConstruct, {maxprocess: maxprocess_model_});
+                            Object.assign(buldLayerConstruct, {sizeblock: sizeblock_model_});
+                            Object.assign(buldLayerConstruct, {updateimagedistance: updateimagedistance_});
+                            Object.assign(buldLayerConstruct, {grouplayer: modelayers});
+                            Object.assign(buldLayerConstruct, {wrapping: wrapping});
+                            Object.assign(buldLayerConstruct, {renderorder: 0});
+                            Object.assign(buldLayerConstruct, {useproxy: false});
+                            let subLayer = app.create3DFModelLayer(buldLayerConstruct);
+                            subLayer.then(function (layer) {
+                                modelayers.addLayer(subLayer);
+                                if (i === infos.length - 1) {
+                                    console.log("u3f model layer load");
+                                    app.showLayer(modelayers.getName(), true);
+                                }
+                            }).fail(function (layer) {
+
+                            });
+                        }
+                        window.metalayers[info.name] = info;
+                    }
+                })
+            } catch (localBuldError) {
+                console.log('Initialize Error Message : ' + localBuldError);
+            }
+        }
+
+        /////////////////////////////////////////////////////
+
+        app.setSunShineMode(true); // 일조권 측정 모드로 전환하는 함수, self._mode = UDEF.APP_MODE._SUNSHINE;
+        var now = new Date();
+        app.setTimeSun(now);// 현재시간으로 세팅
+        getCurrentTime();
+
+        //초기값 세팅/////////////////////////////////////////
+        $('input[type=date]').val(now.format('yyyy-MM-dd')); //+ 날짜 형식
+        $('input[type=time]').val(now.format('HH:mm'));//+ 시간 형식
+        var sunset = app.getTimeSunset(now); //+ 일출 시간 계산
+        var sunraise = app.getTimeSunrise(now); //+ 일몰 시간 계산
+        $('#sunraise samp').html(sunraise.format('HH:mm:ss')); //+일출 시간 형식
+        $('#sunset samp').html(sunset.format('HH:mm:ss')); //+ 일몰 시간 형식
+
+        /////////////////////////////////////////////////////
+
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// event 등록 ///////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        //+ [현재시간] 버튼 클릭시 동작하는 function
+        $('#now').on('click', function () {
+            app.setTimeSun(new Date());
+            var cur = getCurrentTime(); //+ 현재 설정 시간
+            //+ 자유분석 slider bar 현재시간으로 설정
+            $('#time-slider').slider('value', cur.getHours() * 60 + cur.getMinutes());
+            handle.text(cur.format('HH:mm')); //+ 시간 형식 지정
+        });
+        //+ [자유분석] slider bar drag시 해당 시간에 맞춰 분석 모드 동작
+        $('#free-analy').on('change', function (e) {
+            app.setTimeSun(new Date(this.value)); //+ 사용자가 설정한 날짜로 분석 날짜 설정
+            getCurrentTime();
+            var time = app.getTimeSun();
+            var sunset = app.getTimeSunset(time);
+            var sunraise = app.getTimeSunrise(time);
+            $('#sunraise samp').html(sunraise.format('HH:mm:ss'));
+            $('#sunset samp').html(sunset.format('HH:mm:ss'));
+        });
+        //+ [시간대별 분석] end Time Hour 변경시 동작 하는 function
+        $('#time-end').on('change', function (e) {
+            $('#time-end').val($("#time-end").val().split(":")[0] + ":" + $("#time-start").val().split(":")[1]);
+        });
+
+        //+ [분석 종료] 버튼 클릭시 비활성화된 버튼 활성화 시킴
+        $('#analy-cancel').on('click', function (e) {
+            if (isAnalysis) {
+                //+ 버튼 활성화
+                activeMenu();
+            }
+        });
+        //+ [일출], [일몰] 버튼 클릭시 동작하는 function
+        $('#sunraise,#sunset').on('click', function (e) {
+            var date = $('input[type=date]').val(); //+ 시간 받기
+            var time = $(this).find('samp').text(); //+ 해당 버튼 시간
+            app.setTimeSun(new Date(date + ' ' + time)); //+ 전달 받은 값으로 분석 셋팅
+            var cur = getCurrentTime(); //+ 현재 설정 시간
+            //+ time slider 설정된 시간으로  bar 이동
+            $('#time-slider').slider('value', cur.getHours() * 60 + cur.getMinutes());
+            handle.text(cur.format('HH:mm')); //+ 시간 형식 지정
+        });
+
+        //+ [분석] 버튼 클릭시 이외의 버튼 비활성화
+        $('#time-analy,#day-analy,#min-analy').on('click', function (e) {
+            disableMenu(); // 메뉴 비활성화
+        });
+
+        //+ [분단위 분석] - [분석] 버튼 클릭시 동작하는 function
+        $('#min-analy').on('click', function (e) {
+            //+ 시작 날짜
+            var startDateStr = $(this).closest('.form-inline').find('input[type=date]').val();
+            //+ 시작 시간
+            var startTimeStr = $(this).closest('.form-inline').find('#min-start').val();
+            //+ 시작 날짜 + 시간 String 변환
+            var start = getDateFromString(startDateStr, startTimeStr);
+            //+ 종료 시간
+            var endTimeStr = $(this).closest('.form-inline').find('#min-end').val();
+            //+ 시작 날짜 + 종료 시간 String 변환
+            var end = getDateFromString(startDateStr, endTimeStr);
+
+            var delay = 100;
+            var timerIdArr = [];
+
+            //+ 시작시간 : 종료시간 차이 계산
+            var diff = dateDiff(start, end);
+            diff = diff / (1000 * 60);
+
+            for (var i = 0; i < diff + 1; i++) {
+                var loopFnc = function (ii, arr) {
+                    var timerId = setTimeout(function () {
+                        if (!isAnalysis) {
+                            clearTimeoutArray(arr);
+                            return;
+                        }
+
+                        var copy = new Date();
+                        copy.setTime(start.getTime());
+
+                        //+ Minutes 만 변경
+                        copy.setMinutes(start.getMinutes() + ii);
+
+                        app.setTimeSun(new Date(copy.format('yyyy-MM-dd') + ' ' + copy.format('HH:mm')));
+                        //+ 현재 분석중인 시간 표시
+                        printTime(copy);
+
+                        if (ii === diff) {
+                            //+ 분석 종료시 메뉴 활성화
+                            activeMenu();
+                        }
+                    }, ii * delay);
+                    arr.push(timerId);
+                };
+                loopFnc(i, timerIdArr);
+            }
+        });
+
+
+        //+ [시간대별 분석] - [분석] 버튼 클릭시 동작하는 function
+        $('#time-analy').on('click', function (e) {
+            //+ 시작 날짜
+            var startDateStr = $(this).closest('.form-inline').find('input[type=date]').val();
+            //+ 시작 시간
+            var startTimeStr = $(this).closest('.form-inline').find('#time-start').val();
+            //+ 시작 날짜 + 시간 String 변환
+            var start = getDateFromString(startDateStr, startTimeStr);
+            //+ 종료 시간
+            var endTimeStr = $(this).closest('.form-inline').find('#time-end').val();
+            //+ 시작 날짜 + 종료 시간 String 변환
+            var end = getDateFromString(startDateStr, endTimeStr);
+
+            var delay = 500;
+            var timerIdArr = [];
+
+            //+ 시작시간 : 종료시간 차이 계산
+            var diff = dateDiff(start, end);
+            diff = diff / (1000 * 3600);
+
+            for (var i = 0; i < diff + 1; i++) {
+                var loopFnc = function (ii, arr) {
+                    var timerId = setTimeout(function () {
+                        if (!isAnalysis) {
+                            clearTimeoutArray(arr);
+                            return;
+                        }
+
+                        var copy = new Date();
+                        copy.setTime(start.getTime());
+                        //+ hour만 변경
+                        copy.setHours(start.getHours() + ii);
+                        app.setTimeSun(new Date(copy.format('yyyy-MM-dd') + ' ' + copy.format('HH:mm')));
+                        //+ 현재 분석중인 시간 표시
+                        printTime(copy);
+
+                        if (ii === diff) {
+                            //+ 분석 종료시 메뉴 활성화
+                            activeMenu();
+                        }
+                    }, ii * delay);
+                    arr.push(timerId);
+                };
+                loopFnc(i, timerIdArr);
+            }
+        });
+
+        //+ [일자별 분석] - [분석] 버튼 클릭시 동작하는 function
+        $('#day-analy').on('click', function (e) {
+            //+ 시작 날짜
+            var startDateStr = $(this).closest('.form-inline').find('#day-start').val();
+            //+ 시작 시간
+            var startTimeStr = $(this).closest('.form-inline').find('input[type=time]').val();
+            //+ 시작 날짜 + 시간 String 변환
+            var start = getDateFromString(startDateStr, startTimeStr);
+            //+ 종료 날짜
+            var endDateStr = $(this).closest('.form-inline').find('#day-end').val();
+            //+ 종료 날싸 + 시작 시간 String 변환
+            var end = getDateFromString(endDateStr, startTimeStr);
+
+            var delay = 500;
+            var timerIdArr = [];
+
+            //+ 시작날짜 : 종료 날짜 차이 계산
+            var diff = dateDiff(start, end);
+            diff = Math.ceil(diff / (1000 * 3600 * 24));
+
+            for (var i = 0; i < diff + 1; i++) {
+                var loopFnc = function (ii, arr) {
+                    var timerId = setTimeout(function () {
+                        if (!isAnalysis) {
+                            clearTimeoutArray(arr);
+                            return;
+                        }
+                        var copy = new Date();
+                        copy.setTime(start.getTime());
+                        //+ Date 만 변경
+                        copy.setDate(start.getDate() + ii);
+
+                        app.setTimeSun(new Date(copy.format('yyyy-MM-dd') + ' ' + copy.format('HH:mm')));
+                        //+ 현재 분석중인 시간 표시
+                        printTime(copy);
+
+                        if (ii === diff) {
+                            //+ 분석 종료시 메뉴 활성화
+                            activeMenu();
+                        }
+                    }, ii * delay);
+
+                    arr.push(timerId);
+                };
+                loopFnc(i, timerIdArr);
+            }
+        });
+
+        //+ [자유분석] slider 생성 및 min,max 설정
+        var handle = $("#custom-handle");
+        $('#time-slider').slider({
+            value: now.getHours() * 60 + now.getMinutes(),
+            min: 0, // min value
+            max: 1440, // max value
+            create: function () {
+                var val = $(this).slider("value");
+                var time = minuteToString(val);
+                handle.text(time);
+            },
+            slide: function (event, ui) {
+                var val = ui.value;
+                var time = minuteToString(val);
+                handle.text(time);
+
+                //+ 날짜
+                var date = $('input[type=date]').val();
+                //+ slider bar 이동시 해당 시간대 분석 시작
+                app.setTimeSun(new Date(date + ' ' + time));
+                getCurrentTime();
+
+            }
+        });
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// function 선언 ////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        //+ 날짜, 시간을 입력 받아 String으로 변환
+        function getDateFromString(dateString, timeString) {
+            var year = Number(dateString.split('-')[0]);
+            var month = Number(dateString.split('-')[1]);
+            var day = Number(dateString.split('-')[2]);
+            var hour = Number(timeString.split(':')[0]);
+            var minute = Number(timeString.split(':')[1]);
+            var date = new Date(year, pad(month - 1, 2), pad(day, 2));
+            date.setHours(hour);
+            date.setMinutes(minute);
+            return date;
+        }
+
+        //+ 시작시간, 종료 시간을 입력 받아 두 시간의 차이를 반환
+        function dateDiff(_date1, _date2) {
+            //+ 입력 받은 시간이 DATE 형식일 경우 DATE 형식으로 변수 생성
+            var diffDate_1 = _date1 instanceof Date ? _date1 : new Date(_date1);
+            var diffDate_2 = _date2 instanceof Date ? _date2 : new Date(_date2);
+
+            //+ 두 입력 값 차이 계산
+            var diff = Math.abs(diffDate_2.getTime() - diffDate_1.getTime());
+
+            return diff;
+        }
+
+        //+ 현재 진행중인 분석이 종료될때 timer 비우기
+        function clearTimeoutArray(timeoutArr) {
+            if (timeoutArr === undefined)
+                return;
+
+            for (var j = 0; j < timeoutArr.length; j++) {
+                var id = timeoutArr[j];
+                clearTimeout(id);
+            }
+            timeoutArr = [];
+        }
+
+        //+ 메뉴 비활성화
+        function disableMenu() {
+            isAnalysis = true;
+            //+ 날짜 선택 비활성화
+            $('input[type=date]').attr('disabled', true);
+            //+ 시간 선택 비활성화
+            $('input[type=time]').attr('disabled', true);
+            //+ 분석 버튼 비활성화
+            $('.analy').attr('disabled', true);
+            //+ slider bar 비활성화
+            $('#time-slider').slider('disable');
+        }
+
+        //+ 메뉴 활성화
+        function activeMenu() {
+            //+ 날짜 선택 활성화
+            $('input[type=date]').attr('disabled', false);
+            //+ 시간 선택 활성화
+            $('input[type=time]').attr('disabled', false);
+            //+ 분석 버튼 활성화
+            $('.analy').attr('disabled', false);
+            //+ slider bar 활성화
+            $('#time-slider').slider('enable');
+            //+ 분석중 해제
+            isAnalysis = false;
+        }
+
+
+        //+ minute String으로 변환
+        function minuteToString(ms) {
+            var h = Math.floor(ms / 60);
+            var m = ms - (h * 60);
+            return pad(h, 2) + ':' + pad(m, 2);
+        }
+
+        //+ 시간형식 hh:mm 변경
+        function pad(n, width) {
+            n = n + '';
+            return n.length >= width ? n : new Array(width - n.length + 1).join('0') + n;
+        }
+
+        //+ 현재 분석 중인 시간 출력 및 반환 받기
+        function getCurrentTime() {
+            var curTime = app.getTimeSun();
+            printTime(curTime);
+            return curTime;
+        }
+
+        //+ 현재 분석 중인 시간 '설정된 시간'에 출력
+        function printTime(date) {
+            if (date === undefined) return;
+            $('#current-time').html(date.format('yyyy-MM-dd a/p hh:mm:ss'));
+        }
+    });
+</script>
+</body>
+</html>

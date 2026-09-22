@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TMS 이미지 레이어 검증 예제</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        .examples {
+            padding: 15px 30px 15px 30px;
+        }
+
+        #map-wrapper {
+            width: 50%;
+            height: 100%;
+            float: left;
+            border: solid 1px black;
+        }
+
+        #ol-map {
+            width: 50%;
+            height: 100%;
+            float: left;
+            border: solid 1px black;
+        }
+
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> TMS 이미지 레이어 검증 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead" style="font-size: 16px">
+        <strong>TMS 이미지 레이어가 성공적으로 발행됬는지 검증</strong>하는 예제입니다.<br>
+        발행이 확인되었다면 활성여부, BaseUrl, 이름, min/max 좌표 등 해당 레이어의 속성 정보를 조회할 수 있습니다.</p>
+</div>
+<div id="map-wrapper">
+    <div>
+        <div id="map"></div>
+        <div id="div-left-menu" oncontextmenu='return false'>
+            <div id="left-menu-list-panel">
+                <div class="form-group div-layer">
+                    <div class="div-category">
+                        <label class="label-layerType">
+                            레이어
+                        </label>
+                    </div>
+                    <div id="layer-list">
+                        <div class="div-sub-category">
+                            <div class="sub-category-tile">
+                                <label class="label-layerType">
+                                    이미지 레이어
+                                </label>
+                                <div class="category-btn-group">
+                                    <label class="expand-btn layer">
+                                        <img src="image/btn_expand.svg" alt="">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sub-category-content">
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="satellite">
+                                        VWorld Satellite
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="base">
+                                        VWorld Base
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="hybrid">
+                                        VWorld Hybrid
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="osm">
+                                        OSM
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="google">
+                                        Google
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="emapsat">
+                                        Emap Satellite
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="emapbase">
+                                        Emap Base
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="div-sub-category">
+                            <div class="sub-category-tile">
+                                <label class="label-layerType">
+                                    지형 레이어
+                                </label>
+                                <div class="category-btn-group">
+                                    <label class="expand-btn layer">
+                                        <img src="image/btn_expand.svg" alt="">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sub-category-content">
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="korea_terrain">
+                                        전체 지형
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div style="display: inline-flex; position: relative">
+                    <button id="left-menu-bnt" class="btn btn-xs menu-btn">
+                        <img src="image/left_panel_open_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                    </button>
+                    <div class="div-btn-info" hidden>
+                        레이어 탭 열기
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="btn-group" id='top-sbar'>
+            <div class='btn-group-vertical-block' id='right-toolbar'>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                    <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                         src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                         alt="나침반">
+                </button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                        id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                        id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                        id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+            </div>
+            <div class='btn-group' id='bt-bottom-bar'>
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                       value="위경도: ##.####  ###.#### ">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                       value="고도:####">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                       value="각도: ##">
+            </div>
+        </div>
+    </div>
+    <div id="analy-popup">
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="examples h-300 scroll-auto panel-body" style=" height: 100%; display:flex; overflow: auto">
+                <div class="form-group" style='width:80%;'>
+                    <div class="form-group" style="width:100%;">
+                        <div class="btn-group layer-list">
+                            <select id="modellayerList" name="name" class="form-control">
+                            </select>
+                        </div>
+                        <button type="button" class="btn btn-default map3d move">이동</button>
+                        <button type="button" class="btn btn-default map3d toggle">온/오프</button>
+                        <button type="button" class="btn btn-default map3d info">정보</button>
+                        <input class="form-control" id="layer-name" type="text" placeholder="레이어명" readonly
+                               style="margin-top: 5px; width:100%">
+                        <input class="form-control" id="layer-metaurl" type="text" placeholder="상대경로" readonly
+                               style="margin-top: 5px;">
+                        <input class="form-control" id="layer-url" type="text" placeholder="경로" readonly style="margin-top: 5px;">
+                        <input class="form-control" id="layer-level" type="text" placeholder="레벨" readonly style="margin-top: 5px;">
+                        <input class="form-control" id="layer-geocenter" type="text" placeholder="위경도 중심점" readonly
+                               style="margin-top: 5px;">
+                        <input class="form-control" id="layer-active" type="text" placeholder="활성여부" readonly
+                               style="margin-top: 5px;">
+                        <input class="form-control" id="layer-bbox" type="text" placeholder="영역" readonly style="margin-top: 5px;">
+                        <input class="form-control" id="layer-info" type="text" placeholder="전체정보" readonly
+                               style="margin-top: 5px;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+<div id="ol-map">
+
+</div>
+
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon : 37.52, height : 450, left : 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x : homePositon.lat, y : homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function(){
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            }
+            else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script id="set-imagelayer">
+    let ImageLayer =function(Union3D, app, opt){
+        this._type = "ImageLayer";
+        this.layer = undefined;
+        this._union3d = Union3D;
+        this._app = app;
+        this._name = opt.name;
+        this.options = opt;
+        this.ready = $.Deferred();
+    }
+    ImageLayer.prototype.create =function(){
+        let self = this;
+        if (self._name === 'emapbase') {
+            self.layer = self._app.createEmapBaseLayer( this.options);
+        }
+        else if (self._name === 'emapsat') {
+            self.layer = self._app.createEmapSatLayer( this.options);
+        }
+        else {
+            self.layer = new self._union3d.image.U3dImageXYZLayer( this.options);
+            self._app.addLayer(this.layer);
+        }
+        this.layer.then(()=>{
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+    ImageLayer.prototype.show = function (isShow) {
+        let promies = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow?"시작":"종료"));
+        this._app.showLayer(this.options.name, isShow).then(()=>{
+            promies.resolve();
+        })
+        this.isShow = isShow;
+        return promies;
+    }
+</script>
+<script id="set-terrain">
+    let HeightLayer = function(Union3D, app, opt){
+        this._type = "HeightLayer";
+        this.layer = undefined;
+        this._app = app;
+        this.options = opt;
+        this._name = opt.name;
+        this.ready = $.Deferred();
+    }
+    HeightLayer.prototype.create =function(){
+        let self = this;
+        self.layer = this._app.createHeightXYZLayer(self.options);
+        self.layer.then(()=>{
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+    HeightLayer.prototype.show = function (isShow) {
+        let promies = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow?"시작":"종료"));
+        this._app.showLayer(this.options.name, isShow).then(()=>{
+            promies.resolve();
+        })
+        this.isShow = isShow;
+        return promies;
+    }
+</script>
+<script id="layer-setting">
+    const LAYER_OPT = {
+        satellite: {
+            name: 'satellite',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldsaturl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+        },
+        hybrid: {
+            name: 'hybrid', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldhybirdurl,  //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            transparent: true //+ layer 투명화 여부
+        },
+        base: {
+            name: 'base', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldbaseurl,  //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            transparent: true //+ layer 투명화 여부
+        },
+        osm: {
+            name: 'osm', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.osmurl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            transparent: true, //+ layer 투명화 여부
+        },
+        google: {
+            name: 'google',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.googleurl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            transparent: true,  //+ layer 투명화 여부
+        },
+        emapsat: {
+            name: 'emapsat',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            url: layerInfo.image.emapsaturl, //+ 레이어 url, defaultValue(opt.url, 'http://210.117.198.120:8081/o2map/services');
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            useProxy: true, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+            xyorder: "xy" //+ Col Row 순서, defaultValue(opt.xyorder, 'xy');
+        },
+        emapbase: {
+            name: 'emapbase', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            url: layerInfo.image.emapbaseurl, //+ 레이어 url, defaultValue(opt.url, 'http://mapapi.ngii.go.kr:8013/openapi/Gettile.do');
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            useProxy: true, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+            xyorder: "xy", //+ Col Row 순서, defaultValue(opt.xyorder, 'xy');
+        },
+        korea_terrain : {
+            name: 'korea_terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            ext: '.umf', //+ 파일 확장자, *필수 입력
+            reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+            minlevel: 9,  //+ 가시화 최소 레벨
+            maxlevel: 17 //+ 가시화 최대 레벨
+        }
+    };
+
+    let LayerList = function (Union3D, app){
+        return {
+            //이미지레이어
+            satellite: new ImageLayer(Union3D, app, LAYER_OPT.satellite),
+            base: new ImageLayer(Union3D, app, LAYER_OPT.base),
+            hybrid: new ImageLayer(Union3D, app, LAYER_OPT.hybrid),
+            osm: new ImageLayer(Union3D, app, LAYER_OPT.osm),
+            google: new ImageLayer(Union3D, app, LAYER_OPT.google),
+            emapsat: new ImageLayer(Union3D, app, LAYER_OPT.emapsat),
+            emapbase: new ImageLayer(Union3D, app, LAYER_OPT.emapbase),
+
+            //고도레이어
+            korea_terrain: new HeightLayer(Union3D, app, LAYER_OPT.korea_terrain)
+        }
+    }
+</script>
+<script>
+        let ol = null;
+        let proj4 = null;
+
+        window.LAYER_OPT = undefined;
+        //라이센스 인증
+        GeOnDT.ready(function () {
+            ol = __GEONDT__.ol;
+            proj4 = __GEONDT__.proj4;
+            window.olMap = new ol.Map({
+                target: 'ol-map',
+                view: new ol.View({
+                    center: [14183910.028063942, 4486120.983165375],
+                    maxZoom: 19,
+                    zoom: 8,
+                }),
+                layers: [
+                    //+ osm
+                    new ol.layer.Tile({
+                        source: new ol.source.OSM(),
+                    })
+                ],
+            });
+
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////
+            ///////////////////////////////////////// 지도 기본세팅 /////////////////////////////////////////////////
+            ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+            var app = new GeOnDT.U3dAPP({
+                containername: 'map',  //+ U3dApp(지도영역)의 div ID, *필수 입력
+                searchtype:'sphere' //+ 타일검색 방법
+            });
+            app.createloadingBar('load');
+            app.loadingBar();
+
+            window.app = app;
+            window.metalayers = [];
+            app.on('change', updatePosData);
+            //+ 레이어 생성자 옵션
+
+            //이미지 레이어 생성
+            let layers = new LayerList(Union3D, app);
+            let initLayerList = ['base', 'korea_terrain']
+            initLayar(initLayerList);
+
+            $(document).on('click', '.input-showLayer:input[type=checkbox]', function (e) {
+                const $checkbox = $(e.target);
+                const name = $checkbox.attr('target');
+                checkLayer(name, $checkbox[0].checked);
+            });
+
+            function checkLayer(name, checked) {
+                if (checked) {
+                    if (layers[name].layer === undefined) {
+                        layers[name].create();
+                    }
+                    layers[name].show(true);
+                } else {
+                    layers[name].show(false);
+                }
+            }
+
+            function initLayar(list) {
+                const basename = list[0];
+                Union3D.UDEF.createPromise((resolve) => {
+                    list.forEach((name) => {
+                        if (layers[name].layer === undefined) {
+                            layers[name].create();
+                            layers[name].ready.then(() => {
+                                if (name === basename)
+                                    app.setNameBaseLayer(name);
+
+                                app.showLayer(name, true);
+                                $('.input-showLayer:input[target=' + name + ']').prop("checked", true);
+                            });
+                        }
+                    });
+                    resolve(true);
+                }).then((resolve) => {
+                    if (resolve)
+                        app.endloadingBar();
+                });
+            }
+
+            //+ 서버에서 tms이미지 불러오기
+            getImageLayers();
+
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////
+            ////////////////////////////////////////// function 선언 ///////////////////////////////////////////////
+            ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+            function getImageLayers() {
+                try {
+                    /* request U3f layers list */
+                    $.ajax({
+                        url: tmsImageURL,
+                        crossDomain: true,
+                        beforeSend: function (xhr) {
+                            xhr.setRequestHeader('User-Authorization', trdDimAPIKey);
+                            xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+                        },
+                        error: function (e) {
+                            console.info(e);
+                        }
+                    }).then(function (result) {
+                        let layers = result.params.data;
+                        for (let i = 0; i < layers.length; i++) {
+                            window.metalayers[layers[i].name] = layers[i];
+                            addSelectOption(layers[i].name);
+                        }
+                        $("#modellayerList").change();
+                    });
+                } catch (localBuldError) {
+                    console.log('Initialize Error Message : ' + localBuldError);
+                }
+            }
+        });
+
+
+</script>
+<script>
+    window.defined = function defined(value) {
+        return value !== undefined && value !== null;
+    }
+    window.assert = function (condition, message) {
+        if (!condition) {
+            console.error('Assert failed: ' + (message || ''));
+            throw new Error('Assert failed: ' + (message || ''));
+        }
+    };
+    //////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////// event 등록 /////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    //+ 정보
+    $(document).on('click', '.info', function (e) {
+        console.info('정보');
+        const layerName = $("#modellayerList").val();
+        const layer = app.getLayerByName(layerName);
+        if (!defined(layer)) {
+            alert("[" + layerName + "]" + "가 없습니다.!");
+            return;
+        }
+
+        if (!defined(window.metalayers[layerName])) {
+            alert("[" + layerName + "]" + " 제원정보가 없습니다.!");
+            return;
+        }
+
+        //+ 레이어명
+        {
+            console.info(window.metalayers[layerName].name);
+            $("#layer-name").val(window.metalayers[layerName].name);
+        }
+
+        //+ 경로
+        {
+            console.info(window.metalayers[layerName].baseUrl);
+            $("#layer-url").val(window.metalayers[layerName].baseUrl);
+        }
+
+        //+ 상대경로
+        {
+            console.info(window.metalayers[layerName].metaPath);
+            $("#layer-metaurl").val(window.metalayers[layerName].metaPath);
+        }
+
+        //+ 영역
+        {
+            console.info(window.metalayers[layerName].metaData.boundingBox);
+            var bbox = window.metalayers[layerName].metaData.boundingBox;
+            var centerx = (bbox.minx + bbox.maxx) / 2;
+            var centery = (bbox.miny + bbox.maxy) / 2;
+            var centerz = (bbox.minz + bbox.maxz) / 2;
+            var geoCenter = app._drawArg.getGoogleToGeographic(centerx, centery, centerz);
+
+
+            $("#layer-bbox").val(JSON.stringify(window.metalayers[layerName].metaData.boundingBox));
+        }
+
+        //+ 레벨
+        {
+            let maxlevel = '';
+            if(window.metalayers[layerName].metaData.raster)
+                maxlevel = window.metalayers[layerName].metaData.raster.maxlevel-1;
+
+            console.info(`최소 ~ 최대 레벨: ${0} ~${maxlevel}`);
+            console.info(`위경도: ${geoCenter.y} , ${geoCenter.x} , ${geoCenter.z}`);
+            $("#layer-level").val("최소레벨:" + 0 + " 최대레벨:" +maxlevel);
+            $("#layer-geocenter").val("위경도:" + geoCenter.x + ", " + geoCenter.y + ", " + parseInt(geoCenter.z));
+        }
+
+        //+ 활성여부
+        {
+            console.info('활성여부: ' + window.metalayers[layerName].active);
+            $("#layer-active").val(window.metalayers[layerName].active === true ? "활성" : "비활성");
+        }
+
+        //+ 전체정보
+        {
+            console.info(window.metalayers[layerName]);
+            $("#layer-info").val(JSON.stringify(window.metalayers[layerName]));
+        }
+    });
+
+    //+ 이동
+    $(document).on('click', '.move', function (e) {
+        //    console.info('이동');
+        var layerName = $("#modellayerList").val();
+        moveLayer(layerName);
+        $('.info').trigger('click');
+    });
+
+    $(document).on('click', '.toggle', function (e) {
+        //    console.info('이동');
+        var layerName = $("#modellayerList").val();
+        var layer = app.getLayerByName(layerName);
+        if(defined(layer)){
+            app.showLayer(layerName, !layer.getVisible());
+        }
+    });
+
+
+    $(document).on('change', '#modellayerList', function (e) {
+        //   console.info('리스트 변화됨');
+        var layerName = $("#modellayerList").val();
+        moveLayer(layerName);
+        $('.info').trigger('click');
+    });
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////// function 선언 ///////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////
+    function initImageLayers(layerInfo){
+        if(!defined(layerInfo) && !defined(layerInfo.metaData)){
+            return;
+        }
+        //1. 3D 서버를 통해 metadata를 가공하여 생성하는 경우
+        let image3dLayer =   app.createTMSImageLayer({
+            name: layerInfo.name,
+            baseurl: layerInfo.baseUrl,
+            metadata: layerInfo.metaData,
+            proxyurl: './proxy.jsp?url=',         // proxyurl
+            useproxy: (window.location.hostname !== 'localhost')  // useproxy
+        });
+
+        /*
+        let maxlevel = undefined;
+        let maxresolution = undefined;
+        if(meta.raster){
+            maxlevel = layerInfo.metaData.raster.maxlevel;
+            maxresolution = layerInfo.metaData.raster.maxresolution;
+        }
+        // 2. 3D 서버를 거치지 않고 직접 XML 파일을 파싱하여 생성하는 경우createTempleteTMSImageLayer
+        var image3dLayer = app.createTMSImageLayerAsXML(
+            layerInfo.name,             // ex : "busan-part"
+            layerInfo.baseUrl,          // ex : "https://dt-data.mappick.co.kr/ServiceData/raster/busan-part"
+            layerInfo.metaData.srs,                   // <SRS ... /> ex : epsg:5179
+            layerInfo.metaData.boundingBox,           // <BoundingBox ... /> ex : minx="1139912.20384832425043" miny="1688750.43184322328307" maxx="1140629.15078220912255" maxy="1689418.42649712739512"
+            layerInfo.metaData.profile,               // <TileSets profile ... /> ex : "raster" OR "mercator"
+            layerInfo.metaData.tileFormat.ext,        // <TileFormat extension="png" ... /> ex : "png"
+            undefined,                  // minlevel , undefined 입력시 기본값 14
+            maxlevel,                   // <Raster maxlevel="19" ... /> ex : "19", profile이 mercator일시, undefined 입력으로도 작동가능
+            layerInfo.metaData.tileFormat.width,      // <TileFormat width="256" ... /> ex : "256"
+            maxresolution,              // <Raster maxresolution="4.079357" ... /> ex : "4.079357", profile이 mercator일시, undefined 입력으로도 작동가능
+            layerInfo.metaData.proj,                  // <PROJ ... /> ex : +proj=tmerc +lat_0=38 +lon_0=127.5 +k=0.9996 +x_0=1000000 +y_0=2000000 +ellps=GRS80 +units=m +no_defs (선택)
+            './proxy.jsp?url=',         // proxyurl
+            true,                       // useproxy
+            layerInfo.metaData.tileFormat.reverseY,
+            layerInfo.metaData.majorFolder,
+            layerInfo.metaData.origin
+        );*/
+        image3dLayer.then(function (){
+            app.showLayer(image3dLayer.getName(), true);
+            //+ create 2d imageLayer
+            var info = Object.assign(layerInfo);
+            create2DImageLayer(info);
+        });
+
+        return image3dLayer;
+    }
+
+    //+ create 2D Image Layer
+    function create2DImageLayer(opt) {
+        if (window.olMap == null || window.olMap == undefined) {
+            console.info('ol map is not intialized!');
+            return;
+        }
+
+        var imageLayer = undefined;
+        var proxyurl = (window.location.hostname !== 'localhost') ? './proxy.jsp?url=' : '';
+
+        assert(defined(opt.name), '[name]param is null!');
+        assert(defined(opt.baseUrl), '[baseurl]param is null!');
+
+        var meta = opt.metaData;
+        assert(defined(meta), '[metadata]param is null!');
+        assert(defined(meta.srs), '[srs]param is null!');
+        assert(defined(meta.tileFormat), '[tileFormat]param is null!');
+        assert(defined(meta.boundingBox), '[boundingBox]param is null!');
+        assert(defined(meta.profile), '[profile]param is null!');
+
+        opt.boundingbox = {};
+        opt.boundingbox.minx = meta.boundingBox.minx;
+        opt.boundingbox.miny = meta.boundingBox.miny;
+        opt.boundingbox.maxx = meta.boundingBox.maxx;
+        opt.boundingbox.maxy = meta.boundingBox.maxy;
+
+        var srs = meta.srs.toUpperCase();
+        var baseurl = opt.baseUrl;
+        var ext = meta.tileFormat.ext;
+
+        var profile = meta.profile;
+        opt.profile = profile;
+        if(profile == 'mercator'){
+            var proj3857 = ol.proj.get('EPSG:3857');
+            var proj4326 = ol.proj.get('EPSG:4326');
+            var minxy = ol.proj.transform([opt.boundingbox.minx, opt.boundingbox.miny], proj4326, proj3857);
+            var maxxy = ol.proj.transform([opt.boundingbox.maxx, opt.boundingbox.maxy], proj4326, proj3857);
+
+            let minZoom = 14;
+            let extent = [minxy[0], minxy[1], maxxy[0], maxxy[1]];
+
+            let xyzSource =new ol.source.XYZ({
+                url: proxyurl + baseurl + '/{z}/{x}/{-y}' + "." + meta.tileFormat.ext,
+                minZoom: minZoom
+            });
+
+            imageLayer = new ol.layer.Tile({opacity: 1, source: xyzSource, extent: extent});
+        }
+        else {
+            ol.proj.setProj4(proj4);
+            proj4.defs(
+                srs,
+                meta.proj.proj
+            );
+
+            var maxZoom = parseInt(meta.raster.maxlevel);
+            var tileSize = meta.tileFormat.width;
+            var matrixIds = [];
+            var resolutions = [];
+            for (var i = 0; i <= maxZoom - 1; i++) {
+                matrixIds[i] = i;
+                resolutions[i] = meta.raster.maxresolution / Math.pow(2, i);
+            }
+            var box = meta.boundingBox;
+            var extent = [box.minx, box.miny, box.maxx, box.maxy];
+            var tileGrid = new ol.tilegrid.TileGrid({
+                extent: extent,
+                origin: [meta.origin.x, meta.origin.y],
+                resolutions: resolutions,
+                matrixIds: matrixIds,
+                maxZoom: 1
+            });
+
+            var xyzSource = new ol.source.XYZ({
+                url: baseurl + '/{z}/{x}/{y}' + "." + meta.tileFormat.ext,
+                projection: srs,
+                tileGrid: tileGrid,
+                tileSize: [tileSize, tileSize]
+            });
+
+            function setTileUrlFunc(urlTileCoord, pixelRatio, projection) {
+                var extent = this.tileGrid.getTileCoordExtent(urlTileCoord);
+                var left = extent[0];
+                var top = extent[1];
+                var right = extent[2];
+                var bottom = extent[3];
+                var tilesize = this.tileGrid.getTileSize();
+                var origin = this.tileGrid.getOrigin();
+                var resolutions = this.getResolutions();
+                var res = resolutions[urlTileCoord[0]];
+
+                var x = Math.round((left - origin[0]) / (res * tilesize));
+                var y = Math.round((bottom - origin[1]) / (res * tilesize));
+                urlTileCoord[1] = x;
+                urlTileCoord[2] = y - 1;
+                var url = proxyurl + baseurl + '/' + urlTileCoord[0] + '/' + urlTileCoord[1] + '/' + urlTileCoord[2] + "." + ext;
+                return url;
+            }
+
+            xyzSource.setTileUrlFunction(setTileUrlFunc);
+
+            imageLayer = new ol.layer.Tile({
+                opacity: 1,
+                source: xyzSource
+            });
+        }
+
+        window.olMap.addLayer(imageLayer);
+    }
+
+    function moveLayer(layerName) {
+        var layer = app.getLayerByName(layerName);
+        if (!defined(layer)) {
+            let layerInfo = window.metalayers[layerName];
+            if(!defined(layerInfo)){
+                return;
+            }
+            layer = initImageLayers(layerInfo);
+        }
+        var bbox = layer.getBoundingBox();
+        if (bbox.max.x == Infinity || bbox.max.x == -Infinity || bbox.min.x == Infinity || bbox.min.x == -Infinity) {
+            alert("[" + layerName + "]" + "에 영역정보가 잘못되었습니다!");
+            return;
+        }
+
+        var center = layer.getCenter();
+        if (defined(app)) //+ 3d
+            app.setCameraWorldPosition({x: center.x, y: center.y, z: bbox.max.z + 200, rotateX: 2, rotateY: 30});
+
+        if(defined(olMap)){
+            olMap.getView().setCenter([center.x, center.y]);
+        }
+    }
+
+    function addSelectOption(componentName) {
+        var $select = $('.layer-list').find("select[name=name]");
+        $select.append("<option value=" + componentName + ">" + componentName + "</option>");
+    }
+
+    function removeSelectOption(componentName) {
+        var $select = $('.layer-list').find("select[name=name]");
+        $select.find("option[value=" + componentName + "]").remove();
+    }
+
+</script>
+</body>
+</html>

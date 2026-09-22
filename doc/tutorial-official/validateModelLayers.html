@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>3D건물 레이어 검증 예제</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/tutorial.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        .examples {
+            padding: 15px 30px 15px 30px;
+        }
+
+    </style>
+</head>
+<body>
+<div id="map-wrapper">
+    <div id="map"></div>
+</div>
+
+<div class="execute-popup">
+    <button>직접해보기</button>
+</div>
+<div class="examples" style=" height: 100%; display:flex;">
+    <div class="form-group" style='width:50%;'>
+        <div class="checkbox">
+            <label>
+                <input type="checkbox" target="emapsatBase">
+                Emap 백터
+            </label>
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+        </div>
+        <div class="form-group" style="width:100%;">
+            <div class="btn-group layer-list">
+                <select id="modellayerList" name="name" class="form-control">
+                </select>
+            </div>
+            <button type="button" class="btn btn-default map3d move">이동</button>
+            <button type="button" class="btn btn-default map3d info">정보</button>
+            <input class="form-control" id="layer-name" type="text" placeholder="레이어명" readonly
+                   style="margin-top: 5px; width=100%">
+            <input class="form-control" id="layer-metaurl" type="text" placeholder="상대경로" readonly
+                   style="margin-top: 5px;">
+            <input class="form-control" id="layer-url" type="text" placeholder="경로" readonly style="margin-top: 5px;">
+            <input class="form-control" id="layer-level" type="text" placeholder="레벨" readonly style="margin-top: 5px;">
+            <input class="form-control" id="layer-geocenter" type="text" placeholder="위경도 중심점" readonly
+                   style="margin-top: 5px;">
+            <input class="form-control" id="layer-active" type="text" placeholder="활성여부" readonly
+                   style="margin-top: 5px;">
+            <input class="form-control" id="layer-bbox" type="text" placeholder="영역" readonly style="margin-top: 5px;">
+            <input class="form-control" id="layer-info" type="text" placeholder="전체정보" readonly
+                   style="margin-top: 5px;">
+        </div>
+
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script>
+
+    require(['app/Union3D'], function (Union3D) {
+        window.LAYER_OPT = undefined;
+
+        //라이센스 인증
+        Union3D.ready(function () {
+            var layers = {};
+            var baseLayer = undefined;
+
+            //지도 초기화
+            var app = new Union3D.U3dAPP({
+                containername: 'map'
+            });
+            app.setIntensityLight(0.8);
+            app.setHomePosition(126.9395, 37.52, 450, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+            app.updateHomePosition();
+
+            window.app = app;
+            window.metalayers = [];
+
+            //+ 레이어 생성자 옵션
+            var LAYER_OPT = {
+                satellite: {
+                    name: 'satellite',
+                    baseurl: layerInfo.image.vworldsaturl,
+                    reverseY: true
+                },
+                base: {
+                    name: 'base',
+                    baseurl: layerInfo.image.vworldbaseurl,
+                    reverseY: true,
+                    transparent: true,
+                    animation: true
+                },
+                hybrid: {
+                    name: 'hybrid',
+                    baseurl: layerInfo.image.vworldhybirdurl,
+                    reverseY: true,
+                    transparent: true,
+                    animation: true
+                },
+                osm: {
+                    name: 'osm',
+                    baseurl: 'https://tile.openstreetmap.org/{z}/{x}/{-y}.png',
+                    reverseY: true,
+                    transparent: true,
+                    animation: true
+                },
+                google: {
+                    name: 'google',
+                    baseurl: 'http://mt{0-1}.google.com/vt/lyrs=m&hl=en&x={x}&y={-y}&z={z}',
+                    reverseY: true,
+                    transparent: true,
+                    animation: true
+                }
+            };
+
+            createLayer('satellite');
+            app.setNameBaseLayer('satellite');
+            app.showLayer('satellite', true);
+            // app.showLayer('hybrid', true);
+
+
+            var terrainLayer = undefined;
+            terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+                name: 'Korea Terrain',
+                baseurl: layerInfo.height.url,
+                ext: '.umf',
+                reverseY: true,
+                minlevel: 9,
+                maxlevel: 15,
+                useproxy: false,
+                maxprocess: 2,
+                interpolationheight: true,
+                rectangle: Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2)
+            });
+
+            app.addLayer(terrainLayer);
+            app.showLayer('Korea Terrain', true);
+
+            initModelLayers();
+
+            $(document).on('click', 'input[type=checkbox]', checked);
+
+            function checked(e) {
+                var $checkbox = $(e.target);
+                var name = $checkbox.attr('target');
+
+                if ($checkbox[0].checked) {
+                    app.showImageLayer(name, true)
+                } else {
+                    app.showImageLayer(name, false)
+                }
+
+            }
+
+            function createLayer(name) {
+                var layer = layers[name];
+                if (layer === undefined) {
+                    //레이어 생성 및 APP에 레이어 추가
+                    var options = LAYER_OPT[name];
+                    layer = new Union3D.image.U3dImageXYZLayer(options);
+                    layers[name] = layer;
+                    app.addLayer(layer);
+                }
+            }
+
+            function createEmapSatLayer(name) {
+                var maxprocess_image = 5;
+                var key = 'emapsat';
+                var geoextent = [124.281252, 33.276145, 129.563837, 38.593601];
+                var opt = {
+                    name: name
+                    , maxprocess: maxprocess_image
+                    , useProxy: true
+                    , geoextent: geoextent
+                    //    ,burnlevels: [19]
+                    //  , burnlevels: [ 7, 9, 11, 13, 15,17, 19]
+                    // , burnlevels: [ 1,2,3,4,5,7,9, 11,13,14,15, 16,18, 19]
+                    //, burnlevels: [1,2,3,4,5,7,9,10,12,14,16,17,19]
+                }
+
+
+                var layer = app.createEmapSatLayer(opt);
+                return layer;
+            }
+
+            function createEmapBaseLayer(name) {
+                var maxprocess_image = 5;
+                var key = 'emapsat';
+                var geoextent = [124.281252, 33.276145, 129.563837, 38.593601];
+                var opt = {
+                    name: name
+                    , maxprocess: maxprocess_image
+                    , useProxy: true
+                    , geoextent: geoextent
+                    //    ,burnlevels: [19]
+                    //  , burnlevels: [ 7, 9, 11, 13, 15,17, 19]
+                    // , burnlevels: [ 1,2,3,4,5,7,9, 11,13,14,15, 16,18, 19]
+                    //, burnlevels: [1,2,3,4,5,7,9,10,12,14,16,17,19]
+                }
+
+
+                var layer = app.createEmapBaseLayer(opt);
+                return layer;
+            }
+
+            function initModelLayers() {
+                try {
+                    /* request U3f layers list */
+                    $.ajax({
+                        url: modelU3fURL,
+                        crossDomain: true,
+                        beforeSend: function (xhr) {
+                            xhr.setRequestHeader('User-Authorization', trdDimAPIKey);
+                            xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+                        },
+                        error: function (e) {
+                            console.info(e);
+                        }
+                    }).then(function (result) {
+                        let layers = result.params.data;
+                        for (let i = 0; i < layers.length; i++) {
+                            let layer = layers[i];
+
+                            /* 레이어 목록 중 발행중인 레이어만 요청 */
+                            if (layer.state === "ACTIVE") {
+                                if (layer.name.indexOf('kopss') !== -1) {
+                                    // createModelLayer(layer, kopssGroupLayer, 1000;
+                                    createModelLayer(layer, null, 1000)
+                                }
+                                else {
+                                    createModelLayer(layer, null)
+                                }
+                            }
+
+                            window.metalayers[layer.name] = layer;
+                        }
+                        //   UnionObj.showLayer(groupLayer.getName(), true);
+                    })
+                } catch (localBuldError) {
+                    console.log('Initialize Error Message : ' + localBuldError);
+                }
+            }
+
+        });
+        let maxprocess_model_ = 10;
+        let sizeblock_model_ = 10;
+        let updateimagedistance_ = 50;
+
+        var count = 0;
+        var createModelLayer = function (info, groupLayer, wrapping) {
+
+            var deferInitialized = $.Deferred();
+
+            let metaData = info.metaData;
+            let subLayerName = info.name;
+            let buldLayerConstruct = {};
+            Object.assign(buldLayerConstruct, {name: subLayerName});
+            Object.assign(buldLayerConstruct, {basename: subLayerName});
+            Object.assign(buldLayerConstruct, {baseurl: info.baseUrl});
+            Object.assign(buldLayerConstruct, {minlevel: metaData.minLevel});
+            Object.assign(buldLayerConstruct, {maxlevel: metaData.maxLevel});
+            Object.assign(buldLayerConstruct, {srs: metaData.srs});
+            Object.assign(buldLayerConstruct, {ext: '.' + metaData.ext});
+            // Object.assign(buldLayerConstruct, {boundingbox:
+            // metaData.boundingBox});
+            // Object.assign(buldLayerConstruct, {needXml: false});
+            Object.assign(buldLayerConstruct, {maxprocess: maxprocess_model_});
+            Object.assign(buldLayerConstruct, {sizeblock: sizeblock_model_});
+            Object.assign(buldLayerConstruct, {updateimagedistance: updateimagedistance_});
+            Object.assign(buldLayerConstruct, {grouplayer: groupLayer});
+            Object.assign(buldLayerConstruct, {wrapping: wrapping});
+            Object.assign(buldLayerConstruct, {renderorder: 0});
+            Object.assign(buldLayerConstruct, {useproxy: false});
+            // Object.assign(buldLayerConstruct, {promiseinitialized: deferInitialized});
+
+
+            /* 건물 병합 버전 옵션 */
+            if (subLayerName === "busan17") {
+                Object.assign(buldLayerConstruct, {compressmodel: true});
+                Object.assign(buldLayerConstruct, {usesplitmodel: true});
+                Object.assign(buldLayerConstruct, {immediateupdateimage: true});
+            }
+
+            let subLayer = app.create3DFModelLayer(buldLayerConstruct);
+            // app.showLayer(subLayer.getName(), true);
+            //     addSelectOption(count + ':' + subLayer.getName());
+            subLayer.then(function (layer) {
+                app.showLayer(layer.getName(), true);
+                addSelectOption(count + ':' + subLayer.getName());
+                count++;
+            }).fail(function (layer) {
+
+            });
+
+
+            // $("#modellayerList")
+            return subLayer;
+        }
+    });
+</script>
+<script>
+    if (window.defined == undefined) {
+        window.defined = function defined(value) {
+            return value !== undefined && value !== null;
+        }
+    }
+
+    function filterName(layername) {
+        var name = layername.split(':');
+        return name[1];
+    }
+
+    function moveLayer(layerName) {
+        console.info(layerName);
+        var layer = app.getLayerByName(layerName);
+        if (!defined(layer)) {
+            alert("[" + layerName + "]" + "가 없습니다.!");
+            return;
+        }
+        var bbox = layer.getBoundingBox();
+        if (bbox.max.x == Infinity || bbox.max.x == -Infinity || bbox.min.x == Infinity || bbox.min.x == -Infinity) {
+            alert("[" + layerName + "]" + "에 영역정보가 잘못되었습니다!");
+            return;
+        }
+
+        var center = bbox.getCenter();
+
+        //     app.getWorldToGeographic(center.x, center.y);
+
+        app.setCameraWorldPosition({x: center.x, y: center.y, z: bbox.max.z + 200, rotateX: 2, rotateY: 30});
+    }
+
+    //+ 정보
+    $(document).on('click', '.info', function (e) {
+        console.info('정보');
+        var layerName = filterName($("#modellayerList").val());
+        console.info(layerName);
+        var layer = app.getLayerByName(layerName);
+        if (!defined(layer)) {
+            alert("[" + layerName + "]" + "가 없습니다.!");
+            return;
+        }
+
+        if (!defined(window.metalayers[layerName])) {
+            alert("[" + layerName + "]" + " 제원정보가 없습니다.!");
+            return;
+        }
+
+        //+ 레이어명
+        {
+            console.info(window.metalayers[layerName]);
+            $("#layer-name").val(window.metalayers[layerName].name);
+        }
+
+        //+ 경로
+        {
+            console.info(window.metalayers[layerName]);
+            $("#layer-url").val(window.metalayers[layerName].baseUrl);
+        }
+
+        //+ 상대경로
+        {
+            console.info(window.metalayers[layerName]);
+            $("#layer-metaurl").val(window.metalayers[layerName].metaPath);
+        }
+
+        //+ 영역
+        {
+            console.info(window.metalayers[layerName]);
+            var bbox = window.metalayers[layerName].metaData.boundingBox;
+            var centerx = (bbox.minx + bbox.maxx) / 2;
+            var centery = (bbox.miny + bbox.maxy) / 2;
+            var centerz = (bbox.minz + bbox.maxz) / 2;
+            var geoCenter = app._drawArg.getGoogleToGeographic(centerx, centery, centerz);
+
+
+            $("#layer-bbox").val(JSON.stringify(window.metalayers[layerName].metaData.boundingBox));
+        }
+
+        //+ 레벨
+        {
+            console.info(window.metalayers[layerName]);
+            $("#layer-level").val("최소레벨:" + window.metalayers[layerName].metaData.minLevel + " 최대레벨:" + window.metalayers[layerName].metaData.maxLevel);
+            $("#layer-geocenter").val("위경도:" + geoCenter.x + ", " + geoCenter.y + ", " + parseInt(geoCenter.z));
+        }
+
+
+        //+ 활성여부
+        {
+            console.info(window.metalayers[layerName]);
+            $("#layer-active").val(window.metalayers[layerName].active == true ? "활성" : "비활성");
+        }
+
+        //+ 전체정보
+        {
+            console.info(window.metalayers[layerName]);
+            $("#layer-info").val(JSON.stringify(window.metalayers[layerName]));
+        }
+    });
+
+    //+ 이동
+    $(document).on('click', '.move', function (e) {
+        //    console.info('이동');
+        var layerName = $("#modellayerList").val();
+        moveLayer(filterName(layerName));
+        $('.info').trigger('click');
+    });
+
+    $(document).on('change', '#modellayerList', function (e) {
+        //   console.info('리스트 변화됨');
+        var layerName = filterName($("#modellayerList").val());
+        moveLayer(layerName);
+        $('.info').trigger('click');
+    });
+
+
+    function addSelectOption(componentName) {
+        var $select = $('.layer-list').find("select[name=name]");
+        $select.append("<option value=" + componentName + ">" + componentName + "</option>");
+    }
+
+    function removeSelectOption(componentName) {
+        var $select = $('.layer-list').find("select[name=name]");
+        $select.find("option[value=" + componentName + "]").remove();
+    }
+
+
+</script>
+</body>
+</html>

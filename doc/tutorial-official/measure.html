@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>거리, 면적, 고도 측정 예제</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        .basic {
+            display: inline-block;
+        }
+
+        label {
+            margin-left: 10px;
+            vertical-align: top;
+        }
+
+        #coord {
+            resize: none;
+            overflow-y: scroll;
+            width: 300px;
+            height: 80px;
+        }
+
+        #analy-popup .div-popup {
+            width: 730px;
+            height: 280px;
+            top: 60vh;
+        }
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> 거리, 면적, 고도 측정 예제 </span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        마우스 클릭으로 화면에 백터를 그려 <strong>거리, 면적, 고도를 측정</strong>하는 예제입니다.<br>
+        라인 백터를 그려 거리를 측정하거나 폴리곤 백터를 그려 면적을 측정할 수 있습니다.
+        또한 직접 JSON 형식으로 좌표를 입력하여 위경도 좌표값으로 거리와 면적을 측정할 수 있습니다.
+    </p>
+</div>
+<div id="map-wrapper">
+    <div id="map"></div>
+    <div id="div-left-menu">
+        <div>
+            <div style="display: inline-flex; position: relative">
+                <button id="analy-bnt" class="btn btn-xs menu-btn">
+                    <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+                <div class="div-btn-info" hidden>
+                    분석 팝업 열기
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="btn-group" id='top-sbar'>
+        <div class='btn-group-vertical-block' id='right-toolbar'>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                     src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                     alt="나침반">
+            </button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                    id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                    id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                    id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+            </button>
+        </div>
+        <div class='btn-group' id='bt-bottom-bar'>
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                   value="위경도: ##.####  ###.#### ">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                   value="고도:####">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                   value="각도: ##">
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu='return false'>
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content" style="margin:0 10px;">
+                <label>[측정 모드 선택]</label>
+                <div class="distance-list">
+                    <div class="radio">
+                        <label>
+                            <input type="radio" class="basic" name="mode" value="pan" checked>
+                            기본 모드
+                        </label>
+                        <label>
+                            <input type="radio" class="basic" name="mode" value="Distance">
+                            거리 측정
+                        </label>
+                        <label>
+                            <input type="radio" class="basic" name="mode" value="Area">
+                            면적 측정
+                        </label>
+                        <label>
+                            <input type="radio" class="basic" name="mode" value="Height">
+                            고도 및 건물높이 측정
+                        </label>
+                        <label>
+                            <input type="radio" class="basic" name="mode" value="reset">
+                            측정 초기화
+                        </label>
+                    </div>
+                    <hr style="border-width:1px 0 0 0; border-color:rgba(152,152,152,0.57);">
+                    <div class="radio">
+                        <label>
+                            <input type="radio" name="mode" id="selfDisMeasure">
+                            좌표거리측정
+                        </label>
+                        <label>
+                            <input type="radio" name="mode" id="selfAreaMesure">
+                            좌표 면적 측정
+                        </label>
+                        <label style="display: none">
+                            <input type="hidden">
+                        </label>
+                        <label for="coord">좌표 :</label>
+                        <textarea name="mode" id="coord">{"coord": [{"x": 126.9395,"y": 37.52,"z": 8.145}, {"x": 126.9390,"y": 37.519,"z": 15}, {"x": 126.9400,"y": 37.519,"z": 15}]}</textarea>
+                        <button type="button" class="btn btn-default btn-s" id="submit"
+                                style="display: inline-block; vertical-align: top" disabled>측정
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script>
+    //라이센스 인증
+    GeOnDT.ready(function () {
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// 지도 기본세팅 /////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        var app = new GeOnDT.U3dAPP({
+            containername: 'map', //+ U3dApp(지도영역)의 div ID, *필수 입력
+            //     maxlevel: 16
+        });
+        app.setHomePosition(126.9395, 37.52, 450, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+        app.updateHomePosition();
+        app.createloadingBar('load');
+        app.on('change', updatePosData);
+        window.app = app;
+
+        //이미지 레이어 생성 /////////////////////////////////////////
+        var layer = new GeOnDT.image.U3dImageXYZLayer({
+            name: 'satellite', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldsaturl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+        });
+        app.addLayer(layer);
+        app.setNameBaseLayer('satellite');
+        app.showLayer('satellite', true);
+        app.endloadingBar();
+
+        //고도 레이어 생성 /////////////////////////////////////////
+        var terrainLayer = new GeOnDT.terrain.U3dHeightXYZLayer({
+            name: 'Korea Terrain',  //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            ext: '.umf',  //+ 파일 확장자, *필수 입력
+            reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+            minlevel: 9, //+ 가시화 최소 레벨
+            maxlevel: 17, //+ 가시화 최대 레벨
+         });
+        app.addLayer(terrainLayer);
+        app.showLayer('Korea Terrain', true);
+
+        //+ u3f 모델 //////////////////////////////////////////////
+        initModelLayers();
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        /////////////////////////////////////////// event 등록 /////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        //+ radio 버튼 클릭시, 해당하는 type에 맞게 분석모드 실행
+        $(document).on('click', '.basic', function (e) {
+            var target = e.target.value;
+            app.deactiveAllAnalysis();
+            //모든 분석기능 비활성화.
+            if (target === 'reset') {
+                app.off('click'); //+ 마우스 클릭 event 해제
+                app.off('dblclick'); //+ 마우스 더블 클릭 event 해제
+                app.clearAllAnalysis(); //+
+            } else {
+                // 'Distance' || 'Area' || 'Height' 분석기능 활성화.
+                app.activeAnalysis(target); //return UAnaly Instance.
+            }
+            $('#submit').attr('disabled', true);
+        });
+
+        //좌표 거리 측정
+        $(document).on('click', '#selfDisMeasure', function (e) {
+            $('#submit').attr('disabled', false);
+            let $root = $(e.target).closest('.radio');
+            let $type = $root.find('input[type="hidden"]');
+            $type.val('Distance');
+        });
+
+        //좌표 면적 측정
+        $(document).on('click', '#selfAreaMesure', function (e) {
+            $('#submit').attr('disabled', false);
+            let $root = $(e.target).closest('.radio');
+            let $type = $root.find('input[type="hidden"]');
+            $type.val('Area');
+        });
+
+        //측정
+        $(document).on('click', '#submit', function (e) {
+            let $root = $(e.target).closest('.radio');
+            let type = $root.find('input[type="hidden"]').val();
+            if (type === undefined || type === '') return
+
+            app.deactiveAllAnalysis(); // 이전에 수행한 모드 비활성
+            app.activeAnalysis(type);
+
+            //사용자 좌표 파싱
+            var coordList = $('#coord').val();
+            var jsonData = JSON.parse(coordList);
+            coordList = jsonData.coord;
+
+            let analy = app.getAnalysis(type);
+            if (type === 'Distance') {
+                analy.drawDistance(coordList);
+                for (let i = 0; i < coordList.length - 1; i++) {
+                    let distance = analy.getDistanceFromCoordinate(coordList[i], coordList[i + 1]);
+                    console.log("========================================");
+                    console.log("[" + coordList[i].x + " / " + coordList[i].y + " / " + coordList[i].z + "] 에서");
+                    console.log("[" + coordList[i + 1].x + " / " + coordList[i + 1].y + " / " + coordList[i + 1].z + "] 까지의 거리:");
+                    console.log(distance + "m");
+                }
+            } else {
+                analy.drawArea(coordList);
+            }
+        });
+
+        function initModelLayers() {
+            try {
+                let modelayers = app.createModelGroupLayer({
+                    maxlevel: 19,
+                    minlevel: 17,
+                    name: 'u3f'
+                });
+                /* request U3f layers list */
+                $.ajax({
+                    url: modelU3fURL,
+                    crossDomain: true,
+                    beforeSend: function (xhr) {
+                        xhr.setRequestHeader('User-Authorization', trdDimAPIKey);
+                        xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+                    },
+                    error: function (e) {
+                        console.info(e);
+                    }
+                }).then(function (result) {
+                    let infos = result.params.data;
+                    for (let i = 0; i < infos.length; i++) {
+                        let info = infos[i];
+                        /* 레이어 목록 중 발행중인 레이어만 요청 */
+                        if (info.state === "ACTIVE") {
+                            let baseName = info.fileName;
+                            if(!baseName || baseName ==='')
+                                baseName = info.name;
+                            let options = {
+                                name: info.name,
+                                basename: baseName,
+                                baseurl: info.baseUrl,
+                                useproxy: false,
+                                minlevel: info.metaData.minLevel,
+                                maxlevel: info.metaData.maxLevel,
+                                compressmodel: true,
+                                isShareMaterial: false,
+                                makeU3FPackage: 1
+                            };
+                            let subLayer = app.create3DFModelLayer(options);
+                            if(subLayer !== false){
+                                subLayer.then(function (layer) {
+                                    modelayers.addLayer(subLayer);
+                                    if(i === infos.length -1){
+                                        console.log("u3f model layer load");
+                                        app.showLayer(modelayers.getName(),true);
+                                    }
+                                }).fail(function (layer) {
+
+                                });
+                            }
+                        }
+                    }
+                })
+            } catch (localBuldError) {
+                console.log('Initialize Error Message : ' + localBuldError);
+            }
+        }
+    });
+</script>
+</body>
+</html>

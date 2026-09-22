@@ -1,0 +1,1303 @@
+/* GeOnDT 예제 목록 페이지 테마입니다.
+   색은 모두 :root 토큰으로만 정의하고, html[data-theme="dark"]에서 값만 바꿔
+   라이트(종이 톤)와 다크(차콜 톤)를 같은 구조로 전환합니다.
+   data-theme은 example-index.html의 머리 Script가 화면을 그리기 전에 정하고,
+   상단 전환 버튼이 바꿉니다. 클래스 이름과 구조는 example-index.html, example-index.js와 맞춥니다. */
+
+:root {
+    color-scheme: light;
+
+    /* 바탕과 면 */
+    --bg: #f4f4f2;
+    --surface: #ffffff;
+    /* 미리보기 이미지가 없는 카드에 깔리는 빈 타일 */
+    --tile: #eaebe7;
+    --hover-soft: #eceee9;
+    --glass-header: rgba(244, 244, 242, .78);
+    --glass-tools: rgba(244, 244, 242, .84);
+
+    /* 글자 */
+    --ink: #16181c;
+    --on-ink: #ffffff;
+    --ink-2: #454a52;
+    --muted: #666c75;
+    --faint: #82888f;
+
+    /* 선과 결 */
+    --line: #e3e4e1;
+    --line-strong: #cfd1cd;
+    --hairline: rgba(16, 18, 22, .07);
+    --hairline-strong: rgba(16, 18, 22, .12);
+    --dot: rgba(16, 18, 22, .09);
+    --focus-ring: rgba(22, 24, 28, .09);
+
+    /* 포인트 — 브랜드 로고의 라임 계열입니다. */
+    --accent: #3c7a12;
+    /* 보조 포인트 — 브랜드 로고의 시안 계열입니다. Guide 표시에만 씁니다. */
+    --accent-2: #12658f;
+
+    /* 미리보기 위에 뜨는 열기 표시 */
+    --chip-bg: rgba(255, 255, 255, .88);
+    --chip-ink: #16181c;
+
+    /* 좌측 목록의 개수 꼬리표입니다. 모양을 깎아 테두리를 쓸 수 없으므로 면 색만으로 바탕과 갈라 놓습니다. */
+    --badge-bg: #dde1d5;
+    /* 검색으로 좁혀진 카테고리의 꼬리표입니다. home·API 문서와 같은 값을 씁니다. */
+    --badge-hit: #dcefc4;
+    --badge-hit-ink: #2f6a12;
+
+    /* 목록 안 즐겨찾기 표시(필터 칩과 구획 제목의 별)입니다. 페이지 바탕 위에 놓여
+       밝은 금색은 읽히지 않으므로, 같은 주황 계열에서 대비가 나오는 값까지 눌러 씁니다. */
+    --favorite: #9a6508;
+
+    /* 최근 본 예제 표시입니다. 유니코드에는 선 굵기가 본문과 어울리는 시계 글자가 없어
+       글꼴마다 모양이 제각각이므로, 도형을 직접 그려 마스크로 씁니다.
+       마스크는 알파만 쓰므로 stroke 색은 무엇이든 상관없고, 실제 색은 쓰는 곳에서 정합니다. */
+    --icon-clock: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="%23000" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.1"/><path d="M8 4.6V8.2l2.5 1.5"/></svg>');
+
+    /* 카드 위 별은 미리보기 사진 위에만 놓입니다. 사진은 화면 테마와 무관하게 같으므로
+       칩은 두 테마 모두 어둡게 두고, 그 위에 올릴 별 색만 테마별로 정합니다. */
+    --star-chip: rgba(11, 11, 13, .72);
+    --star-line: rgba(255, 255, 255, .22);
+    --star-idle: #f0f1ec;
+    --star-active: #f7b73a;
+
+    --shadow-md: 0 10px 28px -14px rgba(16, 18, 22, .22);
+    --shadow-lg: 0 30px 60px -24px rgba(16, 18, 22, .38);
+
+    --radius: 14px;
+    --ease: cubic-bezier(.22, 1, .36, 1);
+    /* 카드 설명 한 줄 높이. 두 줄 자리를 고정하고 확대 시 넘치는 줄을 계산하는 기준입니다.
+       .card-body > p의 font-size와 짝을 이루므로 한쪽만 바꾸면 두 줄 높이가 어긋납니다. */
+    --summary-line: 18.6px;
+
+    /* 헤더 높이는 sticky 도구 막대와 스크롤 위치 계산이 함께 쓰므로 변수로 둡니다. */
+    --header-height: 56px;
+    /* 머리말과 본문이 같은 세로선에서 시작하도록 폭과 좌우 여백을 한 곳에서 정합니다. */
+    --page-max: 1400px;
+    --page-gutter: 40px;
+    --sans: "Pretendard Variable", Pretendard, "Noto Sans KR", system-ui, -apple-system, sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Roboto Mono", Consolas, monospace;
+}
+
+/* 다크에서는 예제 썸네일이 발광하듯 떠 보이도록 바탕을 거의 검게 내리고,
+   포인트만 신호등 같은 라임으로 올립니다. 구조와 간격은 라이트와 동일합니다. */
+:root[data-theme="dark"] {
+    color-scheme: dark;
+
+    --bg: #0b0b0d;
+    --surface: #141417;
+    --tile: #17181b;
+    --hover-soft: #1d1e22;
+    --glass-header: rgba(11, 11, 13, .72);
+    --glass-tools: rgba(11, 11, 13, .82);
+
+    --ink: #f0f1ec;
+    --on-ink: #0b0b0d;
+    --ink-2: #b6b9b2;
+    --muted: #8f938c;
+    --faint: #7a7d76;
+
+    --line: #26272b;
+    --line-strong: #383a3f;
+    --hairline: rgba(255, 255, 255, .08);
+    --hairline-strong: rgba(255, 255, 255, .16);
+    --dot: rgba(255, 255, 255, .07);
+    --focus-ring: rgba(240, 241, 236, .12);
+
+    --accent: #c3f53c;
+    --accent-2: #5fc6ef;
+
+    --chip-bg: rgba(11, 11, 13, .74);
+    --chip-ink: #f0f1ec;
+
+    --badge-bg: #24262b;
+    --badge-hit: #26330f;
+    --badge-hit-ink: #c3f53c;
+
+    /* 어두운 화면에서는 포인트 색 라임이 별에도 잘 맞습니다. */
+    --favorite: var(--accent);
+    --star-active: #c3f53c;
+
+    --shadow-md: 0 10px 28px -14px rgba(0, 0, 0, .7);
+    --shadow-lg: 0 30px 60px -24px rgba(0, 0, 0, .85);
+}
+
+* { box-sizing: border-box; }
+
+html { min-width: 320px; background: var(--bg); overflow-x: clip; }
+
+body {
+    min-height: 100dvh;
+    margin: 0;
+    color: var(--ink);
+    background: var(--bg);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+a { color: inherit; text-decoration: none; }
+button, input { font: inherit; }
+h1, h2, h3, p, dl, dd, dt { margin: 0; }
+
+/* 이 파일은 요소마다 display를 지정하므로, JavaScript가 켜고 끄는 hidden 속성이
+   개별 규칙에 묻히지 않도록 전역에서 한 번 이깁니다. */
+[hidden] { display: none !important; }
+
+button:focus-visible, a:focus-visible, input:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 4px;
+}
+
+::selection { background: var(--accent); color: var(--on-ink); }
+
+/* ── Header ─────────────────────────────────────────────── */
+.gallery-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: var(--header-height);
+    padding: 0 max(var(--page-gutter), calc((100% - var(--page-max)) / 2));
+    background: var(--glass-header);
+    border-bottom: 1px solid var(--line);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+}
+
+.gallery-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -.015em;
+}
+
+/* 로고 글자가 모두 라임과 시안이라 밝은 바탕과 어두운 바탕 모두에서 읽힙니다. */
+.gallery-brand img { width: 52px; height: auto; }
+
+.gallery-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 100%;
+}
+
+.gallery-nav > a,
+.more-menu > summary {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 30px;
+    padding: 0 10px;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 500;
+    letter-spacing: -.01em;
+    list-style: none;
+    transition: color 160ms ease;
+}
+
+.gallery-nav > a:hover,
+.more-menu > summary:hover,
+.more-menu[open] > summary { color: var(--ink); }
+
+.gallery-nav > a.active { color: var(--ink); font-weight: 600; }
+
+/* 활성 메뉴는 채운 알약 대신 글자 아래 짧은 선으로만 표시합니다. */
+.gallery-nav > a.active::after {
+    content: '';
+    position: absolute;
+    right: 10px;
+    bottom: -1px;
+    left: 10px;
+    height: 2px;
+    background: var(--accent);
+}
+
+.more-menu { position: relative; }
+.more-menu > summary::-webkit-details-marker { display: none; }
+
+.more-menu > div {
+    position: absolute;
+    top: 40px;
+    right: 0;
+    display: grid;
+    min-width: 168px;
+    padding: 6px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: var(--shadow-md);
+}
+
+.more-menu > div a {
+    padding: 8px 10px;
+    color: var(--ink-2);
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 500;
+    transition: color 120ms ease, background 120ms ease;
+}
+
+.more-menu > div a:hover { color: var(--ink); background: var(--hover-soft); }
+.mobile-nav-link { display: none; }
+
+/* ── Theme toggle ───────────────────────────────────────── */
+.theme-toggle {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    margin-left: 6px;
+    padding: 0;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.theme-toggle:hover { color: var(--ink); background: var(--hover-soft); border-color: var(--line-strong); }
+.theme-toggle svg { width: 14px; height: 14px; }
+
+/* 지금 테마에서 눌렀을 때 바뀔 모습을 보여 줍니다. 라이트에서는 달, 다크에서는 해입니다. */
+.theme-toggle .theme-icon-dark { display: none; }
+:root[data-theme="dark"] .theme-toggle .theme-icon-dark { display: block; }
+:root[data-theme="dark"] .theme-toggle .theme-icon-light { display: none; }
+
+/* ── Layout ─────────────────────────────────────────────── */
+.gallery-main {
+    display: grid;
+    grid-template-columns: 308px minmax(0, 1fr);
+    align-items: start;
+    gap: 48px;
+    width: min(var(--page-max), calc(100% - var(--page-gutter) * 2));
+    margin: 0 auto;
+    padding: 56px 0 120px;
+}
+
+.gallery-body { min-width: 0; }
+
+/* ── Rail — 카드 없이 페이지 위에 바로 놓인 목록 ───────── */
+.gallery-rail {
+    position: sticky;
+    top: var(--header-height);
+    max-height: calc(100dvh - var(--header-height) - 24px);
+    /* 오른쪽 여백은 스크롤바와의 간격입니다. 목록이 길어져 스크롤바가 생기면 오른쪽 끝에 붙는
+       수량 표시가 스크롤바에 닿아 답답해 보이므로 한 칸 띄웁니다. */
+    padding: 12px 8px 24px 0;
+    overflow-y: auto;
+    /* overflow-y만 지정하면 가로도 auto로 계산됩니다. 항목이 컨테이너 오른쪽 끝에 닿아 있어
+       hover에서 2px 밀리는 순간 아래쪽에 가로 스크롤바가 생기므로 명시적으로 막습니다. */
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+}
+
+.rail-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2px 14px;
+    border-bottom: 1px solid var(--line);
+}
+
+/* 한글 이름표는 고정폭 서체와 넓은 자간을 쓰면 읽기 어려워지므로 본문 서체를 그대로 씁니다. */
+.rail-head b {
+    color: var(--muted);
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: .04em;
+}
+
+.rail-head span {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+}
+
+.rail-group > summary {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 2px;
+    color: var(--ink-2);
+    background: var(--bg);
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: -.01em;
+    list-style: none;
+    transition: color 160ms ease;
+}
+
+.rail-group > summary::-webkit-details-marker { display: none; }
+
+.rail-group > summary::before {
+    content: '';
+    flex: 0 0 auto;
+    width: 5px;
+    height: 5px;
+    margin-right: 2px;
+    border-right: 1.4px solid currentColor;
+    border-bottom: 1.4px solid currentColor;
+    transform: rotate(-45deg);
+    opacity: .45;
+    transition: transform 200ms var(--ease);
+}
+
+.rail-group[open] > summary::before { transform: rotate(45deg); }
+.rail-group > summary span { flex: 1 1 auto; }
+.rail-group > summary:hover { color: var(--ink); }
+
+/* 카테고리에 든 예제 수입니다. 숫자만 오른쪽 끝에 떠 있으면 순번처럼도 읽혀,
+   왼쪽 끝을 뾰족하게 깎은 꼬리표에 담아 물건에 붙인 수량표처럼 보이게 합니다.
+   깎인 자리에서는 테두리가 잘려 나가므로 윤곽은 면 색으로만 냅니다. */
+.rail-group > summary b {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    min-width: 38px;
+    /* 왼쪽은 뾰족한 꼭지(11px)와 끈 구멍이 차지하므로 글자를 그만큼 안쪽으로 밉니다. */
+    padding: 4px 10px 4px 23px;
+    color: var(--ink-2);
+    background: var(--badge-bg);
+    border-radius: 0 999px 999px 0;
+    clip-path: polygon(11px 0, 100% 0, 100% 100%, 11px 100%, 0 50%);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+/* 꼬리표를 매다는 끈 구멍입니다. 목록 바탕과 같은 색으로 두어 실제로 뚫린 것처럼 보이게 합니다. */
+.rail-group > summary b::before {
+    content: '';
+    position: absolute;
+    left: 14px;
+    width: 4px;
+    height: 4px;
+    background: var(--bg);
+    border-radius: 50%;
+}
+
+/* 즐겨찾기와 최근 본 예제는 카테고리가 아니라 사용자를 따라 바뀌는 목록입니다.
+   필터 칩과 구획 제목에 쓴 것과 같은 표시를 목록에도 붙여 한눈에 구별합니다.
+   summary의 ::before는 펼침 화살표가 쓰고 있으므로 이름표인 span에 붙입니다. */
+.rail-group[data-category="favorite"] > summary span::before {
+    content: '\2605';
+    margin-right: 6px;
+    color: var(--favorite);
+    font-size: 11.5px;
+}
+
+.rail-group[data-category="recent"] > summary span::before {
+    content: '';
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 6px;
+    vertical-align: -1.5px;
+    background-color: currentColor;
+    -webkit-mask: var(--icon-clock) center / contain no-repeat;
+    mask: var(--icon-clock) center / contain no-repeat;
+}
+
+/* 지금 보고 있는 카테고리는 채운 알약 대신 글자 굵기와 포인트 색으로만 알립니다. */
+.rail-group.is-current > summary { color: var(--ink); font-weight: 700; }
+.rail-group.is-current > summary b { color: var(--accent); }
+
+/* 검색으로 좁혀진 카테고리입니다. 채운 색은 목록 안에서 지나치게 튀므로
+   연한 초록 면에 진한 초록 글자로 두어 강조와 차분함을 함께 잡습니다.
+   지금 보고 있는 카테고리 표시(--accent)보다 뒤에 두어 검색 표시가 이깁니다.
+   home·API 문서의 좌측 목록과 같은 방식입니다. */
+.rail-group > summary b.is-filtered,
+.rail-group.is-current > summary b.is-filtered {
+    color: var(--badge-hit-ink);
+    background: var(--badge-hit);
+}
+
+.rail-group > ul {
+    margin: 2px 0 10px;
+    /* 오른쪽 여유는 hover에서 항목이 밀리는 폭입니다. 없으면 밀린 글자가 잘립니다. */
+    padding: 0 4px 0 12px;
+    border-left: 1px solid var(--line);
+    list-style: none;
+}
+
+.rail-group.is-current > ul { border-left-color: var(--line-strong); }
+
+.rail-group a {
+    display: block;
+    padding: 7px 0;
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.5;
+    transition: color 120ms ease, transform 160ms var(--ease);
+}
+
+.rail-group a:hover { color: var(--ink); transform: translateX(2px); }
+.rail-empty { padding: 16px 2px; color: var(--faint); font-size: 12.5px; }
+
+/* ── Intro ──────────────────────────────────────────────── */
+.gallery-intro {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 40px;
+}
+
+.intro-copy { max-width: 46ch; }
+
+.gallery-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+}
+
+/* 알약 배지 대신 짧은 포인트 눈금 하나만 앞에 둡니다. */
+.gallery-eyebrow::before {
+    content: '';
+    width: 18px;
+    height: 2px;
+    background: var(--accent);
+}
+
+.gallery-intro h1 {
+    color: var(--ink);
+    font-size: clamp(42px, 5.4vw, 68px);
+    font-weight: 600;
+    letter-spacing: -.045em;
+    line-height: .94;
+}
+
+.intro-copy p {
+    margin-top: 16px;
+    color: var(--muted);
+    font-size: 14.5px;
+    line-height: 1.65;
+    text-wrap: pretty;
+}
+
+.intro-stats {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 36px;
+    padding-bottom: 6px;
+}
+
+.intro-stats dt {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.intro-stats dd {
+    margin-top: 6px;
+    color: var(--ink);
+    font-size: 26px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.03em;
+}
+
+/* ── Tools ──────────────────────────────────────────────── */
+/* 예제가 100개에 가까워 스크롤 중에도 검색과 분류에 바로 닿도록 헤더 아래에 붙여 둡니다. */
+.gallery-tools {
+    position: sticky;
+    top: var(--header-height);
+    z-index: 12;
+    margin-top: 40px;
+    padding: 16px 0;
+    background: var(--glass-tools);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    backdrop-filter: blur(18px) saturate(180%);
+    transition: box-shadow 220ms ease;
+}
+
+/* 배경 블러가 본문 열 너비에서 딱 끊겨 보이지 않도록 좌우로 조금 넓혀 둡니다. */
+.gallery-tools::before {
+    content: '';
+    position: absolute;
+    inset: 0 -16px;
+    z-index: -1;
+    background: inherit;
+}
+
+.gallery-tools.is-stuck { box-shadow: 0 1px 0 var(--line), 0 12px 20px -20px rgba(0, 0, 0, .5); }
+
+.gallery-search {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
+    align-items: center;
+    min-height: 46px;
+    padding: 0 8px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.gallery-search:hover { border-color: var(--line-strong); }
+
+.gallery-search:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.gallery-search > svg {
+    justify-self: center;
+    width: 15px;
+    height: 15px;
+    color: var(--muted);
+}
+
+.gallery-search input {
+    width: 100%;
+    height: 42px;
+    color: var(--ink);
+    background: transparent;
+    border: 0;
+    outline: 0;
+    font-size: 14px;
+    letter-spacing: -.01em;
+}
+
+.gallery-search input::placeholder { color: var(--faint); }
+.gallery-search input::-webkit-search-cancel-button { display: none; }
+
+.gallery-search button {
+    justify-self: center;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    color: var(--muted);
+    background: transparent;
+    border: 0;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: color 140ms ease, background 140ms ease;
+}
+
+.gallery-search button svg { width: 11px; height: 11px; }
+.gallery-search button:hover { color: var(--ink); background: var(--hover-soft); }
+
+/* 분류 칩과 결과 수를 한 줄에 둡니다. 칩이 많아지면 칩만 가로로 밀립니다. */
+.tools-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 12px;
+}
+
+.category-filters {
+    display: flex;
+    flex: 1 1 auto;
+    gap: 6px;
+    min-width: 0;
+    padding-bottom: 2px;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.filter-result {
+    flex: 0 0 auto;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.category-filters::-webkit-scrollbar { display: none; }
+
+/* 잘린 쪽만 끝을 흐리게 해 칩이 더 있다는 것을 알립니다.
+   두 클래스는 example-index.js의 updateChipOverflowHint가 스크롤 위치를 보고 켭니다.
+   흐림 폭은 칩 하나가 반쯤 걸쳐 보이는 정도로 잡았습니다. */
+.category-filters.has-end-overflow {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent 100%);
+}
+
+.category-filters.has-start-overflow {
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 36px);
+    mask-image: linear-gradient(to right, transparent 0, #000 36px);
+}
+
+.category-filters.has-start-overflow.has-end-overflow {
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 36px, #000 calc(100% - 36px), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 36px, #000 calc(100% - 36px), transparent 100%);
+}
+
+.category-filters button {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 32px;
+    padding: 0 13px;
+    color: var(--ink-2);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 500;
+    letter-spacing: -.01em;
+    white-space: nowrap;
+    transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.category-filters button b {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+.category-filters button:hover {
+    color: var(--ink);
+    background: var(--hover-soft);
+    border-color: var(--line-strong);
+}
+
+.category-filters button.active { color: var(--on-ink); background: var(--ink); border-color: var(--ink); }
+/* 활성 칩은 배경이 잉크색으로 뒤집힙니다. 글자색만 바꾸면 어느 쪽으로 눌러도 배경에 묻히므로,
+   숫자를 반대 색 알약에 담아 칩 안에서 확실히 떼어 놓습니다. */
+.category-filters button.active b {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* 한 자리와 두 자리 배지 폭이 들쭉날쭉하지 않도록 최소 폭을 둡니다. */
+    min-width: 22px;
+    /* line-height를 1로 묶어 고정폭 서체의 아래쪽 여백을 없앤 뒤 상하 여백을 같게 둡니다.
+       line-height를 키우면 숫자가 baseline 아래 공간만큼 위로 치우쳐 보입니다. */
+    padding: 2px 7px;
+    color: var(--ink);
+    background: var(--on-ink);
+    border-radius: 999px;
+    line-height: 1;
+}
+
+/* 즐겨찾기와 최근 본 예제는 카테고리가 아니라 사용자를 따라 바뀌는 목록이라, 구획과 같은 표시로 구별합니다. */
+.category-filters button[data-category="favorite"] span::before {
+    content: '\2605';
+    margin-right: 5px;
+    color: var(--favorite);
+    font-size: 12px;
+}
+
+.category-filters button[data-category="recent"] span::before {
+    content: '';
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 5px;
+    vertical-align: -1.5px;
+    background-color: currentColor;
+    -webkit-mask: var(--icon-clock) center / contain no-repeat;
+    mask: var(--icon-clock) center / contain no-repeat;
+}
+
+.category-filters button:active,
+.gallery-search button:active { transform: translateY(1px); }
+
+/* ── Sections ───────────────────────────────────────────── */
+.gallery-section {
+    margin-top: 72px;
+    scroll-margin-top: calc(var(--header-height) + 110px);
+}
+
+.gallery-section:first-child { margin-top: 44px; }
+
+/* 카드 상자 대신 1px 선 하나로 구획을 나눕니다. */
+.section-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 26px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+}
+
+/* 제목을 왼쪽으로 밀어 두면 개수와 버튼이 몇 개가 붙든 오른쪽에 나란히 모입니다. */
+.section-heading h2 {
+    margin-right: auto;
+    color: var(--ink);
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -.025em;
+}
+
+/* 최근 본 예제 구획에만 붙는 비우기 버튼입니다. */
+.recent-clear {
+    flex: 0 0 auto;
+    padding: 4px 10px;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: -.01em;
+    transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.recent-clear:hover {
+    color: var(--ink);
+    background: var(--hover-soft);
+    border-color: var(--line-strong);
+}
+
+.recent-clear:active { transform: translateY(1px); }
+
+/* 맨 위 구획은 카테고리가 아니라 담아 둔 목록이라는 것을 카드의 별과 같은 표시로 알립니다. */
+.gallery-section[data-category="favorite"] .section-heading h2::before {
+    content: '\2605';
+    margin-right: 7px;
+    color: var(--favorite);
+}
+
+.gallery-section[data-category="recent"] .section-heading h2::before {
+    content: '';
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    margin-right: 7px;
+    vertical-align: -1.5px;
+    background-color: var(--muted);
+    -webkit-mask: var(--icon-clock) center / contain no-repeat;
+    mask: var(--icon-clock) center / contain no-repeat;
+}
+
+.section-heading > b {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+/* 예제 내용을 미리보기만 보고 알아볼 수 있어야 하므로 열 수를 줄여 썸네일을 크게 잡습니다. */
+.example-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 40px 24px;
+}
+
+/* ── Card — 상자 없이 미리보기와 글만 놓는 갤러리 형식 ──── */
+.example-card {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    opacity: 0;
+    animation: card-in 480ms var(--ease) forwards;
+    /* --card-index는 renderCategorySections가 넣어 줍니다. 순서대로 조금씩 늦게 나타납니다. */
+    animation-delay: calc(var(--card-index, 0) * 24ms);
+    transition: transform 420ms var(--ease);
+}
+
+/* 검색이나 분류로 다시 그린 카드입니다. 등장 연출 없이 바로 보여 줍니다. */
+.example-card.is-instant { opacity: 1; animation: none; }
+
+/* 등장 연출이 transform을 고정해 버리면 hover 확대가 막히므로 translate 속성만 씁니다. */
+@keyframes card-in {
+    from { opacity: 0; translate: 0 10px; }
+    to { opacity: 1; translate: none; }
+}
+
+/* 열 끝 카드가 화면 밖으로 커지지 않도록 확대 기준점을 안쪽으로 둡니다. */
+.example-grid > .example-card:nth-child(3n + 1) { transform-origin: left center; }
+.example-grid > .example-card:nth-child(3n) { transform-origin: right center; }
+
+/* 확대한 카드의 제목과 설명이 뒤쪽 카드와 겹쳐 읽기 어려워지지 않도록,
+   확대하는 동안에만 카드 뒤에 바탕색 판을 깔아 아래를 가립니다. */
+.example-card::before {
+    content: '';
+    position: absolute;
+    inset: -10px -10px -12px;
+    z-index: -1;
+    background: var(--bg);
+    border-radius: 20px;
+    opacity: 0;
+    transition: opacity 240ms var(--ease);
+}
+
+/* 판이 아래로 내려가는 양은 설명이 실제로 넘친 높이(--card-overflow)만큼입니다.
+   설명이 짧은 카드까지 일률적으로 내리면 아무것도 없는 빈 자리가 남습니다. */
+:root.has-hover .example-card:hover::before,
+.example-card:is(:has(:focus-visible), .is-located)::before {
+    inset: -10px -10px calc(-12px - var(--card-overflow, 0px));
+    /* 그림자가 있어야 아래 카드가 사라진 것이 아니라 가려진 것으로 읽힙니다. */
+    box-shadow: var(--shadow-lg);
+    opacity: 1;
+}
+
+/* 예제 99개 중 미리보기 이미지가 있는 것은 일부라, 빈 타일이 밋밋해 보이지 않도록
+   점 격자를 아주 옅게 깔고 그 위에 카테고리 기호만 놓습니다. */
+.card-thumbnail {
+    position: relative;
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    background-color: var(--tile);
+    background-image: radial-gradient(var(--dot) 1px, transparent 1px);
+    background-size: 12px 12px;
+    background-position: center;
+    border-radius: var(--radius);
+    box-shadow: inset 0 0 0 1px var(--hairline);
+    transition: box-shadow 420ms var(--ease);
+}
+
+.card-thumbnail::before,
+.card-thumbnail::after { display: none; }
+
+.category-illustration {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    color: var(--ink-2);
+    background: var(--bg);
+    border-radius: 50%;
+    font-size: 30px;
+    font-weight: 400;
+    line-height: 1;
+    opacity: .5;
+}
+
+.category-analysis .category-illustration::before { content: '\2316'; }
+.category-map .category-illustration::before { content: '\25A6'; }
+.category-image .category-illustration::before { content: '\25A7'; }
+.category-model .category-illustration::before { content: '\25C7'; }
+.category-simulation .category-illustration::before { content: '\224B'; }
+.category-indoor .category-illustration::before { content: '\2302'; }
+.category-addon .category-illustration::before { content: '\FF0B'; }
+.category-start .category-illustration::before { content: '\25B6'; }
+.category-etc .category-illustration::before { content: '\2022'; }
+
+.card-thumbnail.has-thumbnail .category-illustration { display: none; }
+
+.card-thumbnail.has-thumbnail img,
+.card-thumbnail .card-thumbnail-motion {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.card-thumbnail .card-thumbnail-motion {
+    z-index: 3;
+    opacity: 0;
+    transition: opacity 240ms ease;
+    pointer-events: none;
+}
+
+.card-thumbnail.motion-ready.show-motion .card-thumbnail-motion { opacity: 1; }
+
+/* 커서를 올린 카드는 통째로 크게 확대해, 미리보기 내용을 그 자리에서 확인할 수 있게 합니다.
+   hover 규칙에는 :root.has-hover를 붙여 둡니다. 이 클래스는 example-index.js가 커서로
+   가리킬 수 있는 기기에서만 붙입니다. 터치에서는 탭한 뒤에도 hover 상태가 남아
+   카드가 확대된 채 굳기 때문입니다.
+
+   초점 조건에 :focus-within 대신 :has(:focus-visible)을 씁니다. 마우스로 누른 별에도 초점은
+   남으므로, :focus-within이면 커서가 카드를 떠난 뒤에도 확대가 풀리지 않습니다.
+   :focus-visible은 브라우저가 키보드 조작으로 판단한 초점에만 붙습니다.
+
+   .is-located는 좌측 목록에서 고른 카드입니다. 목록을 마우스로 누르면 뒤이은 초점 이동도
+   키보드로 보지 않아 :focus-visible이 붙지 않으므로, 그 경우만 example-index.js가 직접 표시합니다. */
+:root.has-hover .example-card:hover,
+.example-card:is(:has(:focus-visible), .is-located) {
+    z-index: 3;
+    transform: scale(1.5) translateY(-10px);
+}
+
+/* 그림자는 카드 뒤 판이 맡으므로, 썸네일은 테두리만 진하게 합니다. */
+:root.has-hover .example-card:hover .card-thumbnail,
+.example-card:is(:has(:focus-visible), .is-located) .card-thumbnail {
+    box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+
+/* 즐겨찾기 별입니다. 제목 링크가 카드 전체를 덮으므로(z-index 5) 그보다 위에 놓아야 눌립니다. */
+.card-favorite {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 6;
+    display: grid;
+    place-items: center;
+    /* 칩과 별의 차이를 짝수로 둡니다. 26과 15처럼 홀수 차이면 여백이 5.5px가 되어
+       카드가 1.5배로 커질 때 반올림 방향이 바뀌고 별이 원 안에서 미세하게 흔들립니다.
+       28과 16이면 1배(여백 6)와 1.5배(칩 42, 별 24, 여백 9) 모두 정수로 맞습니다. */
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    /* 두 테마 모두 어두운 칩에 밝은 별을 올립니다. 밝은 화면에서 흰 칩을 쓰면 별을
+       어둡게 눌러야 해서 라임이 올리브처럼 탁해집니다. */
+    color: var(--star-idle);
+    background: var(--star-chip);
+    border: 0;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px var(--star-line);
+    /* 아직 담지 않은 별은 미리보기를 덜 가리도록 살짝 낮추고, 카드를 가리키면 또렷해집니다. */
+    opacity: .85;
+    cursor: pointer;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    transition: opacity 260ms var(--ease), color 200ms ease, background 200ms ease, transform 120ms ease;
+}
+
+.card-favorite svg { width: 16px; height: 16px; fill: none; }
+
+/* 바탕 없이 선만 있는 표시라, 기본 굵기로는 축소된 카드에서 선이 끊겨 보입니다. */
+.card-favorite svg path { stroke-width: 1.9; }
+
+:root.has-hover .example-card:hover .card-favorite,
+.example-card:is(:has(:focus-visible), .is-located) .card-favorite,
+.card-favorite:hover,
+.card-favorite:focus-visible { opacity: 1; }
+
+/* 별을 키우면 카드 확대(1.5배)와 곱해져 크게 뛰고, 원 안 별의 자리도 흔들려 보입니다.
+   누를 수 있다는 신호는 칩을 진하게 하고 별 색을 밝히는 것으로 충분합니다. */
+.card-favorite:hover,
+.card-favorite:focus-visible {
+    color: var(--star-active);
+    background: rgba(11, 11, 13, .88);
+}
+
+/* 즐겨찾기한 예제는 검색을 좁히지 않아도 한눈에 보이도록 속을 채워 둡니다. */
+.card-favorite.is-active { opacity: 1; color: var(--star-active); }
+
+.card-favorite.is-active svg { fill: currentColor; }
+
+@media (prefers-reduced-motion: reduce) {
+    .card-favorite { transition: none; }
+}
+
+.card-body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+    padding: 14px 2px 0;
+}
+
+.card-meta { display: flex; align-items: center; gap: 7px; }
+
+/* 카테고리 이름이 한글이라 고정폭 서체 대신 본문 서체를 작게 씁니다. */
+.card-meta span {
+    color: var(--muted);
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: .02em;
+}
+
+/* 카테고리 뒤에 붙는 기능 표시입니다. 개수가 달라져도 앞에 구분선이 붙어 줄이 정돈됩니다. */
+.card-meta span[data-card-name],
+.card-meta span[data-card-editor],
+.card-meta span[data-card-guide] {
+    padding-left: 7px;
+    border-left: 1px solid var(--line-strong);
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+/* 예제 파일 이름이라 대소문자를 그대로 보여 줍니다. 기능 표시가 아니라 걸린 자리를 알리는 값이므로
+   포인트 색을 쓰지 않고, 옆의 Editor·Guide 표시와 역할이 섞이지 않게 옅은 색으로 둡니다. */
+.card-meta span[data-card-name] { text-transform: none; }
+
+/* 코드를 고칠 수 있다는 표시라 포인트 색으로 두드러지게 합니다. */
+.card-meta span[data-card-editor] { color: var(--accent); }
+/* 도움말은 편집과 성격이 다른 기능이라 브랜드 시안 계열로 구분합니다. */
+.card-meta span[data-card-guide] { color: var(--accent-2); }
+
+.card-body h3 {
+    margin-top: 8px;
+    color: var(--ink);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -.02em;
+    line-height: 1.4;
+    transition: color 160ms ease;
+}
+
+/* 제목 링크가 카드 전체를 덮어, 미리보기든 글이든 어디를 눌러도 예제가 열립니다. */
+.card-body h3 a::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+}
+
+:root.has-hover .example-card:hover .card-body h3,
+.example-card:is(:has(:focus-visible), .is-located) .card-body h3 { color: var(--accent); }
+
+/* 설명 칸은 항상 두 줄 높이로 고정합니다. 확대할 때 전체 문장을 펼쳐도
+   칸 높이가 그대로라 카드 높이가 변하지 않고, 따라서 그리드가 밀리지 않습니다. */
+.card-body > p {
+    display: -webkit-box;
+    height: calc(var(--summary-line) * 2);
+    margin-top: 6px;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: var(--summary-line);
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+/* 확대한 카드에서는 잘린 설명을 끝까지 펼쳐 보여 줍니다.
+   is-measuring은 attachSummaryOverflow가 넘치는 높이를 잴 동안만 잠깐 켜는 상태입니다. */
+.example-card.is-measuring .card-body > p,
+:root.has-hover .example-card:hover .card-body > p,
+.example-card:is(:has(:focus-visible), .is-located) .card-body > p {
+    display: block;
+    overflow: visible;
+    -webkit-line-clamp: unset;
+}
+
+/* 넘친 줄이 태그 위로 흘러내리는 카드에서만 태그를 감춥니다.
+   두 줄 안에 들어가는 설명이면 태그를 그대로 두는 편이 정보가 많습니다. */
+:root.has-hover .example-card.is-overflowing:hover .card-tags,
+.example-card.is-overflowing:is(:has(:focus-visible), .is-located) .card-tags { visibility: hidden; }
+
+/* 태그는 한 줄만 보여 줍니다. 두 줄이 되면 카드 사이 간격이 들쭉날쭉해집니다.
+   태그를 눌러 검색할 수 있어야 하므로, 카드 전체를 덮는 제목 링크(z-index 5)보다 위에 둡니다. */
+.card-tags {
+    position: relative;
+    z-index: 6;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 10px;
+    height: 21px;
+    overflow: hidden;
+}
+
+.card-tags button {
+    flex: 0 0 auto;
+    padding: 3px 7px;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: color 140ms ease, background 140ms ease, border-color 140ms ease;
+}
+
+.card-tags button:hover {
+    color: var(--ink);
+    background: var(--hover-soft);
+    border-color: var(--line-strong);
+}
+
+/* 검색어와 겹치는 글자입니다. 바탕을 칠하면 카드가 얼룩덜룩해 보이므로 글자만 진하게 둡니다. */
+mark {
+    color: var(--ink);
+    background: none;
+    font-weight: 600;
+}
+
+/* 옅은 글씨 위의 강조는 색만으로는 눈에 띄지 않아 밑줄을 함께 깝니다. */
+.card-body > p mark,
+.card-meta span[data-card-name] mark,
+.card-tags mark {
+    text-decoration: underline;
+    text-decoration-color: var(--accent);
+    text-underline-offset: 2px;
+}
+
+/* ── Empty ──────────────────────────────────────────────── */
+.empty-result {
+    display: grid;
+    place-items: center;
+    gap: 8px;
+    margin-top: 48px;
+    padding: 88px 24px;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    text-align: center;
+}
+
+.empty-result::before {
+    content: '\2316';
+    color: var(--faint);
+    font-size: 26px;
+    line-height: 1;
+}
+
+.empty-result strong { color: var(--ink); font-size: 15px; font-weight: 600; letter-spacing: -.02em; }
+.empty-result p { font-size: 12.5px; }
+
+/* ── Scroll-top ─────────────────────────────────────────── */
+.scroll-top {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 25;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    color: var(--ink);
+    background: var(--glass-tools);
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    box-shadow: var(--shadow-md);
+    cursor: pointer;
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    transition: color 180ms ease, background 180ms ease, border-color 180ms ease;
+}
+
+.scroll-top:hover { color: var(--on-ink); background: var(--ink); border-color: var(--ink); }
+.scroll-top:active { transform: translateY(1px); }
+
+.scroll-top span {
+    width: 7px;
+    height: 7px;
+    margin-top: 2px;
+    border-top: 1.5px solid currentColor;
+    border-left: 1.5px solid currentColor;
+    transform: rotate(45deg);
+}
+
+/* ── 눌림 피드백 ────────────────────────────────────────── */
+/* 눌리는 순간 살짝 들어가야 조작이 먹었다는 것이 손끝으로 전해집니다. */
+/* 별은 카드를 여는 것이 아니라 담아 두는 단추이므로, 별을 누를 때는 미리보기 대신 별만 들어갑니다.
+   그러지 않으면 별을 눌렀는데 엉뚱하게 미리보기가 반응해 무엇을 누른 것인지 흐려집니다. */
+.example-card:active:not(:has(.card-favorite:active)) .card-thumbnail { transform: scale(.985); }
+.card-favorite:active { transform: scale(.88); }
+.rail-group a:active { transform: translateX(2px) scale(.99); }
+.theme-toggle:active { transform: translateY(1px); }
+
+/* ── View Transitions ───────────────────────────────────── */
+/* 분류를 바꿀 때 목록이 통째로 교차되도록 이름을 붙입니다. */
+#category-sections { view-transition-name: gallery-sections; }
+.gallery-rail { view-transition-name: gallery-rail; }
+
+::view-transition-old(gallery-sections),
+::view-transition-new(gallery-sections),
+::view-transition-old(gallery-rail),
+::view-transition-new(gallery-rail) {
+    animation-duration: 260ms;
+    animation-timing-function: var(--ease);
+}
+
+::view-transition-old(gallery-sections) { animation-name: section-out; }
+::view-transition-new(gallery-sections) { animation-name: section-in; }
+
+@keyframes section-out { to { opacity: 0; transform: translateY(-6px); } }
+@keyframes section-in { from { opacity: 0; transform: translateY(8px); } }
+
+/* ── Motion / responsive ────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    .example-card { opacity: 1; animation: none; }
+
+    .example-card,
+    .card-thumbnail,
+    .card-thumbnail .card-thumbnail-motion,
+    .card-body h3,
+    .rail-group a,
+    .rail-group > summary::before { transition: none; }
+
+    .card-thumbnail .card-thumbnail-motion { display: none; }
+
+    :root.has-hover .example-card:hover,
+    .example-card:is(:has(:focus-visible), .is-located) { transform: none; }
+
+    .example-card:active .card-thumbnail,
+    .card-favorite:active,
+    .rail-group a:active { transform: none; }
+
+    ::view-transition-old(gallery-sections),
+    ::view-transition-new(gallery-sections),
+    ::view-transition-old(gallery-rail),
+    ::view-transition-new(gallery-rail) { animation: none; }
+}
+
+@media (max-width: 1180px) {
+    .gallery-main { display: block; width: min(var(--page-max), calc(100% - var(--page-gutter) * 2)); }
+    .gallery-rail { display: none; }
+}
+
+@media (max-width: 860px) {
+    .gallery-header { padding: 0 16px; }
+    .gallery-nav > a:not(.active) { display: none; }
+    .mobile-nav-link { display: block; }
+    .gallery-main { width: calc(100% - 32px); padding: 36px 0 88px; }
+    .gallery-intro { display: block; }
+    .intro-stats { margin-top: 28px; padding-bottom: 0; }
+    .gallery-tools { margin-top: 28px; }
+    .example-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 18px; }
+
+    .example-grid > .example-card:nth-child(3n + 1),
+    .example-grid > .example-card:nth-child(3n) { transform-origin: center; }
+
+    .example-grid > .example-card:nth-child(2n + 1) { transform-origin: left center; }
+    .example-grid > .example-card:nth-child(2n) { transform-origin: right center; }
+
+    /* 두 칸에서 1.5배까지 키우면 옆 카드를 거의 다 덮으므로 조금 줄입니다. */
+    :root.has-hover .example-card:hover,
+    .example-card:is(:has(:focus-visible), .is-located) { transform: scale(1.3) translateY(-8px); }
+}
+
+/* 손가락으로 쓰는 폭에서는 한 장씩 크게 보여 주고 확대는 끕니다. */
+@media (max-width: 560px) {
+    .gallery-brand span { display: none; }
+    .gallery-intro h1 { font-size: 40px; }
+    .intro-copy p { font-size: 13.5px; }
+    .intro-stats { gap: 28px; }
+    .gallery-section { margin-top: 52px; }
+    .example-grid { grid-template-columns: 1fr; gap: 30px; }
+
+    :root.has-hover .example-card:hover,
+    .example-card:is(:has(:focus-visible), .is-located) { transform: none; }
+}

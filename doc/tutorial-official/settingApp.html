@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>U3dApp 설정 예제</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        .parameter label {
+            margin-right: 20px;
+            display: block;
+            font-size: 16px;
+        }
+
+        h3 a {
+            color: white;
+        }
+
+        h3 a:hover {
+            color: #00a8c6;
+        }
+
+        hr {
+            margin-top: 10px;
+            margin-bottom: 10px;
+            border-color: rgba(166, 166, 166, 0.5);
+        }
+
+        .parameter .item {
+            font-weight: normal;
+            cursor: pointer;
+        }
+
+        .parameter .form-control.item {
+            display: inline-block;
+            width: 80px;
+        }
+
+        .parameter .item[type="color"] {
+            width: 50px;
+        }
+
+        .parameter .item::placeholder {
+            font-size: 14px;
+        }
+
+        #app-name {
+            position: absolute;
+            top: 5px;
+            left: 50px;
+            color: white;
+            background-color: black;
+            padding: 5px 10px;
+            min-width: 100px;
+            height: 40px;
+            line-height: 25px;
+            border-radius: 8px;
+            text-align: center;
+            z-index: 999;
+        }
+
+        #analy-popup .div-popup {
+            width: 1300px;
+            height: 770px;
+            top: 4vh;
+            padding-bottom: 10px;
+        }
+
+        #jsonViewer {
+            min-height: 550px;
+        }
+
+        .collapse label {
+            font-size: 18px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png"  alt="">
+
+        <span> U3dApp 설정 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        최초에 생성하는 3D 지도 영역인 <strong>app의 환경설정을 세팅</strong>하는 예제입니다.<br>
+        사용자는 app을 생성하데 이용되는 다양한 파라미터 값을 직접 세팅하여 원하는대로 환경설정된 app을 생성해볼 수 있습니다.
+        또한, 입력된 app의 설정값을 Json 데이터를 출력받아 사용할 수 있는 기능도 구현되어 있습니다.
+    </p>
+</div>
+<div id="map-wrapper">
+    <div id="map"></div>
+    <div id="app-name"></div>
+    <div id="div-left-menu">
+        <div>
+            <div style="display: inline-flex; position: relative">
+                <button id="analy-bnt" class="btn btn-xs menu-btn">
+                    <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+                <div class="div-btn-info" hidden>
+                    분석 팝업 열기
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="btn-group" id='top-sbar'>
+        <div class='btn-group-vertical-block' id='right-toolbar'>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                     src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                     alt="나침반">
+            </button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                    id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                    id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                    id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+            </button>
+        </div>
+        <div class='btn-group' id='bt-bottom-bar'>
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                   value="위경도: ##.####  ###.#### ">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                   value="고도:####">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                   value="각도: ##">
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu='return false'>
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content" style="margin-left:10px;">
+                <div>
+                    <div class="col-sm-9 parameter">
+                        <div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary apply" style="background-color: rgb(58,90,178);">적용</button>
+                            </div>
+                            <div class="btn-group" style="float: right; margin-right: 10px;">
+                                <button class="btn btn-primary image toggle">이미지</button>
+                                <button class="btn btn-primary terrain toggle">지형/고도</button>
+                                <button class="btn btn-primary model toggle">모델</button>
+                            </div>
+                        </div>
+                        <div>
+                            <h3><a role="button" href="#default" data-toggle="collapse">기본 설정</a></h3>
+                            <div class="collapse" id="default">
+                                <div>
+                                    <label>
+                                        name :
+                                        <input type="text" name="name" class="form-control item" value="U3dApp_0">
+                                    </label>
+                                    <p>&emsp;- app의 이름. 따로 설정하지 않는 경우 'U3dApp_' + 생성 넘버(0,1,2...) 로 자동 설정된다.</p>
+                                    <pre style="color: #2e82ff">app.getName() // U3dApp 생성 후, 확인 </pre>
+                                </div>
+                                <div>
+                                    <label>
+                                        containername :
+                                        <input type="text" name="containername" class="form-control item" value="map">
+                                    </label>
+                                    <p>&emsp;- app을 띄울 html Dom 객체 이름(ID).<mark>app 생성시 필수 요소</mark>다.</p>
+                                    <pre style="color: #2e82ff">app.getContainer().id // U3dApp 생성 후, 확인 </pre>
+                                </div>
+                                <div>
+                                    <label>
+                                        idoverview
+                                    </label>
+                                    <p>&emsp;- overview 지도를 띄울 html Dom 객체 이름(ID).<mark>overview 사용시 필수 요소</mark>다.</p>
+                                    <pre style="color: #2e82ff">
+option.idoverview : 'overview-map' // U3dApp 생성 시, 옵션 입력
+app.getOverviewMap().getId() // U3dApp 생성 후, 확인 </pre>
+                                </div>
+                                <div>
+                                    <label>
+                                        camTargetType
+                                        <input type="checkbox" class="item" value="camTargetType" checked>
+                                    </label>
+                                    <p>&emsp;overview 지도 사용 시 overview 지도의 센터 좌표를 구하기 위해 사용하는 옵션.
+                                        <br>&emsp;true면 카메라 target, false면 카메라의 위경도 좌표를 구하는데, 이 좌표를 통해 overview 지도의 센터 좌표 계산한다.
+                                        <br>&emsp;==><mark>overview 지도를 사용하는 경우에 true 값을, 아닌경우에 false 값을 사용.</mark>
+                                    </p>
+                                    <pre style="color: #2e82ff">
+app.getCameraTargetType() // U3dApp 생성 후, 확인 </pre>
+                                </div>
+                                <div>
+                                    <label>
+                                        homePosition :
+                                        <input type="number" name="homePosition" id="positionX" class="form-control item"
+                                               value="126.9395" step="0.0001">
+                                        <span style="font-weight: normal; font-size: 13px;">(x좌표)</span>
+                                        <input type="number" name="homePosition" id="positionY" class="form-control item"
+                                               value="37.52" step="0.0001">
+                                        <span style="font-weight: normal; font-size: 13px;">(y좌표)</span>
+                                        <input type="number" name="homePosition" id="positionZ" class="form-control item"
+                                               value="450" step="1">
+                                        <span style="font-weight: normal; font-size: 13px;">(z좌표)</span>
+                                    </label>
+                                    <p>&emsp;- 지도 화면 초기 위치(위경도 좌표). 기본값은 {x:0, y:0, z:0}</p>
+                                    <pre style="color: #2e82ff">
+option.homePosition : {x:126.9395, y:37.52, z: 450} // U3dApp 생성 시, 옵션 입력
+app.setHomePosition(126.9395, 37.52, 450, 2, 60); // U3dApp 생성 후, 설정 /  1,2,3 번 파라메터 제어</pre>
+                                </div>
+                                <div>
+                                    <label>
+                                        homeRotateLeft :
+                                        <input type="number" name="homeRotateLeft" class="form-control item" value="2">
+                                    </label>
+                                    <p>&emsp;- 지도 화면 좌우 회전 각도(방위각). 기본값은 0</p>
+                                    <pre style="color: #2e82ff">
+option.homeRotateLeft : 2 // U3dApp 생성 시, 옵션 입력
+app.setHomePosition(126.9395, 37.52, 450, 2, 60); // U3dApp 생성 후, 설정 / 4번 파라메터 제어</pre>
+                                </div>
+                                <div>
+                                    <label>
+                                        homeRotateDown :
+                                        <input type="number" name="homeRotateDown" class="form-control item" value="60">
+                                    </label>
+                                    <p>&emsp;- 지도 화면 상하 회전 각도(고도각). 기본값은 0</p>
+                                    <pre style="color: #2e82ff">
+option.homeRotateDown : 60 // U3dApp 생성 시, 옵션 입력
+app.setHomePosition(126.9395, 37.52, 450, 2, 60); // U3dApp 생성 후, 설정 / 5번 파라메터 제어</pre>
+                                </div>
+                            </div>
+                            <hr>
+                            <h3><a role="button" href="#performance" data-toggle="collapse">성능 설정</a></h3>
+                            <div class="collapse" id="performance">
+                                <div>
+                                    <label>
+                                        maxProcess :
+                                        <input type="number" name="maxProcess" id="maxProcess" class="form-control item" value="">
+                                    </label>
+                                    <p>&emsp;- 한 프레임 당 동작하는 최대 프로세스 값.
+                                        <br>&emsp;&ensp; * maxProcess가 높을 수록 처리될 수 있는 작업량이 늘어나지만, PC에따라 작업량이 많을 경우 프레임 처리 시간이 늘어나 전체적인 화면 갱신 속도가 느려질 수 있다.
+                                    </p>
+                                    <pre style="color: #2e82ff">
+option.maxProcess : 18 // U3dApp 생성 시, 옵션 입력
+app.setMaxProcess(18); // U3dApp 생성 후, 설정
+app.getMaxProcess(); // U3dApp 생성 후, 확인</pre>
+                                </div>
+                                <div>
+                                    <label>
+                                        frameOptimize :
+                                        <input type="text" name="frameOptimize" id="frameOptimize" class="form-control item" value=""
+                                        >
+                                    </label>
+                                    <p>&emsp;- 프레임이 낮아질 때, maxProcess 수를 자동으로 최적화하는 옵션. 기본값은 true다. false일 때는 지정된 maxProcess 값으로 고정된다.</p>
+                                    <pre style="color: #2e82ff">
+option.frameOptimize : true // U3dApp 생성 시, 옵션 입력
+app.setMaxProcess(true); // U3dApp 생성 후, 설정
+app.getFrameOptimize(); // U3dApp 생성 후, 확인</pre>
+                                </div>
+                                <div>
+                                    <label>
+                                        autoClear
+                                        <input type="checkbox" class="item" value="autoClear" checked>
+                                    </label>
+                                    <p>&emsp;- U3dApp의 작업이 완료되어, 유휴상태로 전환될때 자동으로 리소스및 메모리를 정리하는 옵션.</p>
+                                    <pre style="color: #2e82ff">
+option.autoClear : true // U3dApp 생성 시, 옵션 입력
+app.setAutoClear(true); // U3dApp 생성 후, 설정
+app.isAutoClear(); // U3dApp 생성 후, 확인</pre>
+                                </div>
+                                <div>
+                                    <label>
+                                        ratioTileSize :
+                                        <input type="number" name="ratioTileSize" id="ratioTileSize" class="form-control item" value=""
+                                               step="0.1">
+                                    </label>
+                                    <p>&emsp;- 이미지, 지형 고도의 검색(출력) 반경 비율.
+                                        <br>&emsp;&ensp; * 값이 커질 수록 더 넓은 반경에서 높은 레벨의 이미지, 지형 고도가 출력 되지만, PC에따라 작업량이 많아져 전체적인 화면 갱신 속도가 느려질 수 있다.
+                                    </p>
+                                    <pre style="color: #2e82ff">
+option.ratioTileSize : 1 // U3dApp 생성 시, 옵션 입력
+app.setRatioTileSize(1); // U3dApp 생성 후, 설정
+app.getRatioTileSize(); // U3dApp 생성 후, 확인</pre>
+                                </div>
+                                <div>
+                                    <label>
+                                        ratioModelTileSize :
+                                        <input type="number" name="ratioModelTileSize" id="ratioModelTileSize"
+                                               class="form-control item" value=""
+                                               step="0.1">
+                                    </label>
+                                    <p>&emsp;- 모델(건물) 검색(출력) 반경 비율.
+                                        <br>&emsp;&ensp; * 값이 커질 수록 더 넓은 반경에서 높은 레벨의 모델(건물)이 출력 되지만, PC에따라 작업량이 많아져 전체적인
+                                        화면 갱신 속도가 느려질 수 있다.
+                                    </p>
+                                    <pre style="color: #2e82ff">
+option.ratioModelTileSize : 3.0 //U3dApp 생성 시, 옵션 입력
+app.setRatioModelTileSize(3.0); // U3dApp 생성 후, 설정
+app.getRatioModelTileSize(); // U3dApp 생성 후, 확인</pre>
+                                </div>
+                                <div>
+                                    <label>
+                                        methodheight :
+                                        <select class="form-control item" name="methodheight">
+                                            <option>raw</option>
+                                            <option>base</option>
+                                            <option>1_0</option>
+                                        </select>
+                                    </label>
+                                    <p>&emsp; - 지형 및 고도 처리 방법으로, 스커트 생성 방식을 결정하는 옵션.
+                                        <mark>(지하 시설물이 존재하는 경우 1_0 권장)</mark>
+                                        <br>&emsp;&ensp;&ensp;1) <b>raw</b> : default한 방법으로, 상대적인 값을 빼거나 더해 스커트를 생성하는 방식.
+                                        <br>&emsp;&ensp;&emsp;&emsp;&emsp;&emsp;* base 방식을 개선한 것으로 base보다 스커트 처리 속도는 느리지만 품질은 향상되었다.
+                                        <br>&emsp;&ensp;&ensp;2) <b>base</b> : 스커트를 무조건 0으로 계산하여 생성하는 방식.
+                                        <br>&emsp;&ensp;&emsp;&emsp;&emsp;&emsp;* 스커트 처리 속도가 빠르지만 지하시설물이 존재하는 경우 사용을 권장하지 않는다.
+                                        <br>&emsp;&ensp;&ensp;3) <b>1_0</b> : 가장 최신 기법.
+                                        동적으로 스커트를 연산 하여 지하시설물이 스커트로인해 가려지지 않도록 하는 방식.
+                                        <br>&emsp;&ensp;&emsp;&emsp;&emsp;&emsp;* 스커트 처리 속도는 가장 느리지만 지하시설물이 존재하는 경우 사용이 권장된다.
+                                    </p>
+                                </div>
+                                <div>
+                                    <label>
+                                        searchtype :
+                                        <select class="form-control item" name="searchtype" style="width: 140px;">
+                                            <option>sphere</option>
+                                            <option>boundingbox</option>
+                                        </select>
+                                    </label>
+                                    <p>&emsp;- 카메라 시점 주위의 타일을 검색하는 방식. (타일 랜더링 속도에 영향)
+                                        <br>&emsp;&ensp;&ensp;1) <b>sphere</b> : 카메라를 기준으로 가상의 Sphere 생성하여 교차되는 타일을 검색.
+                                        <br>&emsp;&emsp;&emsp;&nbsp;* boundingbox 방식에 비해 처리 속도는 느리지만, 타일 생성은 보다 정교함
+                                        <br>&emsp;&ensp;&ensp;2) <b>boundingbox</b> : default한 방법으로, 카메라를 기준으로 가상의 Box를 생성 하여 교차되는 타일을 검색.
+                                        <br>&emsp;&emsp;&emsp;&nbsp;* sphere 방식에 비해 처리 속도는 빠르지만, 타일 생성이 정교하지 못함
+                                    </p>
+                                </div>
+                            </div>
+                            <hr>
+                            <h3><a role="button" href="#preferences" data-toggle="collapse">환경 설정 </a></h3>
+                            <div class="collapse" id="preferences">
+                                <div>
+                                    <label>
+                                        fov :
+                                        <input type="number" name="fov" class="form-control item" value="50" max="170">
+                                    </label>
+                                    <p>&emsp;- 카메라 프러스텀(절두체)의 수직 시야각(카메라 화각). 기본값은 50.
+                                        <mark>(170 이상의 값은 권장하지 않는다)</mark>
+                                    </p>
+                                </div>
+                                <div>
+                                    <label>
+                                        usesky
+                                        <input type="checkbox" class="item" value="usesky" checked>
+                                    </label>
+                                    <p>&emsp;- app 배경에 하늘을 생성할 것인지 결정하는 욥션. 기본값은 true며, true일 경우 <mark>backgroundcolor가 무시</mark>되고 하늘이 생성된다.</p>
+                                </div>
+                                <div>
+                                    <label>
+                                        backgroundcolor :
+                                        <input type="color" name="backgroundcolor" class="form-control item">
+                                    </label>
+                                    <p>&emsp;- app의 배경 색상.
+                                        <mark>sky와 함께 사용될 수 없으며</mark>, sky를 적용한 상태라면 무시된다.
+                                    </p>
+                                </div>
+                                <div>
+                                    <label>
+                                        usefog
+                                        <input type="checkbox" class="item" value="usefog" checked>
+                                    </label>
+                                    <p>&emsp;- app 배경에 안개 효과를 줄 것인지 결정하는 옵션. 기본값은 true.</p>
+                                </div>
+                                <div>
+                                    <label>
+                                        useCloud
+                                        <input type="checkbox" class="item" value="useCloud" checked>
+                                    </label>
+                                    <p>&emsp;- app 배경에 구름 효과를 줄 것인지 결정하는 옵션. 기본값은 true.</p>
+                                </div>
+                                <div>
+                                    <label>
+                                        useSunFlare
+                                        <input type="checkbox" class="item" value="useSunFlare" checked>
+                                    </label>
+                                    <p>&emsp;- app 배경에 태양광(SunFlare) 효과를 생성할 것인지 결정하는 욥션. 기본값은 true.
+                                        <br>&emsp;&ensp; * false일 경우 태양광(SunFlare) 출력을 하지 않지만, 화면 갱신 속도를 증가 시킬수 있다.
+                                    </p>
+                                </div>
+                                <div>
+                                    <label>
+                                        useshadowmap
+                                        <input type="checkbox" class="item" value="useshadowmap" checked>
+                                    </label>
+                                    <p>&emsp;- 지면이나 건물등 app 상의 물체에 그림자 효과를 생성할 것인지 결정하는 욥션. 기본값은 true.
+                                        <br>&emsp;&ensp; * false일 경우 그림자를 출력을 하지 않지만, 화면 갱신 속도를 증가 시킬수 있다.
+                                    </p>
+                                </div>
+                                <div>
+                                    <label>
+                                        intensitylight :
+                                        <input type="number" name="intensitylight" id="intensitylight" class="form-control item" value=""
+                                               step="0.1" max="1" min="0">
+                                    </label>
+                                    <p>&emsp;- app의 광원 세기.</p>
+                                    <pre style="color: #2e82ff">
+option.intensitylight : 1.4; //U3dApp 생성 시, 옵션 입력
+app.setIntensityLight(1.4); // U3dApp 생성 후, 설정
+app.getIntensityLight(); // U3dApp 생성 후, 확인</pre>
+                                </div>
+                                <div>
+                                    <label>
+                                        toneExposure :
+                                        <input type="number" name="toneExposure" id="toneExposure" class="form-control item" value=""
+                                               step="0.1" max="1" min="0">
+                                    </label>
+                                    <p>&emsp;- app의 톤 밝기(색감). 값이 클수록 색상 톤이 밝아져 하얗게 나온다.
+                                    </p>
+                                    <pre style="color: #2e82ff">
+option.toneExposure : 2.8; //U3dApp 생성 시, 옵션 입력
+app.setToneMappingExposure(2.8); // U3dApp 생성 후, 설정
+app.getToneMappingExposure(); // U3dApp 생성 후, 확인
+app.getDefaultToneMappingExposure(); // U3dApp 생성 후, U3dApp에서 설정된 기본값 확인</pre>
+                                </div>
+                                <div>
+                                    <label>
+                                        improveTexture :
+                                        <select class="form-control item" name="improveTexture" style="width: 140px;" value="high">
+                                            <option>none</option>
+                                            <option>low</option>
+                                            <option>medium</option>
+                                            <option selected>high</option>
+                                        </select>
+                                    </label>
+                                    <p>&emsp;- 출력되는 객체들의 텍스쳐를 보정하는 옵션, 옵션값이 높을수록 표현 품질이 올라가지만 성능이 떨어질 수 있다.
+                                        <br>&emsp;&ensp;&ensp;1) <b>none</b> : 텍스쳐 보정이 없는 기본값 그대로 출력.
+                                        <br>&emsp;&ensp;&ensp;2) <b>low</b> : 비등방성 텍스쳐 필터링을 적용하여 출력.
+                                        <br>&emsp;&ensp;&ensp;3) <b>medium</b> : 비등방성 텍스쳐 필터링 및 객체 노말값 보정 적용하여 출력.
+                                        <br>&emsp;&ensp;&ensp;4) <b>high</b> : 비등방성 텍스쳐 필터링, 객체 노말값 보정, 전역 노말맵을 적용하여 출력.
+                                    </p>
+                                    <pre style="color: #2e82ff">
+option.improveTexture: 'high'; //U3dApp 생성 시, 옵션 입력
+app.setImproveValue('high'); // U3dApp 생성 후, 설정
+app.getImproveLevel(); // U3dApp 생성 후, 확인</pre>
+                                </div>
+                                <div>
+                                    <label>
+                                        pixelRatio :
+                                        <input type="number" name="pixelRatio" id="pixelRatio" class="form-control item" value="1.0"
+                                               step="0.1" max="2.0" min="0.4">
+                                    </label>
+                                    <p>&emsp;- 출력 선명도, 해상도에 따른 픽셀 수 조절 옵션, 값이 커질수록 픽셀 수가 많아서 화면 선명도가 올라가지만 성능이 떨어진다.</p>
+                                    <pre style="color: #2e82ff">
+option.pixelRatio: 1.0; //U3dApp 생성 시, 옵션 입력
+app.setPixelRatio(1.0); // U3dApp 생성 후, 설정
+app.getPixelRatio(); // U3dApp 생성 후, 확인</pre>
+                                </div>
+                                <div>
+                                    <label>
+                                        usePostProcess
+                                        <input type="checkbox" class="item" value="usePostProcess" checked>
+                                    </label>
+                                    <p>&emsp;- 렌더링 후처리를 적용하는 옵션, 이옵션이 활성화 되어 있어야 다양한 후처리 기능을 사용할 수 있다.</p>
+                                    <pre style="color: #2e82ff">
+option.usePostProcess: true; //U3dApp 생성 시, 옵션 입력
+app.setPostProcess(true); // U3dApp 생성 후, 설정
+app.isPostProcess(); // U3dApp 생성 후, 확인</pre>
+                                </div>
+                                <div>
+                                    <label>
+                                        postOption
+                                    </label>
+                                    <p>&emsp;- usePostProcess가 true 일시 적용된다. 다양한 화면 후처리를 적용하는데 사용되는 옵션 </p>
+                                    <pre style="color: #2e82ff">
+option.postOption : {
+    contrast: 1.022, // 화면 전역 대비 적용 (미입력시 기본값 1.022)
+    brightness: 1.10, // 화면 전역 밝기 적용 (미입력시 기본값 1.10)
+    useAO: true, //AO 적용, 객체의 입체감을 위한 음영 표현 (미입력시 기본값 true)
+    useBloom: true, // 전역 광원에 대한 Bloom 표현 (미입력시 기본값 true)
+    bloomStrength: 0.10 // Bloom 적용 세기 (미입력시 기본값 0.10)
+} //U3dApp 생성 시, 옵션 입력
+
+option.setPostOption({
+    contrast: 1.022,
+    brightness: 1.10,
+    useAO: true,
+    bloomStrength: 0.10
+}); //U3dApp 생성 후, 옵션 설정
+
+app.getPostOption(); // U3dApp 생성 후, 확인 </pre>
+                                </div>
+                            </div>
+                            <hr>
+                            <h3><a role="button" href="#advanced" data-toggle="collapse">고급 설정</a></h3>
+                            <div class="collapse" id="advanced">
+                                <div>
+                                    <label>
+                                        passlevel :
+                                        <input type="number" name="passlevel" class="form-control item" value="5">
+                                    </label>
+                                    <p>&emsp;- 타일 캐시에 추가할 타일의 최소 레벨(타일 데이터 비가시화 레벨).
+                                        <br>&emsp;&ensp; passlevel보다 큰 타일은 무시(pass)되고 passlevel 이하인 타일만 타일 캐시에 저장된다.
+                                        <br>&emsp;&ensp; 타일 캐시에 저장된 타일은 dispose되어서 다시 로드될때 빠르지만 메모리 부하가 생길 수 있다.
+                                    </p>
+                                </div>
+                                <div>
+                                    <label>
+                                        maxlevel :
+                                        <input type="number" name="maxlevel" class="form-control item" value="19" min="0" max="19">
+                                    </label>
+                                    <p>&emsp;- 타일의 최대 레벨. 최대 19레벨까지 지정 가능하다.</p>
+                                </div>
+                                <div>
+                                    <label>
+                                        useimageopacity
+                                        <input type="checkbox" class="item" value="useimageopacity">
+                                    </label>
+                                    <p>&emsp;- 이미지 레이어 투명도 적용 여부. (app의 전체 이미지 레이어의 투명도 적용)</p>
+                                    <pre style="color: #2e82ff"> example) option.useimageopacity = true; // 또는... <br>          app.setEnableOpacityImageLayers(true); </pre>
+                                </div>
+                                <div>
+                                    <label>
+                                        imageopacity :
+                                        <input type="number" name="imageopacity" class="form-control item" value="1"
+                                               step="0.1" min="0" max="1">
+                                    </label>
+                                    <p>&emsp;- 전체 이미지 레이어 투명도 (0 ~ 1 사이의 값)</p>
+                                    <pre style="color: #2e82ff"> example) option.imageopacity = 0.5; // 또는... <br>          app.setOpacityImageLayers(0.5); </pre>
+                                </div>
+                                <div>
+                                    <label>
+                                        usemodelopacity
+                                        <input type="checkbox" class="item" value="usemodelopacity">
+                                    </label>
+                                    <p>&emsp;- 모델 레이어 투명도 적용 여부. (app의 전체 모델 레이어의 투명도 적용)</p>
+                                    <pre style="color: #2e82ff"> example) option.usemodelopacity = true; // 또는... <br>          app.setEnableOpacityModelLayers(true);</pre>
+                                </div>
+                                <div>
+                                    <label>
+                                        modelopacity :
+                                        <input type="number" name="modelopacity" class="form-control item" value="1"
+                                               step="0.1" min="0" max="1">
+                                    </label>
+                                    <p>&emsp;- 전체 모델 레이어 투명도 (0 ~ 1 사이의 값)</p>
+                                    <pre style="color: #2e82ff"> example) option.modelopacity = 0.5; // 또는... <br>            app.setOpacRityModelLayers(0.5);</pre>
+                                </div>
+                                <div>
+                                    <label>
+                                        modelimagedistance :
+                                        <input type="number" name="modelimagedistance" class="form-control item" value="400" step="10">
+                                    </label>
+                                    <p>&emsp;- 모델 레이어 사용 시, 모델 이미지(텍스처) 해상도 관련 옵션.
+                                        <br>&emsp;&ensp; 화면과 타일 사이의 거리보다 값이 크면, 해당 타일의 모델 이미지 해상도를 거리 비율(원근감)에 따라 조절한다.
+                                        <br>&emsp;&ensp;* 값이 클 수록 멀리까지 텍스처가 선명해지지만, 메모리가 커져 성능은 저하될 수 있다.
+                                    </p>
+                                </div>
+                                <div>
+                                    <label>
+                                        modelimagedefaultlevel :
+                                        <input type="number" name="modelimagedefaultlevel" class="form-control item" value="0">
+                                    </label>
+                                    <p>&emsp;- 모델(건물) 이미지(텍스처)의 기본 해상도 레벨.
+                                        <br>&emsp;&ensp;* 레벨이 클 수록 모델의 텍스처 해상도 품질은 향상되나, 메모리가 커져 성능은 저하될 수 있다.
+                                    </p>
+                                </div>
+                                <div>
+                                    <label>
+                                        viewportratio :
+                                        <input type="number" name="viewportratio" class="form-control item" value="1" step="0.1">
+                                    </label>
+                                    <p>&emsp;- 카메라 viewport 비율 (app 화면 비율)
+                                        <br>&emsp; app.resize 함수를 통해 화면을 재조정하는 과정이 필요하다.
+                                    </p>
+                                </div>
+                                <div>
+                                    <label>
+                                        near :
+                                        <input type="number" name="near" class="form-control item" value="1">
+                                    </label>
+                                    <p>&emsp;- 카메라 프러스텀(절두체)에서 가장 가까운 평면 거리. 기본값은 1.</p>
+                                </div>
+                                <div>
+                                    <label>
+                                        far :
+                                        <input type="number" name="far" class="form-control item" value="4007502">
+                                    </label>
+                                    <p>&emsp;- 카메라 프러스텀(절두체)에서 가장 먼 평면 거리. 기본값은 전체 world 크기(4007502). </p>
+                                </div>
+                                <div>
+                                    <label>
+                                        minZoomLevel :
+                                        <input type="number" name="minZoomLevel" class="form-control item" value="6"
+                                               min="0">
+                                    </label>
+                                    <p>&emsp;- 지도 화면 최소 Zoom 레벨. 기본값은 6. 값이 작을수록 멀리 ZoomOut 할 수 있다.</p>
+                                </div>
+                                <div>
+                                    <label>
+                                        maxZoomLevel :
+                                        <input type="number" name="maxZoomLevel" class="form-control item" value="19"
+                                               min="0">
+                                    </label>
+                                    <p>&emsp;- 지도 화면 최대 Zoom 레벨. 기본값은 19. 값이 클수록 가깝게 ZoomIn 할 수 있다.</p>
+                                </div>
+                                <div>
+                                    <label>
+                                        automove
+                                        <input type="checkbox" class="item" value="automove">
+                                    </label>
+                                    <p>&emsp;- 비행 모드 사용 시, 자동 이동 모드를 사용할 것인지 여부.
+                                        <br>&emsp;&ensp; 자동 이동 모드일 경우 입력한 방향 대로(전진 또는 후진) 자동으로 비행한다.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-3">
+                        <button class="btn btn-primary save">JSON 출력</button>
+                        <label style="margin-top: 3px"> JSON
+                            <textarea id="jsonViewer" class="form-control json" rows="10" style="width: 630px"></textarea>
+                        </label>
+                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePosition = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function () {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function () {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function () {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function () {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePosition.lat, y: homePosition.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script>
+    let app;
+    //라이센스 인증
+    GeOnDT.ready(function () {
+        // app default 설정
+        let defaultOpt = {containername: 'map'};
+
+        creatApp(defaultOpt).then((resolve) => {
+            app.setHomePosition(126.9395, 37.52, 450, 2, 60);
+            app.updateHomePosition();
+            app.endloadingBar();
+            setDefaultValue();
+            console.log(resolve);
+        }).catch((reject) => {
+            console.error(reject);
+        });
+
+        // app을 생성한는 함수
+        function creatApp(opt) {
+            let promise = $.Deferred();
+            app = new Union3D.U3dAPP(opt);
+            window.app = app;
+            if (app === undefined) {
+                promise.reject("app is undefinde. create app fail...");
+                return promise;
+            }
+            app.createLoadingCanvas();
+            app.createloadingBar('load');
+            app.on('change', updatePosData);
+
+            $('#app-name').text(app._name);
+
+            // + 이미지 레이어 생성
+            let imagelayer = new Union3D.image.U3dImageXYZLayer({
+                name: 'satellite',
+                baseurl: layerInfo.image.vworldsaturl,
+                reverseY: true
+            });
+            if (imagelayer === undefined) {
+                promise.reject("imagelayer is undefinde");
+                return promise;
+            }
+            app.addLayer(imagelayer);
+            app.setNameBaseLayer('satellite');
+            app.showLayer('satellite');
+            // + 지형 & 고도 레이어 생성
+            let heightlayer = new Union3D.terrain.U3dHeightXYZLayer({
+                name: 'korea_terrain',
+                baseurl: layerInfo.height.url,
+                ext: '.umf',
+                reverseY: true,
+                minlevel: 9,
+                maxlevel: 17,
+                useproxy: false
+            });
+            if (heightlayer === undefined) {
+                promise.reject("heightlayer is undefinde");
+                return promise;
+            }
+            app.addLayer(heightlayer);
+            app.showLayer('korea_terrain');
+
+            // + 모델 레이어 생성
+            initU3fModelLayers();
+
+            promise.resolve("create app success!");
+
+            return promise;
+        }
+
+        function setDefaultValue ()  {
+            let maxProcess = app.getMaxProcess();
+            let frameOptimize = app.getFrameOptimize();
+            let ratioTileSize = app.getRatioTileSize();
+            let ratioModelTileSize = app.getRatioModelTileSize();
+            let intensitylight = app.getIntensityLight();
+            let toneExposure = app.getToneMappingExposure();
+
+            $("#maxProcess").val(maxProcess);
+            $("#frameOptimize").val(frameOptimize);
+            $("#ratioTileSize").val(ratioTileSize);
+            $("#ratioModelTileSize").val(ratioModelTileSize);
+            $("#intensitylight").val(intensitylight);
+            $("#toneExposure").val(toneExposure);
+        }
+
+        // 이미지 레이어 show/hide
+        $(document).on('click', '.image', function () {
+            const layers = app.getInstanceImageLayers();
+
+            layers.forEach((layer) => {
+                let name = layer.getName();
+                if (layer.getVisible() === true)
+                    app.showLayer(name, false);
+                else
+                    app.showLayer(name);
+            });
+        });
+
+        // 지형-고도 레이어 show/hide
+        $(document).on('click', '.terrain', function () {
+            const layers = app.getInstanceHeightLayers();
+
+            layers.forEach((layer) => {
+                let name = layer.getName();
+                if (layer.getVisible() === true)
+                    app.showLayer(name, false);
+                else
+                    app.showLayer(name);
+            });
+        });
+
+        // 모델 레이어 show/hide
+        $(document).on('click', '.model', function () {
+            const layers = app.getInstanceModelLayers();
+
+            layers.forEach((layer) => {
+                let name = layer.getName();
+                if (layer.getVisible() === true)
+                    app.showLayer(name, false);
+                else
+                    app.showLayer(name);
+            });
+        });
+
+        // Json 데이터 출력
+        $(document).on('click', '.save', function () {
+            const data = JSON.stringify(app.saveJson(), undefined, 4);
+            if (data === undefined || data.length === 0) return;
+
+            $('.json').val(data);
+        });
+
+        // app 옵션 적용
+        $(document).on('click', '.apply', function () {
+            let opt = {};
+            let position = {}; // hompositon 옵션 obj
+            let targetrect = {}; // targetrect 옵션 obj
+
+            const $list = $(".parameter");
+            const $params = $list.find(".item");
+
+            for (let i = 0; i < $params.length; i++) {
+                let type = $params[i].type
+                if ($params[i].value === '' || $params[i].value === undefined)
+                    continue;
+                switch (type) {
+                    case "text" :
+                        opt[$params[i].name] = $params[i].value;
+                        break
+                    case "number" :
+                        if ($params[i].name === "homePosition") {
+                            let $id = $params[i].id;
+                            switch ($id) {
+                                case "positionX" :
+                                    position["x"] = Number($params[i].value);
+                                    break;
+                                case "positionY" :
+                                    position["y"] = Number($params[i].value);
+                                    break;
+                                case "positionZ" :
+                                    position["z"] = Number($params[i].value);
+                                    break;
+                            }
+                            opt[$params[i].name] = position;
+                        } else if ($params[i].name === "targetrectopt") {
+                            let $id = $params[i].id;
+                            switch ($id) {
+                                case "xValue" :
+                                    targetrect["x"] = Number($params[i].value);
+                                    break;
+                                case "yValue" :
+                                    targetrect["y"] = Number($params[i].value);
+                                    break;
+                                case "tileLevel" :
+                                    targetrect["level"] = Number($params[i].value);
+                                    break;
+                            }
+                            opt[$params[i].name] = targetrect;
+                        } else {
+                            opt[$params[i].name] = Number($params[i].value);
+                        }
+                        break
+                    case "checkbox" :
+                        opt[$params[i].value] = $params[i].checked;
+                        break
+                    case "select-one" :
+                        opt[$params[i].name] = $params[i].value;
+                        break
+                    case "color" :
+                        opt[$params[i].name] = $params[i].value;
+                        break
+                }
+            }
+
+            if (app !== undefined)
+                app.dispose(); // 기존 app 제거
+
+            $("#map").children().remove(); // map div에 할당된 이전 app canvas 제거
+
+            // app 새로 생성
+            creatApp(opt).then((resolve) => {
+                app.updateHomePosition();
+                console.log(resolve);
+            }).catch((reject) => {
+                console.error(reject);
+            });
+
+        });
+
+        function initU3fModelLayers() {
+            try {
+                let groupLayer = app.createModelGroupLayer({
+                    maxlevel: 19,
+                    minlevel: 17,
+                    name: "u3f"
+                });
+                /* request U3f layers list */
+                $.ajax({
+                    url: modelU3fURL,
+                    crossDomain: true,
+                    beforeSend: function (xhr) {
+                        xhr.setRequestHeader('User-Authorization', trdDimAPIKey);
+                        xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+                    },
+                    error: function (e) {
+                        console.info(e);
+                    }
+                }).then(function (result) {
+                    let infos = result.params.data;
+
+                    for (let i = 0; i < infos.length; i++) {
+                        let info = infos[i];
+                        /* 레이어 목록 중 발행중인 레이어만 요청 */
+                        if (info.state === "ACTIVE") {
+                            let baseName = info.fileName;
+                            if(!baseName || baseName ==='')
+                                baseName = info.name;
+                            let options = {
+                                name: info.name,
+                                basename: baseName,
+                                baseurl: info.baseUrl,
+                                useproxy: false,
+                                minlevel: info.metaData.minLevel,
+                                maxlevel: info.metaData.maxLevel,
+                                compressmodel: true,
+                                isShareMaterial: false,
+                                makeU3FPackage: 1
+                            };
+                            let subLayer = app.create3DFModelLayer(options);
+                            if(subLayer !== false){
+                                subLayer.then(function (layer) {
+                                    groupLayer.addLayer(subLayer);
+                                    if(i === infos.length -1){
+                                        console.log(layer + " load success.");
+                                        app.showLayer(groupLayer.getName(),true);
+                                    }
+                                }).fail(function (layer) {
+                                    console.log(layer + " load fail.");
+                                });
+                            }
+                        }
+                    }
+                })
+            } catch (localBuildError) {
+                console.log('Initialize Error Message : ' + localBuildError);
+            }
+        }
+
+    });
+</script>
+</body>
+</html>

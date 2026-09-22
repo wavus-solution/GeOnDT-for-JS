@@ -1,0 +1,17 @@
+
+/**
+    * name : GeOnDT for JS 
+    * version: 1.0.0.9.186.a
+    * description: GIS 3D Web Client Library
+    * orgName: WAVUS Co., Ltd.
+    * address: 1001-ho, 61, Digital-no 26-gil Guro-gu
+    * city: Seoul
+    * state-province: Guro-gu Seoul
+    * postalCode: 08389
+    * country: Republic of Korea
+    * homepage: https://www.wavus.co.kr
+    * tel: (82)02-851-9640
+    * fax: (82)02-851-9650
+    * copyright: Copyright 2020 WAVUS Co., Ltd. all rights reserved.
+*/
+

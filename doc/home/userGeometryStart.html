@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>사용자 도형 (UserGeometry)</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="사용자-도형-usergeometry">사용자 도형 (UserGeometry)</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-%EC%82%AC%EC%9A%A9%EC%9E%90-%EB%8F%84%ED%98%95-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">사용자 도형 생성하기</a></li>
+<li><a href="#2-%EC%A2%8C%ED%91%9C-%EC%A7%80%EC%A0%95%ED%95%98%EA%B8%B0">좌표 지정하기</a></li>
+<li><a href="#3-%EB%86%92%EC%9D%B4%EC%99%80-%EB%AA%A8%EC%84%9C%EB%A6%AC-%EC%A1%B0%EC%A0%88%ED%95%98%EA%B8%B0">높이와 모서리 조절하기</a></li>
+<li><a href="#4-%EC%83%89%EC%83%81%EA%B3%BC-%EC%99%B8%EA%B3%BD%EC%84%A0-%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0">색상과 외곽선 설정하기</a></li>
+<li><a href="#5-%EC%86%8D%EC%84%B1%EC%A0%95%EB%B3%B4%EC%99%80-%ED%95%B4%EC%A0%9C">속성정보와 해제</a></li>
+</ol>
+<div class="document-thumbnail" data-size="medium">
+<figure class="document-image">
+<img src="image/userGeometryStart/thumbnail.png" alt="높이가 다른 다각형 기둥 세 개" loading="eager">
+<figcaption>높이가 다른 다각형 기둥 세 개</figcaption>
+</figure>
+</div>
+<p><code>U3dUserGeometry</code>는 좌표를 이어 만든 다각형을 위로 밀어 올려 기둥을 만듭니다.<br>정해진 형태가 없어서 부지 경계, 규제 구역, 건물 외곽처럼 임의의 평면 모양이 필요할 때 사용합니다.</p>
+<p><code>height</code>를 <code>0</code>으로 두면 밀어 올리지 않고 평면으로 남습니다.</p>
+<hr>
+<h2 id="1-사용자-도형-생성하기">1. 사용자 도형 생성하기</h2>
+<p><code>U3dUserGeometry</code> 생성자로 객체를 만들고, <code>U3dVectorLayer.addGeometry</code>로 레이어에 등록한 뒤 좌표를 지정하면 화면에 표시됩니다.<br>레이어를 만들고 도형을 등록·제거하는 방법은 <a href="vectorLayerStart.html#2-%EB%8F%84%ED%98%95-%EB%93%B1%EB%A1%9D%ED%95%98%EA%B3%A0-%EC%A0%9C%EA%B1%B0%ED%95%98%EA%B8%B0">3D Geometry 시작하기 - 도형 등록하고 제거하기</a>에서 설명합니다.</p>
+<p>좌표를 지정하기 전에는 아무것도 그려지지 않습니다.</p>
+<p><mark>도형은 고도 <code>0</code>에서 시작해 <code>height</code>만큼 위로 솟습니다.</mark><br>좌표의 세 번째 값은 형태에 반영되지 않습니다.</p>
+<h4 class="api-heading" id="api">API</h4>
+<p>U3dUserGeometry(<code>opt</code>) : 사용자 도형 객체를 생성하는 생성자</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opt</code> (<code>object</code>) : 사용자 도형 생성 옵션</li>
+<li><code>opt.name</code> (<code>string</code>) : 객체 이름. 지정하지 않으면 자동으로 생성됩니다</li>
+<li><code>opt.height</code> (<code>number</code>) : 기둥 높이(m). <code>0</code>이면 평면. 기본값: <code>100</code></li>
+<li><code>opt.usecurve</code> (<code>boolean</code>) : 좌표 사이를 곡선으로 이을지 여부. 기본값: <code>false</code></li>
+<li><code>opt.color</code> (<code>ColorRepresentation</code>) : 색상. 기본값: <code>&#39;#ff0000&#39;</code></li>
+<li><code>opt.opacity</code> (<code>number</code>) : 투명도(0~1). 기본값: <code>0.7</code></li>
+<li><code>opt.outline</code> (<code>boolean</code>) : 외곽선 표시 여부. 기본값: <code>true</code></li>
+<li><code>opt.lineColor</code> (<code>ColorRepresentation</code>) : 외곽선 색상. 기본값: <code>&#39;#000000&#39;</code></li>
+<li><code>opt.wireframe</code> (<code>boolean</code>) : 와이어프레임 표시 여부. 기본값: <code>false</code></li>
+<li><code>opt.coordinates</code> (<code>Array&lt;GeoPositionVector3&gt;</code>) : 좌표 배열 (위경도, EPSG:4326)</li>
+<li><code>opt.properties</code> (<code>KeyValue</code>) : 사용자 정의 속성정보</li>
+</ul>
+</details>
+<h3 id="1-사용자-도형-생성-예제">1. 사용자 도형 생성 예제</h3>
+<p>좌표 세 개로 삼각형 바닥을 만들고 100m 높이로 밀어 올리는 예제입니다.<br>부지 경계나 규제 구역처럼 임의의 평면 모양이 필요할 때 사용합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> app <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>U3dAPP</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">containername</span><span class="token operator">:</span> <span class="token string">'map'</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> vectorLayer <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>vector<span class="token punctuation">.</span>U3dVectorLayer</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'vector'</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> area <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>geom<span class="token punctuation">.</span>U3dUserGeometry</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'area_01'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">height</span><span class="token operator">:</span> <span class="token number">100</span><span class="token punctuation">,</span>        <span class="token comment">// 100m 높이의 기둥</span>
+    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#2b448b'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.7</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+vectorLayer<span class="token punctuation">.</span><span class="token function">addGeometry</span><span class="token punctuation">(</span>area<span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// 벡터 레이어에 등록</span>
+
+<span class="token comment">// 좌표를 지정하면 그때 도형이 만들어집니다.</span>
+area<span class="token punctuation">.</span><span class="token function">setPositions</span><span class="token punctuation">(</span><span class="token punctuation">[</span>
+    <span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span><span class="token number">126.9385</span><span class="token punctuation">,</span> <span class="token number">37.5188</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span><span class="token number">126.9402</span><span class="token punctuation">,</span> <span class="token number">37.5192</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span><span class="token number">126.9396</span><span class="token punctuation">,</span> <span class="token number">37.5203</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span>
+<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="2-좌표-지정하기">2. 좌표 지정하기</h2>
+<p>바닥 다각형의 꼭짓점을 위경도 좌표로 지정합니다.<br>좌표 전체를 한 번에 넣으려면 <code>setPositions</code>를, 하나씩 이어 붙이려면 <code>addPosition</code>을 사용합니다.</p>
+<p><mark>마지막 좌표와 첫 좌표는 자동으로 이어집니다.</mark><br>삼각형을 만들려면 좌표 세 개만 넣으면 됩니다.</p>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>U3dUserGeometry.setPositions(<code>coordinates</code>) : 좌표 배열 전체를 지정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>coordinates</code> (<code>Array&lt;GeoPositionVector3&gt;</code>) : 좌표 배열 (위경도, EPSG:4326)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-2">API</h4>
+<p>U3dUserGeometry.addPosition(<code>x</code>, <code>y</code>, <code>z</code>) : 좌표를 하나 추가하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>x</code> (<code>number</code>) : 경도</li>
+<li><code>y</code> (<code>number</code>) : 위도</li>
+<li><code>z</code> (<code>number</code>) : 높이(m). 형태에는 반영되지 않습니다</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-3">API</h4>
+<p>U3dUserGeometry.getPositions() : 지정된 위경도 좌표 배열을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Array&lt;GeoPositionVector3&gt;</code>) : 위경도 좌표 배열 (EPSG:4326)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-4">API</h4>
+<p>U3dUserGeometry.getVertex() : 변환된 월드 좌표 배열을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Array&lt;WorldPositionVector3&gt;</code>) : 좌표 배열 (월드 좌표, EPSG:3857)</li>
+</ul>
+</details>
+<h3 id="1-사각형-부지를-만드는-예제">1. 사각형 부지를 만드는 예제</h3>
+<p>꼭짓점을 시계 방향으로 넣어 사각형 바닥을 만듭니다.<br>마지막 좌표와 첫 좌표는 자동으로 이어지므로 네 개만 넣으면 됩니다.</p>
+<pre class="language-javascript"><code class="language-javascript">area<span class="token punctuation">.</span><span class="token function">setPositions</span><span class="token punctuation">(</span><span class="token punctuation">[</span>
+    <span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span><span class="token number">126.9385</span><span class="token punctuation">,</span> <span class="token number">37.5188</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span><span class="token number">126.9405</span><span class="token punctuation">,</span> <span class="token number">37.5188</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span><span class="token number">126.9405</span><span class="token punctuation">,</span> <span class="token number">37.5202</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span><span class="token number">126.9385</span><span class="token punctuation">,</span> <span class="token number">37.5202</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span>
+<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>area<span class="token punctuation">.</span><span class="token function">getPositions</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>length<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 4</span>
+</code></pre>
+<h3 id="2-좌표를-하나씩-추가하는-예제">2. 좌표를 하나씩 추가하는 예제</h3>
+<p>사용자가 화면을 클릭할 때마다 꼭짓점을 늘려 가는 경우에 사용합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">area<span class="token punctuation">.</span><span class="token function">addPosition</span><span class="token punctuation">(</span><span class="token number">126.9385</span><span class="token punctuation">,</span> <span class="token number">37.5188</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+area<span class="token punctuation">.</span><span class="token function">addPosition</span><span class="token punctuation">(</span><span class="token number">126.9402</span><span class="token punctuation">,</span> <span class="token number">37.5192</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+area<span class="token punctuation">.</span><span class="token function">addPosition</span><span class="token punctuation">(</span><span class="token number">126.9396</span><span class="token punctuation">,</span> <span class="token number">37.5203</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="3-높이와-모서리-조절하기">3. 높이와 모서리 조절하기</h2>
+<p>생성 후에 형태를 바꾸려면 <code>setParam</code>에 바꿀 값만 담아 전달합니다.<br>전달한 값만 반영되고 나머지는 기존 값이 유지되며, 형태 관련 값을 바꾸면 지오메트리가 즉시 다시 만들어집니다.</p>
+<p><code>usecurve</code>를 켜면 좌표 사이를 곡선으로 이어 모서리가 부드러워집니다.<br>직선으로 이을 때보다 정점이 늘어납니다.</p>
+<h4 class="api-heading" id="api-5">API</h4>
+<p>U3dUserGeometry.setParam(<code>param</code>) : 여러 속성을 한 번에 갱신하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>param</code> (<code>object</code>) : 변경할 속성 객체</li>
+<li><code>param.height</code> (<code>number</code>) : 기둥 높이(m). <code>0</code>이면 평면</li>
+<li><code>param.usecurve</code> (<code>boolean</code>) : 좌표 사이를 곡선으로 이을지 여부</li>
+<li><code>param.color</code> (<code>ColorRepresentation</code>) : 색상</li>
+<li><code>param.opacity</code> (<code>number</code>) : 투명도(0~1)</li>
+<li><code>param.outline</code> (<code>boolean</code>) : 외곽선 표시 여부</li>
+<li><code>param.lineColor</code> (<code>ColorRepresentation</code>) : 외곽선 색상</li>
+<li><code>param.wireframe</code> (<code>boolean</code>) : 와이어프레임 표시 여부</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-6">API</h4>
+<p>U3dUserGeometry.getParam() : 현재 속성을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>object</code>) : 높이·외곽선·곡선 보간 등 현재 속성 객체</li>
+</ul>
+</details>
+<h3 id="1-높이-변경-예제">1. 높이 변경 예제</h3>
+<p>고도 제한이 바뀐 구역처럼 같은 바닥에 높이만 다시 주는 경우입니다.</p>
+<pre class="language-javascript"><code class="language-javascript">area<span class="token punctuation">.</span><span class="token function">setParam</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">height</span><span class="token operator">:</span> <span class="token number">200</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// 200m로 높이기</span>
+</code></pre>
+<h3 id="2-평면으로-만드는-예제">2. 평면으로 만드는 예제</h3>
+<p>부지 경계만 바닥에 표시하고 기둥은 세우지 않을 때 사용합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">area<span class="token punctuation">.</span><span class="token function">setParam</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">height</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>     <span class="token comment">// 밀어 올리지 않고 바닥면만</span>
+</code></pre>
+<h3 id="3-모서리를-부드럽게-만드는-예제">3. 모서리를 부드럽게 만드는 예제</h3>
+<p>꼭짓점이 적어도 곡선으로 이어져 부드러운 형태가 됩니다.<br>하천 구역처럼 각지지 않은 경계를 표현할 때 사용합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">area<span class="token punctuation">.</span><span class="token function">setParam</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">usecurve</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="4-현재-속성-확인-예제">4. 현재 속성 확인 예제</h3>
+<p><code>getParam</code>이 돌려준 객체는 다른 도형의 <code>setParam</code>에 그대로 넘겨 같은 형태로 맞출 수 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> param <span class="token operator">=</span> area<span class="token punctuation">.</span><span class="token function">getParam</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>param<span class="token punctuation">.</span>height<span class="token punctuation">,</span> param<span class="token punctuation">.</span>usecurve<span class="token punctuation">,</span> param<span class="token punctuation">.</span>outline<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="4-색상과-외곽선-설정하기">4. 색상과 외곽선 설정하기</h2>
+<p>색상은 <code>setColor</code>, 투명도는 <code>setOpacity</code>로 바꿉니다.</p>
+<p>외곽선은 기본으로 켜져 있으며 <code>setLineColor</code>로 색을 바꿉니다.<br>구역을 반투명하게 두고 외곽선을 진하게 주면 경계가 또렷하게 보입니다.</p>
+<h4 class="api-heading" id="api-7">API</h4>
+<p>U3dUserGeometry.setColor(<code>color</code>) : 색상을 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>color</code> (<code>ColorRepresentation</code>) : 색상 값</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-8">API</h4>
+<p>U3dUserGeometry.setOpacity(<code>opacity</code>) : 투명도를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opacity</code> (<code>number</code>) : 투명도(0~1). <code>0</code>이면 완전 투명, <code>1</code>이면 불투명</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-9">API</h4>
+<p>U3dUserGeometry.setLineColor(<code>lineColor</code>) : 외곽선 색상을 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>lineColor</code> (<code>ColorRepresentation</code>) : 외곽선 색상</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-10">API</h4>
+<p>U3dUserGeometry.getLineColor() : 외곽선 색상을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>ColorRepresentation</code>) : 외곽선 색상</li>
+</ul>
+</details>
+<h3 id="1-색상과-투명도-변경-예제">1. 색상과 투명도 변경 예제</h3>
+<p>구역 종류별로 색을 달리하거나, 안쪽 시설물이 비쳐 보이도록 투명도를 낮출 때 사용합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">area<span class="token punctuation">.</span><span class="token function">setColor</span><span class="token punctuation">(</span><span class="token string">'#00b3ff'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+area<span class="token punctuation">.</span><span class="token function">setOpacity</span><span class="token punctuation">(</span><span class="token number">0.5</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-외곽선-제어-예제">2. 외곽선 제어 예제</h3>
+<p>구역을 반투명하게 두고 외곽선을 진하게 주면 경계가 또렷해집니다.<br>여러 구역이 붙어 있을 때 구분하기 좋습니다.</p>
+<pre class="language-javascript"><code class="language-javascript">area<span class="token punctuation">.</span><span class="token function">setLineColor</span><span class="token punctuation">(</span><span class="token string">'#ffffff'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>     <span class="token comment">// 외곽선 색상 변경</span>
+area<span class="token punctuation">.</span><span class="token function">setParam</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">outline</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// 외곽선 제거</span>
+</code></pre>
+<hr>
+<h2 id="5-속성정보와-해제">5. 속성정보와 해제</h2>
+<p>도형에는 id, 이름, 업무 데이터 같은 부가 정보를 key-value 형태로 담아 둘 수 있습니다.</p>
+<p>새 속성을 넣을 때는 <code>addProperties</code>, 기존 값을 바꿀 때는 <code>changeProperties</code>, 전체를 통째로 교체할 때는 <code>setProperties</code>를 사용합니다.</p>
+<p>더 이상 쓰지 않는 도형은 <code>dispose</code>로 정리합니다.</p>
+<h4 class="api-heading" id="api-11">API</h4>
+<p>U3dUserGeometry.getProperties() : 사용자 정의 속성정보를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>KeyValue</code>) : 사용자 정의 속성정보</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-12">API</h4>
+<p>U3dUserGeometry.setProperties(<code>input</code>) : 사용자 정의 속성정보 전체를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>input</code> (<code>KeyValue | string</code>) : 속성 객체 또는 JSON 문자열</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-13">API</h4>
+<p>U3dUserGeometry.addProperties(<code>key</code>, <code>value</code>) : 속성정보를 하나 추가하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>key</code> (<code>string</code>) : 속성 식별키</li>
+<li><code>value</code> (<code>*</code>) : 속성 값</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-14">API</h4>
+<p>U3dUserGeometry.changeProperties(<code>key</code>, <code>value</code>) : 기존 속성정보의 값을 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>key</code> (<code>string</code>) : 변경할 속성 식별키</li>
+<li><code>value</code> (<code>*</code>) : 속성 값</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-15">API</h4>
+<p>U3dUserGeometry.removeProperties(<code>key</code>) : 속성정보를 제거하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>key</code> (<code>string</code>) : 제거할 속성 식별키</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-16">API</h4>
+<p>U3dUserGeometry.setShadow(<code>enabled</code>) : 그림자 사용 여부를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>enabled</code> (<code>boolean</code>) : 그림자 사용 여부. 기본값: <code>true</code></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-17">API</h4>
+<p>U3dUserGeometry.isShadow() : 그림자 사용 여부를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>boolean</code>) : 그림자 사용 여부</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-18">API</h4>
+<p>U3dUserGeometry.getUid() : 도형의 고유 식별자를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>number</code>) : <code>userData.id</code>가 지정되어 있으면 그 값, 없으면 내부 객체 id</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-19">API</h4>
+<p>U3dUserGeometry.dispose() : 도형과 관련 리소스를 해제하는 함수</p>
+<h3 id="1-속성정보-다루기-예제">1. 속성정보 다루기 예제</h3>
+<pre class="language-javascript"><code class="language-javascript">area<span class="token punctuation">.</span><span class="token function">addProperties</span><span class="token punctuation">(</span><span class="token string">'구역명'</span><span class="token punctuation">,</span> <span class="token string">'제1공구'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+area<span class="token punctuation">.</span><span class="token function">addProperties</span><span class="token punctuation">(</span><span class="token string">'관리번호'</span><span class="token punctuation">,</span> <span class="token string">'U-0118'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+area<span class="token punctuation">.</span><span class="token function">changeProperties</span><span class="token punctuation">(</span><span class="token string">'구역명'</span><span class="token punctuation">,</span> <span class="token string">'제2공구'</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 기존 값 변경</span>
+area<span class="token punctuation">.</span><span class="token function">removeProperties</span><span class="token punctuation">(</span><span class="token string">'관리번호'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>          <span class="token comment">// 속성 제거</span>
+
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>area<span class="token punctuation">.</span><span class="token function">getProperties</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// {구역명: '제2공구'}</span>
+</code></pre>
+<h3 id="2-해제-예제">2. 해제 예제</h3>
+<p>레이어에서 먼저 제거한 뒤 해제합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">vectorLayer<span class="token punctuation">.</span><span class="token function">removeGeometry</span><span class="token punctuation">(</span>area<span class="token punctuation">)</span><span class="token punctuation">;</span>
+area<span class="token punctuation">.</span><span class="token function">dispose</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+</main>
+</body>
+</html>
+

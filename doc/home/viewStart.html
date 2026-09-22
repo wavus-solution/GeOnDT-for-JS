@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>카메라 뷰 시작하기</title>
+</head>
+<body style="padding-top: 0">
+<div class="index">
+    <a href="#jump1">1. 시작하기</a><br>
+    <a href="#jump2">2. 조회하기</a><br>
+    <a href="#jump3">3. 위치·회전 편집하기</a><br>
+    <a href="#jump4">4. 카메라 설정하기</a><br>
+    <a href="#jump5">5. 가시권 분석하기</a><br>
+    <a href="#jump6">6. 제거하기</a><br>
+</div>
+<hr>
+<div class="content">
+    <h2 class="lead" id="jump1"> 1. 시작하기</h2>
+    <div class="doc">
+        <div class="explane1" >
+            카메라 뷰는 <accent>메인 카메라 외의 다른 시점에서 장면을 렌더링하여 화면에 추가</accent>하는 기능입니다. <br>
+            생성된 카메라 뷰는 사용자가 지정한 HTMLElement 영역에 출력됩니다.<br><br>
+
+            카메라 뷰를 생성하는 방법은 <strong>두 가지</strong>입니다.<br>
+            하나는  <strong>u3dApp.createView API </strong>를 사용하는 방법이고,<br>
+            다른 하나는  <strong>U3dView 객체를 직접 생성한 뒤 app에 등록 </strong>하는 방법입니다.
+        </div>
+        <div class="explane_api">
+            <strong>U3dView</strong> (<span class="param_name">opt</span>)<br>
+            <div class="explane_api_param">
+                <span class="param_name">opt.name</span><span class="param_type">string</span> : 카메라 뷰 이름  <br>
+                <span class="param_name">opt.id</span><span class="param_type">string</span> : 카메라 ID  <br>
+                <span class="param_name">opt.element</span><span class="param_type">HTMLElement</span> : 카메라 뷰를 출력할 HTML DOM 요소<br>
+                <span class="param_name">opt.canvasStyle</span><span class="param_type">object</span> : html DOM 스타일 (css)  <br>
+                <span class="param_name">opt.position</span><span class="param_type">GeoPosition</span> : 현재 위치 위경도 좌표 (가변)  <br>
+                <span class="param_name">opt.endPosition</span><span class="param_type">GeoPosition</span> : 원점 위경도 좌표. <br>
+                <span class="param_name">opt.left</span><span class="param_type">number</span> : 카메라 뷰 좌우 각도 <br>
+                <span class="param_name">opt.up</span><span class="param_type">number</span> : 카메라 뷰 상하 각도<br>
+                <span class="param_name">opt.fov</span><span class="param_type">number</span> : 카메라 뷰 시야각  <br>
+                <span class="param_name">opt.far</span><span class="param_type">number</span> : 카메라 뷰 최대 거리 <br>
+                <span class="param_name">opt.useLine</span><span class="param_type">boolean</span> : 원점과 HTML DOM 간 연결선 사용 여부<br>
+                <span class="param_name">opt.useHelperObj</span><span class="param_type">boolean</span> : 픽킹/편집용 가이드 객체 사용 여부 <br>
+                <span class="param_name">opt.objScale</span><span class="param_type">number</span> : 가이드 객체 크기값 (기본값 : 5)  <br>
+            </div>
+        </div>
+        <div class="explane_api">
+            U3dApp.<span class="api_name">addView(<span class="param_name">view</span>)</span> : U3dApp에 카메라 뷰를 등록하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">view</span><span class="param_type">U3dView</span> : 등록할 뷰
+            </div>
+        </div>
+        <div class="explane_api">
+            U3dApp.<span class="api_name">createView(<span class="param_name">opt</span>)</span> : 카메라 뷰를 생성하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">opt</span><span class="param_type">boolean</span> : 뷰 생성 옵션 (* 위 U3dView opt 참고)
+            </div>
+        </div>
+        <label class="code-label">카메라 뷰 추가</label>
+        <div class="code" id="text1-code"></div>
+        <div class="code-text" id="text1" hidden="hidden">
+            // 어댑터의 현재 활성/비활성 여부를 확인
+            const position = {x: 126.9404, y: 37.5183, z: 12};
+            const viewOpt = {
+                name: 'camera_1,
+                id: 'camera_1,
+                element: $(html),
+                canvasStyle : {
+                    height: "87%",
+                    width: "100%"
+                }
+                position: position,
+                endPosition: position,
+                left: 0,
+                up: 90,
+                fov: 70,
+                far: 1000,
+                useLine: true,
+                useHelperObj: true,
+                helperObjScale : 5
+            }
+
+            // U3dApp로 뷰 생성
+            app.createView(viewOpt).then((view)=>{
+                toast('view 생성!');
+            })
+
+            // 또는 직접 생성 후 등록
+            const view = new GeOnDT.view.U3dView(viewOpt);
+            // U3dApp 에 등록
+            app.addView(view).then((resolve) => {
+                toast('view 생성!');
+            });
+        </div>
+        <label class="code-label"> 카메라 뷰 <br>
+            <img src="./image/viewStart/viewEx.png" alt="style1" data-size="large">
+        </label>
+    </div>
+
+    <h2 class="lead" id="jump2"> 2. 조회하기</h2>
+    <div class="doc">
+        <div class="explane1" >
+            생성된 카메라 뷰는 U3dApp API <accent>getViewById</accent> 또는 <accent>getViewList</accent>로 조회할수 있습니다.
+        </div>
+        <div class="explane_api">
+            U3dApp.<span class="api_name">getViewById(<span class="param_name">id</span>)</span> : ID로 특정 뷰를 조회하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">id</span><span class="param_type">string</span> : 카메라 뷰 ID ( view.id 값 )
+            </div>
+            <div class="explane_api_return">
+                <span class="return_name">return </span><span class="param_type"> U3dView </span> : 카메라 뷰 <br>
+            </div>
+        </div>
+        <div class="explane_api">
+            U3dApp.<span class="api_name">getViewList()</span> : 전체 카메라 뷰를 조회하는 함수
+            <div class="explane_api_return">
+                <span class="return_name">return </span><span class="param_type"> U3dView[] </span> : 전체 카메라 뷰 목록 <br>
+            </div>
+        </div>
+        <label class="code-label">카메라 뷰 조회</label>
+        <div class="code" id="text2-code"></div>
+        <div class="code-text" id="text2" hidden="hidden">
+            const id = 'camera_1';
+            const view = app.getViewLById(id);
+
+            //또는
+            const viewList = app.getViewList();
+            const find = viewList.find((view) =>{
+                return view.id === id;
+            });
+        </div>
+    </div>
+
+    <h2 class="lead" id="jump3"> 3. 위치·회전 편집하기</h2>
+    <div class="doc">
+        <div class="explane1" >
+            카메라 뷰의 <strong>위치·회전</strong>를 편집하는 방법은 두 가지가 있습니다. <br>
+            하나는 U3dView 클래스에서 제공하는 <accent>편집 관련 API를 사용</accent>하는 방법이며,
+            다른 하나는 <accent>Gizmo 툴을 사용해</accent> 조작하는 방법입니다.<br><br>
+
+            먼저 U3dView 클래스에서 제공하는 편집 관련 API를 알아보겠습니다.
+        </div>
+        <div class="explane_api">
+            U3dView.<span class="api_name">setRotationUp(<span class="param_name">degUp</span>)</span> : 카메라 뷰 상하 각을 편집하는 함수 (회전 편집)
+            <div class="explane_api_param">
+                <span class="param_name">degUp</span><span class="param_type">Degree</span> : 카메라 뷰 상하 각 (수직각)
+            </div>
+        </div>
+        <div class="explane_api">
+            U3dView.<span class="api_name">setRotationLeft(<span class="param_name">degLeft</span>)</span> : 카메라 뷰 좌우 각을 편집하는 함수 (회전 편집)
+            <div class="explane_api_param">
+                <span class="param_name">degLeft</span><span class="param_type">Degree</span> : 카메라 뷰 좌우 각 (수평각)
+            </div>
+        </div>
+        <div class="explane_api">
+            U3dView.<span class="api_name">moveViewPosition(<span class="param_name">position</span>)</span> : 카메라 뷰 위치를 편집하는 함수 (위치 편집)
+            <div class="explane_api_param">
+                <span class="param_name">position</span><span class="param_type">WorldPosition</span> : 이동할 위치 좌표 (3D월드 좌표)
+            </div>
+        </div>
+        <label class="code-label">API로 편집</label>
+        <div class="code" id="text3-code"></div>
+        <div class="code-text" id="text3" hidden="hidden">
+            const view = app.getViewLById('camera_1');
+
+            // 회전 편집
+            view.setRotationLeft(20);
+            view.setRotationUp(50);
+
+            // 위치 편집
+            const position = {x: -211992.9599, y: 103254.0005, z: 17};
+            view.moveViewPosition(position);
+        </div>
+
+        <div class="explane1" >
+            Gizmo 툴은 <accent>U3dView.edit</accent> API를 통해 활성화합니다.<br>
+            <strong>Gizmo 툴을 사용하려면</strong> 기준점 역할을 하는 <accent>가이드 객체(HelperObject)가 반드시 필요</accent>합니다.<br><br>
+
+            <strong>useHelperObj 옵션은 기본값이 true</strong>이며,
+            해당 옵션이 비활성화되어 있는 경우에는 카메라 뷰 생성 시 <accent>useHelperObj: true</accent> 옵션을 명시적으로 지정해 주세요.<br>
+            가이드 객체(HelperObject)는 필요에 따라 가시성을 제어할수 있습니다.
+        </div>
+        <div class="explane_api">
+            U3dView.<span class="api_name">edit(<span class="param_name">state, mode</span>)</span> : 카메라 뷰에 Gizmo를 추가해 편집하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">state</span><span class="param_type">boolean</span> : 작업 상태 (true면 gizmo ON, false면 gizmo OFF) <br>
+                <span class="param_name">mode</span><span class="param_type">string</span> : 편집 모드 (translate, rotate)
+            </div>
+        </div>
+        <div class="explane_api">
+            U3dView.<span class="api_name">showControlObj()</span> : 카메라 뷰의 가이드 객체 (helperObject)를 켜는(show)하는 함수
+        </div>
+        <div class="explane_api">
+            U3dView.<span class="api_name">hideControlObj()</span> : 카메라 뷰의 가이드 객체 (helperObject)를 끄는(hide)하는 함수
+        </div>
+        <label class="code-label">Gizmo로 편집</label>
+        <div class="code" id="text4-code"></div>
+        <div class="code-text" id="text4" hidden="hidden">
+            const view = app.getViewLById('camera_1');
+
+            view.edit(true, 'translate');  // 이동 편집 모드
+            view.edit(true, 'rotate');     // 회전 편집 모드
+
+            view.edit(false); // 편집 종료
+        </div>
+
+        <label class="code-label">HelperObject <br>
+            <img src="./image/viewStart/helperObj.png" alt="style1" data-size="medium">
+        </label>
+        <label class="code-label">Gizmo 이동 편집 모드 <br>
+            <img src="./image/viewStart/translate.png" alt="style2" data-size="small">
+        </label>
+        <label class="code-label">Gizmo 회전 편집 모드 <br>
+            <img src="./image/viewStart/rotate.png" alt="style2" data-size="small">
+        </label>
+    </div>
+
+    <h2 class="lead" id="jump4"> 4. 카메라 설정하기</h2>
+    <div class="doc">
+        <div class="explane1" >
+            카메라 설정 API를 통해 카메라 뷰의 <strong>시야각(FOV), 최대 거리(Far), 확대 비율(Zoom), 가시선 표시 여부</strong>를 설정할 수 있습니다.<br>
+        </div>
+        <label class="code-label">1. FOV 설정</label>
+        <div class="explane1" >
+            <accent>시야각(FOV)</accent>은 Field of View 약자로 카메라가 한 번에 볼 수 있는 시야각를 의미합니다.<br>
+            <strong>값이 클수록 광곽</strong>, 즉 넓은 범위를 한번에 볼수 있지만 실제 객체와 출력 간의 왜곡이 발생할 수 있습니다.<br>
+            <strong>값이 작을수록 망원</strong>으로, 더 좁게 보이지만 그만큼 확대되어 보이는 효과가 있습니다.
+        </div>
+        <div class="explane_api">
+            U3dView.<span class="api_name">setAngle(<span class="param_name">angle</span>)</span> : 카메라 뷰 FOV(카메라가 한 번에 볼 수 있는 시야각)를 설정하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">angle</span><span class="param_type">number</span> : FOV <br>
+            </div>
+        </div>
+        <div class="code" id="text7-code"></div>
+        <div class="code-text" id="text7" hidden="hidden">
+            const view = app.getViewLById('camera_1');
+
+            view.setAngle(90); // FOV 90 설정
+        </div>
+
+        <label class="code-label">2. 최대 거리 설정</label>
+        <div class="explane1" >
+            <accent>최대 거리(far)</accent>는 카메라가 렌더링할 수 있는 최대 거리를 의미합니다. <br>
+            카메라에서 <strong>얼마나 먼 거리까지 가시화할 것인지를 제어</strong>하는 핵심 파라미터입니다.
+        </div>
+        <div class="explane_api">
+            U3dView.<span class="api_name">setDistance(<span class="param_name">distance</span>)</span> : 카메라 뷰 최대 거리(far)를 설정하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">distance</span><span class="param_type">number</span> : 최대 거리(far) <br>
+            </div>
+        </div>
+        <div class="code" id="text8-code"></div>
+        <div class="code-text" id="text8" hidden="hidden">
+            const view = app.getViewLById('camera_1');
+
+            view.setDistance(3000); // 최대 3km까지 랜더링
+        </div>
+
+        <label class="code-label">3. Zoom 설정</label>
+        <div class="explane1" >
+            <accent>Zoom</accent>은 화면에 보이는 장면의 확대·축소 비율을 제어하는 값입니다.<br>
+            FOV와 달리 카메라 위치는 유지한 채 시각적 배율만 조정합니다. (세부 영역을 정밀하게 확인)
+        </div>
+        <div class="explane_api">
+            U3dView.<span class="api_name">setZoom(<span class="param_name">zoom</span>)</span> : 카메라 뷰 zoom을 설정하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">zoom</span><span class="param_type">number</span> : 작업 상태 (true면 gizmo ON, false면 gizmo OFF) <br>
+            </div>
+        </div>
+        <div class="code" id="text9-code"></div>
+        <div class="code-text" id="text9" hidden="hidden">
+            const view = app.getViewLById('camera_1');
+
+            view.setZoom(3); // 3배 줌
+        </div>
+
+        <label class="code-label">4. 가시선 설정</label>
+        <div class="explane1" >
+            <accent>가시선</accent>은 카메라의 방향, 시야각(FOV), 거리(far) 를 3D 공간에 시각적으로 표시해주는 보조선 입니다. <br>
+            필요 시 showHelper(true/false)로 표시 여부를 제어합니다.
+        </div>
+        <div class="explane_api">
+            U3dView.<span class="api_name">showHelper(<span class="param_name">visible</span>)</span> : 카메라 뷰 가시선을 설정하는 함수.
+            <div class="explane_api_param">
+                <span class="param_name">visible</span><span class="param_type">boolean</span> : 카메라 가시선 가시화 여부 (true면 켜고, false면 끈다.) <br>
+            </div>
+        </div>
+        <div class="code" id="text10-code"></div>
+        <div class="code-text" id="text10" hidden="hidden">
+            const view = app.getViewLById('camera_1');
+
+            view.showHelper(true);  // 가시선 켜기
+            view.showHelper(false); // 가시선 끄기
+        </div>
+    </div>
+
+    <h2 class="lead" id="jump5"> 5. 가시권 분석하기</h2>
+    <div class="doc">
+        <div class="explane1" >
+            생성된 카메라 뷰의 가시권을 분석하여, 카메라에서 실제로 보이는 영역을 3D 객체로 가시화할 수 있습니다.<br>
+            가시권 분석은 <accent>U3dView.viewAnalysis</accent> API를 사용해 수행합니다.<br><br>
+
+            파라미터 옵션의 type 값은 <accent>cone</accent>과 <accent>viewCone</accent> 두 가지로 설정할 수 있습니다.<br>
+            <strong>viewCone</strong>은 콘 형태의 높이가 없는 평면 Mesh(2D) 로 생성되며,
+            <strong>cone</strong>은 높이를 가진 콘 형태의 Mesh(3D) 로 생성됩니다.
+        </div>
+        <div class="explane_api">
+            U3dView.<span class="api_name">viewAnalysis(<span class="param_name">opt</span>)</span> : 카메라 뷰 가시권을 분석하는 함수.
+            <div class="explane_api_param">
+                <span class="param_name">opt</span><span class="param_type">object</span> : 가시권 분석 객체 생성 옵션 <br>
+                <span class="param_name">opt.color</span><span class="param_type">Color</span> : 객체 색상 <br>
+                <span class="param_name">opt.opacity</span><span class="param_type">number</span> : 객체 투명도 <br>
+                <span class="param_name">opt.type</span><span class="param_type">string</span> : 객체 타입 (cone, viewCone) <br>
+                <span class="param_name">opt.azimuth</span><span class="param_type">number</span> : 객체 방위각 (수평각)  <br>
+                <span class="param_name">opt.distance</span><span class="param_type">number</span> : 객체 최대 거리(far)  <br>
+                <span class="param_name">opt.startOffset</span><span class="param_type">number</span> : 객체 시작 거리 (카메라 뷰와 객체 사이의 거리) <br>
+            </div>
+        </div>
+        <label class="code-label">가시권 분석</label>
+        <div class="code" id="text5-code"></div>
+        <div class="code-text" id="text5" hidden="hidden">
+            const view = app.getViewLById('camera_1');
+
+            // 가시권 분석 실행
+            view.viewAnalysis({
+                type: 'cone',
+                color: "#fff000",
+                opacity: 0.5,
+                azimuth: 90,
+                distance: 1000,
+                startOffset : 10
+            }).then(()=>{
+                console.log('분석 성공!');
+            }).catch((e)=>{
+                console.error('분석 실패!');
+            });
+        </div>
+        <label class="code-label">viewCone 분석 (2D)  <br>
+            <img src="./image/viewStart/analyViewCone.png" alt="style1" data-size="medium">
+        </label>
+        <label class="code-label">Cone 분석 (3D) <br>
+            <img src="./image/viewStart/analyCone.png" alt="style2" data-size="medium">
+        </label>
+    </div>
+
+    <h2 class="lead" id="jump6"> 6. 제거하기</h2>
+    <div class="doc">
+        <div class="explane1" >
+            카메라 뷰를 제거하는 방법은 <strong>U3dApp 클래스의 제거 API를 사용</strong>하는 것입니다. <br>
+            <accent>removeView(view)</accent> API는 파라미터로 입력 받은 특정 카메라 뷰를 제거하고,  <accent>removeAllView()</accent> API는 등록된 전체 카메라뷰를 제거합니다.
+        </div>
+
+        <div class="explane_api">
+            U3dApp.<span class="api_name">removeView(<span class="param_name">view</span>)</span> : 파라미터로 입력 받은 카메라 뷰를 제거하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">view</span><span class="param_type">U3dView</span> : 제거할 뷰
+            </div>
+        </div>
+        <div class="explane_api">
+            U3dApp.<span class="api_name">removeAllView()</span> : 전체 카메라 뷰를 제거하는 함수
+        </div>
+
+
+        <div class="explane1" >
+            또는 <strong>직접 U3dView에 접근</strong>해 <accent>remove()</accent> API를 호출해 제거할 수 있습니다.
+        </div>
+        <div class="explane_api">
+            U3dView.<span class="api_name">remove()</span> : 카메라 뷰 제거 함수
+        </div>
+
+        <label class="code-label">카메라 뷰 제거</label>
+        <div class="code" id="text6-code"></div>
+        <div class="code-text" id="text6" hidden="hidden">
+            // 특정 뷰 제거
+            const view = app.getViewLById('camera_1');
+            app.removeView(view);
+
+            // 전체 제거
+            app.removeAllView();
+
+            //또는 직접 순회하면서 제거
+            const list = app.getViewList();
+            for(const view of list) {
+                view.remove();
+            }
+        </div>
+    </div>
+</div>
+</body>
+</html>

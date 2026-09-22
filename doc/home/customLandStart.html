@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>지표면 편집 (CustomLand)</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="지표면-편집-customland">지표면 편집 (CustomLand)</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-%EC%A7%80%ED%91%9C%EB%A9%B4-%ED%8E%B8%EC%A7%91-%EC%9D%B4%ED%95%B4%ED%95%98%EA%B3%A0-%EC%8B%9C%EC%9E%91%ED%95%98%EA%B8%B0">지표면 편집 이해하고 시작하기</a></li>
+<li><a href="#2-%ED%8E%B8%EC%A7%91-%EC%98%81%EC%97%AD-%EC%84%A0%ED%83%9D%ED%95%98%EA%B8%B0">편집 영역 선택하기</a></li>
+<li><a href="#3-%EB%AA%A9%ED%91%9C-%EA%B3%A0%EB%8F%84%EB%A1%9C-%EC%A7%80%ED%91%9C%EB%A9%B4-%ED%8E%B8%EC%A7%91%ED%95%98%EA%B8%B0">목표 고도로 지표면 편집하기</a></li>
+<li><a href="#4-%EB%B6%80%ED%94%BC%EC%99%80-%ED%86%A0%EA%B3%B5%EB%9F%89-%EA%B3%84%EC%82%B0%ED%95%98%EA%B8%B0">부피와 토공량 계산하기</a></li>
+<li><a href="#5-%EA%B7%B8%EB%A6%AC%EA%B8%B0%EC%99%80-%ED%8E%B8%EC%A7%91-%EA%B2%B0%EA%B3%BC-%EC%A0%95%EB%A6%AC%ED%95%98%EA%B8%B0">그리기와 편집 결과 정리하기</a></li>
+<li><a href="#6-%EA%B2%BD%EC%82%AC%EB%A9%B4%EA%B3%BC-%ED%85%8D%EC%8A%A4%EC%B2%98-%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0">경사면과 텍스처 설정하기</a></li>
+<li><a href="#7-%EB%8F%99%EC%A0%81-%ED%8E%B8%EC%A7%91%EC%9D%84-%EC%95%88%EC%A0%84%ED%95%98%EA%B2%8C-%EC%A0%81%EC%9A%A9%ED%95%98%EA%B8%B0">동적 편집을 안전하게 적용하기</a></li>
+</ol>
+<blockquote>
+<ul>
+<li><strong>지표면</strong>: 3D 지도에서 보이는 땅의 표면입니다.</li>
+<li><strong>지형</strong>: 지표면의 높낮이와 모양을 뜻합니다.</li>
+<li><strong>DEM(Digital Elevation Model)</strong>: 지표면의 높이를 일정한 격자마다 기록한 데이터입니다.</li>
+<li><strong>HeightLayer</strong>: DEM을 이용해 지표면의 높낮이를 화면에 표시하고, 지표면 편집에 필요한 원본 높이를 제공하는 레이어입니다.</li>
+<li><strong>목표 고도</strong>: 편집이 완료된 지표면의 최종 높이를 직접 지정하는 값입니다.</li>
+</ul>
+</blockquote>
+<p><code>CustomLand</code>는 지정한 영역의 지표면을 원하는 고도로 바꾸고, 편집 전후의 부피와 토공량을 계산하는 기능입니다.</p>
+<div class="document-thumbnail" data-size="medium">
+<figure class="document-image">
+<img src="image/customLandStart/thumbnail.png" alt="영역과 목표 높이를 지정해 지표면을 편집하는 기능" loading="eager">
+<figcaption>영역과 목표 높이를 지정해 지표면을 편집하는 기능</figcaption>
+</figure>
+</div>
+<hr>
+<h2 id="1-지표면-편집-이해하고-시작하기">1. 지표면 편집 이해하고 시작하기</h2>
+<p>지표면 편집은 아래 순서대로 진행하면 됩니다.</p>
+<ol>
+<li>편집할 지역을 포함하는 <code>HeightLayer</code>를 화면에 표시합니다.</li>
+<li><code>CustomLand</code> 분석 기능을 활성화합니다.</li>
+<li><code>Polygon</code> 또는 <code>Box</code> 방식으로 편집 영역을 선택합니다.</li>
+<li>선택한 경계 좌표와 목표 고도를 <code>addCustomLand()</code>에 전달합니다.</li>
+<li>필요하면 부피를 계산하거나 편집 결과를 제거합니다.</li>
+</ol>
+<blockquote>
+<p><strong>먼저 확인해 주세요.</strong> </p>
+<p>편집할 영역 전체가 화면에 표시된 <code>HeightLayer</code> 안에 포함되어 있어야 합니다.</p>
+</blockquote>
+<p>원본 DEM을 찾을 수 없으면 편집 지형을 만들거나 부피를 계산하기 어렵습니다. </p>
+<p>레이어의 데이터 레벨이 높을수록 더 촘촘한 DEM을 사용할 수 있지만, 실제 정밀도와 처리 시간은 제공되는 데이터에 따라 달라질 수 있습니다.</p>
+<h4 class="api-heading" id="api">API</h4>
+<p>U3dApp.activeAnalysis(<code>name</code>) : 이름에 해당하는 분석 기능을 활성화하고 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>name</code> (<code>string</code>) : 활성화할 분석 기능 이름. 지표면 편집은 <code>CustomLand</code>를 사용. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>UAnalyCustomLand | undefined</code>) : 활성화된 지표면 편집 분석 객체. 분석 기능을 찾지 못하면 <code>undefined</code></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>U3dApp.getAnalysis(<code>name</code>) : 이름에 해당하는 분석 기능을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>name</code> (<code>string</code>) : 활성화할 분석 기능 이름. 지표면 편집은 <code>CustomLand</code>를 사용. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>UAnalyCustomLand | undefined</code>) : 활성화된 지표면 편집 분석 객체. 분석 기능을 찾지 못하면 <code>undefined</code></li>
+</ul>
+</details>
+<h3 id="1-지표면-편집-기능-활성화하기">1. 지표면 편집 기능 활성화하기</h3>
+<p><code>activeAnalysis()</code>를 호출하면 분석 기능과 입력 처리가 함께 활성화됩니다.</p>
+<p>따라서 <code>analy.active()</code>를 따로 호출하지 않아도 됩니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> analy <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">activeAnalysis</span><span class="token punctuation">(</span><span class="token string">'CustomLand'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>analy<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'CustomLand 분석 기능을 찾을 수 없습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+<span class="token comment">//또는 U3dApp.getAnalysis('CustomLand')를 호출하여 분석 객체를 반환 받은 후에 활성화 해줍니다.</span>
+<span class="token keyword">let</span> analy <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">getAnalysis</span><span class="token punctuation">(</span><span class="token string">'CustomLand'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+analy<span class="token punctuation">.</span><span class="token function">active</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+</code></pre>
+<p>아래 이미지는 지표면을 일정한 고도로 바꾼 결과를 위쪽과 옆쪽에서 본 모습입니다.</p>
+<div class="document-image-grid" data-columns="2">
+<figure class="document-image">
+<img src="image/customLandStart/생성1.png" alt="편집한 지표면을 위에서 확인한 모습" loading="eager">
+<figcaption>편집한 지표면을 위에서 확인한 모습</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/customLandStart/생성2.png" alt="편집한 지표면의 높이와 옆면을 비스듬히 확인한 모습" loading="eager">
+<figcaption>편집한 지표면의 높이와 옆면을 비스듬히 확인한 모습</figcaption>
+</figure>
+</div>
+<hr>
+<h2 id="2-편집-영역-선택하기">2. 편집 영역 선택하기</h2>
+<p>편집하려는 영역의 모양에 맞춰 <code>Polygon</code> 또는 <code>Box</code> 방식을 선택할 수 있습니다.</p>
+<div class="document-table">
+<table>
+<thead><tr><th>선택 방식</th><th>적합한 영역</th><th>입력 방법</th><th>입력 완료</th></tr></thead>
+<tbody><tr><td><code>Polygon</code></td><td>경계가 여러 번 꺾인 불규칙한 영역</td><td>지표면의 경계점을 차례로 클릭</td><td>마지막 점에서 더블클릭</td></tr>
+<tr><td><code>Box</code></td><td>직사각형 영역</td><td>서로 마주 보는 두 모서리를 차례로 클릭</td><td>두 번째 클릭</td></tr></tbody>
+</table>
+</div>
+<p>경계가 불규칙한 영역은 세 개 이상의 점을 찍는 <code>Polygon</code> 방식이 편리합니다. </p>
+<p>직사각형 영역은 <code>Box</code> 방식을 선택한 뒤 서로 마주 보는 두 모서리를 차례로 클릭해 주세요. </p>
+<p>화면을 드래그하지 않아도 됩니다.</p>
+<h4 class="api-heading" id="api-2">API</h4>
+<p>UAnalyCustomLand.setSelectType(<code>type</code>) : 편집 영역을 입력하는 방식을 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>type</code> (<code>string</code>) : <code>Polygon</code> 또는 <code>Box</code>. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-3">API</h4>
+<p>UAnalyCustomLand.getGeoVertex() : 현재 선택한 영역의 경계 좌표를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>GeoPosition[]</code>) : 편집 영역의 위경도 경계 좌표 목록</li>
+</ul>
+</details>
+<h3 id="1-polygon으로-영역-선택하기">1. Polygon으로 영역 선택하기</h3>
+<pre class="language-javascript"><code class="language-javascript">analy<span class="token punctuation">.</span><span class="token function">setSelectType</span><span class="token punctuation">(</span><span class="token string">'Polygon'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> polygonGeoVertex <span class="token operator">=</span> analy<span class="token punctuation">.</span><span class="token function">getGeoVertex</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<ul>
+<li>화면에서 경계 지점을 순서대로 클릭해 자유로운 형태의 영역을 지정합니다.</li>
+<li>영역 지정이 끝나면 더블클릭하여 그리기를 종료합니다.</li>
+<li>선택한 영역의 좌표는 analy.getGeoVertex()로 가져올 수 있습니다.</li>
+</ul>
+<h3 id="2-box로-영역-선택하기">2. Box로 영역 선택하기</h3>
+<pre class="language-javascript"><code class="language-javascript">analy<span class="token punctuation">.</span><span class="token function">setSelectType</span><span class="token punctuation">(</span><span class="token string">'Box'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> boxGeoVertex <span class="token operator">=</span> analy<span class="token punctuation">.</span><span class="token function">getGeoVertex</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<ul>
+<li>화면을 한 번 클릭하여 사각형 영역의 시작 지점을 지정합니다.</li>
+<li>다른 위치를 한 번 더 클릭하면 두 지점을 기준으로 사각형 영역이 생성되고, 선택이 자동으로 완료됩니다.</li>
+<li>선택한 영역의 좌표는 analy.getGeoVertex()로 가져올 수 있습니다.</li>
+</ul>
+<div class="document-image-grid" data-columns="2">
+<figure class="document-image">
+<img src="image/customLandStart/polygon영역.png" alt="여러 경계점을 클릭해 불규칙한 Polygon 영역을 지정한 모습" loading="eager">
+<figcaption>여러 경계점을 클릭해 불규칙한 Polygon 영역을 지정한 모습</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/customLandStart/box영역.png" alt="시작점과 끝점을 클릭해 직사각형 Box 영역을 지정한 모습" loading="eager">
+<figcaption>시작점과 끝점을 클릭해 직사각형 Box 영역을 지정한 모습</figcaption>
+</figure>
+</div>
+<ul>
+<li><code>getGeoVertex()</code>가 반환하는 각 좌표에서 <code>x</code>는 경도, <code>y</code>는 위도, <code>z</code>는 경계점의 높이입니다.</li>
+<li><code>z</code>가 <code>0</code>으로 표시될 수도 있으며, 편집 결과의 높이는 이 값이 아니라 <code>addCustomLand()</code>에 전달하는 <code>height</code>로 결정됩니다.</li>
+<li><code>Box</code> 결과는 직사각형을 닫기 위해 첫 좌표가 마지막에 한 번 더 포함된 다섯 개의 좌표로 반환됩니다.</li>
+</ul>
+<div class="document-image-grid" data-columns="1">
+<figure class="document-image">
+<img src="image/customLandStart/polygon좌표.png" alt="Polygon 영역의 경계점이 위경도 좌표 목록으로 반환된 모습" loading="eager">
+<figcaption>Polygon 영역의 경계점이 위경도 좌표 목록으로 반환된 모습</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/customLandStart/box좌표.png" alt="Box 영역이 처음과 끝이 같은 다섯 개의 위경도 좌표로 반환된 모습" loading="eager">
+<figcaption>Box 영역이 처음과 끝이 같은 다섯 개의 위경도 좌표로 반환된 모습</figcaption>
+</figure>
+</div>
+<hr>
+<h2 id="3-목표-고도로-지표면-편집하기">3. 목표 고도로 지표면 편집하기</h2>
+<p>선택한 경계 좌표와 목표 고도를 <code>addCustomLand()</code>에 전달하면 편집된 지표면을 만들 수 있습니다.</p>
+<blockquote>
+<p><strong><code>height</code> 값에 유의해 주세요.</strong> </p>
+<p><code>height</code>는 현재 지면에서 더하거나 뺄 높이가 아니라, 편집이 끝난 뒤의 절대 고도입니다. 단위는 미터(m)입니다.</p>
+</blockquote>
+<p>예를 들어 현재 지표면의 고도가 80m인 곳에 <code>height: 100</code>을 지정하면 지표면이 20m 높아집니다.</p>
+<h4 class="api-heading" id="api-4">API</h4>
+<p>UAnalyCustomLand.addCustomLand(<code>options</code>) : 하나 이상의 편집 지형을 생성하는 비동기 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>options</code> (<code>object | object[]</code>) : 편집 지형 생성 옵션 또는 옵션 목록. <strong>필수</strong></li>
+<li><code>options.id</code> (<code>string</code>) : 편집 지형의 고유 ID. 생략하면 자동 생성</li>
+<li><code>options.name</code> (<code>string</code>) : 편집 지형 이름. 생략하면 ID 사용</li>
+<li><code>options.geoVertex</code> (<code>GeoPosition[]</code>) : 편집 영역의 위경도 경계 좌표. <strong>필수</strong></li>
+<li><code>options.height</code> (<code>number</code>) : 편집 후 목표 고도. 단위: m. <strong>필수</strong></li>
+<li><code>options.dataLevel</code> (<code>number</code>) : 편집에 사용할 DEM 타일 레벨. 생략하면 영역을 포함하는 <code>HeightLayer</code>의 설정 사용</li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Promise&lt;void&gt;</code>) : 편집 지형 생성 완료를 알려 주는 Promise</li>
+</ul>
+</details>
+<h3 id="1-선택한-영역-편집하기">1. 선택한 영역 편집하기</h3>
+<p>나중에 부피를 계산하거나 결과를 제거하기 쉽도록 알아보기 쉬운 <code>id</code>를 지정해 주세요.</p>
+<p>이미 사용 중인 <code>id</code>로는 새로운 편집 지형을 만들 수 없습니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> geoVertex <span class="token operator">=</span> analy<span class="token punctuation">.</span><span class="token function">getGeoVertex</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span>geoVertex<span class="token punctuation">.</span>length <span class="token operator">&lt;</span> <span class="token number">3</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'먼저 편집 영역을 선택해 주세요.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">await</span> analy<span class="token punctuation">.</span><span class="token function">addCustomLand</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">id</span><span class="token operator">:</span> <span class="token string">'land1'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'지형편집1'</span><span class="token punctuation">,</span>
+    geoVertex<span class="token punctuation">,</span>
+    <span class="token literal-property property">height</span><span class="token operator">:</span> <span class="token number">100</span><span class="token punctuation">,</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p><code>addCustomLand()</code> 앞에 <code>await</code>를 사용하면 지형 생성이 끝난 뒤 부피 계산이나 다음 편집을 이어서 실행할 수 있습니다.</p>
+<div class="document-image-grid" data-columns="2">
+<figure class="document-image">
+<img src="image/customLandStart/편집전.png" alt="목표 고도 100m로 편집하기 전 선택 영역을 확인한 모습" loading="eager">
+<figcaption>목표 고도 100m로 편집하기 전 선택 영역을 확인한 모습</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/customLandStart/편집후.png" alt="선택 영역의 지표면이 목표 고도 100m로 생성된 모습" loading="eager">
+<figcaption>선택 영역의 지표면이 목표 고도 100m로 생성된 모습</figcaption>
+</figure>
+</div>
+<hr>
+<h2 id="4-부피와-토공량-계산하기">4. 부피와 토공량 계산하기</h2>
+<p>편집 지형을 만든 뒤에는 원본 DEM과 목표 고도를 비교해 부피와 토공량도 확인할 수 있습니다.</p>
+<blockquote>
+<ul>
+<li><strong>부피</strong>: 지표면의 높이와 면적을 함께 계산한 공간의 크기이며 단위는 세제곱미터(m³)입니다.</li>
+<li><strong>절토량</strong>: 목표 고도보다 높은 땅을 깎아내야 하는 양입니다.</li>
+<li><strong>성토량</strong>: 목표 고도보다 낮은 땅을 흙 등으로 채워야 하는 양입니다.</li>
+<li><strong>토공량 차이</strong>: 원본 부피에서 편집 부피를 뺀 값입니다. 양수이면 절토가 더 많고, 음수이면 성토가 더 많습니다.</li>
+</ul>
+</blockquote>
+<h4 class="api-heading" id="api-5">API</h4>
+<p>UAnalyCustomLand.getVolume(<code>id</code>, <code>progressFunc</code>) : 지정한 편집 지형의 부피를 계산하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>id</code> (<code>string</code>) : 계산할 편집 지형 ID. <strong>필수</strong></li>
+<li><code>progressFunc</code> (<code>function</code>) : 계산 진행 상태를 받을 함수. 생략 가능</li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Promise&lt;CustomLand&gt; | undefined</code>) : 계산이 끝난 편집 지형. ID를 찾지 못하면 <code>undefined</code></li>
+</ul>
+</details>
+<p>계산이 끝난 <code>CustomLand</code>에서 주로 확인하는 값은 다음과 같습니다.</p>
+<div class="document-table">
+<table>
+<thead><tr><th>값</th><th>의미</th></tr></thead>
+<tbody><tr><td><code>beforeVolume</code></td><td>편집 전 원본 부피</td></tr>
+<tr><td><code>volume</code></td><td>목표 고도로 편집한 뒤의 부피</td></tr>
+<tr><td><code>cutVolume</code></td><td>절토량</td></tr>
+<tr><td><code>fillVolume</code></td><td>성토량</td></tr>
+<tr><td><code>averageHeight</code></td><td>영역 안 원본 지표면의 평균 고도</td></tr>
+<tr><td><code>minHeight</code></td><td>영역 안 원본 지표면의 최저 고도</td></tr>
+<tr><td><code>maxHeight</code></td><td>영역 안 원본 지표면의 최고 고도</td></tr>
+<tr><td><code>getDifference()</code></td><td>원본 부피에서 편집 부피를 뺀 토공량 차이</td></tr></tbody>
+</table>
+</div>
+<h3 id="1-편집-전후-부피와-토공량-확인하기">1. 편집 전후 부피와 토공량 확인하기</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> volumeTask <span class="token operator">=</span> analy<span class="token punctuation">.</span><span class="token function">getVolume</span><span class="token punctuation">(</span><span class="token string">'land1'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>volumeTask<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'land1 편집 지형을 찾을 수 없습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">const</span> land <span class="token operator">=</span> <span class="token keyword">await</span> volumeTask<span class="token punctuation">;</span>
+
+console<span class="token punctuation">.</span><span class="token function">table</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">원본부피</span><span class="token operator">:</span> land<span class="token punctuation">.</span>beforeVolume<span class="token punctuation">,</span>
+    <span class="token literal-property property">편집부피</span><span class="token operator">:</span> land<span class="token punctuation">.</span>volume<span class="token punctuation">,</span>
+    <span class="token literal-property property">절토량</span><span class="token operator">:</span> land<span class="token punctuation">.</span>cutVolume<span class="token punctuation">,</span>
+    <span class="token literal-property property">성토량</span><span class="token operator">:</span> land<span class="token punctuation">.</span>fillVolume<span class="token punctuation">,</span>
+    <span class="token literal-property property">토공량차이</span><span class="token operator">:</span> land<span class="token punctuation">.</span><span class="token function">getDifference</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<figure class="document-image">
+<img src="image/customLandStart/부피결과.png" alt="콘솔에서 원본 부피와 편집 부피 및 토공량 차이를 확인한 모습" loading="eager">
+<figcaption>콘솔에서 원본 부피와 편집 부피 및 토공량 차이를 확인한 모습</figcaption>
+</figure>
+<hr>
+<h2 id="5-그리기와-편집-결과-정리하기">5. 그리기와 편집 결과 정리하기</h2>
+<p>영역 선택만 취소할지, 이미 만든 편집 지형까지 제거할지에 따라 알맞은 정리 방법을 선택해 주세요.</p>
+<div class="document-table">
+<table>
+<thead><tr><th>호출</th><th>정리되는 내용</th></tr></thead>
+<tbody><tr><td><code>clear(false)</code></td><td>현재 선택 중인 경계점과 그리기 표시만 정리하고 생성된 편집 지형은 유지</td></tr>
+<tr><td><code>clear()</code></td><td>현재 그리기 표시와 생성된 모든 편집 지형을 함께 제거</td></tr>
+<tr><td><code>removeCustomLandById(id)</code></td><td>지정한 ID의 편집 지형 한 개만 제거</td></tr>
+<tr><td><code>removeCustomLandAll()</code></td><td>생성된 모든 편집 지형을 제거</td></tr></tbody>
+</table>
+</div>
+<h4 class="api-heading" id="api-6">API</h4>
+<p>UAnalyCustomLand.clear(<code>useRemoveEditLandAll</code>) : 현재 그리기 상태를 초기화하고 필요에 따라 모든 편집 지형을 제거하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>useRemoveEditLandAll</code> (<code>boolean</code>) : 모든 편집 지형도 제거할지 여부. 기본값: <code>true</code></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-7">API</h4>
+<p>UAnalyCustomLand.removeCustomLandById(<code>id</code>) : 지정한 ID의 편집 지형을 제거하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>id</code> (<code>string</code>) : 제거할 편집 지형 ID. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-8">API</h4>
+<p>UAnalyCustomLand.removeCustomLandAll() : 생성된 모든 편집 지형을 제거하는 함수</p>
+<h3 id="1-필요한-범위만-정리하기">1. 필요한 범위만 정리하기</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token comment">// 선택 중인 경계점만 취소하고 생성 결과는 유지합니다.</span>
+analy<span class="token punctuation">.</span><span class="token function">clear</span><span class="token punctuation">(</span><span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// land1 한 개만 제거합니다.</span>
+analy<span class="token punctuation">.</span><span class="token function">removeCustomLandById</span><span class="token punctuation">(</span><span class="token string">'land1'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 생성된 편집 지형을 모두 제거합니다.</span>
+analy<span class="token punctuation">.</span><span class="token function">removeCustomLandAll</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p><code>clear()</code>를 인자 없이 호출하면 <code>removeCustomLandAll()</code>과 마찬가지로 생성된 편집 지형까지 모두 제거됩니다. </p>
+<p>생성 결과를 유지하고 싶다면 <code>clear(false)</code>를 사용해 주세요.</p>
+<div class="document-image-grid" data-columns="2">
+<figure class="document-image">
+<img src="image/customLandStart/제거전.png" alt="land1 편집 지형을 제거하기 전의 모습" loading="eager">
+<figcaption>land1 편집 지형을 제거하기 전의 모습</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/customLandStart/제거후.png" alt="land1 편집 지형을 제거해 원래 지표면으로 돌아온 모습" loading="eager">
+<figcaption>land1 편집 지형을 제거해 원래 지표면으로 돌아온 모습</figcaption>
+</figure>
+</div>
+<hr>
+<h2 id="6-경사면과-텍스처-설정하기">6. 경사면과 텍스처 설정하기</h2>
+<p>기본 설정에서는 선택한 경계와 목표 고도 사이에 수직에 가까운 옆면이 만들어집니다. </p>
+<p>주변 지표면과 더 자연스럽고 완만하게 연결하고 싶다면 경사면 옵션을 사용해 보세요.</p>
+<blockquote>
+<ul>
+<li><strong>경사면</strong>: 서로 다른 높이의 두 지표면을 비스듬히 연결하는 면입니다.</li>
+<li><strong>내부 경사면</strong>: 선택한 경계 안쪽에 경사면을 만들고, 평평한 편집 영역을 줄이는 방식입니다.</li>
+<li><strong>외부 경사면</strong>: 선택한 경계 바깥쪽으로 경사면을 확장하고, 선택 영역 안쪽의 평평한 면을 유지하는 방식입니다.</li>
+<li><strong>텍스처</strong>: 편집한 지표면 위에 입히는 흙, 잔디 같은 이미지입니다.</li>
+</ul>
+</blockquote>
+<p><code>addCustomLand()</code>에서 사용할 수 있는 고급 옵션은 다음과 같습니다.</p>
+<div class="document-table">
+<table>
+<thead><tr><th>옵션</th><th>의미</th><th>기본값</th></tr></thead>
+<tbody><tr><td><code>inclineEdit</code></td><td>경사면을 생성할지 여부</td><td><code>false</code></td></tr>
+<tr><td><code>insideIncline</code></td><td><code>true</code>이면 내부, <code>false</code>이면 외부 경사면 생성</td><td><code>false</code></td></tr>
+<tr><td><code>inclineRate</code></td><td>높이 차이에 비례해 경사면이 차지하는 범위를 조절</td><td><code>1</code></td></tr>
+<tr><td><code>insidePrecision</code></td><td>내부 경사면 경계를 보간하는 정밀도. 값이 클수록 경계가 부드러워지지만 계산량도 증가</td><td><code>10</code></td></tr>
+<tr><td><code>useTexture</code></td><td>편집 지표면에 텍스처를 표시할지 여부</td><td><code>true</code></td></tr>
+<tr><td><code>textureUrl</code></td><td>사용할 텍스처 이미지 URL. 생략하면 내장 기본 이미지 사용</td><td>내장 이미지</td></tr></tbody>
+</table>
+</div>
+<p><code>insideIncline</code>, <code>inclineRate</code>, <code>insidePrecision</code> 옵션은 <code>inclineEdit: true</code>일 때 적용됩니다. </p>
+<p>원활하게 생성하려면 경사면을 포함한 전체 영역이 화면에 표시된 <code>HeightLayer</code> 안에 들어오는지 확인해 주세요.</p>
+<h3 id="1-내부-또는-외부-경사면-만들기">1. 내부 또는 외부 경사면 만들기</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> geoVertex <span class="token operator">=</span> analy<span class="token punctuation">.</span><span class="token function">getGeoVertex</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">await</span> analy<span class="token punctuation">.</span><span class="token function">addCustomLand</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">id</span><span class="token operator">:</span> <span class="token string">'land-incline-inside'</span><span class="token punctuation">,</span>
+    geoVertex<span class="token punctuation">,</span>
+    <span class="token literal-property property">height</span><span class="token operator">:</span> <span class="token number">100</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">inclineEdit</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">insideIncline</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">inclineRate</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">insidePrecision</span><span class="token operator">:</span> <span class="token number">10</span><span class="token punctuation">,</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>외부 경사면을 만들고 싶다면 <code>insideIncline: false</code>로 설정하면 됩니다. </p>
+<p>같은 영역에 두 결과를 동시에 만들면 서로 겹칠 수 있으니, 비교할 때는 이전 결과를 먼저 제거해 주세요.</p>
+<div class="document-image-grid" data-columns="2">
+<figure class="document-image">
+<img src="image/customLandStart/경사면내부생성.png" alt="선택 경계 안쪽에 경사면을 만들어 평평한 영역이 줄어든 모습" loading="eager">
+<figcaption>선택 경계 안쪽에 경사면을 만들어 평평한 영역이 줄어든 모습</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/customLandStart/경사면외부생성.png" alt="선택 경계 바깥쪽에 경사면을 확장해 평평한 영역을 유지한 모습" loading="eager">
+<figcaption>선택 경계 바깥쪽에 경사면을 확장해 평평한 영역을 유지한 모습</figcaption>
+</figure>
+</div>
+<p>경사면의 부피 차이도 계산할 수 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> inclineVolumeTask <span class="token operator">=</span> analy<span class="token punctuation">.</span><span class="token function">getVolume</span><span class="token punctuation">(</span><span class="token string">'land-incline-inside'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span>inclineVolumeTask<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> land <span class="token operator">=</span> <span class="token keyword">await</span> inclineVolumeTask<span class="token punctuation">;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'경사면 원본 부피:'</span><span class="token punctuation">,</span> land<span class="token punctuation">.</span>inclineBeforeVolume<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'경사면 편집 부피:'</span><span class="token punctuation">,</span> land<span class="token punctuation">.</span>inclineVolume<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'경사면 토공량 차이:'</span><span class="token punctuation">,</span> land<span class="token punctuation">.</span><span class="token function">getInclineDifference</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h3 id="2-텍스처-표시-방식-정하기">2. 텍스처 표시 방식 정하기</h3>
+<p><code>useTexture: true</code>로 설정하고 <code>textureUrl</code>을 생략하면 내장 텍스처가 자동으로 적용됩니다.</p>
+<p>별도의 이미지를 사용하고 싶다면 브라우저에서 접근할 수 있는 URL을 지정해 주세요. </p>
+<p>URL이 올바르지 않거나 이미지를 불러오지 못하면 텍스처가 표시되지 않을 수 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">await</span> analy<span class="token punctuation">.</span><span class="token function">addCustomLand</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">id</span><span class="token operator">:</span> <span class="token string">'land-with-default-texture'</span><span class="token punctuation">,</span>
+    geoVertex<span class="token punctuation">,</span>
+    <span class="token literal-property property">height</span><span class="token operator">:</span> <span class="token number">100</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">useTexture</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>텍스처가 필요하지 않으면 <code>useTexture: false</code>를 지정합니다.</p>
+<hr>
+<h2 id="7-동적-편집을-안전하게-적용하기">7. 동적 편집을 안전하게 적용하기</h2>
+<p>동적 편집은 마우스를 움직이는 동안 작은 편집 영역을 반복해서 생성하여, 지표면이 실시간으로 변경되는 것처럼 표현하는 응용 방식입니다.</p>
+<p>dynamicEdit과 같은 별도의 공개 옵션이 엔진의 동작을 변경하는 것은 아니며, mousemove 이벤트와 addCustomLand()를 조합하여 구현할 수 있습니다.</p>
+<p>다만 mousemove 이벤트는 매우 자주 발생하기 때문에 <strong>이벤트가 발생할 때마다 addCustomLand()를 호출</strong>하면 편집 지형 생성과 <strong>비동기 작업이 계속 누적되어 화면 성능이 저하</strong>될 수 있습니다.</p>
+<p> 따라서 실제 기능을 구현할 때는 다음과 같은 처리를 함께 적용하는 것을 권장합니다.</p>
+<blockquote>
+<ol>
+<li>일정 시간 간격으로만 편집 영역을 갱신합니다.</li>
+<li>이전 미리보기 지표면을 제거한 후 동일한 ID로 다시 생성합니다.</li>
+<li>이전 생성 작업이 완료되기 전에는 다음 생성 작업을 시작하지 않습니다.</li>
+<li>드래그 중에는 카메라 이동을 잠그고, 편집이 끝나면 다시 사용할 수 있도록 해제합니다.</li>
+<li>위경도 좌표의 동일한 차이는 지역에 따라 실제 거리가 달라질 수 있으므로, 프로젝트에서 사용하는 좌표·거리 변환 방식을 적용합니다.</li>
+</ol>
+</blockquote>
+<p>위 예제의 createPreviewGeoVertex()는 현재 마우스 위치의 중심 좌표를 기준으로 미리보기 영역의 경계 좌표를 계산하는 프로젝트별 함수라고 가정합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token comment">// 동적 편집에서 반복해서 사용할 미리보기 지표면 ID입니다.</span>
+<span class="token comment">// 같은 ID를 사용하면 이전 미리보기를 제거한 뒤 새로운 위치에 다시 생성할 수 있습니다.</span>
+<span class="token keyword">const</span> <span class="token constant">DYNAMIC_LAND_ID</span> <span class="token operator">=</span> <span class="token string">'dynamic-preview'</span><span class="token punctuation">;</span>
+
+<span class="token comment">// mousemove 이벤트마다 지표면을 생성하지 않도록 갱신 간격을 제한합니다.</span>
+<span class="token comment">// 아래 예제에서는 최대 100ms마다 한 번씩 미리보기를 갱신합니다.</span>
+<span class="token keyword">const</span> <span class="token constant">UPDATE_INTERVAL_MS</span> <span class="token operator">=</span> <span class="token number">100</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 현재 마우스 드래그를 이용한 동적 편집이 진행 중인지 나타냅니다.</span>
+<span class="token keyword">let</span> isDynamicEditing <span class="token operator">=</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 이전 addCustomLand() 작업이 아직 진행 중인지 나타냅니다.</span>
+<span class="token comment">// 비동기 생성 작업이 중복으로 실행되는 것을 방지하기 위해 사용합니다.</span>
+<span class="token keyword">let</span> isUpdating <span class="token operator">=</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 마지막으로 미리보기 지표면 갱신을 시작한 시간을 저장합니다.</span>
+<span class="token comment">// UPDATE_INTERVAL_MS와 함께 사용하여 갱신 빈도를 제한합니다.</span>
+<span class="token keyword">let</span> lastUpdatedAt <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+
+app<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'mousedown'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token comment">// 편집 중 마우스 이동이 카메라 조작으로 처리되지 않도록</span>
+    <span class="token comment">// 드래그가 시작되면 카메라 이동을 잠급니다.</span>
+    app<span class="token punctuation">.</span><span class="token function">disableCameraMove</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token comment">// mousemove 이벤트에서 동적 편집을 수행할 수 있도록 상태를 활성화합니다.</span>
+    isDynamicEditing <span class="token operator">=</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+app<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'mouseup'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token comment">// 마우스 드래그가 끝나면 동적 편집을 종료합니다.</span>
+    isDynamicEditing <span class="token operator">=</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+
+    <span class="token comment">// 편집이 끝난 후에는 다시 카메라를 조작할 수 있도록 이동 제한을 해제합니다.</span>
+    app<span class="token punctuation">.</span><span class="token function">disableCameraMove</span><span class="token punctuation">(</span><span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+app<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'mousemove'</span><span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token parameter">event</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> now <span class="token operator">=</span> performance<span class="token punctuation">.</span><span class="token function">now</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token comment">// 다음 경우에는 새로운 미리보기 지표면을 생성하지 않습니다.</span>
+    <span class="token comment">//</span>
+    <span class="token comment">// 1. 현재 드래그 편집 중이 아닌 경우</span>
+    <span class="token comment">// 2. 이전 addCustomLand() 작업이 아직 끝나지 않은 경우</span>
+    <span class="token comment">// 3. 마지막 갱신 이후 UPDATE_INTERVAL_MS만큼 시간이 지나지 않은 경우</span>
+    <span class="token comment">//</span>
+    <span class="token comment">// 이를 통해 빈번한 mousemove 이벤트로 인해</span>
+    <span class="token comment">// 지표면 생성 작업이 과도하게 누적되는 것을 방지합니다.</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>
+        <span class="token operator">!</span>isDynamicEditing <span class="token operator">||</span>
+        isUpdating <span class="token operator">||</span>
+        now <span class="token operator">-</span> lastUpdatedAt <span class="token operator">&lt;</span> <span class="token constant">UPDATE_INTERVAL_MS</span>
+    <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token comment">// 현재 마우스 위치를 지리 좌표로 변환합니다.</span>
+    <span class="token keyword">const</span> center <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">pixelToGeographic</span><span class="token punctuation">(</span>event<span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token comment">// 유효한 지리 좌표를 얻지 못한 경우에는 편집을 수행하지 않습니다.</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>center<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token comment">// 새로운 지표면 생성 작업이 시작되었음을 기록합니다.</span>
+    isUpdating <span class="token operator">=</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+
+    <span class="token comment">// 현재 시간을 마지막 갱신 시간으로 저장하여</span>
+    <span class="token comment">// 다음 mousemove 이벤트의 실행 간격을 제한합니다.</span>
+    lastUpdatedAt <span class="token operator">=</span> now<span class="token punctuation">;</span>
+
+    <span class="token keyword">try</span> <span class="token punctuation">{</span>
+        <span class="token comment">// 이전 위치에 생성한 미리보기 지표면을 제거합니다.</span>
+        <span class="token comment">// 미리보기를 계속 누적하지 않고 하나의 영역만 유지하기 위한 처리입니다.</span>
+        analy<span class="token punctuation">.</span><span class="token function">removeCustomLandById</span><span class="token punctuation">(</span><span class="token constant">DYNAMIC_LAND_ID</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token comment">// 현재 마우스 위치를 기준으로 새로운 미리보기 지표면을 생성합니다.</span>
+        <span class="token comment">//</span>
+        <span class="token comment">// createPreviewGeoVertex()는 중심 좌표 주변의 경계 좌표를 계산하는</span>
+        <span class="token comment">// 프로젝트별 함수라고 가정합니다.</span>
+        <span class="token comment">//</span>
+        <span class="token comment">// 위경도 좌표에서 동일한 좌표 차이가 항상 동일한 실제 거리를 의미하지 않으므로,</span>
+        <span class="token comment">// 실제 서비스에서는 프로젝트에서 사용하는 좌표·거리 변환 방식을 적용하는 것을 권장합니다.</span>
+        <span class="token keyword">await</span> analy<span class="token punctuation">.</span><span class="token function">addCustomLand</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+            <span class="token literal-property property">id</span><span class="token operator">:</span> <span class="token constant">DYNAMIC_LAND_ID</span><span class="token punctuation">,</span>
+            <span class="token literal-property property">geoVertex</span><span class="token operator">:</span> <span class="token function">createPreviewGeoVertex</span><span class="token punctuation">(</span>center<span class="token punctuation">)</span><span class="token punctuation">,</span>
+            <span class="token literal-property property">height</span><span class="token operator">:</span> <span class="token number">20</span><span class="token punctuation">,</span>
+        <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>error<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token comment">// 지표면 생성 또는 제거 과정에서 오류가 발생한 경우 확인할 수 있도록 출력합니다.</span>
+        console<span class="token punctuation">.</span><span class="token function">error</span><span class="token punctuation">(</span><span class="token string">'동적 지표면 편집에 실패했습니다.'</span><span class="token punctuation">,</span> error<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span> <span class="token keyword">finally</span> <span class="token punctuation">{</span>
+        <span class="token comment">// 성공 여부와 관계없이 현재 생성 작업이 종료되었음을 표시합니다.</span>
+        <span class="token comment">// 이후 mousemove 이벤트에서 다음 미리보기를 생성할 수 있습니다.</span>
+        isUpdating <span class="token operator">=</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<figure class="document-image">
+<img src="image/customLandStart/동적편집.gif" alt="마우스를 이동하는 위치에 맞춰 작은 지표면 편집 영역이 갱신되는 모습" loading="eager">
+<figcaption>마우스를 이동하는 위치에 맞춰 작은 지표면 편집 영역이 갱신되는 모습</figcaption>
+</figure>
+</main>
+</body>
+</html>
+

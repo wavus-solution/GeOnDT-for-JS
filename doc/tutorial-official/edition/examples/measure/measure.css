@@ -1,0 +1,294 @@
+/* 레일 버튼은 44px 고정 폭이라 낱말 가운데에서 줄이 잘리지 않게 한다. */
+.measure-rail-button {
+    word-break: keep-all;
+    line-height: 1.15;
+}
+
+.measure-panel-content {
+    display: grid;
+    gap: 0;
+    padding: 18px;
+}
+
+.measure-panel-content .panel-description {
+    margin: 0;
+    color: var(--theme-muted);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.measure-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--theme-line);
+}
+
+.measure-section h3 {
+    margin: 0 0 10px;
+    color: #eff9fd;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.measure-hint {
+    margin: 8px 0 0;
+    color: var(--theme-muted);
+    font-size: 11px;
+    line-height: 1.5;
+    word-break: keep-all;
+}
+
+.measure-mode-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.measure-coord-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.measure-mode-grid label,
+.measure-coord-grid label {
+    position: relative;
+    display: block;
+    margin: 0;
+    cursor: pointer;
+}
+
+.measure-mode-grid input,
+.measure-coord-grid input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.measure-mode-grid span,
+.measure-coord-grid span {
+    display: block;
+    padding: 9px 3px;
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    background: var(--theme-surface);
+    color: var(--theme-muted);
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.measure-mode-grid input:checked + span,
+.measure-coord-grid input:checked + span {
+    border-color: var(--theme-accent);
+    background: var(--theme-accent-soft);
+    color: #ffffff;
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12);
+}
+
+.measure-mode-grid input:focus-visible + span,
+.measure-coord-grid input:focus-visible + span {
+    outline: 2px solid var(--theme-accent);
+    outline-offset: 2px;
+}
+
+.measure-option-row {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    min-height: 56px;
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--theme-line);
+    border-radius: 10px;
+    background: var(--theme-surface);
+    cursor: pointer;
+}
+
+.measure-option-row:hover {
+    border-color: var(--theme-accent);
+    background: var(--theme-accent-soft);
+}
+
+.measure-option-row input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--theme-accent);
+}
+
+.measure-option-copy {
+    min-width: 0;
+}
+
+.measure-option-copy strong,
+.measure-option-copy small {
+    display: block;
+}
+
+.measure-option-copy strong {
+    color: #eff9fd;
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+.measure-option-copy small {
+    margin-top: 3px;
+    color: var(--theme-muted);
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.measure-option-row b {
+    color: var(--theme-accent);
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.measure-option-row.is-error b {
+    color: #ffb8b8;
+}
+
+.measure-textarea {
+    box-sizing: border-box;
+    width: 100%;
+    margin-top: 8px;
+    padding: 8px;
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    background: var(--theme-surface);
+    color: #eff9fd;
+    font-family: Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    resize: vertical;
+}
+
+.measure-action {
+    width: 100%;
+    min-height: 36px;
+    margin-top: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    background: var(--theme-surface);
+    color: #eff9fd;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.measure-action.primary {
+    border-color: var(--theme-accent);
+    background: var(--theme-accent-soft);
+}
+
+.measure-action:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.measure-result-card {
+    padding: 12px;
+    border: 1px solid var(--theme-line);
+    border-radius: 10px;
+    background: var(--theme-surface);
+}
+
+.measure-result-heading {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.measure-result-heading h3 {
+    margin: 0;
+}
+
+.measure-result-heading span {
+    color: var(--theme-muted);
+    font-size: 10px;
+}
+
+#measure-result-empty {
+    margin: 9px 0 0;
+    color: var(--theme-muted);
+    font-size: 11px;
+    line-height: 1.5;
+    word-break: keep-all;
+}
+
+/* 구간이 많아지면 결과만 스크롤해 패널 전체가 길어지지 않게 한다. */
+#measure-segment-list {
+    max-height: 160px;
+    margin: 8px 0 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+}
+
+#measure-segment-list li {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--theme-line);
+    font-size: 11px;
+}
+
+#measure-segment-list li:last-child {
+    border-bottom: 0;
+}
+
+#measure-segment-list span {
+    color: var(--theme-muted);
+    font-family: Consolas, monospace;
+}
+
+#measure-segment-list b {
+    color: #eff9fd;
+    font-family: Consolas, monospace;
+}
+
+#measure-total {
+    margin: 8px 0 0;
+    padding-top: 8px;
+    border-top: 1px solid var(--theme-accent);
+}
+
+#measure-total div {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+}
+
+#measure-total dt {
+    color: var(--theme-muted);
+}
+
+#measure-total dd {
+    margin: 0;
+    color: #eff9fd;
+    font-family: Consolas, monospace;
+    font-weight: 700;
+}
+
+#measure-segment-list[hidden],
+#measure-total[hidden],
+#measure-result-empty[hidden] {
+    display: none;
+}
+
+@media (max-width: 760px) {
+    .measure-mode-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}

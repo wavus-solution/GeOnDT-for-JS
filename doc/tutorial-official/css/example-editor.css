@@ -1,0 +1,878 @@
+[hidden] {
+    display: none !important;
+}
+
+.editor-workspace {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 100;
+    display: grid;
+    grid-template-rows: 38px minmax(0, 1fr);
+    width: var(--side-editor-width, min(40vw, 600px));
+    color: #dceef7;
+    background: #122632;
+    border-right: 1px solid rgba(205, 237, 250, .25);
+    box-shadow: 12px 0 30px rgba(7, 28, 41, .22);
+}
+
+.editor-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+    padding: 0 8px 0 12px;
+    background: #234b61;
+    border-bottom: 1px solid rgba(205, 237, 250, .25);
+    box-shadow: 0 3px 10px rgba(7, 28, 41, .16);
+}
+
+.editor-title {
+    overflow: hidden;
+    color: #f2fbff;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.is-dirty .editor-title::after {
+    margin-left: 6px;
+    color: #b9e8f8;
+    /* CSS 파일이 UTF-8이 아닌 인코딩으로 해석되면 기호가 깨지므로 ASCII 이스케이프로 적는다. */
+    content: '\25CF';
+    font-size: 7px;
+}
+
+.editor-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.editor-toolbar button,
+.editor-tabs button,
+.preview-console button,
+.editor-mobile-notice button {
+    color: #eaf8fd;
+    background: rgba(216, 241, 250, .08);
+    border: 1px solid rgba(216, 241, 250, .22);
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.editor-toolbar button {
+    height: 28px;
+    padding: 0 10px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.editor-toolbar button:hover,
+.editor-toolbar button:focus-visible,
+.editor-toolbar button[aria-expanded="true"] {
+    background: rgba(135, 209, 237, .3);
+}
+
+.editor-toolbar button:active,
+.editor-tabs button:active,
+.preview-console button:active,
+.editor-mobile-notice button:active {
+    transform: translateY(1px);
+}
+
+.editor-toolbar button:disabled,
+.editor-tabs button:disabled,
+.preview-console button:disabled,
+.editor-mobile-notice button:disabled {
+    cursor: not-allowed;
+    opacity: .46;
+}
+
+.editor-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.editor-workspace:not(.has-preview) .editor-splitter,
+.editor-workspace:not(.has-preview) .preview-pane {
+    display: none;
+}
+
+/* 실행 콘솔은 편집 패널 안에 있으므로 실행 여부와 상관없이 같은 자리에 같은 크기로 뜬다.
+   실행 전에는 미리보기 자체가 없어 아래 규칙만으로 충분하다. */
+.editor-workspace.console-only:not(.has-preview) .preview-frame-container {
+    display: none;
+}
+
+.editor-workspace.has-preview {
+    right: 0;
+    width: auto;
+}
+
+.editor-workspace.has-preview .editor-panel-resizer,
+.editor-workspace.is-preview-only .editor-panel-resizer {
+    display: none;
+}
+
+.editor-workspace.has-preview .editor-layout {
+    grid-template-columns: minmax(320px, 42fr) 6px minmax(420px, 58fr);
+    overflow: visible;
+}
+
+.editor-workspace.has-preview .editor-toolbar {
+    z-index: 6;
+    width: var(--editor-pane-width, 42%);
+}
+
+/* 미리보기는 화면에 고정해 항상 전체 크기를 유지한다. 그리드 칸으로 두면 패널 너비를 바꿀 때마다
+   지도 div까지 같이 줄었다 늘어난다. 실행 전처럼 패널이 지도 위에 떠 있는 구성으로 맞춘다. */
+/* z-index를 주면 쌓임 맥락이 생겨 안에 있는 실행 콘솔이 편집 패널 위로 올라오지 못한다.
+   지정하지 않아도 z-index를 가진 편집 패널이 위에 놓인다. */
+.editor-workspace.has-preview .preview-pane {
+    position: fixed;
+    inset: 0;
+}
+
+/* 편집 패널과 툴바는 고정된 미리보기 위에 얹는다. 둘 다 불투명 배경이라 지도를 가린다. */
+.editor-workspace.has-preview .editor-toolbar,
+.editor-workspace.has-preview .editor-pane {
+    position: relative;
+    z-index: 3;
+}
+
+
+/* 패널 오른쪽은 지도가 그대로 보여야 하므로 작업 영역 자체의 배경과 경계선을 지운다. */
+.editor-workspace.has-preview {
+    background: transparent;
+    border-right: none;
+    box-shadow: none;
+}
+
+.editor-workspace.is-preview-only {
+    right: 0;
+    grid-template-rows: minmax(0, 1fr);
+    width: auto;
+}
+
+.editor-workspace.is-preview-only .editor-toolbar,
+.editor-workspace.is-preview-only .editor-pane,
+.editor-workspace.is-preview-only .editor-splitter,
+.editor-workspace.is-preview-only .preview-console {
+    display: none;
+}
+
+.editor-workspace.is-preview-only .editor-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+}
+
+
+.editor-workspace.is-preview-only .preview-pane {
+    grid-column: 1;
+}
+
+.editor-pane,
+.preview-pane {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.editor-pane {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 34px minmax(0, 1fr);
+    background: #122632;
+}
+
+.editor-tabs {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+    padding: 4px 6px 0;
+    overflow: hidden;
+    background: #193343;
+    border-bottom: 1px solid rgba(205, 237, 250, .14);
+}
+
+.editor-tabs button {
+    min-width: 86px;
+    height: 29px;
+    padding: 0 12px;
+    color: #91afbf;
+    background: transparent;
+    border-color: transparent;
+    border-radius: 6px 6px 0 0;
+    font-size: 10px;
+}
+
+.editor-tabs button:not(.editor-run-button) {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-right: 6px;
+    padding-left: 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.editor-tabs button[aria-selected="true"] {
+    color: #eefaff;
+    background: #122632;
+    border-color: transparent;
+    border-bottom: 2px solid #78c6e5;
+}
+
+.editor-tabs .editor-run-button {
+    align-self: center;
+    flex: 0 0 auto;
+    min-width: 72px;
+    height: 25px;
+    margin: -2px 2px 2px auto;
+    padding: 0 12px;
+    color: #f2fbff;
+    background: #337b9f;
+    border-color: rgba(190, 236, 252, .5);
+    border-radius: 6px;
+    font-weight: 800;
+}
+
+.editor-tabs .editor-run-button:hover,
+.editor-tabs .editor-run-button:focus-visible {
+    background: #3b8bb2;
+}
+
+.editor-search-toggle {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 5px;
+}
+
+.editor-search-toggle img {
+    width: 14px;
+    height: 14px;
+}
+
+/* 닫기는 패널 우상단이라는 관습적 위치에 두고 테마의 danger 계열 채도로 구분한다. */
+.editor-toolbar .editor-close-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 5px;
+    color: #fff8f8;
+    background: rgba(184, 91, 95, .88);
+    border-color: rgba(255, 214, 216, .42);
+}
+
+.editor-toolbar .editor-close-button:hover,
+.editor-toolbar .editor-close-button:focus-visible {
+    background: rgba(203, 104, 108, .94);
+    border-color: rgba(255, 226, 228, .62);
+}
+
+.editor-close-icon {
+    font-size: 14px;
+    line-height: 1;
+}
+
+/* 닫기 버튼 바로 아래에서 시작해 안내를 세로로 쌓는다.
+   탭 줄과 겹치므로 말풍선은 클릭을 통과시킨다. */
+.editor-hint-stack {
+    position: absolute;
+    top: 44px;
+    right: 12px;
+    z-index: 9;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    max-width: min(360px, calc(100% - 24px));
+    pointer-events: none;
+}
+
+.editor-hint {
+    position: relative;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    color: #fff5f5;
+    background: rgba(184, 91, 95, .94);
+    border: 1px solid rgba(255, 214, 216, .5);
+    border-radius: 8px;
+    box-shadow: 0 10px 24px rgba(7, 28, 41, .42);
+    font-size: 11px;
+    line-height: 1.55;
+}
+
+.editor-hint::before {
+    position: absolute;
+    top: -6px;
+    right: 32px;
+    width: 10px;
+    height: 10px;
+    background: inherit;
+    border-top: 1px solid rgba(255, 214, 216, .5);
+    border-left: 1px solid rgba(255, 214, 216, .5);
+    content: '';
+    transform: rotate(45deg);
+}
+
+.editor-hint p {
+    margin: 0;
+}
+
+/* 닫기 안내와 성격이 달라 같은 형태를 유지하되 색으로 구분한다. */
+.editor-shortcut-hint {
+    color: #eaf6fc;
+    background: rgba(52, 104, 140, .94);
+    border-color: rgba(172, 223, 240, .5);
+}
+
+.editor-shortcut-hint::before {
+    display: none;
+}
+
+.editor-shortcut-hint dl {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 5px 10px;
+    margin: 0;
+}
+
+.editor-shortcut-hint dt {
+    display: flex;
+    gap: 3px;
+    white-space: nowrap;
+}
+
+.editor-shortcut-hint dd {
+    margin: 0;
+}
+
+.editor-shortcut-hint kbd {
+    padding: 1px 5px;
+    color: #f4fbff;
+    background: rgba(12, 43, 64, .55);
+    border: 1px solid rgba(172, 223, 240, .45);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 10px;
+    line-height: 1.5;
+}
+
+.editor-shortcut-note {
+    opacity: .8;
+    font-size: 10px;
+}
+
+.editor-hint.is-leaving {
+    opacity: 0;
+    transition: opacity .25s ease;
+}
+
+/* 안내 중에는 닫기 관련 버튼 세 곳을 함께 강조해 위치를 인지시킨다. */
+.editor-close-button.is-hinted,
+.editor-edge-toggle.is-hinted,
+.editor-mode-toggle.is-hinted {
+    animation: editor-hint-pulse 1.5s ease-out infinite;
+}
+
+@keyframes editor-hint-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 110, 116, .9);
+    }
+
+    70% {
+        box-shadow: 0 0 0 16px rgba(255, 110, 116, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 110, 116, 0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .editor-close-button.is-hinted,
+    .editor-edge-toggle.is-hinted,
+    .editor-mode-toggle.is-hinted {
+        animation: none;
+        outline: 2px solid rgba(255, 110, 116, .9);
+        outline-offset: 2px;
+    }
+
+    .editor-hint.is-leaving {
+        transition: none;
+    }
+}
+
+/* 편집 영역 위에 겹쳐 표시해 탭·Monaco 그리드 배치를 바꾸지 않는다. */
+.editor-search {
+    position: absolute;
+    top: 34px;
+    right: 8px;
+    left: 8px;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    max-height: min(62%, 400px);
+    overflow: hidden;
+    color: #dceef7;
+    background: #16303f;
+    border: 1px solid rgba(205, 237, 250, .24);
+    border-top: 0;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 12px 26px rgba(7, 28, 41, .45);
+}
+
+.editor-search-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 6px 6px 8px;
+    background: #1c3a4c;
+    border-bottom: 1px solid rgba(205, 237, 250, .14);
+}
+
+.editor-search-bar-icon {
+    width: 14px;
+    height: 14px;
+    opacity: .7;
+}
+
+.editor-search-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 26px;
+    padding: 0 8px;
+    color: #eaf8fd;
+    background: rgba(216, 241, 250, .08);
+    border: 1px solid rgba(216, 241, 250, .22);
+    border-radius: 6px;
+    font-size: 11px;
+}
+
+.editor-search-input:focus-visible {
+    border-color: #78c6e5;
+    outline: none;
+}
+
+.editor-search-option,
+.editor-search-close {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    color: #cfeaf6;
+    background: rgba(216, 241, 250, .08);
+    border: 1px solid rgba(216, 241, 250, .22);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.editor-search-option[aria-pressed="true"] {
+    color: #f2fbff;
+    background: #337b9f;
+    border-color: rgba(190, 236, 252, .5);
+}
+
+.editor-search-summary {
+    margin: 0;
+    padding: 5px 10px;
+    color: #9fc0d0;
+    font-size: 10px;
+}
+
+.editor-search-summary.is-error {
+    color: #ffb4b4;
+}
+
+.editor-search-results {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding-bottom: 4px;
+    overflow-y: auto;
+}
+
+.editor-search-group {
+    padding: 5px 10px 2px;
+    color: #86c8e4;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.editor-search-item {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    padding: 3px 10px 3px 18px;
+    color: #cfe6f1;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    font-family: 'Cascadia Code', Consolas, monospace;
+    font-size: 11px;
+    text-align: left;
+}
+
+.editor-search-item:hover,
+.editor-search-item:focus-visible,
+.editor-search-item.is-active {
+    background: rgba(135, 209, 237, .18);
+    outline: none;
+}
+
+.editor-search-line {
+    flex: 0 0 auto;
+    min-width: 30px;
+    color: #7fa3b5;
+    text-align: right;
+}
+
+.editor-search-text {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.editor-search-text mark {
+    color: #0f2733;
+    background: #8fd4ef;
+    border-radius: 2px;
+}
+
+.monaco-host,
+.preview-frame-container,
+.preview-frame {
+    width: 100%;
+    height: 100%;
+}
+
+/* Monaco 내부 위젯(Sticky Scroll 등)이 검색 패널 위로 올라오지 않도록 쌓임 맥락을 가둔다. */
+.monaco-host {
+    position: relative;
+    z-index: 0;
+}
+
+/* Monaco의 UI 타이틀 툴팁(찾기 위젯의 Close 등)은 편집 영역이 좁으면 대상 버튼 위에
+   겹쳐 그려진다. 겹친 툴팁이 포인터를 가져가면 툴팁이 사라졌다 나타나기를 반복하며
+   버튼 클릭도 툴팁에 먹힌다. 안내용이라 포인터를 받을 필요가 없으므로 통과시킨다.
+   코드 호버(.monaco-editor-hover)는 링크 조작이 필요하므로 대상에서 제외한다. */
+.context-view:has(> .workbench-hover-container),
+.workbench-hover-container,
+.monaco-hover.workbench-hover {
+    pointer-events: none;
+}
+
+.editor-splitter {
+    position: relative;
+    z-index: 2;
+    background: #274a60;
+    border-right: 1px solid rgba(205, 237, 250, .12);
+    border-left: 1px solid rgba(205, 237, 250, .12);
+    cursor: col-resize;
+    touch-action: none;
+}
+
+.editor-splitter::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 2px;
+    height: 38px;
+    background: rgba(195, 235, 250, .35);
+    border-radius: 4px;
+    content: '';
+    transform: translate(-50%, -50%);
+}
+
+.editor-splitter:hover,
+.editor-splitter:focus-visible,
+.is-resizing-editor .editor-splitter {
+    background: #4687a9;
+}
+
+.editor-panel-resizer {
+    position: absolute;
+    top: 0;
+    right: -4px;
+    bottom: 0;
+    z-index: 8;
+    width: 8px;
+    background: transparent;
+    cursor: col-resize;
+    touch-action: none;
+}
+
+.editor-panel-resizer::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 3px;
+    height: 52px;
+    background: rgba(195, 235, 250, .48);
+    border: 1px solid rgba(20, 54, 73, .3);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(7, 28, 41, .2);
+    content: '';
+    transform: translate(-50%, -50%);
+}
+
+.editor-panel-resizer:hover::after,
+.editor-panel-resizer:focus-visible::after,
+.is-resizing-editor .editor-panel-resizer::after {
+    background: #8dd4ef;
+}
+
+.editor-panel-resizer:focus-visible {
+    outline: 2px solid #b9e8f8;
+    outline-offset: -2px;
+}
+
+/* 패널 바깥에 두어 닫힌 상태에서도 같은 자리에서 열기 역할을 이어간다.
+   열림: 패널 오른쪽 경계 / 닫힘: 화면 왼쪽 끝 */
+.editor-edge-toggle {
+    position: fixed;
+    top: 50%;
+    left: 0;
+    z-index: 105;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 72px;
+    padding: 0;
+    color: #eaf8fd;
+    background: #2f5b74;
+    border: 1px solid rgba(205, 237, 250, .45);
+    border-left: 0;
+    border-radius: 0 9px 9px 0;
+    box-shadow: 4px 0 14px rgba(7, 28, 41, .38);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    transform: translateY(-50%);
+    transition: left .2s ease, background .2s ease, border-color .2s ease;
+}
+
+.example-editor-open .editor-edge-toggle {
+    left: var(--editor-pane-width, min(40vw, 600px));
+}
+
+.editor-edge-toggle:hover,
+.editor-edge-toggle:focus-visible {
+    background: #3b7c9c;
+    border-color: rgba(228, 247, 255, .7);
+}
+
+.editor-edge-toggle:focus-visible {
+    outline: 2px solid #b9e8f8;
+    outline-offset: 2px;
+}
+
+/* 가장자리 버튼은 패널을 접고 펴는 손잡이라 실행 뒤에도 그대로 둔다. 너비 조절은 가운데 splitter가 맡는다.
+   실행 전 화면과 같은 구성을 유지해야 무엇이 어디 있었는지 다시 찾지 않는다. */
+
+/* 접힌 상태에서는 패널 너비가 아니라 화면 왼쪽 끝에 붙여 다시 펼치는 손잡이로 쓴다. */
+body:has(.editor-workspace.is-preview-only) .editor-edge-toggle {
+    left: 0;
+}
+
+.editor-edge-toggle {
+    display: var(--editor-edge-toggle-display, grid);
+}
+
+.is-resizing-editor {
+    cursor: col-resize;
+    user-select: none;
+}
+
+/* 너비를 끄는 동안에는 전환 효과가 포인터를 뒤따라와 버튼이 밀려 보인다. */
+.is-resizing-editor .editor-edge-toggle,
+.is-resizing-editor .editor-mode-toggle {
+    transition: none;
+}
+
+.preview-pane {
+    background: #dce7ec;
+}
+
+.preview-frame {
+    display: block;
+    background: #b8d4e1;
+    border: 0;
+}
+
+.preview-console {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 30;
+    display: none;
+    height: min(110px, 38%);
+    overflow: hidden;
+    background: #0c141a;
+    border-top: 1px solid rgba(180, 213, 228, .15);
+}
+
+.preview-console.open {
+    display: grid;
+    grid-template-rows: 27px minmax(0, 1fr);
+}
+
+.preview-console header {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    height: 27px;
+    padding: 0 7px;
+    background: #0c141a;
+    border-bottom: 1px solid rgba(170, 205, 221, .07);
+}
+
+.preview-console header strong {
+    font-size: 9px;
+}
+
+.console-count {
+    padding: 1px 5px;
+    color: #84a1af;
+    background: #16232c;
+    border-radius: 4px;
+    font-size: 8px;
+}
+
+.preview-console .console-clear {
+    margin-left: auto;
+}
+
+.preview-console button {
+    height: 21px;
+    padding: 0 7px;
+    color: #a9bac3;
+    background: #18252f;
+    border-color: rgba(180, 213, 228, .15);
+    font-size: 8px;
+}
+
+.preview-console-output {
+    padding: 5px 8px 12px;
+    overflow: auto;
+    font: 9px/1.5 Consolas, "Courier New", monospace;
+}
+
+.console-entry {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 5px;
+    padding: 2px 0;
+    border-bottom: 1px solid rgba(177, 211, 226, .05);
+}
+
+.console-entry b {
+    color: #64818f;
+    font-size: inherit;
+    font-weight: 400;
+    text-transform: uppercase;
+}
+
+.console-entry pre {
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    color: #a9bac3;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    font: inherit;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.console-error b,
+.console-error pre {
+    color: #f09a9a;
+}
+
+.console-warn b,
+.console-warn pre {
+    color: #d9b56d;
+}
+
+.console-empty {
+    margin: 0;
+    padding: 6px 0;
+    color: #526b78;
+}
+
+.editor-mobile-notice {
+    align-self: center;
+    justify-self: center;
+    width: min(440px, calc(100vw - 32px));
+    padding: 26px;
+    color: #edfaff;
+    background: rgba(42, 88, 117, .88);
+    border: 1px solid rgba(213, 241, 251, .34);
+    border-radius: 12px;
+    box-shadow: 0 16px 40px rgba(11, 42, 61, .25);
+    text-align: center;
+}
+
+.editor-mobile-notice strong {
+    font-size: 15px;
+}
+
+.editor-mobile-notice p {
+    color: #c3dce8;
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+.editor-mobile-notice button {
+    min-height: 34px;
+    padding: 0 14px;
+    background: rgba(105, 193, 227, .28);
+    font-size: 10px;
+}
+
+.runner-example-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+@media (max-width: 760px) {
+    .editor-workspace {
+        right: 0;
+        grid-template-rows: 38px minmax(0, 1fr);
+        width: auto;
+        background: linear-gradient(145deg, #7fb4cd, #426f8d);
+    }
+
+    .editor-layout {
+        display: none;
+    }
+
+    .editor-panel-resizer,
+    .editor-edge-toggle {
+        display: none;
+    }
+
+    .editor-toolbar-actions button:not([data-editor-action="viewer"]) {
+        display: none;
+    }
+}

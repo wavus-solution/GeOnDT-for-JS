@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>컴포넌트 조회하기</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="컴포넌트-조회하기">컴포넌트 조회하기</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-%EC%A0%84%EC%B2%B4-%EC%BB%B4%ED%8F%AC%EB%84%8C%ED%8A%B8-%EC%A1%B0%ED%9A%8C">전체 컴포넌트 조회</a></li>
+<li><a href="#2-%EC%9D%B4%EB%A6%84%EC%9C%BC%EB%A1%9C-%EC%A1%B0%ED%9A%8C">이름으로 조회</a></li>
+<li><a href="#3-3d-%EC%97%90%EC%85%8B%EC%9C%BC%EB%A1%9C-%EC%A1%B0%ED%9A%8C">3D 에셋으로 조회</a></li>
+<li><a href="#4-%EC%86%8D%EC%84%B1%EC%9C%BC%EB%A1%9C-%EC%A1%B0%ED%9A%8C">속성으로 조회</a></li>
+<li><a href="#5-%EC%98%81%EC%97%AD-%EC%A2%8C%ED%91%9C%EB%A1%9C-%EC%A1%B0%ED%9A%8C">영역 좌표로 조회</a></li>
+</ol>
+<p>이 장에서는 생성된 <strong>컴포넌트를 조회하는 방법</strong>에 대해 다룹니다.</p>
+<p>컴포넌트의 개념 및 구성은 <a href="componentDoc.html#2-%EC%BB%B4%ED%8F%AC%EB%84%8C%ED%8A%B8">용어 설명 - 컴포넌트</a>를 참고하세요.<br>컴포넌트 및 컴포넌트 레이어 생성 방법은 <a href="createComponent.html#3-%EC%BB%B4%ED%8F%AC%EB%84%8C%ED%8A%B8-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">3D 공간에 사물 출력 - 컴포넌트 생성하기</a>를 참고하세요.</p>
+<h2 id="1-전체-컴포넌트-조회">1. 전체 컴포넌트 조회</h2>
+<p>컴포넌트 레이어의 <code>getComponents()</code> 메서드를 통해 레이어에 등록된 <mark>모든 컴포넌트를 조회</mark>할 수 있습니다.<br>반환되는 각 컴포넌트는 생성 방식에 따라 <code>U3dComponentPosition</code> 또는 <code>U3dComponentInstancedPosition</code> 객체입니다.<br>두 객체의 차이는 <a href="componentDoc.html#2-%EC%BB%B4%ED%8F%AC%EB%84%8C%ED%8A%B8">용어 설명 - 컴포넌트</a>와 <a href="componentDoc.html#3-%EC%9D%B8%EC%8A%A4%ED%84%B4%EC%8A%A4-%EC%BB%B4%ED%8F%AC%EB%84%8C%ED%8A%B8">용어 설명 - 인스턴스 컴포넌트</a>를 참고하세요.</p>
+<h4 class="api-heading" id="api">API</h4>
+<p>U3dMultipleComponentLayer.getComponents() : 레이어에 등록된 전체 컴포넌트 목록을 조회하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Array&lt;U3dComponentPosition | U3dComponentInstancedPosition&gt;</code>) : 전체 컴포넌트 목록</li>
+</ul>
+</details>
+<h3 id="1-전체-목록-조회">1. 전체 목록 조회</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> components <span class="token operator">=</span> componentLayer<span class="token punctuation">.</span><span class="token function">getComponents</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> component <span class="token keyword">of</span> components<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>component<span class="token punctuation">.</span>name<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<p><strong><code>getComponents()</code>는 레이어가 관리하는 내부 배열을 반환하므로 조회 목적으로 사용하고, 반환된 배열에 항목을 직접 추가하거나 삭제하지 않습니다.</strong></p>
+<h2 id="2-이름으로-조회">2. 이름으로 조회</h2>
+<p><mark>특정 컴포넌트만 조회</mark>하고 싶다면, 컴포넌트의 고유한 <mark>이름</mark>을 통해 조회할 수 있습니다.<br>컴포넌트 레이어의 <code>getComponentByName(name)</code>을 사용해 <code>name</code>과 일치하는 컴포넌트를 조회할 수 있으며, 일치하는 대상이 없으면 <code>undefined</code>를 반환합니다.</p>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>U3dMultipleComponentLayer.getComponentByName(<code>name</code>) : 이름이 일치하는 컴포넌트를 조회하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>name</code> (<code>string</code>) : 조회할 컴포넌트 이름. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>U3dComponentPosition | U3dComponentInstancedPosition | undefined</code>) : 이름이 일치하는 컴포넌트. 일치하는 대상이 없으면 <code>undefined</code></li>
+</ul>
+</details>
+<h3 id="1-이름으로-조회">1. 이름으로 조회</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> name <span class="token operator">=</span> <span class="token string">'건물_1'</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> component <span class="token operator">=</span> componentLayer<span class="token punctuation">.</span><span class="token function">getComponentByName</span><span class="token punctuation">(</span>name<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span>component<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>component<span class="token punctuation">.</span>name<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string"> 조회 완료</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>name<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string"> 이름에 해당하는 컴포넌트가 없습니다.</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h2 id="3-3d-에셋으로-조회">3. 3D 에셋으로 조회</h2>
+<p>3D 에셋은 컴포넌트가 사용할 원본 3D 파일입니다. 자세한 용어 설명은 <a href="componentDoc.html#1-3d-%EC%97%90%EC%85%8B">용어 설명 - 3D 에셋</a>을 참고하세요.<br>하나의 <mark>3D 에셋을 공유하는 모든 컴포넌트를 조회</mark>하고 싶다면, 컴포넌트 레이어의 <code>getComponentsByModel(modelName)</code>을 사용하면 됩니다.  </p>
+<p>현재 등록된 모든 3D 에셋의 이름은 <code>getListModel()</code>로 조회할 수 있습니다. <code>name</code> 속성이 3D 에셋의 이름입니다. </p>
+<h4 class="api-heading" id="api-2">API</h4>
+<p>U3dMultipleComponentLayer.getListModel() : 레이어에 등록된 모든 컴포넌트 목록을 조회하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Array&lt;ModelDataInfo&gt;</code>) : 3D 에셋 목록</li>
+</ul>
+</details>
+<p><strong><code>getListModel()</code>은 레이어가 관리하는 내부 배열을 반환하므로 조회 목적으로 사용하고, 반환된 배열에 항목을 직접 추가하거나 삭제하지 않습니다.</strong></p>
+<h3 id="1-전체-3d-에셋-목록-조회">1. 전체 3D 에셋 목록 조회</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> models <span class="token operator">=</span> componentLayer<span class="token punctuation">.</span><span class="token function">getListModel</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> model <span class="token keyword">of</span> models<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>model<span class="token punctuation">.</span>name<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h4 class="api-heading" id="api-3">API</h4>
+<p>U3dMultipleComponentLayer.getListModelByName(<code>name</code>) : 이름이 일치하는 3D 에셋 정보를 조회하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>name</code> (<code>string</code>) : 조회할 3D 에셋 이름. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>ModelDataInfo | undefined</code>) : 이름이 일치하는 3D 에셋 정보. 일치하는 대상이 없으면 <code>undefined</code></li>
+</ul>
+</details>
+<h3 id="2-이름으로-3d-에셋-정보-조회">2. 이름으로 3D 에셋 정보 조회</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> modelInfo <span class="token operator">=</span> componentLayer<span class="token punctuation">.</span><span class="token function">getListModelByName</span><span class="token punctuation">(</span><span class="token string">'buildingModel'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span>modelInfo<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>modelInfo<span class="token punctuation">.</span>fileName<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h4 class="api-heading" id="api-4">API</h4>
+<p>U3dMultipleComponentLayer.getComponentsByModel(<code>modelName</code>) : 원본 3D 에셋 이름이 일치하는 컴포넌트 목록을 조회하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>modelName</code> (<code>string</code>) : 컴포넌트를 생성할 때 사용한 3D 에셋 이름. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Array&lt;U3dComponentPosition | U3dComponentInstancedPosition&gt;</code>) : 해당 3D 에셋을 공유하는 컴포넌트 목록</li>
+</ul>
+</details>
+<h3 id="3-3d-에셋-이름으로-컴포넌트-조회">3. 3D 에셋 이름으로 컴포넌트 조회</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> models <span class="token operator">=</span> componentLayer<span class="token punctuation">.</span><span class="token function">getListModel</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> modelName <span class="token operator">=</span> models<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token operator">?.</span>name<span class="token punctuation">;</span>  <span class="token comment">// 'buildingModel'</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>modelName<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'등록된 3D 에셋이 없습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">const</span> components <span class="token operator">=</span> componentLayer<span class="token punctuation">.</span><span class="token function">getComponentsByModel</span><span class="token punctuation">(</span>modelName<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> component <span class="token keyword">of</span> components<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>component<span class="token punctuation">.</span>name<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string"> 조회 완료</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h2 id="4-속성으로-조회">4. 속성으로 조회</h2>
+<p>컴포넌트에는 키와 값으로 구성된 속성 정보(Properties)를 저장할 수 있습니다. 저장된 속성 정보를 통해 컴포넌트를 분류하고 조회할 수 있습니다.<br>컴포넌트 레이어의 <code>getComponentsByProperty()</code>에 콜백 함수를 전달하면, 각 <mark>컴포넌트의 속성을 검사해 조건에 맞는 대상을 조회</mark>할 수 있습니다.</p>
+<h3 id="1-속성-추가-변경-제거-및-조회">1. 속성 추가, 변경, 제거 및 조회</h3>
+<h4 class="api-heading" id="api-5">API</h4>
+<p>U3dComponentPosition.addProperties(<code>key</code>, <code>value</code>) : 컴포넌트에 속성 정보를 추가하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>key</code> (<code>string</code>) : 속성을 식별하는 키. <strong>필수</strong></li>
+<li><code>value</code> (<code>unknown</code>) : 저장할 속성값. <strong>필수</strong></li>
+</ul>
+</details>
+<p>같은 키가 이미 존재하면 기존 속성값을 변경합니다.</p>
+<h4 class="api-heading" id="api-6">API</h4>
+<p>U3dComponentPosition.setProperties(<code>input</code>) : 컴포넌트의 전체 속성 정보를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>input</code> (<code>Record&lt;string, unknown&gt; | string</code>) : 설정할 속성 객체 또는 JSON 문자열. <strong>필수</strong></li>
+</ul>
+</details>
+<p><strong><code>setProperties()</code>는 기존 속성 정보를 입력한 객체의 내용으로 교체합니다.</strong></p>
+<h4 class="api-heading" id="api-7">API</h4>
+<p>U3dComponentPosition.changeProperties(<code>key</code>, <code>value</code>) : 기존 속성 정보를 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>key</code> (<code>string</code>) : 변경할 속성의 키. <strong>필수</strong></li>
+<li><code>value</code> (<code>unknown</code>) : 변경할 속성값. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-8">API</h4>
+<p>U3dComponentPosition.removeProperties(<code>key</code>) : 컴포넌트의 속성 정보를 제거하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>key</code> (<code>string</code>) : 제거할 속성의 키. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-9">API</h4>
+<p>U3dComponentPosition.getProperties() : 컴포넌트의 전체 속성 정보를 조회하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Record&lt;string, unknown&gt;</code>) : 키와 값으로 구성된 속성 정보</li>
+</ul>
+</details>
+<pre class="language-javascript"><code class="language-javascript">component<span class="token punctuation">.</span><span class="token function">setProperties</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">건물명</span><span class="token operator">:</span> <span class="token string">'서울아파트'</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+component<span class="token punctuation">.</span><span class="token function">addProperties</span><span class="token punctuation">(</span><span class="token string">'관할구'</span><span class="token punctuation">,</span> <span class="token string">'인천광역시 부평구'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+component<span class="token punctuation">.</span><span class="token function">changeProperties</span><span class="token punctuation">(</span><span class="token string">'관할구'</span><span class="token punctuation">,</span> <span class="token string">'서울특별시 구로구'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+component<span class="token punctuation">.</span><span class="token function">removeProperties</span><span class="token punctuation">(</span><span class="token string">'관할구'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> properties <span class="token operator">=</span> component<span class="token punctuation">.</span><span class="token function">getProperties</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>properties<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// {건물명: '서울아파트'}</span>
+</code></pre>
+<h3 id="2-속성-조건으로-조회">2. 속성 조건으로 조회</h3>
+<h4 class="api-heading" id="api-10">API</h4>
+<p>U3dMultipleComponentLayer.getComponentsByProperty(<code>callback</code>) : 속성 조건과 일치하는 컴포넌트 목록을 조회하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>callback</code> (<code>function</code>) : 컴포넌트와 속성 정보를 받아 조회 결과 포함 여부를 판별하는 사용자 콜백 함수. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Array&lt;U3dComponentPosition | U3dComponentInstancedPosition&gt;</code>) : 콜백에서 반환한 컴포넌트 목록</li>
+</ul>
+</details>
+<p>콜백 함수에서는 조건이 일치할 때 해당 컴포넌트를 반환하고, 일치하지 않을 때는 undefined를 반환해야 합니다.<br>일반적인 배열 필터 함수처럼 true를 반환하면 결과 배열에 컴포넌트가 아닌 true 값이 추가되므로, 조건이 일치할 때는 반드시 <strong>컴포넌트 자체를 반환</strong>해야 합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> components <span class="token operator">=</span> componentLayer<span class="token punctuation">.</span><span class="token function">getComponents</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+components<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token operator">?.</span><span class="token function">addProperties</span><span class="token punctuation">(</span><span class="token string">'건물용도'</span><span class="token punctuation">,</span> <span class="token string">'주거용'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+components<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token operator">?.</span><span class="token function">addProperties</span><span class="token punctuation">(</span><span class="token string">'건물층수'</span><span class="token punctuation">,</span> <span class="token number">40</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> searched <span class="token operator">=</span> componentLayer<span class="token punctuation">.</span><span class="token function">getComponentsByProperty</span><span class="token punctuation">(</span>
+    <span class="token punctuation">(</span><span class="token parameter">component<span class="token punctuation">,</span> properties</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>properties<span class="token punctuation">[</span><span class="token string">'건물용도'</span><span class="token punctuation">]</span> <span class="token operator">===</span> <span class="token string">'주거용'</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            <span class="token keyword">return</span> component<span class="token punctuation">;</span>
+        <span class="token punctuation">}</span>
+
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">typeof</span> properties<span class="token punctuation">[</span><span class="token string">'건물층수'</span><span class="token punctuation">]</span> <span class="token operator">===</span> <span class="token string">'number'</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            <span class="token keyword">return</span> component<span class="token punctuation">;</span>  <span class="token comment">// 컴포넌트 자체를 반환</span>
+        <span class="token punctuation">}</span>
+
+        <span class="token keyword">return</span> <span class="token keyword">undefined</span><span class="token punctuation">;</span> <span class="token comment">// 해당 없으면 undefined 반환 </span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> component <span class="token keyword">of</span> searched<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>component<span class="token punctuation">.</span>name<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string"> 조회 완료</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h2 id="5-영역-좌표로-조회">5. 영역 좌표로 조회</h2>
+<p>컴포넌트 레이어의 <code>getComponentsByArea()</code>를 사용하면 위경도 좌표(EPSG:4326)로 구성한 다각형 <mark>영역과 교차하거나 영역 안에 위치하는 컴포넌트를 조회</mark>할 수 있습니다.<br>컴포넌트의 바운딩 박스가 있으면 영역과의 교차 여부를 검사하고, 바운딩 박스가 없으면 컴포넌트의 중심 좌표를 기준으로 판정합니다. 조회 영역을 구성하려면 좌표가 <strong>세 개 이상</strong> 필요합니다.</p>
+<h4 class="api-heading" id="api-11">API</h4>
+<p>U3dMultipleComponentLayer.getComponentsByArea(<code>points</code>) : 지정한 영역과 교차하거나 영역 안에 위치하는 컴포넌트 목록을 조회하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>points</code> (<code>Array&lt;GeoPosition&gt;</code>) : 조회 영역을 구성하는 위경도 좌표(EPSG:4326) 배열. 세 개 이상의 좌표가 필요합니다. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Array&lt;U3dComponentPosition | U3dComponentInstancedPosition&gt;</code>) : 지정한 영역과 교차하거나 영역 안에 위치하는 컴포넌트 목록</li>
+</ul>
+</details>
+<p>영역 조회는 평면을 기준으로 처리하므로 좌표의 <code>z</code> 값(고도)은 생략 가능합니다.</p>
+<h3 id="1-다각형-영역으로-조회">1. 다각형 영역으로 조회</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> searchedArea <span class="token operator">=</span> <span class="token punctuation">[</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">126.94125621010221</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">37.519600495894785</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">126.94075315354304</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">37.51872412274371</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">126.94156163729888</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">37.51833937030407</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">126.94324148688041</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">37.51934399750134</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">126.94291809337807</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">37.52026311266344</span><span class="token punctuation">}</span>
+<span class="token punctuation">]</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> searched <span class="token operator">=</span> componentLayer<span class="token punctuation">.</span><span class="token function">getComponentsByArea</span><span class="token punctuation">(</span>searchedArea<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> component <span class="token keyword">of</span> searched<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>component<span class="token punctuation">.</span>name<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string"> 조회 완료</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+</main>
+</body>
+</html>
+

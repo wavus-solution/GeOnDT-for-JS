@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>건물 지우기</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    
+    <link rel="stylesheet" href="css/tutorial.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+
+    <style>
+        .examples {
+            padding: 15px 30px 15px 30px;
+        }
+    </style>
+</head>
+<body>
+<div id="map-wrapper">
+    <div id="map"></div>
+</div>
+<div class="execute-popup"><button>직접해보기</button></div>
+<div class="examples row">
+    <div class="col-sm-12">
+        <div class="radio">
+            <label>
+                <input type="radio" name="mode" value="select">
+                건물 선택
+            </label>
+
+            <label>
+                <input type="radio" name="mode" value="map" checked>
+                지도 모드
+            </label>
+        </div>
+        <div class="form-group row">
+            <div class="btn btn-default btn-xs btn-gizmo" id="translate">위치편집</div>
+            <div class="btn btn-default btn-xs btn-gizmo" id="rotate">화전편집</div>
+            <div class="btn btn-default btn-xs btn-gizmo" id="scale">크기편집</div>
+            <div class="btn btn-default btn-xs btn-gizmo" id="reset">초기화</div>
+            <div class="btn btn-default btn-xs btn-gizmo" id="save">저장</div>
+        </div>
+    </div>
+</div>
+
+<pre>건물편집 예제</pre>
+
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function() {
+        window.open('./runner.html?url=' + strings[strings.length-1] + '&title=' + document.title);
+    })
+</script>
+
+<script>
+    require(['app/Union3D'], function (Union3D) {
+        Union3D.ready(function () {
+            window.gizmoObject = undefined;
+            window.selectModel = undefined;
+            var isGizmoMode = false;
+            var isSelectMode = false;
+            var samplePosition = {
+                '부산': {x: 129.075, y: 35.184, z: 500, rotateX: 0, rotateY: 60}
+                //'부산'     : {x: 129.1625, y: 35.1725, z: 185, rotateX: 0, rotateY: 75}
+            };
+
+            var dataServerUrl = 'http://175.126.38.102/';
+
+            window.app = new Union3D.U3dAPP({
+                containername: 'map'
+            });
+
+            window.THREE = app._THREE;
+
+            var position = samplePosition['부산'];
+            app.setHomePosition(position.x, position.y, position.z, position.rotateX, position.rotateY); //경도, 위도, 높이, 방위각, 고도각
+            app.updateHomePosition();
+
+            //이미지 레이어 생성
+            var layer = new Union3D.image.U3dImageXYZLayer({
+                name: 'satellite',
+                baseurl: layerInfo.image.vworldsaturl,
+                reverseY: true
+            });
+            app.addLayer(layer);
+            //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+            app.setNameBaseLayer('satellite');
+            app.showLayer('satellite', true);
+
+            var terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+                name: 'Korea Terrain',
+                baseurl: layerInfo.height.url,
+                ext: '.umf',
+                reverseY: true,
+                minlevel: 9,
+                maxlevel: 15,
+                useproxy: false,
+                maxprocess: 2,
+                interpolationheight: true,
+                rectangle: Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2)
+            });
+            app.addLayer(terrainLayer);
+            app.showLayer('Korea Terrain', true);
+
+
+            //+ 국토부 환경설정
+            var limitdistance = 9999999999999;
+            var maxprocess_image = 2;
+            var maxprocess_height = 2;
+            var maxprocess_model = 10;
+            var sizeblock_model = 10;
+            var modelLayer = new Union3D.model.U3dModelU3FLayer({
+                name: 'Busan Building',
+                useproxy: false,
+                baseurl: layerInfo.model.busanu3furl,
+                basename: layerInfo.model.busanu3fname,
+                minlevel: app.isIE() ? 17 : 17,
+                maxlevel: app.isIE() ? 17 : 17,
+                opacity: 0.7,
+                maxprocess: maxprocess_model,
+                sizeblock: sizeblock_model,
+                limitdistance: limitdistance,
+                animation: false
+            });
+            app.addLayer(modelLayer);
+            app.showLayer('Busan Building', true);
+
+            // 하이브리드 지도
+            var hybridLayer = new Union3D.image.U3dImageXYZLayer({
+                name: 'hybrid',
+                baseurl: layerInfo.image.vworldhybirdurl,
+                reverseY: true,
+                transparent: true,
+                animation: true
+            });
+            app.addLayer(hybridLayer);
+            app.showLayer('hybrid', true);
+
+            app.on('click', clickEvent);
+            var analyCustomModel = app.getAnalysis('CustomModel');
+            var analyGizmoModel = app.getAnalysis('GizmoModel');
+            analyGizmoModel.setTargetScene(modelLayer.getScene());
+
+            function clickEvent(e) {
+                // '건물 선택' 라디오 버튼이 선택된 경우
+                if ($('input[value=select]:checked').val() && !isGizmoMode) {
+                    analyCustomModel.removeAllHighlight();
+                    var obj = analyCustomModel.intersectModel(e);
+                    if (obj.length === 0) {
+                        selectModel = undefined;
+                        return;
+                    }
+                    selectModel = obj[0];
+
+                    if (selectModel !== undefined) {
+                        // 라벨 Input에 값 넣기
+                        analyCustomModel.setHighlight(obj[0].object);
+                        gizmoObject = obj[0].object;
+                    }
+                }
+            }
+
+            $(document).on('click', '.btn-gizmo', function (e) {
+                if (e.target.id === 'save') {
+                    analyGizmoModel.save(gizmoObject).then(function (result) {
+                        var base64 = arrayBufferToBase64(result.buffer);
+
+                        var parameter = {
+                            url: result.url,
+                            data: base64
+                        };
+
+                        $.ajax({
+                            url: 'http://theunionit.co.kr:7071/layer/u3fwrite',
+                            // url: 'http://localhost:8080/layer/u3fwrite',
+                            data: parameter,
+                            type: 'post',
+                            success: function (res) {
+                                console.log(res);
+                            },
+                            error: function (err) {
+                                console.log('error');
+                                console.log(err);
+                            }
+                        });
+                    });
+                    return;
+                }
+
+                if(e.target.id === "reset"){
+                    analyGizmoModel.reset(gizmoObject);
+                    return;
+                }
+                if (gizmoObject === undefined) {
+                    confirm('편집할 가상건물을 선택해 주세요');
+                    return;
+                }
+                app.deactiveAnalysis('CustomModel');
+                analyGizmoModel.active();
+                analyGizmoModel.setMode(e.target.id);
+                analyGizmoModel.setObject(gizmoObject);
+                var $radioDiv = $(this).closest('.col-sm-4');
+                $radioDiv.find('input[type="radio"]:checked').prop("checked", false);
+                isGizmoMode = true;
+            });
+
+            $(document).on('change', 'input[type="radio"]', function (e) {
+                var target = e.target.value;
+                analyCustomModel.removeAllHighlight();
+                selectModel = undefined;
+                gizmoObject = undefined;
+                isGizmoMode = false;
+                app.deactiveAllAnalysis();
+
+                if (target === 'map') {
+                    analyCustomModel.deactive();
+                    analyGizmoModel.deactive();
+                    app.off('click', clickEvent);
+                } else if (target === 'select') {
+                    app.on('click', clickEvent);
+                }
+            });
+
+            function arrayBufferToBase64(buffer) {
+                var binary = '';
+                var bytes = new Uint8Array(buffer);
+                var len = bytes.byteLength;
+                for (var i = 0; i < len; i++) {
+                    binary += String.fromCharCode(bytes[i]);
+                }
+
+                return window.btoa(binary);
+            }
+        });
+    });
+</script>
+</body>
+</html>

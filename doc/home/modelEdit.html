@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title> 모델 편집 (GIZMO)</title>
+</head>
+<body style="padding-top: 0">
+<div class="index">
+    <a href="#jump1">1. 시작하기 </a><br>
+    <a href="#jump2">2. 편집 타입 선택 </a><br>
+    <a href="#jump3">3. 편집 모델 등록 </a><br>
+    <a href="#jump4">4. 이벤트 사용 </a><br>
+    <a href="#jump5">5. 가이드 선 사용 </a><br>
+</div>
+<hr>
+<div class="content">
+    <h2 class="lead" id="jump1"> 1. 시작하기 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            모델 편집을 위해서는 먼저 app에 등록된 모드를 활성화해야 합니다.<br>
+            <strong>app.getAnalysis(mode) api를 통해 등록된 모드를 가져온 후, active()를 호출하여 활성화합니다.</strong><br>
+            또는 <strong>app.activeAnalysis(mode)</strong>를 통해 바로 활성할수 있습니다. <br> <br>
+
+            모델 편집 모드의 이름은 <accent>GizmoModel</accent> 입니다.
+        </div>
+        <div class="explane_api">
+            U3dApp.<span class="api_name">getAnalysis(<span class="param_name">analysisName</span>)</span> : app에 등록되 분석모드를 가져오는 함수
+            <div class="explane_api_param">
+                <span class="param_name">analysisName</span><span class="param_type">string</span> : 분석모드 이름
+            </div>
+        </div>
+        <div class="explane_api">
+            UAnalyGizmoModel.<span class="api_name">active()</span> : 모델 편집 모드 활성 함수
+        </div>
+        <div class="explane_api">
+            UAnalyGizmoModel.<span class="api_name">deactive()</span> : 모델 편집 모드 비활성 함수
+        </div>
+
+        <label class="code-label">모델 편집 모드 활성화</label>
+        <div class="code" id="text1-code"></div>
+        <div class="code-text" id="text1" hidden="hidden">
+            const gizmo = app.getAnalysis('GizmoModel');
+            if(gizmo) gizmo.active(); // 모드 활성
+            if(gizmo) gizmo.deactive(); // 모드 비활성
+
+            // 또는
+            app.activeAnalysis('GizmoModel');
+        </div>
+
+        <div class="explane1" >
+            현재 모델 폄집 모드가 활성화되어있는지 여부는 isActive()를 통해 확인 가능합니다.
+        </div>
+        <div class="explane_api">
+            UAnalyGizmoModel.<span class="api_name">isActive()</span> : 모델 편집 모드의 활성화 여부 확인 함수
+        </div>
+        <label class="code-label">모드 활성 여부 확인</label>
+        <div class="code" id="text2-code"></div>
+        <div class="code-text" id="text2" hidden="hidden">
+            const gizmo = app.getAnalysis('GizmoModel');
+            if(gizmo) {
+                if(gizmo.isActive()) toast('모델 편집 모드 활성!');
+                else toast('모델 편집 모드 비활성!');
+            }
+        </div>
+    </div>
+
+    <h2 class="lead" id="jump2"> 2. 편집 타입 선택 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            편집 모드를 활성화 했다면 이제 어떤 편집을 수행할 지 타입을 선택할 차례입니다. <br>
+            현재 지원되는 타입은 세가지 입니다. <accent>translate(위치편집), rotate(회전편집),scale(크기편집)</accent><br>
+            초기 설정은 위치 편집입니다. 편집 타입은 <accent>setMode() 를 통해 변경</accent>합니다.
+        </div>
+        <div class="explane_api">
+            UAnalyGizmoModel.<span class="api_name">setMode(<span class="param_name">type</span>)</span> : 편집 타입을 설정하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">type</span><span class="param_type">string</span> : 편집 타입 (translate, rotate, scale)
+            </div>
+        </div>
+        <label class="code-label">편집 타입 설정</label>
+        <div class="code" id="text3-code"></div>
+        <div class="code-text" id="text3" hidden="hidden">
+            const gizmo = app.getAnalysis('GizmoModel');
+            if(gizmo) {
+                gizmo.setMode('translate'); // 위치 편집
+                gizmo.setMode('rotate');    // 회전 편집
+                gizmo.setMode('scale');     // 크기 편집
+            }
+        </div>
+    </div>
+
+    <h2 class="lead" id="jump3"> 3. 편집 모델 등록 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            모든 준비가 끝났으면 이제 편집할 모델을 등록을 해야합니다.
+            편집 모델 등록은 <accent>setObject(편질할 모델 객체)</accent> api를 통해 등록합니다.
+        </div>
+        <div class="explane_api">
+            UAnalyGizmoModel.<span class="api_name">setObject(<span class="param_name">objects</span>)</span> : 편집할 모델을 등록하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">objects</span><span class="param_type">Object3D|Object3D[]</span> : 모델 또는 모델 배열
+            </div>
+        </div>
+        <label class="code-label">편집 모델 등록</label>
+        <div class="code" id="text4-code"></div>
+        <div class="code-text" id="text4" hidden="hidden">
+            // 편집 모델 생성
+            const geometry = new app._THREE.BoxGeometry(1, 1, 1);
+            const material = new app._THREE.MeshBasicMaterial();
+            const boxMesh = new app._THREE.Mesh(geometry, material);
+
+            // 편집 모델 등록
+            const gizmo = app.getAnalysis('GizmoModel');
+            if(gizmo) {
+                gizmo.setObject(boxMesh);
+            }
+        </div>
+    </div>
+
+    <h2 class="lead" id="jump4"> 4. 이벤트 사용 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            모델 편집 중이거나 종료되었을 때 추가 작업을 수행할 수 있도록 사용자 콜백 함수를 등록할 수 있습니다. <br><br>
+            <accent>setUpdateFunc(func)</accent> api는 모델 <strong>편집 중에 계속 호출</strong>될 함수를 지정합니다.<br>
+            <accent>etEndFunc(func)</accent>  api는 모델 편집이 <strong>종료됬을 때 호출</strong>될 함수를 지정합니다.<br>
+        </div>
+        <div class="explane_api">
+            UAnalyGizmoModel.<span class="api_name">setUpdateFunc(<span class="param_name">func</span>)</span> : 편집 중 호출될 함수를 등록
+            <div class="explane_api_param">
+                <span class="param_name">func</span><span class="param_type">Function</span> : 사용자 콜백 함수
+            </div>
+        </div>
+        <div class="explane_api">
+            UAnalyGizmoModel.<span class="api_name">setEndFunc(<span class="param_name">func</span>)</span>  : 편집 종료 시 호출될 함수를 등록
+            <div class="explane_api_param">
+                <span class="param_name">func</span><span class="param_type">Function</span> : 사용자 콜백 함수
+            </div>
+        </div>
+        <label class="code-label">이벤트 사용</label>
+        <div class="code" id="text5-code"></div>
+        <div class="code-text" id="text5" hidden="hidden">
+            function gizmoUpdate (gizmo, targets, controller) {
+                if (gizmo.isDrag === false) return;
+                console.log('모델 편집 중...');
+            }
+
+            function gizmoEnd (gizmo, targets, controller) {
+                console.log('모델 편집 종료');
+            }
+
+            // 콜백함수 등록
+            gizmo.setUpdateFunc(gizmoUpdate);
+            gizmo.setEndFunc(gizmoEnd);
+        </div>
+    </div>
+
+    <h2 class="lead" id="jump5"> 5. 가이드 선 사용 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            모델 편집 시 위치 파악을 돕기 위해 가이드 선을 사용할 수 있습니다.
+            가이드 선을 통해 현재 편집 중인 모델의 위치를 보다 정확하게 확인할 수 있습니다.<br>
+            가이드 선은 <accent>setUseLaser(use)</accent> API를 통해 켜거나 끌 수 있습니다.
+        </div>
+        <div class="explane_api">
+            UAnalyGizmoModel.<span class="api_name">setUseLaser(<span class="param_name">use</span>)</span>  : 가이드 선을 사용할지 말지 설정하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">use</span><span class="param_type">boolean</span> : 가이드 선(레이저) 사용 여부
+            </div>
+        </div>
+        <label class="code-label">가이드 선 사용</label>
+        <div class="code" id="text6-code"></div>
+        <div class="code-text" id="text6" hidden="hidden">
+            const gizmo = app.getAnalysis('GizmoModel');
+            gizmo?.setUseLaser(true);  // 가이드 선(레이저) 사용
+            gizmo?.setUseLaser(false); // 가이드 선(레이저) 미사용
+        </div>
+        <div class="explane1" >
+            가이드 선 사용 시 사용 환경에 따라 가이드 선 스타일을 원하는대로 커스텀 할 수 있습니다. <br>
+            <accent>setLaserStyle(opt)</accent> api를 통해 가이드 선의 색상, 투명도, 두께를 설정합니다.
+        </div>
+        <div class="explane_api">
+            UAnalyGizmoModel.<span class="api_name">setLaserStyle(<span class="param_name">opt</span>)</span>  : 가이드 선 스타일을 설정하는 함수 <br>
+            <div class="explane_api_param">
+                <span class="param_name">opt</span><span class="param_type">object</span> : 가이드 선 스타일 정보<br>
+                <span class="param_name">opt.color</span><span class="param_type">Color</span> : 가이드 선 색상<br>
+                <span class="param_name">opt.opacity</span><span class="param_type">number</span> : 가이드 선 투명도 <br>
+                <span class="param_name">opt.radius</span><span class="param_type">number</span> : 가이드 선 두께 <br>
+            </div>
+        </div>
+        <label class="code-label">가이드 선 사용</label>
+        <div class="code" id="text7-code"></div>
+        <div class="code-text" id="text7" hidden="hidden">
+            const gizmo = app.getAnalysis('GizmoModel');
+            gizmo.setUseLaser(true); // 가이드 선 on
+
+            // 가이드 선 스타일 설정
+            gizmo.setLaserStyle({
+                color : '#fff000',
+                opacity: 0.7,
+                radius: 5
+            })
+        </div>
+        <img src="./image/modelEdit/레이저사용.png" alt="레이저사용" data-size="small">
+        <img src="./image/modelEdit/레이저사용2.png" alt="레이저사용2" data-size="small">
+    </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>점 (Point)</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="점-point">점 (Point)</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-%EC%A0%90-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">점 생성하기</a></li>
+<li><a href="#2-%EC%9C%84%EC%B9%98-%EC%A7%80%EC%A0%95%ED%95%98%EA%B8%B0">위치 지정하기</a></li>
+<li><a href="#3-%ED%81%AC%EA%B8%B0%EC%99%80-%EC%9D%B4%EB%AF%B8%EC%A7%80-%EB%B0%94%EA%BE%B8%EA%B8%B0">크기와 이미지 바꾸기</a></li>
+<li><a href="#4-%EC%83%89%EC%83%81%EA%B3%BC-%ED%88%AC%EB%AA%85%EB%8F%84-%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0">색상과 투명도 설정하기</a></li>
+<li><a href="#5-%EC%86%8D%EC%84%B1%EC%A0%95%EB%B3%B4%EC%99%80-%ED%95%B4%EC%A0%9C">속성정보와 해제</a></li>
+</ol>
+<div class="document-thumbnail" data-size="medium">
+<figure class="document-image">
+<img src="image/pointStart/thumbnail.png" alt="여러 지점에 표시한 마커" loading="eager">
+<figcaption>여러 지점에 표시한 마커</figcaption>
+</figure>
+</div>
+<p><code>U3dPoint</code>는 지정한 좌표에 이미지 마커를 표시합니다.<br>시설물 위치, 관측 지점, 알림 표시처럼 지도 위 한 지점을 가리킬 때 사용합니다.</p>
+<p>마커는 항상 화면을 향하도록 그려지므로 카메라를 어느 방향으로 돌려도 정면으로 보입니다.<br>점은 이미지로 그려집니다.<br><mark><code>img</code>를 지정해야 화면에 표시됩니다.</mark></p>
+<hr>
+<h2 id="1-점-생성하기">1. 점 생성하기</h2>
+<p><code>U3dPoint</code> 생성자로 객체를 만들고, <code>U3dVectorLayer.addGeometry</code>로 레이어에 등록한 뒤 위치를 지정하면 화면에 표시됩니다.<br>레이어를 만들고 도형을 등록·제거하는 방법은 <a href="vectorLayerStart.html#2-%EB%8F%84%ED%98%95-%EB%93%B1%EB%A1%9D%ED%95%98%EA%B3%A0-%EC%A0%9C%EA%B1%B0%ED%95%98%EA%B8%B0">3D Geometry 시작하기 - 도형 등록하고 제거하기</a>에서 설명합니다.</p>
+<p>크기(<code>size</code>)는 화면 픽셀 단위입니다.<br>지도를 확대하거나 축소해도 화면에서 차지하는 크기가 일정하게 유지됩니다.</p>
+<h4 class="api-heading" id="api">API</h4>
+<p>U3dPoint(<code>opt</code>) : 점 객체를 생성하는 생성자</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opt</code> (<code>object</code>) : 점 생성 옵션</li>
+<li><code>opt.name</code> (<code>string</code>) : 객체 이름. 지정하지 않으면 자동으로 생성됩니다</li>
+<li><code>opt.img</code> (<code>string | HTMLImageElement</code>) : 마커 이미지 URL 또는 이미지 엘리먼트</li>
+<li><code>opt.size</code> (<code>number</code>) : 크기(화면 픽셀). 기본값: <code>1</code></li>
+<li><code>opt.color</code> (<code>ColorRepresentation</code>) : 이미지에 곱해질 색상. 기본값: <code>&#39;#ff0000&#39;</code></li>
+<li><code>opt.opacity</code> (<code>number</code>) : 투명도(0~1). 기본값: <code>0.7</code></li>
+<li><code>opt.coordinates</code> (<code>Array&lt;GeoPositionVector3&gt;</code>) : 위치 좌표 배열 (위경도, EPSG:4326)</li>
+<li><code>opt.properties</code> (<code>KeyValue</code>) : 사용자 정의 속성정보</li>
+</ul>
+</details>
+<h3 id="1-점-생성-예제">1. 점 생성 예제</h3>
+<p>마커 이미지를 지정해 화면에 30픽셀 크기로 표시하는 예제입니다.<br><code>color</code>를 흰색으로 두면 이미지 색이 그대로 나타납니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> app <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>U3dAPP</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">containername</span><span class="token operator">:</span> <span class="token string">'map'</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> vectorLayer <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>vector<span class="token punctuation">.</span>U3dVectorLayer</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'vector'</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> point <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>geom<span class="token punctuation">.</span>U3dPoint</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'point_01'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">img</span><span class="token operator">:</span> <span class="token string">'image/marker.png'</span><span class="token punctuation">,</span>   <span class="token comment">// 마커 이미지</span>
+    <span class="token literal-property property">size</span><span class="token operator">:</span> <span class="token number">30</span><span class="token punctuation">,</span>                  <span class="token comment">// 화면에서 30픽셀</span>
+    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#ffffff'</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+vectorLayer<span class="token punctuation">.</span><span class="token function">addGeometry</span><span class="token punctuation">(</span>point<span class="token punctuation">)</span><span class="token punctuation">;</span>                <span class="token comment">// 벡터 레이어에 등록</span>
+point<span class="token punctuation">.</span><span class="token function">setPosition</span><span class="token punctuation">(</span><span class="token number">126.9393</span><span class="token punctuation">,</span> <span class="token number">37.5194</span><span class="token punctuation">,</span> <span class="token number">40</span><span class="token punctuation">)</span><span class="token punctuation">;</span>      <span class="token comment">// 위경도 좌표에 배치</span>
+</code></pre>
+<p>이미지는 비동기로 불러오므로 로드가 끝난 뒤에 화면에 나타납니다.</p>
+<hr>
+<h2 id="2-위치-지정하기">2. 위치 지정하기</h2>
+<p>점 하나만 놓으려면 <code>setPosition</code>에 위경도와 고도를 넣습니다.</p>
+<p><mark>한 객체에 좌표를 여러 개 넣으면 같은 이미지의 마커가 그 개수만큼 표시됩니다.</mark><br>마커 수십 개를 같은 모양으로 찍을 때 객체를 하나만 만들면 되므로 유리합니다.<br>좌표 전체를 한 번에 넣으려면 <code>setPositions</code>를, 하나씩 이어 붙이려면 <code>addPosition</code>을 사용합니다.</p>
+<p>세 번째 값은 고도(m)입니다.<br>지형 높이를 자동으로 조회하거나 따라가지 않으므로, 지면 위에 놓으려면 그 지점의 지형 고도를 더합니다.<br>지형 고도는 <code>app.getHeightAtGeographicPoint({x, y})</code>로 조회하며, 지형 로딩이 끝난 뒤에 호출해야 실제 값을 얻습니다.</p>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>U3dPoint.setPosition(<code>x</code>, <code>y</code>, <code>z</code>) : 위경도 좌표로 위치를 지정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>x</code> (<code>number | Vector3</code>) : 경도. <code>Vector3</code>를 넘기면 좌표 객체 하나로 지정합니다</li>
+<li><code>y</code> (<code>number</code>) : 위도</li>
+<li><code>z</code> (<code>number</code>) : 고도(m)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-2">API</h4>
+<p>U3dPoint.setPositions(<code>coordinates</code>) : 좌표 배열 전체를 지정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>coordinates</code> (<code>Array&lt;GeoPositionVector3&gt;</code>) : 위경도 좌표 배열 (EPSG:4326)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-3">API</h4>
+<p>U3dPoint.addPosition(<code>x</code>, <code>y</code>, <code>z</code>) : 좌표를 하나 추가하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>x</code> (<code>number</code>) : 경도</li>
+<li><code>y</code> (<code>number</code>) : 위도</li>
+<li><code>z</code> (<code>number</code>) : 고도(m)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-4">API</h4>
+<p>U3dPoint.getPositions() : 지정된 위경도 좌표 배열을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Array&lt;GeoPositionVector3&gt;</code>) : 위경도 좌표 배열 (EPSG:4326)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-5">API</h4>
+<p>U3dPoint.getVertex() : 변환된 월드 좌표 배열을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Array&lt;WorldPositionVector3&gt;</code>) : 좌표 배열 (월드 좌표, EPSG:3857)</li>
+</ul>
+</details>
+<h3 id="1-지면-위에-놓는-예제">1. 지면 위에 놓는 예제</h3>
+<p>마커가 지형에 묻히지 않도록 지형 고도에 여유 높이를 더해 띄웁니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token comment">// 지형 고도가 16m인 지점의 지면에서 5m 위에 놓습니다.</span>
+point<span class="token punctuation">.</span><span class="token function">setPosition</span><span class="token punctuation">(</span><span class="token number">126.9393</span><span class="token punctuation">,</span> <span class="token number">37.5194</span><span class="token punctuation">,</span> <span class="token number">16</span> <span class="token operator">+</span> <span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-마커-여러-개를-한-번에-찍는-예제">2. 마커 여러 개를 한 번에 찍는 예제</h3>
+<p>같은 모양의 마커를 여러 지점에 찍을 때는 객체를 하나만 만들고 좌표만 여러 개 넣습니다.<br>객체 수가 줄어 관리와 성능 모두 유리합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">point<span class="token punctuation">.</span><span class="token function">setPositions</span><span class="token punctuation">(</span><span class="token punctuation">[</span>
+    <span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span><span class="token number">126.9380</span><span class="token punctuation">,</span> <span class="token number">37.5190</span><span class="token punctuation">,</span> <span class="token number">40</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span><span class="token number">126.9395</span><span class="token punctuation">,</span> <span class="token number">37.5200</span><span class="token punctuation">,</span> <span class="token number">40</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span><span class="token number">126.9410</span><span class="token punctuation">,</span> <span class="token number">37.5190</span><span class="token punctuation">,</span> <span class="token number">40</span><span class="token punctuation">)</span>
+<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>point<span class="token punctuation">.</span><span class="token function">getPositions</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>length<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 3</span>
+</code></pre>
+<h3 id="3-좌표를-하나씩-추가하는-예제">3. 좌표를 하나씩 추가하는 예제</h3>
+<p>사용자가 화면을 클릭할 때마다 마커를 늘려 가는 경우에 사용합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">point<span class="token punctuation">.</span><span class="token function">addPosition</span><span class="token punctuation">(</span><span class="token number">126.9380</span><span class="token punctuation">,</span> <span class="token number">37.5190</span><span class="token punctuation">,</span> <span class="token number">40</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+point<span class="token punctuation">.</span><span class="token function">addPosition</span><span class="token punctuation">(</span><span class="token number">126.9400</span><span class="token punctuation">,</span> <span class="token number">37.5195</span><span class="token punctuation">,</span> <span class="token number">40</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="3-크기와-이미지-바꾸기">3. 크기와 이미지 바꾸기</h2>
+<p>크기는 <code>setSize</code>로 바꿉니다.<br>화면 픽셀 단위이며 보통 10~60 사이를 사용합니다.</p>
+<p>이미지는 <code>setImage</code>로 교체합니다.<br>문자열 URL을 주면 비동기로 불러오고, 이미지 엘리먼트를 주면 즉시 적용됩니다.</p>
+<h4 class="api-heading" id="api-6">API</h4>
+<p>U3dPoint.setSize(<code>size</code>) : 크기를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>size</code> (<code>number</code>) : 크기(화면 픽셀)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-7">API</h4>
+<p>U3dPoint.getSize() : 현재 크기를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>number</code>) : 크기(화면 픽셀)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-8">API</h4>
+<p>U3dPoint.setImage(<code>img</code>) : 마커 이미지를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>img</code> (<code>string | HTMLImageElement</code>) : 이미지 URL 또는 이미지 엘리먼트</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-9">API</h4>
+<p>U3dPoint.setParam(<code>param</code>) : 여러 속성을 한 번에 갱신하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>param</code> (<code>object</code>) : 변경할 속성 객체</li>
+<li><code>param.size</code> (<code>number</code>) : 크기(화면 픽셀)</li>
+<li><code>param.img</code> (<code>string | HTMLImageElement</code>) : 마커 이미지</li>
+<li><code>param.color</code> (<code>ColorRepresentation</code>) : 색상</li>
+<li><code>param.opacity</code> (<code>number</code>) : 투명도(0~1)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-10">API</h4>
+<p>U3dPoint.getParam() : 현재 속성을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>object</code>) : 크기·이미지·색상 등 현재 속성 객체</li>
+</ul>
+</details>
+<h3 id="1-크기-변경-예제">1. 크기 변경 예제</h3>
+<p>크기는 화면 픽셀 단위라, 지도를 확대·축소해도 마커가 같은 크기로 보입니다.<br>중요한 지점만 크게 두어 강조할 수 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript">point<span class="token punctuation">.</span><span class="token function">setSize</span><span class="token punctuation">(</span><span class="token number">48</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>point<span class="token punctuation">.</span><span class="token function">getSize</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 48</span>
+</code></pre>
+<h3 id="2-이미지-교체-예제">2. 이미지 교체 예제</h3>
+<p>선택되었을 때 다른 아이콘으로 바꾸는 식으로 사용합니다.<br>새 이미지도 비동기로 불러오므로 로드가 끝난 뒤에 바뀝니다.</p>
+<pre class="language-javascript"><code class="language-javascript">point<span class="token punctuation">.</span><span class="token function">setImage</span><span class="token punctuation">(</span><span class="token string">'image/marker_selected.png'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="3-크기와-이미지를-함께-바꾸는-예제">3. 크기와 이미지를 함께 바꾸는 예제</h3>
+<p>경보 상태로 바뀔 때 아이콘과 크기를 동시에 올리는 경우입니다.</p>
+<pre class="language-javascript"><code class="language-javascript">point<span class="token punctuation">.</span><span class="token function">setParam</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">size</span><span class="token operator">:</span> <span class="token number">36</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">img</span><span class="token operator">:</span> <span class="token string">'image/marker_alert.png'</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="4-색상과-투명도-설정하기">4. 색상과 투명도 설정하기</h2>
+<p>색상은 <code>setColor</code>, 투명도는 <code>setOpacity</code>로 바꿉니다.</p>
+<p>지정한 색상은 이미지에 곱해집니다.<br>흰색 이미지를 쓰면 색상값이 그대로 나타나므로, 마커 하나로 여러 색을 표현할 수 있습니다.</p>
+<p><code>setOpacity</code>는 값이 <code>1</code> 미만이면 반투명 처리를 자동으로 켜고 <code>1</code>이면 끕니다.</p>
+<h4 class="api-heading" id="api-11">API</h4>
+<p>U3dPoint.setColor(<code>color</code>) : 색상을 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>color</code> (<code>ColorRepresentation</code>) : 색상 값</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-12">API</h4>
+<p>U3dPoint.setOpacity(<code>opacity</code>) : 투명도를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opacity</code> (<code>number</code>) : 투명도(0~1). <code>0</code>이면 완전 투명, <code>1</code>이면 불투명</li>
+</ul>
+</details>
+<h3 id="1-색상과-투명도-변경-예제">1. 색상과 투명도 변경 예제</h3>
+<p>지정한 색은 이미지에 곱해집니다.<br>흰색 마커를 쓰면 색상값이 그대로 나타나므로 이미지 하나로 여러 색을 표현할 수 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript">point<span class="token punctuation">.</span><span class="token function">setColor</span><span class="token punctuation">(</span><span class="token string">'#00b3ff'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+point<span class="token punctuation">.</span><span class="token function">setOpacity</span><span class="token punctuation">(</span><span class="token number">0.6</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-상태에-따라-색을-바꾸는-예제">2. 상태에 따라 색을 바꾸는 예제</h3>
+<p>같은 흰색 마커 이미지로 상태별 색을 표현합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> colors <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token literal-property property">정상</span><span class="token operator">:</span> <span class="token string">'#2ecc71'</span><span class="token punctuation">,</span> <span class="token literal-property property">주의</span><span class="token operator">:</span> <span class="token string">'#f39c12'</span><span class="token punctuation">,</span> <span class="token literal-property property">경보</span><span class="token operator">:</span> <span class="token string">'#e74c3c'</span><span class="token punctuation">}</span><span class="token punctuation">;</span>
+
+point<span class="token punctuation">.</span><span class="token function">setColor</span><span class="token punctuation">(</span>colors<span class="token punctuation">[</span><span class="token string">'경보'</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="5-속성정보와-해제">5. 속성정보와 해제</h2>
+<p>도형에는 id, 이름, 업무 데이터 같은 부가 정보를 key-value 형태로 담아 둘 수 있습니다.</p>
+<p>새 속성을 넣을 때는 <code>addProperties</code>, 기존 값을 바꿀 때는 <code>changeProperties</code>, 전체를 통째로 교체할 때는 <code>setProperties</code>를 사용합니다.</p>
+<p>더 이상 쓰지 않는 점은 <code>dispose</code>로 정리합니다.</p>
+<h4 class="api-heading" id="api-13">API</h4>
+<p>U3dPoint.getProperties() : 사용자 정의 속성정보를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>KeyValue</code>) : 사용자 정의 속성정보</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-14">API</h4>
+<p>U3dPoint.setProperties(<code>input</code>) : 사용자 정의 속성정보 전체를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>input</code> (<code>KeyValue | string</code>) : 속성 객체 또는 JSON 문자열</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-15">API</h4>
+<p>U3dPoint.addProperties(<code>key</code>, <code>value</code>) : 속성정보를 하나 추가하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>key</code> (<code>string</code>) : 속성 식별키</li>
+<li><code>value</code> (<code>*</code>) : 속성 값</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-16">API</h4>
+<p>U3dPoint.changeProperties(<code>key</code>, <code>value</code>) : 기존 속성정보의 값을 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>key</code> (<code>string</code>) : 변경할 속성 식별키</li>
+<li><code>value</code> (<code>*</code>) : 속성 값</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-17">API</h4>
+<p>U3dPoint.removeProperties(<code>key</code>) : 속성정보를 제거하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>key</code> (<code>string</code>) : 제거할 속성 식별키</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-18">API</h4>
+<p>U3dPoint.dispose() : 점과 관련 리소스를 해제하는 함수</p>
+<h3 id="1-속성정보-다루기-예제">1. 속성정보 다루기 예제</h3>
+<pre class="language-javascript"><code class="language-javascript">point<span class="token punctuation">.</span><span class="token function">addProperties</span><span class="token punctuation">(</span><span class="token string">'시설명'</span><span class="token punctuation">,</span> <span class="token string">'제1관측소'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+point<span class="token punctuation">.</span><span class="token function">addProperties</span><span class="token punctuation">(</span><span class="token string">'관리번호'</span><span class="token punctuation">,</span> <span class="token string">'P-0231'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+point<span class="token punctuation">.</span><span class="token function">changeProperties</span><span class="token punctuation">(</span><span class="token string">'시설명'</span><span class="token punctuation">,</span> <span class="token string">'제2관측소'</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 기존 값 변경</span>
+point<span class="token punctuation">.</span><span class="token function">removeProperties</span><span class="token punctuation">(</span><span class="token string">'관리번호'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>            <span class="token comment">// 속성 제거</span>
+
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>point<span class="token punctuation">.</span><span class="token function">getProperties</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// {시설명: '제2관측소'}</span>
+</code></pre>
+<h3 id="2-해제-예제">2. 해제 예제</h3>
+<p>레이어에서 먼저 제거한 뒤 해제합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">vectorLayer<span class="token punctuation">.</span><span class="token function">removeGeometry</span><span class="token punctuation">(</span>point<span class="token punctuation">)</span><span class="token punctuation">;</span>
+point<span class="token punctuation">.</span><span class="token function">dispose</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+</main>
+</body>
+</html>
+

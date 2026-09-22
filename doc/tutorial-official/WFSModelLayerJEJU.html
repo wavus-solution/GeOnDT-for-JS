@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WFS 가상건물 가시화</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/tutorial.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        html, body {
+            height: 100%;
+        }
+
+        .examples {
+            padding: 15px 30px 15px 30px;
+        }
+
+        #map-wrapper {
+            width: 100%;
+            height: 800px;
+        !important;
+        }
+
+
+    </style>
+</head>
+<body>
+<div id="map-wrapper">
+    <div id="map"></div>
+</div>
+
+<div class="execute-popup">
+    <button>직접해보기</button>
+</div>
+
+
+<div class="examples row">
+    <div class="ex-explanation" hidden>
+        <p class="lead">
+            3D 모델 레이어 중, <strong>WFS 모델 레이어를 화면에 출력</strong>하는 예제입니다.<br>
+            다른 3D 모델 레이어와 달리 WFS 모델 레이어는 3D 가상 건물을 표출하는 레이어입니다.
+        </p>
+    </div>
+    <pre>WFS 레이어를 3D 가상건물로 가시화 할 수 있습니다.</pre>
+
+    <div class="info">
+        <label>
+            <input type="checkbox" target="useinfo">
+            객체선택
+        </label>
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script>
+    var sampleHeight = 450;
+    var _buildId = 'a1000001';
+    var samplePosition = {
+        '세운상가': {x: 126.995168, y: 37.569604, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '국회의사당': {x: 126.91415231094318, y: 37.53189615862187, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '63빌딩': {x: 126.9395, y: 37.52, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '대전': {x: 127.3846, y: 36.3506, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '광명역': {x: 126.8853, y: 37.4163, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '아시아문화전당': {x: 126.9206, y: 35.1471, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '강남사거리': {x: 127.0278, y: 37.498, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '목포': {x: 126.381862, y: 34.802357, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '송도': {x: 126.66, y: 37.38, z: 250, rotateX: 2, rotateY: 60},
+        '한반도': {x: 127.77, y: 36.73, z: 561000, rotateX: 0, rotateY: 0},
+        '아시아': {x: 126.66, y: 37.38, z: 4007500, rotateX: 0, rotateY: 0},
+        '시청': {x: 126.9760, y: 37.5575, z: 185, rotateX: 2, rotateY: 30},
+        //  '부산'    : {x: 129.082, y: 35.183, z: 294, rotateX: 0, rotateY: 40},
+        '부산': {x: 129.162, y: 35.160, z: 435, rotateX: 0, rotateY: 25},
+        '안양': {x: 126.962, y: 37.396, z: 220, rotateX: 0, rotateY: 40},
+        '덕촌': {x: 127.359, y: 36.660, z: 1240, rotateX: 0, rotateY: 0},
+        '울산': {x: 129.323, y: 35.540, z: 400, rotateX: 0, rotateY: 60},
+        '제주': {x: 126.517, y: 33.497, z: 400, rotateX: 0, rotateY: 60},
+        '강릉': {x: 128.876, y: 37.754, z: 400, rotateX: 0, rotateY: 60},
+        '인천': {x: 126.706, y: 37.457, z: 400, rotateX: 0, rotateY: 60},
+        '대구': {x: 128.602, y: 35.872, z: 400, rotateX: 0, rotateY: 60},
+
+        // '부산': {x: 129.158, y: 35.159, z: 300, rotateX: 0, rotateY: 35}
+        //'부산'     : {x: 129.1625, y: 35.1725, z: 185, rotateX: 0, rotateY: 75}
+    };
+
+    require(['app/Union3D'], function (Union3D) {
+        var defined = defined || {};
+
+        defined = function (value) {
+            return value !== undefined && value !== null;
+        }
+        //라이센스 인증
+        Union3D.ready(function () {
+            //지도 기본 세팅///////////////////////////////////////
+            var app = new Union3D.U3dAPP({
+                containername: 'map' //+ U3dApp(지도영역)의 div ID, *필수 입력
+                , ratiotilesize: 1.3
+                // , searchtype: 'sphere'
+
+            });
+            window.THREE = app._THREE;
+
+            var position = samplePosition['제주'];
+            app.setIntensityLight(0.8);
+            app.setHomePosition(position.x, position.y, position.z, position.rotateX, position.rotateY); //경도, 위도, 높이, 방위각, 고도각
+            app.updateHomePosition().then(function () {
+            });
+
+            var modelRoute1 = [
+                new THREE.Vector3(-249154.7608360987, -330729.14929123246, 0),
+                new THREE.Vector3(-249151.41489785988, -331103.50483496825, 0),
+                new THREE.Vector3(-248867.1519275717, -331113.9769683453, 0),
+                new THREE.Vector3(-248853.00356970108, -330998.94037919876, 0),
+                new THREE.Vector3(-249132.71912244285, -330732.66352691664, 0),
+            ]
+
+            var modelRoute2 = [
+                new THREE.Vector3(-248657.74511368104, -330056.04812200693, 0),
+                new THREE.Vector3(-248842.84748861848, -330062.66443947924, 0),
+                new THREE.Vector3(-248852.76587096654, -330551.55966299685, 0),
+                new THREE.Vector3(-248358.59340183958, -330511.7265133763, 0),
+                new THREE.Vector3(-248032.30831713614, -330452.3027658926, 0),
+                new THREE.Vector3(-248286.58520127553, -330018.6269232887, 0),
+                new THREE.Vector3(-248426.75890318904, -330062.65210452856, 0),
+
+            ]
+
+            var modelRoute3 = [
+                new THREE.Vector3(-248745.52025969207,  -330850.82535677496, 0),
+                new THREE.Vector3(-248729.0049244813,    -330942.6556229432, 0),
+                new THREE.Vector3(-248661.60649817283,  -330913.9989286667, 0),
+                new THREE.Vector3(-248592.92779279634,  -330900.2871526155, 0),
+                new THREE.Vector3(-248547.9466975035,   -330903.2447387792, 0),
+                new THREE.Vector3(-248484.94545117364,  -330923.7312394661, 0),
+                new THREE.Vector3(-248438.38623891797, -330944.86832992756, 0),
+                new THREE.Vector3(-248435.3502956052, -330863.23036695836, 0),
+                new THREE.Vector3(-248427.09409151893, -330763.2665307922, 0),
+                new THREE.Vector3(-248468.2710423902, -330758.9032807505, 0),
+                new THREE.Vector3(-248548.76988619321, -330753.65173762344, 0),
+                new THREE.Vector3(-248584.4051951792, -330746.9552951138, 0),
+                new THREE.Vector3(-248576.45992854566, -330610.2745164523, 0),
+                new THREE.Vector3(-248667.89051875178, -330606.12556723604, 0),
+                new THREE.Vector3(-248675.5065380077, -330743.2557567922, 0),
+                new THREE.Vector3(-248754.53959417331, -330741.41907589434, 0),
+
+
+            ]
+
+            var modelRoute4 = [
+                new THREE.Vector3(-248341.45333893722, -330736.82760689920 , 0),
+                new THREE.Vector3(-248271.41360874043, -330857.5998356791, 0),
+                new THREE.Vector3(-248207.85106317635, -330985.96983389460, 0),
+                new THREE.Vector3(-248192.82814312557, -330998.5773883108 , 0),
+                new THREE.Vector3(-248081.99963000586, -330945.13780001860, 0),
+                new THREE.Vector3(-248100.51922575926, -330879.948064577, 0),
+                new THREE.Vector3(-248015.28307420065, -330860.51301230890, 0),
+                new THREE.Vector3(-248023.0511660108, -330843.85769052745, 0),
+                new THREE.Vector3(-248075.4611901134, -330816.234257669250, 0),
+                new THREE.Vector3(-248098.1796047396, -330782.944755277650, 0),
+                new THREE.Vector3(-248152.7220970452, -330797.4779266241, 0),
+                new THREE.Vector3(-248210.84597298218, -330800.14125986, 0),
+                new THREE.Vector3(-248218.88863799226, -330751.00689295710, 0),
+                new THREE.Vector3(-248254.0455563186, -330740.3271629335, 0),
+                new THREE.Vector3(-248292.42313395446, -330728.776115978, 0),
+                new THREE.Vector3(-248330.54308351333, -330732.46191189390, 0),
+                new THREE.Vector3(-248335.27356762058, -330733.7330803594, 0),
+
+            ]
+
+            var modelRoute5 = [
+
+
+                 new THREE.Vector3(-249258.1475567427,  -330303.46638760215, 0),
+                 new THREE.Vector3(-248905.06420022005,  -330306.7337416662,0),
+                 new THREE.Vector3(-248904.31594689898, -330512.2225950872, 0),
+                 new THREE.Vector3(-249450.03902178173,  -330502.53666113387,0),
+                 new THREE.Vector3(-249464.5736604625,  -330499.3507371133, 0),
+                 new THREE.Vector3(-249456.26738873898,  -330302.20718574274,0),
+                 new THREE.Vector3(-249272.40263742468,  -330303.603669288, 0),
+
+            ]
+
+
+            //이미지 레이어 생성
+            var layer = new Union3D.image.U3dImageXYZLayer({
+                name: 'satellite',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+                //baseurl: layerInfo.image.vworldsaturl, //+ 이미지 데이터 URL, *필수 입력
+                baseurl: layerInfo.image.vworldbaseurl, //+ 이미지 데이터 URL, *필수 입력
+                reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            });
+            app.addLayer(layer);
+            //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+            app.showLayer('satellite', true);
+            app.setNameBaseLayer('satellite');
+
+
+            // var terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+            //     name      : 'Korea Terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            //     baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            //     ext: '.umf', //+ 파일 확장자, *필수 입력
+            //     reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+            //     minlevel: 9,  //+ 가시화 최소 레벨
+            //     maxlevel: 15, //+ 가시화 최대 레벨
+            //     useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+            //     maxprocess: 2, //+ process 최대값
+            //     rectangle : Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수
+            // });
+            // app.addLayer(terrainLayer);
+            // app.showLayer('Korea Terrain', true);
+            /////////////////////////////////////////////////////
+
+            //+ WFS 모델 ///////////////////////////////////////////////////////////////////
+            var wfsModel = undefined;
+            wfsModel = new Union3D.model.U3dModelWFSLayer({
+                name: 'WFS Model', //+ WFS 3D 모델 레이어 이름, defaultValue(opt.name, Guid())  : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+                layername: layerInfo.wfs_korea.layername, //+ 레이어 이름, *필수 입력
+                // sldurl:  layerInfo.wfs_unionit.sldurl,
+                baseurl: layerInfo.wfs_korea.baseurl, //+ baseurl 지도 서비스 기본 URL, *필수 입력
+                //층수필드나 높이필드를 선택하여 사용
+                //fieldheight: layerInfo.wfs_korea.fieldheight, //+ 높이 필드 (속성테이블 칼럼명), defaultValue(opt.fieldheight, undefined)
+                fieldfloor: layerInfo.wfs_korea.fieldfloor, //+ 층수 필드 (속성테이블 칼럼명), defaultValue(opt.fieldheight, undefined)
+                fieldheightfloor: layerInfo.wfs_korea.fieldheightfloor,
+                floorheight: layerInfo.wfs_korea.floorheight, //+ 층수 높이 필드
+                fieldKind: layerInfo.wfs_korea.fieldKind,  //+ 종류 필드 (속성테이블 칼럼명), defaultValue(opt.fieldKind, undefined)
+                transperent: true, //+ 투명화 여부
+                minlevel: 17, //+ 가시화 최소레벨,defaultValue(opt.minlevel, 17)
+                drawline: false, //+ WFS 모델에 테투리 추가 여부
+                opacity: 0.75, //+ 투명화 여부 true 일 경우, 투명도 설정값으로 적용
+                textureurl: './image/buld/buld_texture_1.jpg',  //+ 텍스처 url, defaultValue(opt.textureurl, undefined)
+                useproxy: true,
+                materialType : 'toon',
+                toonImgUrl: 'image/fiveTone.jpg'// material type, defaultValue(opt.materialType, 'basic') // toon, standard
+            });
+
+            app.addLayer(wfsModel);
+            app.showLayer('WFS Model', true).then(function (layer) {
+                var modelName1 = 'model_1'
+                initModelLoad(modelName1, modelRoute1, 2);
+                var modelName2 = 'model_2'
+                initModelLoad(modelName2, modelRoute2, 20);
+                var modelName3 = 'model_3'
+                initModelLoad(modelName3, modelRoute3, 5);
+                var modelName4 = 'model_4'
+                initModelLoad(modelName4, modelRoute4, 1);
+                var modelName5 = 'model_5'
+                initModelLoad(modelName5, modelRoute5, 2);
+
+
+                var light = new THREE.AmbientLight('#111');
+                var scene = layer.content._scene
+                var fog   = new THREE.Fog( 0x000000, 1, 1000 );
+                scene.fog = fog;
+                scene.add(light);
+
+
+            });
+
+            //const analy = app.getAnalysis('Route');
+           // analy.active();
+            // analy.setLineColor('#def0ff');
+            // analy.setLineImage('/tutorial/image/arrow.png', Math.PI / 180 * 270);
+            // // 모델 정보 보기 모드 활성
+            var analyInfo = app.getAnalysis('ObjectInfo');
+            // analy.active();
+
+
+
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////
+            ///////////////////////////////////////// event 등록 ///////////////////////////////////////////////////
+            ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+            //+ 마우스 클릭 event 등록
+            app.on('click', function (e) {
+                var obj = analyInfo.intersectModel(e); //+ 마우스 클릭시 해당하는 model 찾기
+                if (obj === undefined || obj.length === 0) {
+                    //+ 해당하는 model이 없을 경우
+                    analyInfo.clear();
+                    return;
+                } else if (!analyInfo.isActive()) {
+                    analyInfo.clear();
+                    return;
+                }
+
+                // var world = app.closestPointAtPixel(e);
+                var latlon = app.vector3ToGeoGraphic(obj[0].point); //+ vector 좌표 위경도 좌표로 변환
+                var overlay = createOverlay('overlay', obj[0], latlon); //+ 위경도 좌표에 overlay 생성
+                overlay.show(); //+ overlay 가시화
+            });
+            $(document).on('click', 'input[type=checkbox]', checked);
+
+            function checked(e) {
+                var $checkbox = $(e.target);
+                var name = $checkbox.attr('target');
+                if (name == 'useinfo') {
+                    if ($checkbox[0].checked) {
+                        analyInfo.active();
+                    } else {
+                        analyInfo.deactive();
+                        app.removeAllOverlay();
+                    }
+                }
+            }
+
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////
+            ///////////////////////////////////////// function 선언 ////////////////////////////////////////////////
+            ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+            //+ overlay 생성 function
+            function createOverlay(name, obj, position) {
+                var html = printOverlayHtml(obj);//+ overlay UI
+                var overlay = new Union3D.overlay.U3dOverlay({
+                    name: name, //+ 오버레이 이름, * 필수 입력,  defaultValue(opt.name, undefined);
+                    id: obj.uuid, //+ 오버레이 ID, defaultValue(opt.id, Guid());
+                    element: html, //+ 오버레이 html의 문자열 또는 JQuery 객체, *필수 입력
+                    position: position, //+ 오버레이 위치(위경도), defaultValue(opt.position, undefined);, *필수 입력
+                    useanchor: true, //+ 클릭 지점에 따라 앵커 자동 변경,  defaultValue(opt.useanchor, true);
+                    balloon: {x: -50, y: 10}, //+ balloon 위치,  defaultValue(opt.balloon, {x: 0, y: 0});
+                    anchor:[0.182,0.92]
+                });
+                app.removeAllOverlay(); //+ 다른 overlay 전체 삭제
+                app.addOverlay(overlay); //+ 새로 만든 overlay 추가
+                var element = overlay.getElement();
+                //+ overlay에 닫기 event 추가
+                $(element).on('click', '.close', popUpCloseClick.bind(overlay));
+                return overlay;
+            }
+
+            //+ overlay UI
+            function printOverlayHtml(obj) {
+                var obj = obj.object;
+                var str = '';
+                str += '<div class="u3-popup" id=' + obj.uuid + '>';
+                str += '<div class="u3-popup-content">';
+                str += '<div class="modal-header">';
+                str += '<button type="button" class="close"><span aria-hidden="true">&times;</span>';
+                str += '</button>';
+                str += '</div>';
+
+                str += '<div class="item-sub-title"><span class="text-icon">레이어 이름: </span>' + obj._ulayername + '</div>';  //+ model layer Name
+                str += '<div class="item-sub-title"><span class="text-icon">번호: </span>' + obj.uuid + '</div>'; //+ model UUID
+                if (defined(obj._uproperties)) {
+                    str += '<div class="item-sub-title"><span class="text-icon">건물이름 : </span>' + obj._uproperties.buld_nm + '</div>'; //+ model buld_nm
+                    str += '<div class="item-sub-title"><span class="text-icon">세부정보 : </span>' + obj._uproperties.buld_nm_dc + '</div>'; //+ model buld_nm_dc
+                }
+                str += '</div>';
+                str += '</div>';
+                return str;
+            }
+
+            //+ overlay 닫기 event function
+            function popUpCloseClick() {
+                $(this.element).off('click', '.close', popUpCloseClick);
+                app.removeOverlay(this); //+ overlay 제거
+                analyInfo.clear(); //+ 분석 내용 비우기
+            }
+
+
+
+            function initModelLoad(name, positionList, speed) {
+                var self = this;
+                var scene = app._sceneComment
+
+
+                var loadFile = layerInfo.model.firtruckurl + layerInfo.model.firtruckname + layerInfo.model.firtruckext
+                var RouteAnaly = new Union3D.analysis.UAnalyRoute(name)
+                RouteAnaly.setApp(app);
+                RouteAnaly.loadModel(loadFile, positionList,name,speed);
+                // const loader = new GLTFLoader();
+                //
+                // loader.load(loadFile, function (gltf) {
+                //     var model = gltf.scene;
+                //     //  var pos = app.getGeographicToWorld(position.x, position.y,20);
+                //     // model.name = ''
+                //     model.children[0].updateMatrixWorld();
+                //     //     var matResult = new THREE.Matrix4();
+                //     //  matResult.multiplyMatrices(matResult, matScale);
+                //     // model.children[0].children[1].scale.setFromMatrixScale(matResult)
+                //     model.name = name;
+                //     model.children[0].position.copy(positionList[0])
+                //     model.children[0].scale.set(20, 20, 20);
+                //     model.children[0].rotation.set(0,0,0);
+                //     model.children[0].up.set(0, 0, 1);
+                //     model.children[0].matrixWorldNeedsUpdate = true;
+                //     model.children[0].updateMatrix();
+                //     model.children[0].updateMatrixWorld();
+                //
+                //     model._light = new THREE.AmbientLight('#fff');
+                //     scene.add(model._light);
+                //
+                //     scene.add(model);
+                //
+                //
+                //
+                //     model.traverse(function (object) {
+                //         if (object.isMesh) {
+                //             object.castShadow = true;
+                //             object.material.depthWrite = false;
+                //             object.position.set(0, 0, 0)
+                //             object.rotation.set(-Math.PI/36,0,0)
+                //         }
+                //
+                //     });
+                //
+                //
+                //     RouteAnaly.setApp(app);
+                //     if (defined(RouteAnaly._geoPositions)) {
+                //         RouteAnaly._geoPositions = [];
+                //         RouteAnaly._lineGeom.clear();
+                //     }
+                //
+                //
+                //     for (var i = 0; i < positionList.length; i++) {
+                //         var pos = positionList[i];
+                //         RouteAnaly.addPoint(pos)
+                //     }
+                //     RouteAnaly.hideLine();
+                //     app._sceneComment.children.pop();
+                //     RouteAnaly.modelStart(speed, model.children[0], true);
+                //     app.setUpdateDate();
+                // });
+            }
+
+
+            //+ debug
+            window.app = app;
+            //  window.terrain = terrainLayer;
+            window.image = layer;
+        });
+    });
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+

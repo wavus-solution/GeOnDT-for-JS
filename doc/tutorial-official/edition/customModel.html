@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="../">
+    <title>가상건물 추가 예제</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <link rel="stylesheet" href="css/pastel-glass-map-theme.css" type="text/css">
+    <link rel="stylesheet" href="css/example-editor.css" type="text/css">
+    <link rel="stylesheet" href="edition/assets/monaco/monaco-editor.css?v=ebbbdcf5172a" type="text/css">
+    <style id="example-viewer-style">
+
+    </style>
+</head>
+<body>
+<!-- 자동 생성 파일입니다. 원본 tutorial-official/examples\customModel\customModel.md을(를) 수정하세요. -->
+<main id="example-viewer" class="example-app">
+    <div id="map-wrapper"><div id="map"></div></div>
+
+    <!-- 지도 화면에서 예제 목록으로 돌아가는 유일한 통로입니다.
+         브라우저 뒤로가기만 두면 새 탭이나 공유받은 주소로 들어온 사람은 목록을 찾을 수 없습니다. -->
+    <a class="example-brand" href="edition/index.html" title="예제 목록" aria-label="예제 목록으로 이동"><img src="image/geondt-loading-color-logo.png" alt=""></a>
+    <h1 class="example-title">가상건물 추가 예제</h1>
+
+    <nav class="example-rail" aria-label="예제 도구">
+        <button class="rail-button" type="button" data-panel-target="example-explanation" aria-expanded="false">
+            <span class="rail-icon">?</span><span>도움말</span>
+        </button>
+        <div data-common-ui-rail></div>
+        <div id="viewer-example-rail" class="viewer-example-rail">
+
+        </div>
+    </nav>
+
+    <button class="editor-mode-toggle" type="button" data-open-editor aria-pressed="false">
+        <span class="code-toggle-icon">&lt;/&gt;</span><span data-editor-toggle-label>코드 편집</span>
+    </button>
+
+    <aside class="glass-panel explanation-panel" id="example-explanation" aria-hidden="true">
+        <header class="panel-header">
+            <div><span class="eyebrow">EXAMPLE GUIDE</span><h2>가상건물 추가 예제</h2></div>
+            <button class="panel-close" type="button" data-panel-close="example-explanation" aria-label="도움말 닫기">×</button>
+        </header>
+        <div class="panel-content markdown-document">
+<h1>가상건물 추가 예제</h1>
+<p>지도에서 꼭짓점을 지정하여 가상건물을 생성하고 선택한 건물의 높이와 표현을 편집합니다.</p>
+<h2>다루는 기능</h2>
+<ul>
+<li><code>UAnalyCustomModel</code>로 지도에 꼭짓점을 찍어 가상건물을 만들고, 선택한 건물의 높이·색상·투명도·라벨을 바꾸며 <code>UAnalyGizmoModel</code>로 위치·회전·크기를 편집합니다.</li>
+</ul>
+<h2>사전 조건</h2>
+<ul>
+<li>초기 화면은 위성영상과 한반도 지형 위에서 시작합니다. 지형 타일을 내려받지 못하면 건물이 놓일 지면 높이가 평면으로 계산됩니다.</li>
+<li>별도 모델 데이터는 필요하지 않습니다. 가상건물은 사용자가 지도에서 직접 그려서 만듭니다.</li>
+</ul>
+<h2>조작 및 예상 결과</h2>
+<table>
+<thead>
+<tr>
+<th>조작</th>
+<th>예상 결과</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>왼쪽 <code>건물</code> 버튼을 누릅니다.</td>
+<td>가상건물 추가 패널이 열립니다.</td>
+</tr>
+<tr>
+<td><code>작업 모드</code>에서 그리기를 고르고 지도에서 꼭짓점을 3개 이상 찍은 뒤 더블클릭합니다.</td>
+<td>생성 설정의 값으로 가상건물이 만들어지고 목록에 추가됩니다.</td>
+</tr>
+<tr>
+<td>건물을 선택하고 높이·색상·투명도·라벨을 바꾼 뒤 <code>설정 적용</code>을 누릅니다.</td>
+<td>선택한 건물의 표현이 지도에서 즉시 바뀝니다.</td>
+</tr>
+<tr>
+<td><code>위치</code>·<code>회전</code>·<code>크기</code> 버튼으로 기즈모를 바꾸고 조작합니다.</td>
+<td>선택한 건물이 조작한 값대로 지도에서 움직입니다.</td>
+</tr>
+<tr>
+<td>목록에서 개별 건물의 표시를 끄거나 삭제합니다.</td>
+<td>해당 건물이 지도에서 숨겨지거나 제거됩니다.</td>
+</tr>
+<tr>
+<td><code>저장</code> 후 <code>불러오기</code>를 누릅니다.</td>
+<td>저장한 가상건물 작업이 그대로 복원됩니다.</td>
+</tr>
+<tr>
+<td><code>전체 삭제</code>를 누릅니다.</td>
+<td>생성한 가상건물이 모두 제거됩니다.</td>
+</tr>
+</tbody></table>
+<h2>관련 API</h2>
+<ul>
+<li><code>UAnalyCustomModel</code>: 지도에서 수집한 꼭짓점으로 가상건물을 생성하고 표현을 변경합니다.</li>
+<li><code>U3dCustomModel</code>: 생성된 개별 가상건물을 나타내며 높이와 스타일 변경 대상이 됩니다.</li>
+<li><code>UAnalyGizmoModel</code>: 선택한 가상건물의 위치·회전·크기를 기즈모로 편집합니다.</li>
+</ul>
+<h2>주요 기능</h2>
+<ul>
+<li>지도에서 꼭짓점을 3개 이상 지정한 뒤 더블클릭하여 건물을 생성합니다.</li>
+<li>생성한 건물의 높이, 색상, 투명도와 라벨을 변경합니다.</li>
+<li>기즈모로 건물의 위치, 회전과 크기를 편집합니다.</li>
+<li>가상건물 작업을 메모리에 저장하고 다시 불러옵니다.</li>
+<li>개별 건물을 표시하거나 숨기고 삭제합니다.</li>
+</ul>
+<h2>가상건물 생성</h2>
+<p>그리기 모드에서 수집한 월드 좌표와 입력한 스타일로 가상건물을 생성합니다.</p>
+<pre><code class="language-javascript" data-example-code-token="custom.create" data-example-code-source="main"></code></pre><h2>가상건물 편집</h2>
+<p>선택한 모델의 높이를 먼저 변경한 뒤 색상, 투명도와 라벨을 적용합니다.</p>
+<pre><code class="language-javascript" data-example-code-token="custom.style" data-example-code-source="main"></code></pre>
+        </div>
+    </aside>
+
+
+
+    <div data-common-ui-panels></div>
+    <div data-common-ui-tools></div>
+    <div data-common-ui-status></div>
+
+    <div id="load" class="loading-indicator" hidden><img src="image/loading.svg" alt="불러오는 중"></div>
+
+    <aside id="example-api-help" class="example-api-help" role="tooltip" hidden>
+        <header class="example-api-help-header">
+            <strong data-api-help-title></strong>
+            <button type="button" data-api-help-close aria-label="API 도움말 닫기">×</button>
+        </header>
+        <p data-api-help-description></p>
+        <section data-api-help-dynamic-section>
+            <b>현재 설정</b>
+            <pre><code data-api-help-code></code></pre>
+        </section>
+        <section data-api-help-source-section hidden>
+            <b>실제 구현</b>
+            <small data-api-help-source-location></small>
+            <pre><code data-api-help-source-code></code></pre>
+            <button type="button" data-api-help-open-source>코드에서 보기</button>
+        </section>
+        <p data-api-help-source-error hidden></p>
+    </aside>
+</main>
+
+<section id="example-editor" class="editor-workspace" hidden aria-label="예제 코드 편집기">
+    <header class="editor-toolbar">
+        <strong class="editor-title">가상건물 추가 예제</strong>
+        <div class="editor-toolbar-actions">
+            <button class="editor-search-toggle" type="button" data-editor-action="search" aria-expanded="false" aria-controls="editor-search" title="모든 탭에서 검색 (Ctrl+Shift+F)" aria-label="모든 탭에서 검색">
+                <img src="image/search_white_24dp.svg" alt=""><span>검색</span>
+            </button>
+            <button type="button" data-editor-action="reset">초기화</button>
+            <button type="button" data-editor-action="console" aria-expanded="false">Console</button>
+            <button class="editor-close-button" type="button" data-editor-action="viewer" title="코드 편집 닫기" aria-label="코드 편집 닫기">
+                <span class="editor-close-icon" aria-hidden="true">×</span><span>닫기</span>
+            </button>
+        </div>
+    </header>
+    <div class="editor-layout" id="editor-layout">
+        <section class="editor-pane" id="editor-pane" aria-label="코드 편집">
+            <div class="editor-tabs" role="tablist" aria-label="코드 종류">
+                <button type="button" role="tab" data-code-tab="javascript" aria-selected="true">JavaScript</button>
+                <button type="button" role="tab" data-code-tab="html" aria-selected="false">HTML</button>
+                <button type="button" role="tab" data-code-tab="css" aria-selected="false">CSS</button>
+                <button class="editor-run-button" type="button" data-editor-action="run"><span>▶</span> 실행</button>
+            </div>
+            <div id="monaco-editor" class="monaco-host"></div>
+            <div class="editor-search" id="editor-search" hidden>
+                <div class="editor-search-bar">
+                    <img class="editor-search-bar-icon" src="image/search_white_24dp.svg" alt="">
+                    <input class="editor-search-input" id="editor-search-input" type="search" placeholder="모든 탭에서 검색" autocomplete="off" spellcheck="false" aria-label="모든 탭에서 검색">
+                    <button class="editor-search-option" type="button" data-search-option="matchCase" aria-pressed="false" title="대소문자 구분">Aa</button>
+                    <button class="editor-search-option" type="button" data-search-option="regex" aria-pressed="false" title="정규식 사용">.*</button>
+                    <button class="editor-search-close" type="button" data-search-close aria-label="검색 닫기">×</button>
+                </div>
+                <p class="editor-search-summary" id="editor-search-summary" aria-live="polite">검색어를 입력하세요.</p>
+                <div class="editor-search-results" id="editor-search-results" role="listbox" aria-label="검색 결과"></div>
+            </div>
+            <!--+ 실행 콘솔은 편집 패널 안에 둔다. 미리보기 안에 두면 실행 뒤 `position: fixed`인 미리보기가
+                 쌓임 맥락을 만들어 편집 패널에 가려지고, 실행 전과 위치도 달라진다. -->
+            <section id="preview-console" class="preview-console" aria-label="실행 콘솔" aria-hidden="true">
+                <header><strong>Console</strong><span class="console-count" id="preview-console-count">0</span><button class="console-clear" type="button" data-console-clear>Clear</button><button type="button" data-console-close aria-label="콘솔 닫기">×</button></header>
+                <div id="preview-console-output" class="preview-console-output" aria-live="polite"><p class="console-empty">실행 로그가 여기에 표시됩니다.</p></div>
+            </section>
+        </section>
+        <div class="editor-splitter" id="editor-splitter" role="separator" aria-label="편집기와 미리보기 너비 조절" aria-orientation="vertical" tabindex="0"></div>
+        <section class="preview-pane" aria-label="실행 미리보기">
+            <div id="preview-frame-container" class="preview-frame-container"></div>
+        </section>
+    </div>
+    <div class="editor-mobile-notice" id="editor-mobile-notice" hidden>
+        <strong>코드 편집은 데스크톱 환경에서 지원합니다.</strong>
+        <p>더 넓은 화면에서 Editor를 열거나 지도 Viewer로 돌아가세요.</p>
+        <button type="button" data-editor-action="viewer">지도로 보기</button>
+    </div>
+    <div class="editor-hint-stack">
+        <div class="editor-hint" id="editor-hint" role="status" hidden>
+            <p>실행 전에는 <b>× 닫기</b>와 가장자리 <b>◀</b> 버튼으로 지도로 돌아갑니다.<br>실행한 뒤에는 같은 버튼이 편집 패널만 접고, 실행한 화면은 그대로 남습니다. 접으면 왼쪽 가장자리 <b>▶</b>로 다시 펼칩니다.</p>
+        </div>
+        <div class="editor-hint editor-shortcut-hint" id="editor-shortcut-hint" role="status" hidden>
+            <dl>
+                <dt><kbd>Ctrl</kbd><kbd>F</kbd></dt>
+                <dd>현재 파일에서 찾기</dd>
+                <dt><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>F</kbd></dt>
+                <dd>열린 파일 전체에서 찾기</dd>
+                <dt><kbd>Ctrl</kbd><kbd>Space</kbd></dt>
+                <dd>자동완성 보기</dd>
+                <dt><kbd>Esc</kbd></dt>
+                <dd>찾기 닫기</dd>
+            </dl>
+            <p class="editor-shortcut-note">macOS에서는 <kbd>Ctrl</kbd> 대신 <kbd>Cmd</kbd>를 사용합니다.</p>
+        </div>
+    </div>
+    <div class="editor-panel-resizer" id="editor-panel-resizer" role="separator" aria-label="코드 편집 패널 너비 조절" aria-orientation="vertical" tabindex="0" title="드래그하거나 방향키로 너비 조절"></div>
+</section>
+
+<button class="editor-edge-toggle" type="button" data-editor-edge-toggle aria-pressed="false" title="코드 편집 열기" aria-label="코드 편집 열기">
+    <span class="editor-edge-icon" data-editor-edge-icon aria-hidden="true">▶</span>
+</button>
+
+<script id="example-source" type="application/json">{"format":"manifest","helpHtml":"\u003ch1\u003e가상건물 추가 예제\u003c/h1\u003e\n\u003cp\u003e지도에서 꼭짓점을 지정하여 가상건물을 생성하고 선택한 건물의 높이와 표현을 편집합니다.\u003c/p\u003e\n\u003ch2\u003e다루는 기능\u003c/h2\u003e\n\u003cul\u003e\n\u003cli\u003e\u003ccode\u003eUAnalyCustomModel\u003c/code\u003e로 지도에 꼭짓점을 찍어 가상건물을 만들고, 선택한 건물의 높이·색상·투명도·라벨을 바꾸며 \u003ccode\u003eUAnalyGizmoModel\u003c/code\u003e로 위치·회전·크기를 편집합니다.\u003c/li\u003e\n\u003c/ul\u003e\n\u003ch2\u003e사전 조건\u003c/h2\u003e\n\u003cul\u003e\n\u003cli\u003e초기 화면은 위성영상과 한반도 지형 위에서 시작합니다. 지형 타일을 내려받지 못하면 건물이 놓일 지면 높이가 평면으로 계산됩니다.\u003c/li\u003e\n\u003cli\u003e별도 모델 데이터는 필요하지 않습니다. 가상건물은 사용자가 지도에서 직접 그려서 만듭니다.\u003c/li\u003e\n\u003c/ul\u003e\n\u003ch2\u003e조작 및 예상 결과\u003c/h2\u003e\n\u003ctable\u003e\n\u003cthead\u003e\n\u003ctr\u003e\n\u003cth\u003e조작\u003c/th\u003e\n\u003cth\u003e예상 결과\u003c/th\u003e\n\u003c/tr\u003e\n\u003c/thead\u003e\n\u003ctbody\u003e\u003ctr\u003e\n\u003ctd\u003e왼쪽 \u003ccode\u003e건물\u003c/code\u003e 버튼을 누릅니다.\u003c/td\u003e\n\u003ctd\u003e가상건물 추가 패널이 열립니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e\u003ccode\u003e작업 모드\u003c/code\u003e에서 그리기를 고르고 지도에서 꼭짓점을 3개 이상 찍은 뒤 더블클릭합니다.\u003c/td\u003e\n\u003ctd\u003e생성 설정의 값으로 가상건물이 만들어지고 목록에 추가됩니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e건물을 선택하고 높이·색상·투명도·라벨을 바꾼 뒤 \u003ccode\u003e설정 적용\u003c/code\u003e을 누릅니다.\u003c/td\u003e\n\u003ctd\u003e선택한 건물의 표현이 지도에서 즉시 바뀝니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e\u003ccode\u003e위치\u003c/code\u003e·\u003ccode\u003e회전\u003c/code\u003e·\u003ccode\u003e크기\u003c/code\u003e 버튼으로 기즈모를 바꾸고 조작합니다.\u003c/td\u003e\n\u003ctd\u003e선택한 건물이 조작한 값대로 지도에서 움직입니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e목록에서 개별 건물의 표시를 끄거나 삭제합니다.\u003c/td\u003e\n\u003ctd\u003e해당 건물이 지도에서 숨겨지거나 제거됩니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e\u003ccode\u003e저장\u003c/code\u003e 후 \u003ccode\u003e불러오기\u003c/code\u003e를 누릅니다.\u003c/td\u003e\n\u003ctd\u003e저장한 가상건물 작업이 그대로 복원됩니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e\u003ccode\u003e전체 삭제\u003c/code\u003e를 누릅니다.\u003c/td\u003e\n\u003ctd\u003e생성한 가상건물이 모두 제거됩니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003c/tbody\u003e\u003c/table\u003e\n\u003ch2\u003e관련 API\u003c/h2\u003e\n\u003cul\u003e\n\u003cli\u003e\u003ccode\u003eUAnalyCustomModel\u003c/code\u003e: 지도에서 수집한 꼭짓점으로 가상건물을 생성하고 표현을 변경합니다.\u003c/li\u003e\n\u003cli\u003e\u003ccode\u003eU3dCustomModel\u003c/code\u003e: 생성된 개별 가상건물을 나타내며 높이와 스타일 변경 대상이 됩니다.\u003c/li\u003e\n\u003cli\u003e\u003ccode\u003eUAnalyGizmoModel\u003c/code\u003e: 선택한 가상건물의 위치·회전·크기를 기즈모로 편집합니다.\u003c/li\u003e\n\u003c/ul\u003e\n\u003ch2\u003e주요 기능\u003c/h2\u003e\n\u003cul\u003e\n\u003cli\u003e지도에서 꼭짓점을 3개 이상 지정한 뒤 더블클릭하여 건물을 생성합니다.\u003c/li\u003e\n\u003cli\u003e생성한 건물의 높이, 색상, 투명도와 라벨을 변경합니다.\u003c/li\u003e\n\u003cli\u003e기즈모로 건물의 위치, 회전과 크기를 편집합니다.\u003c/li\u003e\n\u003cli\u003e가상건물 작업을 메모리에 저장하고 다시 불러옵니다.\u003c/li\u003e\n\u003cli\u003e개별 건물을 표시하거나 숨기고 삭제합니다.\u003c/li\u003e\n\u003c/ul\u003e\n\u003ch2\u003e가상건물 생성\u003c/h2\u003e\n\u003cp\u003e그리기 모드에서 수집한 월드 좌표와 입력한 스타일로 가상건물을 생성합니다.\u003c/p\u003e\n\u003cpre\u003e\u003ccode class=\"language-javascript\" data-example-code-token=\"custom.create\" data-example-code-source=\"main\"\u003e\u003c/code\u003e\u003c/pre\u003e\u003ch2\u003e가상건물 편집\u003c/h2\u003e\n\u003cp\u003e선택한 모델의 높이를 먼저 변경한 뒤 색상, 투명도와 라벨을 적용합니다.\u003c/p\u003e\n\u003cpre\u003e\u003ccode class=\"language-javascript\" data-example-code-token=\"custom.style\" data-example-code-source=\"main\"\u003e\u003c/code\u003e\u003c/pre\u003e","assetBaseUrl":"edition/examples/customModel/","runtime":{"home":{"longitude":126.9395,"latitude":37.52,"height":450,"duration":2,"pitch":60},"baseLayers":["satellite"],"terrain":{"enabled":true,"preset":"korea"},"mapTools":["home","north","zoom-in","zoom-out"],"cameraStatus":true,"help":true,"loading":true},"imports":[],"dependencies":[],"commonUi":{"imageLayerPanel":true,"terrainLayerPanel":true},"sourceTokens":{"custom.create":{"id":"custom.create","sourceId":"main","file":"./customModel.main.js","label":"main.js","startLine":100,"endLine":108,"code":"customModel.addCustomModel({\n    name,\n    extrudeheight: state.draft.height,\n    vertex: [...vertices],\n    style: {color: state.draft.color, opacity: state.draft.opacity}\n});\nconst model = customModel.getModelByName(name);\nmodel.setLandHeight(0);\nif (state.draft.label) model.setLabelText(state.draft.label);"},"custom.style":{"id":"custom.style","sourceId":"main","file":"./customModel.main.js","label":"main.js","startLine":174,"endLine":177,"code":"state.selectedModel.setHeight(Math.max(1, Number(values.height) || 1));\nstate.selectedModel.setColor(values.color);\nstate.selectedModel.setOpacity(Math.min(1, Math.max(0, Number(values.opacity))));\nstate.selectedModel.setLabelText(String(values.label || ''));"},"custom.gizmo":{"id":"custom.gizmo","sourceId":"main","file":"./customModel.main.js","label":"main.js","startLine":188,"endLine":191,"code":"customModel.deactive();\ngizmo.active();\ngizmo.setMode(mode);\ngizmo.setObject(state.selectedObject);"},"custom.save":{"id":"custom.save","sourceId":"main","file":"./customModel.main.js","label":"main.js","startLine":198,"endLine":200,"code":"customModel.removeAllHighlight();\nconst modelOptions = customModel.getParam();\nstate.savedModels = JSON.stringify(modelOptions);"}},"sources":[{"id":"main","label":"main.js","path":"./customModel.main.js","language":"javascript","editable":true,"url":"edition/examples/customModel/customModel.main.js","content":"/**\r\n * 가상건물 생성과 편집 기능을 초기화합니다.\r\n * @param {GeOnDTExampleContext} context 공통 런타임 컨텍스트\r\n * @returns {Promise\u003cRecord\u003cstring, unknown\u003e\u003e} UI에서 사용할 예제 동작\r\n */\r\nexport async function initialize(context) {\r\n    const app = context.app;\r\n    const customModel = app.getAnalysis('CustomModel');\r\n    const gizmo = app.getAnalysis('GizmoModel');\r\n    gizmo.setTargetScene(customModel.getScene());\r\n\r\n    const uiListeners = new Set();\r\n    const vertices = [];\r\n    const visibility = new Map();\r\n    const state = {\r\n        mode: 'pan',\r\n        selectedModel: null,\r\n        selectedObject: null,\r\n        gizmoActive: false,\r\n        savedModels: '',\r\n        status: '건물 그리기 모드를 선택하세요.',\r\n        draft: {\r\n            name: '가상건물 1',\r\n            height: 30,\r\n            color: '#4f8cff',\r\n            opacity: 0.8,\r\n            label: ''\r\n        }\r\n    };\r\n\r\n    const clickKey = app.on('click', handleClick);\r\n    const doubleClickKey = app.on('dblclick', handleDoubleClick);\r\n\r\n    /** 현재 상태를 UI 리스너에 전달합니다. */\r\n    function emit() {\r\n        const snapshot = getSnapshot();\r\n        uiListeners.forEach(listener =\u003e listener(snapshot));\r\n    }\r\n\r\n    /**\r\n     * 상태 메시지를 변경하고 UI 리스너에 전달합니다.\r\n     * @param {string} message 표시할 메시지\r\n     */\r\n    function setStatus(message) {\r\n        state.status = message;\r\n        emit();\r\n    }\r\n\r\n    /** 선택과 기즈모 표시를 정리합니다. */\r\n    function clearSelection() {\r\n        customModel.removeAllHighlight();\r\n        gizmo.deactive();\r\n        state.selectedModel = null;\r\n        state.selectedObject = null;\r\n        state.gizmoActive = false;\r\n    }\r\n\r\n    /**\r\n     * 지도 클릭을 현재 작업 모드에 맞게 처리합니다.\r\n     * @param {U3dMouseEvent} event 지도 클릭 이벤트\r\n     */\r\n    function handleClick(event) {\r\n        if (state.mode === 'edit') {\r\n            const intersection = app.intersectAtPixel(event, true)?.[0];\r\n            if (!intersection?.point) return;\r\n            vertices.push(typeof intersection.point.clone === 'function' ? intersection.point.clone() : intersection.point);\r\n            setStatus(`꼭짓점 ${vertices.length}개 지정됨${vertices.length \u003e= 3 ? ' · 더블클릭하여 생성' : ''}`);\r\n            return;\r\n        }\r\n        if (state.mode !== 'select' || state.gizmoActive) return;\r\n\r\n        customModel.removeAllHighlight();\r\n        const intersection = customModel.intersectModel(event)?.[0];\r\n        const model = intersection ? customModel.getModelByName(intersection.object?._name) : undefined;\r\n        state.selectedModel = model || null;\r\n        state.selectedObject = model ? intersection.object : null;\r\n        if (model) customModel.setHighlight(intersection.object);\r\n        setStatus(model ? `'${model.getName()}' 건물을 선택했습니다.` : '선택된 가상건물이 없습니다.');\r\n    }\r\n\r\n    /** 지도 더블클릭으로 현재 꼭짓점의 가상건물을 생성합니다. */\r\n    function handleDoubleClick() {\r\n        if (state.mode !== 'edit') return;\r\n        if (vertices.length \u003c 3) {\r\n            setStatus('가상건물을 만들려면 꼭짓점을 3개 이상 지정하세요.');\r\n            return;\r\n        }\r\n        const name = state.draft.name.trim();\r\n        if (!name) {\r\n            setStatus('건물 이름을 입력하세요.');\r\n            return;\r\n        }\r\n        if (customModel.getModelByName(name)) {\r\n            setStatus('이미 사용 중인 건물 이름입니다.');\r\n            vertices.length = 0;\r\n            return;\r\n        }\r\n\r\n        // @example-code:start custom.create\r\n        customModel.addCustomModel({\r\n            name,\r\n            extrudeheight: state.draft.height,\r\n            vertex: [...vertices],\r\n            style: {color: state.draft.color, opacity: state.draft.opacity}\r\n        });\r\n        const model = customModel.getModelByName(name);\r\n        model.setLandHeight(0);\r\n        if (state.draft.label) model.setLabelText(state.draft.label);\r\n        // @example-code:end custom.create\r\n        visibility.set(String(model.getUid()), true);\r\n        vertices.length = 0;\r\n        setStatus(`'${name}' 건물을 생성했습니다.`);\r\n    }\r\n\r\n    /**\r\n     * UI와 API Help에서 사용할 현재 상태를 반환합니다.\r\n     * @returns {Record\u003cstring, unknown\u003e} 현재 예제 상태\r\n     */\r\n    function getSnapshot() {\r\n        const selected = state.selectedModel;\r\n        return {\r\n            mode: state.mode,\r\n            vertexCount: vertices.length,\r\n            status: state.status,\r\n            canLoad: Boolean(state.savedModels),\r\n            draft: {...state.draft},\r\n            selected: selected ? {\r\n                uid: String(selected.getUid()),\r\n                name: selected.getName(),\r\n                height: Number(selected.getHeight()),\r\n                color: normalizeColor(selected.getColor()),\r\n                opacity: Number(selected.getOpacity()),\r\n                label: selected.getLabelText() || ''\r\n            } : null,\r\n            models: customModel.getCustomModels().map(model =\u003e ({\r\n                uid: String(model.getUid()),\r\n                name: model.getName(),\r\n                visible: visibility.get(String(model.getUid())) !== false\r\n            }))\r\n        };\r\n    }\r\n\r\n    return {\r\n        getSnapshot,\r\n        addUIListener(listener) {\r\n            uiListeners.add(listener);\r\n            listener(getSnapshot());\r\n            return () =\u003e uiListeners.delete(listener);\r\n        },\r\n        setDraft(values) {\r\n            state.draft = {\r\n                name: String(values.name || ''),\r\n                height: Math.max(1, Number(values.height) || 1),\r\n                color: String(values.color || '#4f8cff'),\r\n                opacity: Math.min(1, Math.max(0, Number(values.opacity))),\r\n                label: String(values.label || '')\r\n            };\r\n            emit();\r\n        },\r\n        setMode(mode) {\r\n            customModel.deactive();\r\n            clearSelection();\r\n            vertices.length = 0;\r\n            state.mode = mode;\r\n            if (mode === 'edit') customModel.active();\r\n            setStatus(mode === 'edit' ? '지도에서 꼭짓점을 3개 이상 지정하세요.' : mode === 'select' ? '지도에서 편집할 건물을 선택하세요.' : '지도 이동 모드입니다.');\r\n        },\r\n        applySelected(values) {\r\n            if (!state.selectedModel) {\r\n                setStatus('먼저 편집할 가상건물을 선택하세요.');\r\n                return;\r\n            }\r\n            // @example-code:start custom.style\r\n            state.selectedModel.setHeight(Math.max(1, Number(values.height) || 1));\r\n            state.selectedModel.setColor(values.color);\r\n            state.selectedModel.setOpacity(Math.min(1, Math.max(0, Number(values.opacity))));\r\n            state.selectedModel.setLabelText(String(values.label || ''));\r\n            // @example-code:end custom.style\r\n            customModel.removeAllHighlight();\r\n            setStatus(`'${state.selectedModel.getName()}' 건물 설정을 적용했습니다.`);\r\n        },\r\n        activateGizmo(mode) {\r\n            if (!state.selectedObject) {\r\n                setStatus('먼저 편집할 가상건물을 선택하세요.');\r\n                return;\r\n            }\r\n            // @example-code:start custom.gizmo\r\n            customModel.deactive();\r\n            gizmo.active();\r\n            gizmo.setMode(mode);\r\n            gizmo.setObject(state.selectedObject);\r\n            // @example-code:end custom.gizmo\r\n            state.gizmoActive = true;\r\n            setStatus(`기즈모 ${mode} 모드를 활성화했습니다.`);\r\n        },\r\n        save() {\r\n            // @example-code:start custom.save\r\n            customModel.removeAllHighlight();\r\n            const modelOptions = customModel.getParam();\r\n            state.savedModels = JSON.stringify(modelOptions);\r\n            // @example-code:end custom.save\r\n            setStatus('현재 가상건물 작업을 저장했습니다.');\r\n        },\r\n        load() {\r\n            if (!state.savedModels) {\r\n                setStatus('저장된 가상건물 작업이 없습니다.');\r\n                return;\r\n            }\r\n            clearSelection();\r\n            customModel.removeAll();\r\n            customModel.addCustomModel(JSON.parse(state.savedModels));\r\n            visibility.clear();\r\n            customModel.getCustomModels().forEach(model =\u003e visibility.set(String(model.getUid()), true));\r\n            setStatus('저장한 가상건물 작업을 불러왔습니다.');\r\n        },\r\n        clearAll() {\r\n            clearSelection();\r\n            customModel.removeAll();\r\n            visibility.clear();\r\n            setStatus('모든 가상건물을 삭제했습니다.');\r\n        },\r\n        setVisible(uid, visible) {\r\n            const model = customModel.getModelByUid(String(uid));\r\n            if (!model) return;\r\n            if (visible) model.show(); else model.hide();\r\n            visibility.set(String(uid), visible);\r\n            emit();\r\n        },\r\n        remove(uid) {\r\n            const model = customModel.getModelByUid(String(uid));\r\n            if (!model) return;\r\n            const name = model.getName();\r\n            if (state.selectedModel === model) clearSelection();\r\n            customModel.removeModel(model);\r\n            visibility.delete(String(uid));\r\n            setStatus(`'${name}' 건물을 삭제했습니다.`);\r\n        },\r\n        dispose() {\r\n            uiListeners.clear();\r\n            clearSelection();\r\n            customModel.deactive();\r\n            customModel.removeAll();\r\n            app.unkey('click', clickKey);\r\n            app.unkey('dblclick', doubleClickKey);\r\n        }\r\n    };\r\n}\r\n\r\n/**\r\n * 예제에서 생성한 분석 자원과 이벤트를 정리합니다.\r\n * @param {GeOnDTExampleContext} context 공통 런타임 컨텍스트\r\n * @param {Record\u003cstring, unknown\u003e} example 예제 상태\r\n */\r\nexport async function dispose(context, example) {\r\n    if (example \u0026\u0026 typeof example.dispose === 'function') example.dispose();\r\n}\r\n\r\n/**\r\n * 엔진이 반환한 색상값을 color input 형식으로 변환합니다.\r\n * @param {unknown} color 엔진 색상값\r\n * @returns {string} 해시 기호를 포함한 색상값\r\n */\r\nfunction normalizeColor(color) {\r\n    const value = String(color || '4f8cff');\r\n    return value.startsWith('#') ? value : `#${value}`;\r\n}\r\n"},{"id":"ui","label":"ui.js","path":"./customModel.ui.js","language":"javascript","editable":true,"url":"edition/examples/customModel/customModel.ui.js","content":"/**\r\n * 가상건물 패널의 입력과 예제 동작을 연결합니다.\r\n * @param {GeOnDTExampleContext} context 공통 런타임 컨텍스트\r\n * @param {Record\u003cstring, unknown\u003e} example 예제 상태와 동작\r\n * @returns {function(): void} UI 이벤트 정리 함수\r\n */\r\nexport function initializeUI(context, example) {\r\n    const root = context.elements.root;\r\n    const controller = new AbortController();\r\n    const options = {signal: controller.signal};\r\n    const on = (selector, eventName, handler) =\u003e root.querySelectorAll(selector).forEach(element =\u003e element.addEventListener(eventName, handler, options));\r\n\r\n    const readCreateForm = () =\u003e ({\r\n        name: root.querySelector('#custom-name').value,\r\n        height: root.querySelector('#custom-height').value,\r\n        color: root.querySelector('#custom-color').value,\r\n        opacity: root.querySelector('#custom-opacity').value,\r\n        label: root.querySelector('#custom-label').value\r\n    });\r\n    const readEditForm = () =\u003e ({\r\n        height: root.querySelector('#selected-height').value,\r\n        color: root.querySelector('#selected-color').value,\r\n        opacity: root.querySelector('#selected-opacity').value,\r\n        label: root.querySelector('#selected-label').value\r\n    });\r\n\r\n    on('[data-custom-mode]', 'change', event =\u003e { if (event.target.checked) example.setMode(event.target.value); });\r\n    on('[data-create-setting]', 'input', () =\u003e example.setDraft(readCreateForm()));\r\n    on('#apply-custom-style', 'click', () =\u003e example.applySelected(readEditForm()));\r\n    on('[data-gizmo-mode]', 'click', event =\u003e example.activateGizmo(event.currentTarget.dataset.gizmoMode));\r\n    on('#save-custom-models', 'click', () =\u003e example.save());\r\n    on('#load-custom-models', 'click', () =\u003e example.load());\r\n    on('#clear-custom-models', 'click', () =\u003e example.clearAll());\r\n    on('#custom-model-list', 'click', event =\u003e {\r\n        const button = event.target.closest('button[data-model-action]');\r\n        if (!button) return;\r\n        if (button.dataset.modelAction === 'remove') example.remove(button.dataset.uid);\r\n        else example.setVisible(button.dataset.uid, button.dataset.modelAction === 'show');\r\n    });\r\n\r\n    const removeUIListener = example.addUIListener(snapshot =\u003e render(root, snapshot));\r\n    return function cleanupExampleUI() {\r\n        removeUIListener();\r\n        controller.abort();\r\n    };\r\n}\r\n\r\n/**\r\n * 현재 가상건물 상태를 패널에 표시합니다.\r\n * @param {Element} root 예제 루트 요소\r\n * @param {Record\u003cstring, unknown\u003e} snapshot 현재 예제 상태\r\n */\r\nfunction render(root, snapshot) {\r\n    root.querySelector('#custom-status').textContent = snapshot.status;\r\n    root.querySelector('#custom-point-count').textContent = `${snapshot.vertexCount}개`;\r\n    root.querySelector('#load-custom-models').disabled = !snapshot.canLoad;\r\n\r\n    const selected = snapshot.selected;\r\n    const fieldset = root.querySelector('#selected-custom-fields');\r\n    fieldset.disabled = !selected;\r\n    root.querySelector('#selected-custom-name').textContent = selected?.name || '선택 없음';\r\n    if (selected) {\r\n        root.querySelector('#selected-height').value = selected.height;\r\n        root.querySelector('#selected-color').value = selected.color;\r\n        root.querySelector('#selected-opacity').value = selected.opacity;\r\n        root.querySelector('#selected-label').value = selected.label;\r\n    }\r\n\r\n    const list = root.querySelector('#custom-model-list');\r\n    list.replaceChildren(...snapshot.models.map(model =\u003e createModelItem(model)));\r\n    root.querySelector('#custom-model-empty').hidden = snapshot.models.length \u003e 0;\r\n}\r\n\r\n/**\r\n * 가상건물 목록 항목을 생성합니다.\r\n * @param {{uid: string, name: string, visible: boolean}} model 가상건물 요약\r\n * @returns {HTMLElement} 목록 항목\r\n */\r\nfunction createModelItem(model) {\r\n    const item = document.createElement('li');\r\n    item.className = 'custom-model-item';\r\n    const name = document.createElement('strong');\r\n    name.textContent = model.name;\r\n    const actions = document.createElement('span');\r\n    actions.className = 'custom-model-actions';\r\n    actions.append(\r\n        createActionButton(model.visible ? 'hide' : 'show', model.visible ? '숨기기' : '보이기', model.uid),\r\n        createActionButton('remove', '삭제', model.uid)\r\n    );\r\n    item.append(name, actions);\r\n    return item;\r\n}\r\n\r\n/**\r\n * 가상건물 목록 동작 버튼을 생성합니다.\r\n * @param {string} action 동작 이름\r\n * @param {string} label 버튼 문구\r\n * @param {string} uid 가상건물 식별자\r\n * @returns {HTMLButtonElement} 동작 버튼\r\n */\r\nfunction createActionButton(action, label, uid) {\r\n    const button = document.createElement('button');\r\n    button.type = 'button';\r\n    button.dataset.modelAction = action;\r\n    button.dataset.uid = uid;\r\n    button.textContent = label;\r\n    return button;\r\n}\r\n"},{"id":"api","label":"API Help","path":"./customModel.api.js","language":"javascript","editable":true,"url":"edition/examples/customModel/customModel.api.js","content":"/** 가상건물 예제에서 설명할 API Help Registry입니다. */\r\nexport const apiHelp = Object.freeze({\r\n    'custom.create': sourceHelp('UAnalyCustomModel.addCustomModel()', '지도에서 지정한 꼭짓점과 스타일로 가상건물을 생성합니다.', 'custom.create'),\r\n    'custom.style': sourceHelp('U3dCustomModel 스타일 API', '선택한 가상건물의 높이, 색상, 투명도와 라벨을 변경합니다.', 'custom.style'),\r\n    'custom.gizmo': sourceHelp('UAnalyGizmoModel', '선택한 건물에 위치, 회전 또는 크기 편집 기즈모를 연결합니다.', 'custom.gizmo'),\r\n    'custom.save': sourceHelp('UAnalyCustomModel.getParam()', '현재 가상건물 작업을 직렬화하여 메모리에 저장합니다.', 'custom.save')\r\n});\r\n\r\n/**\r\n * 실제 Main Source를 표시하는 API Help 항목을 생성합니다.\r\n * @param {string} title API 이름\r\n * @param {string} description 기능 설명\r\n * @param {string} token 실제 구현 Source Token ID\r\n * @returns {Record\u003cstring, unknown\u003e} API Help 항목\r\n */\r\nfunction sourceHelp(title, description, token) {\r\n    return {title, description, mode: 'source', source: {sourceId: 'main', token}};\r\n}\r\n"},{"id":"html","label":"HTML","path":"./customModel.html","language":"html","editable":true,"url":"edition/examples/customModel/customModel.html","content":"\u003cnav class=\"custom-model-rail\" data-example-rail aria-label=\"가상건물 도구\"\u003e\r\n    \u003cbutton class=\"rail-button\" type=\"button\" data-panel-target=\"custom-model-panel\" data-api-help=\"custom.create\" aria-expanded=\"false\"\u003e\r\n        \u003cspan class=\"rail-icon\" aria-hidden=\"true\"\u003e▰\u003c/span\u003e\r\n        \u003cspan\u003e건물\u003c/span\u003e\r\n    \u003c/button\u003e\r\n\u003c/nav\u003e\r\n\r\n\u003caside class=\"glass-panel example-panel custom-model-panel\" id=\"custom-model-panel\" aria-hidden=\"true\"\u003e\r\n    \u003cheader class=\"panel-header\"\u003e\r\n        \u003cdiv\u003e\r\n            \u003cspan class=\"eyebrow\"\u003eCUSTOM BUILDING\u003c/span\u003e\r\n            \u003ch2\u003e가상건물 추가\u003c/h2\u003e\r\n        \u003c/div\u003e\r\n        \u003cbutton class=\"panel-close\" type=\"button\" data-panel-close=\"custom-model-panel\" aria-label=\"가상건물 패널 닫기\"\u003e×\u003c/button\u003e\r\n    \u003c/header\u003e\r\n\r\n    \u003cdiv class=\"panel-content custom-model-content\"\u003e\r\n        \u003cp class=\"panel-description\"\u003e꼭짓점을 3개 이상 지정하고 더블클릭하여 건물을 생성하세요.\u003c/p\u003e\r\n\r\n        \u003csection class=\"custom-section\" aria-labelledby=\"custom-mode-heading\"\u003e\r\n            \u003ch3 id=\"custom-mode-heading\"\u003e작업 모드\u003c/h3\u003e\r\n            \u003cdiv class=\"custom-mode-grid\"\u003e\r\n                \u003clabel\u003e\u003cinput type=\"radio\" name=\"custom-mode\" value=\"pan\" data-custom-mode checked\u003e\u003cspan\u003e지도 이동\u003c/span\u003e\u003c/label\u003e\r\n                \u003clabel\u003e\u003cinput type=\"radio\" name=\"custom-mode\" value=\"edit\" data-custom-mode\u003e\u003cspan\u003e건물 그리기\u003c/span\u003e\u003c/label\u003e\r\n                \u003clabel\u003e\u003cinput type=\"radio\" name=\"custom-mode\" value=\"select\" data-custom-mode\u003e\u003cspan\u003e건물 선택\u003c/span\u003e\u003c/label\u003e\r\n            \u003c/div\u003e\r\n            \u003cdiv class=\"custom-status\" role=\"status\"\u003e\u003cspan id=\"custom-status\"\u003e건물 그리기 모드를 선택하세요.\u003c/span\u003e\u003cb\u003e꼭짓점 \u003cspan id=\"custom-point-count\"\u003e0개\u003c/span\u003e\u003c/b\u003e\u003c/div\u003e\r\n        \u003c/section\u003e\r\n\r\n        \u003csection class=\"custom-section\" aria-labelledby=\"custom-create-heading\" data-api-help=\"custom.create\"\u003e\r\n            \u003ch3 id=\"custom-create-heading\"\u003e생성 설정\u003c/h3\u003e\r\n            \u003cdiv class=\"custom-form-grid\"\u003e\r\n                \u003clabel\u003e이름\u003cinput id=\"custom-name\" type=\"text\" value=\"가상건물 1\" data-create-setting\u003e\u003c/label\u003e\r\n                \u003clabel\u003e높이(m)\u003cinput id=\"custom-height\" type=\"number\" min=\"1\" step=\"1\" value=\"30\" data-create-setting\u003e\u003c/label\u003e\r\n                \u003clabel\u003e색상\u003cinput id=\"custom-color\" type=\"color\" value=\"#4f8cff\" data-create-setting\u003e\u003c/label\u003e\r\n                \u003clabel\u003e투명도\u003cinput id=\"custom-opacity\" type=\"number\" min=\"0\" max=\"1\" step=\"0.1\" value=\"0.8\" data-create-setting\u003e\u003c/label\u003e\r\n                \u003clabel class=\"wide-field\"\u003e라벨\u003cinput id=\"custom-label\" type=\"text\" placeholder=\"선택 입력\" data-create-setting\u003e\u003c/label\u003e\r\n            \u003c/div\u003e\r\n        \u003c/section\u003e\r\n\r\n        \u003csection class=\"custom-section\" aria-labelledby=\"custom-edit-heading\" data-api-help=\"custom.style\"\u003e\r\n            \u003cdiv class=\"custom-section-heading\"\u003e\u003ch3 id=\"custom-edit-heading\"\u003e선택 건물 편집\u003c/h3\u003e\u003cspan id=\"selected-custom-name\"\u003e선택 없음\u003c/span\u003e\u003c/div\u003e\r\n            \u003cfieldset id=\"selected-custom-fields\" disabled\u003e\r\n                \u003cdiv class=\"custom-form-grid\"\u003e\r\n                    \u003clabel\u003e높이(m)\u003cinput id=\"selected-height\" type=\"number\" min=\"1\" step=\"1\"\u003e\u003c/label\u003e\r\n                    \u003clabel\u003e색상\u003cinput id=\"selected-color\" type=\"color\" value=\"#4f8cff\"\u003e\u003c/label\u003e\r\n                    \u003clabel\u003e투명도\u003cinput id=\"selected-opacity\" type=\"number\" min=\"0\" max=\"1\" step=\"0.1\"\u003e\u003c/label\u003e\r\n                    \u003clabel\u003e라벨\u003cinput id=\"selected-label\" type=\"text\"\u003e\u003c/label\u003e\r\n                \u003c/div\u003e\r\n                \u003cbutton id=\"apply-custom-style\" class=\"custom-primary\" type=\"button\"\u003e설정 적용\u003c/button\u003e\r\n                \u003cdiv class=\"custom-gizmo-grid\" data-api-help=\"custom.gizmo\"\u003e\r\n                    \u003cbutton type=\"button\" data-gizmo-mode=\"translate\"\u003e위치\u003c/button\u003e\r\n                    \u003cbutton type=\"button\" data-gizmo-mode=\"rotate\"\u003e회전\u003c/button\u003e\r\n                    \u003cbutton type=\"button\" data-gizmo-mode=\"scale\"\u003e크기\u003c/button\u003e\r\n                \u003c/div\u003e\r\n            \u003c/fieldset\u003e\r\n        \u003c/section\u003e\r\n\r\n        \u003csection class=\"custom-section\" aria-labelledby=\"custom-list-heading\"\u003e\r\n            \u003cdiv class=\"custom-section-heading\"\u003e\u003ch3 id=\"custom-list-heading\"\u003e가상건물 목록\u003c/h3\u003e\u003c/div\u003e\r\n            \u003cp id=\"custom-model-empty\" class=\"custom-empty\"\u003e생성된 가상건물이 없습니다.\u003c/p\u003e\r\n            \u003cul id=\"custom-model-list\" class=\"custom-model-list\"\u003e\u003c/ul\u003e\r\n        \u003c/section\u003e\r\n\r\n        \u003csection class=\"custom-section custom-work-actions\" aria-label=\"가상건물 작업\"\u003e\r\n            \u003cbutton id=\"save-custom-models\" type=\"button\" data-api-help=\"custom.save\"\u003e저장\u003c/button\u003e\r\n            \u003cbutton id=\"load-custom-models\" type=\"button\" disabled\u003e불러오기\u003c/button\u003e\r\n            \u003cbutton id=\"clear-custom-models\" class=\"danger\" type=\"button\"\u003e전체 삭제\u003c/button\u003e\r\n        \u003c/section\u003e\r\n    \u003c/div\u003e\r\n\u003c/aside\u003e\r\n"},{"id":"css","label":"CSS","path":"./customModel.css","language":"css","editable":true,"url":"edition/examples/customModel/customModel.css","content":".custom-model-panel {\r\n    width: min(440px, calc(100vw - 96px));\r\n}\r\n\r\n.custom-model-content {\r\n    display: grid;\r\n    gap: 14px;\r\n    max-height: calc(100vh - 150px);\r\n    overflow: auto;\r\n}\r\n\r\n.custom-section {\r\n    display: grid;\r\n    gap: 10px;\r\n    padding: 12px;\r\n    border: 1px solid rgba(255, 255, 255, 0.12);\r\n    border-radius: 14px;\r\n    background: rgba(10, 27, 50, 0.34);\r\n}\r\n\r\n.custom-section h3,\r\n.custom-section p {\r\n    margin: 0;\r\n}\r\n\r\n.custom-mode-grid,\r\n.custom-gizmo-grid,\r\n.custom-work-actions {\r\n    display: grid;\r\n    grid-template-columns: repeat(3, minmax(0, 1fr));\r\n    gap: 7px;\r\n}\r\n\r\n.custom-mode-grid label {\r\n    position: relative;\r\n}\r\n\r\n.custom-mode-grid input {\r\n    position: absolute;\r\n    opacity: 0;\r\n}\r\n\r\n.custom-mode-grid span,\r\n.custom-section button {\r\n    display: grid;\r\n    min-height: 36px;\r\n    place-items: center;\r\n    border: 1px solid rgba(255, 255, 255, 0.18);\r\n    border-radius: 9px;\r\n    color: #e8f2ff;\r\n    background: rgba(255, 255, 255, 0.07);\r\n    cursor: pointer;\r\n}\r\n\r\n.custom-mode-grid input:checked + span,\r\n.custom-primary {\r\n    border-color: #76b6ff !important;\r\n    background: rgba(52, 128, 230, 0.34) !important;\r\n}\r\n\r\n.custom-status,\r\n.custom-section-heading,\r\n.custom-model-item {\r\n    display: flex;\r\n    align-items: center;\r\n    justify-content: space-between;\r\n    gap: 10px;\r\n}\r\n\r\n.custom-status {\r\n    color: #c5d8ef;\r\n    font-size: 12px;\r\n}\r\n\r\n.custom-form-grid {\r\n    display: grid;\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n    gap: 9px;\r\n}\r\n\r\n.custom-form-grid label {\r\n    display: grid;\r\n    gap: 5px;\r\n    color: #c5d8ef;\r\n    font-size: 12px;\r\n}\r\n\r\n.custom-form-grid input {\r\n    width: 100%;\r\n    min-height: 34px;\r\n    padding: 6px 8px;\r\n    border: 1px solid rgba(255, 255, 255, 0.18);\r\n    border-radius: 8px;\r\n    color: #f5f9ff;\r\n    background: rgba(3, 15, 31, 0.72);\r\n}\r\n\r\n.custom-form-grid input[type=\"color\"] {\r\n    padding: 3px;\r\n}\r\n\r\n.wide-field {\r\n    grid-column: 1 / -1;\r\n}\r\n\r\n#selected-custom-fields {\r\n    display: grid;\r\n    gap: 9px;\r\n    min-width: 0;\r\n    padding: 0;\r\n    border: 0;\r\n}\r\n\r\n#selected-custom-fields:disabled {\r\n    opacity: 0.52;\r\n}\r\n\r\n.custom-section-heading span,\r\n.custom-empty {\r\n    color: #9fb4ca;\r\n    font-size: 12px;\r\n}\r\n\r\n.custom-model-list {\r\n    display: grid;\r\n    gap: 7px;\r\n    margin: 0;\r\n    padding: 0;\r\n    list-style: none;\r\n}\r\n\r\n.custom-model-item {\r\n    padding: 7px 8px;\r\n    border-radius: 9px;\r\n    background: rgba(255, 255, 255, 0.06);\r\n}\r\n\r\n.custom-model-actions {\r\n    display: flex;\r\n    gap: 5px;\r\n}\r\n\r\n.custom-model-actions button {\r\n    min-height: 28px;\r\n    padding: 0 8px;\r\n    font-size: 11px;\r\n}\r\n\r\n.custom-work-actions {\r\n    padding: 0;\r\n    border: 0;\r\n    background: transparent;\r\n}\r\n\r\n.custom-section button:disabled {\r\n    cursor: not-allowed;\r\n    opacity: 0.45;\r\n}\r\n\r\n.custom-section button.danger {\r\n    color: #ffd8dd;\r\n    border-color: rgba(255, 101, 125, 0.45);\r\n}\r\n\r\n@media (max-width: 760px) {\r\n    .custom-model-panel {\r\n        width: min(420px, calc(100vw - 84px));\r\n    }\r\n\r\n    .custom-model-content {\r\n        max-height: calc(100vh - 136px);\r\n    }\r\n}\r\n"}]}</script>
+<script id="example-metadata" type="application/json">{"title":"가상건물 추가 예제","url":"customModel.html","category":"analysis","categoryLabel":"분석","summary":"지도에 가상건물을 그리고 선택하여 모양과 표시 상태를 편집합니다.","tags":["가상건물","CustomModel","Gizmo","편집"],"apis":["UAnalyCustomModel","U3dCustomModel","UAnalyGizmoModel"],"editor":true,"apiHelp":true,"imageLayerPanel":true,"terrainLayerPanel":true,"featured":true,"thumbnail":"https://dt-data.mappick.co.kr/ServiceData/thumbnails/edition/customModel.png","thumbnailMotion":"https://dt-data.mappick.co.kr/ServiceData/thumbnails/edition/customModel.webm","legacy":false,"manifest":true,"sourceFile":"examples\\customModel\\customModel.md"}</script>
+<script>
+window.__EXAMPLE_BUILD_CONFIG__ = {
+    targetPrefix: 'edition/',
+    runnerUrl: 'edition/runner.html',
+    monacoModuleUrl: 'edition/assets/monaco/monaco-editor.js?v=ebbbdcf5172a',
+    // GeOnDT 타입 선언 번들입니다. 값이 없으면 코드 편집기는 자동완성 없이 동작합니다.
+    monacoTypesUrl: 'edition/assets/monaco/geondt-types.json?v=dbfb352606d5'
+};
+// 예제는 코드 편집 패널을 연 상태로 시작하며, 닫으면 editor=0이 남아 선택이 유지됩니다.
+// 패널 너비는 지도 Engine 생성 전에 확정되므로 초기 화면이 다시 배치되지 않습니다.
+// 좁은 화면에서는 편집기가 화면 전체를 덮으므로 기본 열기를 적용하지 않습니다.
+(function () {
+    var editorParameter = new URLSearchParams(window.location.search).get('editor');
+    window.__EXAMPLE_EDITOR_MODE__ = editorParameter === '1'
+        || (editorParameter !== '0' && window.innerWidth > 760);
+})();
+</script>
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/filesaver/FileSaver.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script src="js/example-theme.js"></script>
+<script type="module">
+import(/* @vite-ignore */ new URL('js/example-page.js', document.baseURI).href);
+</script>
+</body>
+</html>
+

@@ -1,0 +1,30 @@
+<nav class="analysisHeight-rail" data-example-rail aria-label="analysisHeight 도구">
+    <button id="analy-bnt" class="rail-button" type="button" data-legacy-toggle-state aria-pressed="false">
+        <span class="rail-icon">▦</span><span>분석</span>
+    </button>
+</nav>
+
+<div id="analy-popup" oncontextmenu="return false" class="legacy-floating-panel legacy-main-feature-panel legacy-migration-panel" style="display:none;">
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content" style="margin:0 10px;">
+                <div class="radio">
+                    <label>
+                        <input type="radio" name="mode" value="pan" checked>
+                        기본 모드
+                    </label>
+                </div>
+                <div class="radio">
+                    <label>
+                        <input type="radio" name="mode" value="height">
+                        경사도 분석
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<!-- 경사도 분석 결과 차트가 그려지는 jQuery UI dialog 컨테이너 -->
+<div id="slope-dialog"></div>

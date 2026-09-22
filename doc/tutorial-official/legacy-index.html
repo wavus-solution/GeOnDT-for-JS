@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>GeOnDT for JS 예제페이지</title>
+    <link rel="stylesheet" href="../common/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body>
+<nav class="navbar navbar-inverse navbar-fixed-top">
+    <div class="navbar-inner">
+        <div class="container">
+
+            <a class="brand" href="./">
+                <img src="image/solution_GeOnDT.png" >
+                Sample
+            </a>
+            <ul class="nav navbar-nav pull-right">
+                <li><a href="../home/index.html">Home</a></li>
+                <li><a href="../api/index.html">API</a></li>
+                <li><a href="./" class="active">Examples</a></li>
+                <li><a href="../media/index.html">Media</a></li>
+                <li><a href="../integration/index.html" target="_blank">Integration</a></li>
+                <li><a href="../service/index.html">Service Ex</a></li>
+                <li><a href="../dataGuide/index.html" target="_blank">Data Guide</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+<div id="wrap" class="clearfix">
+    <div class="navigation">
+        <div class="search">
+            <label for="input-search">
+                <input id="input-search" type="text" class="form-control" placeholder="Search Example">
+            </label>
+        </div>
+        <ul class="navigation-list search-empty">
+            <li class="item item-class">
+                <details open>
+                    <summary>
+                        <span class="glyphicon glyphicon-chevron-down"></span>
+                        <span>Start</span><span class="badge" id="start"></span>
+                    </summary>
+                    <ul class="start list">
+                        <li data-name="active"><input type="button" class="link" value="+ U3dApp 환경설정"
+                                                      target="settingApp.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 이벤트 처리"
+                                                      target="eventLayers.html">
+                    </ul>
+                </details>
+            </li>
+            <li class="item item-class" >
+                <details open>
+                    <summary>
+                        <span class="glyphicon glyphicon-chevron-down"></span>
+                        <span>Analysis</span><span class="badge" id="analysis"></span>
+                    </summary>
+                    <ul class="analysis list">
+                        <li data-name="active"><input type="button" class="link" value="+ 거리 / 면적 / 고도 측정"
+                                                      target="measure.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 경관 분석"
+                                                      target="landscape.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 경사도 분석"
+                                                      target="analysisHeight.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 고도 / 심도 측정  "
+                                                      target="analysisDepth.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 고도 제한 분석"
+                                                      target="analysisHeightLimit.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 레이어 투명도 / 클리핑 설정"
+                                                      target="settingLayers.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 모델 편집 (위치 / 회전 / 크기)"
+                                                      target="3dModelEdit.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 뷰콘 분석"
+                                                      target="analysisViewCone.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 지표면 편집"
+                                                      target="customLand.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 조망권 분석"
+                                                      target="analysisView.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 다중 시설물 레이어 편집"
+                                                      target="analysisMultipleComponent.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 일조권 분석"
+                                                      target="analysisSun.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 일조량 분석"
+                                                      target="analysisSunAmount.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 위치정보 조회"
+                                                      target="navigation.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 클리핑 분석"
+                                                      target="analysisClipping.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 평균 높이 분석"
+                                                      target="averageHeight.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 횡단면 분석"
+                                                      target="analysisSection.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 2D 객체 그리기"
+                                                      target="vectorLayer2D.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 3D 흐름 객체 그리기"
+                                                      target="flowObject.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 스카이 라인"
+                                                      target="analysisSkyLine.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 표면 체적 분석"
+                                                      target="analysisSurfaceVolume.html">
+                    </ul>
+                </details>
+            </li>
+            <li class="item item-class">
+                <details open>
+                    <summary>
+                        <span class="glyphicon glyphicon-chevron-down"></span>
+                        <span>Image Layer</span><span class="badge" id="image"></span>
+                    </summary>
+                    <ul class="image list">
+                        <li data-name="active"><input type="button" class="link" value="+ VWorld 배경지도 레이어"
+                                                      target="baseLayer.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 이미지 레이어"
+                                                      target="imageLayers.html">
+                        <li data-name="active"><input type="button" class="link" value="+ WMS 이미지 레이어"
+                                                      target="WMSImageLayer.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 패턴 이미지 레이어"
+                                                      target="singleImageLayer.html">
+                        <li data-name="active"><input type="button" class="link" value="+ TMS 이미지 레이어 검증"
+                                                      target="validateImageLayer.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 인덱스 지도"
+                                                      target="overview.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 2D-3D 지도 영역 동기화"
+                                                      target="debugTile.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 레이어 스와이프"
+                                                      target="swipeLayer.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 이미지 레이어 사용자 설정"
+                                                      target="customImageLayer.html">
+                    </ul>
+                </details>
+            </li>
+            <li class="item item-class" >
+                <details open>
+                    <summary>
+                        <span class="glyphicon glyphicon-chevron-down"></span>
+                        <span>Model Layer</span><span class="badge" id="model"></span>
+                    </summary>
+                    <ul class="model list">
+                        <li data-name="active"><input type="button" class="link" value="+ 지형 레이어"
+                                                      target="terrain.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 3dTiles 모델 레이어"
+                                                      target="3dTilesModel.html">
+                        <li data-name="active"><input type="button" class="link" value="+ vectorTile 레이어"
+                                                      target="vectorTile.html">
+                        <li data-name="active"><input type="button" class="link" value="+ U3F 모델 레이어"
+                                                      target="u3fModel.html">
+                        <li data-name="active"><input type="button" class="link" value="+ I3F 지하 시설물 레이어"
+                                                      target="i3fModel.html">
+                        <li data-name="active"><input type="button" class="link" value="+ WFS 모델 레이어"
+                                                      target="WFSModelLayer.html">
+                        <li data-name="active"><input type="button" class="link" value="+ WFS 모델 스타일 설정"
+                                                      target="styleWfsModelLayer.html">
+                        <li data-name="active"><input type="button" class="link" value="+ WFS 지하 시설물 레이어"
+                                                      target="undergroundWfsModelLayer.html">
+                        <li data-name="active"><input type="button" class="link" value="+ SHP 모델 레이어"
+                                                      target="localShp.html">
+                        <li data-name="active"><input type="button" class="link" value="+ SHP 주상복합 모델 레이어"
+                                                      target="complexShp.html">
+                        <li data-name="active"><input type="button" class="link" value="+ SHP 사용자 텍스처 모델 레이어"
+                                                      target="complexShpUserTexture.html">
+                        <li data-name="active"><input type="button" class="link" value="+ DXF 모델 레이어"
+                                                      target="localDxf.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 실내(indoor) 모델 레이어"
+                                                      target="indoor.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 애니메이션 레이어"
+                                                      target="animationLayer.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 스태틱 모델 레이어"
+                                                      target="modelStaticLayer.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 모델 캐시 "
+                                                      target="loadBuilding.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 격자 타일 레이어 "
+                                                      target="gridTile.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 높은 품질 3DTiles 레이어 "
+                                                      target="highQualityTiles.html">
+                        <li data-name="active"><input type="button" class="link" value="+ KML 레이어"
+                                                      target="kmlModelLayer.html">
+                    </ul>
+                </details>
+            </li>
+            <li class="item item-class" >
+                <details open>
+                    <summary>
+                        <span class="glyphicon glyphicon-chevron-down"></span>
+                        <span>Map Control</span><span class="badge" id="view"></span>
+                    </summary>
+                    <ul class="view list">
+                        <li data-name="active"><input type="button" class="link" value="+ 화면 이동"
+                                                      target="fly.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 오버레이"
+                                                      target="overlay.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 카메라 뷰"
+                                                      target="clickView.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 광원 뷰"
+                                                      target="clickViewLight.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 분할화면"
+                                                      target="syncCamera.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 해상도 제어"
+                                                      target="textureLevel.html">
+                    </ul>
+                </details>
+            </li>
+            <li class="item item-class" >
+                <details open>
+                    <summary>
+                        <span class="glyphicon glyphicon-chevron-down"></span>
+                        <span>Simulation</span><span class="badge" id="drone"></span>
+                    </summary>
+                    <ul class="drone list">
+                        <li data-name="active"><input type="button" class="link" value="+ 경로 모의주행 시뮬레이션"
+                                                      target="route.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 주행모드 시뮬레이션"
+                                                      target="driveSimulation_Ex.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 드론 비행 시뮬레이션"
+                                                      target="droneDemo.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 드론 경로 시뮬레이션"
+                                                      target="droneDemoPath.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 분할화면 및 비행 시뮬레이션"
+                                                      target="flySimulation.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 지도조작 시뮬레이션 (걷기 / 비행)"
+                                                      target="mapcontrol.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 객체 확산 예제"
+                                                      target="spreadOfObject.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 바람길 예제"
+                                                      target="windSimulation.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 바람길 예제(전국)"
+                                                      target="windSimulationKorea.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 물리적 흐름 시뮬레이션"
+                                                      target="analysisPhysicalFlow.html">
+                    </ul>
+                </details>
+            </li>
+            <li class="item item-class" >
+                <details open>
+                    <summary>
+                        <span class="glyphicon glyphicon-chevron-down"></span>
+                        <span>Indoor</span><span class="badge" id="indoor"></span>
+                    </summary>
+                    <ul class="indoor list">
+                        <li data-name="active"><input type="button" class="link" value="+ 광명역 실내건물 및 보행모드"
+                                                      target="indoorExtension.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 광명역 정보 확인 및 설정"
+                                                      target="indoorGwangmeong_Offset.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 아시아문화전당 실내건물 및 보행모드"
+                                                      target="indoorAsiamun.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 아시아문화전당 정보 확인 및 설정"
+                                                      target="indoorAsiamun_Offset.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 서울시립미술관 실내건물 및 보행모드"
+                                                      target="indoorSema_Ex.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 서울시립미술관 정보 확인 및 설정"
+                                                      target="indoorSema_Offset.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 실내건물 (3ds) 사용자 지정 그룹화 예제"
+                                                      target="groupingMesh.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 사용자 지정 그룹 이동 설정 예제"
+                                                      target="shiftGroupMesh.html">
+                    </ul>
+                </details>
+            </li>
+            <li class="item item-class" >
+                <details open>
+                    <summary>
+                        <span class="glyphicon glyphicon-chevron-down"></span>
+                        <span>Etc</span><span class="badge" id="etc"></span>
+                    </summary>
+                    <ul class="etc list">
+                        <li data-name="active"><input type="button" class="link" value="+ orthographic 카메라"
+                                                      target="orthographic.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 화면 이미지 저장"
+                                                      target="saveImage.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 3D 자료 변환 및 레이어 발행 "
+                                                      target="uploadFile.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 실내건물 위치 확인 및 이동 "
+                                                      target="exteriorToIndoor.html">
+                        <li data-name="active"><input type="button" class="link" value="+ BIM 객체 관리 "
+                                                      target="checkBIM.html">
+                        <li data-name="active"><input type="button" class="link" value="+ BIM 자료 조회 "
+                                                      target="showBIMObj.html">
+                    </ul>
+                </details>
+            </li>
+            <li class="item item-class" >
+                <details open>
+                    <summary>
+                        <span class="glyphicon glyphicon-chevron-down"></span>
+                        <span>Addon</span><span class="badge" id="addon"></span>
+                    </summary>
+                    <ul class="addon list">
+                        <li data-name="active"><input type="button" class="link" value="+ 오염 확산 예제"
+                                                      target="addonSpreadObject.html">
+                    </ul>
+                </details>
+            </li>
+        </ul>
+    </div>
+    <div class="main">
+        <h1 id="title" style="margin: 10px 0 20px 0; display: inline"></h1>
+        <div id="example" style="display: inline; margin-left: 20px;"></div>
+        <hr>
+        <div id="explanation"></div>
+        <footer>
+            Documentation generated by <a target="_blank" href="https://github.com/jsdoc3/jsdoc">JSDoc 3.6.7</a> on Wed
+            Sep 21 2022 16:31:40 GMT+0900 (대한민국 표준시)
+        </footer>
+    </div>
+
+</div>
+</body>
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script>
+    const dataServerUrl = 'https://dt-data.mappick.co.kr/ServiceData/';
+    $(document).ready(function () {
+        let $catagorey = $(".navigation").children('ul');
+
+        //카테고리 첫 리스트를 읽어 로드
+        let $firstli = $catagorey.find('.link:first');
+        let url = $firstli.attr("target");
+        $.ajax({
+            url: url,
+            method: "GET"
+        }).done(function (json) {
+            findTileAndPre(json, url);
+        }).fail(function (xhr, status, errorThrown) {
+            console.log(errorThrown + "," + status)
+        });
+
+        setLabel($catagorey);
+    });
+
+    $(document).on('click', 'summary', function () {
+        let $summary = $(this);
+        let $details = $summary.closest('details');
+        let $maker = $summary.find('.glyphicon');
+        if ($details.attr('open') === 'open') {
+            $maker.removeClass("glyphicon-chevron-down");
+            $maker.addClass("glyphicon-chevron-right");
+        } else {
+            $maker.removeClass("glyphicon-chevron-right");
+            $maker.addClass("glyphicon-chevron-down");
+        }
+    });
+
+    $(document).on('click', '.link', function () {
+        let url = $(this).attr("target")
+        $.ajax({
+            url: url,
+            method: "GET"
+        }).done(function (json) {
+            findTileAndPre(json, url);
+        }).fail(function (xhr, status, errorThrown) {
+            console.log(errorThrown + "," + status)
+        });
+    });
+
+    $(document).on('keyup', '#input-search', function (e) {
+        const keywords = String(this.value || '')
+            .toLowerCase()
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
+
+        let $itemClass = $(".navigation").children('ul').children();
+
+        $itemClass.each(function (i, v) {
+            let li = $(v).find('li');
+            let search = false;
+
+            $(li).each(function (i, liEl) {
+                const $child = $(liEl).children();
+
+                // val()이 없는 요소일 수도 있으므로 text()도 fallback 처리
+                const itemValue = $child.val() ?? $child.text();
+
+                const str = String(itemValue || '')
+                    .replace('+ ', '')
+                    .toLowerCase();
+
+                // 검색어가 비어있으면 전체 표시
+                // 검색어 중 하나라도 포함되면 표시
+                const matched = keywords.length === 0 ||
+                    keywords.some(function (keyword) {
+                        return str.includes(keyword);
+                    });
+
+                if (matched) {
+                    $(liEl).removeClass('hide');
+                    search = true;
+                } else {
+                    $(liEl).addClass('hide');
+                }
+            });
+
+            if (search) {
+                $(v).find('details').removeClass('hide');
+                $(v).css('border-bottom', '1px solid #333');
+            } else {
+                $(v).find('details').addClass('hide');
+                $(v).css('border', '0');
+            }
+        });
+    });
+
+    function findTileAndPre(json, url) {
+        let parser = new DOMParser();
+        let dom = parser.parseFromString(json, "text/html");
+        let title = dom.getElementsByTagName('title')[0].text;
+        let ex = dom.getElementsByClassName('ex-explanation');
+        $(ex).removeAttr('hidden');
+        $("#title").text(title);
+
+        let $explanation = $("#explanation");
+        $explanation.empty();
+        $explanation.append(ex);
+
+        //var special_pattern = /\W|\s/g;
+        let imgName = title.replace(/ /g, '');
+        $explanation.append(`<img alt="${title}" src= "${dataServerUrl}thumbnails/${imgName}.png">`);
+        let $example = $("#example");
+        $example.empty();
+        let str = `<a href="${url}"><span class="glyphicon glyphicon-expand"></span>  ${title} </a>`
+        $example.append(str)
+    }
+
+    function setLabel(catagorey) {
+        let startNum = catagorey.find('.start').children().length;
+        let analyNum = catagorey.find('.analysis').children().length;
+        let imageNum = catagorey.find('.image').children().length;
+        let modelNum = catagorey.find('.model').children().length;
+        let viewNum = catagorey.find('.view').children().length;
+        let droneNum = catagorey.find('.drone').children().length;
+        let indoorNum = catagorey.find('.indoor').children().length;
+        let etcNum = catagorey.find('.etc').children().length;
+
+        $("#start").text(startNum);
+        $("#analysis").text(analyNum);
+        $("#image").text(imageNum);
+        $("#model").text(modelNum);
+        $("#view").text(viewNum);
+        $("#drone").text(droneNum);
+        $("#indoor").text(indoorNum);
+        $("#etc").text(etcNum);
+    }
+</script>
+</html>

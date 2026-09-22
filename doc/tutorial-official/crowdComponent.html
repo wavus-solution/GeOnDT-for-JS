@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>트윈 개선 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/tutorial.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        html, body {
+            height: 100%;
+        }
+
+        .examples {
+            padding: 15px 30px 15px 30px;
+        }
+    </style>
+</head>
+<body>
+<div id="map-wrapper">
+    <div id="map"></div>
+</div>
+<div class="execute-popup"><button>직접해보기</button></div>
+<div class="examples row">
+    <div class="ex-explanation" hidden>
+        <p class="lead">
+            모델의 애니메이션 기능을 지원하는 <strong>애니메이션 레이어를 화면에 출력</strong>하는 예제입니다.<br>
+            100개 추가시 헬리콥터 모델이 레이어에 추가되며 미리 지정한 위치로 비행합니다. 애니메이션은 정지하거나 재시작 할 수 있습니다.
+        </p>
+    </div>
+    <div class="panel panel-default">
+        <div class="panel-heading">경로 선택 </div>
+        <div class="panel-body">
+            <div class="radio">
+                <label>
+                    <input type="radio" name="route" value="area" checked>
+                    영역으로 경로 추가
+                </label>
+                <label>
+                    <input type="radio" name="route" value="random" >
+                    경로 추가
+                </label>
+                <input type="hidden" id="route-mode" value="area">
+            </div>
+        </div>
+    </div>
+    <div class="panel panel-default">
+        <div class="panel-heading"> 선택 </div>
+        <div class="panel-body">
+            <div class="form-group">
+                <button class="btn btn-default" id="add">컴포넌트 추가</button>
+            </div>
+            <div class="radio">
+                <label>
+                    <input type="radio" name="mode" value="play" checked>
+                    애니메이션 시작
+                </label>
+                <label>
+                    <input type="radio" name="mode" value="stop">
+                    애니메이션 정지
+                </label>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function() {
+        window.open('./runner.html?url=' + strings[strings.length-1] + '&title=' + document.title);
+    })
+</script>
+<script>
+    require(['app/Union3D'], function (Union3D) {
+        Union3D.ready(function () {
+            const componentOption = {
+                '헬기': {
+                    name          : 'helicopter', //+ 레이어 이름
+                    rotation      : {x: 0, y: 0, z: 0}, //+ 컴포넌트 모델의 회전,  defaultValue(opt.rotation, {x: 0, y: 0, z: 0});
+                    scale         : {x: 0.5, y: 0.5, z: 0.5}, //+ 컴포넌트 모델의 스케일(크기),  defaultValue(opt.scale, {x: 1, y: 1, z: 1});
+                    needxml       : false, //+ 모델의 메타데이터(XML) 유무
+                    listmodel     : [], //+ 모델 레이어를 구성할 모델 데이터 리스트
+                    type          : "model", //+ 레이어 타입
+                    baseurl       : layerInfo.model.helicopterurl, //+모델 데이터의 기본경로, *필수 입력
+                    filename      : layerInfo.model.helicoptername, //+모델 데이터의 이름, *필수 입력
+                    ext           : layerInfo.model.helicopterext //+ 모델 데이터 확장자, *필수 입력
+                }
+            };
+
+            //지도 기본 세팅///////////////////////////////////////
+            var app    = new Union3D.U3dAPP({
+                containername: 'map' //+ U3dApp(지도영역)의 div ID, *필수 입력
+            });
+            window.app = app;
+            app.setHomePosition(126.9395, 37.52, 550, 2, 40); //경도, 위도, 높이, 방위각, 고도각
+            app.updateHomePosition();
+
+            //이미지 레이어 생성
+            const layer = new Union3D.image.U3dImageXYZLayer({
+                name   : 'singleImageLayer', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+                baseurl: 'sample/img/tile.png' //+ 고도 데이터 기본 URL, *필수 입력
+            });
+            app.addLayer(layer);
+            app.setNameBaseLayer('singleImageLayer');
+            app.showLayer('singleImageLayer', true);
+
+
+            let vectorLayer = new Union3D.vector.U2dVectorShaderLayer({
+                name: 'vectorLayer',
+                transparent: true
+            });
+            app.addLayer(vectorLayer);
+            app.showLayer('vectorLayer', true);
+
+            /////////////////////////////////////////////////////
+
+            var option      = componentOption['헬기'];
+            var modelOption = {
+                name    : option.name, //+ 레이어 이름, *필수 입력
+                baseurl : option.baseurl, //+ 모델 데이터의 기본경로, *필수 입력
+                fileName: option.filename, //+ 모델 데이터의 이름, *필수 입력
+                ext : option.ext
+            };
+            option.listmodel.push(modelOption);
+
+            const componentLayer = new Union3D.model.U3dMultipleComponentLayer(option);
+            app.addLayer(componentLayer);
+            window.componentLayer = componentLayer;
+
+            componentLayer.ready.then(function () {
+                app.showLayer(componentLayer.getName(), true);
+            });
+
+            $(document).on('click', "input[name='mode']", function (e) {
+                var target = e.target.value;
+                if (target === 'play') {
+                    componentLayer.startAnimation();
+                } else {
+                    componentLayer.stopAnimation();
+                }
+            });
+
+            $(document).on('click', "input[name='route']", function (e) {
+                let target = e.target.value;
+                let route = $('#route-mode');
+                if (target === 'area') {
+                    route.val('area');
+                }else if (target === 'random') {
+                    route.val('random');
+                }else
+                    route.val('list');
+            })
+
+            let targetGeom;
+            app.on('click', function (e) {
+                //클릭지점 위경도 좌표
+                let world  = app.closestPointAtPixel(e);
+                let lonlat = app.vector3ToGeoGraphic(world);
+                if (lonlat === undefined) return;
+                drawGeom(lonlat);
+            });
+
+            const movepointlist = [];
+            $('#add').on('click', function () {
+                let route = $("#route-mode").val();
+                if(route==="area") {
+                    if(targetGeom === undefined) {
+                        alert('영역을 생성해주세요');
+                        return
+                    }
+                }else {
+                    targetGeom = undefined
+                }
+                componentLayer.addComponent({
+                    geoPosition  : {x: 126.9395, y: 37.52, z: 20}, //+ 컴포넌트를 추가할 위경도 위치
+                    speed        : 200, //+ 컴포넌트 속도
+                    movepointlist: movepointlist,    //경로설정 옵션, 컴포넌트의 이동경로 배열
+                    drawpath : true,
+                    rotation : {x: 90, y: 0,z: 0}, //모델 회전 보정
+                    visibleLevel : 6,
+                    labelVisible : true,
+                    repeat : true, // 경로 반복 여부
+                    drawPolygon : targetGeom
+                });
+
+            });
+
+            function drawGeom(lonlat) {
+                if (targetGeom === undefined) {
+                    createGeom();
+                }
+                targetGeom.addPosition([lonlat.x, lonlat.y]);
+            }
+
+            function createGeom() {
+                let geom;
+                let option ={
+                    fillColor  : 'rgba(255,255,255,0.4)', //+ 채움색
+                    strokeColor: '#3399CC', //+ 선색상
+                    strokeWidth: 5 //+ 선두께
+                }
+                geom = new Union3D.geom.U2dPolygon(option);
+                vectorLayer.addGeometry(geom); //+ layer에 도형 추가, 맵에 도형 그리기
+                targetGeom = geom;
+                window.targetGeom = targetGeom;
+            }
+
+        });
+    });
+</script>
+</body>
+</html>

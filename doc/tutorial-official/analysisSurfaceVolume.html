@@ -1,0 +1,3052 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>표면 체적 분석 예제</title>
+
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+
+    <style>
+        .div-popup {
+            width: 1180px;
+            height: 650px;
+            top: calc(50vh - 325px);
+            left: calc(50vw - 590px);
+            display: inline;
+            overflow: hidden;
+        }
+
+        .div-popup-control {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 40px;
+            padding: 5px 8px;
+            color: #fff;
+            font-size: 16px;
+            background-color: #2b2b2b;
+        }
+
+        .div-popup-content {
+            height: calc(100% - 40px);
+            padding: 10px;
+            overflow-y: auto;
+        }
+
+        .u3-popup {
+            width: 310px;
+            height: fit-content;
+            padding: 10px;
+            color: #fff;
+            background-color: rgba(20, 20, 20, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .u3-popup .form-group {
+            margin-bottom: 8px;
+        }
+
+        .u3-popup label {
+            min-width: 86px;
+        }
+
+        .input-sm,
+        .form-control {
+            color: #fff;
+            background-color: rgba(40, 40, 40, 0.85);
+            border-color: #444;
+        }
+
+        .btn-default {
+            color: #fff;
+            background-color: rgba(10, 10, 10, 0.7);
+            border-color: #444;
+        }
+
+        .analysis-setting-grid > label {
+            margin: 0;
+            font-weight: normal;
+        }
+
+        .visual-option-list label {
+            font-weight: normal;
+        }
+
+        .reference-height-row,
+        .reference-layer-row {
+            display: contents;
+        }
+
+        .surface-volume-list {
+            max-height: 205px;
+            overflow-y: auto;
+        }
+
+        .surface-volume-item {
+            display: block;
+            gap: 8px;
+            padding: 8px;
+            margin-bottom: 6px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid #444;
+        }
+
+        .surface-volume-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .surface-volume-item-title {
+            margin-bottom: 5px;
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .surface-volume-item-info {
+            display: grid;
+            grid-template-columns: 85px 1fr;
+            gap: 3px 6px;
+            color: #ccc;
+            font-size: 12px;
+        }
+
+        .surface-volume-item-edit {
+            display: flex;
+            gap: 4px;
+            margin-top: 6px;
+        }
+
+        .surface-volume-item-edit input,
+        .surface-volume-item-edit select {
+            height: 26px;
+            padding: 2px 5px;
+            color: #fff;
+            background: #282828;
+            border: 1px solid #555;
+        }
+
+        .surface-volume-item-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .surface-volume-tabs {
+            display: flex;
+            gap: 4px;
+            margin-top: 8px;
+            border-bottom: 1px solid #444;
+        }
+
+        .surface-volume-tab {
+            padding: 4px 10px;
+            color: #bbb;
+            background: transparent;
+            border: 1px solid #444;
+            border-bottom: none;
+        }
+
+        .surface-volume-tab.active {
+            color: #fff;
+            background: #2d2d2d;
+        }
+
+        .surface-volume-panel {
+            display: none;
+            padding-top: 8px;
+        }
+
+        .surface-volume-panel.active {
+            display: block;
+        }
+
+        .btn-volume-visual-toggle.active {
+            color: #fff;
+            background: #2f7dd1;
+            border-color: #2f7dd1;
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(130px, 1fr));
+            gap: 8px;
+        }
+
+        .result-card {
+            min-height: 75px;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid #444;
+        }
+
+        .result-card .title {
+            margin-bottom: 4px;
+            color: #aaa;
+            font-size: 12px;
+        }
+
+        .result-card .value {
+            color: #fff;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .result-card .sub-value {
+            margin-top: 4px;
+            color: #bbb;
+            font-size: 11px;
+        }
+
+        .result-card.cut .value {
+            color: #ff8a4c;
+        }
+
+        .result-card.fill .value {
+            color: #59a7ff;
+        }
+
+        .analysis-warning {
+            display: none;
+            margin-top: 8px;
+            white-space: pre-line;
+            padding: 7px;
+            color: #ffd166;
+            background: rgba(255, 209, 102, 0.08);
+            border: 1px solid rgba(255, 209, 102, 0.35);
+        }
+
+        .empty-content {
+            margin: 0;
+            color: #aaa;
+            background: transparent;
+            border: none;
+        }
+
+        /* 로딩바는 분석 중 지도/캔버스 입력을 막는 전체 화면 오버레이로 사용합니다. */
+        #load {
+            position: fixed;
+            display: none;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform: none;
+            z-index: 5000;
+            pointer-events: auto;
+            touch-action: none;
+            cursor: wait;
+            text-align: center;
+        }
+
+        #load > img {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 5001;
+        }
+
+        @media (max-width: 1200px) {
+            .div-popup {
+                width: calc(100vw - 40px);
+                left: 20px;
+            }
+
+            .result-grid {
+                grid-template-columns: repeat(2, minmax(130px, 1fr));
+            }
+        }
+
+
+        /* ===== 간소화 UI ===== */
+        #analy-popup .div-popup,
+        #result-popup .div-popup {
+            position: absolute;
+            display: block;
+            color: #f3f3f3;
+            background: rgba(24, 24, 24, 0.95);
+            border: 1px solid #454545;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+            overflow: hidden;
+        }
+
+        #analy-popup .div-popup {
+            top: 72px;
+            left: 55px;
+            width: 370px;
+            height: auto;
+            max-height: calc(100vh - 100px);
+        }
+
+        #result-popup {
+            position: relative;
+            left: 66%;
+            top: -15px;
+        }
+        #result-popup .div-popup {
+            left: auto !important;
+            top: auto !important;
+            position: relative;
+            width: 580px;
+            height: auto;
+            max-height: calc(100vh - 100px);
+        }
+
+        #analy-popup .div-popup-control,
+        #result-popup .div-popup-control {
+
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 40px;
+            padding: 5px 8px;
+            background: #2b2b2b;
+            cursor: move;
+        }
+
+        #analy-popup .div-popup-content,
+        #result-popup .div-popup-content {
+            height: auto;
+            max-height: calc(100vh - 145px);
+            padding: 10px;
+            overflow-y: auto;
+        }
+
+        .simple-mode-switch {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 5px;
+            margin-bottom: 9px;
+        }
+
+        .simple-mode-switch label {
+            margin: 0;
+            padding: 6px 4px;
+            color: #ddd;
+            font-size: 12px;
+            font-weight: normal;
+            text-align: center;
+            background: #252525;
+            border: 1px solid #4b4b4b;
+            cursor: pointer;
+        }
+
+        .simple-mode-switch input {
+            margin-right: 3px;
+        }
+
+        .simple-section {
+            margin-bottom: 9px;
+            padding: 9px;
+            background: rgba(255, 255, 255, 0.035);
+            border: 1px solid #454545;
+        }
+
+        .simple-section-title {
+            margin-bottom: 8px;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .simple-form-grid {
+            display: grid;
+            grid-template-columns: 105px 1fr;
+            gap: 7px 8px;
+            align-items: center;
+        }
+
+        .simple-form-grid > label {
+            margin: 0;
+            color: #bbb;
+            font-size: 12px;
+            font-weight: normal;
+        }
+
+        .simple-form-grid .form-control {
+            height: 30px;
+            padding: 4px 7px;
+        }
+
+        .simple-details {
+            margin-bottom: 9px;
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid #454545;
+        }
+
+        .simple-details summary {
+            padding: 8px 9px;
+            color: #ddd;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .simple-details-content {
+            padding: 0 9px 9px;
+        }
+
+        .simple-visual-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px 8px;
+        }
+
+        .simple-visual-grid label {
+            margin: 0;
+            color: #ccc;
+            font-size: 12px;
+            font-weight: normal;
+        }
+
+        /* 가시화 helper별 스타일을 예제에서 직접 조정할 수 있도록 그룹화합니다. */
+        .surface-style-panel {
+            grid-column: 1 / -1;
+            margin-top: 6px;
+        }
+
+        .surface-style-group {
+            margin-top: 5px;
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid #444;
+        }
+
+        .surface-style-group summary {
+            padding: 6px 8px;
+            color: #ddd;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .surface-style-grid {
+            display: grid;
+            grid-template-columns: 110px 1fr;
+            gap: 5px 7px;
+            align-items: center;
+            padding: 0 8px 8px;
+        }
+
+        .surface-style-grid label {
+            color: #aaa;
+            font-size: 11px;
+        }
+
+        .surface-style-grid input[type="number"],
+        .surface-style-grid select {
+            width: 100%;
+            height: 26px;
+            padding: 2px 5px;
+            color: #fff;
+            background: #282828;
+            border: 1px solid #555;
+        }
+
+        .surface-style-grid input[type="color"] {
+            width: 100%;
+            height: 26px;
+            padding: 1px 2px;
+            background: #282828;
+            border: 1px solid #555;
+        }
+
+        .surface-style-check {
+            display: flex;
+            align-items: center;
+            min-height: 24px;
+        }
+
+        .simple-action-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .simple-action-grid .wide {
+            grid-column: 1 / -1;
+        }
+
+        .simple-guide {
+            grid-column: 1 / -1;
+            margin: 0;
+            padding: 6px;
+            color: #ffd166;
+            font-size: 11px;
+            background: rgba(255, 209, 102, 0.06);
+            border: 1px solid rgba(255, 209, 102, 0.25);
+        }
+
+        .simple-progress-head {
+            display: flex;
+            justify-content: space-between;
+            color: #bbb;
+            font-size: 12px;
+        }
+
+        .simple-progress {
+            height: 8px;
+            margin: 5px 0 9px;
+            background: #202020;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .simple-progress .progress-bar {
+            height: 100%;
+            min-width: 0;
+        }
+
+        #result-popup .result-grid {
+            grid-template-columns: repeat(4, minmax(105px, 1fr));
+            gap: 7px;
+        }
+
+        #result-popup .result-card {
+            min-height: 68px;
+            padding: 8px;
+        }
+
+        #result-popup .result-card .value {
+            font-size: 16px;
+        }
+
+        .simple-result-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 11px 0 7px;
+        }
+
+        #result-popup .surface-volume-list {
+            max-height: 230px;
+        }
+
+        #result-popup {
+            margin-bottom: 9px;
+        }
+
+        #result-popup {
+            padding: 9px;
+        }
+
+        .simple-warning {
+            margin-top: 8px;
+        }
+
+        @media (max-width: 1100px) {
+            #result-popup .div-popup {
+                width: 480px;
+            }
+
+            #result-popup .result-grid {
+                grid-template-columns: repeat(2, minmax(105px, 1fr));
+            }
+        }
+
+    </style>
+</head>
+
+<body>
+<div id="header" oncontextmenu="return false">
+    <div>
+        <img src="image/solution_GeOnDT.png" alt="GeOnDT">
+        <span> 표면 체적 분석 예제</span>
+    </div>
+
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="도움말">
+    </div>
+</div>
+
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        사용자가 지정한 Polygon 영역에 격자를 생성하고 대상 모델의 상부 표면과 기준면을 샘플링하여
+        <strong>면적, 둘레, 절토량, 성토량 및 추정 체적</strong>을 계산하는 예제입니다.<br>
+        분석 대상은 3D Tiles 레이어 또는 외부에서 전달한 THREE.Object3D를 사용할 수 있으며,
+        기준면은 지형·기준 모델·고정 고도를 사용할 수 있습니다.
+    </p>
+</div>
+
+<div id="map-wrapper">
+    <div id="map"></div>
+
+    <div id="div-left-menu">
+        <div id="left-menu-list-panel">
+            <div class="form-group div-layer">
+                <div class="div-category">
+                    <label class="label-layerType">레이어</label>
+                </div>
+
+                <div id="layer-list">
+                    <div class="div-sub-category">
+                        <div class="sub-category-tile">
+                            <label class="label-layerType">이미지 레이어</label>
+                            <div class="category-btn-group">
+                                <label class="expand-btn layer">
+                                    <img src="image/btn_expand.svg" alt="">
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="sub-category-content">
+                            <div class="checkbox">
+                                <label>
+                                    <input class="input-showLayer" type="checkbox" target="satellite">
+                                    VWorld Satellite
+                                </label>
+                            </div>
+
+                            <div class="checkbox">
+                                <label>
+                                    <input class="input-showLayer" type="checkbox" target="hybrid">
+                                    VWorld Hybrid
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="div-sub-category">
+                        <div class="sub-category-tile">
+                            <label class="label-layerType">지형 레이어</label>
+                            <div class="category-btn-group">
+                                <label class="expand-btn layer">
+                                    <img src="image/btn_expand.svg" alt="">
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="sub-category-content">
+                            <div class="checkbox">
+                                <label>
+                                    <input class="input-showLayer" type="checkbox" target="korea_terrain">
+                                    전체 지형
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="div-sub-category">
+                        <div class="sub-category-tile">
+                            <label class="label-layerType">분석 대상 레이어</label>
+                            <div class="category-btn-group">
+                                <label class="expand-btn layer">
+                                    <img src="image/btn_expand.svg" alt="">
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="sub-category-content">
+                            <div class="checkbox">
+                                <label>
+                                    <input class="input-showLayer" type="checkbox" target="surface_volume_target">
+                                    부피 분석 대상 레이어 (3DTiles)
+                                </label>
+                            </div>
+                            <div class="checkbox">
+                                <label>
+                                    <input class="input-showLayer" type="checkbox" target="U3fGroupLayer_1">
+                                    U3F 모델 (2.2V)
+                                </label>
+                            </div>
+                            <div class="checkbox">
+                                <label>
+                                    <input class="input-showLayer" type="checkbox" target="WFSModelLayer_1">
+                                    WFS 모델 (전국)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div style="display: inline-flex; position: relative">
+                <button id="left-menu-bnt" class="btn btn-xs menu-btn">
+                    <img src="image/left_panel_open_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+                <div class="div-btn-info" hidden>레이어 탭 열기</div>
+            </div>
+
+            <div style="display: inline-flex; position: relative">
+                <button id="analy-bnt" class="btn btn-xs menu-btn">
+                    <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+                <div class="div-btn-info" hidden>분석 팝업 열기</div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="btn-group" id="top-sbar">
+        <div class="btn-group-vertical-block" id="right-toolbar">
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                <span class="compass-image" id="compass-image-id"
+                      style="display:inline-block; transform:rotate(0rad); font-weight:700;">N</span>
+            </button>
+
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                    id="right-tbar-btn-zoomin" title="확대">
+                <img src="image/add_white_24dp.svg" alt="">
+            </button>
+
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                    id="right-tbar-btn-zoomout" title="축소">
+                <img src="image/remove_black_24dp.svg" alt="">
+            </button>
+
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                    id="right-tbar-btn-flyto" title="홈 위치">
+                <img src="image/home_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+            </button>
+        </div>
+
+        <div class="btn-group" id="bt-bottom-bar">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                   value="위경도: ##.####  ###.#### ">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                   value="고도: ####">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                   value="각도: ##">
+        </div>
+    </div>
+
+    <div id="analy-popup" oncontextmenu="return false">
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <span>표면 체적 분석 설정</span>
+                <label class="btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+
+            <div class="div-popup-content">
+                <div class="simple-mode-switch">
+                    <label><input type="radio" name="mode" value="pan" checked>기본</label>
+                    <label><input type="radio" name="mode" value="surfaceVolume">체적 분석</label>
+                </div>
+
+                <section class="simple-section">
+                    <div class="simple-section-title">대상 및 기준면</div>
+
+                    <div class="simple-form-grid">
+                        <label for="targetType">분석 대상</label>
+                        <select id="targetType" class="form-control input-sm">
+                            <option value="layer" selected>레이어</option>
+                            <option value="object3d">THREE.Object3D</option>
+                        </select>
+
+                        <label for="targetLayerName">대상 이름</label>
+                        <input id="targetLayerName"
+                               class="form-control input-sm"
+                               type="text"
+                               list="analysisTargetLayerNames"
+                               value="surface_volume_target">
+                        <datalist id="analysisTargetLayerNames">
+                            <option value="surface_volume_target">부피 분석 대상 레이어 (3DTiles)</option>
+                            <option value="U3fGroupLayer_1">U3F 모델 (2.2V)</option>
+                            <option value="WFSModelLayer_1">WFS 모델 (전국)</option>
+                        </datalist>
+
+                        <p class="simple-guide" id="objectTargetGuide" hidden>
+                            Object3D 사용 시 window.surfaceVolumeTarget에 Mesh 또는 Group을 할당합니다.
+                        </p>
+
+                        <label for="referenceType">기준면</label>
+                        <select id="referenceType" class="form-control input-sm">
+                            <option value="terrain">지형 레이어</option>
+                            <option value="model">기준 모델</option>
+                            <option value="lowest-height">영역 최저 평면</option>
+                            <option value="constant-height" selected>고정 고도</option>
+                        </select>
+
+                        <div class="reference-layer-row">
+                            <label for="referenceLayerName">기준 이름</label>
+                            <input id="referenceLayerName"
+                                   class="form-control input-sm"
+                                   type="text"
+                                   value="korea_terrain">
+                        </div>
+
+                        <div class="reference-height-row" hidden>
+                            <label for="referenceHeight">기준 고도(m)</label>
+                            <input id="referenceHeight"
+                                   class="form-control input-sm"
+                                   type="number"
+                                   value="100"
+                                   step="0.1">
+                        </div>
+                    </div>
+                </section>
+
+                <section class="simple-section">
+                    <div class="simple-section-title">분석 품질</div>
+
+                    <div class="simple-form-grid">
+                        <label for="resolution">격자 크기(m)</label>
+                        <input id="resolution"
+                               class="form-control input-sm"
+                               type="number"
+                               value="10.0"
+                               min="0.5"
+                               step="0.5">
+
+                    </div>
+                </section>
+
+                <details class="simple-details">
+                    <summary>고급 설정</summary>
+                    <div class="simple-details-content">
+                        <div class="simple-form-grid">
+                            <label for="maxGridCount">최대 격자</label>
+                            <input id="maxGridCount"
+                                   class="form-control input-sm"
+                                   type="number"
+                                   value="200000"
+                                   min="10"
+                                   step="100">
+
+                            <label for="heightTolerance">높이 오차(m)</label>
+                            <input id="heightTolerance"
+                                   class="form-control input-sm"
+                                   type="number"
+                                   value="0.02"
+                                   min="0"
+                                   step="0.01">
+                        </div>
+                    </div>
+                </details>
+
+                <details class="simple-details">
+                    <summary>표면 샘플 검증</summary>
+                    <div class="simple-details-content">
+                        <div class="simple-form-grid">
+                            <label for="surfaceMinFaceUpDot">Face 최소 수평성</label>
+                            <input id="surfaceMinFaceUpDot"
+                                   class="form-control input-sm"
+                                   type="number"
+                                   value="0.05"
+                                   min="0"
+                                   max="1"
+                                   step="0.01">
+
+                            <label for="surfaceMinUpDot">Triangle 최소 수평성</label>
+                            <input id="surfaceMinUpDot"
+                                   class="form-control input-sm"
+                                   type="number"
+                                   value="0.15"
+                                   min="0"
+                                   max="1"
+                                   step="0.01">
+
+                            <label>비정상 Surface</label>
+                            <div class="surface-style-check">
+                                <label><input id="surfaceRejectInvalid" type="checkbox" checked> invalid 처리</label>
+                            </div>
+
+                            <p class="simple-guide">
+                                각 Grid 위치에서 기준면을 시작점으로 위(+Z)·아래(-Z)를 검사한 뒤
+                                기준면과 더 가까운 Surface를 선택합니다.<br>
+                                Face 최소 수평성은 개별 Ray Hit가 수직면에 가까운 경우를 제외하고,
+                                Triangle 최소 수평성은 최종 3개 corner가 만든 면이 지나치게 수직인 경우를 검증합니다.<br>
+                                값은 0~1 범위이며 1에 가까울수록 수평면에 가깝습니다.
+                            </p>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="simple-details">
+                    <summary>가시화 설정</summary>
+                    <div class="simple-details-content simple-visual-grid">
+                        <label><input id="showBoundary" type="checkbox" checked> 영역 외곽선</label>
+                        <label><input id="showGrid" type="checkbox" checked> 격자</label>
+                        <label><input id="showHeatmap" type="checkbox" checked> 높이 Heatmap</label>
+                        <label><input id="showCutFillMap" type="checkbox" checked> 절토·성토 수직선</label>
+                        <label><input id="showReferenceSurface" type="checkbox" checked> 기준면</label>
+
+                        <div class="surface-style-panel">
+                            <details class="surface-style-group">
+                                <summary>영역 외곽선 스타일</summary>
+                                <div class="surface-style-grid">
+                                    <label for="boundaryColor">선 색상</label>
+                                    <input id="boundaryColor" type="color" value="#005bbb">
+                                    <label for="boundaryOpacity">선 투명도</label>
+                                    <input id="boundaryOpacity" type="number" value="0.95" min="0" max="1" step="0.05">
+                                    <label for="boundaryLineWidth">선 두께</label>
+                                    <input id="boundaryLineWidth" type="number" value="3" min="0.5" step="0.5">
+                                    <label for="boundaryFillColor">채움 색상</label>
+                                    <input id="boundaryFillColor" type="color" value="#4fc3f7">
+                                    <label for="boundaryFillOpacity">채움 투명도</label>
+                                    <input id="boundaryFillOpacity" type="number" value="0.08" min="0" max="1" step="0.01">
+                                    <label for="boundaryHiddenColor">가림 선 색상</label>
+                                    <input id="boundaryHiddenColor" type="color" value="#ffffff">
+                                    <label for="boundaryHiddenOpacity">가림 선 투명도</label>
+                                    <input id="boundaryHiddenOpacity" type="number" value="0.5" min="0" max="1" step="0.05">
+                                </div>
+                            </details>
+
+                            <details class="surface-style-group">
+                                <summary>격자 스타일</summary>
+                                <div class="surface-style-grid">
+                                    <label for="gridColor">선 색상</label>
+                                    <input id="gridColor" type="color" value="#00f0b8">
+                                    <label for="gridOpacity">선 투명도</label>
+                                    <input id="gridOpacity" type="number" value="0.5" min="0" max="1" step="0.05">
+                                    <label for="gridLineWidth">선 두께</label>
+                                    <input id="gridLineWidth" type="number" value="1.5" min="0.5" step="0.5">
+                                    <label for="gridHiddenColor">가림 선 색상</label>
+                                    <input id="gridHiddenColor" type="color" value="#ffffff">
+                                    <label for="gridHiddenOpacity">가림 선 투명도</label>
+                                    <input id="gridHiddenOpacity" type="number" value="0.15" min="0" max="1" step="0.05">
+                                </div>
+                            </details>
+
+                            <details class="surface-style-group">
+                                <summary>높이 Heatmap 스타일</summary>
+                                <div class="surface-style-grid">
+                                    <label for="heatmapOpacity">상단 투명도</label>
+                                    <input id="heatmapOpacity" type="number" value="0.8" min="0" max="1" step="0.05">
+                                    <label for="heatmapSideOpacity">측면 투명도</label>
+                                    <input id="heatmapSideOpacity" type="number" value="0.15" min="0" max="1" step="0.05">
+                                    <label for="heatmapOffset">표면 Offset</label>
+                                    <input id="heatmapOffset" type="number" value="0.2" step="0.05">
+                                    <label>색상 팔레트</label>
+                                    <div class="surface-style-check">
+                                        <label><input id="useCustomHeatmapColors" type="checkbox"> 사용자 색상 사용</label>
+                                    </div>
+                                    <label for="heatmapLowColor">낮은 값 색상</label>
+                                    <input id="heatmapLowColor" type="color" value="#277da1" disabled>
+                                    <label for="heatmapMidColor">중간 값 색상</label>
+                                    <input id="heatmapMidColor" type="color" value="#f4f1de" disabled>
+                                    <label for="heatmapHighColor">높은 값 색상</label>
+                                    <input id="heatmapHighColor" type="color" value="#d62828" disabled>
+                                    <label>측면 표시</label>
+                                    <div class="surface-style-check"><label><input id="heatmapSideFaces" type="checkbox" checked> 사용</label></div>
+                                </div>
+                            </details>
+
+                            <details class="surface-style-group">
+                                <summary>절토·성토 수직선 스타일</summary>
+                                <div class="surface-style-grid">
+                                    <label for="verticalCutColor">절토 색상</label>
+                                    <input id="verticalCutColor" type="color" value="#ff6b35">
+                                    <label for="verticalFillColor">성토 색상</label>
+                                    <input id="verticalFillColor" type="color" value="#2980ff">
+                                    <label for="verticalInvalidColor">누락 색상</label>
+                                    <input id="verticalInvalidColor" type="color" value="#ff00ff">
+                                    <label for="verticalOpacity">선 투명도</label>
+                                    <input id="verticalOpacity" type="number" value="0.9" min="0" max="1" step="0.05">
+                                    <label for="verticalRadius">반지름 (0=자동)</label>
+                                    <input id="verticalRadius" type="number" value="0" min="0" step="0.01">
+                                    <label for="verticalHiddenColor">가림 선 색상</label>
+                                    <input id="verticalHiddenColor" type="color" value="#00ff88">
+                                    <label for="verticalHiddenOpacity">가림 선 투명도</label>
+                                    <input id="verticalHiddenOpacity" type="number" value="0.9" min="0" max="1" step="0.05">
+                                    <label for="verticalPointSize">끝점 크기 (0=자동)</label>
+                                    <input id="verticalPointSize" type="number" value="0" min="0" step="0.1">
+                                    <label>끝점 표시</label>
+                                    <div class="surface-style-check"><label><input id="verticalShowEndpoints" type="checkbox" checked> 사용</label></div>
+                                </div>
+                            </details>
+
+                            <details class="surface-style-group">
+                                <summary>기준면의 점 스타일</summary>
+                                <div class="surface-style-grid">
+                                    <label for="referenceColor">포인트 색상</label>
+                                    <input id="referenceColor" type="color" value="#ff0000">
+                                    <label for="referenceOpacity">포인트 투명도</label>
+                                    <input id="referenceOpacity" type="number" value="1" min="0" max="1" step="0.05">
+                                    <label for="referencePointSize">포인트 크기 (0=자동)</label>
+                                    <input id="referencePointSize" type="number" value="0" min="0" step="0.1">
+                                    <label>Depth Test</label>
+                                    <div class="surface-style-check"><label><input id="referenceDepthTest" type="checkbox"> 사용</label></div>
+                                </div>
+                            </details>
+                        </div>
+                    </div>
+                </details>
+                <div class="simple-action-grid">
+                    <button class="btn btn-primary btn-start-draw">영역 그리기</button>
+                    <button class="btn btn-default btn-stop-draw">그리기 종료</button>
+                    <button class="btn btn-warning btn-cancel-compute">계산 취소</button>
+                    <button class="btn btn-danger btn-remove-all">전체 초기화</button>
+                    <button class="btn btn-info wide btn-open-result">결과 패널 열기</button>
+                </div>
+
+                <div class="analysis-warning simple-warning"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="result-popup" oncontextmenu="return false" style="display:none;">
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <span>표면 체적 분석 결과</span>
+                <label class="btn btn-default btn-sm result-popup-exit">닫기</label>
+            </div>
+
+            <div class="div-popup-content">
+                <div class="simple-progress-head">
+                    <span id="analysisProgressMessage">분석을 시작하지 않았습니다.</span>
+                    <span id="analysisProgressPercent">0%</span>
+                </div>
+
+                <div class="simple-progress">
+                    <div id="analysisProgressBar"
+                         class="progress-bar"
+                         role="progressbar"
+                         style="width: 0%;"></div>
+                </div>
+
+                <div class="result-grid">
+                    <div class="result-card">
+                        <div class="title">수평 면적</div>
+                        <div class="value" id="resultProjectedArea">-</div>
+                        <div class="sub-value" id="resultSurfaceArea">표면 면적: -</div>
+                    </div>
+
+                    <div class="result-card">
+                        <div class="title">둘레</div>
+                        <div class="value" id="resultPerimeter">-</div>
+                        <div class="sub-value" id="resultEffectiveArea">유효 면적: -</div>
+                    </div>
+
+                    <div class="result-card cut">
+                        <div class="title">절토 체적</div>
+                        <div class="value" id="resultCutVolume">-</div>
+                        <div class="sub-value">기준면보다 높은 체적</div>
+                    </div>
+
+                    <div class="result-card fill">
+                        <div class="title">성토 체적</div>
+                        <div class="value" id="resultFillVolume">-</div>
+                        <div class="sub-value">기준면보다 낮은 체적</div>
+                    </div>
+
+                    <div class="result-card">
+                        <div class="title">순 체적</div>
+                        <div class="value" id="resultNetVolume">-</div>
+                        <div class="sub-value" id="resultEstimatedVolume">추정 체적: -</div>
+                    </div>
+
+                    <div class="result-card">
+                        <div class="title">평균 높이 차</div>
+                        <div class="value" id="resultAverageHeight">-</div>
+                        <div class="sub-value" id="resultHeightRange">최소/최대: -</div>
+                    </div>
+
+                    <div class="result-card">
+                        <div class="title">유효 격자</div>
+                        <div class="value" id="resultValidGrid">-</div>
+                        <div class="sub-value" id="resultInvalidGrid">누락 격자: -</div>
+                    </div>
+
+                    <div class="result-card">
+                        <div class="title">분석 커버리지</div>
+                        <div class="value" id="resultCoverage">-</div>
+                        <div class="sub-value" id="resultResolution">격자 크기: -</div>
+                    </div>
+                </div>
+
+                <div class="simple-result-toolbar">
+                    <strong>분석 목록</strong>
+                    <div>
+                        <button class="btn btn-default btn-xs btn-save-analysis">저장</button>
+                        <button class="btn btn-default btn-xs btn-load-analysis">불러오기</button>
+                    </div>
+                </div>
+
+                <div class="surface-volume-list">
+                    <pre class="empty-content">표면 체적 분석 내용이 없습니다.</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+
+<script id="execute-event">
+    const executePathTokens = document.location.href.split('/');
+
+    $('.execute-popup').on('click', function () {
+        window.open(
+            './runner.html?url=' +
+            executePathTokens[executePathTokens.length - 1] +
+            '&title=' +
+            encodeURIComponent(document.title)
+        );
+    });
+</script>
+
+<script id="surface-volume-example">
+    const HOME_POSITION = {
+        lon: 126.9395,
+        lat: 37.52,
+        height: 450,
+        left: 2,
+        down: 60
+    };
+
+    const ANALYSIS_TARGET_LAYER_NAMES = [
+        'surface_volume_target',
+        'U3fGroupLayer_1',
+        'WFSModelLayer_1'
+    ];
+
+    const SURFACE_VOLUME_EVENT = {
+        DRAW_START: 'drawStart',
+        DRAW_CHANGE: 'drawChange',
+        DRAW_END: 'drawEnd',
+        DRAW_CANCEL: 'drawCancel',
+        AREA_ADD: 'areaAdd',
+        AREA_UPDATE: 'areaUpdate',
+        AREA_REMOVE: 'areaRemove',
+        COMPUTE_START: 'computeStart',
+        PROGRESS: 'progress',
+        COMPLETE: 'complete',
+        WARNING: 'warning',
+        ERROR: 'error',
+        CANCEL: 'cancel'
+    };
+
+    const SURFACE_VOLUME_REFERENCE_TYPE ={
+        CONSTANT_HEIGHT: 'constant-height',
+        LOWEST_HEIGHT: 'lowest-height',
+        LOWEST_PLANE: 'lowest-plane',
+        PLANE: 'plane',
+        TERRAIN: 'terrain'
+    }
+
+    const SURFACE_VOLUME_TARGET_TYPE ={
+        LAYER: 'layer',
+        OBJECT3D: 'object3d',
+        OBJECT_LIST: 'object-list',
+        MODEL: 'model'
+    }
+
+    let app;
+    let analy;
+    let inputOverlay;
+    let currentComputeId;
+    let analysisLoadingCount = 0;
+    let savedAnalysisParamString;
+
+    /*
+     * 프로젝트에서 Mesh 또는 group 을 직접 분석할 경우 다음과 같이 할당합니다.
+     *
+     * window.surfaceVolumeTarget = targetMeshOrGroup;
+     * 해당 설정 부분을 참고하세요.
+     */
+    window.surfaceVolumeTarget = window.surfaceVolumeTarget;
+
+    $(document).on('mouseover', '.info-box', function () {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function () {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function () {
+        $(this).toggleClass('active');
+        openLeftMenu($(this).hasClass('active'));
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+        } else {
+            $('#div-left-menu').css('width', '0');
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function () {
+        $(this).toggleClass('active');
+        $('#analy-popup').toggle($(this).hasClass('active'));
+    });
+
+    $(document).on('click', '.btn-open-result', function () {
+        $('.btn-open-result').toggleClass('active');
+        $('#result-popup').toggle($('.btn-open-result').hasClass('active'));
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        app?.alignNorth?.();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        app?.zoomIn?.();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        app?.zoomOut?.();
+    });
+
+    $(document).on('click', '#right-tbar-btn-flyto', function () {
+        app?.flyTo?.({
+            x: HOME_POSITION.lon,
+            y: HOME_POSITION.lat
+        }, 2000);
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        event.preventDefault();
+
+        const $content = $(this).next();
+        const isActive = $(this).toggleClass('active').hasClass('active');
+
+        $content.css({
+            height: isActive ? '120px' : '0',
+            overflow: isActive ? 'auto' : 'hidden'
+        });
+
+        $(this)
+            .find('.expand-btn img')
+            .css('rotate', isActive ? '180deg' : '0deg');
+    });
+
+    $(document).on('mouseover', '.menu-btn', function () {
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', '.menu-btn', function () {
+        $(this).next().hide();
+    });
+
+    $(function () {
+        $('#analy-popup, #result-popup').draggable({
+            handle: '.div-popup-control'
+        });
+
+        $('.popup-exit').on('click', function () {
+            $('#analy-popup').hide();
+            $('#analy-bnt').removeClass('active');
+        });
+
+        $('.result-popup-exit').on('click', function () {
+            $('#result-popup').hide();
+            $('.btn-open-result').removeClass('active');
+        });
+
+        $('#referenceType').on('change', updateReferenceInput);
+        $('#targetType').on('change', updateTargetInput);
+        $('#useCustomHeatmapColors').on('change', updateHeatmapColorInput);
+
+        updateReferenceInput();
+        updateTargetInput();
+        updateHeatmapColorInput();
+    });
+
+    function updateReferenceInput() {
+        const type = $('#referenceType').val();
+        const isConstantHeight = type === SURFACE_VOLUME_REFERENCE_TYPE.CONSTANT_HEIGHT;
+        const isLowestHeight = type === SURFACE_VOLUME_REFERENCE_TYPE.LOWEST_HEIGHT;
+
+        $('.reference-layer-row').toggle(!isConstantHeight && !isLowestHeight);
+        $('.reference-height-row').toggle(isConstantHeight);
+    }
+
+    function updateTargetInput() {
+        const type = $('#targetType').val();
+        $('#objectTargetGuide').prop('hidden', type !== SURFACE_VOLUME_TARGET_TYPE.OBJECT3D);
+    }
+
+
+    /**
+     * Heatmap은 기본적으로 엔진의 기존 색상 팔레트를 사용합니다.
+     * 사용자가 '사용자 색상 사용'을 켠 경우에만 3단계 colorRamp를 전달합니다.
+     * 따라서 예제를 처음 실행했을 때는 기존 SurfaceVolume Heatmap 색상과 동일하게 표시됩니다.
+     */
+    function updateHeatmapColorInput() {
+        const useCustomColors = $('#useCustomHeatmapColors').prop('checked');
+        $('#heatmapLowColor, #heatmapMidColor, #heatmapHighColor')
+            .prop('disabled', !useCustomColors);
+    }
+
+    function updatePosData() {
+        if (!app) return;
+
+        const info = app.getCameraState?.();
+        if (!info) return;
+
+        const rad = info.azimuth || 0;
+
+        app.setRotationOverviewMap?.(rad);
+        app.setGeoCenterToOverviewMap?.(
+            info.center?.x,
+            info.center?.y
+        );
+
+        $('#compass-image-id').css({
+            transform: 'rotate(' + (-rad) + 'rad)'
+        });
+
+        let degree = -rad * 180 / Math.PI;
+        if (degree < 0) degree += 360;
+
+        $('#bottom-tbar-btn-angle').val(
+            '각도: ' + degree.toFixed(0) + '°'
+        );
+
+        if (info.center) {
+            $('#bottom-tbar-btn-pos').val(
+                '위경도: ' +
+                Number(info.center.y).toFixed(3) +
+                '°, ' +
+                Number(info.center.x).toFixed(3) +
+                '°'
+            );
+        }
+
+        if (info.camera) {
+            $('#bottom-tbar-btn-height').val(
+                '높이: ' +
+                Number(info.camera.z).toFixed(1) +
+                'm'
+            );
+        }
+    }
+
+    /*
+     * 기존 지표면 편집 예제의 이미지·지형 레이어 래퍼 구조를 유지합니다.
+     */
+    function ImageLayer(Union3D, appInstance, options) {
+        this.layer = undefined;
+        this._union3d = Union3D;
+        this._app = appInstance;
+        this._name = options.name;
+        this.options = options;
+        this.ready = $.Deferred();
+    }
+
+    ImageLayer.prototype.create = function () {
+        const self = this;
+
+        if (self._name === 'emapbase') {
+            self.layer = self._app.createEmapBaseLayer(self.options);
+        } else if (self._name === 'emapsat') {
+            self.layer = self._app.createEmapSatLayer(self.options);
+        } else {
+            self.layer = new self._union3d.image.U3dImageXYZLayer(self.options);
+            self._app.addLayer(self.layer);
+        }
+
+        self.layer
+            .then(function () {
+                self.ready.resolve();
+            })
+            .catch(function (error) {
+                self.ready.reject(error);
+            });
+    };
+
+    ImageLayer.prototype.show = function (visible) {
+        return this._app.showLayer(this.options.name, visible);
+    };
+
+    function HeightLayer(Union3D, appInstance, options) {
+        this.layer = undefined;
+        this._app = appInstance;
+        this.options = options;
+        this._name = options.name;
+        this.ready = $.Deferred();
+    }
+
+    HeightLayer.prototype.create = function () {
+        const self = this;
+
+        self.layer = self._app.createHeightXYZLayer(self.options);
+        self.layer
+            .then(function () {
+                self.ready.resolve();
+            })
+            .catch(function (error) {
+                self.ready.reject(error);
+            });
+    };
+
+    HeightLayer.prototype.show = function (visible) {
+        return this._app.showLayer(this.options.name, visible);
+    };
+
+
+    function TilesLayer(Union3D, appInstance, options) {
+        this.layer = undefined;
+        this._app = appInstance;
+        this.options = options;
+        this._name = options.name;
+        this.ready = $.Deferred();
+    }
+
+    TilesLayer.prototype.create = async function () {
+        const self = this;
+
+        try {
+            let option = self.options;
+            if (self.options.useServer) {
+                const result = await selectServer(self.options.serverUrl);
+                const info = result?.params?.data;
+
+                if (!info) {
+                    throw new Error('타일 서버 정보를 가져오지 못했습니다.');
+                }
+
+                option = {
+                    ...self.options,
+                    baseurl: `${info.baseUrl}/${info.fileName}`,
+                    name: self.name
+                };
+            }
+            self.layer = new GeOnDT.model.U3dModelTilesLayer(option);
+            if (self.layer !== undefined) {
+                self._app.addLayer( self.layer );
+                self.layer.then(()=>{
+                    self.ready.resolve();
+                });
+            }
+
+
+        } catch (error) {
+            self.ready.reject(error);
+            console.error('TilesLayer 생성 중 오류가 발생했습니다.', error);
+            throw error;
+        }
+    };
+
+    TilesLayer.prototype.show = function (visible) {
+        const self =this;
+        self.ready.then(function(){
+            self._app.showLayer(self.options.name, visible);
+            if(visible)
+                self._app.fitLayerExtent(self.options.name, false, 700);
+        })
+    };
+
+    function U3fGroupLayer(Union3D, appInstance, options) {
+        this.layer = undefined;
+        this._app = appInstance;
+        this.options = options;
+        this.ready = $.Deferred();
+    }
+
+    U3fGroupLayer.prototype.create = async function () {
+        const self = this;
+        self.layer = self._app.createModelGroupLayer({
+            name: self.options.name,
+            maxlevel: self.options.maxlevel || 17,
+            minlevel: self.options.minlevel || 17
+        });
+
+        try {
+            const result = await selectServer(self.options.serverUrl);
+            const infos = result?.params?.data || [];
+            if (infos.length === 0) {
+                self.ready.resolve();
+                return;
+            }
+
+            let loadedCount = 0;
+            function resolveWhenLoaded() {
+                if (loadedCount === infos.length) {
+                    self.ready.resolve();
+                }
+            }
+            for (const info of infos) {
+                if (info.state !== 'ACTIVE') {
+                    loadedCount++;
+                    resolveWhenLoaded();
+                    continue;
+                }
+
+                const layerInfoOption = {
+                    name: info.name,
+                    basename: info.fileName || info.name,
+                    baseurl: info.baseUrl,
+                    useproxy: false,
+                    minlevel: info.metaData?.minLevel || self.options.minlevel || 17,
+                    maxlevel: info.metaData?.maxLevel || self.options.maxlevel || 17,
+                    compressmodel: self.options.options?.compressmodel !== false,
+                    isShareMaterial: self.options.options?.isShareMaterial === true,
+                    makeU3FPackage: self.options.options?.makeU3FPackage === undefined
+                        ? 1
+                        : self.options.options.makeU3FPackage
+                };
+                const layer = self._app.create3DFModelLayer(layerInfoOption);
+                if (layer === false) {
+                    loadedCount++;
+                    resolveWhenLoaded();
+                    continue;
+                }
+                layer.then(function () {
+                    self.layer.addLayer(layer);
+                    loadedCount++;
+                    resolveWhenLoaded();
+                }, function (error) {
+                    console.info(error);
+                    self.ready.reject(error);
+                });
+            }
+        } catch (error) {
+            self.ready.reject(error);
+            console.error('U3F Group Layer 생성 중 오류가 발생했습니다.', error);
+        }
+    };
+
+    U3fGroupLayer.prototype.show = function (visible) {
+        const self = this;
+        self.ready.then(function () {
+            self._app.showLayer(self.options.name, visible);
+        });
+    };
+
+    function WfsModelLayer(Union3D, appInstance, options) {
+        this.layer = undefined;
+        this._union3d = Union3D;
+        this._app = appInstance;
+        this.options = options;
+        this.ready = $.Deferred();
+    }
+
+    WfsModelLayer.prototype.create = function () {
+        const self = this;
+        self.layer = new self._union3d.model.U3dModelWFSLayer(self.options);
+        self._app.addLayer(self.layer);
+        self.layer.then(function () {
+            self.ready.resolve();
+        }, function (error) {
+            self.ready.reject(error);
+        });
+    };
+
+    WfsModelLayer.prototype.show = function (visible) {
+        const self = this;
+        self.ready.then(function () {
+            self._app.showLayer(self.options.name, visible);
+        });
+    };
+
+
+    function selectServer(url) {
+        return $.ajax({
+            url: url,
+            crossDomain: true,
+            beforeSend: function (xhr) {
+                xhr.setRequestHeader('User-Authorization', trdDimAPIKey);
+                xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+            },
+            error: function (e) {
+                console.error(e);
+            }
+        })
+    }
+
+
+    const LAYERS_OPTION = {
+        satellite: {
+            name: 'satellite',
+            baseurl: layerInfo.image.vworldsaturl,
+            reverseY: true
+        },
+
+        hybrid: {
+            name: 'hybrid',
+            baseurl: layerInfo.image.vworldhybirdurl,
+            reverseY: true,
+            transparent: true
+        },
+
+        korea_terrain: {
+            name: 'korea_terrain',
+            baseurl: layerInfo.height.url,
+            ext: '.umf',
+            reverseY: true,
+            minlevel: 9,
+            maxlevel: 17,
+            useproxy: false
+        },
+        surface_volume_target : {
+            useServer: false,
+            name: 'surface_volume_target',
+            baseurl:  'https://3d-dev.geon.kr/data/3dtiles/model_tiles/tileset.json',
+            rotation:{ x: -90, y:0, z:0 },
+            heightOffset: -15,
+            viewSizeOffset: 0.7,
+            isMove:true
+        },
+
+        U3fGroupLayer_1: {
+            useServer: true,
+            name: 'U3fGroupLayer_1',
+            serverUrl: modelU3fURL,
+            minlevel: 17,
+            maxlevel: 17,
+            options: {
+                useproxy: false,
+                compressmodel: true,
+                isShareMaterial: false,
+                makeU3FPackage: 1
+            }
+        },
+
+        WFSModelLayer_1: {
+            name: 'WFSModelLayer_1',
+            layername: layerInfo.wfs_korea.layername,
+            baseurl: layerInfo.wfs_korea.baseurl,
+            fieldfloor: layerInfo.wfs_korea.fieldfloor,
+            fieldheightfloor: layerInfo.wfs_korea.fieldheightfloor,
+            floorheight: layerInfo.wfs_korea.floorheight,
+            fieldKind: layerInfo.wfs_korea.fieldKind,
+            fieldlabel: layerInfo.wfs_korea.fieldlabel,
+            transperent: true,
+            drawline: false,
+            minlevel: 17,
+            opacity: 1,
+            textureurl: './image/buld/buld_texture_1.jpg',
+            useproxy: window.location.hostname !== 'localhost'
+        }
+    };
+
+    function createLayerList(Union3D, appInstance) {
+        return {
+            satellite: new ImageLayer(
+                Union3D,
+                appInstance,
+                LAYERS_OPTION.satellite
+            ),
+
+            hybrid: new ImageLayer(
+                Union3D,
+                appInstance,
+                LAYERS_OPTION.hybrid
+            ),
+
+            korea_terrain: new HeightLayer(
+                Union3D,
+                appInstance,
+                LAYERS_OPTION.korea_terrain
+            ),
+
+            surface_volume_target: new TilesLayer(
+                Union3D,
+                appInstance,
+                LAYERS_OPTION.surface_volume_target),
+
+            U3fGroupLayer_1: new U3fGroupLayer(
+                Union3D,
+                appInstance,
+                LAYERS_OPTION.U3fGroupLayer_1
+            ),
+
+            WFSModelLayer_1: new WfsModelLayer(
+                Union3D,
+                appInstance,
+                LAYERS_OPTION.WFSModelLayer_1
+            )
+        };
+    }
+
+    GeOnDT.ready(function () {
+        app = new GeOnDT.U3dAPP({
+            containername: 'map'
+        });
+
+        window.app = app;
+        window.THREE = app._THREE;
+
+        app.setHomePosition(
+            HOME_POSITION.lon,
+            HOME_POSITION.lat,
+            HOME_POSITION.height,
+            HOME_POSITION.left,
+            HOME_POSITION.down
+        );
+
+        app.updateHomePosition();
+
+        if (window.location.hostname === 'localhost') {
+            app.createDebugCanvas?.();
+        }
+
+        app.on('change', updatePosData);
+        app.createloadingBar('load');
+        app.loadingBar();
+
+        const layers = createLayerList(GeOnDT, app);
+
+        initLayers(
+            layers,
+            ['satellite', 'korea_terrain','surface_volume_target']
+        );
+
+        $(document).on(
+            'click',
+            '.input-showLayer:input[type=checkbox]',
+            function (event) {
+                const $checkbox = $(event.target);
+                const name = $checkbox.attr('target');
+                const checked = $checkbox.prop('checked');
+
+                if (checked && ANALYSIS_TARGET_LAYER_NAMES.includes(name)) {
+                    $('#targetLayerName').val(name);
+                }
+
+                if (layers[name]) {
+                    showCommonLayer(layers[name], checked);
+                    return;
+                }
+
+                /*
+                 * 분석 대상 레이어는 프로젝트별 생성 방식이 다르므로
+                 * 이미 app에 등록된 레이어 이름을 기준으로 가시성만 변경합니다.
+                 */
+                app.showLayer?.(name, checked);
+            }
+        );
+
+        analy = app.getAnalysis('SurfaceVolume'); //'SurfaceVolume(표면 체적 분석)' 해당 이름의 분석을 가져옵니다.
+        window.analy = analy;
+
+        if (!analy) {
+            setAnalysisWarning(
+                'SurfaceVolume 분석 클래스가 엔진에 등록되어 있지 않습니다.'
+            );
+            return;
+        }
+
+        applyDefaultAnalysisOption();
+        bindAnalysisEvents();
+        bindAnalysisUIEvents();
+
+        app.endloadingBar();
+    });
+
+    function initLayers(layers, names) {
+        const baseLayerName = names[0];
+
+        names.forEach(function (name) {
+            const wrapper = layers[name];
+            if (!wrapper || wrapper.layer !== undefined) return;
+
+            wrapper.create();
+
+            wrapper.ready.then(function () {
+                if (name === baseLayerName) {
+                    app.setNameBaseLayer(name);
+                }
+
+                app.showLayer(name, true);
+                if(wrapper.options?.isMove){
+                    app.fitLayerExtent(name, false, 100)
+                }
+
+                $('.input-showLayer[target="' + name + '"]')
+                    .prop('checked', true);
+            });
+        });
+    }
+
+    function showCommonLayer(wrapper, visible) {
+        if (visible && wrapper.layer === undefined) {
+            wrapper.create();
+        }
+
+        wrapper.show(visible);
+    }
+
+    function applyDefaultAnalysisOption() {
+        analy.setAnalysisOption(
+            createAnalysisOptionFromUI()
+        );
+    }
+
+    function bindAnalysisEvents() {
+        analy.on(SURFACE_VOLUME_EVENT.DRAW_START, function () {
+            setAnalysisStatus('영역 입력 중');
+            setProgress(0, '분석 영역의 꼭짓점을 입력하세요.');
+        });
+
+        analy.on(SURFACE_VOLUME_EVENT.DRAW_CHANGE, function (event) {
+            const count = event.geoVertex?.length || 0;
+            setProgress(
+                0,
+                '영역 입력 중 · 꼭짓점 ' + count + '개'
+            );
+        });
+
+        analy.on(SURFACE_VOLUME_EVENT.DRAW_END, function (event) {
+            setAnalysisStatus('영역 입력 완료');
+            setProgress(0, '분석 옵션을 확인한 뒤 분석을 실행하세요.');
+
+            createInputOverlay({
+                geoVertex: event.geoVertex || [],
+                worldVertex: event.worldVertex || [],
+                projected : event.area?.projected ?? 0,
+                surface : event.area?.surface ?? 0
+            });
+        });
+
+        analy.on(SURFACE_VOLUME_EVENT.DRAW_CANCEL, function () {
+            removeInputOverlay();
+            setAnalysisStatus('입력 취소');
+            setProgress(0, '영역 입력이 취소되었습니다.');
+        });
+
+        analy.on(SURFACE_VOLUME_EVENT.COMPUTE_START, function (event) {
+            beginAnalysisLoading();
+            currentComputeId = event.id;
+            setAnalysisStatus('분석 중');
+            setProgress(0, '분석 데이터를 준비하고 있습니다.');
+            clearAnalysisWarning();
+        });
+
+        analy.on(SURFACE_VOLUME_EVENT.PROGRESS, function (event) {
+            const ratio = clamp01(event.ratio);
+            const message = event.message || getPhaseMessage(event.phase);
+
+            setProgress(ratio, message);
+        });
+
+        analy.on(SURFACE_VOLUME_EVENT.COMPLETE, function (event) {
+            endAnalysisLoading();
+            currentComputeId = undefined;
+
+            $('#result-popup').show();
+            $('.btn-open-result').addClass('active');
+
+            setAnalysisStatus('분석 완료');
+            setProgress(1, '표면 체적 분석이 완료되었습니다.');
+
+            printSurfaceVolumeList();
+            printSurfaceVolumeResult(event.result);
+        });
+
+        analy.on(SURFACE_VOLUME_EVENT.WARNING, function (event) {
+            setAnalysisWarning(
+                event.message || '분석 결과를 확인해야 합니다.'
+            );
+        });
+
+        analy.on(SURFACE_VOLUME_EVENT.ERROR, function (event) {
+            endAnalysisLoading();
+            currentComputeId = undefined;
+
+            setAnalysisStatus('오류');
+            setAnalysisWarning(
+                event.message ||
+                event.error?.message ||
+                '표면 체적 분석 중 오류가 발생했습니다.'
+            );
+
+            console.error(
+                'SurfaceVolume analysis error:',
+                event.error || event
+            );
+        });
+
+        analy.on(SURFACE_VOLUME_EVENT.CANCEL, function () {
+            endAnalysisLoading();
+            currentComputeId = undefined;
+
+            setAnalysisStatus('분석 취소');
+            setProgress(0, '분석이 취소되었습니다.');
+        });
+    }
+
+    function beginAnalysisLoading() {
+        // 초기 로딩과 분석 로딩이 겹쳐도 먼저 끝난 작업이 로딩바를 닫지 않도록 카운터로 관리합니다.
+        analysisLoadingCount += 1;
+        if (analysisLoadingCount === 1) {
+            app.loadingBar();
+        }
+    }
+
+    function endAnalysisLoading() {
+        analysisLoadingCount = Math.max(0, analysisLoadingCount - 1);
+        if (analysisLoadingCount === 0) {
+            app.endloadingBar();
+        }
+    }
+
+    function bindAnalysisUIEvents() {
+        $(document).on(
+            'change',
+            'input[name="mode"]',
+            function (event) {
+                changeAnalysisMode(event.target.value);
+            }
+        );
+
+        $('.btn-start-draw').on('click', function () {
+            try {
+                activateSurfaceVolumeMode();
+                applyAnalysisInputToAnalyzer();
+
+                analy.startDraw({
+                    minVertexCount: 3,
+                    closeOnDoubleClick: true
+                });
+            } catch (error) {
+                setAnalysisWarning(error.message);
+            }
+        });
+
+        $('.btn-stop-draw').on('click', function () {
+            analy.stopDraw();
+            setAnalysisStatus('그리기 종료');
+            setProgress(0, '영역 입력이 종료되었습니다.');
+        });
+
+        $('.btn-cancel-compute').on('click', function () {
+            analy.cancelCompute(currentComputeId);
+        });
+
+        $('.btn-remove-all').on('click', function () {
+            removeInputOverlay();
+
+            analy.clear({
+                areas: true,
+                drawing: true,
+                visualization: true,
+                cache: false
+            });
+
+            clearSurfaceVolumeResult();
+            printSurfaceVolumeList();
+            setAnalysisStatus('초기화');
+            setProgress(0, '모든 분석 영역을 제거했습니다.');
+        });
+
+        $('.btn-save-analysis').on('click', saveAnalysisParam);
+        $('.btn-load-analysis').on('click', loadAnalysisParam);
+
+        $(document).on(
+            'click',
+            '.btn-volume-update',
+            updateVolumeArea
+        );
+
+        $(document).on(
+            'click',
+            '.btn-volume-show-result',
+            showVolumeAreaResult
+        );
+
+        $(document).on(
+            'click',
+            '.surface-volume-tab',
+            switchVolumeItemTab
+        );
+
+        $(document).on(
+            'click',
+            '.btn-volume-visual-toggle',
+            toggleVisualization
+        );
+
+        $(document).on(
+            'click',
+            '.btn-volume-hide-visuals',
+            hideAreaVisualizations
+        );
+
+        $(document).on(
+            'click',
+            '.btn-volume-show-visuals',
+            showAreaVisualizations
+        );
+
+        $(document).on(
+            'click',
+            '.btn-volume-remove-visuals',
+            removeAreaVisualizations
+        );
+
+        $(document).on(
+            'click',
+            '.btn-volume-remove',
+            removeVolumeArea
+        );
+    }
+
+
+    function changeAnalysisMode(mode) {
+        removeInputOverlay();
+
+        analy?.stopDraw?.();
+        analy?.deactive?.();
+
+        if (mode === 'surfaceVolume') {
+            analy.active();
+            setAnalysisStatus('분석모드 활성');
+            return;
+        }
+
+
+        if (mode === 'reset') {
+            analy.clear({
+                areas: true,
+                drawing: true,
+                visualization: true,
+                cache: true
+            });
+
+            clearSurfaceVolumeResult();
+            printSurfaceVolumeList();
+            setAnalysisStatus('초기화');
+            setProgress(0, '전체 분석 내용이 초기화되었습니다.');
+
+            $('input[name="mode"][value="pan"]')
+                .prop('checked', true);
+
+            return;
+        }
+
+        app.setPanMode?.();
+        setAnalysisStatus('대기');
+    }
+
+    function activateSurfaceVolumeMode() {
+        $('input[name="mode"][value="surfaceVolume"]')
+            .prop('checked', true);
+
+        analy.active();
+    }
+
+    function applyAnalysisInputToAnalyzer() {
+        const target = createTargetOption();
+        const referenceSurface = createReferenceOption();
+        const option = createAnalysisOptionFromUI();
+
+        analy.setTarget(target);
+        analy.setReferenceSurface(referenceSurface);
+        analy.setAnalysisOption(option);
+    }
+
+    function createTargetOption() {
+        const type = $('#targetType').val();
+
+        if (type === SURFACE_VOLUME_TARGET_TYPE.OBJECT3D) {
+            if (!window.surfaceVolumeTarget) {
+                throw new Error(
+                    'window.surfaceVolumeTarget에 분석 대상 Mesh 또는 Group을 할당해야 합니다.'
+                );
+            }
+
+            return {
+                type: SURFACE_VOLUME_TARGET_TYPE.OBJECT3D,
+                object: window.surfaceVolumeTarget,
+                targetKey: $('#targetLayerName').val() || 'surfaceVolumeTarget'
+            };
+        }
+
+        const layerName = String(
+            $('#targetLayerName').val() || ''
+        ).trim();
+
+        if (!layerName) {
+            throw new Error('분석 대상 레이어 이름을 입력해야 합니다.');
+        }
+
+        return {
+            type: SURFACE_VOLUME_TARGET_TYPE.LAYER,
+            layerName: layerName
+        };
+    }
+
+    function createReferenceOption() {
+        const type = $('#referenceType').val();
+
+        if (type === SURFACE_VOLUME_REFERENCE_TYPE.CONSTANT_HEIGHT) {
+            return {
+                type: SURFACE_VOLUME_REFERENCE_TYPE.CONSTANT_HEIGHT,
+                height: parseFiniteNumber(
+                    $('#referenceHeight').val(),
+                    0
+                )
+            };
+        }
+
+        if (type === SURFACE_VOLUME_REFERENCE_TYPE.LOWEST_HEIGHT) {
+            return {
+                type: SURFACE_VOLUME_REFERENCE_TYPE.LOWEST_HEIGHT
+            };
+        }
+
+        const layerName = String(
+            $('#referenceLayerName').val() || ''
+        ).trim();
+
+        if (!layerName) {
+            throw new Error('기준면 레이어 이름을 입력해야 합니다.');
+        }
+
+        return {
+            type: type,
+            layerName: layerName
+        };
+    }
+
+    function createAnalysisOptionFromUI() {
+        return {
+            resolution: parsePositiveNumber(
+                $('#resolution').val(),
+                0.5
+            ),
+
+            maxGridCount: Math.max(
+                10,
+                Math.floor(
+                    parsePositiveNumber(
+                        $('#maxGridCount').val(),
+                        200000
+                    )
+                )
+            ),
+
+            heightTolerance: Math.max(
+                0,
+                parseFiniteNumber(
+                    $('#heightTolerance').val(),
+                    0.02
+                )
+            ),
+
+            /*
+             * 현재 Surface 선택은 후보 점수 조합을 사용하지 않습니다.
+             *
+             * 각 XY에서 기준면을 시작점으로 +Z / -Z 양방향을 검사하고,
+             * 기준면과 더 가까운 Surface를 먼저 선택합니다.
+             *
+             * surfaceSampling은 선택된 Surface의 유효성을 검증하는 용도로만 사용합니다.
+             * - minFaceUpDot: 개별 Ray Hit가 지나치게 수직인 Face인지 검사
+             * - minSurfaceUpDot: 최종 세 corner가 만든 Triangle의 수평성 검사
+             * - rejectInvalidSurface: 비정상 Triangle을 invalid 처리할지 여부
+             */
+            surfaceSampling: {
+                minFaceUpDot: clamp01($('#surfaceMinFaceUpDot').val()),
+                minSurfaceUpDot: clamp01($('#surfaceMinUpDot').val()),
+                rejectInvalidSurface: $('#surfaceRejectInvalid').prop('checked')
+            },
+
+            visualization: {
+                // 기존 show* 옵션은 하위 호환을 위해 유지하고,
+                // 실제 개별 스타일은 boundary/grid/heatmap/verticalLines/reference에 저장합니다.
+                showBoundary: $('#showBoundary').prop('checked'),
+                showGrid: $('#showGrid').prop('checked'),
+                showCutFillMap: $('#showCutFillMap').prop('checked'),
+                showReferenceSurface: $('#showReferenceSurface').prop('checked'),
+
+                boundary: {
+                    enabled: $('#showBoundary').prop('checked'),
+                    color: $('#boundaryColor').val(),
+                    opacity: clamp01($('#boundaryOpacity').val()),
+                    lineWidth: parsePositiveNumber($('#boundaryLineWidth').val(), 3),
+                    fillColor: $('#boundaryFillColor').val(),
+                    fillOpacity: clamp01($('#boundaryFillOpacity').val()),
+                    hiddenColor: $('#boundaryHiddenColor').val(),
+                    hiddenOpacity: clamp01($('#boundaryHiddenOpacity').val())
+                },
+
+                grid: {
+                    enabled: $('#showGrid').prop('checked'),
+                    color: $('#gridColor').val(),
+                    opacity: clamp01($('#gridOpacity').val()),
+                    lineWidth: parsePositiveNumber($('#gridLineWidth').val(), 1.5),
+                    hiddenColor: $('#gridHiddenColor').val(),
+                    hiddenOpacity: clamp01($('#gridHiddenOpacity').val())
+                },
+
+                heatmap: {
+                    enabled: $('#showHeatmap').prop('checked'),
+                    valueType: 'height-difference',
+                    opacity: clamp01($('#heatmapOpacity').val()),
+                    offset: parseFiniteNumber($('#heatmapOffset').val(), 0.2),
+                    sideFaces: $('#heatmapSideFaces').prop('checked'),
+                    sideOpacity: clamp01($('#heatmapSideOpacity').val()),
+
+                    // 기본값에서는 colorRamp를 전달하지 않습니다.
+                    // 이 경우 엔진의 기존 Heatmap 팔레트가 그대로 사용됩니다.
+                    // 사용자가 사용자 색상 사용을 체크했을 때만 custom colorRamp를 전달합니다.
+                    ...($('#useCustomHeatmapColors').prop('checked') ? {
+                        colorRamp: [
+                            {value: 0, color: $('#heatmapLowColor').val()},
+                            {value: 0.5, color: $('#heatmapMidColor').val()},
+                            {value: 1, color: $('#heatmapHighColor').val()}
+                        ]
+                    } : {})
+                },
+
+                verticalLines: {
+                    enabled: $('#showCutFillMap').prop('checked'),
+                    cutColor: $('#verticalCutColor').val(),
+                    fillColor: $('#verticalFillColor').val(),
+                    invalidColor: $('#verticalInvalidColor').val(),
+                    opacity: clamp01($('#verticalOpacity').val()),
+                    radius: parsePositiveNumber($('#verticalRadius').val(), undefined),
+                    hiddenColor: $('#verticalHiddenColor').val(),
+                    hiddenOpacity: clamp01($('#verticalHiddenOpacity').val()),
+                    pointSize: parsePositiveNumber($('#verticalPointSize').val(), undefined),
+                    showEndpoints: $('#verticalShowEndpoints').prop('checked')
+                },
+
+                reference: {
+                    enabled: $('#showReferenceSurface').prop('checked'),
+                    color: $('#referenceColor').val(),
+                    opacity: clamp01($('#referenceOpacity').val()),
+                    pointSize: parsePositiveNumber($('#referencePointSize').val(), undefined),
+                    depthTest: $('#referenceDepthTest').prop('checked'),
+                    depthWrite: false,
+                    sizeAttenuation: true
+                }
+            }
+        };
+    }
+
+    function createAreaOption(drawInfo, name) {
+        const option = createAnalysisOptionFromUI();
+
+        return {
+            id: createAnalysisId(),
+            name: name || '표면 체적 분석',
+            geoVertex: drawInfo.geoVertex,
+            worldVertex: drawInfo.worldVertex,
+            target: createTargetOption(),
+            referenceSurface: createReferenceOption(),
+            resolution: option.resolution,
+            surfaceSampling: option.surfaceSampling,
+            visualization: option.visualization
+        };
+    }
+
+    function createInputOverlay(drawInfo) {
+        removeInputOverlay();
+
+        const center = getPolygonCenter(drawInfo?.geoVertex);
+        const projected =  formatArea(drawInfo?.projected);
+
+        const html = `
+            <div class="u3-popup surface-volume-input-popup">
+                <label style="margin-bottom: 10%">영역 수평 면적 : ${projected}</label>
+
+                <div class="form-group form-inline form-group-sm">
+                    <label>분석 이름</label>
+                    <input class="form-control input-sm input-name"
+                           type="text"
+                           value="표면 체적 분석">
+                </div>
+                 <div class="form-group form-inline form-group-sm">
+                    <label>격자 크기</label>
+                    <input class="form-control input-sm input-resolution"
+                           type="number"
+                           min="0.05"
+                           step="0.05"
+                           value="${escapeHtml($('#resolution').val())}">
+                </div>
+                <div style="margin-top: 8px;">
+                    <button class="btn btn-primary btn-xs btn-submit">
+                        분석 실행
+                    </button>
+
+                    <button class="btn btn-default btn-xs btn-cancel">
+                        취소
+                    </button>
+                </div>
+            </div>
+        `;
+
+        inputOverlay = new GeOnDT.overlay.U3dOverlay({
+            name: 'surfaceVolumeInputOverlay',
+            element: html,
+            position: center,
+            autoAnchor: true
+        });
+
+        app.addOverlay(inputOverlay);
+        inputOverlay.show();
+
+        initInputOverlayEvent(inputOverlay, drawInfo);
+    }
+
+    function initInputOverlayEvent(overlay, drawInfo) {
+        const $element = $(overlay.getElement());
+
+        $element.on('click', '.btn-submit', async function (event) {
+            const $root = $(event.target).closest('.surface-volume-input-popup');
+
+            try {
+                $('#resolution').val(
+                    $root.find('.input-resolution').val()
+                );
+
+                applyAnalysisInputToAnalyzer();
+                const areaOption = createAreaOption(
+                    drawInfo,
+                    String($root.find('.input-name').val() || '').trim()
+                );
+
+                removeInputOverlay();
+
+                const area = analy.addVolumeArea(areaOption);
+                const id = getAreaId(area);
+
+                printSurfaceVolumeList();
+
+                const result = await analy.runAnalysis(id);
+                applyInitialVisualizations(id);
+                printSurfaceVolumeResult(result);
+                printSurfaceVolumeList();
+
+            } catch (error) {
+                setAnalysisWarning(
+                    error.message || '분석을 시작하지 못했습니다.'
+                );
+
+                console.error(error);
+            }
+        });
+
+        $element.on('click', '.btn-cancel', function () {
+            removeInputOverlay();
+            analy.cancelDraw();
+        });
+    }
+
+    function removeInputOverlay() {
+        if (!inputOverlay) return;
+
+        app.removeOverlay(inputOverlay);
+        inputOverlay = undefined;
+    }
+
+    function printSurfaceVolumeList() {
+        if (!analy) return;
+
+        const list = analy.getVolumeAreaList?.() || [];
+        let html = '';
+
+        list.forEach(function (area) {
+            const parameter = getAreaParameter(area);
+            const result = area.getResult?.() || area.result;
+            const id = getAreaId(area);
+            const status = area.getStatus?.() || area.status || 'ready';
+            const visualState = getAreaVisualizationState(id);
+            const resolution = Number(
+                parameter.resolution ?? area.resolution ?? 0.5
+            );
+
+
+            html += `
+                <div class="surface-volume-item" data-id="${escapeHtml(id)}">
+                    <div>
+                        <div class="surface-volume-item-title">
+                            ${escapeHtml(parameter.name || id)}
+                        </div>
+
+                        <div class="surface-volume-item-info">
+                            <span>상태</span>
+                            <span>${escapeHtml(status)}</span>
+
+                            <span>격자</span>
+                            <span>${formatNumber(resolution, 2)} m</span>
+
+                            <span>추정 체적</span>
+                            <span>${
+                result
+                    ? formatVolume(
+                        result.volume?.estimated ??
+                        result.volume?.cut
+                    )
+                    : '-'
+            }</span>
+                        </div>
+
+                        <div class="surface-volume-item-edit">
+                            <input class="edit-resolution"
+                                   type="number"
+                                   value="${escapeHtml(resolution)}"
+                                   min="0.05"
+                                   step="0.05"
+                                   title="격자 크기">
+                        </div>
+                    </div>
+
+                    <div class="surface-volume-tabs">
+                        <button class="surface-volume-tab active"
+                                data-tab="analysis">
+                            분석
+                        </button>
+
+                        <button class="surface-volume-tab"
+                                data-tab="visualization">
+                            가시화
+                        </button>
+                    </div>
+
+                    <div class="surface-volume-panel active"
+                         data-panel="analysis">
+                        <div class="surface-volume-item-actions">
+                            <button class="btn btn-xs btn-primary btn-volume-update">
+                                재분석
+                            </button>
+
+                            <button class="btn btn-xs btn-info btn-volume-show-result">
+                                결과 보기
+                            </button>
+
+                            <button class="btn btn-xs btn-danger btn-volume-remove">
+                                삭제
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="surface-volume-panel"
+                         data-panel="visualization">
+                        <div class="surface-volume-item-actions">
+                            <button class="btn btn-xs btn-default btn-volume-visual-toggle ${visualState.boundary ? 'active' : ''}"
+                                    data-visual="boundary">
+                                영역 외곽선
+                            </button>
+                            <button class="btn btn-xs btn-default btn-volume-visual-toggle ${visualState.grid ? 'active' : ''}"
+                                    data-visual="grid">
+                                격자
+                            </button>
+
+                            <button class="btn btn-xs btn-default btn-volume-visual-toggle ${visualState.heatmap ? 'active' : ''}"
+                                    data-visual="heatmap">
+                                Heatmap
+                            </button>
+
+                            <button class="btn btn-xs btn-default btn-volume-visual-toggle ${visualState.verticalLines ? 'active' : ''}"
+                                    data-visual="verticalLines">
+                                수직선
+                            </button>
+
+                            <button class="btn btn-xs btn-default btn-volume-visual-toggle ${visualState.reference ? 'active' : ''}"
+                                    data-visual="reference">
+                                기준면의 점
+                            </button>
+
+                            <button class="btn btn-xs btn-default btn-volume-hide-visuals">
+                                전체 숨김
+                            </button>
+
+                            <button class="btn btn-xs btn-default btn-volume-show-visuals">
+                                전체 표시
+                            </button>
+
+                            <button class="btn btn-xs btn-warning btn-volume-remove-visuals">
+                                전체 제거
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        if (!html) {
+            html = '<pre class="empty-content">표면 체적 분석 내용이 없습니다.</pre>';
+        }
+
+        $('.surface-volume-list').html(html);
+    }
+
+    async function updateVolumeArea() {
+        const $item = $(this).closest('.surface-volume-item');
+        const id = $item.attr('data-id');
+
+        const resolution = parsePositiveNumber(
+            $item.find('.edit-resolution').val(),
+            0.5
+        );
+
+
+        try {
+            const result = await analy.editVolumeArea(id, {resolution: resolution});
+
+            applyInitialVisualizations(id);
+
+            printSurfaceVolumeList();
+            printSurfaceVolumeResult(result);
+
+        } catch (error) {
+            setAnalysisWarning(error.message);
+        }
+    }
+
+    function showVolumeAreaResult() {
+        const id = $(this)
+            .closest('.surface-volume-item')
+            .attr('data-id');
+
+        const result = analy.getResult(id);
+
+        if (!result) {
+            setAnalysisWarning('선택한 영역의 계산 결과가 없습니다.');
+            return;
+        }
+
+        $('#result-popup').show();
+        $('.btn-open-result').addClass('active');
+        printSurfaceVolumeResult(result);
+    }
+
+    function getClickedAreaId(button) {
+        return $(button)
+            .closest('.surface-volume-item')
+            .attr('data-id');
+    }
+
+    function getVisualizationId(visualType) {
+        return {
+            boundary: 'boundary-main',
+            grid: 'grid-main',
+            heatmap: 'height-heatmap',
+            verticalLines: 'volume-lines',
+            reference: 'reference-points'
+        }[visualType];
+    }
+
+    function getAreaVisualizationState(areaId) {
+        return ['boundary', 'grid', 'heatmap', 'verticalLines', 'reference']
+            .reduce(function (state, visualType) {
+                const handle = analy.getVisualization(
+                    areaId,
+                    getVisualizationId(visualType)
+                );
+
+                state[visualType] = !!handle && handle.object.visible !== false;
+                return state;
+            }, {});
+    }
+
+    function switchVolumeItemTab() {
+        const $tab = $(this);
+        const tabName = $tab.attr('data-tab');
+        const $item = $tab.closest('.surface-volume-item');
+
+        $item.find('.surface-volume-tab').removeClass('active');
+        $tab.addClass('active');
+
+        $item.find('.surface-volume-panel').removeClass('active');
+        $item.find('[data-panel="' + tabName + '"]').addClass('active');
+    }
+
+    function toggleVisualization() {
+        const $button = $(this);
+        const visualType = $(this).attr('data-visual');
+        const id = getClickedAreaId(this);
+        const visualizationId = getVisualizationId(visualType);
+        const handle = analy.getVisualization(id, visualizationId);
+
+        try {
+            if (!handle) {
+                addVisualizationByType(id, visualType);
+                $button.addClass('active');
+            } else if (handle.object.visible === false) {
+                handle.show();
+                $button.addClass('active');
+            } else {
+                handle.hide();
+                $button.removeClass('active');
+            }
+        } catch (error) {
+            setAnalysisWarning(error.message);
+        }
+    }
+
+    function applyInitialVisualizations(id) {
+        const area = analy.getVolumeArea(id);
+        const parameter = getAreaParameter(area);
+        const visualization = parameter.visualization || {};
+
+        // 분석 객체 생성 시점의 가시화 설정을 기준으로 helper를 최초 생성합니다.
+        [
+            ['boundary', visualization.showBoundary !== false && visualization.boundary?.enabled !== false],
+            ['grid', visualization.showGrid !== false && visualization.grid?.enabled !== false],
+            ['heatmap', visualization.heatmap?.enabled !== false],
+            ['verticalLines',
+                visualization.showCutFillMap !== false &&
+                visualization.verticalLines?.enabled !== false
+            ],
+            ['reference',
+                visualization.showReferenceSurface !== false &&
+                visualization.reference?.enabled !== false
+            ]
+        ].forEach(function (entry) {
+            if (!entry[1]) {
+                return;
+            }
+
+            try {
+                addVisualizationByType(id, entry[0], true);
+            } catch (error) {
+                setAnalysisWarning(error.message);
+            }
+        });
+    }
+
+    function addVisualizationByType(id, visualType, replace = true) {
+        const area = analy.getVolumeArea(id);
+        const parameter = getAreaParameter(area);
+        const visualization = parameter.visualization || {};
+        const common = {
+            id: getVisualizationId(visualType),
+            replace: replace,
+            visible: true
+        };
+
+        if (visualType === 'boundary') {
+            analy.addBoundary(id, {
+                ...(visualization.boundary || {}),
+                ...common
+            });
+            return;
+        }
+
+        if (visualType === 'grid') {
+            analy.addGrid(id, {
+                ...(visualization.grid || {}),
+                ...common
+            });
+            return;
+        }
+
+        if (visualType === 'heatmap') {
+            analy.addHeatmap(id, {
+                ...(visualization.heatmap || {}),
+                ...common,
+                valueAccessor: function (cell) {
+                    return cell.heatmapValue;
+                }
+            });
+            return;
+        }
+
+        if (visualType === 'verticalLines') {
+            analy.addVerticalLines(id, {
+                ...(visualization.verticalLines || {}),
+                ...common
+            });
+            return;
+        }
+
+        if (visualType === 'reference') {
+            analy.addReference(id, {
+                ...(visualization.reference || {}),
+                ...common
+            });
+        }
+    }
+
+    function hideAreaVisualizations() {
+        analy.hideAreaVisualizations(
+            getClickedAreaId(this)
+        );
+        $(this)
+            .closest('.surface-volume-item')
+            .find('.btn-volume-visual-toggle')
+            .removeClass('active');
+    }
+
+    function showAreaVisualizations() {
+        analy.showAreaVisualizations(
+            getClickedAreaId(this)
+        );
+        $(this)
+            .closest('.surface-volume-item')
+            .find('.btn-volume-visual-toggle')
+            .each(function () {
+                const visualType = $(this).attr('data-visual');
+                const handle = analy.getVisualization(
+                    getClickedAreaId(this),
+                    getVisualizationId(visualType)
+                );
+
+                $(this).toggleClass(
+                    'active',
+                    !!handle && handle.object.visible !== false
+                );
+            });
+    }
+
+    function removeAreaVisualizations() {
+        analy.removeAllVisualizations(
+            getClickedAreaId(this)
+        );
+        $(this)
+            .closest('.surface-volume-item')
+            .find('.btn-volume-visual-toggle')
+            .removeClass('active');
+    }
+
+    function removeVolumeArea() {
+        const id = $(this)
+            .closest('.surface-volume-item')
+            .attr('data-id');
+
+        analy.removeVolumeAreaById(id);
+
+        if (currentComputeId === id) {
+            currentComputeId = undefined;
+        }
+
+        clearSurfaceVolumeResult();
+        printSurfaceVolumeList();
+    }
+
+    function saveAnalysisParam() {
+        try {
+            const params = analy.getParam();
+            savedAnalysisParamString = JSON.stringify(params);
+
+            localStorage.setItem(
+                'surfaceVolumeAnalysis',
+                savedAnalysisParamString
+            );
+
+            alert('표면 체적 분석 설정이 저장되었습니다.');
+
+        } catch (error) {
+            setAnalysisWarning(
+                '분석 설정 저장에 실패했습니다: ' + error.message
+            );
+        }
+    }
+
+    async function loadAnalysisParam() {
+        const text =
+            savedAnalysisParamString ||
+            localStorage.getItem('surfaceVolumeAnalysis');
+
+        if (!text) {
+            setAnalysisWarning('저장된 분석 설정이 없습니다.');
+            return;
+        }
+
+        try {
+            const params = JSON.parse(text);
+
+            await Promise.resolve(
+                analy.loadParam(params, {
+                    replace: true,
+                    compute: false
+                })
+            );
+
+            clearSurfaceVolumeResult();
+            printSurfaceVolumeList();
+
+            setAnalysisStatus('불러오기 완료');
+            setProgress(
+                0,
+                '저장된 분석 영역을 불러왔습니다. 필요 시 재분석하세요.'
+            );
+
+        } catch (error) {
+            setAnalysisWarning(
+                '분석 설정 불러오기에 실패했습니다: ' + error.message
+            );
+        }
+    }
+
+    function printSurfaceVolumeResult(result) {
+        if (!result) {
+            clearSurfaceVolumeResult();
+            return;
+        }
+
+        $('#resultProjectedArea').text(
+            formatArea(result.area?.projected)
+        );
+
+        $('#resultSurfaceArea').text(
+            '표면 면적: ' +
+            formatArea(result.area?.surface)
+        );
+
+        $('#resultPerimeter').text(
+            formatLength(result.area?.perimeter)
+        );
+
+        $('#resultEffectiveArea').text(
+            '유효 면적: ' +
+            formatArea(result.area?.effective)
+        );
+
+        $('#resultCutVolume').text(
+            formatVolume(result.volume?.cut)
+        );
+
+        $('#resultFillVolume').text(
+            formatVolume(result.volume?.fill)
+        );
+
+        $('#resultNetVolume').text(
+            formatVolume(result.volume?.net)
+        );
+
+        $('#resultEstimatedVolume').text(
+            '추정 체적: ' +
+            formatVolume(
+                result.volume?.estimated ??
+                result.volume?.cut
+            )
+        );
+
+        $('#resultAverageHeight').text(
+            formatLength(result.height?.average)
+        );
+
+        $('#resultHeightRange').text(
+            '최소/최대: ' +
+            formatLength(result.height?.min) +
+            ' / ' +
+            formatLength(result.height?.max)
+        );
+
+        $('#resultValidGrid').text(
+            formatInteger(result.sampling?.validCellCount)
+        );
+
+        $('#resultInvalidGrid').text(
+            '누락 격자: ' +
+            formatInteger(result.sampling?.invalidCellCount)
+        );
+
+        $('#resultCoverage').text(
+            formatPercent(result.sampling?.coverageRatio)
+        );
+
+        $('#resultResolution').text(
+            '격자 크기: ' +
+            formatLength(result.sampling?.resolution)
+        );
+
+        const warnings = result.warnings || [];
+
+        if (warnings.length > 0) {
+            setAnalysisWarning(
+                warnings
+                    .map(function (warning) {
+                        return typeof warning === 'string'
+                            ? warning
+                            : warning.message;
+                    })
+                    .filter(Boolean)
+                    .join('\n')
+            );
+        } else {
+            clearAnalysisWarning();
+        }
+    }
+
+    function clearSurfaceVolumeResult() {
+        [
+            '#resultProjectedArea',
+            '#resultPerimeter',
+            '#resultCutVolume',
+            '#resultFillVolume',
+            '#resultNetVolume',
+            '#resultAverageHeight',
+            '#resultValidGrid',
+            '#resultCoverage'
+        ].forEach(function (selector) {
+            $(selector).text('-');
+        });
+
+        $('#resultSurfaceArea').text('표면 면적: -');
+        $('#resultEffectiveArea').text('유효 면적: -');
+        $('#resultEstimatedVolume').text('추정 체적: -');
+        $('#resultHeightRange').text('최소/최대: -');
+        $('#resultInvalidGrid').text('누락 격자: -');
+        $('#resultResolution').text('격자 크기: -');
+
+        clearAnalysisWarning();
+    }
+
+    function setProgress(ratio, message) {
+        const normalizedRatio = clamp01(ratio);
+        const percent = Math.floor(normalizedRatio * 100);
+
+        $('#analysisProgressMessage').text(message || '');
+        $('#analysisProgressPercent').text(percent + '%');
+        $('#analysisProgressBar').css('width', percent + '%');
+    }
+
+    function setAnalysisStatus(text) {
+        $('.analysis-status-text').text(text);
+    }
+
+    function setAnalysisWarning(message) {
+        $('.analysis-warning')
+            .text(message)
+            .show();
+    }
+
+    function clearAnalysisWarning() {
+        $('.analysis-warning')
+            .empty()
+            .hide();
+    }
+
+    function getPhaseMessage(phase) {
+        const messages = {
+            'prepare-target': '분석 대상을 준비하고 있습니다.',
+            'load-tiles': '분석 영역의 3D Tiles를 불러오고 있습니다.',
+            'generate-grid': '분석 격자를 생성하고 있습니다.',
+            'sample-current-surface': '대상 모델의 표면 높이를 검색하고 있습니다.',
+            'sample-reference-surface': '기준면의 높이를 검색하고 있습니다.',
+            'calculate-volume': '면적과 체적을 계산하고 있습니다.',
+            'build-visualization': '분석 결과를 가시화하고 있습니다.',
+            'complete': '분석이 완료되었습니다.'
+        };
+
+        return messages[phase] || '분석을 수행하고 있습니다.';
+    }
+
+    function getAreaId(area) {
+        return String(
+            area?.getId?.() ??
+            area?.id ??
+            ''
+        );
+    }
+
+    function getAreaParameter(area) {
+        return area?.getParameter?.() || area || {};
+    }
+
+    function getPolygonCenter(positions) {
+        if (!Array.isArray(positions) || positions.length === 0) {
+            return {
+                x: HOME_POSITION.lon,
+                y: HOME_POSITION.lat,
+                z: 0
+            };
+        }
+
+        const sum = positions.reduce(function (result, position) {
+            result.x += Number(position.x) || 0;
+            result.y += Number(position.y) || 0;
+            result.z += Number(position.z) || 0;
+            return result;
+        }, {
+            x: 0,
+            y: 0,
+            z: 0
+        });
+
+        return {
+            x: sum.x / positions.length,
+            y: sum.y / positions.length,
+            z: sum.z / positions.length
+        };
+    }
+
+    function createAnalysisId() {
+        if (window.crypto?.randomUUID) {
+            return window.crypto.randomUUID();
+        }
+
+        return 'surface-volume-' +
+            Date.now() +
+            '-' +
+            Math.random().toString(16).slice(2);
+    }
+
+    function parseFiniteNumber(value, fallback) {
+        const number = Number(value);
+        return Number.isFinite(number)
+            ? number
+            : fallback;
+    }
+
+    function parsePositiveNumber(value, fallback) {
+        const number = Number(value);
+        return Number.isFinite(number) && number > 0
+            ? number
+            : fallback;
+    }
+
+    function clamp01(value) {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return 0;
+        return Math.max(0, Math.min(1, number));
+    }
+
+    function formatNumber(value, fractionDigits) {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return '-';
+
+        return number.toLocaleString('ko-KR', {
+            minimumFractionDigits: fractionDigits,
+            maximumFractionDigits: fractionDigits
+        });
+    }
+
+    function formatInteger(value) {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return '-';
+        return Math.round(number).toLocaleString('ko-KR');
+    }
+
+    function formatLength(value) {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return '-';
+
+        return formatNumber(number, 2) + ' m';
+    }
+
+    function formatArea(value) {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return '-';
+
+        return formatNumber(number, 2) + ' m²';
+    }
+
+    function formatVolume(value) {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return '-';
+
+        return formatNumber(number, 2) + ' m³';
+    }
+
+    function formatPercent(value) {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return '-';
+
+        return formatNumber(number * 100, 2) + '%';
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+</script>
+</body>
+</html>

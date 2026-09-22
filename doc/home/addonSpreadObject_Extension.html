@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="kr">
+<head>
+    <meta charset="UTF-8">
+    <title>오염확산의 격자 데이터 3D 가시화</title>
+</head>
+<body style="padding-top: 0">
+<div class="index">
+    <a href="#jump1">1. Addon 추가하기</a><br>
+    <a href="#jump2">2. 격자 데이터 구성하기</a><br>
+    <a href="#jump3">3. Grid Box 생성하기</a><br>
+    <a href="#jump4">4. Grid Mesh 생성하기</a><br>
+    <a href="#jump5">5. Grid Box / Grid Mesh 비교하기</a><br>
+    <a href="#jump6">6. 객체 제거하기</a><br>
+</div>
+<hr>
+
+<div class="content">
+
+    <h2 class="lead" id="jump1" style="margin-bottom: 20px"> 1. Addon 추가하기 </h2>
+    <div class="doc" style="margin-left: 10px">
+        <div class="explane1">
+            * Grid Box와 Grid Mesh 기능을 사용하려면 <strong>오염확산의 내용</strong>과 마찬가지로
+            <mark>GESpreadObject addon을 먼저 활성화</mark>해야 합니다.<br>
+            * 두 객체는 격자 데이터를 3D 형상으로 표현하는 기능이며,
+            <strong>Particle 객체를 생성하지 않고 독립적으로 사용할 수 있습니다.</strong><br>
+        </div>
+
+        <div class="explane_api">
+            GeOnDT.<span class="api_name">addon(<span class="param_name">addonName</span>)</span> :
+            addon script를 추가하여 활성화하는 API
+        </div>
+
+        <label class="code-label">Addon 활성화</label>
+        <div class="code" id="text1-code"></div>
+        <div class="code-text" id="text1" hidden="hidden">
+            ＜script src="/_____폴더경로_____/GESpreadObject.js" type="module">＜/script＞
+
+            GeOnDT.addon(GESpreadObject);
+
+            const analy = app.getAnalysis('Particle');
+        </div>
+    </div>
+
+
+    <h2 class="lead" id="jump2" style="margin-bottom: 20px"> 2. 격자 데이터 구성하기 </h2>
+    <div class="doc" style="margin-left: 10px">
+        <div class="explane1">
+            * Grid Box와 Grid Mesh는 동일한 형태의 <strong>격자 데이터(data)</strong>를 사용합니다.<br>
+            * 각 격자의 실제 수치는 <strong>grid</strong> 1차원 배열에 저장하며,
+            일반적으로 <mark>grid.length === width * height</mark>가 되도록 구성합니다.<br>
+            * <strong>originX / originY</strong>를 기준으로 격자 영역이 배치되고,
+            <strong>widthSize / heightSize</strong>가 각 격자 한 칸의 크기를 결정합니다.<br>
+        </div>
+
+        <div class="explane_api">
+            <strong>options.data / GridData</strong><br>
+            <div class="explane_api_param">
+                <span class="param_name">widthSize</span><span class="param_type">number</span> :
+                격자 한 칸의 가로 크기<br>
+
+                <span class="param_name">heightSize</span><span class="param_type">number</span> :
+                격자 한 칸의 세로 크기<br>
+
+                <span class="param_name">width</span><span class="param_type">number</span> :
+                X 방향 격자 개수<br>
+
+                <span class="param_name">height</span><span class="param_type">number</span> :
+                Y 방향 격자 개수<br>
+
+                <span class="param_name">originX</span><span class="param_type">number</span> :
+                격자 시작 X 지리 좌표<br>
+
+                <span class="param_name">originY</span><span class="param_type">number</span> :
+                격자 시작 Y 지리 좌표<br>
+
+                <span class="param_name">gridHeight</span><span class="param_type">number</span> :
+                3D 객체가 생성될 기준 높이 (미지정 시 기본값 100)<br>
+
+                <span class="param_name">grid</span><span class="param_type">array</span> :
+                각 격자의 수치를 저장하는 1차원 배열<br>
+            </div>
+        </div>
+
+        <label class="code-label">[격자 데이터 구성 예제]</label>
+        <div class="code" id="text2-code"></div>
+        <div class="code-text" id="text2" hidden="hidden">
+            const gridData = [{
+                widthSize: 50,
+                heightSize: 50,
+
+                width: 19,
+                height: 20,
+
+                originX: 129.3338772330962,
+                originY: 35.49181010514321,
+
+                gridHeight: 100,
+
+                grid: [
+                    29.3, 31.2, 32.5, 32.5
+                    // ... width * height 개수
+                    ]
+                }];
+
+                const baseOption = {
+                name: 'GRID_VISUAL_SAMPLE',
+                data: gridData
+            };
+        </div>
+
+        <div class="explane1" style="padding: 12px; border: 1px dashed #999; margin: 10px 0 20px 0;">
+            <strong>격자 데이터 구조를 설명하는 이미지</strong><br>
+            <img src="./image/addonSpreadObject/격자데이터속성설명.png" alt="격자데이터속성"
+                 style="width: 800px; height: 600px; margin-bottom: 25px">
+        </div>
+    </div>
+
+
+    <h2 class="lead" id="jump3" style="margin-bottom: 20px"> 3. Grid Box 생성하기 </h2>
+    <div class="doc" style="margin-left: 10px">
+        <div class="explane1">
+            * Grid Box는 각 격자의 수치를
+            <mark>독립적인 Box 객체의 높이</mark>로 표현합니다.<br>
+            * 개별 격자 값의 크기를 직접 비교하거나,
+            격자 단위 데이터 분포를 명확하게 확인할 때 사용할 수 있습니다.<br>
+            * <strong>createGridBox(options)</strong>는 Particle 초기화 없이
+            전달받은 <strong>options.data</strong>를 직접 처리하여 객체를 생성합니다.<br>
+        </div>
+
+        <div class="explane_api">
+            <span class="api_name">UAnalyParticle.createGridBox</span>(<span class="param_name">options</span>) :
+            격자 데이터를 각 격자별 Box 형상으로 생성하는 API<br>
+
+            <div class="explane_api_param">
+                <span class="param_name">options.name</span><span class="param_type">string</span> :
+                생성 객체 이름 <span class="important_tg">*필수 입력</span><br>
+
+                <span class="param_name">options.data</span><span class="param_type">array</span> :
+                Grid Box 생성에 사용할 격자 데이터 <span class="important_tg">*필수 입력</span><br>
+
+                <span class="param_name">options.visible</span><span class="param_type">boolean</span> :
+                생성 직후 가시화 여부 (기본값 true)<br>
+
+                <span class="param_name">options.gridBoxMaxHeight</span><span class="param_type">number</span> :
+                Box 높이의 최대 제한값 (기본값 1000)<br>
+
+                <span class="param_name">options.gridBoxColor</span><span class="param_type">Color</span> :
+                legend가 없을 경우 적용되는 기본 색상 (기본값 0x4474A0)<br>
+
+                <span class="param_name">options.gridBoxOpacity</span><span class="param_type">number</span> :
+                legend가 없을 경우 적용되는 기본 투명도 (기본값 0.6)<br>
+
+                <span class="param_name">options.gridBoxLineColor</span><span class="param_type">Color</span> :
+                Box 외곽선 색상 (기본값 0x000000)<br>
+
+                <span class="param_name">options.gridMode</span><span class="param_type">string</span> :
+                "spread" 사용 시 정규화된 allocation 값을 범례 정보에 포함<br>
+
+                <span class="param_name">options.legend</span><span class="param_type">function</span> :
+                Box 색상과 투명도를 데이터 값에 따라 설정하는 함수<br>
+            </div>
+
+            <div class="explane_api_return">
+                <span class="return_name">return </span><span class="param_type">array</span> :
+                options.data의 index별 Grid Box Group 배열
+            </div>
+        </div>
+
+        <div class="explane1">
+            <strong>기본 Grid Box 생성</strong><br>
+            필수 격자 데이터와 Grid Box 전용 옵션을 설정한 뒤 createGridBox(options)를 호출합니다.
+        </div>
+        <label class="code-label">[Grid Box 생성 예제]</label>
+        <div class="code" id="text3-code"></div>
+        <div class="code-text" id="text3" hidden="hidden">
+            const boxOption = {
+                name: 'GRID_BOX_SAMPLE',
+                data: gridData,
+
+                visible: true,
+
+                gridBoxMaxHeight: 1000,
+                gridBoxColor: '#4474A0',
+                gridBoxOpacity: 0.6,
+                gridBoxLineColor: '#000000'
+            };
+
+            // analy.initialize(), analy.active() 호출 불필요
+            const boxGroups = analy.createGridBox(boxOption);
+        </div>
+
+        <div class="explane1">
+            * 예를 들어 원본 grid 값이 1500이고
+            <strong>gridBoxMaxHeight</strong>가 1000이면 Box는 최대 제한값을 기준으로 생성됩니다.<br>
+            * 값이 0보다 작은 경우에는 높이가 0보다 작아지지 않도록 처리됩니다.<br>
+        </div>
+
+        <div class="explane1">
+            <strong>Grid Box 범례 설정</strong><br>
+            * Grid Box는 <strong>options.legend</strong> 함수를 이용하여
+            각 격자 수치에 따라 <mark>Box의 색상과 투명도를 개별적으로 설정</mark>할 수 있습니다.<br>
+            * legend 함수는 Grid Box를 생성하는 과정에서 각 격자 데이터마다 호출되며,
+            현재 격자의 수치 정보가 <strong>info</strong> 객체로 전달됩니다.<br>
+            * legend 함수에서 반환한 <strong>color</strong>와 <strong>opacity</strong> 값이
+            해당 격자 Box의 Material에 적용됩니다.<br>
+        </div>
+
+        <div class="explane_api">
+            <strong>options.legend</strong>(<span class="param_name">info</span>) :
+            Grid Box의 데이터 수치에 따라 색상과 투명도를 설정하는 함수<br>
+
+            <div class="explane_api_param">
+                <span class="param_name">info</span><span class="param_type">object</span> :
+                현재 생성 중인 격자의 범례 판단 정보<br>
+
+                <span class="param_name">info.value</span><span class="param_type">number</span> :
+                현재 격자에 저장된 원본 grid 수치<br>
+
+                <span class="param_name">info.allocation</span><span class="param_type">number | undefined</span> :
+                gridMode가 "spread"인 경우 사용할 수 있는 정규화 수치<br>
+                gridMode가 "grid"인 경우에는 undefined가 될 수 있음<br>
+
+                <span class="param_name">info.type</span><span class="param_type">string</span> :
+                범례 대상 객체 타입, Grid Box의 경우 <strong>'box'</strong><br>
+            </div>
+
+            <div class="explane_api_return">
+                <span class="return_name">return </span><span class="param_type">object</span> :
+                Grid Box에 적용할 색상 및 투명도 정보<br>
+
+                <div class="explane_api_param">
+                    <span class="param_name">color</span><span class="param_type">Color</span> :
+                    Box에 적용할 색상<br>
+
+                    <span class="param_name">opacity</span><span class="param_type">number</span> :
+                    Box에 적용할 투명도 (0 ~ 1)<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="explane1">
+            <strong>범례 처리 방식</strong><br>
+            * 일반적인 Grid Box 범례는 <strong>info.value</strong>를 기준으로 구간을 나누어 설정합니다.<br>
+            * 높은 수치에는 진한 색상, 낮은 수치에는 옅은 색상을 반환하는 방식으로 표현할 수 있습니다.<br>
+            * <strong>gridMode: 'spread'</strong>를 사용하는 경우에는 필요에 따라
+            <strong>info.allocation</strong>을 기준으로 범례를 구성할 수도 있습니다.<br>
+            * legend 함수를 지정하지 않으면 <strong>gridBoxColor / gridBoxOpacity</strong>에 설정한 기본값을 사용합니다.<br>
+        </div>
+
+        <label class="code-label">[Grid Box 범례 설정 예제]</label>
+        <div class="code" id="text4-code"></div>
+        <div class="code-text" id="text4" hidden="hidden">
+            function gridBoxLegend(info) {
+                // info.value
+                // - 현재 격자의 실제 grid 수치
+                //
+                // info.allocation
+                // - gridMode가 'spread'인 경우 사용할 수 있는 정규화 수치
+                //
+                // info.type
+                // - Grid Box 범례 호출 시 'box'
+
+                if (info.type !== 'box') return;
+
+                // 원본 grid 수치를 기준으로 색상/투명도 구간 설정
+                if (info.value > 500) {
+                    return {
+                        color: '#b10026',
+                        opacity: 0.7
+                    };
+                }
+
+                if (info.value > 100) {
+                    return {
+                        color: '#fc4e2a',
+                        opacity: 0.5
+                    };
+                }
+
+                if (info.value > 50) {
+                    return {
+                        color: '#feb24c',
+                        opacity: 0.4
+                    };
+                }
+
+                return {
+                    color: '#4474A0',
+                    opacity: 0.3
+                };
+            }
+
+            const boxOption = {
+                name: 'GRID_BOX_SAMPLE',
+                data: gridData,
+                gridMode: 'grid',
+
+                gridBoxMaxHeight: 1000,
+                gridBoxColor: '#4474A0',
+                gridBoxOpacity: 0.6,
+
+                // Grid Box 생성 시 사용할 범례 함수
+                legend: gridBoxLegend
+            };
+
+            const boxGroups = analy.createGridBox(boxOption);
+        </div>
+
+        <div class="explane1">
+            <strong>spread 모드에서 allocation을 사용하는 예</strong><br>
+            * 동일한 legend 함수에서 <strong>info.allocation</strong> 값이 존재하는지 확인한 뒤
+            정규화 수치를 기준으로 색상과 투명도를 적용할 수도 있습니다.<br>
+        </div>
+
+        <label class="code-label">[Grid Box allocation 범례 예제]</label>
+        <div class="code" id="text10-code"></div>
+        <div class="code-text" id="text10" hidden="hidden">
+            function gridBoxSpreadLegend(info) {
+                if (info.type !== 'box') return;
+
+                if (info.allocation !== undefined) {
+                    if (info.allocation > 0.1) {
+                        return {color: '#b10026', opacity: 0.7};
+                    }
+
+                    if (info.allocation > 0.05) {
+                        return {color: '#fc4e2a', opacity: 0.5};
+                    }
+
+                    return {color: '#ffffcc', opacity: 0.2};
+                }
+
+                // allocation이 없는 경우 원본 grid 수치 사용
+                return {
+                    color: '#4474A0',
+                    opacity: 0.3
+                };
+            }
+
+            boxOption.gridMode = 'spread';
+            boxOption.legend = gridBoxSpreadLegend;
+
+            analy.createGridBox(boxOption);
+        </div>
+
+        <div class="explane1">
+            <strong>Grid Box 가시화</strong><br>
+            생성된 Grid Box 전체 또는 특정 data index의 가시화 여부를 변경할 수 있습니다.
+        </div>
+        <div class="explane_api">
+            UAnalyParticle.<span class="api_name">showGridBox(<span class="param_name">visible</span>, <span class="param_name">name</span>, <span class="param_name">index</span>)</span> :
+            생성된 Grid Box의 <mark>가시화 여부를 설정</mark>하는 API<br>
+            <div class="explane_api_param">
+                <span class="param_name">visible</span><span class="param_type">boolean</span> :
+                가시화 여부<br>
+                <span class="param_name">name</span><span class="param_type">string</span> :
+                createGridBox(options) 호출 시 지정한 이름<br>
+                <span class="param_name">index</span><span class="param_type">number</span> :
+                가시화할 data index, 생략 시 전체 대상
+            </div>
+        </div>
+        <label class="code-label">[Grid Box 가시화 예제]</label>
+        <div class="code" id="text5-code"></div>
+        <div class="code-text" id="text5" hidden="hidden">
+            // 전체 data 가시화
+            analy.showGridBox(true, boxOption.name);
+
+            // data[1]만 가시화
+            analy.showGridBox(true, boxOption.name, 1);
+
+            // 숨김
+            analy.showGridBox(false, boxOption.name);
+        </div>
+
+        <div class="explane1" style="padding: 12px; border: 1px dashed #999; margin: 10px 0 20px 0;">
+            <strong> Grid Box 생성 결과 이미지</strong><br>
+            <img src="./image/addonSpreadObject/격자박스.png" alt="격자박스"
+                 style="width: 500px; height: 405px; margin-bottom: 25px">
+        </div>
+    </div>
+
+
+    <h2 class="lead" id="jump4" style="margin-bottom: 20px"> 4. Grid Mesh 생성하기 </h2>
+    <div class="doc" style="margin-left: 10px">
+        <div class="explane1">
+            * Grid Mesh는 각 격자 값을 개별 Box로 표현하지 않고,
+            <mark>인접한 격자의 높이를 연결한 연속적인 Mesh</mark>로 표현합니다.<br>
+            * 데이터의 전체적인 분포, 높이 변화, 공간적인 연결성을 확인할 때 적합합니다.<br>
+            * Grid Box와 동일하게 Particle 객체 생성 없이 <strong>createGridMesh(options)</strong>만으로 생성할 수 있습니다.<br>
+        </div>
+
+        <div class="explane_api">
+            <span class="api_name">UAnalyParticle.createGridMesh</span>(<span class="param_name">options</span>) :
+            격자 수치를 연속적인 3D Mesh 형상으로 생성하는 API<br>
+
+            <div class="explane_api_param">
+                <span class="param_name">options.name</span><span class="param_type">string</span> :
+                생성 객체 이름 <span class="important_tg">*필수 입력</span><br>
+
+                <span class="param_name">options.data</span><span class="param_type">array</span> :
+                Grid Mesh 생성에 사용할 격자 데이터 <span class="important_tg">*필수 입력</span><br>
+
+                <span class="param_name">options.gridMeshMaxHeight</span><span class="param_type">number | array</span> :
+                Grid Mesh의 높이 제한 및 최대 기준값<br>
+
+                <span class="param_name">options.gridMeshOpacity</span><span class="param_type">number</span> :
+                Grid Mesh 투명도 (기본값 1)<br>
+
+                <span class="param_name">options.gridMeshRatio</span><span class="param_type">number</span> :
+                원본 수치에 적용할 높이 축척 비율 (1 : gridMeshRatio)<br>
+
+                <span class="param_name">options.gridMeshLogConstant</span><span class="param_type">number</span> :
+                데이터 높이 로그 변환에 사용하는 상수 (기본값 1000)<br>
+
+                <span class="param_name">options.gridMeshSelectColor</span><span class="param_type">Color</span> :
+                Grid Mesh 정보 조회 시 선택 영역 색상<br>
+
+                <span class="param_name">options.legend</span><span class="param_type">function</span> :
+                높이 구간별 색상을 정의하는 범례 함수<br>
+            </div>
+            <div class="explane_api_return">
+                <span class="return_name">return </span><span class="param_type">array</span> :
+                생성된 Grid Mesh 객체 배열
+            </div>
+        </div>
+
+        <div class="explane1">
+            <strong>Grid Mesh 생성</strong><br>
+            격자 데이터와 높이 표현 옵션을 설정한 뒤 createGridMesh(options)를 호출합니다.
+        </div>
+        <label class="code-label">[Grid Mesh 생성 예제]</label>
+        <div class="code" id="text6-code"></div>
+        <div class="code-text" id="text6" hidden="hidden">
+            const meshOption = {
+                name: 'GRID_MESH_SAMPLE',
+                data: gridData,
+
+                gridMeshMaxHeight: 1000,
+                gridMeshOpacity: 0.8,
+                gridMeshRatio: 1,
+                gridMeshLogConstant: 1000
+            };
+
+            // analy.initialize(), analy.active() 호출 불필요
+            const meshes = analy.createGridMesh(meshOption);
+        </div>
+
+        <div class="explane1">
+            <strong>Grid Mesh 범례 설정</strong><br>
+            * Grid Mesh는 <strong>options.legend</strong> 함수를 이용하여
+            <mark>높이 구간별 색상을 설정</mark>할 수 있습니다.<br>
+            * Grid Box 범례가 각 셀마다 color / opacity 객체를 반환하는 방식이라면,
+            Grid Mesh 범례는 <strong>높이값 : 색상</strong> 형태의 객체를 한 번에 반환합니다.<br>
+            * 반환된 높이 구간은 Mesh Shader에서 각 정점의 높이를 기준으로 색상을 결정할 때 사용됩니다.<br>
+        </div>
+
+        <div class="explane_api">
+            <strong>options.legend</strong>(<span class="param_name">info</span>) :
+            Grid Mesh의 높이 구간별 색상을 설정하는 함수<br>
+
+            <div class="explane_api_param">
+                <span class="param_name">info</span><span class="param_type">object</span> :
+                범례 대상 객체 정보<br>
+
+                <span class="param_name">info.type</span><span class="param_type">string</span> :
+                범례 대상 객체 타입, Grid Mesh의 경우 <strong>'mesh'</strong><br>
+            </div>
+
+            <div class="explane_api_return">
+                <span class="return_name">return </span><span class="param_type">object</span> :
+                높이 구간과 각 구간에 적용할 색상 정보<br>
+                <div class="explane_api_param">
+                    <span class="param_name">key</span><span class="param_type">number</span> :
+                    색상을 적용할 기준 높이 값<br>
+
+                    <span class="param_name">value</span><span class="param_type">Color</span> :
+                    해당 높이 구간에 적용할 색상<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="explane1">
+            <strong>Grid Mesh 범례 데이터 구성</strong><br>
+            * 반환 객체의 Key는 Mesh 높이 기준값이고 Value는 해당 구간의 색상입니다.<br>
+            * 예를 들어 <strong>0, 100, 250, 500, 1000</strong>과 같이 높이 구간을 정의할 수 있습니다.<br>
+            * Grid Mesh는 각 높이 구간 사이의 값을 이용하여 연속적인 색상 표현을 구성합니다.<br>
+            * 범례의 최대 높이 값은 <strong>gridMeshMaxHeight</strong>와 함께 데이터 가시화 범위를 구성할 때 사용하는 것이 좋습니다.<br>
+        </div>
+
+        <label class="code-label">[Grid Mesh 범례 설정 예제]</label>
+        <div class="code" id="text7-code"></div>
+        <div class="code-text" id="text7" hidden="hidden">
+            function gridMeshLegend(info) {
+            // Grid Mesh 범례 요청인 경우에만 높이별 색상 정보 반환
+                if (info.type !== 'mesh') return;
+
+                return {
+                    // 높이 : 색상
+                    0:    '#4474A0',
+                    100:  '#449da0',
+                    250:  '#68AD3D',
+                    400:  '#84ad3d',
+                    550:  '#BCAB3C',
+                    700:  '#C1712C',
+                    850:  '#B24924',
+                    1000: '#b10026'
+                };
+            }
+
+            const meshOption = {
+                name: 'GRID_MESH_SAMPLE',
+                data: gridData,
+
+                gridMeshMaxHeight: 1000,
+                gridMeshOpacity: 0.8,
+                gridMeshRatio: 1,
+                gridMeshLogConstant: 1000,
+
+                // Grid Mesh 높이 구간별 범례
+                legend: gridMeshLegend
+            };
+
+            const meshes = analy.createGridMesh(meshOption);
+        </div>
+
+        <div class="explane1">
+            <strong>Grid Box와 Grid Mesh 범례 반환값 차이</strong><br>
+            * Grid Box : 각 격자마다 <strong>{ color, opacity }</strong> 형태의 객체를 반환합니다.<br>
+            * Grid Mesh : <strong>{ 높이값: 색상 }</strong> 형태로 여러 높이 구간을 한 번에 반환합니다.<br>
+            * 따라서 동일한 legend 함수를 공유하는 경우에는 <strong>info.type</strong>을 확인하여
+            Box와 Mesh의 반환 형식을 구분해야 합니다.<br>
+        </div>
+
+        <label class="code-label">[Grid Box / Grid Mesh 공통 범례 함수 예제]</label>
+        <div class="code" id="text11-code"></div>
+        <div class="code-text" id="text11" hidden="hidden">
+            function gridVisualLegend(info) {
+                // Grid Box 범례
+                if (info.type === 'box') {
+                    if (info.value > 500) {
+                        return {color: '#b10026', opacity: 0.7};
+                    }
+
+                    if (info.value > 100) {
+                        return {color: '#fc4e2a', opacity: 0.5};
+                    }
+
+                    return {color: '#4474A0', opacity: 0.3};
+                }
+
+                // Grid Mesh 범례
+                if (info.type === 'mesh') {
+                    return {
+                    0:    '#4474A0',
+                    100:  '#449da0',
+                    250:  '#68AD3D',
+                    400:  '#84ad3d',
+                    550:  '#BCAB3C',
+                    700:  '#C1712C',
+                    850:  '#B24924',
+                    1000: '#b10026'
+                    };
+                }
+            }
+
+            boxOption.legend = gridVisualLegend;
+            meshOption.legend = gridVisualLegend;
+
+            analy.createGridBox(boxOption);
+            analy.createGridMesh(meshOption);
+        </div>
+
+        <div class="explane1">
+            <strong>Grid Mesh 가시화 및 속성 변경</strong><br>
+            생성된 Grid Mesh의 가시화, 투명도, 높이 축척, 최대 높이, 로그 변환 상수를 변경할 수 있습니다.
+        </div>
+
+        <div class="explane_api">
+            UAnalyParticle.<span class="api_name">showGridMesh(<span class="param_name">visible</span>, <span class="param_name">name</span>, <span class="param_name">index</span>)</span> :
+            Grid Mesh의 가시화 여부를 설정하는 API<br>
+            <div class="explane_api_param">
+                <span class="param_name">visible</span><span class="param_type">boolean</span> : 가시화 여부<br>
+                <span class="param_name">name</span><span class="param_type">string</span> : 생성 시 지정한 이름<br>
+                <span class="param_name">index</span><span class="param_type">number</span> : 대상 index, 생략 가능
+            </div>
+
+            UAnalyParticle.<span class="api_name">setGridMeshOpacity(<span class="param_name">opacity</span>)</span> :
+            Grid Mesh 투명도를 설정하는 API<br>
+            <div class="explane_api_param">
+                <span class="param_name">opacity</span><span class="param_type">number</span> : 투명도 (0 ~ 1)
+            </div>
+
+            UAnalyParticle.<span class="api_name">setGridMeshRatio(<span class="param_name">ratio</span>)</span> :
+            Grid Mesh 데이터 높이 축척 비율을 변경하는 API<br>
+            <div class="explane_api_param">
+                <span class="param_name">ratio</span><span class="param_type">number</span> : 높이 축척 비율
+            </div>
+
+            UAnalyParticle.<span class="api_name">setGridMeshMaxHeight(<span class="param_name">value</span>)</span> :
+            Grid Mesh의 최대 높이 기준을 변경하는 API<br>
+            <div class="explane_api_param">
+                <span class="param_name">value</span><span class="param_type">number | array</span> : 최대 높이 기준
+            </div>
+
+            UAnalyParticle.<span class="api_name">setGridMeshLogConstant(<span class="param_name">value</span>)</span> :
+            Grid Mesh의 로그 높이 변환 상수를 변경하는 API<br>
+            <div class="explane_api_param">
+                <span class="param_name">value</span><span class="param_type">number</span> : 로그 변환 상수
+            </div>
+        </div>
+
+        <label class="code-label">[Grid Mesh 가시화 및 속성 변경 예제]</label>
+        <div class="code" id="text8-code"></div>
+        <div class="code-text" id="text8" hidden="hidden">
+            analy.showGridMesh(true, meshOption.name);
+
+            // 투명도 변경
+            analy.setGridMeshOpacity(0.5);
+
+            // 높이 축척 변경
+            analy.setGridMeshRatio(10);
+
+            // 최대 높이 기준 변경
+            analy.setGridMeshMaxHeight(500);
+
+            // 로그 변환 상수 변경
+            analy.setGridMeshLogConstant(1000);
+        </div>
+
+        <div class="explane1">
+            * <strong>gridMeshRatio</strong> 값이 커질수록 화면에 표현되는 높이는 상대적으로 낮아집니다.<br>
+            * <strong>gridMeshLogConstant</strong>는 데이터 값의 범위 차이가 큰 경우 높이 표현을 조정하는 데 사용합니다.<br>
+            * 일부 Grid Mesh 속성 변경 API는 생성된 Mesh를 새로운 설정 기준으로 다시 구성합니다.<br>
+        </div>
+
+        <div class="explane1" style="padding: 12px; border: 1px dashed #999; margin: 10px 0 20px 0;">
+            <strong>Grid Mesh 생성 결과 이미지</strong><br>
+            <img src="./image/addonSpreadObject/격자매쉬가시화.png" alt="격자매쉬"
+                 style="width: 500px; height: 405px; margin-bottom: 25px">
+        </div>
+    </div>
+
+
+    <h2 class="lead" id="jump5" style="margin-bottom: 20px"> 5. Grid Box / Grid Mesh 비교하기 </h2>
+    <div class="doc" style="margin-left: 10px">
+        <div class="explane1">
+            * Grid Box와 Grid Mesh는 동일한 격자 데이터를 사용하지만
+            <mark>데이터를 표현하는 방식과 목적</mark>에 차이가 있습니다.<br><br>
+
+            <strong>Grid Box</strong><br>
+            &nbsp;&nbsp;- 각 격자를 독립된 Box로 표현합니다.<br>
+            &nbsp;&nbsp;- 개별 격자 값의 차이를 명확하게 확인하기 좋습니다.<br>
+            &nbsp;&nbsp;- Box의 높이가 해당 격자의 데이터 수치를 나타냅니다.<br>
+            &nbsp;&nbsp;- 격자 단위의 구분이 중요한 데이터에 적합합니다.<br><br>
+
+            <strong>Grid Mesh</strong><br>
+            &nbsp;&nbsp;- 인접한 격자 값을 하나의 연속적인 Mesh로 연결합니다.<br>
+            &nbsp;&nbsp;- 전체적인 데이터 분포와 공간적인 변화 확인에 적합합니다.<br>
+            &nbsp;&nbsp;- 높이 비율, 로그 변환, Morph 등 연속 표면 표현에 필요한 기능을 사용할 수 있습니다.<br>
+        </div>
+
+        <div class="explane1" style="padding: 12px; border: 1px dashed #999; margin: 10px 0 20px 0;">
+            <strong>동일한 grid 데이터를 왼쪽은 Grid Box, 오른쪽은 Grid Mesh로 출력한 비교 이미지</strong><br>
+            <img src="./image/addonSpreadObject/격자박스비교.png" alt="격자박스비교"
+                 style="width: 500px; height: 405px; margin-bottom: 25px">
+
+            <img src="./image/addonSpreadObject/격자매쉬비교.png" alt="격자매쉬비교"
+                 style="width: 500px; height: 405px; margin-bottom: 25px">
+
+        </div>
+    </div>
+
+
+    <h2 class="lead" id="jump6" style="margin-bottom: 20px"> 6. 객체 제거하기 </h2>
+    <div class="doc" style="margin-left: 10px">
+        <div class="explane1">
+            * 가시화만 중지하는 경우에는 show API를 사용하고,
+            더 이상 사용하지 않는 경우에는 remove API로 생성 객체와 관련 리소스를 제거합니다.<br>
+        </div>
+
+        <div class="explane_api">
+            UAnalyParticle.<span class="api_name">removeGridBox(<span class="param_name">name</span>)</span> :
+            createGridBox(options)로 생성한 Grid Box 객체를 제거하는 API<br>
+            <div class="explane_api_param">
+                <span class="param_name">name</span><span class="param_type">string</span> :
+                제거할 Grid Box 생성 이름
+            </div>
+
+            UAnalyParticle.<span class="api_name">removeGridMesh(<span class="param_name">name</span>)</span> :
+            createGridMesh(options)로 생성한 Grid Mesh 객체를 제거하는 API<br>
+            <div class="explane_api_param">
+                <span class="param_name">name</span><span class="param_type">string</span> :
+                제거할 Grid Mesh 생성 이름
+            </div>
+        </div>
+
+        <label class="code-label">[Grid Box / Grid Mesh 제거 예제]</label>
+        <div class="code" id="text9-code"></div>
+        <div class="code-text" id="text9" hidden="hidden">
+            // 가시화만 중지
+            analy.showGridBox(false, boxOption.name);
+            analy.showGridMesh(false, meshOption.name);
+
+            // Grid Box 제거
+            analy.removeGridBox(boxOption.name);
+
+            // Grid Mesh 제거
+            analy.removeGridMesh(meshOption.name);
+        </div>
+    </div>
+</div>
+</body>
+</html>

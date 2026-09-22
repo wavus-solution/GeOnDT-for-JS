@@ -1,0 +1,1699 @@
+/* 드론 통합 모니터링 예제 전용 스타일.
+   Pastel Glass 패널·레일·스크롤바·지도 도구는 공통 테마가 담당하므로 여기서는 예제 구획만 정의합니다.
+   오른쪽 패널(드론 목록)은 공통 테마 기본 폭을 그대로 쓰고, 드론 목록은 고정 높이 안에서 스크롤합니다.
+   드론 상세 설정은 왼쪽 독립 창(.drone-detail-panel)에 두어 내용이 늘어도 오른쪽 패널 높이에 영향을 주지 않습니다.
+   실행 환경 정보는 지도 도구의 버튼으로 여는 별도 팝업(.drone-env-panel)에 둡니다. */
+
+.drone-monitoring-content .panel-description,
+.drone-detail-content .panel-description,
+.drone-env-content .panel-description,
+.drone-tools-content .panel-description,
+.drone-settings-content .panel-description,
+.drone-legend-content .panel-description {
+    margin: 0;
+    color: var(--theme-muted);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+/* 구획은 구분선형으로 세로로 쌓습니다. */
+.drone-monitoring-section {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--theme-line);
+}
+
+.drone-monitoring-section h3 {
+    margin: 0 0 8px;
+    color: #eff9fd;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+/* 왼쪽 상세 설정 창. Runtime의 .example-panel(오른쪽 고정)과 달리 예제가 직접 위치와 표시를 관리합니다. */
+.drone-detail-panel {
+    position: absolute;
+    top: 64px;
+    left: 16px;
+    z-index: 13;
+    display: flex;
+    flex-direction: column;
+    width: var(--theme-side-panel-width);
+    max-height: calc(100dvh - 120px);
+    overflow: hidden;
+    border-radius: 12px;
+}
+
+.drone-detail-panel[hidden] {
+    display: none;
+}
+
+.drone-detail-panel .panel-header h2 {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: baseline;
+}
+
+.drone-detail-name {
+    color: var(--theme-accent);
+    font-family: Consolas, monospace;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.drone-detail-open {
+    width: 100%;
+    margin: 8px 0 0;
+}
+
+/* 상세 설정 창 공통 조작(모든 탭에 적용되는 버튼) */
+.drone-detail-actions {
+    display: grid;
+    gap: 6px;
+    margin: 10px 0 0;
+}
+
+/* 상세 설정 창의 짧은 조작 안내(우클릭 이동) */
+.drone-detail-hint {
+    margin: 8px 0 0;
+    color: var(--theme-muted);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.drone-action[aria-pressed="true"] {
+    border-color: var(--theme-accent);
+    background: rgba(172, 223, 240, .22);
+    box-shadow: inset 0 0 0 1px var(--theme-accent);
+}
+
+/* 그룹 상세 설정 창 */
+.drone-field {
+    display: grid;
+    gap: 4px;
+    margin: 10px 0 0;
+    color: var(--theme-muted);
+    font-size: 11px;
+}
+
+.drone-field input {
+    width: 100%;
+    min-height: 32px;
+    padding: 6px 10px;
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    background: var(--theme-surface);
+    color: #eff9fd;
+    font-size: 12px;
+}
+
+.drone-field input:focus-visible {
+    outline: 2px solid var(--theme-accent);
+    outline-offset: -1px;
+}
+
+/* 설정 패널: 지형 고도 배율 입력. 그룹 창의 입력(.drone-field)과 같은 모양이며 안내 줄(.drone-group-hint)이 아래에 붙습니다. */
+.drone-settings-field {
+    margin-top: 0;
+    margin-bottom: 6px;
+}
+
+/* 도구 패널: 좌표계 변환. [입력 좌표계] ⇄ [출력 좌표계] 한 줄 아래에 X·Y 입력, 변환하기·초기화 버튼, 결과 줄이 이어집니다. */
+.drone-coords-direction {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 6px;
+    align-items: center;
+    margin-top: 6px;
+}
+
+.drone-coords-crs {
+    overflow: hidden;
+    padding: 6px 8px;
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    background: var(--theme-surface);
+    color: #eff9fd;
+    font-size: 11px;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.drone-coords-swap {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid var(--theme-accent);
+    border-radius: 50%;
+    background: rgba(172, 223, 240, .18);
+    color: #eff9fd;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.drone-coords-swap:hover,
+.drone-coords-swap:focus-visible {
+    background: rgba(172, 223, 240, .34);
+}
+
+.drone-coords-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.drone-coords-grid .drone-field {
+    margin-top: 6px;
+}
+
+.drone-coords-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 6px;
+    margin-top: 8px;
+}
+
+/* 도구 패널: 이미지 출력. 업로드 버튼 옆에 작은 미리보기를 두고 아래에 좌표·회전 입력이 이어집니다. */
+.drone-stamp-upload {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 72px;
+    gap: 8px;
+    align-items: start;
+    margin-top: 6px;
+}
+
+.drone-stamp-preview {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+    justify-items: center;
+}
+
+.drone-stamp-preview img {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, .25);
+}
+
+.drone-stamp-preview figcaption {
+    max-width: 72px;
+    overflow: hidden;
+    color: var(--theme-muted);
+    font-size: 10px;
+    line-height: 1.3;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.drone-stamp-preview.has-image figcaption {
+    color: #eff9fd;
+}
+
+/* 도구·설정·고도 범례 패널의 구획은 구분선 대신 카드로 나눕니다. 각 카드는 배경·테두리·강조 막대가 붙은 제목을 갖고 카드 사이에 간격을 둡니다. */
+.drone-tools-content .drone-monitoring-section,
+.drone-settings-content .drone-monitoring-section,
+.drone-legend-content .drone-monitoring-section {
+    margin-top: 12px;
+    padding: 12px 12px 14px;
+    border: 1px solid var(--theme-line);
+    border-radius: 12px;
+    background: var(--theme-surface);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
+}
+
+.drone-tools-content .drone-monitoring-section h3,
+.drone-settings-content .drone-monitoring-section h3,
+.drone-legend-content .drone-monitoring-section h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--theme-line);
+    color: #eff9fd;
+    font-size: 13px;
+    letter-spacing: .01em;
+}
+
+/* 제목 왼쪽의 강조 막대: 카드 시작을 한눈에 구분합니다. */
+.drone-tools-content .drone-monitoring-section h3::before,
+.drone-settings-content .drone-monitoring-section h3::before,
+.drone-legend-content .drone-monitoring-section h3::before {
+    content: '';
+    flex: 0 0 auto;
+    width: 4px;
+    height: 14px;
+    border-radius: 2px;
+    background: var(--theme-accent);
+}
+
+/* 접이식 구획(도구·설정 패널): <details>/<summary>로 처음에는 접혀 있고 제목을 누르면 펼쳐집니다.
+   제목 오른쪽의 ▾ 표식이 접힘 상태에서는 ▸로 돌아가며, 접힌 카드는 제목만 남도록 아래 여백·구분선을 없앱니다. */
+.drone-collapsible-summary {
+    display: block;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+}
+
+.drone-collapsible-summary::-webkit-details-marker {
+    display: none;
+}
+
+.drone-collapsible-summary h3::after {
+    content: '▾';
+    margin-left: auto;
+    color: var(--theme-muted);
+    font-size: 12px;
+    line-height: 1;
+    transition: transform .15s ease;
+}
+
+.drone-collapsible:not([open]) .drone-collapsible-summary h3::after {
+    transform: rotate(-90deg);
+}
+
+.drone-collapsible-summary:hover h3 {
+    color: #ffffff;
+}
+
+.drone-collapsible-summary:focus-visible {
+    outline: 2px solid var(--theme-accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+
+.drone-collapsible:not([open]) {
+    padding-bottom: 12px;
+}
+
+.drone-collapsible:not([open]) .drone-collapsible-summary h3 {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+/* 카드 안 입력·결과 요소는 카드 배경과 겹치지 않게 조금 더 어두운 배경을 씁니다. */
+.drone-tools-content .drone-monitoring-section .drone-field input,
+.drone-tools-content .drone-coords-crs,
+.drone-tools-content .drone-coords-result,
+.drone-tools-content .drone-stamp-preview img,
+.drone-settings-content .drone-monitoring-section .drone-field input {
+    background: rgba(0, 0, 0, .22);
+}
+
+/* 이미지 출력 카드 안의 업로드 영역과 좌표 입력 사이도 얇은 선으로 나눕니다. */
+.drone-stamp-upload {
+    padding-bottom: 10px;
+    border-bottom: 1px dashed var(--theme-line);
+}
+
+.drone-coords-result {
+    margin: 6px 0 0;
+    padding: 6px 10px;
+    border: 1px dashed var(--theme-line);
+    border-radius: 8px;
+    color: #eff9fd;
+    font-family: Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    word-break: break-all;
+}
+
+.drone-coords-result.is-invalid {
+    border-color: #ffb8b8;
+    color: #ffb8b8;
+    font-family: inherit;
+}
+
+/* 드론 상세 설정 창: 좌표 입력 이동 명령 (좌표계 콤보박스 · X · Y · 이동 명령 버튼) */
+.drone-move-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+    gap: 6px;
+    margin: 8px 0 0;
+}
+
+.drone-move-form select,
+.drone-move-form input {
+    min-width: 0;
+    min-height: 32px;
+    padding: 6px 8px;
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    background: var(--theme-surface);
+    color: #eff9fd;
+    font-size: 11px;
+}
+
+.drone-move-form select:focus-visible,
+.drone-move-form input:focus-visible {
+    outline: 2px solid var(--theme-accent);
+    outline-offset: -1px;
+}
+
+.drone-move-form .drone-action {
+    white-space: nowrap;
+}
+
+.drone-formation-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.drone-group-hint {
+    margin: 0;
+    color: var(--theme-muted);
+    font-size: 10.5px;
+    line-height: 1.5;
+}
+
+.drone-group-members-heading {
+    margin: 12px 0 6px;
+    color: #eff9fd;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.drone-group-members-heading b {
+    color: var(--theme-accent);
+}
+
+.drone-group-members {
+    display: grid;
+    gap: 4px;
+    margin: 0 0 6px;
+    padding: 0;
+    list-style: none;
+}
+
+.drone-member-item {
+    display: grid;
+    grid-template-columns: 12px minmax(0, 1fr) auto 28px;
+    gap: 10px;
+    align-items: center;
+    padding: 4px 6px 4px 10px;
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    background: var(--theme-surface);
+    font-size: 12px;
+}
+
+.drone-member-remove {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--theme-line);
+    border-radius: 7px;
+    background: transparent;
+    color: #d7e8f0;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.drone-member-remove:hover,
+.drone-member-remove:focus-visible {
+    border-color: #ffb8b8;
+    color: #ffb8b8;
+}
+
+/* 그룹 창 소속 드론의 이동 상태(편대 합류 중·합류 대기 중·팔로우 이동 중 등) */
+.drone-member-status {
+    color: var(--theme-muted);
+    font-size: 10px;
+    white-space: nowrap;
+}
+
+/* 그룹에 가장 먼저 들어온 리더 드론은 이름 옆에 ★ 표식을 붙입니다(목록 트리·그룹 창 공통). */
+.drone-list-item.is-leader .drone-list-name::after,
+.drone-member-item.is-leader .drone-list-name::after {
+    content: ' ★';
+    color: var(--theme-accent);
+    font-size: 10px;
+}
+
+/* 코드 편집 패널이 열리면 브랜드·제목과 같은 방식으로 편집기 오른쪽으로 옮깁니다. */
+@media (min-width: 761px) {
+    .example-editor-open .drone-detail-panel {
+        left: calc(var(--editor-pane-width, min(40vw, 600px)) + 16px);
+    }
+}
+
+/* 좁은 화면에서는 오른쪽 패널이 아래쪽에 놓이므로 상세 설정 창은 위쪽에 둡니다. */
+@media (max-width: 760px) {
+    .drone-detail-panel {
+        top: 60px;
+        right: 10px;
+        left: 10px;
+        width: auto;
+        max-height: 34dvh;
+    }
+}
+
+/* 항목이 고정된 정보는 dl로 표시합니다. */
+.drone-info-list {
+    margin: 0;
+}
+
+.drone-info-list > div {
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr);
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--theme-line);
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.drone-info-list > div:last-child {
+    border-bottom: 0;
+}
+
+.drone-info-list dt {
+    color: var(--theme-muted);
+}
+
+.drone-info-list dd {
+    min-width: 0;
+    margin: 0;
+    color: var(--theme-text);
+    overflow-wrap: anywhere;
+}
+
+.drone-info-list dd[data-state="ok"] {
+    color: #9af0c2;
+    font-weight: 700;
+}
+
+.drone-info-list dd[data-state="warn"] {
+    color: #ffd98a;
+    font-weight: 700;
+}
+
+.drone-info-list dd[data-state="error"] {
+    color: #ffb8b8;
+    font-weight: 700;
+}
+
+.drone-env-note {
+    margin: 8px 0 0;
+    color: #ffb8b8;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+/* 모델 준비 상태: 한 줄로 간결하게 보여 줍니다. 로딩·실패는 색으로 구분합니다. */
+.drone-model-status {
+    margin: 0 0 6px;
+    padding: 0 0 0 14px;
+    position: relative;
+    color: var(--theme-muted);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.drone-model-status::before {
+    content: "";
+    position: absolute;
+    top: 5px;
+    left: 0;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--theme-muted);
+}
+
+.drone-model-status[data-status="ready"] {
+    color: #9af0c2;
+}
+
+.drone-model-status[data-status="ready"]::before {
+    background: #9af0c2;
+}
+
+.drone-model-status[data-status="error"] {
+    color: #ffb8b8;
+}
+
+.drone-model-status[data-status="error"]::before {
+    background: #ffb8b8;
+}
+
+.drone-action-retry {
+    width: 100%;
+    margin: 0 0 8px;
+}
+
+.drone-count-line {
+    margin: 0 0 6px;
+    color: var(--theme-text);
+    font-size: 12px;
+}
+
+.drone-count-line b {
+    color: var(--theme-accent);
+    font-size: 14px;
+}
+
+/* 드론·그룹 목록 상자: 높이를 고정하고 스크롤바를 처음부터 보여, 드론이 늘어도 패널 높이가 늘지 않습니다. */
+.drone-list-box {
+    height: 280px;
+    margin: 0 0 6px;
+    padding: 4px;
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    background: rgba(8, 29, 43, .16);
+    overflow-y: scroll;
+    scrollbar-width: thin;
+}
+
+/* 드론을 그룹 밖(목록 상자 빈 곳)으로 끌어다 놓을 수 있음을 표시합니다. */
+.drone-list-box.is-drop-root {
+    border-color: var(--theme-accent);
+    box-shadow: inset 0 0 0 1px var(--theme-accent);
+}
+
+.drone-list,
+.drone-group-children {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* 그룹 항목: 머리 행(선택·드롭 대상) 아래에 소속 드론을 트리로 들여쓰기합니다. */
+.drone-group-item {
+    display: grid;
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+}
+
+.drone-group-item.is-selected {
+    border-color: var(--theme-line);
+    background: rgba(232, 247, 252, .06);
+}
+
+.drone-group-item.is-drop-target {
+    border-color: var(--theme-accent);
+    background: rgba(172, 223, 240, .16);
+}
+
+.drone-group-button {
+    display: grid;
+    grid-template-columns: 12px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    background: rgba(172, 223, 240, .12);
+    color: var(--theme-text);
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.drone-group-button:hover,
+.drone-group-button:focus-visible {
+    border-color: var(--theme-accent);
+    background: var(--theme-surface-hover);
+}
+
+.drone-group-item.is-selected .drone-group-button {
+    border-color: var(--theme-accent);
+    box-shadow: inset 0 0 0 1px var(--theme-accent);
+}
+
+.drone-group-dot {
+    border-radius: 3px;
+}
+
+.drone-group-children {
+    margin-left: 14px;
+    padding-left: 8px;
+    border-left: 2px solid var(--theme-line);
+}
+
+.drone-group-children:empty {
+    display: none;
+}
+
+.drone-list-item.is-dragging {
+    opacity: .45;
+}
+
+.drone-list-item[draggable="true"] .drone-list-button {
+    cursor: grab;
+}
+
+.drone-list-hint {
+    margin: 0 0 8px;
+    color: var(--theme-muted);
+    font-size: 10.5px;
+    line-height: 1.5;
+}
+
+.drone-list-hint[data-active="true"] {
+    color: #9af0c2;
+    font-weight: 700;
+}
+
+.drone-list-button {
+    display: grid;
+    grid-template-columns: 12px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    background: var(--theme-surface);
+    color: var(--theme-text);
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.drone-list-button:hover,
+.drone-list-button:focus-visible {
+    border-color: var(--theme-accent);
+    background: var(--theme-surface-hover);
+}
+
+.drone-list-item.is-selected .drone-list-button {
+    border-color: var(--theme-accent);
+    background: var(--theme-surface-hover);
+    box-shadow: inset 0 0 0 1px var(--theme-accent);
+}
+
+/* 색상 점은 누적 경로 색상(--drone-color)과 같습니다. */
+.drone-color-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--drone-color, #ffffff);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, .25);
+}
+
+.drone-list-name {
+    overflow: hidden;
+    font-family: Consolas, monospace;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.drone-list-status {
+    color: var(--theme-muted);
+    font-size: 10px;
+    white-space: nowrap;
+}
+
+.drone-list-item.is-selected .drone-list-status {
+    color: #eff9fd;
+}
+
+.drone-list-empty,
+.drone-detail-empty {
+    margin: 0 0 8px;
+    padding: 10px;
+    border: 1px dashed var(--theme-line);
+    border-radius: 8px;
+    color: var(--theme-muted);
+    font-size: 11px;
+    line-height: 1.5;
+    text-align: center;
+}
+
+.drone-list-box .drone-list-empty {
+    margin: 0;
+    border: 0;
+}
+
+/* 조작 버튼 */
+.drone-action-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.drone-action {
+    min-height: 30px;
+    padding: 5px 10px;
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    background: var(--theme-surface);
+    color: #eff9fd;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.drone-action.primary {
+    border-color: var(--theme-accent);
+    background: rgba(172, 223, 240, .18);
+}
+
+.drone-action:hover:not(:disabled),
+.drone-action:focus-visible {
+    background: var(--theme-surface-hover);
+}
+
+.drone-action:disabled {
+    cursor: not-allowed;
+    opacity: .45;
+}
+
+.drone-notice {
+    margin: 8px 0 0;
+    color: #ffb8b8;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+/* 상세 설정 탭: 브라우저 탭처럼 가로로 나열하고, 많아지면 가로로 스크롤합니다. */
+/* 탭 줄. overflow를 auto로 두면 선택 탭이 아래 구분선을 1px 덮는(margin-bottom: -1px) 만큼 넘쳐 세로 스크롤바가 생기므로
+   넘침을 그대로 두고, 탭이 늘어나 폭을 넘으면 다음 줄로 접습니다. */
+.drone-tablist {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 10px 0;
+    border-bottom: 1px solid var(--theme-line);
+}
+
+.drone-tab {
+    flex: 0 0 auto;
+    margin-bottom: -1px;
+    padding: 8px 14px;
+    border: 1px solid transparent;
+    border-bottom: 0;
+    border-radius: 8px 8px 0 0;
+    background: transparent;
+    color: var(--theme-muted);
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.drone-tab:hover {
+    color: #eff9fd;
+    background: var(--theme-surface);
+}
+
+.drone-tab[aria-selected="true"] {
+    border-color: var(--theme-line);
+    background: var(--theme-surface-hover);
+    color: #eff9fd;
+    box-shadow: inset 0 -2px 0 var(--theme-accent);
+}
+
+.drone-tab:focus-visible {
+    outline: 2px solid var(--theme-accent);
+    outline-offset: -2px;
+}
+
+/* 탭 내용은 왼쪽 창의 panel-content 안에서 스크롤됩니다. 창 높이는 화면 높이(100dvh - 120px)로 제한됩니다. */
+/* 드론 설정 탭: 밝기·대비 슬라이더 */
+.drone-slider-row {
+    display: grid;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+
+.drone-slider-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    color: #eff9fd;
+    font-size: 12px;
+}
+
+.drone-slider-label output {
+    min-width: 40px;
+    color: var(--theme-accent);
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    text-align: right;
+}
+
+.drone-slider {
+    width: 100%;
+    margin: 0;
+    accent-color: var(--theme-accent);
+}
+
+.drone-slider:disabled {
+    opacity: .5;
+}
+
+.drone-slider-hint {
+    color: var(--theme-muted);
+    font-size: 10.5px;
+    line-height: 1.4;
+}
+
+/* 탭 안의 소구획(비행 경로 탭의 누적 경로 표현, 촬영 영역 탭의 Frustum 설정·Helper 품질/안정화·Helper 표현).
+   animationComponents 예제와 같은 항목을 담으며, 구분선 아래에 제목·설명과 슬라이더 행을 둡니다. */
+.drone-subsection {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--theme-line);
+}
+
+.drone-subsection-title {
+    margin: 0 0 4px;
+    color: #eff9fd;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.drone-subsection-note {
+    display: block;
+    margin: 0 0 12px;
+}
+
+/* 경로 색상 입력: 도형 창의 색상 입력과 같은 테두리·배경으로 슬라이더 폭에 맞춥니다. */
+.drone-color-input {
+    width: 100%;
+    height: 30px;
+    padding: 3px;
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    background: var(--theme-surface);
+    cursor: pointer;
+}
+
+.drone-color-input:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+/* 오래된 경로 Fade 체크박스: 라벨·값 줄 아래 왼쪽에 둡니다. */
+.drone-check-input {
+    width: 16px;
+    height: 16px;
+    margin: 2px 0 0;
+    accent-color: var(--theme-accent);
+}
+
+.drone-check-input:disabled {
+    opacity: .5;
+}
+
+.drone-tabpanel {
+    padding-bottom: 4px;
+}
+
+.drone-option-row {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    margin: 0 0 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--theme-line);
+    border-radius: 10px;
+    background: var(--theme-surface);
+    cursor: pointer;
+}
+
+.drone-option-row:hover {
+    border-color: var(--theme-accent);
+}
+
+.drone-option-row:has(input:disabled) {
+    cursor: not-allowed;
+    opacity: .5;
+}
+
+.drone-option-row input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--theme-accent);
+}
+
+.drone-option-copy {
+    min-width: 0;
+}
+
+.drone-option-copy strong,
+.drone-option-copy small {
+    display: block;
+}
+
+.drone-option-copy strong {
+    color: #eff9fd;
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+.drone-option-copy small {
+    margin-top: 3px;
+    color: var(--theme-muted);
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+/* ─────────────────────────────────────────────
+   3D 도형: [도형] 버튼·도형 목록(오른쪽 패널), 도형 그리기 창, 3D 도형 상세 설정 창
+   vectorLayer 예제의 스타일을 이 예제 테마 변수에 맞춰 옮겼습니다.
+   ───────────────────────────────────────────── */
+
+.shape-list-box {
+    height: 150px;
+    margin: 0 0 6px;
+    padding: 4px;
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    background: rgba(8, 29, 43, .16);
+    overflow-y: scroll;
+    scrollbar-width: thin;
+}
+
+.shape-list {
+    display: grid;
+    gap: 3px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.shape-list-button {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    width: 100%;
+    padding: 5px 8px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    color: #eff9fd;
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.shape-list-button:hover {
+    background: var(--theme-surface);
+}
+
+.shape-list-item.is-selected .shape-list-button {
+    border-color: var(--theme-accent);
+    background: var(--theme-surface-hover);
+}
+
+.shape-list-item.is-hidden .shape-list-name {
+    color: var(--theme-muted);
+    text-decoration: line-through;
+}
+
+.shape-type-badge {
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(118, 182, 255, .18);
+    color: #bfe0ff;
+    font-size: 10.5px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.shape-list-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.shape-list-status {
+    color: var(--theme-muted);
+    font-size: 10.5px;
+    white-space: nowrap;
+}
+
+.shape-draw-content {
+    display: grid;
+    gap: 10px;
+}
+
+.shape-draw-content .panel-description,
+.shape-draw-content h3,
+.shape-draw-content p {
+    margin: 0;
+}
+
+.shape-draw-content .panel-description {
+    color: var(--theme-muted);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+/* 도형 종류에 따라 감춘 영역이 grid 표시 규칙에 덮이지 않게 합니다. */
+.shape-draw-content [hidden],
+.shape-detail-panel [hidden] {
+    display: none !important;
+}
+
+.shape-section {
+    display: grid;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid var(--theme-line);
+    border-radius: 10px;
+    background: rgba(8, 29, 43, .16);
+}
+
+.shape-section h3 {
+    color: #eff9fd;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.shape-hint,
+.shape-notice {
+    color: var(--theme-muted);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.shape-notice {
+    padding: 6px 8px;
+    border: 1px solid rgba(255, 204, 2, .4);
+    border-radius: 8px;
+    color: #ffe6a3;
+    background: rgba(255, 204, 2, .09);
+}
+
+.shape-notice code {
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: #ffe6a3;
+    background: rgba(3, 15, 31, .62);
+    font-family: Consolas, monospace;
+    white-space: nowrap;
+}
+
+.shape-type-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.shape-type-grid label {
+    position: relative;
+}
+
+.shape-type-grid input {
+    position: absolute;
+    opacity: 0;
+}
+
+.shape-type-grid span {
+    display: grid;
+    min-height: 30px;
+    place-items: center;
+    padding: 0 6px;
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    color: #eff9fd;
+    background: var(--theme-surface);
+    font-size: 12px;
+    text-align: center;
+    cursor: pointer;
+}
+
+.shape-type-grid input:checked + span {
+    border-color: var(--theme-accent);
+    background: var(--theme-surface-hover);
+    box-shadow: inset 0 -2px 0 var(--theme-accent);
+}
+
+.shape-type-grid input:focus-visible + span {
+    outline: 2px solid var(--theme-accent);
+    outline-offset: -2px;
+}
+
+.shape-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.shape-form-grid label {
+    display: grid;
+    gap: 4px;
+    align-content: start;
+    color: var(--theme-muted);
+    font-size: 11px;
+}
+
+.shape-form-grid label span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.shape-form-grid input {
+    width: 100%;
+    min-height: 30px;
+    padding: 5px 8px;
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    color: #eff9fd;
+    background: var(--theme-surface);
+    font-size: 12px;
+}
+
+.shape-form-grid input[type="color"] {
+    padding: 3px;
+}
+
+.shape-form-grid label.shape-check {
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 7px;
+}
+
+.shape-form-grid label.shape-check input {
+    width: 16px;
+    min-height: 16px;
+    padding: 0;
+}
+
+.shape-wide {
+    grid-column: 1 / -1;
+}
+
+.shape-param {
+    display: none;
+}
+
+.shape-param.is-active {
+    display: grid;
+}
+
+.shape-gizmo-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.shape-gizmo-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.shape-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+/* 그리기 시작·종료. 종류를 고른 뒤 시작을 눌러야 지도 클릭이 도형 그리기에 쓰입니다. */
+.shape-draw-buttons {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 6px;
+}
+
+.shape-draw-start {
+    min-height: 38px;
+    font-size: 13px;
+}
+
+.shape-draw-start[aria-pressed="true"] {
+    border-color: #9af0c2;
+    color: #9af0c2;
+    box-shadow: inset 0 -2px 0 #9af0c2;
+}
+
+/* 지도 위 안내 토스트(그리기 시작·완성·종료, 기즈모 편집). 예제 뷰어 위 가운데에 하나만 둡니다. */
+.shape-toast {
+    position: absolute;
+    top: 72px;
+    left: 50%;
+    z-index: 30;
+    max-width: min(560px, calc(100vw - 32px));
+    padding: 9px 14px;
+    border: 1px solid var(--theme-line);
+    border-radius: 10px;
+    background: rgba(9, 24, 44, .92);
+    color: #eff9fd;
+    font-size: 12.5px;
+    line-height: 1.5;
+    box-shadow: 0 8px 24px rgba(8, 29, 43, .35);
+    transform: translateX(-50%) translateY(-6px);
+    opacity: 0;
+    transition: opacity .2s ease, transform .2s ease;
+    pointer-events: none;
+}
+
+.shape-toast.is-visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+.shape-toast[hidden] {
+    display: none;
+}
+
+/* 상세 설정 창: 표시 체크 줄과 삭제 버튼 간격 */
+.shape-visible-row {
+    margin-top: 8px;
+}
+
+.shape-detail-remove {
+    width: 100%;
+}
+
+.shape-danger {
+    border-color: rgba(255, 101, 125, .45);
+    color: #ffd8dd;
+}
+
+.shape-danger:hover {
+    border-color: #ffb8b8;
+}
+
+.shape-draw-content textarea,
+.shape-json-view {
+    width: 100%;
+    min-height: 120px;
+    padding: 7px 8px;
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    color: #eff9fd;
+    background: rgba(3, 15, 31, .6);
+    font-family: Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    resize: vertical;
+}
+
+.shape-json-view {
+    min-height: 140px;
+    margin-bottom: 6px;
+}
+
+/* JSON 영역의 적용·되돌리기 버튼을 한 줄에 둡니다. */
+.shape-json-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.shape-hint code {
+    padding: 0 3px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, .25);
+    font-family: Consolas, monospace;
+    font-size: 10.5px;
+}
+
+.shape-result {
+    margin: 0;
+    padding: 6px 8px;
+    border: 1px solid rgba(46, 204, 113, .45);
+    border-radius: 8px;
+    color: #b7f0cf;
+    background: rgba(46, 204, 113, .12);
+    font-size: 11px;
+    line-height: 1.5;
+    white-space: pre-line;
+}
+
+.shape-result.is-error {
+    border-color: rgba(255, 101, 125, .5);
+    color: #ffd0d7;
+    background: rgba(231, 76, 60, .14);
+}
+
+.shape-style-form {
+    margin-bottom: 8px;
+}
+
+.shape-style-form:empty::before {
+    content: '편집할 스타일이 없습니다.';
+    grid-column: 1 / -1;
+    color: var(--theme-muted);
+    font-size: 11px;
+}
+
+/* 경로 점 편집 오버레이(지도 위) */
+.shape-path-overlay {
+    min-width: 190px;
+    border: 1px solid var(--theme-line);
+    border-radius: 10px;
+    background: rgba(9, 24, 44, .92);
+    color: #eff9fd;
+    font-size: 12px;
+}
+
+.shape-path-overlay-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--theme-line);
+}
+
+.shape-path-overlay-body {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px;
+}
+
+.shape-path-overlay-body label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.shape-path-overlay input {
+    width: 74px;
+    min-height: 28px;
+    padding: 4px 6px;
+    border: 1px solid var(--theme-line);
+    border-radius: 7px;
+    color: #eff9fd;
+    background: rgba(3, 15, 31, .78);
+}
+
+.shape-path-overlay button {
+    min-height: 26px;
+    padding: 0 9px;
+    border: 1px solid var(--theme-line);
+    border-radius: 7px;
+    color: #eff9fd;
+    background: var(--theme-surface);
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.shape-path-overlay button.btn-height {
+    border-color: var(--theme-accent);
+    background: var(--theme-surface-hover);
+}
+
+/* 실행 환경 정보 팝업. 지도 도구(오른쪽 위)의 실행 환경 버튼 아래에 열리며, 잠시 확인하는 창이므로 오른쪽 패널 위에 겹쳐 놓습니다. */
+.drone-env-panel {
+    position: absolute;
+    top: 62px;
+    right: 76px;
+    z-index: 15;
+    display: flex;
+    flex-direction: column;
+    width: var(--theme-side-panel-width);
+    max-height: calc(100dvh - 120px);
+    overflow: hidden;
+    border-radius: 12px;
+}
+
+.drone-env-panel[hidden] {
+    display: none;
+}
+
+/* 지도 도구 묶음에 끼워 넣는 실행 환경 버튼. 공통 .map-button 모양을 그대로 쓰고 글자만 조정합니다. */
+.drone-env-button {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.drone-env-button[aria-expanded="true"] {
+    background: rgba(71, 125, 153, .96);
+    border-color: rgba(210, 238, 248, .58);
+}
+
+/* 2D/3D 모드 스위치: 공통 .map-switch 모양을 쓰되, 켜짐/꺼짐(초록/붉은색) 대신 지도 버튼과 같은 파란 계열을 유지하고
+   현재 모드의 라벨만 밝게 표시합니다. 손잡이 위치(왼쪽 2D, 오른쪽 3D)는 테마의 aria-checked 전환을 그대로 씁니다. */
+.drone-view-mode-switch,
+.drone-view-mode-switch[aria-checked="true"],
+.drone-view-mode-switch[aria-checked="false"] {
+    background: rgba(47, 91, 116, .88);
+    border-color: var(--theme-line);
+}
+
+.drone-view-mode-switch:hover,
+.drone-view-mode-switch:focus-visible,
+.drone-view-mode-switch[aria-checked="true"]:hover,
+.drone-view-mode-switch[aria-checked="true"]:focus-visible {
+    background: rgba(71, 125, 153, .96);
+    border-color: rgba(210, 238, 248, .58);
+}
+
+.drone-view-mode-switch .map-switch-track,
+.drone-view-mode-switch[aria-checked="true"] .map-switch-track {
+    background: rgba(24, 58, 80, .95);
+    border-color: rgba(172, 223, 240, .6);
+}
+
+.drone-view-mode-switch .map-switch-track::after,
+.drone-view-mode-switch[aria-checked="true"] .map-switch-track::after {
+    background: var(--theme-accent);
+}
+
+.drone-view-mode-switch .map-switch-label,
+.drone-view-mode-switch[aria-checked="false"] .map-switch-label {
+    color: rgba(245, 251, 255, .5);
+    transition: color .18s ease;
+}
+
+.drone-view-mode-switch .map-switch-label.is-active {
+    color: #ffffff;
+}
+
+@media (max-width: 760px) {
+    .drone-env-panel {
+        top: 60px;
+        right: 10px;
+        left: 10px;
+        width: auto;
+        max-height: 40dvh;
+    }
+}
+
+/* 성능 확인 버튼: 공통 .map-button에 속도계 아이콘. 디버그 UI가 켜져 있으면(aria-pressed="true") 실행 환경 버튼의 열림 색과 같게 강조합니다. */
+.drone-perf-button svg {
+    width: 20px;
+    height: 20px;
+}
+
+.drone-perf-button[aria-pressed="true"] {
+    background: rgba(71, 125, 153, .96);
+    border-color: rgba(210, 238, 248, .58);
+}
+
+/* 엔진 디버그 UI(Development Tools, #UDevToolView). 엔진 기본 위치(오른쪽 위 25px)는 공통 레일·지도 도구와 겹치므로
+   지도 도구 아래, 오른쪽 레일 왼쪽(오른쪽 예제 패널이 열리는 자리)에 둡니다. main이 인라인 위치를 지우고 이 클래스를 붙이며,
+   제목을 끌어 옮기면 엔진의 인라인 위치가 다시 우선합니다. z-index는 패널(13~15)보다 위, 알림(30)보다 아래입니다. */
+.drone-monitoring-debug-view {
+    top: 64px;
+    right: 88px;
+    left: auto;
+    z-index: 16;
+}
+
+/* 오른쪽 예제 패널(드론·도형·도구·설정·공통 레이어)이나 실행 환경 팝업이 열리면 같은 자리를 쓰므로 그 왼쪽으로 비킵니다. */
+body:has(.example-panel.open, .explanation-panel.open, #drone-env-panel:not([hidden])) .drone-monitoring-debug-view {
+    right: calc(88px + var(--theme-side-panel-width) + 12px);
+}
+
+/* 좁은 화면에서는 오른쪽 패널이 아래쪽으로 내려가므로 디버그 UI는 화면 안에 들어오도록 오른쪽 위에 둡니다. */
+@media (max-width: 760px) {
+    .drone-monitoring-debug-view,
+    body:has(.example-panel.open, .explanation-panel.open, #drone-env-panel:not([hidden])) .drone-monitoring-debug-view {
+        top: 60px;
+        right: 10px;
+    }
+}
+
+/* 고도 범례 패널: analysisHeightLegend 예제의 범례·등고선 편집 UI를 카드 안에 담습니다. 숨긴 카드는 자리도 차지하지 않습니다. */
+.drone-legend-content .drone-monitoring-section[hidden] {
+    display: none;
+}
+
+.drone-legend-content .drone-option-row + .drone-option-row {
+    margin-top: 8px;
+}
+
+/* band/mix 선택: 라디오를 숨기고 버튼 모양의 라벨로 표시합니다. */
+.drone-legend-mode {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.drone-legend-mode label {
+    position: relative;
+    display: block;
+    margin: 0;
+    cursor: pointer;
+}
+
+.drone-legend-mode input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.drone-legend-mode span {
+    display: block;
+    padding: 8px 3px;
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, .22);
+    color: var(--theme-muted);
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.drone-legend-mode input:checked + span {
+    border-color: var(--theme-accent);
+    background: var(--theme-surface-hover);
+    color: #ffffff;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12);
+}
+
+.drone-legend-mode input:focus-visible + span {
+    outline: 2px solid var(--theme-accent);
+    outline-offset: 2px;
+}
+
+/* 범례 행: 고도(읽기 전용) · 투명도 · 색상 */
+.drone-legend-list,
+.drone-contour-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.drone-legend-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 62px 34px;
+    gap: 8px;
+    align-items: center;
+}
+
+.drone-legend-value {
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--theme-line);
+    border-radius: 7px;
+    background: rgba(0, 0, 0, .22);
+    color: #eff9fd;
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    line-height: 30px;
+    text-align: center;
+}
+
+.drone-legend-opacity,
+.drone-contour-field input[type="number"] {
+    width: 100%;
+    height: 32px;
+    padding: 0 6px;
+    border: 1px solid var(--theme-line);
+    border-radius: 7px;
+    background: rgba(0, 0, 0, .22);
+    color: #eff9fd;
+    font-size: 12px;
+    text-align: center;
+}
+
+.drone-legend-color {
+    width: 34px;
+    height: 32px;
+    padding: 3px;
+    border: 1px solid var(--theme-line);
+    border-radius: 7px;
+    background: rgba(0, 0, 0, .22);
+    cursor: pointer;
+}
+
+/* +/− 버튼 */
+.drone-legend-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.drone-legend-action {
+    min-height: 32px;
+    padding: 6px 10px;
+    border: 1px dashed var(--theme-line);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, .22);
+    color: #eff9fd;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.drone-legend-action:hover:not(:disabled) {
+    border-color: var(--theme-accent);
+    background: var(--theme-surface-hover);
+}
+
+.drone-legend-action:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+/* 등고선: 선 두께·감쇠 거리 입력과 구간 행(시작 고도 · 선 간격 · 색상) */
+.drone-contour-fields {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.drone-contour-field {
+    display: block;
+    margin: 0;
+}
+
+.drone-contour-field span {
+    display: block;
+    margin: 0 0 3px;
+    color: var(--theme-muted);
+    font-size: 11px;
+}
+
+.drone-contour-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 34px;
+    gap: 7px;
+    align-items: end;
+    padding: 8px;
+    border: 1px solid var(--theme-line);
+    border-radius: 10px;
+    background: rgba(0, 0, 0, .14);
+}

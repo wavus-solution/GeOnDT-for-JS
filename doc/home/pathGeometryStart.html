@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>경로 (PathGeometry)</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="경로-pathgeometry">경로 (PathGeometry)</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-%EA%B2%BD%EB%A1%9C-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">경로 생성하기</a></li>
+<li><a href="#2-%EB%A7%88%EC%9A%B0%EC%8A%A4%EB%A1%9C-%EA%B7%B8%EB%A6%AC%EA%B8%B0">마우스로 그리기</a></li>
+<li><a href="#3-%EC%A2%8C%ED%91%9C%EB%A1%9C-%EA%B2%BD%EB%A1%9C-%EB%A7%8C%EB%93%A4%EA%B8%B0">좌표로 경로 만들기</a></li>
+<li><a href="#4-%EA%B2%BD%EB%A1%9C-%ED%8E%B8%EC%A7%91%ED%95%98%EA%B8%B0">경로 편집하기</a></li>
+<li><a href="#5-%EC%86%8D%EC%84%B1-%EB%B0%94%EA%BE%B8%EA%B8%B0">속성 바꾸기</a></li>
+<li><a href="#6-%EC%A0%80%EC%9E%A5%ED%95%98%EA%B3%A0-%EB%B6%88%EB%9F%AC%EC%98%A4%EA%B8%B0">저장하고 불러오기</a></li>
+</ol>
+<div class="document-thumbnail" data-size="medium">
+<figure class="document-image">
+<img src="image/pathGeometryStart/thumbnail.webp" alt="마우스로 그려 완성한 항로 경로" loading="eager">
+<figcaption>마우스로 그려 완성한 항로 경로</figcaption>
+</figure>
+</div>
+<p><code>U3dPathGeometry</code>는 여러 좌표를 부드러운 곡선으로 이어, 폭과 높이를 가진 띠(리본) 형태로 세운 도형입니다.<br>드론 항로나 차량 이동 경로처럼 지나가는 길을 공간에 표시하는 데 사용합니다.</p>
+<p>선(<code>U3dLine</code>)이 두께만 가진 데 비해, 경로는 바닥면부터 윗면까지 높이를 가진 입체입니다.<br>바닥 높이는 <code>minheight</code>, 윗면 높이는 <code>maxheight</code>로 정합니다.</p>
+<p>경로를 만드는 방법은 두 가지입니다.<br>마우스로 화면을 클릭해 그리거나, 이미 가지고 있는 좌표 목록으로 한 번에 만듭니다.</p>
+<hr>
+<h2 id="1-경로-생성하기">1. 경로 생성하기</h2>
+<p><code>U3dPathGeometry</code> 생성자로 객체를 만들고 <code>U3dVectorLayer.addGeometry</code>로 레이어에 등록합니다.<br>레이어를 만들고 도형을 등록·제거하는 방법은 <a href="vectorLayerStart.html#2-%EB%8F%84%ED%98%95-%EB%93%B1%EB%A1%9D%ED%95%98%EA%B3%A0-%EC%A0%9C%EA%B1%B0%ED%95%98%EA%B8%B0">3D Geometry 시작하기 - 도형 등록하고 제거하기</a>에서 설명합니다.</p>
+<p>생성자는 빈 경로 객체를 만듭니다.<br>좌표는 <a href="#2-%EB%A7%88%EC%9A%B0%EC%8A%A4%EB%A1%9C-%EA%B7%B8%EB%A6%AC%EA%B8%B0">마우스로 그리기</a>나 <a href="#3-%EC%A2%8C%ED%91%9C%EB%A1%9C-%EA%B2%BD%EB%A1%9C-%EB%A7%8C%EB%93%A4%EA%B8%B0">좌표로 경로 만들기</a>로 넣고, 좌표가 들어온 시점에 형상이 만들어집니다.</p>
+<p>경로 객체는 자신이 속한 레이어를 통해 앱을 찾습니다.<br>그리기와 편집은 앱의 마우스 이벤트를 사용하므로 레이어에 등록한 뒤에 호출합니다.</p>
+<h4 class="api-heading" id="api">API</h4>
+<p>U3dPathGeometry(<code>opt</code>) : 경로 객체를 생성하는 생성자</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opt</code> (<code>object</code>) : 경로 생성 옵션</li>
+<li><code>opt.name</code> (<code>string</code>) : 객체 이름. 지정하지 않으면 자동으로 생성됩니다</li>
+<li><code>opt.width</code> (<code>number</code>) : 경로 너비(m). 기본값: <code>20</code></li>
+<li><code>opt.minheight</code> (<code>number</code>) : 경로 바닥면의 높이(m). 기본값: <code>0</code></li>
+<li><code>opt.maxheight</code> (<code>number</code>) : 경로 윗면의 높이(m). 기본값: <code>100</code></li>
+<li><code>opt.tension</code> (<code>number</code>) : 곡선 정도(0~1). 값이 클수록 직선에 가깝습니다. 기본값: <code>0.5</code></li>
+<li><code>opt.segments</code> (<code>number</code>) : 경로를 나눌 조각 수. 작을수록 단순해집니다. 기본값: <code>200</code></li>
+<li><code>opt.dynamicSegmentValue</code> (<code>number</code>) : 경로가 길어질 때 조각 수를 늘릴 기준 길이. 기본값: <code>100</code></li>
+<li><code>opt.outline</code> (<code>boolean</code>) : 외곽선 표시 여부. 기본값: <code>true</code></li>
+<li><code>opt.color</code> (<code>ColorRepresentation</code>) : 경로 색상</li>
+<li><code>opt.opacity</code> (<code>number</code>) : 투명도(0~1)</li>
+</ul>
+</details>
+<h3 id="1-경로-객체-만들기">1. 경로 객체 만들기</h3>
+<p>너비 30m, 바닥에서 20m 높이까지 세우는 경로를 준비합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> app <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>U3dAPP</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">containername</span><span class="token operator">:</span> <span class="token string">'map'</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> vectorLayer <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>vector<span class="token punctuation">.</span>U3dVectorLayer</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'vector'</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+app<span class="token punctuation">.</span><span class="token function">addLayer</span><span class="token punctuation">(</span>vectorLayer<span class="token punctuation">)</span><span class="token punctuation">;</span>
+app<span class="token punctuation">.</span><span class="token function">showLayer</span><span class="token punctuation">(</span><span class="token string">'vector'</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> path <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>geom<span class="token punctuation">.</span>U3dPathGeometry</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'path_01'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">width</span><span class="token operator">:</span> <span class="token number">30</span><span class="token punctuation">,</span>        <span class="token comment">// 경로 너비 30m</span>
+    <span class="token literal-property property">minheight</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>     <span class="token comment">// 바닥면 높이</span>
+    <span class="token literal-property property">maxheight</span><span class="token operator">:</span> <span class="token number">20</span><span class="token punctuation">,</span>    <span class="token comment">// 윗면 높이</span>
+    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#2b448b'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.6</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+vectorLayer<span class="token punctuation">.</span><span class="token function">addGeometry</span><span class="token punctuation">(</span>path<span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// 등록해야 그리기와 편집이 동작합니다</span>
+</code></pre>
+<hr>
+<h2 id="2-마우스로-그리기">2. 마우스로 그리기</h2>
+<p><code>draw()</code>를 호출하면 그리기 모드가 켜집니다.<br>화면을 클릭할 때마다 점이 추가되고, 더블클릭하면 그리기가 끝납니다.<br>점을 찍는 도중 <code>Shift</code>를 누른 채 마우스 휠을 굴리면 다음에 추가될 점의 높이가 조절됩니다.</p>
+<p>그리기가 끝나면 <code>end</code> 이벤트가 발생하며, 이벤트의 <code>data</code>는 경로 객체입니다.<br>버튼 상태를 되돌리거나 완성된 경로를 저장하는 일은 이 이벤트에서 처리합니다.<br>코드에서 그리기를 끝낼 때는 <code>draw(false)</code> 또는 <code>endPathPoint()</code>를 호출합니다.</p>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>U3dPathGeometry.draw(<code>draw</code>, <code>opt</code>) : 마우스로 경로를 그리는 모드를 켜거나 끄는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>draw</code> (<code>boolean</code>) : <code>true</code>면 그리기 시작, <code>false</code>면 종료. 기본값: <code>true</code></li>
+<li><code>opt</code> (<code>object</code>) : 그릴 경로의 속성(색상·너비·높이 등). 생략하면 생성 옵션을 사용합니다</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-2">API</h4>
+<p>U3dPathGeometry.endPathPoint() : 그리기를 종료하고 경로를 확정하는 함수</p>
+<h4 class="api-heading" id="api-3">API</h4>
+<p>U3dPathGeometry.addPoint(<code>point</code>) : 경로에 점을 하나 추가하고 다시 그리는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>point</code> (<code>U3dMouseEvent | Vector3 | Vector3Like</code>) : 마우스 이벤트 또는 추가할 점의 월드 좌표(EPSG:3857). <code>{x, y, z}</code> 형태의 일반 객체도 받습니다. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-4">API</h4>
+<p>U3dPathGeometry.getMode() : 현재 동작 모드를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>string</code>) : <code>&#39;draw&#39;</code>(그리기), <code>&#39;edit&#39;</code>(편집), <code>&#39;pan&#39;</code>(기본) 중 하나</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-5">API</h4>
+<p>U3dPathGeometry.getDrawModeName() : 그리기 모드의 이름 문자열을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>string</code>) : <code>&#39;draw&#39;</code></li>
+</ul>
+</details>
+<h3 id="1-마우스로-그리는-예제">1. 마우스로 그리는 예제</h3>
+<p>그리기를 시작하고, 완료 시점을 <code>end</code> 이벤트로 받습니다.</p>
+<pre class="language-javascript"><code class="language-javascript">path<span class="token punctuation">.</span><span class="token function">once</span><span class="token punctuation">(</span><span class="token string">'end'</span><span class="token punctuation">,</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'그리기 완료'</span><span class="token punctuation">,</span> e<span class="token punctuation">.</span>data<span class="token punctuation">.</span><span class="token function">getParam</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+path<span class="token punctuation">.</span><span class="token function">draw</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// 클릭으로 점 추가, 더블클릭으로 완료</span>
+</code></pre>
+<h3 id="2-그리는-중인지-확인하는-예제">2. 그리는 중인지 확인하는 예제</h3>
+<p>버튼 하나로 그리기를 켜고 끌 때는 현재 모드를 확인합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">if</span> <span class="token punctuation">(</span>path<span class="token punctuation">.</span><span class="token function">getMode</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">===</span> path<span class="token punctuation">.</span><span class="token function">getDrawModeName</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    path<span class="token punctuation">.</span><span class="token function">draw</span><span class="token punctuation">(</span><span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// 그리는 중이면 종료</span>
+<span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+    path<span class="token punctuation">.</span><span class="token function">draw</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>        <span class="token comment">// 아니면 시작</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<hr>
+<h2 id="3-좌표로-경로-만들기">3. 좌표로 경로 만들기</h2>
+<p>이미 좌표 목록을 가지고 있으면 마우스 없이 바로 경로를 만듭니다.<br><code>createPathMesh</code>는 월드 좌표(EPSG:3857) 배열을 받으므로, 위경도를 쓸 때는 <code>app.getGeographicToWorld</code>로 변환해 넘깁니다.</p>
+<p>좌표는 두 개 이상, 옵션에는 <code>app</code>이 필요합니다.<br>조건을 만족하지 않으면 경로를 만들지 않고 <code>undefined</code>를 반환합니다.</p>
+<h4 class="api-heading" id="api-6">API</h4>
+<p>U3dPathGeometry.createPathMesh(<code>vertices</code>, <code>opt</code>) : 좌표 목록으로 경로를 생성하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>vertices</code> (<code>Array&lt;Vector3&gt;</code>) : 경로가 지나갈 좌표 목록 (월드 좌표, EPSG:3857). <strong>두 개 이상 필수</strong></li>
+<li><code>opt</code> (<code>object</code>) : 경로 속성. <strong>필수</strong></li>
+<li><code>opt.app</code> (<code>U3dApp</code>) : 좌표 변환과 지형 조회에 사용할 앱. <strong>필수</strong></li>
+<li><code>opt.width</code> (<code>number</code>) : 경로 너비(m)</li>
+<li><code>opt.minheight</code> (<code>number</code>) : 바닥면 높이(m)</li>
+<li><code>opt.maxheight</code> (<code>number</code>) : 윗면 높이(m)</li>
+<li><code>opt.tension</code> (<code>number</code>) : 곡선 정도(0~1)</li>
+<li><code>opt.segments</code> (<code>number</code>) : 경로를 나눌 조각 수</li>
+<li><code>opt.edge</code> (<code>boolean</code>) : 외곽선 표시 여부</li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>U3dPathGeometry | undefined</code>) : 생성한 경로. 좌표가 두 개 미만이거나 <code>app</code>이 없으면 <code>undefined</code></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-7">API</h4>
+<p>U3dPathGeometry.updateByPoints(<code>points</code>) : 좌표 목록으로 경로를 다시 계산해 갱신하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>points</code> (<code>Array&lt;Vector3&gt;</code>) : 점 좌표 목록 (월드 좌표, EPSG:3857). <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-8">API</h4>
+<p>U3dApp.getGeographicToWorld(<code>geoX</code>, <code>geoY</code>, <code>height</code>) : 위경도 좌표를 월드 좌표로 변환하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>geoX</code> (<code>number</code>) : 경도. <strong>필수</strong></li>
+<li><code>geoY</code> (<code>number</code>) : 위도. <strong>필수</strong></li>
+<li><code>height</code> (<code>number</code>) : 높이(m). <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>WorldPosition</code>) : 월드 좌표(EPSG:3857)</li>
+</ul>
+</details>
+<h3 id="1-위경도-목록으로-경로-만들기">1. 위경도 목록으로 경로 만들기</h3>
+<p>위경도 세 지점을 잇는 항로를 만듭니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> geoPoints <span class="token operator">=</span> <span class="token punctuation">[</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">lon</span><span class="token operator">:</span> <span class="token number">126.9380</span><span class="token punctuation">,</span> <span class="token literal-property property">lat</span><span class="token operator">:</span> <span class="token number">37.5190</span><span class="token punctuation">,</span> <span class="token literal-property property">height</span><span class="token operator">:</span> <span class="token number">60</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">lon</span><span class="token operator">:</span> <span class="token number">126.9400</span><span class="token punctuation">,</span> <span class="token literal-property property">lat</span><span class="token operator">:</span> <span class="token number">37.5205</span><span class="token punctuation">,</span> <span class="token literal-property property">height</span><span class="token operator">:</span> <span class="token number">80</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">lon</span><span class="token operator">:</span> <span class="token number">126.9425</span><span class="token punctuation">,</span> <span class="token literal-property property">lat</span><span class="token operator">:</span> <span class="token number">37.5195</span><span class="token punctuation">,</span> <span class="token literal-property property">height</span><span class="token operator">:</span> <span class="token number">60</span><span class="token punctuation">}</span>
+<span class="token punctuation">]</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> vertices <span class="token operator">=</span> geoPoints<span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token parameter">p</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> world <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">getGeographicToWorld</span><span class="token punctuation">(</span>p<span class="token punctuation">.</span>lon<span class="token punctuation">,</span> p<span class="token punctuation">.</span>lat<span class="token punctuation">,</span> p<span class="token punctuation">.</span>height<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span>world<span class="token punctuation">.</span>x<span class="token punctuation">,</span> world<span class="token punctuation">.</span>y<span class="token punctuation">,</span> world<span class="token punctuation">.</span>z<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> created <span class="token operator">=</span> path<span class="token punctuation">.</span><span class="token function">createPathMesh</span><span class="token punctuation">(</span>vertices<span class="token punctuation">,</span> <span class="token punctuation">{</span>
+    <span class="token literal-property property">app</span><span class="token operator">:</span> app<span class="token punctuation">,</span>
+    <span class="token literal-property property">width</span><span class="token operator">:</span> <span class="token number">30</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">minheight</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">maxheight</span><span class="token operator">:</span> <span class="token number">20</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">tension</span><span class="token operator">:</span> <span class="token number">0.5</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">segments</span><span class="token operator">:</span> <span class="token number">200</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">edge</span><span class="token operator">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>created<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">warn</span><span class="token punctuation">(</span><span class="token string">'경로를 만들지 못했습니다. 좌표가 2개 이상인지, app을 넘겼는지 확인하세요.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<hr>
+<h2 id="4-경로-편집하기">4. 경로 편집하기</h2>
+<p><code>modify()</code>는 클릭한 지점에 편집점을 만들고 Gizmo(이동 조작기)를 붙여 경로를 수정할 수 있게 합니다.<br>편집을 마치면 <code>endFunction</code>으로 넘긴 함수가 호출됩니다.</p>
+<p><code>modify</code>가 받는 <code>intersect</code>는 교차 검사 결과 배열이 아니라 그중 한 항목입니다.<br><code>app.intersectAtPixel</code>이 돌려준 배열에서 첫 항목을 골라 넘깁니다.</p>
+<p>편집점을 옮길 때 경로 형상을 갱신하는 일은 <code>gizmoChangeEvent</code>와 <code>gizmoEndEvent</code>가 맡습니다.<br>두 핸들러를 Gizmo 분석 기능의 <code>onChange</code>, <code>end</code> 이벤트에 연결하면 드래그하는 동안과 드래그를 마친 시점에 경로가 함께 움직입니다.</p>
+<p>이미 만들어 둔 편집점을 다시 클릭하면 교차 대상은 경로가 아니라 편집점 구체입니다.<br>구체의 <code>_path</code>로 경로 객체를 되짚어 같은 방식으로 편집을 이어갑니다.</p>
+<p>편집점과 Gizmo는 <code>removeModifyHelper()</code>로 정리합니다.</p>
+<h4 class="api-heading" id="api-9">API</h4>
+<p>U3dPathGeometry.modify(<code>intersect</code>, <code>endFunction</code>) : 선택한 지점에 편집기를 띄워 경로를 편집하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>intersect</code> (<code>Intersection</code>) : 클릭 지점의 교차 정보 하나. <code>app.intersectAtPixel</code> 결과의 첫 항목을 넘깁니다. <strong>필수</strong></li>
+<li><code>endFunction</code> (<code>function</code>) : 편집이 끝난 뒤 호출할 함수. 편집점 번호(<code>number</code>), 편집한 위치의 위경도 좌표(<code>Vector3</code>), 편집점 구체(<code>Object3D</code>)를 순서대로 받습니다</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-10">API</h4>
+<p>U3dPathGeometry.removeModifyHelper() : 편집에 사용한 Gizmo와 편집점을 제거하는 함수</p>
+<h3 id="1-클릭한-경로를-편집하는-예제">1. 클릭한 경로를 편집하는 예제</h3>
+<p>지도를 클릭했을 때 경로가 선택되면 편집을 시작합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> gizmo <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">getAnalysis</span><span class="token punctuation">(</span><span class="token string">'GizmoModel'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+app<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> intersect <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">intersectAtPixel</span><span class="token punctuation">(</span>e<span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>intersect <span class="token operator">||</span> <span class="token operator">!</span>intersect<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token keyword">return</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">let</span> target <span class="token operator">=</span> intersect<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>object<span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>target<span class="token punctuation">.</span>modify <span class="token operator">&amp;&amp;</span> target<span class="token punctuation">.</span>_path<span class="token punctuation">)</span> target <span class="token operator">=</span> target<span class="token punctuation">.</span>_path<span class="token punctuation">;</span>   <span class="token comment">// 편집점을 클릭하면 경로로 되짚습니다</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>target<span class="token punctuation">.</span>modify<span class="token punctuation">)</span> <span class="token keyword">return</span><span class="token punctuation">;</span>                                  <span class="token comment">// 경로가 아니면 무시</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>target<span class="token punctuation">.</span><span class="token function">getMode</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">===</span> target<span class="token punctuation">.</span><span class="token function">getDrawModeName</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token keyword">return</span><span class="token punctuation">;</span>   <span class="token comment">// 그리는 중이면 무시</span>
+
+    gizmo<span class="token punctuation">.</span><span class="token function">setMode</span><span class="token punctuation">(</span><span class="token string">'translate'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    gizmo<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'onChange'</span><span class="token punctuation">,</span> target<span class="token punctuation">.</span><span class="token function">gizmoChangeEvent</span><span class="token punctuation">.</span><span class="token function">bind</span><span class="token punctuation">(</span>target<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// 드래그 중 갱신</span>
+    gizmo<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'end'</span><span class="token punctuation">,</span> target<span class="token punctuation">.</span><span class="token function">gizmoEndEvent</span><span class="token punctuation">.</span><span class="token function">bind</span><span class="token punctuation">(</span>target<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>          <span class="token comment">// 드래그 완료</span>
+
+    target<span class="token punctuation">.</span><span class="token function">modify</span><span class="token punctuation">(</span>intersect<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token parameter">index<span class="token punctuation">,</span> geoPosition</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>  <span class="token comment">// 배열의 첫 항목</span>
+        console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'편집 완료'</span><span class="token punctuation">,</span> index<span class="token punctuation">,</span> geoPosition<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-편집을-끝내고-정리하는-예제">2. 편집을 끝내고 정리하는 예제</h3>
+<p>편집을 마친 뒤 편집점과 Gizmo를 제거합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">path<span class="token punctuation">.</span><span class="token function">removeModifyHelper</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="5-속성-바꾸기">5. 속성 바꾸기</h2>
+<p>색상과 투명도는 호출 즉시 반영됩니다.<br>너비·높이·곡선 정도·세분화·외곽선은 경로를 다시 만들어 반영하므로 좌표가 이미 들어 있는 경로에 적용됩니다.<br>좌표가 두 개 미만이거나 앱 정보가 없으면 형태 값 변경은 건너뜁니다.</p>
+<h4 class="api-heading" id="api-11">API</h4>
+<p>U3dPathGeometry.setParam(<code>param</code>) : 경로 속성을 한 번에 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>param</code> (<code>object</code>) : 변경할 속성 객체. 생략한 속성은 현재 값을 유지합니다</li>
+<li><code>param.color</code> (<code>ColorRepresentation</code>) : 경로 색상</li>
+<li><code>param.opacity</code> (<code>number</code>) : 투명도(0~1)</li>
+<li><code>param.width</code> (<code>number</code>) : 경로 너비(m)</li>
+<li><code>param.minheight</code> (<code>number</code>) : 바닥면 높이(m)</li>
+<li><code>param.maxheight</code> (<code>number</code>) : 윗면 높이(m)</li>
+<li><code>param.tension</code> (<code>number</code>) : 곡선 정도(0~1)</li>
+<li><code>param.segments</code> (<code>number</code>) : 경로를 나눌 조각 수</li>
+<li><code>param.outline</code> (<code>boolean</code>) : 외곽선 표시 여부</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-12">API</h4>
+<p>U3dPathGeometry.getParam() : 경로의 현재 속성을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>U3dPathGeometryParam</code>) : <code>width</code>, <code>tension</code>, <code>segments</code>, <code>minheight</code>, <code>maxheight</code>, <code>outline</code>과 도형 공통 속성</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-13">API</h4>
+<p>U3dPathGeometry.setColor(<code>color</code>) : 경로 색상을 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>color</code> (<code>ColorRepresentation</code>) : 색상. 16진수 숫자(<code>0xff0000</code>), CSS 색 문자열(<code>&#39;#ff0000&#39;</code>) 또는 <code>THREE.Color</code>. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-14">API</h4>
+<p>U3dPathGeometry.setOpacity(<code>value</code>) : 경로 투명도를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>value</code> (<code>number</code>) : 투명도(0~1). 0이면 완전 투명, 1이면 불투명. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-15">API</h4>
+<p>U3dPathGeometry.setDynamicSegmentValue(<code>value</code>) : 경로가 길어질 때 조각 수를 늘릴 기준 길이를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>value</code> (<code>number</code>) : 기준 길이. 값이 작을수록 더 촘촘하게 분할됩니다. <strong>필수</strong></li>
+</ul>
+</details>
+<h3 id="1-색과-형태를-바꾸는-예제">1. 색과 형태를 바꾸는 예제</h3>
+<pre class="language-javascript"><code class="language-javascript">path<span class="token punctuation">.</span><span class="token function">setParam</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#ff3b30'</span><span class="token punctuation">,</span>   <span class="token comment">// 즉시 반영</span>
+    <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.5</span><span class="token punctuation">,</span>       <span class="token comment">// 즉시 반영</span>
+    <span class="token literal-property property">width</span><span class="token operator">:</span> <span class="token number">40</span><span class="token punctuation">,</span>          <span class="token comment">// 경로를 다시 만들어 반영</span>
+    <span class="token literal-property property">maxheight</span><span class="token operator">:</span> <span class="token number">35</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>path<span class="token punctuation">.</span><span class="token function">getParam</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>width<span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// 40</span>
+</code></pre>
+<hr>
+<h2 id="6-저장하고-불러오기">6. 저장하고 불러오기</h2>
+<p><code>export()</code>는 경로를 다시 만드는 데 필요한 속성과 좌표를 함께 돌려줍니다.<br>그 값을 그대로 <code>import()</code>에 넣으면 같은 경로가 복원됩니다.</p>
+<p><code>import</code>는 레이어를 통해 앱을 찾으므로 레이어에 등록한 경로 객체에서 호출합니다.<br>좌표는 저장할 때와 같은 월드 좌표(EPSG:3857)를 그대로 사용합니다.</p>
+<p>경로는 곡선을 계산할 때 좌표 사이의 거리를 구합니다.<br>JSON으로 저장했다가 불러온 좌표는 <code>THREE.Vector3</code>로 되돌린 뒤 넘깁니다.</p>
+<p>경로를 더 이상 쓰지 않으면 <code>dispose()</code>로 정리합니다.<br>편집용 임시 객체와 등록해 둔 마우스 이벤트까지 함께 해제됩니다.</p>
+<h4 class="api-heading" id="api-16">API</h4>
+<p>U3dPathGeometry.export() : 경로를 복원하는 데 필요한 속성과 좌표를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>object</code>) : 경로 정보</li>
+<li><code>return.pathOption</code> (<code>object</code>) : 색상·너비·높이·곡선 정도·외곽선 등 경로 속성</li>
+<li><code>return.coordinates</code> (<code>Array&lt;Vector3&gt;</code>) : 경로 좌표 목록 (월드 좌표, EPSG:3857)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-17">API</h4>
+<p>U3dPathGeometry.import(<code>opt</code>) : 저장한 속성과 좌표로 경로를 복원하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opt</code> (<code>object</code>) : <code>export</code>가 반환한 객체. <strong>필수</strong></li>
+<li><code>opt.pathOption</code> (<code>object</code>) : 경로 속성. 없으면 아무 일도 하지 않습니다</li>
+<li><code>opt.coordinates</code> (<code>Array&lt;Vector3&gt;</code>) : 경로 좌표 목록 (월드 좌표, EPSG:3857). <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>U3dPathGeometry | undefined</code>) : 복원한 경로. <code>pathOption</code>이 없거나 레이어에 등록하지 않았으면 <code>undefined</code></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-18">API</h4>
+<p>U3dPathGeometry.dispose() : 경로와 편집용 임시 객체·이벤트를 정리하고 자원을 해제하는 함수</p>
+<h3 id="1-저장하고-복원하는-예제">1. 저장하고 복원하는 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> saved <span class="token operator">=</span> path<span class="token punctuation">.</span><span class="token function">export</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+localStorage<span class="token punctuation">.</span><span class="token function">setItem</span><span class="token punctuation">(</span><span class="token string">'pathWork'</span><span class="token punctuation">,</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span>saved<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>복원할 때는 새 경로 객체를 레이어에 등록한 뒤 불러옵니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> raw <span class="token operator">=</span> localStorage<span class="token punctuation">.</span><span class="token function">getItem</span><span class="token punctuation">(</span><span class="token string">'pathWork'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span>raw<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> saved <span class="token operator">=</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>raw<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token comment">// JSON에서 되살린 좌표는 일반 객체이므로 Vector3로 변환합니다</span>
+    saved<span class="token punctuation">.</span>coordinates <span class="token operator">=</span> saved<span class="token punctuation">.</span>coordinates<span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token parameter">c</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span>c<span class="token punctuation">.</span>x<span class="token punctuation">,</span> c<span class="token punctuation">.</span>y<span class="token punctuation">,</span> c<span class="token punctuation">.</span>z<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">const</span> restored <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>geom<span class="token punctuation">.</span>U3dPathGeometry</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    vectorLayer<span class="token punctuation">.</span><span class="token function">addGeometry</span><span class="token punctuation">(</span>restored<span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// 등록 후에 import 합니다</span>
+    restored<span class="token punctuation">.</span><span class="token function">import</span><span class="token punctuation">(</span>saved<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h3 id="2-정리-예제">2. 정리 예제</h3>
+<pre class="language-javascript"><code class="language-javascript">vectorLayer<span class="token punctuation">.</span><span class="token function">removeGeometry</span><span class="token punctuation">(</span>path<span class="token punctuation">)</span><span class="token punctuation">;</span>
+path<span class="token punctuation">.</span><span class="token function">dispose</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+</main>
+</body>
+</html>
+

@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>드론 비행시뮬레이션 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        .u3-popup {
+            width: 300px;
+            height: 230px;
+        }
+
+        .u3-popup canvas {
+            position: relative;
+            width: 100%;
+            height: 80%;
+        }
+
+        .u3-popup .u3-popup-content .modal-header {
+            height: fit-content;
+        }
+
+        #btn-tab {
+            position: absolute;
+            z-index: -2;
+            top: 100px;
+            right: -30px;
+            background-color: #000000;
+            padding: 30px 10px 30px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        #letf-tab {
+            background-color: #000000;
+            position: absolute;
+            width: 160px;
+            right: -160px;
+            height: 182px;
+            padding: 10px 10px 10px 22px;
+        }
+
+        .input-axis-value {
+            width: 60px;
+            margin-right: 5px;
+        }
+
+        .ui-draggable .head {
+            cursor: grab;
+        }
+
+        .ui-draggable.ui-draggable-dragging .head {
+            cursor: grabbing;
+        }
+
+        body.dragging, body.dragging {
+            cursor: move !important;
+        }
+
+        .modal-header {
+            height: fit-content;
+            line-height: 10px;
+        }
+
+        .glyphicon {
+            top: -1px;
+            background-color: black;
+        }
+
+        #analy-popup .div-popup {
+            width: 550px;
+            height: 180px;
+            top: 70vh;
+            padding-bottom: 10px;
+        }
+
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            opacity: 1;
+            -webkit-appearance: button;
+        }
+
+        .ui-spinner {
+            background-color: rgba(0, 0, 0, 0.82);
+        }
+
+        .spinner.speed {
+            width: 60px;
+            height: 20px;
+            margin-right: 3px;
+        }
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> 드론 비행시뮬레이션 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        특정지점(Position)을 향해 비행하는 <strong>드론 비행 시뮬레이션</strong> 예제입니다.<br>
+        사용자의 필요에따라 각 드론에는 카메라뷰를 추가할 수 있습니다.
+        카메라뷰의 기본 동작은 <a href="clickView.html">
+        <ins>카메라뷰 예제</ins>
+    </a>에서 확인 가능합니다.<br>
+        1인칭 / 따라가기 / 3인칭 세가지 시점 옵션을 제공하며 비행 속도를 제어하거나 이동을 정지, 재시작하는 기능도 포함합니다.
+    </p>
+</div>
+<div id="map-wrapper">
+    <div id="map"></div>
+    <div id="div-left-menu" oncontextmenu='return false'>
+        <div>
+            <div style="display: inline-flex; position: relative">
+                <button id="analy-bnt" class="btn btn-xs menu-btn">
+                    <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+                <div class="div-btn-info" hidden>
+                    분석 팝업 열기
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="btn-group" id='top-sbar'>
+        <div class='btn-group-vertical-block' id='right-toolbar'>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                     src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                     alt="나침반">
+            </button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                    id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                    id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                    id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+            </button>
+        </div>
+        <div class='btn-group' id='bt-bottom-bar'>
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                   value="위경도: ##.####  ###.#### ">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                   value="고도:####">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                   value="각도: ##">
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu='return false'>
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content" style="margin:0 10px;">
+                <div class="form-inline">
+                    <label>
+                        비행기1 :
+                        <input type="checkbox" name="camera" value="plane1">
+                        <span style="font-weight: normal">카메라</span>
+                    </label>
+                    <button type="button" class="btn btn-xs btn-default move" value="plane1">이동</button>
+                    <button type="button" class="btn btn-xs btn-default stop" value="plane1">정지</button>
+                    <button type="button" class="btn btn-xs btn-default restart" value="plane1">재시작</button>
+                    <button type="button" class="btn btn-xs btn-default front" value="plane1">1인칭</button>
+                    <button type="button" class="btn btn-xs btn-default trace" value="plane1">따라가기</button>
+                    <input type="number" class="spinner speed" value="200" name="plane1"> km/h
+                </div>
+                <div class="form-inline">
+                    <label>
+                        비행기2 :
+                        <input type="checkbox" name="camera" value="plane2">
+                        <span style="font-weight: normal">카메라</span>
+                    </label>
+                    <button type="button" class="btn btn-xs btn-default move" value="plane2">이동</button>
+                    <button type="button" class="btn btn-xs btn-default stop" value="plane2">정지</button>
+                    <button type="button" class="btn btn-xs btn-default restart" value="plane2">재시작</button>
+                    <button type="button" class="btn btn-xs btn-default front" value="plane2">1인칭</button>
+                    <button type="button" class="btn btn-xs btn-default trace" value="plane2">따라가기</button>
+                    <input type="number" class="spinner speed" value="200" name="plane2"> km/h
+                </div>
+                <div class="form-inline">
+                    <label>
+                        비행기3 :
+                        <input type="checkbox" name="camera" value="plane3">
+                        <span style="font-weight: normal">카메라</span>
+                    </label>
+                    <button type="button" class="btn btn-xs btn-default move" value="plane3">이동</button>
+                    <button type="button" class="btn btn-xs btn-default stop" value="plane3">정지</button>
+                    <button type="button" class="btn btn-xs btn-default restart" value="plane3">재시작</button>
+                    <button type="button" class="btn btn-xs btn-default front" value="plane3">1인칭</button>
+                    <button type="button" class="btn btn-xs btn-default trace" value="plane3">따라가기</button>
+                    <input id="plane3" type="number"  class="spinner speed" value="200" name="plane3"> km/h
+                </div>
+                <div class="form-inline">
+                    <div class="form-group">
+                        <button type="button" class="btn btn-default mapMode" value="mapMode">3인칭 전환</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function () {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function () {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function () {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function () {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script>
+    //컴포넌트로 사용할 모델 정보 생성
+    const MODEL_INFO = {
+        name: 'airplane',
+        baseurl: layerInfo.model.airplaneurl, //모델을 요청할 url
+        fileName: layerInfo.model.airplanename,
+        ext: layerInfo.model.airplaneext
+    }
+
+    //라이센스 인증
+    Union3D.ready(function () {
+
+        //+ 비행기 갯수
+        const planeCount = 99;
+        //+ 비행기 생성 텀
+        const intervalCreatePlane = 1500;
+
+        //+ 좌표 리스트
+        const listPoi = {};
+        listPoi['청라'] = {x: 126.6224174, y: 37.5563786, z: 16};
+        listPoi['송도'] = {x: 126.6543563, y: 37.3813632, z: 16};
+        listPoi['서울'] = {x: 126.9721419, y: 37.5561066, z: 16};
+        listPoi['부산'] = {x: 129.0360297, y: 35.1130499, z: 16};
+        listPoi['광주'] = {x: 126.9070116, y: 35.1653472, z: 16};
+        listPoi['대전'] = {x: 127.4320223, y: 36.3323303, z: 16};
+        listPoi['제주'] = {x: 126.2486448, y: 33.4095068, z: 16};
+
+        const movePosition = {};
+        //+ 비행기 항로 설정
+        for (let i = 1; i <= planeCount; i++) {
+            const name = 'plane' + i.toString();
+            createPosition(movePosition, name);
+        }
+
+        function createPosition(objects, name, count) {
+            objects[name] = [];
+            if (!defined(count))
+                count = 10;
+
+            var minx = listPoi['송도'].x < listPoi['청라'].x ? listPoi['송도'].x : listPoi['청라'].x;
+            var miny = listPoi['송도'].y < listPoi['청라'].y ? listPoi['송도'].y : listPoi['청라'].y;
+            var minz = 100;
+
+            var maxx = listPoi['송도'].x > listPoi['청라'].x ? listPoi['송도'].x : listPoi['청라'].x;
+            var maxy = listPoi['송도'].y > listPoi['청라'].y ? listPoi['송도'].y : listPoi['청라'].y;
+            var maxz = 200;
+
+            for (let i = 0; i < count; i++) {
+                var x = 0, y = 0, z = 0;
+                if (i === 0) {
+                    x = listPoi['송도'].x;
+                    y = listPoi['송도'].y;
+                    z = 50;
+                } else {
+                    x = getRandom_(minx, maxx);
+                    y = getRandom_(miny, maxy);
+                    z = getRandom_(minz, maxz);
+                }
+
+                if (!defined(objects[name])) objects[name] = [];
+
+                objects[name].push({x: x, y: y, z: z});
+            }
+        }
+
+        const serverURL = 'https://3d.geon.kr/';
+        const dataServerUrl = 'https://dt-data.mappick.co.kr/ServiceData/';
+        const API_KEY = 'YKAFjxVvNJEA/S1xcEjprW49M6wQSAva3PC7u3KHJxrZ3ZaTVfN40QdiqzAYrFf5';
+        const app = new Union3D.U3dAPP({
+            containername: 'map',
+        });
+
+        window.app = app;
+        let componentMap = {};
+        app.setZoomSpeed(1);
+        app.setRotateSpeed(0.5);
+        app.setHomePosition(listPoi['송도'].x, listPoi['송도'].y, 450, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+        app.updateHomePosition();
+        app.createloadingBar('load');
+        app.on('change', updatePosData);
+
+        //+ 이미지 레이어 생성 /////////////////////////////////////////////////////////////////////
+        const satlayer = new Union3D.image.U3dImageXYZLayer({
+            name: 'satellite',
+            baseurl: layerInfo.image.vworldsaturl,
+            reverseY: true
+        });
+        app.addLayer(satlayer);
+        app.showLayer('satellite', true);
+
+        //APP에 기본 배경이미지 레이어를 설정
+        app.setNameBaseLayer('satellite');
+        app.endloadingBar();
+
+        //+ hybrid 레이어 생성 ////////////////////////////////////////////////////////////////////
+        const hydlayer = new Union3D.image.U3dImageXYZLayer({
+            name: 'vworld-hybrid',
+            baseurl: layerInfo.image.vworldhybirdurl,
+            transparent: true,
+            reverseY: true
+        });
+        app.addLayer(hydlayer);
+        app.showLayer('vworld-hybrid', true);
+
+        //+ 고도 레이어 생성 //////////////////////////////////////////////////////////////////////
+        var terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+            name: 'Korea Terrain',
+            baseurl: layerInfo.height.url,
+            ext: '.umf',
+            reverseY: true,
+            minlevel: 9,
+            maxlevel: 17,
+            useproxy: false,
+        });
+        app.addLayer(terrainLayer);
+        app.showLayer('Korea Terrain', true);
+
+        //+ POI 레이어 생성 //////////////////////////////////////////////////////////////////////
+        const keys = Object.keys(listPoi);
+        for (let i = 0; i < keys.length; i++) {
+            let key = keys[i];
+            // 좌표 리스트의 위치마다 POI 추가
+            addGeographicPOI(listPoi[key].x, listPoi[key].y, listPoi[key].z, key);
+        }
+
+        // 비행기 모델 /////////////////////////////////////////////////////////////////////////
+
+        //레이어 생성 옵션
+        const layerOption = {
+            name: 'airplane',
+            type: "model",
+            color: 'rgb(255,255,255)',
+            needxml: false,
+            drawline: false,
+            listmodel: [{   //모델 정보
+                name: MODEL_INFO.name,
+                baseurl: MODEL_INFO.baseurl, //모델을 요청할 url
+                fileName: MODEL_INFO.fileName,
+                ext: MODEL_INFO.ext
+            }],
+            drawpath: false,
+        };
+
+        //+ 컴포넌트 레이어 (애니메이션 레이어) //////////////////////////////////////////////////////////
+        //모델 옵션을 가지고 레이어 생성
+        window.animationLayer = app.createMultipleComponentLayer(layerOption);
+        window.animationLayer.setInstanced(false);
+        // 레이어가 생성 완료되면 비행기 컴포넌트를 일전 간격으로 생성
+        animationLayer.then(function () {
+            app.showLayer(animationLayer.getName(), true);
+
+            // 모델이 제대로 불러와졌는지 검사
+            const loadedModelInfo = animationLayer.getModelInfo(MODEL_INFO.name , MODEL_INFO.baseurl)
+            if( loadedModelInfo ){
+                loadedModelInfo.then(()=>{
+                    const keys = Object.keys(movePosition);
+                    for (let i = 0; i < keys.length; i++) {
+                        const key = keys[i];
+                        const x = movePosition[key].x;
+                        const y = movePosition[key].y;
+                        const height = movePosition[key].height;
+
+                        createComponentThread(key, x, y, height, i * intervalCreatePlane);
+                    }
+                });
+            }else {
+                animationLayer.loadModel(MODEL_INFO).then(()=>{
+                    const keys = Object.keys(movePosition);
+                    for (let i = 0; i < keys.length; i++) {
+                        const key = keys[i];
+                        const x = movePosition[key].x;
+                        const y = movePosition[key].y;
+                        const height = movePosition[key].height;
+
+                        createComponentThread(key, x, y, height, i * intervalCreatePlane);
+                    }
+                }).catch(()=>{
+                    console.error("animationLayer fail to load model.");
+                });
+            }
+            createWFS('2018지형도');
+        });
+
+        // time 간격으로 컴포넌트 생성
+        function createComponentThread(name, x, y, height, time) {
+            setTimeout(() => createComponent(name, x, y, height), time);
+        }
+
+        // 컴포넌트(비행기) 속도 조절
+        $(".spinner.speed").spinner({min: 10, max: 50000, step: 50});
+        $('.spinner.speed').on("spinstop", function (e) {
+            const componentName = e.target.name;
+            const component = animationLayer.getComponentByName(componentName);
+            if (defined(component)) {
+                component.setSpeed(Number(e.target.value));
+            }
+        });
+
+        // 컴포넌트(비행기) 카메라뷰 가시화 체크
+        $(document).on('click', 'input[name="camera"]', function (e) {
+            showCameraView(e.target);
+        });
+
+        // 이동
+        $(document).on('click', '.move', function (e) {
+            const componentName = e.target.value;
+            const component = animationLayer.getComponentByName(componentName);
+            if (component !== undefined) {
+                component.moveStart();
+            }
+        });
+
+        // 정지
+        $(document).on('click', '.stop', function (e) {
+            const componentName = e.target.value;
+            const component = animationLayer.getComponentByName(componentName);
+
+            if (component !== undefined) {
+                component.movePause();
+            }
+        });
+
+        // 재시작
+        $(document).on('click', '.restart', function (e) {
+            const componentName = e.target.value;
+            const component = animationLayer.getComponentByName(componentName);
+            if (component !== undefined) {
+                component.restart();
+                componentMap[component.getName()].state = 'play';
+            }
+        });
+
+        // 1인칭 전환
+        $(document).on('click', '.front', function (e) {
+            const componentName = e.target.value;
+            const component = animationLayer.getComponentByName(componentName);
+            if (component !== undefined) {
+                const opt = {
+                    component: component,
+                    view: 'FrontView',
+                    active: true,
+                    offset: {x: 0, y: 400, z: -300},
+                    targetOffset: undefined
+                };
+                animationLayer.setCameraTrace(opt);
+            }
+        });
+
+        // 따라가기
+        $(document).on('click', '.trace', function (e) {
+            const componentName = e.target.value;
+            const component = animationLayer.getComponentByName(componentName);
+            if (component !== undefined) {
+                const opt = {
+                    component: component,
+                    view: 'TopView',
+                    active: true
+                };
+                animationLayer.setCameraTrace(opt);
+            }
+        });
+
+        // 3인칭 전환
+        $(document).on('click', '.mapMode', function () {
+            changeMapMode();
+        });
+
+        // 지정 좌표 위치메 POI를 추가하는 함수
+        function addGeographicPOI(geoX, geoY, inheight, labelname, labelsize, imageurl) {
+            if (!defined(labelname)) labelname = 'POI';
+            if (!defined(imageurl)) imageurl = dataServerUrl + 'poi_image/placemark64.png';
+            if (!defined(labelsize)) labelsize = 15;
+
+            // world좌표 기준으로 해당 위치에 POI 생성
+            var worldxyz = app.getGeographicToWorld(geoX, geoY, inheight);
+            var poi = new Union3D.geom.U3dPOI({
+                position: {x: worldxyz.x, y: worldxyz.y, z: worldxyz.z},
+                image: imageurl,
+                label: labelname
+            });
+            app.addPOI(poi);
+            poi.setLabelSize(labelsize);
+        }
+
+        // 컴포넌트(비행기) 생성
+        function createComponent(componentName, geox, geoy) {
+            if (!defined(geox)) geox = listPoi['송도'].x;
+            if (!defined(geoy)) geoy = listPoi['송도'].y;
+
+            let component = animationLayer.addPosition({
+                name: componentName,                //컴포넌트 이름(ID)
+                geoPosition: {x: geox, y: geoy, z: 0},     //최초 생성 좌표
+                rotation: {x: 90, y: 180, z: 0},
+                scale: {x: 0.03, y: 0.03, z: 0.03},  //컴포넌트 크기
+                speed: 200,                          //이동 속도
+                topviewdistance: 200,                          // 따라가기 모드(topView)시 높이 값
+                movepointlist: movePosition[componentName]   // 앞서 지정한 movePosition으로 경로 지정
+            });
+
+            // 컴포넌트가 생성되었으면 수행
+            if (defined(component)) {
+                // 비행기 이름에 해당하는 POI 생성
+
+                const lonlat = component.getPosition();
+                const veiwName = component.getName();
+                const veiwId = component.getName();
+
+                //컴포넌트의 애니메이션(이동) 상태 저장
+                componentMap[componentName] = {"component": component, "state": "play"};
+
+                let componentNum = Object.keys(componentMap).length;
+                // ~plane3 까지만 카메라뷰를 생성하기 위해 if구문을 사용
+                if (componentNum < 5) {
+
+                    //카메라뷰를 생성해 해당 컴포넌트에 setting
+                    const overlay = createViewOverlay(veiwName, veiwId, lonlat);
+                    component.setOverlay(overlay);
+
+                    // 카메라뷰를 이중으로 생성하기 위해 plane1인 경우 plane1-2 오버레이를 생성
+                    if (component.getName() === "plane1") {
+                        const subOverlayName = veiwId + "-2";
+                        componentMap[subOverlayName] = {"component": component, "state": "play"};
+                        const overlay2 = createViewOverlay(veiwName, subOverlayName, lonlat);
+                        component.setOverlay(overlay2);
+                        overlay2.hide();
+                    }
+                    overlay.hide();
+                }
+            }
+        }
+
+        function createWFS(layerName) {
+            if (app === undefined) return;
+
+            if (app.getLayerByName(layerName)) {
+                var layer = app.getLayerByName(layerName);
+                layer.show(true);
+                return
+            }
+
+            //+ WFS 모델 ///////////////////////////////////////////////////////////////////
+            var wfsModel = new Union3D.model.U3dModelWFSLayer({
+                name: layerName,
+                layername: layerInfo.wfs_korea.layername, //+ 레이어 이름, *필수 입력
+                // sldurl:  layerInfo.wfs_unionit.sldurl,
+                baseurl: layerInfo.wfs_korea.baseurl, //+ baseurl 지도 서비스 기본 URL, *필수 입력
+                //층수필드나 높이필드를 선택하여 사용
+                //fieldheight: layerInfo.wfs_korea.fieldheight, //+ 높이 필드 (속성테이블 칼럼명), defaultValue(opt.fieldheight, undefined)
+                fieldfloor: layerInfo.wfs_korea.fieldfloor, //+ 층수 필드 (속성테이블 칼럼명), defaultValue(opt.fieldheight, undefined)
+                fieldheightfloor: layerInfo.wfs_korea.fieldheightfloor,
+                floorheight: layerInfo.wfs_korea.floorheight, //+ 층수 높이 필드
+                fieldKind: layerInfo.wfs_korea.fieldKind,  //+ 종류 필드 (속성테이블 칼럼명), defaultValue(opt.fieldKind, undefined)
+                transperent: true, //+ 투명화 여부
+                minlevel: 17, //+ 가시화 최소레벨,defaultValue(opt.minlevel, 17)
+                drawline: false, //+ WFS 모델에 테투리 추가 여부
+                opacity: 0.8, //+ 투명화 여부 true 일 경우, 투명도 설정값으로 적용
+                textureurl: '/image/buld/buld_texture_1.jpg',  //+ 텍스처 url, defaultValue(opt.textureurl, undefined)
+            });
+
+            app.addLayer(wfsModel);
+            app.showLayer(layerName, true);
+        }
+
+        // 3인칭 모드로 카메라 시점 변경
+        function changeMapMode() {
+            const components = animationLayer.getComponents();
+            for (let i = 0; i < components.length; i++) {
+                let component = components[i];
+
+                //현재 시점이 1인칭 또는 따라가기 모드라면 -> 3인칭 전환
+                if (component.isTrace) {
+                    component.setCameraTrace(false);
+                    let position = component.position.clone();
+
+                    // setCameraWorldPosition : 카메라 위치 / setCameraWorldTargetPosition : 카메라가 비추는 위치
+                    // 카메라 위치는 z값을 1000으로 주고 타겟 위치는 0으로 줘서 카메라가 바닥을 향하게 설정
+                    app.setCameraWorldPosition({x: position.x, y: position.y, z: position.z + 1000 ,rotateX: 0, rotateY: 0 });
+                }
+            }
+        }
+
+        // 카메라뷰 생성
+        function createViewOverlay(name, id, position) {
+            const shiftVal = {x: -1, y: 19, z: 5};
+            const html = printViewOverlayHtml(id, shiftVal);
+            const view = new Union3D.view.U3dView({
+                name: name,
+                id: id,
+                element: $(html),
+                position: position,
+                endposition: position,
+                useAnchor: true,
+                useline: true,
+                balloon: {x: -50, y: 10},
+                useHelperObj: false,
+                useLabel: false
+            });
+
+            //app._viewList에 생성한 카메라뷰를 등록한다
+            app.addView(view);
+
+            //초기 shiftVal을 setting해 Z_GAP만큼 높이를 준다.
+            view.setShift(shiftVal);
+
+            let element = view.getElement();
+            let $element = $(element);
+            $element.on('click', '.close', popUpCloseClick.bind(this, view));
+            $element.on('click', '#left', cameraControlClick.bind(this, view));
+            $element.on('click', '#right', cameraControlClick.bind(this, view));
+            $element.on('click', '#up', cameraControlClick.bind(this, view));
+            $element.on('click', '#down', cameraControlClick.bind(this, view));
+            $element.on('click', '#init', cameraControlClick.bind(this, view));
+            $element.on('click', '#helper', cameraControlClick.bind(this, view));
+            $element.on('click', '#bind', cameraControlClick.bind(this, view));
+            $element.on('click', '#move', cameraControlClick.bind(this, view));
+            $element.on('click', '#btn-tab', cameraControlClick.bind(this, view));
+            $element.on('change', '.input-axis-value', setShiftValue.bind(this, view));
+
+            updateBinding(view, true);
+            return view;
+        }
+
+        // 카메라뷰 가시화
+        function showCameraView(target) {
+            const componentName = target.value;
+            const component = animationLayer.getComponentByName(componentName);
+
+            if (!defined(component)) return
+
+            if (component.hasOverlay()) {
+                const views = component.getOverlay();
+                if (target.checked)
+                    views.forEach((view) => view.show());
+                else
+                    views.forEach((view) => view.hide());
+            }
+        }
+
+        // 카메라뷰 elemenet 생성
+        function printViewOverlayHtml(id, shiftVal) {
+            let str = '';
+            str += '<div class="u3-popup" id=' + id + '>';
+            str += '<span class="glyphicon glyphicon-triangle-right flag" aria-hidden="true" id="btn-tab"> </span>';
+            str += '<div class="u3-popup-content">';
+            str += '<div class="modal-header">';
+            str += '<div style="display: block">';
+            str += '<label style="margin-right: 5px">' + id + '</label>';
+            str += '<button type="button" class="close"><span aria-hidden="true">&times;</span></button>';
+            str += '</div>';
+            str += '<button type="button" class="glyphicon glyphicon-arrow-left" id="left" />';
+            str += '<button type="button" class="glyphicon glyphicon-arrow-right" id="right" />';
+            str += '<button type="button" class="glyphicon glyphicon-arrow-up" id="up" />';
+            str += '<button type="button" class="glyphicon glyphicon-arrow-down" id="down" />';
+            str += '<button type="button" class="glyphicon glyphicon-repeat" id="init" />';
+            str += '<label style="margin-left:5px"> <input type="checkbox" id="helper"/>가시선 </label>';
+            str += '<label> <input type="checkbox" id="bind" checked/>연결</label>';
+            str += '</div>';
+            str += '</div>';
+            str += '<div id="letf-tab" style="display: none">';
+            str += '<div class="input-group">';
+            str += '<span style="margin-right: 5px"> X축 : </span>';
+            str += '<input type="number" class="input-axis-value" id="' + id + '-x-axis" value="' + shiftVal.x + '">';
+            str += '</div>';
+            str += '<div class="input-group">';
+            str += '<span style="margin-right: 5px"> Y축 : </span>';
+            str += '<input type="number" class="input-axis-value" id="' + id + '-y-axis" value="' + shiftVal.y + '">';
+            str += '</div>';
+            str += '<div class="input-group">';
+            str += '<span style="margin-right: 5px"> Z축 : </span>';
+            str += '<input type="number" class="input-axis-value" id="' + id + '-z-axis" value="' + shiftVal.z + '">';
+            str += '</div>';
+            str += '</div>';
+            str += '</div>';
+            return str;
+        }
+
+        // 오버레이 'X'버튼 클릭 이벤트
+        function popUpCloseClick(view) {
+            $(view.element).off('click', '.close', popUpCloseClick);
+
+            clearOverlayList(view);
+            //app에 등록된 ViewList에서 view 삭제
+            app.removeView(view);
+        }
+
+        // 컴포넌트가 가지고 있는 카메라뷰 삭제
+        function clearOverlayList(view) {
+            let components = animationLayer.getPositionList();
+
+            for (let i = 0; i < components.length; i++) {
+                if (!components[i].hasOverlay()) return
+
+                let views = components[i].getOverlay();
+                for (let i = 0; i < views.length; i++) {
+                    if (views[i].getId() === view.getId())
+                        views.splice(i--, 1);
+                }
+            }
+        }
+
+        const DIST = 10; //카메라 회전률
+        function cameraControlClick(view, e) {
+            let val = undefined;
+            let checked = undefined;
+            const id = $(e.target).attr('id');
+            switch (id) {
+                case 'left':
+                    val = view.getRotationLeft();
+                    view.setRotationLeft(val + DIST);
+                    break;
+                case 'right':
+                    val = view.getRotationLeft();
+                    view.setRotationLeft(val - DIST);
+                    break;
+                case 'up':
+                    val = view.getRotationUp();
+                    view.setRotationUp(val + DIST);
+                    break;
+                case 'down':
+                    val = view.getRotationUp();
+                    view.setRotationUp(val - DIST);
+                    break;
+                case 'init':
+                    view.resetRotation();
+                    break;
+                case 'helper':
+                    checked = $(e.target).prop('checked');
+                    view.showHelper(checked);
+                    break;
+                case 'bind':
+                    checked = $(e.target).prop('checked');
+                    updateBinding(view, checked)
+                    break;
+                case 'btn-tab':
+                    openLeftTab(e);
+                    break;
+            }
+        }
+
+        // 카메라 이동값 (shiftVal) 세팅
+        function setShiftValue(view) {
+            let AUTO_UPDATE;
+            const viewId = view.getId();
+            const shiftVal = {
+                x: $("#" + viewId + "-x-axis").val() * 1,
+                y: $("#" + viewId + "-y-axis").val() * 1,
+                z: $("#" + viewId + "-z-axis").val() * 1
+            };
+            view.setShift(shiftVal);
+
+            let viewName = view.getName();
+            const component = animationLayer.getComponentByName(viewName);
+            // 드론이 정지 상태인 경우 카메라뷰 수동 업데이트
+            // 정지 상태가 아닌 경우 애니메이션이 동작하면서 shiftVal 자동으로 반영된다
+            AUTO_UPDATE = false;
+            view.moveViewPosition(component.getVectorPosition(), AUTO_UPDATE);
+            if (view.isBind)
+                updateViewPositionToCam.call(this, view);
+        }
+
+        // left tab 이벤트
+        function openLeftTab(e) {
+            let $tab = $(e.target).next().next();
+            if ($(e.target).hasClass('flag')) {
+                $(e.target).removeClass('flag')
+                $(e.target).removeClass('glyphicon-triangle-right')
+                $(e.target).addClass('glyphicon-triangle-left')
+                $(e.target).css('right', '-190px');
+                $tab.css("display", "block");
+            } else {
+                $(e.target).addClass('flag')
+                $(e.target).removeClass('glyphicon-triangle-left')
+                $(e.target).addClass('glyphicon-triangle-right')
+                $(e.target).css('right', '-30px');
+                $tab.css("display", "none");
+            }
+        }
+
+        // 드론과 카메라 연결제어 (Binding)
+        function updateBinding(view, checked) {
+            const veiwId = view.getId();
+            const $view = $('#' + veiwId);
+
+            //카메라뷰의 바인드 여부를 업데이트
+            view.setIsBind(checked);
+
+            if (checked) {
+                //드론이 정지상태면 수동으로 오버레이를 카메라 위치로 이동
+                if (componentMap[view.getId()].state === 'stop')
+                    updateViewPositionToCam(view);
+
+                view.setDraggable(false);
+                view.manualUpdate(view.getEndposition()); // 오버레이 원위치
+            } else {
+                view.initViewLine(); // 오버레이 라인메쉬를 초기화
+                view.setDraggable(true);
+            }
+            //작업이 완료되면 오버레이의 앵커 업데이트
+            view.updateAnchor();
+        }
+
+        // 카메라 위치로 Overlay 이동
+        function updateViewPositionToCam(view) {
+            const vec3 = view.getCameraPosition();
+            const latlon = app.vector3ToGeoGraphic(vec3);
+
+            view.manualUpdate(latlon, vec3);
+        }
+
+        // undefined 여부를 체크하는 함수
+        function defined(value) {
+            return value !== undefined && value !== null;
+        }
+
+        // 난수를 반환하는 함수
+        function getRandom_(min, max) {
+            return Math.random() * (max - min) + min;
+        }
+
+    });
+</script>
+<script>
+    function onlyNumber() {
+        if ((event.keyCode < 48) || (event.keyCode > 57))
+            event.returnValue = false;
+    }
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+

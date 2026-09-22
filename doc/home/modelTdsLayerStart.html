@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>실내 (3ds) 모델 레이어</title>
+</head>
+<body style="padding-top: 0">
+<div class="index">
+    <a href="#jump1">1. 실내 (3ds) 모델 레이어 시작하기</a><br>
+    <a href="#jump2">2. 사용자 지정 그룹 만들기</a><br>
+    <a href="#jump3">3. 층으로 나누어 보기</a><br>
+    <a href="#jump4">4. 그룹 이동 · 애니메이션</a><br>
+</div>
+<hr>
+<div class="content">
+    <!--============================== 1. 시작하기 ==============================-->
+    <h2 class="lead" id="jump1"> 1. 실내 (3ds) 모델 레이어 시작하기 </h2>
+    <div class="doc">
+        <div class="explane1">
+            * 실내 (3ds) 모델 레이어는 <mark>.3ds (3D Studio) 형식의 3D 모델을 불러와 지도 위에 출력</mark>하는 레이어입니다.<br>
+            * 클래스 이름의 <mark><strong>TDS 는 곧 3DS</strong></mark> 를 뜻합니다. (식별자는 숫자로 시작할 수 없어 <mark>3ds → Tds</mark> 로 표기)<br>
+            * 주로 <mark><strong>실내 건물</strong></mark> 데이터를 다루는 데 사용하며, 모델을 <mark><strong>사용자가 원하는 단위로 그룹화</strong></mark>하거나 <mark><strong>층별로 분리</strong></mark>해서 볼 수 있는 것이 특징입니다.<br>
+            * 레이어는 <mark><strong>app.createModelTdsLayer(opt)</strong></mark> 함수로 생성합니다.
+            <div class="explane_api">
+                app.<span class="api_name">createModelTdsLayer</span>(<span class="param_name">opt</span>);
+                <div class="explane_api_param">
+                    <span class="param_name">opt.name</span>
+                    <span class="param_type">string</span> : 레이어 이름 <span class="important_tg">*필수 입력</span><br>
+                    <span class="param_name">opt.baseurl</span>
+                    <span class="param_type">string</span> : .3ds 데이터가 있는 기본 URL <span class="important_tg">*필수 입력</span><br>
+                    <span class="param_name">opt.xmlurl</span>
+                    <span class="param_type">string</span> : 모델 파일 목록과 위치 범위(BoundingBox)가 담긴 메타데이터(XML) URL<br>
+                    <span class="param_name">opt.ext</span>
+                    <span class="param_type">string</span> : 파일 확장자. 기본값 '3ds'<br>
+                    <span class="param_name">opt.containMetaData</span>
+                    <span class="param_type">boolean</span> : metaData.json 형식의 메타데이터 사용 여부. 기본값 false<br>
+                    <span class="param_name">opt.position</span>
+                    <span class="param_type">object</span> : 모델의 위치 {x, y, z}<br>
+                    <span class="param_name">opt.scale</span>
+                    <span class="param_type">object</span> : 모델의 크기(스케일) {x, y, z}. 기본값 {1, 1, 1}<br>
+                    <span class="param_name">opt.rotation</span>
+                    <span class="param_type">object</span> : 모델의 회전 {x, y, z}<br>
+                    <span class="param_name">opt.animationspeed</span>
+                    <span class="param_type">number</span> : 애니메이션 재생 속도. 기본값 1<br>
+                </div>
+            </div>
+        </div>
+        <div class="explane1">
+            * 생성한 레이어는 <mark><strong>.ready().then()</strong></mark> 안에서 <mark><strong>app.showLayer(name, true)</strong></mark> 로 가시화합니다.<br>
+            * 그룹화·이동 기능을 쓰려면, 로딩이 끝난 뒤 <mark><strong>setGroupOriginPosition()</strong></mark> 으로 <mark>각 모델의 원래 위치를 먼저 저장</mark>해 두어야 합니다. (나중에 원위치로 되돌릴 때 기준이 됩니다.)
+        </div>
+        <label class="code-label"> 실내 (3ds) 모델 레이어 생성 </label>
+        <div class="code" id="text1-code"></div>
+        <div class="code-text" id="text1" hidden="hidden">
+            const opt = {
+                name: 'indoor',                          // 레이어 이름 *필수
+                baseurl: 'https://.../indoor/',          // .3ds 데이터 기본 URL *필수
+                xmlurl: 'https://.../indoor/meta.xml',   // 모델 파일 목록·위치가 담긴 XML
+                ext: '3ds',                              // 파일 확장자
+            };
+
+            const layer = app.createModelTdsLayer(opt);
+
+            // 로딩이 끝난 후 실행
+            layer.ready.then((tds) => {
+                app.fitLayerExtent('indoor');       // 레이어로 카메라 이동
+                app.showLayer('indoor', true);      // 레이어 가시화
+                layer.setGroupOriginPosition();     // 그룹/이동 기능을 위한 원위치 저장
+            });
+        </div>
+    </div>
+
+    <!--============================== 2. 사용자 지정 그룹 만들기 ==============================-->
+    <h2 class="lead" id="jump2"> 2. 사용자 지정 그룹 만들기 </h2>
+    <div class="doc">
+        <div class="explane1">
+            * <mark>여러 개의 mesh를 하나의 묶음(그룹)으로 만들어</mark> 함께 제어할 수 있습니다. (예: 특정 방, 특정 설비끼리 묶기)<br>
+            * <mark><strong>setSelectGrouping</strong></mark> 은 선택한 mesh들의 배열과 그룹 이름을 받아 사용자 지정 그룹을 만듭니다.
+            <div class="explane_api">
+                U3dModelTdsLayer.<span class="api_name">setSelectGrouping</span> (<span class="param_name">meshList, groupName</span>)
+                <div class="explane_api_param">
+                    <span class="param_name">meshList</span>
+                    <span class="param_type">Array</span> : 그룹으로 묶을 mesh들의 배열 <span class="important_tg">*필수 입력</span><br>
+                    <span class="param_name">groupName</span>
+                    <span class="param_type">string</span> : 새로 만들 그룹의 이름 <span class="important_tg">*필수 입력</span><br>
+                    <span class="param_name">return</span>
+                    <span class="param_type">UGroup</span> : 생성된 사용자 지정 그룹<br>
+                </div>
+            </div>
+        </div>
+        <label class="code-label"> 선택한 mesh로 그룹 만들기 </label>
+        <div class="code" id="text2-code"></div>
+        <div class="code-text" id="text2" hidden="hidden">
+            // meshList : 사용자가 선택한 mesh들의 배열
+            const userGroup = layer.setSelectGrouping(meshList, 'room1');
+            console.log(userGroup.name); // 'room1'
+        </div>
+        <div class="explane1">
+            * <mark><strong>getAllUserGroupList()</strong></mark> 은 지금까지 만들어진 <mark>모든 사용자 지정 그룹</mark>을 배열로 돌려줍니다.<br>
+            * <mark><strong>getUserGroupList(groupName)</strong></mark> 은 <mark>이름으로 특정 그룹에 속한 mesh들</mark>을 배열로 돌려줍니다.
+            <div class="explane_api">
+                U3dModelTdsLayer.<span class="api_name">getUserGroupList</span> (<span class="param_name">groupName</span>)
+                <div class="explane_api_param">
+                    <span class="param_name">groupName</span>
+                    <span class="param_type">string</span> : 찾을 사용자 지정 그룹의 이름<br>
+                    <span class="param_name">return</span>
+                    <span class="param_type">Array</span> : 해당 그룹에 속한 mesh 배열<br>
+                </div>
+            </div>
+        </div>
+        <label class="code-label"> 그룹 조회 </label>
+        <div class="code" id="text3-code"></div>
+        <div class="code-text" id="text3" hidden="hidden">
+            const allGroups = layer.getAllUserGroupList(); // 전체 그룹 목록
+            for (const group of allGroups) {
+                console.log(group.name);
+            }
+
+            const room1Meshes = layer.getUserGroupList('room1'); // 'room1' 그룹에 속한 mesh 배열
+        </div>
+    </div>
+
+    <!--============================== 3. 층으로 나누어 보기 ==============================-->
+    <h2 class="lead" id="jump3"> 3. 층으로 나누어 보기 </h2>
+    <div class="doc">
+        <div class="explane1">
+            * <mark><strong>setFloorFromGroupName</strong></mark> 은 파일에 들어 있는 <mark>mesh 이름 규칙을 이용해 자동으로 층을 나누는</mark> 함수입니다.<br>
+            * 파일 제작 시 그룹 이름에 층 정보가 들어 있을 때(예: <mark>AC_AB04_FC (4층), CC_AB03_FC (3층)</mark>) 편리하게 사용할 수 있습니다.<br>
+            * <mark>층 사이 간격(height)</mark>을 주면 각 층이 위로 벌어져 <mark><strong>건물을 분해한 것처럼</strong></mark> 볼 수 있습니다.<br>
+            * 반환된 층 그룹은 <mark><strong>addUserGroup 으로 레이어에 등록</strong></mark>해야 이후 그룹 이동(4번 항목) 기능의 대상이 됩니다.
+            <div class="explane_api">
+                U3dModelTdsLayer.<span class="api_name">setFloorFromGroupName</span> (<span class="param_name">floorCount, height, commonName, commonChar</span>)
+                <div class="explane_api_param">
+                    <span class="param_name">floorCount</span>
+                    <span class="param_type">number</span> : 건물의 총 층수 <span class="important_tg">*필수 입력</span><br>
+                    <span class="param_name">height</span>
+                    <span class="param_type">number</span> : 층과 층 사이를 벌릴 간격(m). 0이면 벌어지지 않음<br>
+                    <span class="param_name">commonName</span>
+                    <span class="param_type">string</span> : 만들어질 그룹 이름에 붙는 접미사. '층' → '1층', '2층' ...<br>
+                    <span class="param_name">commonChar</span>
+                    <span class="param_type">string</span> : 이름에서 층을 구분하는 공통 문자. 기본값 '0'<br>
+                    <span class="param_name">return</span>
+                    <span class="param_type">Array</span> : 층별로 만들어진 사용자 지정 그룹 목록<br>
+                </div>
+            </div>
+            <div class="explane_api">
+                U3dModelTdsLayer.<span class="api_name">addUserGroup</span> (<span class="param_name">group</span>)
+                <div class="explane_api_param">
+                    <span class="param_name">group</span>
+                    <span class="param_type">UGroup</span> : 레이어에 등록할 사용자 지정 그룹<br>
+                </div>
+            </div>
+        </div>
+        <label class="code-label"> 이름 규칙으로 층 나누기 </label>
+        <div class="code" id="text4-code"></div>
+        <div class="code-text" id="text4" hidden="hidden">
+            // 총 4층 건물, 층 간격 3m, 그룹 이름은 '1층'~'4층'
+            const floorGroups = layer.setFloorFromGroupName(4, 3, '층', '0');
+            console.log(floorGroups.length); // 4
+
+            // 만들어진 층 그룹을 레이어에 등록 (그룹 이동 기능의 대상이 됨)
+            for (const group of floorGroups) {
+                layer.addUserGroup(group);
+            }
+        </div>
+        <!-- ================= 예시 이미지 (shiftGroupMesh.html 에서 캡처) ================= -->
+        <label class="code-label">층 분리 — 원본(붙어 있음) / setFloorFromGroupName 적용(층별로 벌어짐)</label><br>
+        <img src="./image/modelTdsLayerStart/floor_off.png" alt="층 분리 전" data-size="half">
+        <img src="./image/modelTdsLayerStart/floor_on.png" alt="층 분리 후" data-size="half">
+    </div>
+
+    <!--============================== 4. 그룹 이동 · 애니메이션 ==============================-->
+    <h2 class="lead" id="jump4"> 4. 그룹 이동 · 애니메이션 </h2>
+    <div class="doc">
+        <div class="explane1">
+            * <mark><strong>moveUserGroupPosition</strong></mark> 은 등록된 사용자 지정 그룹들을 <mark>일정한 간격으로 한꺼번에 이동</mark>시킵니다. 층 그룹에 적용하면 층이 서로 벌어지는 <mark>분해도</mark>가 됩니다.
+            <div class="explane_api">
+                U3dModelTdsLayer.<span class="api_name">moveUserGroupPosition</span> (<span class="param_name">x, y, z</span>)
+                <div class="explane_api_param">
+                    <span class="param_name">x, y, z</span>
+                    <span class="param_type">number</span> : 그룹 사이를 벌릴 간격. 각 축 방향, 기본값 0<br>
+                </div>
+            </div>
+        </div>
+        <label class="code-label"> 그룹을 간격 두고 벌리기 </label>
+        <div class="code" id="text5-code"></div>
+        <div class="code-text" id="text5" hidden="hidden">
+            layer.moveUserGroupPosition(0, 0, 5); // 그룹마다 z(높이) 방향으로 5m씩 벌림
+            layer.moveUserGroupPosition(0, 0, 0); // 0을 주면 원래 위치로 되돌아옴
+        </div>
+        <div class="explane1">
+            * <mark><strong>animateInterval</strong></mark> 은 위 이동을 <mark>지정한 시간에 걸쳐 부드럽게(애니메이션)</mark> 보여줍니다.<br>
+            * <mark><strong>stopAnimation</strong></mark> 은 진행 중인 애니메이션을 멈춥니다. 인자로 <mark>true</mark> 를 주면 멈춘 뒤 원위치로 되돌립니다.
+            <div class="explane_api">
+                U3dModelTdsLayer.<span class="api_name">animateInterval</span> (<span class="param_name">interval, x, y, z</span>)
+                <div class="explane_api_param">
+                    <span class="param_name">interval</span>
+                    <span class="param_type">number</span> : 이동이 완료되기까지의 시간을 정하는 값. <strong>총 소요 시간 ≈ interval × 0.5초</strong> 입니다 (예: 4 → 약 2초, 10 → 약 5초) <span class="important_tg">*필수 입력</span><br>
+                    <span class="param_name">x, y, z</span>
+                    <span class="param_type">number</span> : 그룹을 벌릴 목표 간격<br>
+                </div>
+            </div>
+            <div class="explane_api">
+                U3dModelTdsLayer.<span class="api_name">stopAnimation</span> (<span class="param_name">positionInit</span>)
+                <div class="explane_api_param">
+                    <span class="param_name">positionInit</span>
+                    <span class="param_type">boolean</span> : true 이면 애니메이션 정지 후 원래 위치로 복귀<br>
+                </div>
+            </div>
+        </div>
+        <label class="code-label"> 이동 애니메이션 재생 / 정지 </label>
+        <div class="code" id="text6-code"></div>
+        <div class="code-text" id="text6" hidden="hidden">
+            layer.animateInterval(4, 0, 0, 5); // 약 2초에 걸쳐 z 방향으로 5m씩 벌어지는 애니메이션
+            layer.stopAnimation(true);         // 애니메이션 정지 + 원위치 복귀
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,185 @@
+<template data-example-rail>
+    <button class="rail-button vector2d-rail-button" type="button" data-panel-target="vector2d-draw-panel" aria-expanded="false">
+        <span class="rail-icon" aria-hidden="true">✎</span><span>객체 그리기</span>
+    </button>
+    <button class="rail-button vector2d-rail-button" type="button" data-panel-target="vector2d-import-panel" aria-expanded="false">
+        <span class="rail-icon" aria-hidden="true">⇪</span><span>데이터 입력</span>
+    </button>
+</template>
+
+<aside class="glass-panel example-panel vector2d-panel" id="vector2d-draw-panel" aria-hidden="true">
+    <header class="panel-header">
+        <div>
+            <span class="eyebrow">VECTOR DRAWING</span>
+            <h2>2D 객체 그리기</h2>
+        </div>
+        <button class="panel-close" type="button" data-panel-close="vector2d-draw-panel" aria-label="2D 객체 그리기 닫기">×</button>
+    </header>
+
+    <div class="panel-content vector2d-panel-content">
+        <p class="panel-description">
+            도형 종류를 고르고 지도를 클릭해 <code>vectorLayer</code>에 2D 객체를 그립니다.
+        </p>
+
+        <section class="vector2d-section" aria-labelledby="vector2d-type-heading">
+            <h3 id="vector2d-type-heading">도형 종류</h3>
+            <div class="vector2d-type-grid" data-api-help="geometry.create">
+                <label>
+                    <input type="radio" name="vector2d-type" value="Point" checked>
+                    <span>포인트</span>
+                </label>
+                <label>
+                    <input type="radio" name="vector2d-type" value="LineString">
+                    <span>라인</span>
+                </label>
+                <label>
+                    <input type="radio" name="vector2d-type" value="Polygon">
+                    <span>폴리곤</span>
+                </label>
+            </div>
+            <p class="vector2d-hint" id="vector2d-type-hint">지도를 한 번 클릭하면 포인트가 완성됩니다.</p>
+        </section>
+
+        <section class="vector2d-section" aria-labelledby="vector2d-style-heading">
+            <h3 id="vector2d-style-heading">도형 스타일</h3>
+            <div class="vector2d-control-list">
+                <div class="vector2d-control-row vector2d-color-row">
+                    <label for="vector2d-stroke">선색상</label>
+                    <input id="vector2d-stroke" type="color" value="#000000">
+                    <output id="vector2d-stroke-value" for="vector2d-stroke">#000000</output>
+                </div>
+
+                <div class="vector2d-control-row vector2d-color-row">
+                    <label for="vector2d-fill">채움색</label>
+                    <input id="vector2d-fill" type="color" value="#ff0000">
+                    <output id="vector2d-fill-value" for="vector2d-fill">#FF0000</output>
+                </div>
+
+                <div class="vector2d-control-row vector2d-range-row">
+                    <label for="vector2d-stroke-opacity">선 투명도</label>
+                    <input id="vector2d-stroke-opacity" type="range" min="0" max="1" step="0.05" value="1">
+                    <output id="vector2d-stroke-opacity-value" for="vector2d-stroke-opacity">1.00</output>
+                </div>
+
+                <div class="vector2d-control-row vector2d-range-row">
+                    <label for="vector2d-fill-opacity">채움 투명도</label>
+                    <input id="vector2d-fill-opacity" type="range" min="0" max="1" step="0.05" value="0.7">
+                    <output id="vector2d-fill-opacity-value" for="vector2d-fill-opacity">0.70</output>
+                </div>
+
+                <div class="vector2d-control-row vector2d-number-row">
+                    <label for="vector2d-width">선두께</label>
+                    <input id="vector2d-width" type="number" min="0.1" max="500" step="0.1" value="1.5">
+                    <small>m</small>
+                </div>
+
+                <div class="vector2d-control-row vector2d-number-row">
+                    <label for="vector2d-radius">반경</label>
+                    <input id="vector2d-radius" type="number" min="1" max="500" step="1" value="10">
+                    <small>포인트</small>
+                </div>
+            </div>
+            <button id="vector2d-apply-style" class="vector2d-action primary" type="button" data-api-help="layer.style">
+                레이어 전체에 적용하기
+            </button>
+        </section>
+
+        <section class="vector2d-section" aria-labelledby="vector2d-search-heading">
+            <h3 id="vector2d-search-heading">교차 검색</h3>
+            <label class="vector2d-option-row" data-api-help="geometry.intersects">
+                <input id="vector2d-select-mode" type="checkbox">
+                <span class="vector2d-option-copy">
+                    <strong>교차검색 모드</strong>
+                    <small>그린 도형과 겹치는 객체를 찾아 강조합니다</small>
+                </span>
+            </label>
+            <button id="vector2d-clear-highlight" class="vector2d-action" type="button" data-api-help="layer.highlight-clear">
+                검색객체 초기화
+            </button>
+        </section>
+
+        <section class="vector2d-section" aria-labelledby="vector2d-animation-heading">
+            <h3 id="vector2d-animation-heading">동적 도형</h3>
+            <label class="vector2d-option-row" data-api-help="feature.update">
+                <input id="vector2d-animation" type="checkbox" checked>
+                <span class="vector2d-option-copy">
+                    <strong>공전하는 원</strong>
+                    <small>홈 위치 주변을 도는 원의 좌표를 매 프레임 갱신합니다</small>
+                </span>
+            </label>
+        </section>
+
+        <section class="vector2d-section vector2d-result-card" data-api-help="layer.feature-query" tabindex="0" aria-labelledby="vector2d-result-heading">
+            <div class="vector2d-result-heading">
+                <h3 id="vector2d-result-heading">조회 결과</h3>
+                <span id="vector2d-result-status">클릭 대기</span>
+            </div>
+            <dl id="vector2d-result-data">
+                <div><dt>경도</dt><dd id="vector2d-result-lon">-</dd></div>
+                <div><dt>위도</dt><dd id="vector2d-result-lat">-</dd></div>
+                <div><dt>조회 객체</dt><dd id="vector2d-result-feature">-</dd></div>
+                <div><dt>교차 객체</dt><dd id="vector2d-result-intersect">-</dd></div>
+            </dl>
+            <button id="vector2d-clear" class="vector2d-action" type="button" data-api-help="layer.clear">
+                지우기
+            </button>
+        </section>
+    </div>
+</aside>
+
+<aside class="glass-panel example-panel vector2d-panel" id="vector2d-import-panel" aria-hidden="true">
+    <header class="panel-header">
+        <div>
+            <span class="eyebrow">VECTOR IMPORT</span>
+            <h2>데이터 입력</h2>
+        </div>
+        <button class="panel-close" type="button" data-panel-close="vector2d-import-panel" aria-label="데이터 입력 닫기">×</button>
+    </header>
+
+    <div class="panel-content vector2d-panel-content">
+        <p class="panel-description">
+            WKT, GeoJSON, TopoJSON 문자열을 읽어 2D 객체로 만듭니다.
+        </p>
+
+        <section class="vector2d-section" aria-labelledby="vector2d-crs-heading">
+            <h3 id="vector2d-crs-heading">입력 데이터 좌표계</h3>
+            <div class="vector2d-control-row vector2d-text-row">
+                <label for="vector2d-source-crs">EPSG</label>
+                <input id="vector2d-source-crs" type="text" value="EPSG:3857">
+            </div>
+            <p class="vector2d-hint">아래 세 형식이 공통으로 사용할 원본 좌표계입니다. 위경도 좌표는 <code>EPSG:4326</code>을 사용합니다.</p>
+        </section>
+
+        <section class="vector2d-section" aria-labelledby="vector2d-format-heading">
+            <h3 id="vector2d-format-heading">데이터 형식</h3>
+            <div class="vector2d-format-grid" data-api-help="import.data">
+                <label>
+                    <input type="radio" name="vector2d-format" value="wkt" checked>
+                    <span>WKT</span>
+                </label>
+                <label>
+                    <input type="radio" name="vector2d-format" value="geojson">
+                    <span>GeoJSON</span>
+                </label>
+                <label>
+                    <input type="radio" name="vector2d-format" value="topojson">
+                    <span>TopoJSON</span>
+                </label>
+            </div>
+            <p class="vector2d-hint" id="vector2d-format-hint">여러 개는 JSON 배열로, 하나는 큰따옴표로 감싼 문자열로 입력합니다. 만든 도형은 vectorLayer에 더해집니다.</p>
+        </section>
+
+        <section class="vector2d-section" aria-labelledby="vector2d-input-heading">
+            <h3 id="vector2d-input-heading">데이터 입력</h3>
+            <textarea id="vector2d-import-text" class="vector2d-textarea" rows="8" aria-label="데이터 입력"></textarea>
+            <button id="vector2d-import-add" class="vector2d-action primary" type="button" data-api-help="import.data">
+                적용하기
+            </button>
+        </section>
+
+        <section class="vector2d-section" aria-labelledby="vector2d-import-result-heading">
+            <h3 id="vector2d-import-result-heading">불러오기 결과</h3>
+            <p id="vector2d-import-status" class="vector2d-hint" role="status">아직 불러온 데이터가 없습니다.</p>
+        </section>
+    </div>
+</aside>

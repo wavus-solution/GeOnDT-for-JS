@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>SHP 사용자 텍스처 모델 레이어 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        .col-sm-3 {
+            width: 23%
+        }
+
+        .ex-explanation {
+            width: 800px;
+        }
+
+        #analy-popup .div-popup {
+            width: 1190px;
+            height: 270px;
+        }
+
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu="return false;">
+    <div>
+        <img src="image/solution_GeOnDT.png"  alt="">
+        <span style="font-size: 14px">: SHP 사용자 텍스처 모델 레이어</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead" style="font-size: 16px">
+        Shp 파일을 업로드하여 3D 모델을 생성하는 레이어 예제입니다. <br>
+        <mark>텍스처 지정 함수(multiSideFunction)</mark>를 통해 사용자가 모델의 각 면마다 원하는 텍스처를 지정할 수 있습니다.
+    </p>
+    <pre>지도상에 설계건물(shp 파일)을 추가할 수 있습니다.
+        1. textureList에 배열 형대로 사용할 사용자 텍스처를 저장합니다.
+        2. shp 블러오기 버튼으로 저장된 shp 파일을 읽어옵니다.
+        3. U3dModelShapeLayer 생성 시 styleFunction return 옵션으로 multipleTexture: true 와 multiSideFunction 함수를 지정합니다.
+        4. multiSideFunction은 파라미터로 (mesh, vertices ,width)를 받습니다. 해당 파라미터를 기준으로 사용자가 생성된 3D모델을 다양한 텍스처로 스타일링 할수 있습니다.
+    </pre>
+</div>
+<div id="map-wrapper">
+    <div>
+        <div id="map"></div>
+        <div id="div-left-menu">
+            <div id="left-menu-list-panel">
+                <div class="form-group div-layer">
+                    <div class="div-category">
+                        <label class="label-layerType">
+                            레이어
+                        </label>
+                    </div>
+                    <div id="layer-list">
+                        <div class="div-sub-category">
+                            <div class="sub-category-tile">
+                                <label class="label-layerType">
+                                    이미지 레이어
+                                </label>
+                                <div class="category-btn-group">
+                                    <label class="expand-btn layer">
+                                        <img src="image/btn_expand.svg" alt="">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sub-category-content">
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="satellite">
+                                        VWorld Satellite
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="base">
+                                        VWorld Base
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="hybrid">
+                                        VWorld Hybrid
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="osm">
+                                        OSM
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="google">
+                                        Google
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="emapsat">
+                                        Emap Satellite
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="emapbase">
+                                        Emap Base
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="div-sub-category">
+                            <div class="sub-category-tile">
+                                <label class="label-layerType">
+                                    지형 레이어
+                                </label>
+                                <div class="category-btn-group">
+                                    <label class="expand-btn layer">
+                                        <img src="image/btn_expand.svg" alt="">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sub-category-content">
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="korea_terrain">
+                                        전체 지형
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div style="display: inline-flex; position: relative">
+                    <button id="left-menu-bnt" class="btn btn-xs menu-btn">
+                        <img src="image/left_panel_open_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                    </button>
+                    <div class="div-btn-info" hidden>
+                        레이어 탭 열기
+                    </div>
+                </div>
+                <div>
+                    <div style="display: inline-flex; position: relative">
+                        <button id="analy-bnt" class="btn btn-xs menu-btn">
+                            <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                        </button>
+                        <div class="div-btn-info" hidden>
+                            분석 팝업 열기
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="btn-group" id='top-sbar'>
+            <div class='btn-group-vertical-block' id='right-toolbar'>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                    <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                         src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                         alt="나침반">
+                </button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                        id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                        id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                        id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg"
+                                                                     alt="">
+                </button>
+            </div>
+            <div class='btn-group' id='bt-bottom-bar'>
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                       value="위경도: ##.####  ###.#### ">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                       value="고도:####">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                       value="각도: ##">
+            </div>
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu="return false;">
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content">
+                <div class="col-sm-3">
+                    <div class="form-group" style="margin-bottom: 5px">
+                        <div class="btn btn-default btn-xs btn-gizmo" id="translate">위치편집</div>
+                        <div class="btn btn-default btn-xs btn-gizmo" id="rotate">화전편집</div>
+                        <div class="btn btn-default btn-xs btn-gizmo" id="scale">크기편집</div>
+                        <div class="btn btn-default btn-xs btn-gizmo" id="end">편집종료</div>
+                        <div class="btn btn-default btn-xs" id="sunAmount">일조량 분석</div>
+                    </div>
+                    <div class="form-group" style="margin-left: 10px">
+                        <div class="row" style="border: 2px solid #aaaaaa; border-radius: 5px; ">
+                            <div class="row" style="margin-top: 10px;margin-left: 10px;">
+                                <label for="stroke" class="control-label">건물색상</label>
+                            </div>
+                            <div class="row" style="margin-top: -5px; margin-left: 10px">
+                                <input id="stroke" type="color" name="stroke" value="#2d5625" style="width:70px;">
+                            </div>
+                            <div class="row" style="margin-top: 10px; margin-left: 10px">
+                                <label for="stroke" class="control-label">투명도 (0-1 사이의 소수)</label>
+                            </div>
+                            <div class="row" style="margin-top: -5px; margin-left: 10px; padding-bottom: 5px">
+                                <input id="transparent" name="transparent" style="width:85px;" value="1" min="0" max="1"
+                                       type="number" step="0.1">
+                                <button class="btn btn-default btn-sm apply" id="layer-apply" style="width:70px;">전체적용
+                                </button>
+                                <button class="btn btn-default btn-sm apply" id="apply" style="width:70px;">적용</button>
+                            </div>
+                        </div>
+                        <div class="row" style="margin-top: 6px;">
+                            <label for="stroke" class="control-label">라벨</label>
+                        </div>
+                        <div class="row" style="margin-top: -6px;">
+                            <input id="label" name="label" style="width:155px;">
+                            <button class="btn btn-default btn-sm label-apply" id="label-apply" style="width:70px;">
+                                라벨적용
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <div class="d-flex">
+                                <div>설계건물(shp) 목록</div>
+                                <div class="flex-1 text-right">
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-xs btn-save-building">저장</div>
+                                        <div class="btn btn-default btn-xs btn-load-building">불러오기</div>
+                                    </div>
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-xs btn-cancel-all">전체지우기</div>
+                                    </div>
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-xs btn-select-floor toggle">층 선택</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                        <div class="remove-target-list h-300 scroll-auto panel-body">
+                            <pre>설계건물(shp)이 없습니다</pre>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-5">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <div class="d-flex">
+                                <div>선택된 건물 목록</div>
+                                <div class="flex-1 text-right">
+                                    <div class="btn-group">
+                                        <select name="mode" class="form-control input-sm">
+                                            <option value="point">클릭으로 선택 (Shift + click 시 다중선택 지원)</option>
+                                            <option value="area">영역으로 선택</option>
+                                        </select>
+                                    </div>
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-sm btn-select toggle">선택</div>
+                                    </div>
+                                    <div class="form-group col-sm-4">
+                                        <label class="col-sm-12" style="display: inline-block;">imageFlip
+                                            <input type="checkbox" id="imageFlipY" checked>
+                                        </label>
+                                    </div>
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-sm btn-obj-export">OBJ export</div>
+                                        <div class="btn btn-default btn-sm btn-umesh-export">UMesh export</div>
+                                    </div>
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-sm btn-select-clear">선택 초기화</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="select-target-list h-300 scroll-auto panel-body">
+                            <pre>선택된 건물이 없습니다.</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="execute-event">
+    let strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function () {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function () {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function () {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function () {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "200px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script id="set-imagelayer">
+    let ImageLayer = function (Union3D, app, opt) {
+        this._type = "ImageLayer";
+        this.layer = undefined;
+        this._union3d = Union3D;
+        this._app = app;
+        this._name = opt.name;
+        this.options = opt;
+        this.ready = $.Deferred();
+    }
+    ImageLayer.prototype.create = function () {
+        let self = this;
+        if (self._name === 'emapbase') {
+            self.layer = self._app.createEmapBaseLayer(this.options);
+        } else if (self._name === 'emapsat') {
+            self.layer = self._app.createEmapSatLayer(this.options);
+        } else {
+            self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
+            self._app.addLayer(this.layer);
+        }
+        this.layer.then(() => {
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+    ImageLayer.prototype.show = function (isShow) {
+        let promies = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow ? "시작" : "종료"));
+        this._app.showLayer(this.options.name, isShow).then(() => {
+            promies.resolve();
+        })
+        this.isShow = isShow;
+        return promies;
+    }
+</script>
+<script id="set-terrain">
+    let HeightLayer = function (Union3D, app, opt) {
+        this._type = "HeightLayer";
+        this.layer = undefined;
+        this._app = app;
+        if (opt.rectangle === undefined)
+            opt.rectangle = Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수
+        this.options = opt;
+        this._name = opt.name;
+        this.ready = $.Deferred();
+    }
+    HeightLayer.prototype.create = function () {
+        let self = this;
+        self.layer = this._app.createHeightXYZLayer(self.options);
+        self.layer.then(() => {
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+    HeightLayer.prototype.show = function (isShow) {
+        let promies = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow ? "시작" : "종료"));
+        this._app.showLayer(this.options.name, isShow).then(() => {
+            promies.resolve();
+        })
+        this.isShow = isShow;
+        return promies;
+    }
+</script>
+<script id="layer-setting">
+    const LAYER_OPT = {
+        satellite: {
+            name: 'satellite',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldsaturl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+        },
+        base: {
+            name: 'base', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldbaseurl,  //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            transparent: true //+ layer 투명화 여부
+        },
+        hybrid: {
+            name: 'hybrid', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldhybirdurl,  //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            transparent: true //+ layer 투명화 여부
+        },
+        osm: {
+            name: 'osm', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.osmurl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            transparent: true, //+ layer 투명화 여부
+        },
+        google: {
+            name: 'google',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.googleurl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            transparent: true,  //+ layer 투명화 여부
+        },
+        emapsat: {
+            name: 'emapsat',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            url: layerInfo.image.emapsaturl, //+ 레이어 url, defaultValue(opt.url, 'http://210.117.198.120:8081/o2map/services');
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            useProxy: true, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+            xyorder: "xy" //+ Col Row 순서, defaultValue(opt.xyorder, 'xy');
+        },
+        emapbase: {
+            name: 'emapbase', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            url: layerInfo.image.emapbaseurl, //+ 레이어 url, defaultValue(opt.url, 'http://mapapi.ngii.go.kr:8013/openapi/Gettile.do');
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            useProxy: true, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+            xyorder: "xy", //+ Col Row 순서, defaultValue(opt.xyorder, 'xy');
+        },
+        korea_terrain: {
+            name: 'korea_terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            ext: '.umf', //+ 파일 확장자, *필수 입력
+            reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+            minlevel: 9,  //+ 가시화 최소 레벨
+            maxlevel: 15, //+ 가시화 최대 레벨
+            useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+            maxprocess: 2, //+ process 최대값
+            interpolationheight: true,  //+ 고도보간 기능 사용 여부
+        }
+    };
+
+    let LayerList = function (Union3D, app) {
+        return {
+            //이미지레이어
+            satellite: new ImageLayer(Union3D, app, LAYER_OPT.satellite),
+            base: new ImageLayer(Union3D, app, LAYER_OPT.base),
+            hybrid: new ImageLayer(Union3D, app, LAYER_OPT.hybrid),
+            osm: new ImageLayer(Union3D, app, LAYER_OPT.osm),
+            google: new ImageLayer(Union3D, app, LAYER_OPT.google),
+            emapsat: new ImageLayer(Union3D, app, LAYER_OPT.emapsat),
+            emapbase: new ImageLayer(Union3D, app, LAYER_OPT.emapbase),
+
+            //고도레이어
+            korea_terrain: new HeightLayer(Union3D, app, LAYER_OPT.korea_terrain)
+        }
+    }
+</script>
+<script>
+    window.shpList = [];
+    let textureList = [
+        `${dataServerUrl}shp/image/buld/main_roof.png`,
+        `${dataServerUrl}shp/image/buld/main_wall_none.png`,
+        `${dataServerUrl}shp/image/buld/main_wall_window_s.png`,
+        `${dataServerUrl}shp/image/buld/main_wall_window_L.png`,
+        `${dataServerUrl}shp/image/buld/main_brand.png`
+    ]
+
+    Union3D.ready(async function () {
+        //지도 기본 세팅///////////////////////////////////////
+        window.app = new Union3D.U3dAPP({
+            containername: 'map' //+ U3dApp(지도영역)의 div ID, *필수 입력
+        });
+        app.setIntensityLight(0.8);
+        app.setHomePosition(126.96581614997346, 37.523504862572274, 2000, 0, 45); //경도, 위도, 높이, 방위각, 고도각
+        app.updateHomePosition();
+
+        app.on('change', updatePosData);
+        app.createloadingBar('load');
+        app.loadingBar();
+
+        //일조량 분석모드 생성
+        const analy = app.getAnalysis("SunAmount");
+        analy.active();
+        analy.setMeasureRadius(10);
+        //이미지 레이어 생성
+        let layers = new LayerList(Union3D, app);
+        let initLayerList = ['satellite', 'korea_terrain']
+        initLayar(initLayerList);
+
+        try {
+            await loadShpFile(layerInfo.shp.buildings6);
+        }catch(e){
+            console.log("loadShpFile is fail.")
+        }
+
+        app.endloadingBar();
+
+        let analyGizmoModel = app.getAnalysis('GizmoModel');
+        analyGizmoModel.setTargetScene(app.getScene());
+        let gizmoObject = undefined;
+        let isGizmo = false;
+
+        async function loadShpFile (url) {
+            return new Promise((resolve, reject) => {
+                let lastIndex = url.lastIndexOf("/");
+                let lastString  = url.substring(lastIndex+1, url.length);
+
+                let name = "";
+                let dotIndex = lastString.lastIndexOf(".");
+                if(dotIndex > -1) {
+                    name = lastString.substring(0, dotIndex);
+                }else {
+                    name = lastString;
+                }
+
+                $.ajax({
+                    url: url
+                    , type: 'GET'
+                    , async: true
+                    , processData: false
+                    , contentType: false
+                    , success: function (jsonObj) {
+                        if(typeof(jsonObj) === 'string')
+                            jsonObj = JSON.parse(jsonObj);
+
+                        shpList.push({
+                            name : name,
+                            featureCollection : jsonObj
+                        });
+                        resolve();
+                    }
+                    , fail: function (request, status, error) {
+                        reject();
+                    }
+                });
+            });
+
+        }
+
+        $(document).on('click', '.input-showLayer:input[type=checkbox]', function (e) {
+            const $checkbox = $(e.target);
+            const name = $checkbox.attr('target');
+            checkLayer(name, $checkbox[0].checked);
+        });
+
+        function checkLayer(name, checked) {
+            if (checked) {
+                if (layers[name].layer === undefined) {
+                    layers[name].create();
+                }
+                layers[name].show(true);
+            } else {
+                layers[name].show(false);
+            }
+        }
+
+        function initLayar(list) {
+            const basename = list[0];
+            Union3D.UDEF.createPromise((resolve) => {
+                list.forEach((name) => {
+                    if (layers[name].layer === undefined) {
+                        layers[name].create();
+                        layers[name].ready.then(() => {
+                            if (name === basename)
+                                app.setNameBaseLayer(name);
+
+                            app.showLayer(name, true);
+                            $('.input-showLayer:input[target=' + name + ']').prop("checked", true);
+                        });
+                    }
+                });
+                resolve(true);
+            });
+        }
+
+        $('#choose').click(function () {
+            $('#getfile').click();
+        });
+        let layerList = [];
+
+        function creatLayer(param) {
+            if (param === undefined || param === null)
+                return;
+            let featureCollection = param.featureCollection;
+            let layer = new Union3D.model.U3dModelShapeLayer({
+                name: param.name,
+                minlevel: 17,
+                drawline: true,
+                useproxy: true,
+                fieldFloor: 'NumOfFloors', // 층수 필드
+                // fieldheight: 'height', // 건물 높이 필드
+                floorHeight: 3.3, // 한 층 당 높이
+                setTopSideStyle: false, // 옆면, 윗면 각각 style 설정 유무
+                styleFunction: styleFunction,
+                textureurl: textureList,
+            });
+            app.addLayer(layer);
+            window.layer = layer;
+
+            window.points =[];
+            let count = 0;
+            try {
+                app.loadingBar();
+                layer.ready(()=>{
+                    //레이어 이벤트 추가
+                    // 호출 순서 : mesh-loaded -> mesh-drawn -> layer-loaded
+
+                    // shp 파일의 feature Collection을 바탕으로  mesh를 불러오는 작업이 완료 됬을때 호출되는 이벤트
+                    // layer.addFeatureCollection() 함수가 호출된 이후, 각각의 feature 정보로 mesh를 생성하고 이를 layer modelList에 적재한 다음 호출
+                    layer.on('mesh-loaded', function (e) {
+                        console.log(e.data.getUid() +  " is loaded");
+                    });
+
+                    // layer의 작업이 완료 됬을 때 호출되는 이벤트
+                    // 작업 대기 중인 모든 mesh가 씬에 적재되고 그려진 이후 호출된다.
+                    // 다른 layer-loaded 이벤트와 식별하기 위해 event callback 함수 다음 파라미터로 이름을 준다.
+                    //  layer.once()로 호출할 경우 이름은 생략 가능하지만
+                    //  layer.on()으로 호출해 layer가 update되고 작업이 완료될때마다 호출하고 싶다면 이름을 꼭 넣어줘야한다!!!
+                    layer.once('layer-loaded', function () {
+                        console.log("layer-loaded");
+                        app.endloadingBar();
+
+                    }, "user");
+
+                    // mesh가 레이어의 씬에 적재되어 그려진 질 때마다 호출되는 이벤트.
+                    layer.on('mesh-drawn', function (e) {
+                        const mesh = e.data;
+                        console.log(mesh.getUid() +  " is drawn");
+                    });
+
+                    if (featureCollection.features.length > 0) {
+                        app.showLayer(layer.getName(), true);
+                        layer.addFeatureCollection(featureCollection).then(()=>{
+                            layerList.push(layer);
+                            printShpModels();
+                            app.fitLayerExtent(layer.getName(), false, -100);
+                        });
+                    }
+                });
+            } catch (e) {
+                confirm(e.message);
+            }
+        }
+
+        function styleFunction() {
+            return {
+                color: 0xcccccc, //+ 색상 입력 가능
+                opacity: 1, //+투명도 입력 가능
+                visible: true, //+ 가시화 여부
+                imgvisible: true,
+                multipleTexture: true,
+                multiSideFunction : multiSideFunction,
+            };
+        }
+        window.fristMesh = undefined;
+        //벽 이미지 지정 함수
+        window.sumWidth = 0;
+        function multiSideFunction(mesh, vertices ,width, floor, normal) {
+            let geometry = mesh.geometry;
+            let depth = geometry.parameters.options.depth;
+            let step = geometry.parameters.options.steps;
+            let maxHeight = mesh.position.z + depth/2;
+            let floorHeight = depth / step;
+
+            let userStyle = {};
+            userStyle.materialIndex =[1];
+
+            const epsilon = 0.01; // 오차 범위 설정
+
+            //천장 또는 밑면일 경우
+            if (floor === 'roof') {
+                userStyle.materialIndex =[0];
+                userStyle.imageSize = 1024;
+                if(mesh._uproperties.type === "Model_Rectangle") {
+                    userStyle.repeat = 7;
+
+                }else {
+                    userStyle.repeat = 10;
+                }
+            }
+            else {
+                if(!window.fristMesh) window.fristMesh = mesh;
+                if(window.fristMesh.uuid === mesh.uuid){
+
+                    const faceCenter = new GeOnDT.THREE.Vector3 ( // mesh face의 정점의 중심점으로 추가
+                        (vertices[0].x + vertices[1].x + vertices[2].x)/ 3,  // x 좌표의 평균
+                        (vertices[0].y + vertices[1].y + vertices[2].y) / 3,  // y 좌표의 평균
+                        (vertices[0].z + vertices[1].z + vertices[2].z) / 3   // z 좌표의 평균
+                    );
+                    points.push(faceCenter); // 분석 점을 추가한다.
+                }
+
+                if (width >8) {
+                    userStyle.materialIndex =[3]; // 특정 너비 이상의 9옆면 텍스처 적용
+                }
+                else if (width <5) {
+                    userStyle.materialIndex =[2];
+                }else {
+                    userStyle.materialIndex =[1];
+                    //아파트 로고 출력
+                    let logPosition = maxHeight - floorHeight;
+                    if (Math.abs(logPosition - vertices[2].z) < epsilon ) {
+                        userStyle.materialIndex = [1,4];
+                        userStyle.imageScale = 0.7;
+                    }
+                }
+            }
+
+            return userStyle;
+        }
+
+        let isFloorSelectMode = false;
+        $('.btn-select-floor').on('click', function () {
+            const $this = $(this);
+            if (!isFloorSelectMode) {
+                selectOff(); // 건물 선택 모드 해제
+                selectFloorOn();
+                isFloorSelectMode = true;
+                $this.addClass('active');
+            } else {
+                selectFloorOff();
+                isFloorSelectMode = false;
+                $this.removeClass('active');
+            }
+        });
+
+        function selectFloorOn () {
+            app.on('click', selectFloor);
+        }
+
+        function selectFloorOff () {
+            //층을 선택을 클리어 하는 함수.
+            // 파라미터로 특정 모델을 주면 모델에 해당하는 선택만 초기화 가능.
+            layer.clearSelectFloor(); // layer.clearSelectFloor(mesh1);
+            app.off('click', selectFloor);
+        }
+
+        function selectFloor(e) {
+            const intersects = app.intersectAtPixel(e);
+            if(intersects && intersects.length > 0) {
+                let mesh = intersects[0].object;
+                if(mesh) {
+                    // 모델 mesh의 face로 절대 좌표를 구한다.
+                    let vertices = mesh.getVertexAsFace([intersects[0].face.a,intersects[0].face.b, intersects[0].face.c], true);
+
+                    // 모델과 층의 정점(절대 좌표)을 입력해 해당 정점이 위치하는 층 정보를 얻는 함수
+                    // 한 면(face)을 구성하는 세 정점을 배열로 넣거나 하나의 정점을 파라미터로 넣을 수 있다.
+                    let floor = layer.getFloor(mesh, vertices);
+                    let floor2 = layer.getFloor(mesh, intersects[0].point);
+                    console.log(floor + ", " + floor2);
+
+                    if(floor) {
+                        //getFloor 함수의 기능 + 해당 층을 highLight하는 함수
+                        // 정점 외 층을 파라미터로 넣어 highLight 할 수 있다.
+                        // 한 모델 당 하나의 층을 선택 할 수 있다. 서로 다른 모델 간에는 복수 선택이 가능하다.
+                        let highLightOpt = {
+                            color : "#E00000",
+                            opacity : 0.5 // 0을 주면 선택한 층이 투명하게 나타난다.(층 클리핑)
+                        }
+                        layer.setSelectFloor(mesh, floor, highLightOpt); // 또는  layer.setSelectFloor(mesh, vertices, highLightOpt); 둘 다 가능.
+
+                        // 모델의 전체 층 정보를 순회 하는 함수
+                        // 지붕이나 밑면은 floor가 'roop' 로 입력됩니다.
+                        // layer.traverseAllFloor(mesh, function (mesh, vertices, width, floor, normals) {
+                        //     console.log(floor);
+                        // });
+
+                        // 모델의 특정 층 정보를 순회 하는 함수
+                        points = [];
+                        layer.traverseFloor(mesh, floor, function (mesh, vertices, width, floor, normals) {
+                            console.log(`floor : ${floor} , width : ${width}`);
+
+                            const faceCenter = new GeOnDT.THREE.Vector3 ( // mesh face의 정점의 중심점으로 추가
+                                (vertices[0].x + vertices[1].x + vertices[2].x + vertices[3].x)/ 4,  // x 좌표의 평균
+                                (vertices[0].y + vertices[1].y + vertices[2].y + vertices[3].y) / 4,  // y 좌표의 평균
+                                (vertices[0].z + vertices[1].z + vertices[2].z + vertices[3].z) / 4   // z 좌표의 평균
+                            );
+                            points.push(faceCenter); // 분석 점을 추가한다.
+                        });
+                    }
+                }
+            }
+        }
+
+        function printShpModels() {
+            let list = layerList;
+            let str = '';
+            list.forEach(function (object) {
+                str += '<div class="d-flex layer" name="' + object.getName() + '">';
+                str += '<div class="flex-1 layer-name-div">' + object.getName() + '</div>';
+                str += '<div class="text-right">';
+                str += '<div class="btn-group">';
+                str += '<div class="btn btn-xs btn-default btn-showLabel">라벨보기</div>';
+                str += '<div class="btn btn-xs btn-default btn-hideLabel">라벨숨김</div>';
+                str += '<div class="btn btn-xs btn-danger btn-cancel-remove">삭제</div>';
+                str += '</div>';
+                str += '</div>';
+                str += '</div>';
+            });
+
+
+            str = str === '' ? '<pre>설계건물(shp)이 없습니다</pre>' : str;
+            $('.remove-target-list').html(str);
+
+        }
+
+        //일조량 분석 수행
+        $(document).on('click', '#sunAmount', function () {
+            app.endAnalySunAmount();
+            if(!points || points.length ===0)
+                return;
+            app.loadingBar();
+            activeSunAmount(points);
+            points = [];
+        });
+
+        $(document).on('click', '.layer-name-div', function () {
+            let name = $(this).closest('.layer').attr('name');
+            let layer = app.getLayerByName(name);
+            if (layer !== undefined) {
+                selectOn();
+                select.addSelected(layer._modelList)
+            }
+        });
+
+        //레이어 라벨 보이기
+        $(document).on('click', '.btn-showLabel', function () {
+            let name = $(this).closest('.layer').attr('name');
+            let layer = app.getLayerByName(name);
+            layer.showLabel(true);
+        });
+
+        //레이어 라벨 감추기
+        $(document).on('click', '.btn-hideLabel', function () {
+            let name = $(this).closest('.layer').attr('name');
+            let layer = app.getLayerByName(name);
+            layer.showLabel(false);
+        });
+
+        // 설계건물 삭제
+        $(document).on('click', '.btn-cancel-remove', function () {
+            let name = $(this).closest('.layer').attr('name');
+
+            let layer = app.getLayerByName(name);
+            if (layer)
+                app.removeLayer(layer);
+            let idx = layerList.findIndex(function (layer_) {
+                return layer_ === layer;
+            });
+            if (idx > -1) {
+                layerList.splice(idx, 1);
+                document.querySelector('#getfile').value = "";
+                printShpModels();
+            }
+        });
+
+        // 전체 지우기
+        $('.btn-cancel-all').on('click', function () {
+            layerList.forEach(function (value) {
+                let name = value.getName();
+                app.removeLayer(name);
+            });
+            layerList = [];
+            printShpModels();
+        });
+
+        // 저장하기
+        $('.btn-save-building').on('click', function () {
+            layerList.forEach(function (value) {
+                let saveData = value.getParam();
+                saveData.featureCollection = value.getFeatureCollection();
+                saveParameter.push(JSON.stringify(saveData));
+            });
+
+            confirm('설계건물 작업이 저장되었습니다.')
+        });
+
+        // 불러오기
+        $('.btn-load-building').on('click', function () {
+            $('.btn-cancel-all').click();
+
+            if (shpList.length === 0) {
+                confirm('저장된 설계건물 목록이 없습니다');
+                return;
+            }
+
+            shpList.forEach(function (param) {
+                creatLayer(param)
+            });
+            printShpModels();
+            confirm(shpList.length + "개의 설계건물(shp)을 불러왔습니다.");
+        });
+
+        //선택 모듈 기본 설정
+        let select;
+        let isSelectMode = false;
+        $('.btn-select').on('click', function () {
+            const $this = $(this);
+            if (!isSelectMode) {
+                selectOn();
+                isSelectMode = true;
+                $this.addClass('active');
+            } else {
+                selectOff();
+                isSelectMode = false;
+                $this.removeClass('active');
+            }
+
+        });
+        $(document).on('click', 'input[type=checkbox]', checked);
+
+        function checked(e) {
+            var $checkbox = $(e.target);
+            if ($checkbox[0].checked) {
+                app.setFlyMode();
+                app.getDomElement().focus();
+            } else {
+                app.setPanMode();
+            }
+        }
+
+        //선택 모듈 활성화
+        function selectOn() {
+            selectFloorOff();
+            if (select !== undefined) {
+                return;
+            }
+            select = new Union3D.select.U3dSelect({mode: 'point'});
+            window.selector = select;
+            app.addSelect(select);
+            // selector 스타일 변경, addSelect() 실행 후, 아래 API 호출해야 적용가능
+            select.setSelectorColor({ //선택 영역 스타일 변경, resetSelectorColor() -> 기본설정으로 초기화
+                stroke: {
+                    color: 'rgba(255, 255, 0, 1.0)',
+                    width: 3
+                },
+                fill: {
+                    color: 'rgba(255,0,255,0.5)'
+                }
+            });
+            select.setSelectedColor('rgba(255,100,0)', 0.4);
+            select.active();
+            //건물선택시 발생되는 이벤트
+            select.on('change', printSelectedList);
+        }
+
+        //선택 모듈 비활성화
+        function selectOff() {
+            if (select === undefined) {
+                return;
+            }
+            select.deactive();
+            app.removeSelect(select);
+            select.off('change', printSelectedList);
+            select = undefined;
+        }
+
+        //선택모드 설정
+        $(document).on('change', 'select[name="mode"]', function () {
+            if (select === undefined) {
+                $('.btn-select').trigger('click');
+            }
+            select.setMode(this.value); //선택 방식을 설정하는 함수
+        });
+
+
+        $(document).on('click', '.btn-obj-export', function () {
+            select.clearHighlights();
+            let selectedList = select.getSelected();
+            exportOBJ(selectedList);
+            select.clear();
+        });
+
+        $(document).on('click', '.btn-umesh-export', function () {
+            select.clearHighlights();
+            let selectedList = select.getSelected();
+            exportUMesh(selectedList);
+            select.clear();
+        });
+
+        function exportOBJ(meshes) {
+            const fileName = 'GeOnDT_file.obj';
+            const parsingOpt = {
+                parseMaterial : true,
+                mtlFileName : 'GeOnDT_file'
+            }
+
+            const objWriter =  new Union3D.writer.UOBJWriter();
+            objWriter.parse(meshes, parsingOpt).then((data)=> {
+
+                // .obj 파일 다운
+                const element = document.createElement('a');
+                const objectURL = URL.createObjectURL(data.obj);
+
+                document.body.appendChild(element);
+                element.download = fileName;
+                element.href = objectURL;
+                element.click();
+
+                element.remove();
+
+                // .mtl 파일 다운
+                const element2 = document.createElement('a');
+                const mtlURL = URL.createObjectURL(data.mtl.blob);
+
+                document.body.appendChild(element2);
+                element2.download = data.mtl.name;
+                element2.href = mtlURL;
+                element2.click();
+
+                element2.remove();
+
+                // 리소스 파일 다운
+                let resource = data.mtl.resource
+                resource.forEach((image)=>{
+                    const element = document.createElement('a');
+                    const imageURL = URL.createObjectURL(image.blob);
+
+                    document.body.appendChild(element);
+                    element.download = image.name;
+                    element.href = imageURL;
+                    element.click();
+
+                    element.remove();
+
+                })
+
+                toast('obj file Export Success.');
+            });
+        }
+
+        function exportUMesh(selected) {
+            const UMeshWriter = new Union3D.writer.UMeshWriter({
+                app : app,
+            });
+
+            let meshes = [];
+            selected.forEach((mesh, idx)=>{
+                let meshMap = {};
+                let items = [];
+                meshMap.type = "mesh"
+                meshMap.name = "UMesh_" + idx;
+                mesh.traverse((child)=>{
+                    if(child.isMesh) {
+                        items.push(child)
+                    }
+                });
+                meshMap.items = items;
+                meshes.push(meshMap);
+            });
+
+            let imageFlipY = $("#imageFlipY").is(':checked');
+            let writeInfo = {
+                imageFlipY : imageFlipY
+            }
+
+            UMeshWriter.write(meshes, writeInfo).then((data)=> {
+
+                // .umesh 파일 다운
+                const fileName = 'GeOnDT_file.umesh';
+                const element = document.createElement('a');
+                const umeshBlobUrl = URL.createObjectURL(data.umesh); // object url 생성
+                element.download = fileName;
+                element.href = umeshBlobUrl;
+                element.click();
+
+                document.body.appendChild(element);
+                element.remove();
+                toast('umesh file Export Success.')
+
+                // 리소스 다운
+                const resource = data.resource
+                resource.forEach((image)=>{
+                    const fileName = image.name;
+                    const element = document.createElement('a');
+                    const resourceBlobUrl = URL.createObjectURL(image.blob); // object url 생성
+                    element.download = fileName;
+                    element.href = resourceBlobUrl;
+                    element.click();
+
+                    document.body.appendChild(element);
+                    element.remove();
+                });
+            });
+        }
+
+
+        // 선택 초기화 버튼
+        $(document).on('click', '.btn-select-clear', function () {
+            select.clear();
+            let str = '<pre>선택된 건물이 없습니다</pre>';
+            $('.select-target-list').html(str);
+        });
+
+        function printSelectedList(e) {
+            let selected = e.data;
+            let str = '';
+            if (selected && e.data && e.data.length > 0) {
+                selected.forEach(function (obj) {
+                    if(!obj.isLine && obj._uproperties){
+                        str += '<div class="d-flex select-item" layer="' + obj.getLayerName() + '" uid="' + obj.getUid() + '" >';
+                        str += '<div class="flex-1">'
+                        str += '<span class="badge">레이어 이름</span>' + obj.getLayerName() + '&nbsp';
+                        str += '<span class="badge">ID</span>' + obj.getUid();
+                        str += '<span class="badge">모델타입</span>' + obj._uproperties['type']+ '&nbsp';
+                        str += '<span class="badge">층수</span>' + obj._uproperties['NumOfFloors'] + '</div>';
+                        str += '<span class="badge">INFO</span>' + obj._uproperties['HINT'] + '</div>';
+                        str += '<div class="text-right">';
+                        str += '</div>';
+                    }
+                });
+
+                //일조량 분석을 위해 포인트 넣어두기
+                points =[];
+                selected[0].traverse((child)=>{
+                    if(child.getLayerName && child.getLayerName() === layer.getName()){
+                        layer.traverseAllFloor(child, function (mesh, vertices, width, floor, normals) {
+                            console.log(floor);
+                            if(floor !== 'roop'){
+                                const faceCenter = new GeOnDT.THREE.Vector3 ( // mesh face의 정점의 중심점으로 추가
+                                    (vertices[0].x + vertices[1].x + vertices[2].x)/ 3,  // x 좌표의 평균
+                                    (vertices[0].y + vertices[1].y + vertices[2].y) / 3,  // y 좌표의 평균
+                                    (vertices[0].z + vertices[1].z + vertices[2].z) / 3   // z 좌표의 평균
+                                );
+                                points.push(faceCenter); // 분석 점을 추가한다.
+                            }
+                        });
+                    }
+
+                    //////////////////////////////////////////////// 페이스 순희 API
+                    if(child.traverseFace) {
+                        child.traverseFace(function (face) {
+                            if(face !== undefined) {
+                                let materialIndex = child.getMaterialIndexAsFace(face); // face에 출력 되는 textrue를 검색하는 API
+                                if(materialIndex === 3) {
+                                    //materialIndex가 3이면 창문
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+
+            str = str === '' ? '<pre>선택된 건물이 없습니다</pre>' : str;
+            $('.select-target-list').html(str);
+            return str;
+        }
+
+        $('#label-apply').on('click', function () {
+            if (select === undefined || select.getSelected().length === 0) {
+                alert('Please Select Object.');
+                return;
+            }
+            select.getSelected().forEach(function (value) {
+                value.setLabelText($('#label').val());
+            });
+        });
+
+
+        //스타일 적용 버튼
+        $('#apply').on('click', function () {
+            if (select === undefined || select.getSelected().length === 0) {
+                alert('Please Select Object.');
+                return;
+            }
+            let targets =  select.getSelected();
+            select.clear();
+            targets.forEach(function (obj) {
+                obj.setColor($('#stroke').val());
+                obj.setOpacity($('#transparent').val());
+            });
+        });
+
+        //스타일 전체 적용 버튼
+        $('#layer-apply').on('click', function () {
+            if (select === undefined || select.getSelected().length === 0) {
+                alert('Please Select Object.')
+                return;
+            }
+            let layerNames = [];
+            select.getSelected().forEach(function (obj) {
+                //select.clear();
+                let layerName = obj.getLayerName();
+                if (!layerNames.includes(layerName)) {
+                    let idx = layerList.findIndex(function (layer) {
+                        return layer.getName() === layerName;
+                    });
+                    if (idx > -1) {
+                        let layer = layerList[idx];
+
+                            layer.setStyle({
+                                color: $('#stroke').val(),
+                                opacity: $('#transparent').val()
+                            });
+                        layerNames.push(layerName);
+                    }
+                }
+            });
+        });
+
+        $(document).on('click', '.btn-gizmo', function (e) {
+            if (select === undefined || select.getSelected().length === 0) {
+                alert('Please Select Object.')
+                return;
+            }
+
+            if(e.target.id === "end") {
+                isGizmo = false
+                analyGizmoModel.deactive();
+                gizmoObject = undefined;
+                analyGizmoModel.setObject(gizmoObject);
+                return;
+            }
+
+            if(isGizmo === false) {
+                analyGizmoModel.active();
+                isGizmo = true;
+            }
+            analyGizmoModel.setMode(e.target.id);
+            gizmoObject = select.getSelected()[0];
+            analyGizmoModel.setObject(gizmoObject);
+        });
+
+
+        let now = new Date();
+        function activeSunAmount (points) {
+            app.setSunShineMode(true); //일조권 모드 Set
+            app.setTimeSun(now);// 현재시간으로 세팅
+            let time = app.getTimeSun();
+            let startTime = app.getTimeSunrise(time); //일출 ~ 일몰로 일조량 분석
+            let endTime = app.getTimeSunset(time);
+
+
+            //분석 지점 추가
+            let promises = [];
+            for (let i =0; i < points.length; i++) {
+                const name =  (promises.length + 1) + "번"
+                // let poi = new GeOnDT.geom.U3dPOI({
+                //     position: points[i],
+                //     image: 'image/marker.png',
+                //     label: name
+                // });
+                //app.addPOI(poi);
+                //poiList.push(poi);
+
+                let promise = GeOnDT.UDEF.createPromise((resolve) => {
+                    let result = analy.analySunAmount(startTime, endTime, app.vector3ToGeoGraphic(points[i]), 1, {
+                        isDraw : true,
+                        //type:'cube'
+                    });
+
+                    printAmount(name, result)
+                    resolve(result)
+                }, 3000)
+                promises.push(promise);
+            }
+
+            Promise.all(promises).then(function () {
+                console.log('분석 종료');
+                app.endloadingBar();
+            })
+        }
+
+        function printAmount(name, result) {
+            let str = `분석지점 :  ${name} \n`;
+            let totalAmount = 0;
+
+            for (let i = 0; i < result.length; i++) {
+                let data = result[i];
+                let start = data.start.format('yyyy-MM-dd a/p hh:mm:ss')
+                let end = data.end.format('yyyy-MM-dd a/p hh:mm:ss')
+                str += `일조시작 시간:  ${start}  \n`;
+                str += `그림자가 드는 시간: ${end} \n`;
+                str += `일조량: ${data.amount} 분 \n`;
+                totalAmount += data.amount;
+            }
+            str += `총일조량: ${totalAmount} 분 \n`;
+            console.log(str)
+        }
+
+        window.app = app;
+    });
+</script>
+</body>
+</html>
+

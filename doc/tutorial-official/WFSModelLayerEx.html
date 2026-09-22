@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WFS 가상건물 가시화</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/tutorial.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        html, body {
+            height: 100%;
+        }
+
+        .examples {
+            padding: 15px 30px 15px 30px;
+        }
+
+        .u3-popup {
+            position: absolute;
+            background-color: white;
+            -webkit-filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.2));
+            filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.2));
+            padding: 5px;
+            /*border-radius: 10px;*/
+            border: 1px solid #00000033;
+            bottom: 12px;
+            left: -50px;
+            min-width: 280px;
+            display: none;
+        }
+
+        .u3-popup:after, .u3-popup:before {
+            top: 100%;
+            border: solid transparent;
+            content: " ";
+            height: 0;
+            width: 0;
+            position: absolute;
+            pointer-events: none;
+        }
+
+        .u3-popup:after {
+            border-top-color: white;
+            border-width: 10px;
+            left: 48px;
+            margin-left: -10px;
+        }
+
+        .u3-popup:before {
+            border-top-color: #cccccc;
+            border-width: 11px;
+            left: 48px;
+            margin-left: -11px;
+        }
+    </style>
+</head>
+<body>
+<div id="map-wrapper">
+    <div id="map">
+        <div id="popup" class="u3-popup">
+            <div id="popup-content" class="u3-popup-content"></div>
+        </div>
+    </div>
+</div>
+<div class="execute-popup"><button>직접해보기</button></div>
+<div class="examples row">
+    <div class="radio">
+        <label>
+            <input type="radio" name="wfs" value="chungju">
+            청주
+        </label>
+    </div>
+    <div class="radio">
+        <label>
+            <input type="radio" name="wfs" value="haeundae">
+            해운대
+        </label>
+    </div>
+    <div class="radio">
+        <label>
+            <input type="radio" name="wfs" value="busanRoadBase">
+            부산도로명(기존)
+        </label>
+    </div>
+    <div class="radio">
+        <label>
+            <input type="radio" name="wfs" value="busanRoad2018">
+            부산도로명(2018)
+        </label>
+    </div>
+    <div class="radio">
+        <label>
+            <input type="radio" name="wfs" value="busanRoad2019">
+            부산도로명(2019)
+        </label>
+    </div>
+    <div class="radio">
+        <label>
+            <input type="radio" name="wfs" value="land2018">
+            수치지형도(2018)
+        </label>
+    </div>
+    <div class="radio">
+        <label>
+            <input type="radio" name="wfs" value="land2020">
+            수치지형도(2020)
+        </label>
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function() {
+        window.open('./runner.html?url=' + strings[strings.length-1] + '&title=' + document.title);
+    })
+</script>
+<script>
+    require(['app/Union3D'], function (Union3D) {
+        //라이센스 인증
+        Union3D.ready(function () {
+            //지도 기본 세팅///////////////////////////////////////
+            window.app = new Union3D.U3dAPP({
+                containername: 'map',
+            });
+
+            app.setIntensityLight(0.8);
+            app.setHomePosition(129.155, 35.1596, 435, 0, 45); //경도, 위도, 높이, 방위각, 고도각
+            app.updateHomePosition();
+
+            // 위성영상 지도
+            var layer = new Union3D.image.U3dImageXYZLayer({
+                name    : 'satellite',
+                baseurl : layerInfo.image.vworldsaturl,
+                reverseY: true,
+                visible : true
+            });
+            app.addLayer(layer);
+            //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+            app.setNameBaseLayer('satellite');
+            // 하이브리드 지도
+            var hybridLayer = new Union3D.image.U3dImageXYZLayer({
+                name       : 'hybrid',
+                baseurl    : layerInfo.image.vworldhybirdurl,
+                reverseY   : true,
+                transparent: true,
+                animation  : true,
+                visible    : true
+            });
+            app.addLayer(hybridLayer);
+
+            // 고도 레이어
+            var terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+                name: 'Korea Terrain',
+                baseurl: layerInfo.height.url,
+                ext: '.umf',
+                reverseY: true,
+                minlevel: 9,
+                maxlevel: 15,
+                useproxy: false,
+                maxprocess: 2,
+                rectangle: Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2)
+            });
+            app.addLayer(terrainLayer);
+            app.showLayer('terrain', true);
+
+            /////////////////////////////////////////////////////
+            // WFS 건물 레이어
+            var unionServerFor3D = 'https://3d.geon.kr/geoserver/digitaltwin/ows/';
+            var WFS_OPT          = {
+                haeundae     : {
+                    name       : '해운대',
+                    layername  : 'Map:tn_buld_haeundae',
+                    sldurl     : unionServerFor3D + 'api?api=layer&request=getLayerStyle&layer=' + 'tn_buld_haeundae',
+                    baseurl    : unionServerFor3D + 'service/wfs',
+                    fieldkind  : 'bprp_se',
+                    fieldfloor : 'bflr_co',
+                    transparent: true,
+                    minlevel   : 18,
+                    drawline   : false,
+                    opacity    : 0.8,
+                    useproxy   : true
+                },
+                chungju      : {
+                    name       : '청주',
+                    layername  : 'Map:tn_buld_cungju',
+                    sldurl     : unionServerFor3D + 'api?api=layer&request=getLayerStyle&layer=' + 'tn_buld_cungju',
+                    baseurl    : unionServerFor3D + 'service/wfs',
+                    fieldkind  : 'bprp_se',
+                    fieldfloor : 'bflr_co',
+                    transparent: true,
+                    minlevel   : 18,
+                    drawline   : false,
+                    opacity    : 0.8,
+                    useproxy   : true
+
+                },
+                busanRoadBase: {
+                    name       : '부산도로명(기존)',
+                    layername  : encodeURI('국토부:부산도로명(기존)'),
+                    sldurl     : unionServerFor3D + 'api?api=layer&request=getLayerStyle&layer=' + encodeURI('부산도로명(기존)'),
+                    baseurl    : unionServerFor3D + 'service/wfs',
+                    transperent: true,
+                    minlevel   : 18,
+                    drawline   : false,
+                    opacity    : 0.95,
+                    fieldheight: 'gro_flo_co',
+                    useproxy   : true
+
+                },
+                busanRoad2018: {
+                    name       : '부산도로명(201807)',
+                    layername  : encodeURI('국토부:부산도로명(201807)'),
+                    sldurl     : unionServerFor3D + 'api?api=layer&request=getLayerStyle&layer=' + encodeURI(
+                        '부산도로명(201807)'),
+                    fieldfloor : 'gro_flo_co',
+                    baseurl    : unionServerFor3D + 'service/wfs',
+                    transperent: true,
+                    minlevel   : 18,
+                    drawline   : false,
+                    opacity    : 0.95,
+                    useproxy   : true
+
+                },
+                busanRoad2019: {
+                    name       : '부산도로명(201912)',
+                    layername  : encodeURI('국토부:부산도로명(201912)'),
+                    sldurl     : unionServerFor3D + 'api?api=layer&request=getLayerStyle&layer=' + encodeURI(
+                        '부산도로명(201912)'),
+                    fieldfloor : 'gro_flo_co',
+                    baseurl    : unionServerFor3D + 'service/wfs',
+                    transperent: true,
+                    minlevel   : 18,
+                    drawline   : false,
+                    opacity    : 0.95,
+                    useproxy   : true
+
+                },
+                land2018     : {
+                    name         : '수치지형도(201805)',
+                    layername    : encodeURI('국토부:수치지형도_201805'),
+                    sldurl       : unionServerFor3D + 'api?api=layer&request=getLayerStyle&layer=' + encodeURI(
+                        '수치지형도_201805'),
+                    baseurl      : unionServerFor3D + 'service/wfs',
+                    transperent  : true,
+                    minlevel     : 18,
+                    drawline     : false,
+                    opacity      : 0.95,
+                    fieldheight  : 'nmly',
+                    useproxy   : true,
+                    styleFunction: function (feature) {
+                        //스타일 적용 우선순위 1.StyleFunction 2.SLD 3.기본값
+                        var properties = feature.properties;
+                        var style;
+                        switch (properties.kind) {
+                            // BDK000 미분류
+                            // BDK001 일반주택
+                            // BDK002 연립주택
+                            // BDK003 아파트
+                            // BDK004 주택외건물
+                            // BDK005 무벽건물
+                            case 'BDK000' :
+                                //undefined 를 리턴할 경우 기본 스타일 적용
+                                style = undefined;
+                                break;
+                            case 'BDK001' :
+                                style = {color: '#f12   b60', opacity: 1};
+                                break;
+                            case 'BDK002' :
+                                style = {color: '#6494ff', opacity: 1};
+                                break;
+                            case 'BDK003' :
+                                style = {color: '#ff654d', opacity: 1};
+                                break;
+                            case 'BDK004' :
+                                style = {color: '#2d9625', opacity: 1};
+                                break;
+                            case 'BDK005' :
+                                style = {color: '#6398a9', opacity: 1};
+                                break;
+                            default :
+                                style = undefined;
+                                break;
+
+                        }
+                        return style;
+                    }
+                },
+                land2020     : {
+                    name       : '수치지형도(202001)',
+                    layername  : encodeURI('국토부:수치지형도_202001'),
+                    sldurl     : unionServerFor3D + 'api?api=layer&request=getLayerStyle&layer=' + encodeURI(
+                        '수치지형도_202001'),
+                    baseurl    : unionServerFor3D + 'service/wfs',//'http://119.207.126.21:11282/unionserver/service/wms'
+                    transperent: true,
+                    minlevel   : 18,
+                    drawline   : false,
+                    opacity    : 0.95,
+                    fieldheight: 'nmly'
+                }
+            };
+            var activeLayerName  = undefined;
+
+            $(document).on('click', 'input[type="radio"]', function (e) {
+                var target = e.target.value;
+                if (e.target.checked) {
+                    create(target);
+                }
+            });
+
+            function create(target) {
+                hide(activeLayerName);
+
+                var exLayer = app.getLayerByName(WFS_OPT[target].name);
+                var layer   = undefined;
+                if (exLayer === undefined) {
+                    layer = new Union3D.model.U3dModelWFSLayer(WFS_OPT[target]);
+                    app.addLayer(layer);
+                    app.showLayer(WFS_OPT[target].name, true);
+                    activeLayerName = WFS_OPT[target].name;
+                } else {
+                    exLayer.show(true);
+                    activeLayerName = exLayer.getName()
+                }
+            }
+
+            function hide(layerName) {
+                if (layerName !== undefined) {
+                    var layer = app.getLayerByName(layerName);
+                    layer.show(false);
+                }
+            }
+
+        });
+    });
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,304 @@
+/* 구획은 구분선형으로 통일합니다. */
+.huge-volume-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--theme-line);
+}
+
+.huge-volume-section:first-of-type {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+}
+
+.huge-volume-section h3 {
+    margin: 0 0 10px;
+    color: var(--theme-text);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.huge-volume-hint {
+    margin: 8px 0 0;
+    color: var(--theme-muted);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+/* 공통 테마의 강조색을 그대로 써서 체크박스 색이 브라우저 기본값으로 튀지 않게 합니다. */
+.huge-volume-panel input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    accent-color: var(--theme-accent);
+    cursor: pointer;
+}
+
+.huge-volume-field {
+    display: grid;
+    gap: 6px;
+}
+
+.huge-volume-field-label {
+    color: var(--theme-muted);
+    font-size: 11px;
+}
+
+.huge-volume-field select {
+    width: 100%;
+    height: 28px;
+    padding: 2px 6px;
+    border: 1px solid var(--theme-line);
+    border-radius: 6px;
+    background: var(--theme-surface);
+    color: var(--theme-text);
+    font-size: 12px;
+}
+
+.huge-volume-field select:hover {
+    background: var(--theme-surface-hover);
+}
+
+/* 값 종류가 많아도 패널 폭을 넓히지 않고 가로 스크롤로 처리합니다. */
+.huge-volume-style-table {
+    overflow-x: auto;
+}
+
+.huge-volume-style-row {
+    display: grid;
+    grid-template-columns: minmax(64px, 1fr) 44px 52px 56px 56px 44px;
+    gap: 6px;
+    align-items: center;
+    min-width: 316px;
+    padding: 5px 2px;
+    border-bottom: 1px solid var(--theme-line);
+    font-size: 11px;
+}
+
+.huge-volume-style-row:last-child {
+    border-bottom: none;
+}
+
+.huge-volume-style-head {
+    color: var(--theme-muted);
+    font-weight: 700;
+}
+
+.huge-volume-style-head > span + span,
+.huge-volume-style-row > input {
+    text-align: center;
+    justify-self: center;
+}
+
+.huge-volume-style-row > label {
+    overflow: hidden;
+    color: var(--theme-text);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.huge-volume-style-row input[type="number"],
+.huge-volume-style-row input[type="color"] {
+    box-sizing: border-box;
+    width: 100%;
+    height: 24px;
+    padding: 1px 3px;
+    border: 1px solid var(--theme-line);
+    border-radius: 4px;
+    background: var(--theme-surface);
+    color: var(--theme-text);
+    text-align: center;
+}
+
+.huge-volume-style-row input[type="color"] {
+    padding: 1px;
+    cursor: pointer;
+}
+
+.huge-volume-style-row input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.huge-volume-style-row input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 3px;
+}
+
+/* 레이어 선택은 selectModel의 조회 모델과 같은 카드형 행을 사용합니다. */
+.huge-volume-option-list {
+    display: grid;
+    gap: 8px;
+}
+
+.huge-volume-option-list + .huge-volume-option-list {
+    margin-top: 8px;
+}
+
+.huge-volume-option-row {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    min-height: 52px;
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--theme-line);
+    border-radius: 10px;
+    background: var(--theme-surface);
+    font-weight: 400;
+    cursor: pointer;
+}
+
+.huge-volume-option-row:hover {
+    border-color: var(--theme-accent);
+    background: var(--theme-surface-hover);
+}
+
+.huge-volume-option-copy {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+.huge-volume-option-copy strong {
+    color: var(--theme-text);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.huge-volume-option-copy small {
+    color: var(--theme-muted);
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.huge-volume-option-row b {
+    color: var(--theme-muted);
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* 표출 중인 레이어만 강조색 배지를 씁니다. */
+.huge-volume-option-row:has(input:checked) b {
+    color: var(--theme-accent);
+}
+
+.huge-volume-button-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.huge-volume-button {
+    flex: 1 1 auto;
+    min-width: 84px;
+    padding: 6px 8px;
+    border: 1px solid var(--theme-line);
+    border-radius: 6px;
+    background: var(--theme-surface);
+    color: var(--theme-text);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.huge-volume-button:hover {
+    background: var(--theme-surface-hover);
+    border-color: var(--theme-accent-strong);
+}
+
+.huge-volume-button:disabled {
+    color: var(--theme-muted);
+    background: var(--theme-surface);
+    border-color: var(--theme-line);
+    cursor: default;
+}
+
+.huge-volume-result-list {
+    display: grid;
+    gap: 6px;
+    margin: 10px 0 0;
+}
+
+.huge-volume-result-list > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.huge-volume-result-list dt {
+    color: var(--theme-muted);
+    font-size: 11px;
+    font-weight: 400;
+}
+
+.huge-volume-result-list dd {
+    margin: 0;
+    color: var(--theme-text);
+    font-size: 12px;
+}
+
+/*
+ * 카메라 뷰 오버레이.
+ * U3dOverlay가 left/top과 display를 직접 지정하므로 position만 absolute로 두고
+ * 크기와 색은 공통 테마에 맞춥니다. U3dView가 이 요소 안에 canvas를 덧붙입니다.
+ */
+.huge-volume-view {
+    position: absolute;
+    bottom: 12px;
+    left: -50px;
+    width: 220px;
+    height: 170px;
+    overflow: hidden;
+    border: 1px solid var(--theme-line);
+    border-radius: 10px;
+    background: var(--theme-panel-strong);
+    box-shadow: var(--theme-shadow);
+    color: var(--theme-text);
+}
+
+.huge-volume-view-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    height: 22px;
+    padding: 0 4px 0 8px;
+    border-bottom: 1px solid var(--theme-line);
+    background: var(--theme-surface);
+    cursor: move;
+}
+
+.huge-volume-view-title {
+    overflow: hidden;
+    font-size: 11px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.huge-volume-view-close {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--theme-muted);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.huge-volume-view-close:hover {
+    background: var(--theme-surface-hover);
+    color: var(--theme-text);
+}
+
+.huge-volume-view canvas {
+    display: block;
+}

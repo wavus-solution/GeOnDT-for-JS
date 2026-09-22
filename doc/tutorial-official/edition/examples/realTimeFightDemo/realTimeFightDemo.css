@@ -1,0 +1,505 @@
+#flight-tracking-panel.flight-panel {
+    width: clamp(320px, 27vw, 380px);
+    max-height: calc(100dvh - 96px);
+}
+
+.flight-panel-content {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 14px;
+    overflow: hidden;
+}
+
+.flight-panel-content .panel-description {
+    margin: 0;
+    color: var(--theme-muted);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.flight-section {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--theme-line);
+}
+
+.flight-section h3 {
+    margin: 0 0 9px;
+    color: #eff9fd;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.flight-route-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.flight-action {
+    min-height: 34px;
+    padding: 7px 10px;
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    background: var(--theme-surface);
+    color: #eff9fd;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.flight-action:hover,
+.flight-action:focus-visible {
+    border-color: var(--theme-accent);
+    background: var(--theme-surface-hover);
+}
+
+.flight-option-list {
+    display: grid;
+    gap: 8px;
+}
+
+.flight-option {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin: 0;
+    padding: 9px 11px;
+    border: 1px solid var(--theme-line);
+    border-radius: 9px;
+    background: var(--theme-surface);
+    color: #e4f3f9;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.flight-option:hover {
+    border-color: var(--theme-accent);
+    background: var(--theme-surface-hover);
+}
+
+.flight-option input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--theme-accent);
+}
+
+.flight-filter-row {
+    display: grid;
+    grid-template-columns: 88px minmax(0, 1fr);
+    gap: 8px;
+}
+
+.flight-field {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+    min-width: 0;
+}
+
+.flight-field > span {
+    color: var(--theme-muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .04em;
+}
+
+.flight-select,
+.flight-search {
+    width: 100%;
+    min-width: 0;
+    height: 32px;
+    padding: 0 8px;
+    border: 1px solid var(--theme-line);
+    border-radius: 7px;
+    background: rgba(13, 40, 58, .58);
+    color: #eff9fd;
+    font-size: 12px;
+}
+
+.flight-select:focus-visible,
+.flight-search:focus-visible {
+    border-color: var(--theme-accent);
+    outline: none;
+}
+
+.flight-list-section {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.flight-list-heading {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.flight-list-heading h3 {
+    margin: 0;
+}
+
+.flight-count {
+    min-width: 34px;
+    padding: 3px 8px;
+    border: 1px solid var(--theme-accent);
+    border-radius: 999px;
+    background: rgba(108, 185, 217, .18);
+    color: #eff9fd;
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.flight-search-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 62px;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.flight-list-status {
+    margin: 0 0 8px;
+    color: var(--theme-muted);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.flight-list-scroll {
+    flex: 1 1 auto;
+    min-height: 80px;
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    background: rgba(6, 24, 36, .48);
+    overflow-y: auto;
+}
+
+.flight-list {
+    margin: 0;
+    padding: 6px;
+    list-style: none;
+}
+
+.flight-list-item {
+    padding: 6px 8px;
+    border-radius: 6px;
+    color: #dceaf3;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.flight-list-item:hover {
+    background: var(--theme-surface-hover);
+    color: #ffffff;
+}
+
+.flight-list-item.selected {
+    background: rgba(108, 185, 217, .34);
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.flight-detail {
+    position: absolute;
+    top: 64px;
+    /* 우측 레일(16px + 52px)을 피해 공통 패널과 같은 기준선에 둔다. */
+    right: 88px;
+    z-index: 13;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-sizing: border-box;
+    width: clamp(280px, 25vw, 360px);
+    max-height: calc(100dvh - 118px);
+    padding: 12px;
+    border-radius: 12px;
+    overflow-y: auto;
+}
+
+.flight-detail[hidden] {
+    display: none;
+}
+
+/* 공통 패널이나 항공기 패널이 열리면 같은 우측 자리를 쓰므로 그 왼쪽으로 물러난다. */
+.example-app:has(.example-panel.open, .explanation-panel.open) .flight-detail {
+    right: calc(88px + clamp(320px, 27vw, 380px) + 20px);
+}
+
+.flight-info-card {
+    display: grid;
+    gap: 6px;
+}
+
+.flight-header {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.plane-name {
+    color: #ffffff;
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: -.4px;
+}
+
+.route-badge {
+    padding: 3px 9px;
+    border: 1px solid rgba(172, 223, 240, .4);
+    border-radius: 999px;
+    background: rgba(108, 185, 217, .2);
+    color: #cbe9f7;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.via-chip {
+    margin: 0;
+    padding: 4px 9px;
+    border-radius: 7px;
+    background: var(--theme-surface);
+    color: var(--theme-muted);
+    font-size: 11px;
+}
+
+.via-chip[hidden] {
+    display: none;
+}
+
+.route-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr);
+    gap: 8px;
+    align-items: center;
+    margin-top: 2px;
+}
+
+.airport-block {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.airport-block.right {
+    text-align: right;
+}
+
+.airport-label {
+    color: var(--theme-muted);
+    font-size: 10px;
+}
+
+.airport-name {
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.flight-icon {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(103, 185, 217, .92), rgba(133, 216, 178, .92));
+    color: #ffffff;
+    font-size: 15px;
+}
+
+.plane-state {
+    margin: 4px 0 0;
+    color: #e8edf5;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.flight-progress {
+    height: 8px;
+    margin: 4px 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .14);
+    overflow: hidden;
+}
+
+.flight-progress-bar {
+    width: 0;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #67b9d9, #85d8b2);
+    transition: width .4s ease;
+}
+
+.plane-time {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 6px;
+    align-items: center;
+    color: #dfe7f1;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.plane-time > span:last-child {
+    text-align: right;
+}
+
+.duration-time {
+    padding: 3px 8px;
+    border: 1px solid rgba(143, 211, 255, .22);
+    border-radius: 999px;
+    background: rgba(143, 211, 255, .14);
+    color: #8fd3ff;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.flight-log-card {
+    padding: 10px;
+    border: 1px solid var(--theme-line);
+    border-radius: 9px;
+    background: rgba(6, 24, 36, .55);
+}
+
+.flight-log-card[hidden] {
+    display: none;
+}
+
+.flight-log-card h3 {
+    margin: 0 0 7px;
+    color: #eff9fd;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.flight-log {
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.flight-log-entry {
+    display: grid;
+    gap: 2px;
+    padding: 6px 0;
+    border-top: 1px solid rgba(187, 225, 240, .14);
+    color: #dceaf3;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.flight-log-entry:first-child {
+    border-top: 0;
+}
+
+.flight-log-entry b {
+    color: var(--theme-accent);
+    font-size: 10px;
+    letter-spacing: .08em;
+}
+
+.flight-section-log {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.flight-section-log li {
+    padding: 4px 0;
+    color: #dceaf3;
+    font-size: 12px;
+}
+
+.flight-camera-bar {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    z-index: 14;
+    display: flex;
+    gap: 8px;
+    transform: translateX(-50%);
+}
+
+.flight-camera-bar[hidden] {
+    display: none;
+}
+
+.flight-camera-button {
+    min-width: 74px;
+    padding: 9px 10px;
+    border: 1px solid var(--theme-line);
+    border-radius: 9px;
+    background: rgba(38, 78, 103, .88);
+    color: #f2fafd;
+    font-size: 12px;
+    font-weight: 700;
+    box-shadow: 0 6px 16px rgba(8, 29, 43, .22);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    cursor: pointer;
+}
+
+.flight-camera-button:hover,
+.flight-camera-button:focus-visible {
+    border-color: var(--theme-accent);
+    background: rgba(71, 125, 153, .96);
+}
+
+.flight-notice {
+    position: absolute;
+    top: 18px;
+    left: 50%;
+    z-index: 40;
+    margin: 0;
+    max-width: calc(100vw - 32px);
+    padding: 8px 14px;
+    border: 1px solid var(--theme-line);
+    border-radius: 999px;
+    background: rgba(38, 78, 103, .92);
+    color: #f4fbff;
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: 0 8px 20px rgba(8, 29, 43, .28);
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+.flight-notice[hidden] {
+    display: none;
+}
+
+/* 코드 편집 패널이 화면 왼쪽을 덮으므로 지도 중앙 요소를 보이는 영역 기준으로 다시 맞춥니다. */
+@media (min-width: 761px) {
+    .example-editor-open .flight-camera-bar,
+    .example-editor-open .flight-notice {
+        left: calc(var(--editor-pane-width, min(40vw, 600px)) + (100vw - var(--editor-pane-width, min(40vw, 600px))) / 2);
+    }
+}
+
+@media (max-width: 760px) {
+    #flight-tracking-panel.flight-panel {
+        width: calc(100vw - 88px);
+    }
+
+    .flight-detail {
+        top: auto;
+        right: 10px;
+        bottom: 62px;
+        width: calc(100vw - 20px);
+        max-height: 46dvh;
+    }
+
+    .flight-camera-button {
+        min-width: 60px;
+        padding: 8px 6px;
+        font-size: 11px;
+    }
+}

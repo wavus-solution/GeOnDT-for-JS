@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-labelledby="title">
+    <title id="title">지형 레이어</title>
+    <path fill="#eff9fd" d="M1.5 20.5 8.7 7.3l2.5 4.1 2.2-3.1 9.1 12.2h-21Z"/>
+    <path fill="#eff9fd" fill-opacity=".5" d="m8.7 7.3 2.5 4.1-1.7 2.1-1.4-1.8-2.3 3.1H4.1l4.6-7.5Zm4.7 1 3.2 4.3-1.8 1.3-1.6-1.9-1.1 1.5-1.2-2.1 2.5-3.1Z"/>
+    <path fill="none" stroke="#acdff0" stroke-width="1.3" stroke-linecap="round" d="M3.3 18.1c3.6-1.2 6.8-1 9.6.4 2.7 1.3 5.2 1.3 7.7.2"/>
+</svg>

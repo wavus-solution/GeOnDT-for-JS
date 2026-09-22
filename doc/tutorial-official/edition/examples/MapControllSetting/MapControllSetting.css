@@ -1,0 +1,34 @@
+/* 공통 패널 폭·스크롤·테마는 그대로 사용하고, factor 입력 배치만 예제에서 정의합니다. */
+.MapControllSetting-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--theme-line); }
+.MapControllSetting-section h3 { margin: 0 0 10px; color: var(--theme-text); font-size: 13px; }
+.MapControllSetting-option-panel .panel-description,
+.MapControllSetting-note { margin: 8px 0; color: var(--theme-muted); font-size: 12px; line-height: 1.65; }
+.MapControllSetting-presets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.MapControllSetting-presets button,
+.MapControllSetting-reset { padding: 10px 6px; border: 1px solid var(--theme-line); border-radius: 10px; color: var(--theme-text); background: var(--theme-surface); cursor: pointer; }
+.MapControllSetting-presets strong { display: block; font-size: 11px; }
+.MapControllSetting-presets small { display: block; margin-top: 4px; font-size: 10px; color: var(--theme-muted); }
+.MapControllSetting-presets button[aria-pressed="true"] { border-color: var(--theme-accent); box-shadow: inset 0 0 0 1px var(--theme-accent); }
+.MapControllSetting-reset { width: 100%; font-size: 12px; }
+.MapControllSetting-field { display: grid; grid-template-columns: minmax(0, 1fr) 108px; gap: 4px 8px; align-items: center; padding: 10px 0; }
+.MapControllSetting-field label { min-width: 0; font-size: 12px; }
+.MapControllSetting-field label code { display: block; margin-top: 3px; padding: 0; background: transparent; border: 0; font-size: 10px; color: var(--theme-muted); overflow-wrap: anywhere; }
+.MapControllSetting-field small { grid-column: 1 / -1; color: var(--theme-muted); font-size: 11px; line-height: 1.55; }
+.MapControllSetting-field input[type="number"],
+.MapControllSetting-field select { min-width: 0; width: 100%; box-sizing: border-box; padding: 7px; border: 1px solid var(--theme-line); border-radius: 7px; background: var(--theme-surface); color: var(--theme-text); font-size: 12px; }
+.MapControllSetting-field select option { background: #172630; color: #edf6fb; }
+.MapControllSetting-field input[type="checkbox"] { justify-self: end; width: 19px; height: 19px; accent-color: var(--theme-accent); }
+.MapControllSetting-field [aria-invalid="true"] { border-color: #fb8b8b; outline: 1px solid #fb8b8b; }
+.MapControllSetting-section summary { padding: 6px 0; color: var(--theme-muted); font-size: 12px; cursor: pointer; }
+.MapControllSetting-collision { display: flex; align-items: center; gap: 8px; margin: 12px 0 4px; font-size: 12px; }
+.MapControllSetting-result-list { margin: 0; }
+.MapControllSetting-result-list div { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 8px; padding: 6px 0; font-size: 12px; }
+.MapControllSetting-result-list dt { color: var(--theme-muted); }
+.MapControllSetting-result-list dd { margin: 0; overflow-wrap: anywhere; }
+.MapControllSetting-code pre { max-height: 280px; overflow: auto; padding: 10px; border-radius: 8px; background: var(--theme-surface); font-size: 11px; line-height: 1.6; user-select: text; }
+.MapControllSetting-status { flex-shrink: 0; margin: 0; padding: 12px 16px; border-top: 1px solid var(--theme-line); color: var(--theme-muted); font-size: 11px; line-height: 1.5; }
+
+/* 편집기를 연 채 창을 줄여도 입력 패널이 편집기 뒤로 가려지지 않도록 남은 지도 폭에 맞춥니다. */
+@media (min-width: 761px) {
+    .example-editor-open .MapControllSetting-option-panel { max-width: calc(100vw - var(--editor-pane-width, min(40vw, 600px)) - 100px); }
+}

@@ -1,0 +1,309 @@
+.heatGeometry-option-panel {
+    width: min(390px, calc(100vw - 92px));
+}
+
+.heatGeometry-option-panel .panel-content {
+    position: relative;
+    max-height: min(680px, calc(100vh - 130px));
+    overflow-y: auto;
+}
+
+.heatGeometry-option-panel .panel-description {
+    margin: 0;
+    color: var(--theme-muted);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.heatGeometry-message {
+    margin: 12px 0 0;
+    padding: 9px 11px;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 9px;
+    color: #dff7ff;
+    background: rgba(14, 116, 144, 0.18);
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+.heatGeometry-add,
+.heatGeometry-select-target {
+    color: #e0f2fe;
+    border: 1px solid rgba(56, 189, 248, 0.55);
+    border-radius: 8px;
+    background: rgba(3, 105, 161, 0.45);
+    cursor: pointer;
+}
+
+.heatGeometry-add {
+    width: 100%;
+    margin-top: 12px;
+    padding: 10px 12px;
+    font-weight: 700;
+}
+
+.heatGeometry-add:hover,
+.heatGeometry-select-target:hover,
+.heatGeometry-add.is-active,
+.heatGeometry-select-target.is-active {
+    color: #ffffff;
+    border-color: #38bdf8;
+    background: rgba(2, 132, 199, 0.78);
+}
+
+.heatGeometry-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--theme-line);
+}
+
+.heatGeometry-section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.heatGeometry-section h3,
+.heatGeometry-settings-panel h3 {
+    margin: 0;
+    color: #eff9fd;
+    font-size: 13px;
+}
+
+.heatGeometry-count {
+    color: var(--theme-muted);
+    font-size: 11px;
+}
+
+.heatGeometry-empty {
+    margin: 0;
+    padding: 14px 10px;
+    border: 1px dashed var(--theme-line);
+    border-radius: 9px;
+    color: var(--theme-muted);
+    font-size: 11px;
+    text-align: center;
+}
+
+.heatGeometry-heat-list {
+    display: grid;
+    gap: 7px;
+}
+
+.heatGeometry-heat-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    width: 100%;
+    padding: 10px 12px;
+    color: var(--theme-text);
+    text-align: left;
+    border: 1px solid var(--theme-line);
+    border-radius: 10px;
+    background: var(--theme-surface);
+    cursor: pointer;
+}
+
+.heatGeometry-heat-item:hover,
+.heatGeometry-heat-item.is-active {
+    border-color: #fb923c;
+    background: rgba(249, 115, 22, 0.14);
+}
+
+.heatGeometry-heat-item span {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+.heatGeometry-heat-item strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.heatGeometry-heat-item small {
+    color: var(--theme-muted);
+    font-size: 10px;
+}
+
+.heatGeometry-heat-item b {
+    color: #fdba74;
+    font-size: 12px;
+}
+
+.heatGeometry-guide {
+    margin-top: 14px;
+    padding: 12px;
+    border-radius: 10px;
+    color: var(--theme-muted);
+    background: rgba(15, 23, 42, 0.42);
+    font-size: 11px;
+    line-height: 1.55;
+}
+
+.heatGeometry-guide strong {
+    color: var(--theme-text);
+}
+
+.heatGeometry-guide ol {
+    margin: 6px 0 0;
+    padding-left: 18px;
+}
+
+.heatGeometry-settings-panel {
+    position: absolute;
+    top: 64px;
+    right: 500px;
+    z-index: 14;
+    display: flex;
+    flex-direction: column;
+    width: min(360px, calc(100vw - 116px));
+    max-height: calc(100dvh - 120px);
+    overflow: hidden;
+    border-radius: 12px;
+    color: var(--theme-text);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.38);
+}
+
+.heatGeometry-settings-panel[hidden] {
+    display: none;
+}
+
+.heatGeometry-settings-panel .panel-header {
+    flex: 0 0 auto;
+    cursor: move;
+    user-select: none;
+}
+
+.heatGeometry-settings-panel .panel-content {
+    max-height: none;
+    padding: 16px;
+    overflow-y: auto;
+}
+
+.heatGeometry-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.heatGeometry-form label {
+    display: grid;
+    gap: 5px;
+    color: var(--theme-muted);
+    font-size: 11px;
+}
+
+.heatGeometry-form label:first-child {
+    grid-column: 1 / -1;
+}
+
+.heatGeometry-form input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 8px 9px;
+    color: var(--theme-text);
+    border: 1px solid var(--theme-line);
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.heatGeometry-apply,
+.heatGeometry-remove,
+.heatGeometry-disconnect {
+    border: 1px solid transparent;
+    border-radius: 7px;
+    cursor: pointer;
+}
+
+.heatGeometry-apply {
+    grid-column: 1 / -1;
+    padding: 9px 12px;
+    color: #fff;
+    border-color: #0284c7;
+    background: #0369a1;
+}
+
+.heatGeometry-targets {
+    margin-top: 18px;
+}
+
+.heatGeometry-target-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.heatGeometry-select-target {
+    flex: 0 0 auto;
+    padding: 6px 9px;
+    font-size: 11px;
+}
+
+.heatGeometry-targets ul {
+    display: grid;
+    gap: 7px;
+    margin: 9px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.heatGeometry-targets li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 9px;
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    font-size: 11px;
+}
+
+.heatGeometry-targets li span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.heatGeometry-targets .heatGeometry-target-empty {
+    color: var(--theme-muted);
+    line-height: 1.45;
+}
+
+.heatGeometry-disconnect {
+    flex: 0 0 auto;
+    padding: 5px 8px;
+    color: #fed7aa;
+    border-color: rgba(251, 146, 60, 0.45);
+    background: rgba(194, 65, 12, 0.22);
+}
+
+.heatGeometry-remove {
+    width: 100%;
+    margin-top: 18px;
+    padding: 9px 12px;
+    color: #fecaca;
+    border-color: rgba(248, 113, 113, 0.48);
+    background: rgba(127, 29, 29, 0.35);
+}
+
+@media (max-width: 560px) {
+    .heatGeometry-option-panel {
+        width: calc(100vw - 24px);
+    }
+
+    .heatGeometry-settings-panel {
+        top: 12px;
+        right: 12px;
+        bottom: 12px;
+        left: 12px;
+        width: auto;
+        max-height: none;
+    }
+}

@@ -1,0 +1,354 @@
+<nav class="analysisMultipleComponent-rail" data-example-rail aria-label="다중 시설물 분석 도구">
+    <button id="analy-bnt" class="rail-button" type="button" data-legacy-toggle-state aria-pressed="false">
+        <span class="rail-icon" aria-hidden="true">▦</span><span>시설물</span>
+    </button>
+</nav>
+
+<aside id="analy-popup"
+       class="legacy-floating-panel legacy-main-feature-panel legacy-migration-panel amc-workspace"
+       aria-hidden="true"
+       aria-label="다중 시설물 편집"
+       oncontextmenu="return false"
+       style="display:none;">
+    <div class="div-popup amc-panel">
+        <header class="div-popup-control amc-panel-header">
+            <div class="amc-title-group">
+                <span class="amc-title-icon" aria-hidden="true">▦</span>
+                <div>
+                    <strong>다중 시설물 편집</strong>
+                    <small>시설물과 도로를 지도에 배치하고 관리합니다.</small>
+                </div>
+            </div>
+            <button class="popup-exit amc-close" type="button" aria-label="다중 시설물 편집 닫기">×</button>
+        </header>
+
+        <nav class="amc-tabs" aria-label="편집 메뉴" role="tablist">
+            <button class="amc-tab is-active" type="button" role="tab" aria-selected="true"
+                    aria-controls="amc-components" data-amc-tab="components">
+                <span aria-hidden="true">◆</span> 시설물
+            </button>
+            <button class="amc-tab" type="button" role="tab" aria-selected="false"
+                    aria-controls="amc-roads" data-amc-tab="roads">
+                <span aria-hidden="true">━</span> 도로
+            </button>
+            <button class="amc-tab" type="button" role="tab" aria-selected="false"
+                    aria-controls="amc-library" data-amc-tab="library">
+                <span aria-hidden="true">＋</span> 사용자 컴포넌트
+            </button>
+        </nav>
+
+        <div class="div-popup-content amc-panel-content">
+            <section id="amc-components" class="amc-tab-panel is-active" role="tabpanel" data-amc-panel="components">
+                <div class="amc-section amc-section-primary">
+                    <div class="amc-section-heading">
+                        <div>
+                            <span class="amc-kicker">ADD COMPONENT</span>
+                            <h2>시설물 추가</h2>
+                        </div>
+                        <label class="amc-check">
+                            <input type="checkbox" class="label-visible">
+                            <span>전체 라벨 표시</span>
+                        </label>
+                    </div>
+
+                    <label class="amc-field amc-field-wide">
+                        <span>시설물 모델</span>
+                        <select class="form-control input-sm select-component-model"></select>
+                    </label>
+
+                    <div class="amc-placement-row">
+                        <label class="amc-field">
+                            <span>배치 방식</span>
+                            <select class="form-control input-sm select-component-type">
+                                <option value="single">단일 배치</option>
+                                <option value="interval">구간 배치</option>
+                                <option value="area">영역 배치</option>
+                            </select>
+                        </label>
+                        <label class="amc-field amc-interval-field">
+                            <span>배치 간격</span>
+                            <span class="amc-input-unit">
+                                <input class="form-control input-sm input-component-interval" type="number" value="10" min="1">
+                                <b>m</b>
+                            </span>
+                        </label>
+                    </div>
+
+                    <div class="amc-actions amc-actions-main">
+                        <button type="button" class="btn btn-primary btn-sm btn-add toggle">지도에 추가</button>
+                        <button type="button" id="btnESSSample1" class="btn btn-default btn-sm">ESS 샘플 추가</button>
+                        <button type="button" class="btn btn-default btn-sm btn-clear">전체 제거</button>
+                        <button type="button" class="btn btn-default btn-sm btn-component-select toggle">선택</button>
+                    </div>
+                </div>
+
+                <div class="amc-section">
+                    <div class="amc-section-heading">
+                        <div>
+                            <span class="amc-kicker">DEFAULT STYLE</span>
+                            <h2>새 시설물 기본 설정</h2>
+                        </div>
+                    </div>
+                    <div class="amc-setting-grid">
+                        <div class="amc-setting-card">
+                            <span class="amc-setting-label">크기</span>
+                            <div class="amc-inline-control">
+                                <button type="button" class="btn btn-default btn-sm btn-scale-down" aria-label="시설물 축소">−</button>
+                                <input class="form-control input-sm input-component-scale" type="number" value="1" step="0.1" min="0.1" aria-label="시설물 크기">
+                                <button type="button" class="btn btn-default btn-sm btn-scale-up" aria-label="시설물 확대">＋</button>
+                            </div>
+                        </div>
+                        <div class="amc-setting-card">
+                            <span class="amc-setting-label">회전</span>
+                            <div class="amc-inline-control">
+                                <span class="amc-input-unit">
+                                    <input class="form-control input-sm input-component-rotation" type="number" value="0" aria-label="시설물 회전각">
+                                    <b>°</b>
+                                </span>
+                                <button type="button" class="btn btn-default btn-sm btn-rotate-90">＋90°</button>
+                            </div>
+                        </div>
+                        <label class="amc-field amc-setting-card">
+                            <span>구간 정렬 방향</span>
+                            <select class="form-control" name="direction">
+                                <option value="front">정면 · 진행 방향</option>
+                                <option value="left">왼쪽</option>
+                                <option value="right">오른쪽</option>
+                                <option value="back">반대 · 역방향</option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
+
+                <details class="amc-disclosure">
+                    <summary>계층 및 애니메이션</summary>
+                    <div class="amc-disclosure-content">
+                        <div class="amc-subsection">
+                            <h3>계층 편집</h3>
+                            <div class="amc-tool-group">
+                                <button type="button" class="btn btn-default btn-sm btn-set-parent toggle">상위 지정</button>
+                                <button type="button" class="btn btn-default btn-sm btn-remove-parent toggle">상위 해제</button>
+                                <button type="button" class="btn btn-default btn-sm btn-set-child toggle">하위 지정</button>
+                                <button type="button" class="btn btn-default btn-sm btn-remove-child toggle">하위 해제</button>
+                            </div>
+                        </div>
+                        <div class="amc-subsection">
+                            <h3>애니메이션</h3>
+                            <div class="amc-animation-row">
+                                <select class="form-control input-sm select-component-animation" aria-label="시설물 애니메이션"></select>
+                                <button type="button" class="btn btn-primary btn-sm btn-animation-active toggle">실행</button>
+                                <button type="button" class="btn btn-default btn-sm btn-animation-stop toggle">정지</button>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="amc-disclosure">
+                    <summary>시설물 JSON 데이터</summary>
+                    <div class="amc-json-tools">
+                        <textarea class="form-control component-json" rows="10" spellcheck="false" aria-label="시설물 JSON 데이터"></textarea>
+                        <div class="amc-actions">
+                            <button type="button" class="btn btn-default btn-sm btn-save">현재 상태 저장</button>
+                            <button type="button" class="btn btn-primary btn-sm btn-load">JSON 불러오기</button>
+                        </div>
+                    </div>
+                </details>
+            </section>
+
+            <section id="amc-roads" class="amc-tab-panel" role="tabpanel" data-amc-panel="roads" hidden>
+                <div class="amc-section amc-section-primary">
+                    <div class="amc-section-heading">
+                        <div>
+                            <span class="amc-kicker">DRAW ROAD</span>
+                            <h2>도로 추가</h2>
+                        </div>
+                    </div>
+                    <label class="amc-field amc-field-wide">
+                        <span>도로 텍스처</span>
+                        <select class="form-control input-sm select-component-road"></select>
+                    </label>
+                    <div class="amc-actions amc-actions-main">
+                        <button type="button" class="btn btn-primary btn-sm btn-add-road toggle">도로 그리기</button>
+                        <span class="amc-action-hint">지도에서 점을 찍고 더블클릭하면 종료됩니다.</span>
+                        <button type="button" class="btn btn-default btn-sm btn-clear-road">전체 제거</button>
+                    </div>
+                </div>
+
+                <div class="amc-section">
+                    <div class="amc-section-heading">
+                        <div>
+                            <span class="amc-kicker">ROAD SETTINGS</span>
+                            <h2>도로 너비</h2>
+                        </div>
+                    </div>
+                    <div class="amc-setting-grid amc-road-width-grid">
+                        <label class="amc-field amc-setting-card">
+                            <span>새 도로 기본 너비</span>
+                            <span class="amc-input-unit">
+                                <input class="form-control input-sm input-road-width" type="number" value="10" min="1">
+                                <b>m</b>
+                            </span>
+                        </label>
+                        <label class="amc-field amc-setting-card">
+                            <span>선택 도로 너비</span>
+                            <span class="amc-input-unit">
+                                <input class="form-control input-sm input-selected-road-width" type="number" value="10" min="1">
+                                <b>m</b>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="amc-section">
+                    <div class="amc-section-heading">
+                        <div>
+                            <span class="amc-kicker">SELECTED ROAD</span>
+                            <h2>선택 도로 편집</h2>
+                        </div>
+                    </div>
+                    <div class="amc-tool-group">
+                        <button type="button" class="btn btn-default btn-sm btn-road-select toggle">도로 선택</button>
+                        <button type="button" class="btn btn-default btn-sm btn-translate toggle">이동</button>
+                        <button type="button" class="btn btn-default btn-sm btn-show toggle">표시</button>
+                        <button type="button" class="btn btn-default btn-sm btn-hide toggle">숨김</button>
+                        <button type="button" class="btn btn-default btn-sm btn-label toggle">라벨 표시 전환</button>
+                        <button type="button" class="btn btn-default btn-sm label-edit">라벨 이름 변경</button>
+                        <button type="button" class="btn btn-danger btn-sm btn-delete">선택 삭제</button>
+                    </div>
+                </div>
+
+                <details class="amc-disclosure">
+                    <summary>도로 JSON 데이터</summary>
+                    <div class="amc-json-tools">
+                        <textarea class="form-control road-json" readonly rows="12" spellcheck="false" aria-label="도로 JSON 데이터"></textarea>
+                        <div class="amc-actions">
+                            <button type="button" class="btn btn-default btn-sm btn-save-road">현재 상태 저장</button>
+                            <button type="button" class="btn btn-primary btn-sm btn-load-road">JSON 불러오기</button>
+                        </div>
+                    </div>
+                </details>
+            </section>
+
+            <section id="amc-library" class="amc-tab-panel" role="tabpanel" data-amc-panel="library" hidden>
+                <div class="amc-section amc-section-primary">
+                    <div class="amc-section-heading">
+                        <div>
+                            <span class="amc-kicker">UPLOAD COMPONENT</span>
+                            <h2>사용자 컴포넌트 등록</h2>
+                        </div>
+                    </div>
+                    <label class="amc-file-field">
+                        <span>컴포넌트 폴더 선택</span>
+                        <input type="file" name="buildFiles" multiple webkitdirectory>
+                        <small>컴포넌트에 필요한 파일이 들어 있는 폴더를 선택하세요.</small>
+                    </label>
+                    <label class="amc-field amc-field-wide">
+                        <span>컴포넌트 이름</span>
+                        <input type="text" name="tileName" class="form-control arg upload-component-name"
+                               placeholder="등록할 컴포넌트 이름">
+                    </label>
+                    <button type="button" class="btn btn-primary btn-block" name="submit-component"
+                            title="파일이 선택되지 않았습니다.">컴포넌트 등록</button>
+                </div>
+
+                <div class="amc-section">
+                    <div class="amc-section-heading">
+                        <div>
+                            <span class="amc-kicker">COMPONENT LIBRARY</span>
+                            <h2>업로드 컴포넌트</h2>
+                        </div>
+                    </div>
+                    <div class="amc-upload-list-header" aria-hidden="true">
+                        <span>이름</span><span>상태</span><span>관리</span>
+                    </div>
+                    <div class="div-upload-component-list" aria-live="polite"></div>
+                </div>
+            </section>
+        </div>
+    </div>
+</aside>
+
+<aside id="amc-component-editor"
+       class="legacy-floating-panel legacy-migration-panel amc-component-editor"
+       role="dialog"
+       aria-modal="false"
+       aria-hidden="true"
+       aria-labelledby="amc-component-editor-title"
+       hidden>
+    <div class="div-popup amc-component-editor-panel">
+        <header class="div-popup-control amc-component-editor-header">
+            <div>
+                <span class="amc-kicker">SELECTED COMPONENT</span>
+                <h2 id="amc-component-editor-title">선택 시설물 편집</h2>
+            </div>
+            <button class="amc-component-editor-close" type="button" aria-label="선택 시설물 편집 닫기">×</button>
+        </header>
+        <div class="amc-component-editor-content">
+            <p class="amc-component-editor-status" data-amc-component-editor-status role="status">
+                지도에서 편집할 시설물을 선택하세요.
+            </p>
+            <nav class="amc-component-editor-tabs" aria-label="선택 시설물 편집 종류" role="tablist">
+                <button class="amc-component-editor-tab is-active" type="button" role="tab"
+                        aria-selected="true" aria-controls="amc-editor-transform"
+                        data-amc-editor-tab="transform">Transform</button>
+                <button class="amc-component-editor-tab" type="button" role="tab"
+                        aria-selected="false" aria-controls="amc-editor-style"
+                        data-amc-editor-tab="style">Style</button>
+            </nav>
+
+            <section id="amc-editor-transform" class="amc-component-editor-panel-content is-active"
+                     role="tabpanel" data-amc-editor-panel="transform">
+                <div class="amc-tool-group" aria-label="선택 시설물 변형 도구">
+                    <button type="button" class="btn btn-default btn-sm btn-translate toggle">이동</button>
+                    <button type="button" class="btn btn-default btn-sm btn-rotate toggle">회전</button>
+                    <button type="button" class="btn btn-default btn-sm btn-scale toggle">크기</button>
+                    <button type="button" class="btn btn-default btn-sm btn-reset">변형 초기화</button>
+                </div>
+            </section>
+
+            <section id="amc-editor-style" class="amc-component-editor-panel-content"
+                     role="tabpanel" data-amc-editor-panel="style" hidden>
+                <div class="amc-component-style-grid">
+                    <label class="amc-component-style-field amc-component-color-field">
+                        <span>색상</span>
+                        <span class="amc-component-color-control">
+                            <input class="input-selected-component-color" type="color" value="#ffffff">
+                            <output data-amc-style-value="color">#FFFFFF</output>
+                        </span>
+                    </label>
+                    <label class="amc-component-style-field">
+                        <span class="amc-component-style-label">
+                            <span>투명도</span><output data-amc-style-value="opacity">1.00</output>
+                        </span>
+                        <input class="input-selected-component-opacity" type="range"
+                               min="0" max="1" step="0.05" value="1">
+                    </label>
+                    <label class="amc-component-style-field">
+                        <span class="amc-component-style-label">
+                            <span>밝기</span><output data-amc-style-value="brightness">1.00</output>
+                        </span>
+                        <input class="input-selected-component-brightness" type="range"
+                               min="0" max="2" step="0.05" value="1">
+                    </label>
+                    <label class="amc-component-style-field">
+                        <span class="amc-component-style-label">
+                            <span>대비</span><output data-amc-style-value="contrast">1.00</output>
+                        </span>
+                        <input class="input-selected-component-contrast" type="range"
+                               min="0" max="2" step="0.05" value="1">
+                    </label>
+                </div>
+                <div class="amc-tool-group amc-component-style-actions" aria-label="선택 시설물 가시성 및 라벨 도구">
+                    <button type="button" class="btn btn-default btn-sm btn-show toggle">표시</button>
+                    <button type="button" class="btn btn-default btn-sm btn-hide toggle">숨김</button>
+                    <button type="button" class="btn btn-default btn-sm btn-label toggle">라벨 표시 전환</button>
+                    <button type="button" class="btn btn-default btn-sm label-edit">라벨 이름 변경</button>
+                </div>
+            </section>
+
+            <div class="amc-component-editor-danger">
+                <button type="button" class="btn btn-danger btn-sm btn-delete">선택 삭제</button>
+            </div>
+        </div>
+    </div>
+</aside>

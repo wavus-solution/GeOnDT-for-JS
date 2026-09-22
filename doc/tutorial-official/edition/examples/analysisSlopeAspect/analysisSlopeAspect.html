@@ -1,0 +1,194 @@
+<nav class="slope-aspect-rail" data-example-rail aria-label="경사향 분석 도구">
+    <button
+        class="rail-button"
+        type="button"
+        data-panel-target="slope-aspect-panel"
+        data-api-help="analysis.create"
+        aria-expanded="false"
+    >
+        <span class="rail-icon" aria-hidden="true">◬</span>
+        <span>분석</span>
+    </button>
+</nav>
+
+<aside
+    class="glass-panel example-panel slope-aspect-panel"
+    id="slope-aspect-panel"
+    aria-hidden="true"
+>
+    <header class="panel-header">
+        <div>
+            <span class="eyebrow">SLOPE ASPECT</span>
+            <h2>경사향 분석</h2>
+        </div>
+        <button
+            class="panel-close"
+            type="button"
+            data-panel-close="slope-aspect-panel"
+            aria-label="경사향 분석 닫기"
+        >×</button>
+    </header>
+
+    <div class="panel-content slope-panel-content">
+        <p class="panel-description">
+            지도를 클릭한 지점을 중심으로 분석 격자를 만들어 셀마다 경사도와 경사향을 계산하고,
+            방향과 범례 색상을 가진 화살표로 표시합니다. 결과가 표시된 뒤 격자 안을 다시 클릭하면
+            가장 가까운 화살표가 강조되고 그 값이 POI로 표시됩니다.
+        </p>
+
+        <section class="slope-section" aria-labelledby="slope-model-heading">
+            <h3 id="slope-model-heading">배경 모델</h3>
+            <label class="model-option-row" data-api-help="model.wfs">
+                <input type="checkbox" id="wfs-model-visible">
+                <span class="model-option-copy">
+                    <strong>건물 모델</strong>
+                    <small>분석 결과와 함께 볼 2.5D 건물 레이어</small>
+                </span>
+                <b id="wfs-model-badge">숨김</b>
+            </label>
+        </section>
+
+        <section class="slope-section" aria-labelledby="slope-grid-heading">
+            <h3 id="slope-grid-heading">분석 그리드</h3>
+            <div class="grid-option-list" data-api-help="analysis.grid">
+                <label class="grid-option">
+                    <span>가로 길이(m)</span>
+                    <input class="grid-option-input" type="number" name="width" min="1" step="10" value="250">
+                </label>
+                <label class="grid-option">
+                    <span>세로 길이(m)</span>
+                    <input class="grid-option-input" type="number" name="height" min="1" step="10" value="250">
+                </label>
+                <label class="grid-option">
+                    <span>가로 갯수</span>
+                    <input class="grid-option-input" type="number" name="nx" min="2" step="1" value="25">
+                </label>
+                <label class="grid-option">
+                    <span>세로 갯수</span>
+                    <input class="grid-option-input" type="number" name="ny" min="2" step="1" value="25">
+                </label>
+            </div>
+        </section>
+
+        <section class="slope-section" aria-labelledby="slope-arrow-heading">
+            <h3 id="slope-arrow-heading">화살표 형상</h3>
+            <div class="grid-option-list" data-api-help="analysis.arrow-shape">
+                <label class="grid-option">
+                    <span>머리 크기(반지름)</span>
+                    <input class="arrow-shape-input" type="number" name="arrowHeadSize" min="0.1" step="0.1" value="1.5">
+                </label>
+                <label class="grid-option">
+                    <span>머리 길이</span>
+                    <input class="arrow-shape-input" type="number" name="arrowHeadLength" min="0.1" step="0.5" value="4">
+                </label>
+                <label class="grid-option">
+                    <span>꼬리 길이</span>
+                    <input class="arrow-shape-input" type="number" name="arrowTailLength" min="0.1" step="0.5" value="8">
+                </label>
+                <label class="grid-option">
+                    <span>꼬리 굵기(반지름)</span>
+                    <input class="arrow-shape-input" type="number" name="arrowTailWidth" min="0.01" step="0.05" value="0.1">
+                </label>
+            </div>
+        </section>
+
+        <section class="slope-section" aria-labelledby="slope-mode-heading">
+            <h3 id="slope-mode-heading">가시화 모드</h3>
+            <div class="mode-grid" data-api-help="analysis.mode">
+                <label>
+                    <input type="radio" name="analysis-mode" value="aspect" checked>
+                    <span>경사향</span>
+                </label>
+                <label>
+                    <input type="radio" name="analysis-mode" value="slope">
+                    <span>경사도</span>
+                </label>
+            </div>
+        </section>
+
+        <section class="slope-section" id="aspect-legend-section" aria-labelledby="aspect-legend-heading">
+            <h3 id="aspect-legend-heading">경사향 범례</h3>
+            <div class="aspect-legend-grid" data-api-help="analysis.aspect-legend">
+                <label class="legend-swatch">
+                    <span>N</span>
+                    <input class="aspect-legend-input" type="color" name="n" aria-label="북 방향 색상">
+                </label>
+                <label class="legend-swatch">
+                    <span>NE</span>
+                    <input class="aspect-legend-input" type="color" name="ne" aria-label="북동 방향 색상">
+                </label>
+                <label class="legend-swatch">
+                    <span>E</span>
+                    <input class="aspect-legend-input" type="color" name="e" aria-label="동 방향 색상">
+                </label>
+                <label class="legend-swatch">
+                    <span>SE</span>
+                    <input class="aspect-legend-input" type="color" name="se" aria-label="남동 방향 색상">
+                </label>
+                <label class="legend-swatch">
+                    <span>S</span>
+                    <input class="aspect-legend-input" type="color" name="s" aria-label="남 방향 색상">
+                </label>
+                <label class="legend-swatch">
+                    <span>SW</span>
+                    <input class="aspect-legend-input" type="color" name="sw" aria-label="남서 방향 색상">
+                </label>
+                <label class="legend-swatch">
+                    <span>W</span>
+                    <input class="aspect-legend-input" type="color" name="w" aria-label="서 방향 색상">
+                </label>
+                <label class="legend-swatch">
+                    <span>NW</span>
+                    <input class="aspect-legend-input" type="color" name="nw" aria-label="북서 방향 색상">
+                </label>
+                <label class="legend-swatch">
+                    <span>평면</span>
+                    <input class="aspect-legend-input" type="color" name="f" aria-label="평탄 지형 색상">
+                </label>
+            </div>
+        </section>
+
+        <section class="slope-section" id="slope-legend-section" aria-labelledby="slope-legend-heading">
+            <h3 id="slope-legend-heading">경사도 범례</h3>
+            <div class="slope-legend-list" id="slope-legend-list" data-api-help="analysis.slope-legend"></div>
+            <div class="slope-range-row" data-api-help="analysis.slope-range">
+                <label>
+                    <span>최소값(°)</span>
+                    <input class="slope-range-input" type="number" name="min" min="0" max="90" step="1" value="0">
+                </label>
+                <label>
+                    <span>최대값(°)</span>
+                    <input class="slope-range-input" type="number" name="max" min="0" max="90" step="1" value="50">
+                </label>
+            </div>
+        </section>
+
+        <section
+            class="slope-section slope-result-card"
+            id="slope-result"
+            data-api-help="analysis.pick"
+            tabindex="0"
+            aria-labelledby="slope-result-heading"
+        >
+            <div class="result-heading">
+                <h3 id="slope-result-heading">분석 결과</h3>
+                <span id="slope-result-status">대기</span>
+            </div>
+            <p id="slope-result-empty">지도에서 분석할 지점을 클릭하세요.</p>
+            <dl id="slope-result-data" hidden>
+                <div><dt>중심 경도</dt><dd id="result-longitude">-</dd></div>
+                <div><dt>중심 위도</dt><dd id="result-latitude">-</dd></div>
+                <div><dt>평균 경사도</dt><dd id="result-average-slope">-</dd></div>
+                <div><dt>분석 셀</dt><dd id="result-cell-count">-</dd></div>
+                <div data-api-help="analysis.highlight"><dt>강조 화살표</dt><dd id="result-highlight">격자 안을 클릭하세요</dd></div>
+            </dl>
+            <p id="slope-result-error" class="slope-result-error" hidden></p>
+        </section>
+
+        <div class="slope-action-grid">
+            <button id="clear-analysis" class="slope-action" type="button" data-api-help="analysis.clear" disabled>
+                분석 지우기
+            </button>
+        </div>
+    </div>
+</aside>

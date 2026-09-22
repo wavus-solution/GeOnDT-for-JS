@@ -1,0 +1,74 @@
+<template data-example-rail>
+    <button class="rail-button" type="button" data-panel-target="MapControllSetting-option-panel" aria-expanded="false">
+        <span class="rail-icon" aria-hidden="true">☷</span><span>컨트롤</span>
+    </button>
+</template>
+
+<aside class="glass-panel example-panel MapControllSetting-option-panel" id="MapControllSetting-option-panel" aria-hidden="true">
+    <header class="panel-header">
+        <div><span class="eyebrow">CAMERA CONTROL</span><h2>화면 컨트롤 설정</h2></div>
+        <button class="panel-close" type="button" data-panel-close="MapControllSetting-option-panel" aria-label="화면 컨트롤 설정 닫기">×</button>
+    </header>
+    <div class="panel-content">
+        <p class="panel-description">프리셋을 선택하고 지도에서 드래그하며 나에게 맞는 이동 감각을 찾아보세요.</p>
+
+        <section class="MapControllSetting-section" aria-labelledby="MapControllSetting-presets-heading" data-api-help="control.presets">
+            <h3 id="MapControllSetting-presets-heading">01 · 컨트롤 프리셋</h3>
+            <div class="MapControllSetting-presets" role="group" aria-label="컨트롤 프리셋">
+                <button type="button" data-preset="map" aria-pressed="true"><strong>지도 탐색</strong><small>넓고 부드럽게</small></button>
+                <button type="button" data-preset="indoor" aria-pressed="false"><strong>실내 정밀 이동</strong><small>작고 섬세하게</small></button>
+                <button type="button" data-preset="firstPerson" aria-pressed="false"><strong>1인칭 탐색</strong><small>시선 중심으로</small></button>
+            </div>
+            <p class="MapControllSetting-note" data-preset-description></p>
+            <button class="MapControllSetting-reset" type="button" data-reset-preset>선택한 프리셋 값으로 복원</button>
+            <p class="MapControllSetting-note">프리셋은 설정만 바꾸며 카메라 위치는 유지합니다.<br>왼쪽 드래그: 이동 · 오른쪽 드래그: 회전 · 휠: 줌<br>지도를 클릭한 뒤 방향키로 이동할 수 있습니다.<br>API 도움말이 지도를 가리면 Esc로 닫으세요.</p>
+        </section>
+
+        <section class="MapControllSetting-section" aria-labelledby="MapControllSetting-inertia-heading">
+            <h3 id="MapControllSetting-inertia-heading">02 · 팬과 회전 관성</h3>
+            <p class="MapControllSetting-note">드래그하다 바로 놓아 보세요. 잠시 멈췄다가 놓으면 잔여 이동이 생기지 않습니다.</p>
+            <details open data-api-help="control.inertia"><summary>팬 관성 · 6개 설정</summary><div data-factor-group="inertia"></div></details>
+            <details open data-api-help="control.rotation-inertia"><summary>회전 관성 · 6개 설정</summary><div data-factor-group="rotationInertia"></div></details>
+        </section>
+
+        <section class="MapControllSetting-section" aria-labelledby="MapControllSetting-motion-heading" data-api-help="control.motion">
+            <h3 id="MapControllSetting-motion-heading">03 · 이동과 회전 감도</h3>
+            <details><summary>6개 세부 설정</summary><div data-factor-group="motion"></div></details>
+        </section>
+
+        <section class="MapControllSetting-section" aria-labelledby="MapControllSetting-zoom-heading" data-api-help="control.zoom">
+            <h3 id="MapControllSetting-zoom-heading">04 · 줌과 거리 제한</h3>
+            <details><summary>6개 세부 설정</summary><div data-factor-group="zoom"></div></details>
+        </section>
+
+        <section class="MapControllSetting-section" aria-labelledby="MapControllSetting-anchor-heading" data-api-help="control.anchor">
+            <h3 id="MapControllSetting-anchor-heading">05 · 앵커 탐색 범위</h3>
+            <details><summary>8개 세부 설정</summary><div data-factor-group="anchor"></div></details>
+        </section>
+
+        <section class="MapControllSetting-section" aria-labelledby="MapControllSetting-mode-heading" data-api-help="control.mode">
+            <h3 id="MapControllSetting-mode-heading">06 · 입력 방식과 지면 충돌</h3>
+            <details>
+                <summary>6개 factor와 충돌 사용 설정</summary>
+                <label class="MapControllSetting-collision"><input type="checkbox" data-collision> 지면 충돌 사용</label>
+                <div data-factor-group="mode"></div>
+            </details>
+        </section>
+
+        <section class="MapControllSetting-section" aria-labelledby="MapControllSetting-result-heading">
+            <h3 id="MapControllSetting-result-heading">07 · 적용 결과</h3>
+            <dl class="MapControllSetting-result-list">
+                <div><dt>현재 설정</dt><dd data-result-preset>-</dd></div>
+                <div><dt>팬 관성</dt><dd data-result-inertia>-</dd></div>
+                <div><dt>관성 세기</dt><dd data-result-strength>-</dd></div>
+                <div><dt>감속 계수</dt><dd data-result-damping>-</dd></div>
+                <div><dt>회전 관성</dt><dd data-result-rotate-inertia>-</dd></div>
+                <div><dt>회전 세기</dt><dd data-result-rotate-strength>-</dd></div>
+                <div><dt>회전 감속</dt><dd data-result-rotate-damping>-</dd></div>
+                <div><dt>설정 항목</dt><dd data-result-count>-</dd></div>
+            </dl>
+            <details class="MapControllSetting-code"><summary>현재 설정 코드 보기</summary><pre><code data-setting-code></code></pre></details>
+        </section>
+    </div>
+    <p class="MapControllSetting-status" role="status" aria-live="polite" data-setting-status>숫자는 입력 후 Enter 또는 다른 곳을 눌러 적용하세요.</p>
+</aside>

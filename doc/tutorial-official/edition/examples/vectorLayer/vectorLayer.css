@@ -1,0 +1,766 @@
+.vector-panel {
+    width: min(430px, calc(100vw - 96px));
+}
+
+.vector-content {
+    display: grid;
+    gap: 14px;
+    max-height: calc(100vh - 150px);
+    overflow: auto;
+}
+
+/* 도형 종류에 따라 감춘 영역이 grid·flex 표시 규칙에 덮이지 않게 합니다. */
+.vector-content [hidden] {
+    display: none !important;
+}
+
+.vector-section {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    background: rgba(10, 27, 50, 0.34);
+}
+
+.vector-section h3,
+.vector-section p {
+    margin: 0;
+}
+
+.vector-section h3 {
+    font-size: 13px;
+}
+
+/* 레이어별 도형 목록: 드론 통합 모니터링 예제의 도형 목록과 같은 한 줄 항목 형식이며, 고정 높이 안에서 스크롤합니다. */
+#geometry-list-heading b {
+    color: var(--theme-accent);
+}
+
+.vector-list-box {
+    height: 200px;
+    padding: 4px;
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    background: rgba(8, 29, 43, .16);
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.vector-layer-list {
+    display: grid;
+    gap: 8px;
+}
+
+.vector-layer-group {
+    display: grid;
+    gap: 3px;
+}
+
+.vector-layer-title {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 6px;
+    color: var(--theme-muted);
+    font-size: 11px;
+}
+
+.vector-geometry-list {
+    display: grid;
+    gap: 3px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* .vector-section button의 버튼 모양보다 우선하도록 섹션 선택자를 함께 씁니다. */
+.vector-section .vector-list-button {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    justify-items: start;
+    gap: 8px;
+    align-items: center;
+    width: 100%;
+    min-height: 0;
+    padding: 5px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 7px;
+    background: transparent;
+    color: #eff9fd;
+    font-size: 12px;
+    text-align: left;
+}
+
+.vector-section .vector-list-button:hover {
+    background: var(--theme-surface);
+}
+
+.vector-list-item.is-selected .vector-list-button {
+    border-color: var(--theme-accent);
+    background: var(--theme-surface-hover);
+}
+
+.vector-type-badge {
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(118, 182, 255, .18);
+    color: #bfe0ff;
+    font-size: 10.5px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.vector-list-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vector-layer-empty {
+    margin: 0;
+    padding: 6px;
+    color: var(--theme-muted);
+    font-size: 11px;
+    text-align: center;
+}
+
+.vector-hint {
+    color: #9fb4ca;
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+/* 도형 종류 선택 */
+.vector-type-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.vector-type-grid label {
+    position: relative;
+}
+
+.vector-type-grid input {
+    position: absolute;
+    opacity: 0;
+}
+
+.vector-type-grid span,
+.vector-section button {
+    display: grid;
+    min-height: 34px;
+    place-items: center;
+    padding: 0 6px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 9px;
+    color: #e8f2ff;
+    background: rgba(255, 255, 255, 0.07);
+    cursor: pointer;
+    font-size: 12px;
+    text-align: center;
+}
+
+.vector-type-grid input:checked + span,
+.vector-primary,
+.vector-section button.active {
+    border-color: #76b6ff !important;
+    background: rgba(52, 128, 230, 0.34) !important;
+}
+
+.vector-section button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.vector-section button.danger {
+    color: #ffd8dd;
+    border-color: rgba(255, 101, 125, 0.45);
+}
+
+/* 입력 폼 */
+.vector-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+}
+
+.vector-form-grid label {
+    display: grid;
+    gap: 5px;
+    align-content: start;
+    color: #c5d8ef;
+    font-size: 12px;
+}
+
+.vector-form-grid input {
+    width: 100%;
+    min-height: 32px;
+    padding: 5px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    color: #f5f9ff;
+    background: rgba(3, 15, 31, 0.72);
+}
+
+.vector-form-grid input[type="color"] {
+    padding: 3px;
+}
+
+.vector-form-grid label.vector-check {
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 7px;
+}
+
+.vector-form-grid label.vector-check input {
+    width: 16px;
+    min-height: 16px;
+    padding: 0;
+}
+
+.wide-field {
+    grid-column: 1 / -1;
+}
+
+/* 도형 종류별 입력 영역 */
+.param {
+    display: none;
+}
+
+.param.active {
+    display: block;
+}
+
+.vector-form-grid.param.active {
+    display: grid;
+}
+
+.vector-gizmo.param.active {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+}
+
+/* 단층 범례 */
+.vector-legend {
+    display: grid;
+    gap: 6px;
+    color: #c5d8ef;
+    font-size: 12px;
+}
+
+.vector-legend-list {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.vector-legend-list li {
+    display: grid;
+    gap: 3px;
+    justify-items: center;
+    font-size: 11px;
+}
+
+.vector-legend-list input {
+    width: 100%;
+    height: 22px;
+    padding: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 6px;
+    background: rgba(3, 15, 31, 0.72);
+}
+
+.legend-input::-webkit-color-swatch {
+    border: none;
+}
+
+/* 작업 버튼 */
+.vector-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+/* 경로 점 편집 오버레이 */
+.vector-path-overlay {
+    min-width: 190px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 10px;
+    background: rgba(9, 24, 44, 0.92);
+    color: #e8f2ff;
+    font-size: 12px;
+}
+
+.vector-path-overlay-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 6px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.vector-path-overlay-body {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px;
+}
+
+.vector-path-overlay-body label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.vector-path-overlay input {
+    width: 74px;
+    min-height: 28px;
+    padding: 4px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 7px;
+    color: #f5f9ff;
+    background: rgba(3, 15, 31, 0.78);
+}
+
+.vector-path-overlay button {
+    min-height: 26px;
+    padding: 0 9px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 7px;
+    color: #e8f2ff;
+    background: rgba(255, 255, 255, 0.07);
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.vector-path-overlay button.btn-height {
+    border-color: #76b6ff;
+    background: rgba(52, 128, 230, 0.34);
+}
+
+@media (max-width: 760px) {
+    .vector-panel {
+        width: min(410px, calc(100vw - 84px));
+    }
+
+    .vector-content {
+        max-height: calc(100vh - 136px);
+    }
+
+    .vector-type-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* 저장한 도형 JSON 팝업 */
+.vector-json-dialog {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.vector-json-dialog[hidden] {
+    display: none;
+}
+
+.vector-json-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(2, 10, 22, 0.62);
+}
+
+.vector-json-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: min(560px, 100%);
+    max-height: min(70vh, 620px);
+    padding: 14px 16px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 14px;
+    background: rgba(9, 24, 44, 0.96);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+    color: #e8f2ff;
+}
+
+.vector-json-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.vector-json-header h3 {
+    margin: 0;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+}
+
+.vector-json-close {
+    padding: 0 6px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #c5d8ef;
+    font-size: 18px;
+    line-height: 1.4;
+    cursor: pointer;
+}
+
+.vector-json-close:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+}
+
+.vector-json-summary {
+    margin: 0;
+    color: #a9c4e4;
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+.vector-json-body {
+    flex: 1;
+    margin: 0;
+    padding: 10px 12px;
+    min-height: 0;
+    overflow: auto;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 10px;
+    background: rgba(3, 15, 31, 0.82);
+    color: #dce9fb;
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.55;
+    white-space: pre;
+}
+
+.vector-json-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.vector-json-actions button {
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* 불러오기 팝업의 JSON 입력란: 저장 팝업 본문과 같은 모양이며 세로로만 크기를 바꿀 수 있습니다. */
+#coord-input {
+    min-height: 200px;
+    resize: vertical;
+    white-space: pre;
+    outline: none;
+}
+
+#coord-input:focus {
+    border-color: #76b6ff;
+}
+
+#coord-input::placeholder {
+    color: rgba(169, 196, 228, 0.55);
+}
+
+.vector-json-result {
+    color: #bfe3ff;
+}
+
+.vector-json-result.is-error {
+    color: #ffb4bf;
+}
+
+/* 왼쪽 선택 도형 설정 창과 JSON으로 생성하기 창.
+   오른쪽 Runtime 패널(right 88px, 폭 .vector-panel)과 겹치지 않도록 남은 폭 안에서 두 창을 나란히 놓습니다.
+   빈 영역은 지도 조작을 막지 않도록 포인터 이벤트를 창에만 줍니다. */
+.vector-side-panels {
+    position: absolute;
+    top: 64px;
+    left: 16px;
+    right: calc(88px + min(430px, calc(100vw - 96px)) + 16px);
+    z-index: 13;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    pointer-events: none;
+}
+
+.vector-side-panel {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-width: 0;
+    max-width: var(--theme-side-panel-width);
+    max-height: calc(100dvh - 120px);
+    overflow: hidden;
+    border-radius: 12px;
+    pointer-events: auto;
+}
+
+.vector-side-panel[hidden],
+.vector-side-panel [hidden] {
+    display: none !important;
+}
+
+.vector-side-panel .panel-header h2 {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: baseline;
+}
+
+.vector-detail-name {
+    color: var(--theme-accent);
+    font-family: Consolas, monospace;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.vector-side-content {
+    display: grid;
+    gap: 10px;
+    overflow-y: auto;
+}
+
+.vector-side-content .panel-description {
+    margin: 0;
+    color: var(--theme-muted);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.vector-side-heading {
+    margin: 4px 0 0;
+    color: #eff9fd;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.vector-side-heading-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.vector-side-heading-row .vector-side-heading {
+    margin: 0;
+}
+
+/* [JSON으로 설정] 켜기·끄기 버튼: aria-pressed 상태에 따라 표시등이 켜집니다. */
+.vector-json-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 26px;
+    padding: 3px 10px;
+    border: 1px solid var(--theme-line);
+    border-radius: 999px;
+    background: var(--theme-surface);
+    color: #eff9fd;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.vector-json-toggle::before {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .28);
+    content: "";
+}
+
+.vector-json-toggle:hover,
+.vector-json-toggle:focus-visible {
+    background: var(--theme-surface-hover);
+}
+
+.vector-json-toggle[aria-pressed="true"] {
+    border-color: var(--theme-accent);
+    background: rgba(172, 223, 240, .18);
+}
+
+.vector-json-toggle[aria-pressed="true"]::before {
+    background: var(--theme-accent);
+    box-shadow: 0 0 6px var(--theme-accent);
+}
+
+.vector-info-list {
+    margin: 0;
+}
+
+.vector-info-list > div {
+    display: grid;
+    grid-template-columns: 88px minmax(0, 1fr);
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--theme-line);
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.vector-info-list > div:last-child {
+    border-bottom: 0;
+}
+
+.vector-info-list dt {
+    color: var(--theme-muted);
+}
+
+.vector-info-list dd {
+    min-width: 0;
+    margin: 0;
+    color: #eff9fd;
+    overflow-wrap: anywhere;
+}
+
+.vector-detail-form {
+    display: grid;
+    gap: 9px;
+}
+
+.vector-side-action {
+    min-height: 30px;
+    padding: 5px 10px;
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    background: var(--theme-surface);
+    color: #eff9fd;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.vector-side-action.primary {
+    border-color: var(--theme-accent);
+    background: rgba(172, 223, 240, .18);
+}
+
+.vector-side-action.danger {
+    border-color: rgba(255, 101, 125, .45);
+    color: #ffd8dd;
+}
+
+.vector-side-action:hover:not(:disabled),
+.vector-side-action:focus-visible {
+    background: var(--theme-surface-hover);
+}
+
+.vector-side-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.vector-side-json {
+    width: 100%;
+    min-height: 220px;
+    padding: 10px 12px;
+    border: 1px solid var(--theme-line);
+    border-radius: 10px;
+    background: rgba(3, 15, 31, .82);
+    color: #dce9fb;
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.55;
+    white-space: pre;
+    resize: vertical;
+}
+
+.vector-side-json:focus-visible {
+    outline: 2px solid var(--theme-accent);
+    outline-offset: -1px;
+}
+
+/* 창 폭이 좁으면 두 창을 세로로 쌓고, 모바일에서는 화면 폭 전체를 씁니다. */
+@media (max-width: 1100px) {
+    .vector-side-panels {
+        right: auto;
+        width: min(var(--theme-side-panel-width), calc(100vw - min(430px, calc(100vw - 96px)) - 120px));
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .vector-side-panel {
+        flex: none;
+        max-width: none;
+        max-height: calc((100dvh - 132px) / 2);
+    }
+}
+
+@media (max-width: 760px) {
+    .vector-side-panels {
+        right: 10px;
+        left: 10px;
+        width: auto;
+    }
+
+    .vector-side-panel {
+        max-height: 30dvh;
+    }
+}
+
+/* 코드 편집 패널이 열리면 편집기가 지도 왼쪽을 덮으므로, 드론 통합 모니터링 예제의 상세 설정 창처럼 두 창을 편집기 오른쪽으로 옮깁니다.
+   편집기와 오른쪽 패널 사이 폭이 좁아 두 창은 세로로 쌓습니다. */
+@media (min-width: 761px) {
+    .example-editor-open .vector-side-panels {
+        left: calc(var(--editor-pane-width, min(40vw, 600px)) + 16px);
+        right: auto;
+        width: min(var(--theme-side-panel-width), calc(100vw - var(--editor-pane-width, min(40vw, 600px)) - 32px));
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .example-editor-open .vector-side-panel {
+        flex: none;
+        max-width: none;
+        max-height: calc((100dvh - 132px) / 2);
+    }
+}
+
+/* JSON으로 설정 창의 속성 설명표: JSON에 들어 있는 설정 이름과 의미를 함께 보여 줍니다. */
+.vector-desc {
+    max-height: 160px;
+    padding: 7px 8px;
+    overflow: auto;
+    border: 1px solid var(--theme-line);
+    border-radius: 9px;
+    background: rgba(3, 15, 31, .45);
+    color: var(--theme-muted);
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+.vector-desc table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.vector-desc td {
+    padding: 2px 8px 2px 0;
+    vertical-align: top;
+}
+
+.vector-desc code {
+    padding: 1px 4px;
+    border-radius: 3px;
+    color: #d8e8ff;
+    background: rgba(255, 255, 255, .1);
+    white-space: nowrap;
+}

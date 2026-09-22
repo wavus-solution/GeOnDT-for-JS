@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/html">
+<head>
+    <meta charset="UTF-8">
+    <title>사용자 지정 그룹 이동 설정 예제</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+
+        #analy-popup .div-popup {
+            width: 900px;
+            height: 700px;
+            top: 15vh;
+        }
+
+        .u3-popup .u3-popup-content .modal-header {
+            border-bottom: none;
+            height: 20px;
+            padding: 0 5px 0 5px;
+            line-height: 20px;
+            background-color: rgb(43, 69, 140);
+
+        }
+
+        code {
+            color: white;
+            background-color: rgba(23, 36, 75, 0.65);
+        }
+
+        #load {
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            position: fixed;
+            display: block;
+            opacity: 1;
+            /*background: white;*/
+            z-index: 5000;
+            text-align: center;
+        }
+
+        #load > img {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            z-index: 5001;
+        }
+
+        .slidecontainer {
+            width: 100%; /* Width of the outside container */
+        }
+
+        .slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 15px;
+            border-radius: 5px;
+            background: #d3d3d3;
+            outline: none;
+            opacity: 0.7;
+            -webkit-transition: .2s;
+            transition: opacity .2s;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background-color: rgba(65, 102, 206, 1);;
+            cursor: pointer;
+        }
+
+        .slider::-moz-range-thumb {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background-color: rgba(65, 102, 206, 1);;
+            cursor: pointer;
+        }
+
+        .ex-explanation {
+            width: 900px;
+        }
+
+        /* Set header to stick to the top of the container. */
+        thead tr th {
+            position: sticky;
+            top: 0;
+            overflow: auto;
+        }
+
+        /* If we use border,
+        we must use table-collapse to avoid
+        a slight movement of the header row */
+        table {
+            border-collapse: collapse;
+        }
+
+        /* Because we must set sticky on th,
+         we have to apply background styles here
+         rather than on thead */
+        th {
+            padding: 16px;
+            padding-left: 15px;
+            border-left: 1px dotted rgba(200, 209, 224, 0.6);
+            border-bottom: 1px solid #e8e8e8;
+            background: rgba(65, 102, 206, 1);
+            text-align: left;
+            /* With border-collapse, we must use box-shadow or psuedo elements
+            for the header borders */
+            box-shadow: 0px 0px 0 2px #e8e8e8;
+
+        }
+
+        /* Basic Demo styling */
+        table {
+            width: 100%;
+            font-family: sans-serif;
+            overflow-y: auto;
+
+        }
+
+        table tbody {
+            /*display: block;*/
+            max-height: 300px;
+            overflow-y: scroll;
+        }
+
+        table thead, table tbody tr {
+            /*display: table;*/
+            width: 100%;
+            table-layout: fixed;
+        }
+
+        table td {
+            padding: 16px;
+            overflow-y: auto;
+            overflow-x: auto;
+            max-height: 150px;
+            max-width: 400px;
+            white-space: nowrap
+            /*display: table;*/
+        }
+
+        /*table>td>samp{*/
+        /*    overflow-y: hidden;*/
+        /*    max-height: 150px;*/
+        /*    !*display: table;*!*/
+        /*}*/
+        tbody tr {
+            border-bottom: 2px solid #e8e8e8;
+        }
+
+        thead {
+            font-weight: 500;
+            color: rgba(0, 0, 0, 0.85);
+        }
+
+        tbody tr:hover {
+            background: rgba(159, 187, 209, 0.87);
+        }
+
+    </style>
+</head>
+<body>
+<div id="header">
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> 사용자 지정 그룹 이동 설정 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        사용자가 지정한 그룹의 위치를 설정하거나 추가된 사용자 지정 그룹들의 사이 간격을 설정 하여 위치를 조정할수 있습니다.<br>
+        Animation 시간 설정을 따로 지정하여 설정한 위치까지의 이동 동작을 확인할 수 있습니다.
+    </p>
+    <pre><label>사용자 지정 그룹 이동 설정 예제</label>
+    [전체 사용자 지정 그룹 위치 설정]에서 값들을 변경시 목록에 포함된 그룹들의 위치를 설정한 간격만큼 이동시킵니다.
+    목록에 가장 처음에 추가된 그룹을 기준으로 위치를 이동합니다.
+    [Animation 시간 설정] 해당 시간 설정은 [전체 사용자 지정 그룹 위치 설정]에서 설정한 위치까지 이동 시간을 설정합니다.
+    사용자 지정 그룹 목록에서 [이동] 버튼을 클릭시 그룹에 해당하는 Mesh들의 위치를 설정한 값으로 이동 시킵니다.
+    </pre>
+</div>
+<div id="map-wrapper">
+    <div>
+        <div id="map"></div>
+        <div id="div-left-menu">
+            <div id="left-menu-list-panel">
+                <div class="form-group div-layer">
+                    <div class="div-category">
+                        <label class="label-layerType">
+                            레이어
+                        </label>
+                    </div>
+                    <div id="layer-list">
+                        <div class="div-sub-category">
+                            <div class="sub-category-tile">
+                                <label class="label-layerType">
+                                    이미지 레이어
+                                </label>
+                                <div class="category-btn-group">
+                                    <label class="expand-btn layer">
+                                        <img src="image/btn_expand.svg" alt="">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sub-category-content">
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="satellite">
+                                        VWorld Satellite
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="hybrid">
+                                        VWorld Hybrid
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="div-sub-category">
+                            <div class="sub-category-tile">
+                                <label class="label-layerType">
+                                    지형 레이어
+                                </label>
+                                <div class="category-btn-group">
+                                    <label class="expand-btn layer">
+                                        <img src="image/btn_expand.svg" alt="">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sub-category-content">
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="korea_terrain">
+                                        전체 지형
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div style="display: inline-flex; position: relative">
+                    <button id="left-menu-bnt" class="btn btn-xs menu-btn">
+                        <img src="image/left_panel_open_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                    </button>
+                    <div class="div-btn-info" hidden>
+                        레이어 탭 열기
+                    </div>
+                </div>
+                <div style="display: inline-flex; position: relative">
+                    <button id="analy-bnt" class="btn btn-xs menu-btn">
+                        <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                    </button>
+                    <div class="div-btn-info" hidden>
+                        분석 팝업 열기
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="btn-group" id='top-sbar'>
+            <div class='btn-group-vertical-block' id='right-toolbar'>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                    <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                         src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                         alt="나침반">
+                </button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                        id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                        id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                        id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg"
+                                                                     alt="">
+                </button>
+            </div>
+            <div class='btn-group' id='bt-bottom-bar'>
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                       value="위경도: ##.####  ###.#### ">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                       value="고도:####">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                       value="각도: ##">
+            </div>
+        </div>
+    </div>
+    <div id="analy-popup">
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content">
+                <div class="col-sm-12">
+                    <div class="panel panel-default">
+                        <div class="h-300 scroll-auto panel-body">
+                            <div class="panel panel-default">
+                                <div class="panel-heading">
+                                    <div class="d-flex">
+                                        <div>전체 사용자 지정 그룹 위치 설정</div>
+                                        <div class="flex-1 text-left">
+                                            <div class="form-group slider-wrapper">
+                                                <div style="width:100%">
+                                                    <code>전체 x값 간격 설정 :</code><label id="xValue"> 0 </label>
+                                                    <code style="margin-left: 15%">전체 y값 간격 설정 :</code><label id="yValue"> 0 </label>
+                                                    <code style="margin-left: 10%">Animation 시간 설정</code>
+                                                </div>
+                                                <div class="slidecontainer" style="display:flex">
+                                                    <input type="range" min="-100" max="100" value="0" class="slider"
+                                                           id="xRange"
+                                                           style="width: 200px; background-color:  rgb(223 236 235 / 60%);">
+                                                    <input type="range" min="-100" max="100" value="0" class="slider"
+                                                           id="yRange"
+                                                           style="margin-left: 9%; width: 200px; background-color:  rgb(223 236 235 / 60%);">
+                                                    <div style="display: flex; margin-left: 7%">
+                                                        <input type="text" class="animation-interval-text text-right"
+                                                               value="3"
+                                                               style="width: 40px; ">
+                                                        <div class="btn btn-default btn-sm btn-animate-start"> 실행</div>
+                                                        <div class="btn btn-default btn-sm btn-animate-stop"> 정지</div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="slidecontainer">
+
+                                                </div>
+                                                <div style="width:300px; margin-top: 3px">
+                                                    <code>전체 높이 간격 설정 ( Z 값 ) :</code><label id="heightValue">
+                                                    0 </label>
+                                                </div>
+                                                <div class="slidecontainer">
+                                                    <input type="range" min="0" max="100" value="0" class="slider"
+                                                           id="heightRange"
+                                                           style="background-color:  rgb(223 236 235 / 60%);">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="animation-target-list h-300 scroll-auto panel-body">
+                                    <ol class="selected-animation-list"></ol>
+                                    <pre class="animate-list-info">추가된 동작이 없습니다.</pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-12" style="margin-top: 1%">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <div class="d-flex">
+                                <div>선택된 Mesh 목록</div>
+                                <div class="flex-1 text-right">
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-sm select-highlight">선택 표시</div>
+                                        <div class="btn btn-default btn-sm btn-select-clear">선택 초기화</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="select-target-list h-300 scroll-auto panel-body"
+                             style="overflow: auto; max-height: 300px">
+
+                            <ol class="selected-list"></ol>
+                            <pre class="list-info">선택한 Mesh가 없습니다.</pre>
+
+                            <div class="btn-group"
+                                 style=" display: flex;  position: sticky; bottom:20px; float: right; margin-top:5px">
+                                <input type="text" class="groupName-value" id="" value=""
+                                       placeholder="그룹 이름을 작성해주세요">
+                                <div class="btn btn-default btn-sm select-grouping"
+                                     style="  justify-content: space-between;"> 그룹화
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-12" style="margin-top: 1%">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <div class="d-flex">
+                                <div>그룹 리스트</div>
+                                <div class="flex-1 text-right">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="h-300 scroll-auto panel-body">
+                            <table class="table table-bordered table-condensed">
+                                <colgroup>
+                                    <col class="col-xs-3">
+                                    <col class="col-xs-7">
+                                </colgroup>
+                                <thead>
+                                <tr>
+                                    <th><code>생성된 그룹 이름</code></th>
+                                    <th><code>Mesh Name (Original group Name) </code></th>
+                                </tr>
+                                </thead>
+                                <tbody id="grouping-list">
+
+                                <tr id="grouping-list-child">
+                                    <td><code>그룹 이름</code></td>
+                                    <td><samp id="groupName">소속된 mesh가 없습니다.</samp></td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script id="set-imagelayer">
+    let ImageLayer = function (Union3D, app, opt) {
+        this._type = "ImageLayer";
+        this.layer = undefined;
+        this._union3d = Union3D;
+        this._app = app;
+        this._name = opt.name;
+        this.options = opt;
+        this.ready = $.Deferred();
+    }
+    ImageLayer.prototype.create = function () {
+        let self = this;
+        if (self._name === 'emapbase') {
+            self.layer = self._app.createEmapBaseLayer(this.options);
+        } else if (self._name === 'emapsat') {
+            self.layer = self._app.createEmapSatLayer(this.options);
+        } else {
+            self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
+            self._app.addLayer(this.layer);
+        }
+        this.layer.then(() => {
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+    ImageLayer.prototype.show = function (isShow) {
+        let promies = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow ? "시작" : "종료"));
+        this._app.showLayer(this.options.name, isShow).then(() => {
+            promies.resolve();
+        })
+        this.isShow = isShow;
+        return promies;
+    }
+</script>
+<script id="set-terrain">
+    let HeightLayer = function (Union3D, app, opt) {
+        this._type = "HeightLayer";
+        this.layer = undefined;
+        this._app = app;
+        if (opt.rectangle === undefined)
+            opt.rectangle = Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수
+        this.options = opt;
+        this._name = opt.name;
+        this.ready = $.Deferred();
+    }
+    HeightLayer.prototype.create = function () {
+        let self = this;
+        self.layer = this._app.createHeightXYZLayer(self.options);
+        self.layer.then(() => {
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+    HeightLayer.prototype.show = function (isShow) {
+        let promies = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow ? "시작" : "종료"));
+        this._app.showLayer(this.options.name, isShow).then(() => {
+            promies.resolve();
+        })
+        this.isShow = isShow;
+        return promies;
+    }
+</script>
+<script id="layer-setting">
+    const LAYER_OPT = {
+        satellite: {
+            name: 'satellite',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldsaturl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+        },
+        hybrid: {
+            name: 'hybrid', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldhybirdurl,  //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            transparent: true //+ layer 투명화 여부
+        },
+        korea_terrain: {
+            name: 'korea_terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            ext: '.umf', //+ 파일 확장자, *필수 입력
+            reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+            minlevel: 9,  //+ 가시화 최소 레벨
+            maxlevel: 15, //+ 가시화 최대 레벨
+            useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+            maxprocess: 2, //+ process 최대값
+            interpolationheight: true,  //+ 고도보간 기능 사용 여부
+        }
+    };
+
+    let LayerList = function (Union3D, app) {
+        return {
+            //이미지레이어
+            satellite: new ImageLayer(Union3D, app, LAYER_OPT.satellite),
+            hybrid: new ImageLayer(Union3D, app, LAYER_OPT.hybrid),
+            //고도레이어
+            korea_terrain: new HeightLayer(Union3D, app, LAYER_OPT.korea_terrain)
+        }
+    }
+</script>
+<script>
+    //라이센스 인증
+    Union3D.ready(function () {
+        //지도 초기화
+
+        const serverURL = 'https://3d.geon.kr/';
+        const API_KEY = 'YKAFjxVvNJEA/S1xcEjprW49M6wQSAva3PC7u3KHJxrZ3ZaTVfN40QdiqzAYrFf5';
+
+        window.app = new Union3D.U3dAPP({
+            containername: 'map' //+ U3dApp(지도영역)의 div ID, *필수 입력
+        });
+
+        app.setHomePosition(126.92030749767363, 35.14688362328411, 800, 2, 60); //아시아문화 전당 위치
+        app.updateHomePosition()
+        app.on('change', updatePosData);
+        app.createloadingBar('load');
+        app.loadingBar();
+
+        //이미지 레이어 생성
+        let layers = new LayerList(Union3D, app);
+        let initLayerList = ['satellite', 'korea_terrain']
+        initLayar(initLayerList);
+        $(document).on('click', '.input-showLayer:input[type=checkbox]', function (e) {
+            const $checkbox = $(e.target);
+            const name = $checkbox.attr('target');
+            checkLayer(name, $checkbox[0].checked);
+        });
+
+        function checkLayer(name, checked) {
+            if (checked) {
+                if (layers[name].layer === undefined) {
+                    layers[name].create();
+                }
+                layers[name].show(true);
+            } else {
+                layers[name].show(false);
+            }
+        }
+
+        function initLayar(list) {
+            const basename = list[0];
+            Union3D.UDEF.createPromise((resolve) => {
+                list.forEach((name) => {
+                    if (layers[name].layer === undefined) {
+                        layers[name].create();
+                        layers[name].ready.then(() => {
+                            if (name === basename)
+                                app.setNameBaseLayer(name);
+
+                            app.showLayer(name, true);
+                            $('.input-showLayer:input[target=' + name + ']').prop("checked", true);
+                        });
+                    }
+                });
+                resolve(true);
+            }).then((resolve) => {
+                if (resolve) {
+                    setRoadUrl(indoorName).then((opt) => {
+                        layer = app.createModelTdsLayer(opt);
+                        if (defined(layer)) {
+                            layer.ready.then(function (indoor) {
+                                window.layerObject = layer;
+                                app.endloadingBar();
+                                app.fitLayerExtent(indoorName);
+                                app.showLayer(indoorName, true);
+                                layer.setGroupOriginPosition();
+                                initFloorGroup = layer.setFloorFromGroupName(4, 0, '층', '0');
+                                initFloor();
+                                indoor.fail(function (err) {
+                                    app.endloadingBar();
+                                })
+                            })
+                        }
+                    });
+                }
+            });
+        }
+
+        function defined(value) {
+            return value !== undefined && value !== null;
+        }
+
+        function setRoadUrl(name) {
+            var promise = $.Deferred();
+            getRegisteredComponent(name).then((result) => {
+                const info = result.params.data;
+                //  let joinList=[info.baseUrl,info.fileName];
+                let metaPath = info.metaPath;
+                let xmlUrl = dataServerUrl + '/' + metaPath;
+                //  let roadImageURL = joinList.join('/');
+                let baseUrl = info.baseUrl;
+                var opt = {
+                    baseurl: baseUrl,
+                    name: info.name,
+                    xmlurl: xmlUrl,
+                    // needdownmodelxml: true,
+                    // uselod: true,
+                    type: "model",
+                    ext: "3ds",
+                    drawline: false,
+                    backgroudlight: false,
+                    needtexture: true,
+                    needxml: true,
+                    listmodel: [],
+                    scale: info.metaData.scale,
+                    rotation: info.metaData.rotation,
+                    location: info.metaData.location,
+                    boundingBox: info.metaData.boundingBox,
+                    side: Union3D.UDEF.DoubleSide,
+                    height: 60,
+                    containMetaData: true, //metaData JSON 파일 포함 여부
+                    userGroupDataName: 'userGroupData'
+                    //    usePositionOffset: true //metaData Position offset 사용 여부
+                };
+
+                promise.resolve(opt);
+                console.log(opt);
+            });
+            return promise;
+        }
+
+        //서버에 등록된 레이어의 정보를 가져옵니다.
+        function getRegisteredComponent(name) {
+            return $.ajax({
+                url: serverURL + 'v1/layer/' + name,
+
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader('User-Authorization', API_KEY);
+                }
+            });
+        }
+
+        var indoorName = 'asia_mun_indoor' // 서버 등록시 작성한 name
+        var layer
+        let initFloorGroup;
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// event 등록 ///////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        window.selector = new Union3D.select.U3dSelect({mode: 'point'});
+        app.addSelect(selector);
+        // selector 스타일 변경, addSelect() 실행 후, 아래 API 호출해야 적용가능
+
+        selector.setSelectedColor('rgba(255,100,0,1)', 0.5); //선택 객체 색 변경, resetSelectedColor() -> 기본설정으로 초기화
+        let selectArea = {
+            check: function (checked, name) {
+                if (checked) {
+                    this.on(name);
+                } else {
+                    this.off();
+                }
+            },
+            on: function (name) {
+                selector.setMode(name);
+                app.removeAllOverlay(); //+ 다른 overlay 전체 삭제
+                if (!selector.isActive()) {
+                    selector.active();
+                    selector.on('change', this.change);
+                    selector.on('end', this.end);
+                }
+            },
+            off: function () {
+                app.removeAllOverlay(); //+ 다른 overlay 전체 삭제
+                selector.clear();
+                selector.deactive();
+                selector.off('change', this.change);
+                selector.off('end', this.end);
+            },
+            change: function (e) {
+                //    console.log('Change Event');
+                app.removeAllOverlay(); //+ 다른 overlay 전체 삭제
+            },
+            end: function (e) {
+                let objects = selector.getSelected();
+                if (objects.length === 0) {
+                    return;
+                }
+
+                let modelObj = objects[0];
+                let metaData = layer.getMeshMetaData(modelObj);
+                let userGroupData;
+                if (defined(metaData)) {
+                    userGroupData = metaData.userGroupData;
+                }
+                if (defined(modelObj._userGroupName)) {
+                    if (defined(userGroupData)) {
+                        layer.getUserGroupMesh(modelObj, selector);
+                    }
+                }
+
+                let geoPosition = e.work.points[0];
+                let overlay = createOverlay('overlay', objects[0], geoPosition); //+ 위경도 좌표에 overlay 생성
+                $('.delete').on('click', deleteSelectMesh.bind(overlay));
+                overlay.show(); //+ overlay 가시화
+
+            }
+
+        }
+        selectArea.on('point');
+        let group = [];
+
+        //[ 선택 표시 ] 버튼 클릭시
+        $('.select-highlight').on('click', function (e) {
+                if (group.length === 0) {
+                    return;
+                } else {
+                    selector.clearSelect();
+                    for (let i = 0; i < group.length; i++) {
+                        let mesh = group[i];
+                        selector.addSelected(mesh);
+                    }
+                }
+            }
+        );
+        //[ 선택 초기화 ] 버튼 클릭시
+        $('.btn-select-clear').on('click', function (e) {
+            if (group.length === 0) {
+                return;
+            } else {
+                selector.clearSelect();
+                app.removeAllOverlay();
+                group = [];
+                let $list = $('.selected-list');
+                $list.empty();
+            }
+            $('.list-info').css('display', 'block');
+
+        });
+
+        //[ 그룹화 ] 버튼 클릭시
+        $('.select-grouping').on('click', function (e) {
+            if (group.length === 0) {
+                return;
+            }
+            let groupName = $('.groupName-value').val();
+            let $groupList = $('#grouping-list');
+            if (defined(groupName)) {
+                if (layer.getAllUserGroupList().length === 0)
+                    $groupList.empty();
+                let userGroup = layer.setSelectGrouping(group, groupName);
+                if (defined((userGroup))) {
+
+                    $('.select-highlight').trigger('click');
+                    let childMesh = Object.values(userGroup.children);
+                    let childName = [];
+                    childMesh.forEach(function (mesh) {
+                        let meshName = layer.getMeshName(mesh);
+                        let oriGroupName = mesh.getMetaDataGroupName()
+                        childName.push(meshName + ' (' + oriGroupName + ')');
+                    })
+                    let isExist = document.getElementById(userGroup.name);
+                    let isExist2 = document.getElementById(userGroup.name + '_animate');
+                    if (defined(isExist)) {
+                        isExist.remove();
+                    }
+                    if (defined(isExist2)) {
+                        isExist2.remove();
+                    }
+                    $groupList.append(
+                        ` <tr id=${userGroup.name}>
+                              <td><code>${userGroup.name}</code></br>
+                              <button class="btn btn-xs delete-group" id =${groupName} > 삭제 </button>
+                               <button class="btn btn-xs group-highlight" id =${groupName} > 선택 표시 </button>
+                              </td>
+                              <td><samp id=${userGroup.name}>${childName}</samp></td>
+                              </tr>`);
+
+                    $('#grouping-list-child').css('display', 'none');
+                    $('.delete-group').on('click', deleteGroup);
+                    $('.group-highlight').on('click', groupHighlight);
+                    appendGroupList(userGroup);
+                }
+            }
+        })
+        $('#xRange').on('input', changeSliderBarX);
+        $('#yRange').on('input', changeSliderBarY);
+        $('#heightRange').on('input', changeSliderBar);
+
+        $('.btn-animate-start').on('click', function (e) {
+
+            var xhandle = $('#xValue');
+            var yhandle = $('#yValue');
+            var zhandle = $('#heightValue');
+
+            let x = xhandle[0].innerText * 1;
+            let y = yhandle[0].innerText * 1;
+            let z = zhandle[0].innerText * 1;
+
+            let interval = $('.animation-interval-text').val();
+            layer.animateInterval(interval, x, y, z);
+        })
+
+        $('.btn-animate-stop').on('click', function (e) {
+            layer.stopAnimation(true);
+
+        });
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// function 선언 ////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+        function initFloor() {
+            let $groupList = $('#grouping-list');
+            $groupList.empty();
+            $('.animate-list-info').css('display', 'none');
+            if (defined(initFloorGroup)) {
+                for (let i = 0; i < initFloorGroup.length; i++) {
+                    let userGroup = initFloorGroup[i];
+                    appendGroupList(userGroup);
+
+                    let groupName = userGroup.name
+                    let userGroupList = layer.getAllUserGroupList();
+                    userGroupList.push(userGroup);
+                    let childMesh = Object.values(userGroup.children);
+                    let childName = [];
+                    childMesh.forEach(function (mesh) {
+                        let meshName = layer.getMeshName(mesh);
+                        let oriGroupName = mesh.getMetaDataGroupName()
+                        childName.push(meshName + ' (' + oriGroupName + ')');
+                    })
+                    let isExist = document.getElementById(groupName);
+                    if (defined(isExist)) {
+                        isExist.remove();
+                    }
+
+                    $groupList.append(
+                        ` <tr id=${groupName}>
+                              <td><code>${groupName}</code></br>
+                              <button class="btn btn-xs delete-group" id =${groupName} > 삭제 </button>
+                               <button class="btn btn-xs group-highlight" id =${groupName} > 선택 표시 </button>
+                              </td>
+                              <td><samp id=${groupName}>${childName}</samp></td>
+                              </tr>`);
+
+                    $('#grouping-list-child').css('display', 'none');
+                    $('.delete-group').on('click', deleteGroup);
+                    $('.group-highlight').on('click', groupHighlight);
+                }
+            }
+        }
+
+        function appendGroupList(userGroup) {
+
+            let key = layer.getUserGroupDataName();
+            layer.applyUserGroup(userGroup, key);
+            let groupName = userGroup.name;
+            let $targetList = $('.animation-target-list');
+            $('#selected-animation-list').css('display', 'none');
+
+            $targetList.append(
+                `
+                            <div id = "${groupName}_animate">
+                            <div class="d-flex edit-item" >
+                            <div class="flex-1"><label> 그룹 이름 : ${groupName}</label>
+
+                            <button class="btn btn-xs group-animate" id="${groupName}_excute" style="margin-left: 70%"> 이동 </button>
+                            <button class="btn btn-xs animate-remove" id="${groupName}_delete" > 삭제 </button>
+                            <br>
+                            <div class="animate-prop" id="animation-prop"><label id="${groupName}_pos" name = "position">이동 위치 :
+                            <input  class="position" id="${groupName}_posData" name="position" value='{"x":10, "y":10, "z":10}'  style="width:200px; margin-right: 7px" > </input></label><br>
+                            <hr>
+                            </div>
+                            </div>
+                            `
+            )
+            $('.group-animate').on('click', setPosition);
+            $('.animate-remove').on('click', deleteTargetGroup)
+        }
+
+        function refreshGroupList() {
+            let groupList = layer.getUserGroupList();
+            if (!groupList || groupList.length == 0) return;
+            let $targetList = $('.animation-target-list');
+            $('#selected-animation-list').css('display', 'none');
+            $targetList.empty();
+            for (let i = 0; i < groupList.length; i++) {
+                let group = groupList[i];
+                let groupName = group.name;
+
+                $targetList.append(
+                    `
+                                <div id = "${groupName}_animate">
+                                <div class="d-flex edit-item" >
+                                <div class="flex-1"><label> 그룹 이름 : ${groupName}</label>
+
+                                <button class="btn btn-xs group-animate" id="${groupName}_excute" style="margin-left: 70%"> 이동 </button>
+                                <button class="btn btn-xs animate-remove" id="${groupName}_delete" > 삭제 </button>
+                                <br>
+                                <div class="animate-prop" id="animation-prop"><label id="${groupName}_pos" name = "position">이동 위치 :
+                                <input  class="position" id="${groupName}_posData" name="position" value='{"x":10, "y":10, "z":10}'  style="width:200px; margin-right: 7px" > </input></label><br>
+                                <hr>
+                                </div>
+                                </div>
+                                `
+                )
+                $('.group-animate').on('click', setPosition);
+                $('.animate-remove').on('click', deleteTargetGroup)
+            }
+
+        }
+
+
+        function setPosition(e) {
+            let target = $(e.target).attr('id');
+            target = target.split('_')[0];
+            let position = $('#' + target + '_posData').val();
+            position = JSON.parse(position);
+            let duration = $('#' + target + '_speedData').val();
+            let selectGroup = layer.getUserGroupList(target);
+            if (defined(selectGroup)) {
+                if (selectGroup.length === 0) {
+                    return;
+                } else {
+                    selector.clearSelect();
+                    layer.setUserGroupPosition(selectGroup, position);
+                }
+            }
+        }
+
+        function groupHighlight(e) {
+            let target = $(e.target).attr('id');
+            let selectGroup = layer.getUserGroupList(target);
+            if (defined(selectGroup)) {
+                if (selectGroup.length === 0) {
+                    return;
+                } else {
+                    selector.clearSelect();
+                    for (let i = 0; i < selectGroup.length; i++) {
+                        let mesh = selectGroup[i];
+                        selector.addSelected(mesh);
+                    }
+                }
+            }
+        }
+
+        function deleteSelectMesh(e) {
+            let $list = $('.selected-list');
+            let target = $(e.target).attr('id');
+            if (group.length > 0) {
+                group = group.filter(function (child) {
+                    if (child.uuid == target) {
+                        selector.removeSelected(child);
+                    } else {
+                        return child.uuid != target;
+                    }
+                });
+                $(e.target).parent().remove();
+                selector.clearSelect();
+            } else {
+                $list.empty();
+                $('.list-info').css('display', 'block');
+                return;
+            }
+            app.removeOverlay(this); //+ overlay 제거
+        }
+
+        function deleteTargetGroup(e) {
+            let target = $(e.target).attr('id');
+            target = target.split('_')[0];
+            let $targetList = $('#' + target + '_animate');
+            let $groupList = $('#grouping-list');
+            let layerGroupList = layer.getAllUserGroupList();
+            if (layerGroupList.length > 0) {
+                layerGroupList.find(function (group) {
+                    if (group.name == target) {
+                        Object.values(group.children).forEach(function (child) {
+                            selector.removeSelected(child);
+                        })
+                        layer.removeSelectGroup(group);
+                    }
+                });
+
+                $groupList.children('#' + target).remove();
+                $targetList.remove();
+            }
+            if (layerGroupList.length === 0) {
+                $groupList.empty();
+                $('#grouping-list-child').css('display', 'block');
+                $('.animate-list-info').css('display', 'block');
+            }
+            refreshGroupList();
+        }
+
+        function deleteGroup(e) {
+            let $groupList = $('#grouping-list');
+            let target = $(e.target).attr('id');
+            let $targetList = $('#' + target + '_animate');
+            let layerGroupList = layer.getAllUserGroupList();
+            if (layerGroupList.length > 0) {
+                layerGroupList.find(function (group) {
+                    if (group.name == target) {
+                        Object.values(group.children).forEach(function (child) {
+                            selector.removeSelected(child);
+                        })
+                        layer.removeSelectGroup(group);
+                    }
+                });
+                $(e.target).parent().parent().remove();
+                $targetList.remove();
+            }
+            if (layerGroupList.length === 0) {
+                $groupList.empty();
+                $('#grouping-list-child').css('display', 'block');
+                $('.animate-list-info').css('display', 'block');
+            }
+            refreshGroupList();
+        }
+
+        //+ overlay 생성 function
+        function createOverlay(name, obj, position) {
+            var html = printOverlayHtml(obj);//+ overlay UI
+            var overlay = new Union3D.overlay.U3dOverlay({
+                name: name, //+ 오버레이 이름, * 필수 입력,  defaultValue(opt.name, undefined);
+                id: obj.uuid, //+ 오버레이 ID, defaultValue(opt.id, Guid());
+                element: html, //+ 오버레이 html의 문자열 또는 JQuery 객체, *필수 입력
+                position: position, //+ 오버레이 위치(위경도), defaultValue(opt.position, undefined);, *필수 입력
+                useanchor: true, //+ 클릭 지점에 따라 앵커 자동 변경,  defaultValue(opt.useanchor, true);
+                balloon: {x: -50, y: 10}, //+ balloon 위치,  defaultValue(opt.balloon, {x: 0, y: 0});
+            });
+            app.removeAllOverlay(); //+ 다른 overlay 전체 삭제
+            app.addOverlay(overlay); //+ 새로 만든 overlay 추가
+            var element = overlay.getElement();
+            //+ overlay에 닫기 event 추가
+            $(element).on('click', '.close', popUpCloseClick.bind(overlay));
+            $('.add-button').on('click', function (e) {
+
+                let target = $(e.target).attr('id');
+                let typeName = 'add-type';
+                let groupType = 'group';
+                let singleType = 'single';
+                let type = $("input[type=radio][name=" + typeName + "]:checked").val();
+                if (type == singleType) {
+                    let targetObj = obj;
+                    if (group.length > 0) {
+                        let isContain = group.find(function (child) {
+                                return child.uuid === targetObj.uuid;
+                            }
+                        )
+                        if (!defined(isContain)) {
+                            group.push(targetObj);
+                        }
+                    } else {
+                        group.push(targetObj);
+                    }
+
+                    meshAddList();
+                } else if (type === groupType) {
+                    let targetObj
+                    let targetMesh = obj
+                    if (defined(targetMesh.getParent())) {
+                        targetObj = targetMesh.getParent().getChildren(); //+ getparent, getchildren
+                    }
+                    if (defined(targetObj)) {
+                        if (group.length > 0) {
+                            targetObj.forEach(function (mesh) {
+                                let isContain = group.find(function (child) {
+                                        return child.uuid === mesh.uuid;
+                                    }
+                                )
+                                if (!defined(isContain)) {
+                                    group.push(mesh);
+                                }
+                            })
+
+                        } else {
+                            targetObj.forEach(function (mesh) {
+                                group.push(mesh);
+                            });
+                        }
+                    }
+                    if (defined(targetMesh._userGroupName)) {
+                        if (defined(layer._metaDataObject)) {
+                            layer.getUserGroupMesh(targetMesh, selector, group);
+                        }
+                    }
+                    meshAddList();
+                }
+                $('.delete').on('click', deleteSelectMesh.bind(overlay));
+            })
+            return overlay;
+        }
+
+        function meshAddList() {
+            let $list = $('.selected-list');
+            $list.empty();
+            if (group.length !== 0)
+                $('.list-info').css('display', 'none');
+
+            for (let i = 0; i < group.length; i++) {
+                let key = group[i];
+                let meshName = layer.getMeshName(key);
+                $list.append(
+                    `<li ><span> ${key.getMetaDataGroupName()} : ${meshName} </span>
+                         <button class="btn btn-xs delete" id =${key.uuid} > 삭제 </button></li>`);
+            }
+        }
+
+        //+ overlay UI
+        function printOverlayHtml(obj) {
+            let meshName = layer.getMeshName(obj);
+            let str = '';
+
+            str += '<div class="u3-popup" id=' + obj.uuid + '>';
+            str += '<div class="u3-popup-content">';
+            str += '<div class="modal-header" style="margin:1px">';
+            str += '<label>선택 객체 정보</label>';
+            str += '<button type="button" class="close"><span aria-hidden="true">&times;</span>';
+            str += '</button>';
+            str += '</div>';
+
+            str += '<div class="item-sub-title" style="margin-left: 2%"><span class="text-icon">group name : </span>' + obj.getMetaDataGroupName() + '</div>';  //+ model layer Name
+            str += '<div class="item-sub-title" style="margin-left: 2%"><span class="text-icon">mesh name: </span>' + meshName + '</div>'; //+ model UUID
+            str +=
+                '<input type="radio" id=' + obj.uuid + ' name="add-type" value="single" checked="checked" style="margin-left: 2%"> 단일 </input>\n' +
+                '<input type="radio" id=' + obj.uuid + ' name="add-type" value="group"> 그룹 </input>' +
+                '<button class="btn btn-xs add-button" name="add-button" id=' + obj.uuid + '> 추가 </button>'
+            str += '</div>';
+            str += '</div>';
+            return str;
+        }
+
+        //+ overlay 닫기 event function
+        function popUpCloseClick() {
+            $(this.element).off('click', '.close', popUpCloseClick);
+            selector.clearSelect()
+            app.removeOverlay(this); //+ overlay 제거
+        }
+
+        function changeSliderBar(e) {
+            var zslider = document.getElementById("heightRange");
+            var xhandle = $('#xValue');
+            var yhandle = $('#yValue');
+            var zhandle = $('#heightValue');
+
+            zslider.oninput = function () {
+                let val = this.value * 1;
+
+                zhandle.text(val);
+                let x = xhandle[0].innerText * 1;
+                let y = yhandle[0].innerText * 1;
+                let z = val;
+                layer.moveUserGroupPosition(x, y, z);
+            }
+
+        }
+
+        function changeSliderBarX(e) {
+            var xslider = document.getElementById("xRange");
+
+            var xhandle = $('#xValue');
+            var yhandle = $('#yValue');
+            var zhandle = $('#heightValue');
+
+            xslider.oninput = function () {
+                let val = this.value * 1;
+
+                xhandle.text(val);
+                let x = val
+                let y = yhandle[0].innerText * 1;
+                let z = zhandle[0].innerText * 1;
+                layer.moveUserGroupPosition(x, y, z);
+            }
+        }
+
+        function changeSliderBarY(e) {
+            var yslider = document.getElementById("yRange");
+
+            var xhandle = $('#xValue');
+            var yhandle = $('#yValue');
+            var zhandle = $('#heightValue');
+
+            yslider.oninput = function () {
+                let val = this.value * 1;
+
+                yhandle.text(val);
+                let x = xhandle[0].innerText * 1;
+                let y = val
+                let z = zhandle[0].innerText * 1;
+                layer.moveUserGroupPosition(x, y, z);
+            }
+        }
+
+    });
+</script>
+</body>
+</html>

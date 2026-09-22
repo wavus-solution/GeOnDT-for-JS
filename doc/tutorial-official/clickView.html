@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>카메라뷰 오버레이 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        html, body {
+            height: 100%;
+        }
+
+        #analy-popup .div-popup {
+            width: 500px;
+            height: 330px;
+            top: 50vh;
+        }
+
+        .ex-explanation {
+            width: 800px;
+        }
+
+        /* tutorial.css에 대한 오버리아드 선언*/
+        /* overlay 사용시에 popup 클래스에 height 값은 반드시 필요한 속성*/
+
+        .u3-popup {
+            position: absolute;
+            color: #fff;
+            background-color: rgba(20, 20, 20, 0.6);
+            -webkit-filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.2));
+            filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.2));
+            padding: 5px;
+            /*border-radius: 10px;*/
+            border: 1px solid #00000033;
+            bottom: 12px;
+            left: -50px;
+            min-width: 280px;
+            display: none;
+            width: 300px;
+            height: 240px;
+        }
+
+        .u3-popup .u3-popup-content .modal-header {
+            border-bottom: none;
+            /*padding: 0 5px 0 5px;*/
+            line-height: 20px;
+            background-color: rgb(43, 69, 140);
+        }
+
+        .u3-popup btn {
+            vertical-align: baseline;
+            padding: 0px;
+        }
+
+        .u3-popup .btn {
+            position: fixed;
+        }
+
+        .u3-popup canvas {
+            position: relative;
+            width: 100%;
+            height: 85%;
+        }
+
+        .modal-header {
+            height: fit-content;
+        }
+
+        .glyphicon {
+            top: 6.5px;
+        }
+
+        .u3-popup-content {
+            margin: 0 0 4px 0;
+        }
+
+        .ui-draggable .head {
+            cursor: grab;
+        }
+
+        .ui-draggable.ui-draggable-dragging .head {
+            cursor: grabbing;
+        }
+
+        .form-group {
+            margin-bottom: 0;
+        }
+
+        ul {
+            list-style: none;
+            padding-left: 0;
+            display: -webkit-inline-flex;
+        }
+
+        li {
+            padding-right: 10px;
+        }
+
+        .slider-wrapper {
+            margin: 10px;
+            display: inline;
+        }
+
+        .edit-tool {
+            display: inline-block;
+            width: 100%;
+            float: right;
+        }
+
+        .tool-text {
+            width: 80px;
+            font-weight: bold;
+        }
+
+        #selected {
+            width: 110px;
+        }
+
+        #angle-handle {
+            height: 20px;
+            width: 30px;
+            text-align: center;
+            top: -5px;
+        }
+
+        #distance {
+            width: 110px;
+        }
+
+        #angle {
+            width: 220px;
+        }
+
+        .ui-state-default, .ui-widget-content .ui-state-default {
+            background: rgb(43, 69, 140);
+            color: white;
+        }
+
+        .ui-slider .ui-slider-handle {
+            height: 25px;
+            text-align: center;
+        }
+
+        .ui-widget.ui-widget-content {
+            background-color: rgba(10, 10, 10, 0.6);
+        }
+
+        .ui-slider-horizontal .ui-slider-range-min {
+            background-color: rgba(10, 10, 10, 0.6);
+        }
+
+        .ui-slider-horizontal .ui-slider-handle {
+            top: -0.5em;
+        }
+
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu="return false;">
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> 카메라뷰 오버레이 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        사용자가 클릭한 지점에 <strong>카메라뷰 오버레이를 생성</strong>하는 예제입니다.<br>
+        Gizmo 모드를 통해 선택한 카메라의 위치나 회전을 편집할 수 있습니다.<br>
+        카메라의 가시선을 나타내거나, 카메라의 거리(distance), 카메라의 시야각(angle)을 편집하는 기능도 제공합니다.
+    </p>
+    <pre>
+         1. 카메라뷰 오버레이 띄우기
+            - 지도를 클릭하면 카메라뷰 오버레이가 가시화됩니다.
+
+        2. 카메라뷰 오베레이 편집
+            - '선택'을 체크하고 클릭하여 원하는 카메라뷰를 선택합니다.
+            - 선택된 카메라는 Gizmo 모드로 편집하거나 거리 시야각, 줌 강도를 조정할 수 있습니다.
+    </pre>
+</div>
+<div id="map-wrapper">
+    <div>
+        <div id="map"></div>
+        <div id="div-left-menu">
+            <div id="left-menu-list-panel">
+                <div class="form-group div-layer">
+                    <div class="div-category">
+                        <label class="label-layerType">
+                            레이어
+                        </label>
+                    </div>
+                    <div id="layer-list">
+                        <div class="div-sub-category">
+                            <div class="sub-category-tile">
+                                <label class="label-layerType">
+                                    이미지 레이어
+                                </label>
+                                <div class="category-btn-group">
+                                    <label class="expand-btn layer">
+                                        <img src="image/btn_expand.svg" alt="">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sub-category-content">
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="satellite">
+                                        VWorld Satellite
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="hybrid">
+                                        VWorld Hybrid
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="div-sub-category">
+                            <div class="sub-category-tile">
+                                <label class="label-layerType">
+                                    지형 레이어
+                                </label>
+                                <div class="category-btn-group">
+                                    <label class="expand-btn layer">
+                                        <img src="image/btn_expand.svg" alt="">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sub-category-content">
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="korea_terrain">
+                                        전체 지형
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div style="display: inline-flex; position: relative">
+                    <button id="left-menu-bnt" class="btn btn-xs menu-btn">
+                        <img src="image/left_panel_open_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                    </button>
+                    <div class="div-btn-info" hidden>
+                        레이어 탭 열기
+                    </div>
+                </div>
+                <div style="display: inline-flex; position: relative">
+                    <button id="analy-bnt" class="btn btn-xs menu-btn">
+                        <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                    </button>
+                    <div class="div-btn-info" hidden>
+                        분석 팝업 열기
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="btn-group" id='top-sbar'>
+            <div class='btn-group-vertical-block' id='right-toolbar'>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                    <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                         src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                         alt="나침반">
+                </button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                        id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                        id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                        id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg"
+                                                                     alt="">
+                </button>
+            </div>
+            <div class='btn-group' id='bt-bottom-bar'>
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                       value="위경도: ##.####  ###.#### ">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                       value="고도:####">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                       value="각도: ##">
+            </div>
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu="return false;">
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content">
+                <div class="edit-tool">
+                    <div class="setMode" style="display: block; margin-left: 30px">
+                        <label>
+                            <input type="radio" class="add" name="clickEvent" value="add" checked>추가
+                        </label>
+                        <label style=" margin-right: 0">
+                            <input type="radio" class="select" name="clickEvent" value="select">선택
+                        </label>
+                        <label for="selected" style="margin-left: 10px">
+                            <input type="text" class="select" id="selected" readonly>
+                        </label>
+                        <button type="button" class="btn btn-default btn-sm btn-edit toggle" id="edit">편집</button>
+                        <button type="button" class="btn btn-default btn-sm btn-edit edit" id="move" disabled>이동
+                        </button>
+                        <button type="button" class="btn btn-default btn-sm btn-edit edit" id="rotate" disabled>회전
+                        </button>
+                        <button type="button" class="btn btn-default btn-sm btn-edit edit" id="init" disabled>리셋
+                        </button>
+                    </div>
+                    <div class="form-group " style="margin-left: 30px">
+                        <button type="button" class="btn btn-default" id="test"> TEST </button>
+                        <button type="button" class="btn btn-default analy" id="analysis" disabled>가시권 분석 </button>
+                        <button type="button" class="btn btn-default analy" id="analysis-remove" disabled> 초기화 </button>
+                    </div>
+                    <div class="form-group " style="margin-left: 30px">
+                        <button type="button" class="btn btn-default" id="removeAll"> 전체 뷰 제거 </button>
+                    </div>
+                    <hr>
+                    <div class="form-group slider-wrapper" style="margin-left: 30px">
+                        <ul>
+                            <li>
+                                <div class="tool-text">거리 :</div>
+                            </li>
+                            <li>
+                                <div>
+                                    <input type="number" class="form-control" spellcheck="false" id="distance" min="0"
+                                           value="2000" step="10">
+                                    <span style="color: grey; float: right"> (초기값 : 2000)</span>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="form-group slider-wrapper" style="margin-left: 30px">
+                        <ul>
+                            <li>
+                                <div class="tool-text">시야각 :</div>
+                            </li>
+                            <li>
+                                <div style="padding: 4px">
+                                    <div id="angle">
+                                        <div id="angle-handle" class="ui-slider-handle"></div>
+                                        <span style="margin-top: 20px; color: grey; float: right"> (초기값 : 70)</span>
+                                    </div>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="form-group slider-wrapper" style="margin-left: 30px">
+                        <ul>
+                            <li>
+                                <div class="tool-text">줌:</div>
+                            </li>
+                            <li>
+                                <div style="padding: 4px">
+                                    <div id="zoom">
+                                        <div id="zoom-handle" class="ui-slider-handle"></div>
+                                        <span style="margin-top: 20px; color: grey; float: right"> (초기값 : 1)</span>
+                                    </div>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script id="set-imagelayer">
+    let ImageLayer = function (Union3D, app, opt) {
+        this._type = "ImageLayer";
+        this.layer = undefined;
+        this._union3d = Union3D;
+        this._app = app;
+        this._name = opt.name;
+        this.options = opt;
+        this.ready = $.Deferred();
+    }
+    ImageLayer.prototype.create = function () {
+        let self = this;
+        if (self._name === 'emapbase') {
+            self.layer = self._app.createEmapBaseLayer(this.options);
+        } else if (self._name === 'emapsat') {
+            self.layer = self._app.createEmapSatLayer(this.options);
+        } else {
+            self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
+            self._app.addLayer(this.layer);
+        }
+        this.layer.then(() => {
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+    ImageLayer.prototype.show = function (isShow) {
+        let promies = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow ? "시작" : "종료"));
+        this._app.showLayer(this.options.name, isShow).then(() => {
+            promies.resolve();
+        })
+        this.isShow = isShow;
+        return promies;
+    }
+</script>
+<script id="set-terrain">
+    let HeightLayer = function (Union3D, app, opt) {
+        this._type = "HeightLayer";
+        this.layer = undefined;
+        this._app = app;
+        if (opt.rectangle === undefined)
+            opt.rectangle = Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수
+        this.options = opt;
+        this._name = opt.name;
+        this.ready = $.Deferred();
+    }
+    HeightLayer.prototype.create = function () {
+        let self = this;
+        self.layer = this._app.createHeightXYZLayer(self.options);
+        self.layer.then(() => {
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+    HeightLayer.prototype.show = function (isShow) {
+        let promies = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow ? "시작" : "종료"));
+        this._app.showLayer(this.options.name, isShow).then(() => {
+            promies.resolve();
+        })
+        this.isShow = isShow;
+        return promies;
+    }
+</script>
+<script id="layer-setting">
+    const LAYER_OPT = {
+        satellite: {
+            name: 'satellite',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldsaturl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+        },
+        hybrid: {
+            name: 'hybrid', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldhybirdurl,  //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            transparent: true //+ layer 투명화 여부
+        },
+        korea_terrain: {
+            name: 'korea_terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            ext: '.umf', //+ 파일 확장자, *필수 입력
+            reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+            minlevel: 9,  //+ 가시화 최소 레벨
+            maxlevel: 15, //+ 가시화 최대 레벨
+            useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+            maxprocess: 2, //+ process 최대값
+            interpolationheight: true,  //+ 고도보간 기능 사용 여부
+        }
+    };
+
+    let LayerList = function (Union3D, app) {
+        return {
+            //이미지레이어
+            satellite: new ImageLayer(Union3D, app, LAYER_OPT.satellite),
+            hybrid: new ImageLayer(Union3D, app, LAYER_OPT.hybrid),
+            //고도레이어
+            korea_terrain: new HeightLayer(Union3D, app, LAYER_OPT.korea_terrain)
+        }
+    }
+</script>
+<script>
+    Union3D.ready(function () {
+        //지도 기본 세팅///////////////////////////////////////
+        var app = new Union3D.U3dAPP({
+            containername: 'map',
+            maxprocess: 12
+        });
+        window.app = app; // 디버깅용
+
+        app.on('change', updatePosData);
+
+        // renderer 증가에 따른 Context Lost 현상의 예외처리를 위해 renderer에 app을 세팅한다.
+        let renderer = app.getRenderer();
+        renderer.setApp(app);
+
+        // map 초기 위치 설정
+        app.setHomePosition(126.9395, 37.52, 450, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+        app.updateHomePosition();
+
+        app.createloadingBar('load');
+        app.loadingBar();
+        //이미지 레이어 생성
+        //이미지 레이어 생성
+        let layers = new LayerList(Union3D, app);
+        let initLayerList = ['satellite', 'korea_terrain']
+        initLayar(initLayerList);
+        initModelLayers();
+        $(document).on('click', '.input-showLayer:input[type=checkbox]', function (e) {
+            const $checkbox = $(e.target);
+            const name = $checkbox.attr('target');
+            checkLayer(name, $checkbox[0].checked);
+        });
+
+        function checkLayer(name, checked) {
+            if (checked) {
+                if (layers[name].layer === undefined) {
+                    layers[name].create();
+                }
+                layers[name].show(true);
+            } else {
+                layers[name].show(false);
+            }
+        }
+
+        function initLayar(list) {
+            const basename = list[0];
+            Union3D.UDEF.createPromise((resolve) => {
+                list.forEach((name) => {
+                    if (layers[name].layer === undefined) {
+                        layers[name].create();
+                        layers[name].ready.then(() => {
+                            if (name === basename)
+                                app.setNameBaseLayer(name);
+
+                            app.showLayer(name, true);
+                            $('.input-showLayer:input[target=' + name + ']').prop("checked", true);
+                        });
+                    }
+                });
+                resolve(true);
+            }).then((resolve) => {
+                if (resolve)
+                    app.endloadingBar();
+            });
+        }
+
+        function initModelLayers() {
+            try {
+                let modelayers = app.createModelGroupLayer({
+                    maxlevel: 19,
+                    minlevel: 17,
+                    name: 'u3f'
+                });
+                /* request U3f layers list */
+                $.ajax({
+                    url: modelU3fURL,
+                    crossDomain: true,
+                    beforeSend: function (xhr) {
+                        xhr.setRequestHeader('User-Authorization', trdDimAPIKey);
+                        xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+                    },
+                    error: function (e) {
+                        console.info(e);
+                    }
+                }).then(function (result) {
+                    let infos = result.params.data;
+                    for (let i = 0; i < infos.length; i++) {
+                        let info = infos[i];
+                        /* 레이어 목록 중 발행중인 레이어만 요청 */
+                        if (info.state === "ACTIVE") {
+                            let baseName = info.fileName;
+                            if(!baseName || baseName ==='')
+                                baseName = info.name;
+                            let options = {
+                                name: info.name,
+                                basename: baseName,
+                                baseurl: info.baseUrl,
+                                useproxy: false,
+                                minlevel: info.metaData.minLevel,
+                                maxlevel: info.metaData.maxLevel,
+                                compressmodel: true,
+                                isShareMaterial: false,
+                                makeU3FPackage: 1
+                            };
+                            let subLayer = app.create3DFModelLayer(options);
+                            if(subLayer !== false){
+                                subLayer.then(function (layer) {
+                                    modelayers.addLayer(subLayer);
+                                    if(i === infos.length -1){
+                                        console.log("u3f model layer load");
+                                        app.showLayer(modelayers.getName(),true);
+                                    }
+                                }).fail(function (layer) {
+
+                                });
+                            }
+                        }
+                    }
+                })
+            } catch (localBuldError) {
+                console.log('Initialize Error Message : ' + localBuldError);
+            }
+        }
+
+        /////////////////////////////////////////////////////
+        let idx = 1;
+        const GROUND_GAP = 2; // Z값이 살짝 높아야 카메라가 땅 아래로 묻히지 않는다.
+
+        // 한 화면에 출력할 뷰 갯수 제한
+        // -> 너무 많은 뷰를 랜더할 경우 Context Lost가 발생함으로 컴퓨터 사양에 따라 출력할 최대 뷰 갯수를 제한하는 것이 권장된다.
+        const LIMIT_VIEW_NUM = 20;
+        app.on('click', click);
+
+        function click(e) {
+            if ($('.add').is(':checked')) { // '추가' 모드
+                addView(e); // 카메라 뷰 추가
+                $("#analysis").attr("disabled", true);
+            }
+
+            if ($('.select').is(':checked')) { // '선택' 모드
+                const $input = $('#selected');
+                const $analy = $('.analy'); // <- 오타 수정
+
+                const view = app.getViewIsSelected(e);
+                if (!view) { $analy.prop('disabled', true); return; }
+
+                const newName  = view.getName();
+                const prevName = $input.val();
+
+                if (prevName && prevName !== newName) {
+                    const prevSelected = app.findViewByName(prevName);
+                    prevSelected?.highlight(false);
+                    prevSelected?.edit(false);
+                }
+
+                view.highlight(true);
+                $input.val(newName);
+                $analy.prop('disabled', false); // 버튼 활성화
+            } else {
+                $('.analy').prop('disabled', true); //  비활성
+            }
+        }
+
+        function addView(e) {
+            const id = 'camera_' + idx.toString();
+            const world = app.closestPointAtPixel(e);
+            let lonlat = app.vector3ToGeoGraphic(world);
+            lonlat.z += GROUND_GAP;
+
+            const overlay = createViewOverlay(id, id, lonlat);
+            if (overlay !== undefined) overlay.show?.();
+        }
+
+
+        // 카메라뷰 오버레이 생성
+        function createViewOverlay(name, id, position) {
+            const html = printViewOverlayHtml(id);
+            return app.createView({
+                name, id,
+                element: $(html),
+                position,
+                endPosition: position,
+                useLine: true,
+                fov: 70,
+                canvasStyle : {
+                    height: "87%",
+                    width: "100%"
+                }
+            }).then((view) => {
+                const element = view.getElement?.();
+                const $element = $(element);
+                if (!$element) throw new Error('view element missing');
+                settingViewEvent($element, view);
+                view.setDraggable(true);
+                return view;
+            });
+        }
+
+        $("#removeAll").on("click" , ()=>{
+            app.removeAllView();
+        })
+
+        const type = "Cone";
+        $("#analysis").on('click', () => {
+            const view = app._selected;
+            if (!view?.viewAnalysis) return;
+
+            app.loadingBar();
+            new Promise((resolve) => {
+                requestAnimationFrame(() =>{
+                    app.loadingBar();
+                    requestAnimationFrame(resolve);
+                });
+            }).then(() => {
+                console.time('viewAnalysis');
+                view.viewAnalysis({type});
+                console.timeEnd('viewAnalysis');
+            }).catch((err) => {
+                console.error('가시권 분석 실패:', err);
+            }).finally(() => {
+                app.endloadingBar();
+            });
+        });
+
+        $("#analysis-remove").on('click', () => {
+            const view = app._selected;
+            view.removeMesh(); // 가시권 분석 제거
+        });
+
+        $("#test").on('click', async () => {
+            const id = 'camera_' + idx;                // idx 유효성 가정
+            const lonlat = {x: 126.93937873115814, y: 37.51722785211241, z: 14}
+
+            try {
+                app.loadingBar();
+
+                // 오버레이 생성 대기
+                const view = await createViewOverlay(id, id, lonlat);
+                view.show?.();
+
+                // 페인팅 2프레임 보장(로딩바 표시)
+                await new Promise(res => requestAnimationFrame(() =>
+                    requestAnimationFrame(res)
+                ));
+
+                const label = '레이캐스팅 소요 시간';
+
+                const t0 = performance.now();
+                await view.viewAnalysis({ type });
+                const ms = performance.now() - t0;
+
+                console.log(`${label}: ${ms.toFixed(4)} ms`);
+
+                // console.time('레이캐스팅 소요 시간');
+                // // 분석 종료까지 대기(Deferred/Promise 반환 가정)
+                // await  view.viewAnalysis({type});
+                // console.timeEnd('레이캐스팅 소요 시간');
+            } catch (err) {
+                console.error('가시권 분석 실패:', err);
+            } finally {
+                app.endloadingBar();
+            }
+        });
+
+        function settingViewEvent($element, view) {
+            $element.on('click', '.close', popUpCloseClick.bind(view));
+            $element.on('click', '#helper', showHelper.bind(view));
+            $element.on('click', '#moveMainCamera', moveMainCamera.bind(view));
+            idx += 1;
+        }
+
+        // 카메라뷰 오버레이 html 생성
+        function printViewOverlayHtml(id) {
+            var str = '';
+            str += '<div class="u3-popup" oncontextmenu="return false;" id=' + id + '>';
+            str += '<div class="u3-popup-content" >';
+            str += '<div class="modal-header">';
+            str += '<label style="margin-right: 30%;">' + id + '</label>';
+            str += ' <label> <input type="checkbox" id="helper"/>가시선 </label>';
+            str += '<button style="margin-left: 10px;" type="button" class="btn btn-default btn-sm glyphicon glyphicon-eye-open" id="moveMainCamera"></button>';
+            str += '<button type="button" class="close"><span aria-hidden="true">&times;</span>';
+            str += '</button><br>';
+            str += '</div>';
+            str += '</div>';
+            str += '</div>';
+
+            return str;
+        }
+
+        initSlider('angle');
+        initSlider('zoom');
+
+        // 카메라뷰 시야각 및 Zoom 강도에대한 슬라이더바를 초기화
+        function initSlider(type) {
+            let id = '';
+            let idhandle = '';
+            let step = 1;
+            let max, value = 1;
+            let min = 0;
+            switch (type) {
+                case  'angle':
+                    id = '#angle';
+                    idhandle = '#angle-handle';
+                    value = 70;
+                    max = 160;
+                    break;
+                case 'zoom':
+                    id = '#zoom';
+                    idhandle = '#zoom-handle';
+                    value = 1;
+                    max = 10;
+                    min = 1;
+                    break;
+            }
+
+            var handle = $(idhandle);
+            $(id).slider({
+                orientation: "horizontal",
+                range: "min",
+                value: value,
+                min: min,
+                max: max,
+                step: step,
+                create: function () {
+                    let val = $(this).slider("value");
+                    handle.text(val.toFixed(0));
+                },
+                slide: function (event, ui) {
+                    handle.text(ui.value.toFixed(0));
+                    switch (id) {
+                        case  '#angle':
+                            updateAngle(ui.value);
+                            break;
+                        case  '#zoom':
+                            updateZoom(ui.value);
+                            break;
+                    }
+                }
+            });
+        }
+
+        function popUpCloseClick() {
+            let view = this;
+
+            const element = view.getElement();
+            const $element = $(element);
+            $element.off('click', '.close', popUpCloseClick);
+
+            const $ol = $("#selected").children();
+            $ol.children().remove(); //초기화
+
+            view.edit(false);
+            app.removeView(view);
+        }
+
+        //메인지도의 카메라 위치를 뷰의 카메라 위치로 이동
+        function moveMainCamera() {
+            let view = this;
+            view.moveMainCamera(app, {x: 0, y: 1, z: 0}).then(function (cameraVector) {
+                console.log(cameraVector.x + "/" + cameraVector.y + "/" + cameraVector.z);
+                console.log("카메라 위치 이동 성공");
+            }).catch(function () {
+                console.log("카메라 위치 이동 실패");
+            });
+        }
+
+        // 카메라 편집 (기즈모 모드 ON)
+        $(document).on('click', '#edit', function () {
+            let view = app.getSelected();
+            if (view === undefined) {
+                alert('Not Find Selected View! Do Select');
+                return;
+            }
+
+            const $this = $(this);
+            if ($this.hasClass('toggle')) {
+                $this.removeClass('toggle');
+                $this.addClass('active');
+                $('.edit').attr("disabled", false);
+            } else {
+                $this.addClass('toggle');
+                $this.removeClass('active');
+                $('.edit').attr("disabled", true);
+
+                view.edit(false);
+            }
+        });
+
+        // 카메라 이동
+        $(document).on('click', '#move', function () {
+            let view = app.getSelected();
+            if (view === undefined) {
+                alert('Not Find Selected View! Do Select');
+                return;
+            }
+
+            view.edit(true, 'translate');
+        });
+
+        // 카메라 회전
+        $(document).on('click', '#rotate', function () {
+            let view = app.getSelected();
+            if (view === undefined) {
+                alert('Not Find Selected View! Do Select');
+                return;
+            }
+
+            view.edit(true, 'rotate');
+        });
+
+        // 카메라 리셋
+        $(document).on('click', '#init', function () {
+            let view = app.getSelected();
+            if (view === undefined) {
+                alert('Not Find Selected View! Do Select');
+                return;
+            }
+
+            view.reset();
+        });
+
+        //카메라 가시선
+        function showHelper(e) {
+            const view = this;
+            const checked = $(e.target).prop('checked');
+            view.showHelper(checked);
+        }
+
+        // 카메라 거리 조정
+        $('#distance').on('input', function () {
+            let view = app.getSelected();
+            if (view === undefined) {
+                alert('Not Find Selected View! Do Select');
+                return;
+            }
+            const distance = $(this).val() * 1;
+            view.setDistance(distance);
+        });
+
+        // 카메라 시야각 조정
+        function updateAngle(angle) {
+            let view = app.getSelected();
+            if (view === undefined) {
+                alert('Not Find Selected View! Do Select');
+                return;
+            }
+
+            view.setAngle(angle);
+        }
+
+        // 카메라 줌 조정
+        function updateZoom(zoom) {
+            let view = app.getSelected();
+            if (view === undefined) {
+                alert('Not Find Selected View! Do Select');
+                return;
+            }
+
+            view.setZoom(zoom);
+        }
+
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>분할화면 및 비행시뮬레이션 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        #analy-popup .div-popup {
+            width: 400px;
+            height: 140px;
+            top: 77vh;
+            /*left: -950px;*/
+            padding-bottom: 10px;
+        }
+
+        #map-wrapper {
+            position: relative;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+        }
+
+        #map1 {
+            height: 100%;
+            width: 100%;
+            position: absolute;
+            grid-column-start: 1;
+            grid-column-end: 2;
+            grid-row-start: 1;
+            grid-row-end: 2;
+        }
+
+        #map2 {
+            height: 100%;
+            width: 100%;
+            position: absolute;
+            grid-column-start: 2;
+            grid-column-end: 3;
+            grid-row-start: 1;
+            grid-row-end: 2;
+        }
+
+        #map3 {
+            height: 100%;
+            width: 100%;
+            position: absolute;
+            grid-column-start: 1;
+            grid-column-end: 2;
+            grid-row-start: 2;
+            grid-row-end: 3;
+        }
+
+        #map4 {
+            height: 100%;
+            width: 100%;
+            position: absolute;
+            grid-column-start: 2;
+            grid-column-end: 3;
+            grid-row-start: 2;
+            grid-row-end: 3;
+        }
+
+        .cam-info {
+            position: absolute;
+            background-color: black;
+            color: white;
+            bottom: 20px;
+            left: 20px;
+            z-index: 2;
+            padding: 10px 20px;
+            border-radius: 10px;
+        }
+
+        .btn-group {
+            width: fit-content;
+        }
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> 분할화면 및 비행시뮬레이션 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        각각 다른 카메라 시점을 비추는 <strong>분할화면 상에 비행 시뮬레이션을 수행</strong>하는 예제입니다.<br>
+        지도화면, 1인칭, 따라가기, 3인칭 화면을 제공하며, 버튼 조작으로 시뮬레이션을 시작, 정지, 초기화할 수 있습니다.
+    </p>
+</div>
+<div id="map-wrapper">
+    <div id="analy-popup" oncontextmenu='return false'>
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content" style="margin:0 10px;">
+                <div id="tool-button">
+                    <button class="btn btn-default" id="set">시뮬레이션 시작</button>
+                    <button class="btn btn-default" id="stop">시뮬레이션 정지</button>
+                    <button class="btn btn-default" id="reset">초기화</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="map1">
+        <div class="cam-info">지도 화면</div>
+    </div>
+    <div id="map2">
+        <div class="cam-info">3인칭 화면</div>
+    </div>
+    <div id="map3">
+        <div class="cam-info">1인칭 화면</div>
+    </div>
+    <div id="map4">
+        <div class="cam-info">따라가기 화면</div>
+    </div>
+    <div id="div-left-menu" oncontextmenu='return false'>
+        <div>
+            <div style="display: inline-flex; position: relative">
+                <button id="analy-bnt" class="btn btn-xs menu-btn">
+                    <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+                <div class="div-btn-info" hidden>
+                    분석 팝업 열기
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="btn-group" id='top-sbar'>
+        <div class='btn-group-vertical-block' id='right-toolbar'>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                     src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                     alt="나침반">
+            </button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                    id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                    id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                    id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+            </button>
+        </div>
+        <div class='btn-group' id='bt-bottom-bar'>
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                   value="위경도: ##.####  ###.#### ">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                   value="고도:####">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                   value="각도: ##">
+        </div>
+    </div>
+
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script>
+    Union3D.ready(function () {
+        var isReset = true;
+        var movePosition = [
+            {x: 126.940, y: 37.520, z: 1000},
+            {x: 126.913, y: 37.535, z: 1200},
+            {x: 126.895, y: 37.524, z: 1300},
+            {x: 126.907, y: 37.510, z: 1200},
+            {x: 126.940, y: 37.520, z: 1000}
+        ];
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// 지도 기본세팅 /////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        window.app1 = createApp('map1');  //+ 좌측상단 맵 (지도화면)
+        window.app2 = createApp('map2'); //+ 우측상단 맵 (3인칭)
+        window.app3 = createApp('map3'); //+ 좌측하단 맵 (1인칭)
+        window.app4 = createApp('map4'); //+ 우측하단 맵 (따라가기)
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// event 등록 ///////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        //+ [시뮬레이션 시작] 버튼 클릭시 동작하는 function
+        $('#set').on('click', function () {
+            if (isReset) {
+                var option = {
+                    name: 'helicopter',
+                    loadedModel: 'helicopter',
+                    rotation: {x: 0, y: 0, z: 0},
+                    scale: {x: 1, y: 1, z: 1},
+                    needxml: false,
+                    drawline: false,
+                    backgroudlight: false,
+                    listmodel: [],
+                    type: "model",
+                    baseurl: layerInfo.model.helicopterurl,
+                    filename: layerInfo.model.helicoptername,
+                    ext: layerInfo.model.helicopterext,
+                    drawpath: true
+                };
+
+                //+ 헬리콥터 옵션
+                var modelOption = {
+                    name: option.name,
+                    baseurl: option.baseurl,
+                    fileName: option.filename,
+                    ext: option.ext
+                };
+
+                option.listmodel.push(modelOption);
+                animationLayer = new Union3D.model.U3dMultipleComponentLayer(option); //+ 컴포넌트 layer 추가
+                app2.addLayer(animationLayer); //+ 우측상단 맵에 추가
+                animationLayer.ready.then(function () {
+                    app2.showLayer(option.name, true);
+                    var component = animationLayer.addPosition({
+                        geoPosition: {x: 126.91415231094318, y: 37.53189615862187, z: 1000},
+                        rotation: {x: 90, y: 0, z: 0},
+                        repeat: true,
+                        duration: 100000,
+                        movepointlist: movePosition    //경로설정 옵션
+                    });
+                });
+
+                option.drawpath = false;
+                animationLayer2 = new Union3D.model.U3dMultipleComponentLayer(option);
+                app4.addLayer(animationLayer2); //+ 우측하단 맵에 추가
+                animationLayer2.ready.then(function () {
+                    app4.showLayer(option.name, true);
+                    var component = animationLayer2.addPosition({
+                        geoPosition: {x: 126.91415231094318, y: 37.53189615862187, z: 1000},
+                        rotation: {x: 90, y: 0, z: 0},
+                        repeat: true,
+                        duration: 100000,
+                        movepointlist: movePosition    //경로설정 옵션
+                    });
+
+                    var opt = {
+                        component: component,
+                        view: 'TopView', //+ 탑뷰로 관측
+                        active: true
+                    };
+                    animationLayer2.setCameraTrace(opt); //+ 헬리콥터에 맞춰 카메라 이동
+                });
+
+                animationLayer3 = new Union3D.model.U3dMultipleComponentLayer(option); //+ multipleComponentLayer 생성
+                app3.addLayer(animationLayer3); //+ 좌측하단 맵에 추가
+                animationLayer3.ready.then(function () {
+                    app3.showLayer(option.name, true);
+                    var component = animationLayer3.addPosition({
+                        geoPosition: {x: 126.91415231094318, y: 37.53189615862187, z: 1000},
+                        rotation: {x: 90, y: 0, z: 0},
+                        repeat: true,
+                        duration: 100000,
+                        movepointlist: movePosition    //경로설정 옵션
+                    });
+
+                    var opt = {
+                        component: component,
+                        view: 'FrontView',
+                        active: true,
+                        offset: {x: 1, y: -20, z: 110},
+                        targetOffset: undefined
+                    };
+                    animationLayer3.setCameraTrace(opt); //+ 헬리콥터에 맞춰 카메라 이동
+                });
+                isReset = false;
+            } else {
+                animationLayer.startAnimation();
+                animationLayer2.startAnimation();
+                animationLayer3.startAnimation();
+            }
+        });
+
+        //+ [시뮬레이션 일시정지] 클릭시 동작
+        $('#stop').on('click', function () {
+            if (isReset) return;
+            //+ 동작중인 animation 중지
+            animationLayer.stopAnimation();
+            animationLayer2.stopAnimation();
+            animationLayer3.stopAnimation();
+        });
+
+        //+ [초기화] 버튼 클릭시 동작하는 function
+        $('#reset').on('click', function () {
+            if (isReset) return;
+            //+ 헬리콥터 제거
+            app2.removeLayer('helicopter');
+            app3.removeLayer('helicopter');
+            app4.removeLayer('helicopter');
+            //+ home position으로 이동
+            goToHome();
+            //+ animation 비우기
+            animationLayer = undefined;
+            animationLayer2 = undefined;
+            animationLayer3 = undefined;
+            componentOption = undefined;
+            isReset = true;
+        });
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// function 선언 ////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        var animationLayer = undefined;
+        var animationLayer2 = undefined;
+        var animationLayer3 = undefined;
+
+        function createApp(containerName) {
+            var app = new Union3D.U3dAPP(getOption('korea', containerName));
+
+            app.setHomePosition(126.9395, 37.525, 5000, 2, 10); //경도, 위도, 높이, 방위각, 고도각
+            app.updateHomePosition();
+            app.createloadingBar('load');
+            app.on('change', updatePosData);
+            window.app = app;
+            //+ 이미지 레이어 생성 //////////////////////////////////////////////////////////////////////
+            var layer = new Union3D.image.U3dImageXYZLayer({
+                name: 'satellite',
+                baseurl: layerInfo.image.vworldsaturl,
+                reverseY: true
+            });
+            app.addLayer(layer);
+            //APP에 배경이미지 레이어를 필수로 설정
+            app.setNameBaseLayer('satellite');
+            app.showLayer('satellite', true);
+            app.endloadingBar();
+
+            //+ hybrid 레이어 생성 /////////////////////////////////////////////////////////////////////
+            var htbrid = new Union3D.image.U3dImageXYZLayer({
+                name: 'hybrid',
+                baseurl: layerInfo.image.vworldhybirdurl,
+                reverseY: true,
+                transparent: true
+            });
+            app.addLayer(htbrid);
+            app.showLayer('hybrid', true);
+
+            //+ 고도 레이어 생성 //////////////////////////////////////////////////////////////////////
+            var terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+                name: 'Korea Terrain',
+                baseurl: layerInfo.height.url,
+                ext: '.umf',
+                reverseY: true,
+                minlevel: 9,
+                maxlevel: 15,
+                useproxy: false,
+                maxprocess: 2,
+                interpolationheight: true,
+                rectangle: Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2)
+            });
+            app.addLayer(terrainLayer);
+            app.showLayer('terrain', true);
+
+            return app;
+        }
+
+        function getOption(type, containerName) {
+            const option = {
+                containername : containerName
+            };
+            return option;
+        }
+
+
+        //+ home position으로 이동
+        function goToHome() {
+            app1.updateHomePosition();
+            app2.updateHomePosition();
+            app3.updateHomePosition();
+            app4.updateHomePosition();
+        }
+    });
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+

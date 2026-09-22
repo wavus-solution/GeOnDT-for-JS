@@ -1,0 +1,111 @@
+<nav data-example-rail aria-label="대용량 컴포넌트 도구">
+    <button
+        class="rail-button"
+        type="button"
+        data-panel-target="huge-volume-panel"
+        aria-controls="huge-volume-panel"
+        aria-expanded="false"
+    >
+        <span class="rail-icon" aria-hidden="true">▦</span>
+        <span>컴포넌트</span>
+    </button>
+</nav>
+
+<aside
+    class="glass-panel example-panel huge-volume-panel"
+    id="huge-volume-panel"
+    aria-hidden="true"
+>
+    <header class="panel-header">
+        <div>
+            <span class="eyebrow">HUGE VOLUME COMPONENT</span>
+            <h2>대용량 컴포넌트</h2>
+        </div>
+        <button
+            class="panel-close"
+            type="button"
+            data-panel-close="huge-volume-panel"
+            aria-label="대용량 컴포넌트 닫기"
+        >×</button>
+    </header>
+
+    <div class="panel-content">
+        <p class="panel-description">
+            한라산 일대의 수목 컴포넌트를 속성 값별로 꾸미고, 시나리오 레이어와 임도 주행을 확인합니다.
+        </p>
+
+        <section class="huge-volume-section" aria-labelledby="huge-volume-layer-heading">
+            <h3 id="huge-volume-layer-heading">레이어 가시화</h3>
+            <div class="huge-volume-option-list" data-component-layers></div>
+            <div class="huge-volume-option-list">
+                <label class="huge-volume-option-row" data-api-help="layer.forestMap">
+                    <input type="checkbox" data-forest-map>
+                    <span class="huge-volume-option-copy">
+                        <strong>임상도</strong>
+                        <small>100m 격자 임상 코드를 폴리곤으로 덮어 그립니다.</small>
+                    </span>
+                    <b data-layer-badge>숨김</b>
+                </label>
+            </div>
+        </section>
+
+        <section class="huge-volume-section" aria-labelledby="huge-volume-column-heading">
+            <h3 id="huge-volume-column-heading">스타일 기준 속성</h3>
+            <label class="huge-volume-field" data-api-help="style.column">
+                <span class="huge-volume-field-label">속성 컬럼</span>
+                <select id="style-column-select" data-style-column></select>
+            </label>
+            <p class="huge-volume-hint" data-style-column-hint>
+                컴포넌트 타일을 읽으면 값 종류가 적은 속성만 목록에 나타납니다.
+            </p>
+        </section>
+
+        <section class="huge-volume-section" aria-labelledby="huge-volume-style-heading">
+            <h3 id="huge-volume-style-heading">속성 값별 스타일</h3>
+            <div class="huge-volume-style-table" data-style-rows>
+                <div class="huge-volume-style-row huge-volume-style-head">
+                    <span>값</span>
+                    <span>색상</span>
+                    <span>텍스쳐 제외</span>
+                    <span>투명도</span>
+                    <span>크기 배율</span>
+                    <span>가시화</span>
+                </div>
+            </div>
+            <div class="huge-volume-button-row">
+                <button class="huge-volume-button" type="button" data-apply-style="color" data-api-help="style.color">색상 · 투명도</button>
+                <button class="huge-volume-button" type="button" data-apply-style="scale" data-api-help="style.scale">크기</button>
+                <button class="huge-volume-button" type="button" data-apply-style="visible" data-api-help="style.visible">가시화</button>
+            </div>
+            <div class="huge-volume-button-row">
+                <button class="huge-volume-button" type="button" data-reset-style data-api-help="style.reset">스타일 초기화</button>
+            </div>
+        </section>
+
+        <section class="huge-volume-section" aria-labelledby="huge-volume-route-heading">
+            <h3 id="huge-volume-route-heading">임도 주행</h3>
+            <p class="huge-volume-hint">
+                한라산 남사면 임도를 따라 이동하며 컴포넌트를 가까이에서 확인합니다.
+            </p>
+            <div class="huge-volume-button-row" data-api-help="route.drive">
+                <button class="huge-volume-button" type="button" data-route-action="start">시작</button>
+                <button class="huge-volume-button" type="button" data-route-action="stop">정지</button>
+                <button class="huge-volume-button" type="button" data-route-action="restart">재시작</button>
+            </div>
+        </section>
+
+        <section class="huge-volume-section" aria-labelledby="huge-volume-view-heading">
+            <h3 id="huge-volume-view-heading">CCTV 설치</h3>
+            <p class="huge-volume-hint">
+                버튼을 누른 뒤 지도를 클릭하면 그 지점 지면 위에 카메라 뷰를 설치합니다.
+            </p>
+            <div class="huge-volume-button-row">
+                <button class="huge-volume-button" type="button" data-add-camera-view data-api-help="view.create">설치 지점 선택</button>
+                <button class="huge-volume-button" type="button" data-clear-camera-view>모두 제거</button>
+            </div>
+            <dl class="huge-volume-result-list">
+                <div><dt>설치 수</dt><dd data-camera-view-count>0</dd></div>
+            </dl>
+        </section>
+    </div>
+</aside>

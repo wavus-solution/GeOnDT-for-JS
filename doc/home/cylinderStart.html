@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>원기둥 (Cylinder)</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="원기둥-cylinder">원기둥 (Cylinder)</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-%EC%9B%90%EA%B8%B0%EB%91%A5-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">원기둥 생성하기</a></li>
+<li><a href="#2-%EC%9C%84%EC%B9%98%EC%99%80-%EB%B0%A9%ED%96%A5-%EC%A7%80%EC%A0%95%ED%95%98%EA%B8%B0">위치와 방향 지정하기</a></li>
+<li><a href="#3-%ED%81%AC%EA%B8%B0%EC%99%80-%EC%84%B8%EA%B7%B8%EB%A8%BC%ED%8A%B8-%EC%A1%B0%EC%A0%88%ED%95%98%EA%B8%B0">크기와 세그먼트 조절하기</a></li>
+<li><a href="#4-%EC%9D%BC%EB%B6%80%EB%A7%8C-%EA%B7%B8%EB%A6%AC%EA%B8%B0">일부만 그리기</a></li>
+<li><a href="#5-%EC%83%89%EC%83%81%EA%B3%BC-%ED%88%AC%EB%AA%85%EB%8F%84-%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0">색상과 투명도 설정하기</a></li>
+<li><a href="#6-%EC%99%B8%EA%B3%BD%EC%84%A0-%ED%91%9C%EC%8B%9C%ED%95%98%EA%B8%B0">외곽선 표시하기</a></li>
+<li><a href="#7-%EC%9C%97%EB%A9%B4%EC%97%90-%EC%9D%B4%EB%AF%B8%EC%A7%80-%EC%9E%85%ED%9E%88%EA%B8%B0">윗면에 이미지 입히기</a></li>
+<li><a href="#8-%EC%86%8D%EC%84%B1%EC%A0%95%EB%B3%B4%EC%99%80-%ED%95%B4%EC%A0%9C">속성정보와 해제</a></li>
+</ol>
+<div class="document-thumbnail" data-size="medium">
+<figure class="document-image">
+<img src="image/cylinderStart/thumbnail.png" alt="윗면 반지름만 다른 원기둥·원뿔대·원뿔" loading="eager">
+<figcaption>윗면 반지름만 다른 원기둥·원뿔대·원뿔</figcaption>
+</figure>
+</div>
+<p><code>U3dCylinder</code>는 지정한 좌표에 원기둥을 만듭니다.<br>윗면과 밑면의 반지름을 따로 정할 수 있어 원기둥뿐 아니라 원뿔과 원뿔대도 같은 클래스로 만듭니다.</p>
+<p>관정, 저장탱크, 기둥 구조물처럼 단면이 원인 시설물을 표현할 때 사용합니다.</p>
+<hr>
+<h2 id="1-원기둥-생성하기">1. 원기둥 생성하기</h2>
+<p><code>U3dCylinder</code> 생성자로 객체를 만들고, <code>U3dVectorLayer.addGeometry</code>로 레이어에 등록한 뒤 위치를 지정하면 화면에 표시됩니다.<br>레이어를 만들고 도형을 등록·제거하는 방법은 <a href="vectorLayerStart.html#2-%EB%8F%84%ED%98%95-%EB%93%B1%EB%A1%9D%ED%95%98%EA%B3%A0-%EC%A0%9C%EA%B1%B0%ED%95%98%EA%B8%B0">3D Geometry 시작하기 - 도형 등록하고 제거하기</a>에서 설명합니다.</p>
+<p>반지름과 길이의 단위는 미터입니다.</p>
+<h4 class="api-heading" id="api">API</h4>
+<p>U3dCylinder(<code>opt</code>) : 원기둥 객체를 생성하는 생성자</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opt</code> (<code>object</code>) : 원기둥 생성 옵션</li>
+<li><code>opt.name</code> (<code>string</code>) : 객체 이름. 지정하지 않으면 자동으로 생성됩니다</li>
+<li><code>opt.radiusTop</code> (<code>number</code>) : 윗면 반지름(m). 기본값: <code>5</code></li>
+<li><code>opt.radiusBottom</code> (<code>number</code>) : 밑면 반지름(m). 기본값: <code>5</code></li>
+<li><code>opt.height</code> (<code>number</code>) : 길이(m). 기본값: <code>20</code></li>
+<li><code>opt.radialSegments</code> (<code>number</code>) : 원둘레 분할 수. 최소 <code>3</code>. 기본값: <code>32</code></li>
+<li><code>opt.heightSegments</code> (<code>number</code>) : 길이 방향 분할 수. 최소 <code>1</code>. 기본값: <code>1</code></li>
+<li><code>opt.openEnded</code> (<code>boolean</code>) : 윗면과 밑면을 열어 둘지 여부. 기본값: <code>false</code></li>
+<li><code>opt.thetaStart</code> (<code>number</code>) : 단면 원을 그리기 시작하는 각도(라디안). 기본값: <code>0</code></li>
+<li><code>opt.thetaLength</code> (<code>number</code>) : 단면 원을 그릴 각도 범위(라디안). 지정하지 않으면 한 바퀴(<code>Math.PI * 2</code>)</li>
+<li><code>opt.color</code> (<code>ColorRepresentation</code>) : 색상. 기본값: <code>&#39;#ff0000&#39;</code></li>
+<li><code>opt.opacity</code> (<code>number</code>) : 투명도(0~1). 기본값: <code>0.7</code></li>
+<li><code>opt.outline</code> (<code>boolean</code>) : 외곽선 표시 여부. 기본값: <code>true</code></li>
+<li><code>opt.lineColor</code> (<code>ColorRepresentation</code>) : 외곽선 색상. 기본값: <code>&#39;#000000&#39;</code></li>
+<li><code>opt.wireframe</code> (<code>boolean</code>) : 와이어프레임 표시 여부. 기본값: <code>false</code></li>
+<li><code>opt.type</code> (<code>&#39;basic&#39; | &#39;topimage&#39; | &#39;standard&#39;</code>) : 재질 타입. 기본값: <code>&#39;basic&#39;</code></li>
+<li><code>opt.topimageurl</code> (<code>string</code>) : 윗면 이미지 URL. <code>type</code>이 <code>&#39;topimage&#39;</code>일 때만 사용됩니다</li>
+<li><code>opt.coordinates</code> (<code>Array&lt;GeoPositionVector3&gt;</code>) : 위치 좌표 배열 (위경도, EPSG:4326)</li>
+<li><code>opt.properties</code> (<code>KeyValue</code>) : 사용자 정의 속성정보</li>
+</ul>
+</details>
+<h3 id="1-원기둥-생성-예제">1. 원기둥 생성 예제</h3>
+<p>반지름 6m, 길이 30m의 원기둥을 만들어 배치하는 예제입니다.<br>관정이나 기둥 구조물처럼 단면이 원인 시설물의 기본 형태입니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> app <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>U3dAPP</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">containername</span><span class="token operator">:</span> <span class="token string">'map'</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> vectorLayer <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>vector<span class="token punctuation">.</span>U3dVectorLayer</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'vector'</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> cylinder <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>geom<span class="token punctuation">.</span>U3dCylinder</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'cylinder_01'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">radiusTop</span><span class="token operator">:</span> <span class="token number">6</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">radiusBottom</span><span class="token operator">:</span> <span class="token number">6</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">height</span><span class="token operator">:</span> <span class="token number">30</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">radialSegments</span><span class="token operator">:</span> <span class="token number">32</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#2b448b'</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+vectorLayer<span class="token punctuation">.</span><span class="token function">addGeometry</span><span class="token punctuation">(</span>cylinder<span class="token punctuation">)</span><span class="token punctuation">;</span>              <span class="token comment">// 벡터 레이어에 등록</span>
+cylinder<span class="token punctuation">.</span><span class="token function">setPosition</span><span class="token punctuation">(</span><span class="token number">126.9393</span><span class="token punctuation">,</span> <span class="token number">37.5194</span><span class="token punctuation">,</span> <span class="token number">30</span><span class="token punctuation">)</span><span class="token punctuation">;</span>    <span class="token comment">// 위경도 좌표에 배치</span>
+</code></pre>
+<hr>
+<h2 id="2-위치와-방향-지정하기">2. 위치와 방향 지정하기</h2>
+<p>원기둥은 중심 좌표 하나를 기준으로 놓입니다.<br>위치는 <code>setPosition</code>에 위경도와 고도(m)를 넣어 지정하며, 고도는 원기둥의 중심이 기준입니다.<br>지형 높이를 자동으로 조회하거나 따라가지 않으므로, 지면에 맞추려면 그 지점의 지형 고도를 더합니다.<br>지형 고도는 <code>app.getHeightAtGeographicPoint({x, y})</code>로 조회하며, 지형 로딩이 끝난 뒤에 호출해야 실제 값을 얻습니다.</p>
+<p><mark>만들어진 원기둥의 축은 남북(y축) 방향입니다.</mark><br>기본 상태에서는 지면에 누운 모습이며, 수직으로 세우려면 <code>setRotation</code>으로 x축 기준 90도 돌립니다.</p>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>U3dCylinder.setPosition(<code>x</code>, <code>y</code>, <code>z</code>) : 위경도 좌표로 위치를 지정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>x</code> (<code>number | Vector3</code>) : 경도. <code>Vector3</code>를 넘기면 좌표 객체 하나로 지정합니다</li>
+<li><code>y</code> (<code>number</code>) : 위도</li>
+<li><code>z</code> (<code>number</code>) : 높이(m)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-2">API</h4>
+<p>U3dCylinder.getPositions() : 지정된 위경도 좌표 배열을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Array&lt;GeoPositionVector3&gt;</code>) : 위경도 좌표 배열 (EPSG:4326)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-3">API</h4>
+<p>U3dCylinder.getVertex() : 변환된 월드 좌표 배열을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Array&lt;WorldPositionVector3&gt;</code>) : 좌표 배열 (월드 좌표, EPSG:3857)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-4">API</h4>
+<p>U3dCylinder.setRotation(<code>rotation</code>) : 객체의 회전값을 지정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>rotation</code> (<code>Euler</code>) : 회전값(라디안)</li>
+</ul>
+</details>
+<h3 id="1-위경도로-배치하는-예제">1. 위경도로 배치하는 예제</h3>
+<p>고도 30m 지점에 원기둥 중심을 놓는 예제입니다.<br>실제로는 <code>app.getHeightAtGeographicPoint</code>로 읽은 지형 고도를 기준으로 값을 정합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">vectorLayer<span class="token punctuation">.</span><span class="token function">addGeometry</span><span class="token punctuation">(</span>cylinder<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+cylinder<span class="token punctuation">.</span><span class="token function">setPosition</span><span class="token punctuation">(</span><span class="token number">126.9393</span><span class="token punctuation">,</span> <span class="token number">37.5194</span><span class="token punctuation">,</span> <span class="token number">30</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>cylinder<span class="token punctuation">.</span><span class="token function">getPositions</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// [Vector3 {x: 126.9393, y: 37.5194, z: 30}]</span>
+</code></pre>
+<h3 id="2-수직으로-세우는-예제">2. 수직으로 세우는 예제</h3>
+<p>세운 원기둥의 밑면을 지면에 맞추려면 지형 고도에 길이의 절반(<code>height / 2</code>)을 더합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">cylinder<span class="token punctuation">.</span><span class="token function">setRotation</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Euler</span><span class="token punctuation">(</span>Math<span class="token punctuation">.</span><span class="token constant">PI</span> <span class="token operator">/</span> <span class="token number">2</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// 축을 수직으로</span>
+
+<span class="token comment">// 지형 고도가 16m인 지점에 밑면을 맞춥니다.</span>
+cylinder<span class="token punctuation">.</span><span class="token function">setPosition</span><span class="token punctuation">(</span><span class="token number">126.9393</span><span class="token punctuation">,</span> <span class="token number">37.5194</span><span class="token punctuation">,</span> <span class="token number">16</span> <span class="token operator">+</span> cylinder<span class="token punctuation">.</span>height <span class="token operator">/</span> <span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="3-크기와-세그먼트-조절하기">3. 크기와 세그먼트 조절하기</h2>
+<p>생성 후에 크기를 바꾸려면 <code>setParam</code>에 바꿀 값만 담아 전달합니다.<br>전달한 값만 반영되고 나머지는 기존 값이 유지되며, 형태 관련 값을 바꾸면 지오메트리가 즉시 다시 만들어집니다.</p>
+<p><code>radialSegments</code>는 원둘레를 몇 각형으로 나눌지 정하는 값입니다.<br><code>3</code>이면 삼각기둥, <code>8</code>이면 팔각기둥이 되고 <code>32</code> 이상이면 원기둥처럼 보입니다.</p>
+<p><code>heightSegments</code>는 길이 방향 분할 수입니다.<br>겉모양은 그대로이고 정점만 늘어납니다.</p>
+<h4 class="api-heading" id="api-5">API</h4>
+<p>U3dCylinder.setParam(<code>param</code>) : 여러 속성을 한 번에 갱신하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>param</code> (<code>object</code>) : 변경할 속성 객체</li>
+<li><code>param.radiusTop</code> (<code>number</code>) : 윗면 반지름(m)</li>
+<li><code>param.radiusBottom</code> (<code>number</code>) : 밑면 반지름(m)</li>
+<li><code>param.height</code> (<code>number</code>) : 길이(m)</li>
+<li><code>param.radialSegments</code> (<code>number</code>) : 원둘레 분할 수</li>
+<li><code>param.heightSegments</code> (<code>number</code>) : 길이 방향 분할 수</li>
+<li><code>param.openEnded</code> (<code>boolean</code>) : 윗면과 밑면을 열어 둘지 여부</li>
+<li><code>param.thetaStart</code> (<code>number</code>) : 단면 원을 그리기 시작하는 각도(라디안)</li>
+<li><code>param.thetaLength</code> (<code>number</code>) : 단면 원을 그릴 각도 범위(라디안)</li>
+<li><code>param.color</code> (<code>ColorRepresentation</code>) : 색상</li>
+<li><code>param.opacity</code> (<code>number</code>) : 투명도(0~1)</li>
+<li><code>param.outline</code> (<code>boolean</code>) : 외곽선 표시 여부</li>
+<li><code>param.lineColor</code> (<code>ColorRepresentation</code>) : 외곽선 색상</li>
+<li><code>param.wireframe</code> (<code>boolean</code>) : 와이어프레임 표시 여부</li>
+<li><code>param.shadow</code> (<code>boolean</code>) : 그림자 사용 여부</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-6">API</h4>
+<p>U3dCylinder.getParam() : 현재 속성을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>object</code>) : 반지름·길이·세그먼트·외곽선 등 현재 속성 객체</li>
+</ul>
+</details>
+<h3 id="1-크기-변경-예제">1. 크기 변경 예제</h3>
+<p>반지름과 길이를 한 번에 바꾸는 경우입니다.<br>윗면과 밑면 반지름을 같은 값으로 주면 곧은 원기둥이 유지됩니다.</p>
+<pre class="language-javascript"><code class="language-javascript">cylinder<span class="token punctuation">.</span><span class="token function">setParam</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">radiusTop</span><span class="token operator">:</span> <span class="token number">10</span><span class="token punctuation">,</span> <span class="token literal-property property">radiusBottom</span><span class="token operator">:</span> <span class="token number">10</span><span class="token punctuation">,</span> <span class="token literal-property property">height</span><span class="token operator">:</span> <span class="token number">50</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-원뿔과-원뿔대-예제">2. 원뿔과 원뿔대 예제</h3>
+<p>윗면 반지름을 <code>0</code>으로 두면 원뿔이 되고, 두 반지름을 다르게 주면 원뿔대가 됩니다.</p>
+<pre class="language-javascript"><code class="language-javascript">cylinder<span class="token punctuation">.</span><span class="token function">setParam</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">radiusTop</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token literal-property property">radiusBottom</span><span class="token operator">:</span> <span class="token number">12</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>    <span class="token comment">// 원뿔</span>
+cylinder<span class="token punctuation">.</span><span class="token function">setParam</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">radiusTop</span><span class="token operator">:</span> <span class="token number">4</span><span class="token punctuation">,</span> <span class="token literal-property property">radiusBottom</span><span class="token operator">:</span> <span class="token number">12</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>    <span class="token comment">// 원뿔대</span>
+</code></pre>
+<h3 id="3-각기둥-예제">3. 각기둥 예제</h3>
+<p><code>radialSegments</code>를 낮추면 각기둥이 됩니다.<br>육각 맨홀이나 팔각 기둥처럼 단면이 다각형인 시설물에 사용합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">cylinder<span class="token punctuation">.</span><span class="token function">setParam</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">radialSegments</span><span class="token operator">:</span> <span class="token number">6</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>    <span class="token comment">// 육각기둥</span>
+</code></pre>
+<h3 id="4-현재-속성-확인-예제">4. 현재 속성 확인 예제</h3>
+<p>속성으로 직접 읽거나 <code>getParam</code>으로 한 번에 가져옵니다.<br><code>getParam</code>이 돌려준 객체는 다른 원기둥의 <code>setParam</code>에 그대로 넘겨 같은 모양으로 맞출 수 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript">console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>cylinder<span class="token punctuation">.</span>radiusTop<span class="token punctuation">,</span> cylinder<span class="token punctuation">.</span>height<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 4 50</span>
+
+<span class="token keyword">const</span> param <span class="token operator">=</span> cylinder<span class="token punctuation">.</span><span class="token function">getParam</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>param<span class="token punctuation">.</span>radialSegments<span class="token punctuation">,</span> param<span class="token punctuation">.</span>outline<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="4-일부만-그리기">4. 일부만 그리기</h2>
+<p>각도 옵션 두 개와 <code>openEnded</code>로 원기둥의 일부만 그릴 수 있습니다.</p>
+<ul>
+<li><code>thetaLength</code> : 단면 원을 그릴 각도 범위입니다. <code>Math.PI</code>면 반원기둥, <code>Math.PI / 2</code>면 4분의 1만 그려집니다</li>
+<li><code>thetaStart</code> : 그리기 시작하는 각도입니다. 잘려 나간 쪽이 어느 방향을 보게 할지 정합니다</li>
+<li><code>openEnded</code> : <code>true</code>면 윗면과 밑면을 덮지 않아 속이 빈 관이 됩니다</li>
+</ul>
+<p><code>thetaStart</code>는 <code>thetaLength</code>가 한 바퀴보다 작을 때만 효과가 있습니다.</p>
+<h3 id="1-반원기둥-예제">1. 반원기둥 예제</h3>
+<p><code>thetaLength</code>를 반 바퀴로 줄여 단면이 드러나는 반원기둥을 만듭니다.<br>관 내부를 보여주거나 절개면을 표현할 때 사용합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> half <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>geom<span class="token punctuation">.</span>U3dCylinder</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">radiusTop</span><span class="token operator">:</span> <span class="token number">10</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">radiusBottom</span><span class="token operator">:</span> <span class="token number">10</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">height</span><span class="token operator">:</span> <span class="token number">40</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">thetaLength</span><span class="token operator">:</span> Math<span class="token punctuation">.</span><span class="token constant">PI</span><span class="token punctuation">,</span>      <span class="token comment">// 한 바퀴의 절반만</span>
+    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#3498db'</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+vectorLayer<span class="token punctuation">.</span><span class="token function">addGeometry</span><span class="token punctuation">(</span>half<span class="token punctuation">)</span><span class="token punctuation">;</span>
+half<span class="token punctuation">.</span><span class="token function">setPosition</span><span class="token punctuation">(</span><span class="token number">126.9393</span><span class="token punctuation">,</span> <span class="token number">37.5194</span><span class="token punctuation">,</span> <span class="token number">30</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-뚜껑-없는-관-예제">2. 뚜껑 없는 관 예제</h3>
+<p><code>openEnded</code>를 켜면 윗면과 밑면이 덮이지 않아 속이 빈 관이 됩니다.<br>관로의 끝단을 드러내야 할 때 사용합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">cylinder<span class="token punctuation">.</span><span class="token function">setParam</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">openEnded</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="5-색상과-투명도-설정하기">5. 색상과 투명도 설정하기</h2>
+<p>색상은 <code>setColor</code>, 투명도는 <code>setOpacity</code>로 바꿉니다.<br>두 함수 모두 재질에 즉시 반영됩니다.</p>
+<p>색상 값은 <code>&#39;#ff0000&#39;</code> 같은 hex 문자열, <code>&#39;rgb(255,0,0)&#39;</code> 문자열, <code>0xff0000</code> 숫자, <code>THREE.Color</code> 객체를 모두 받습니다.</p>
+<p><code>setOpacity</code>는 값이 <code>1</code> 미만이면 반투명 처리를 자동으로 켜고 <code>1</code>이면 끕니다.</p>
+<h4 class="api-heading" id="api-7">API</h4>
+<p>U3dCylinder.setColor(<code>color</code>) : 색상을 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>color</code> (<code>ColorRepresentation</code>) : 색상 값</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-8">API</h4>
+<p>U3dCylinder.setOpacity(<code>opacity</code>) : 투명도를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opacity</code> (<code>number</code>) : 투명도(0~1). <code>0</code>이면 완전 투명, <code>1</code>이면 불투명</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-9">API</h4>
+<p>U3dCylinder.setTransparent(<code>val</code>) : 재질의 반투명 처리를 켜는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>val</code> (<code>boolean</code>) : 반투명 처리 사용 여부</li>
+</ul>
+</details>
+<h3 id="1-색상과-투명도-변경-예제">1. 색상과 투명도 변경 예제</h3>
+<p>상태별로 색을 달리하거나, 안쪽이 비쳐 보이도록 투명도를 낮출 때 사용합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">cylinder<span class="token punctuation">.</span><span class="token function">setColor</span><span class="token punctuation">(</span><span class="token string">'#00b3ff'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+cylinder<span class="token punctuation">.</span><span class="token function">setOpacity</span><span class="token punctuation">(</span><span class="token number">0.4</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-와이어프레임-표시-예제">2. 와이어프레임 표시 예제</h3>
+<p>면을 채우지 않고 뼈대만 표시합니다.<br>세분화 값을 확인하거나 겹친 도형의 구조를 볼 때 잠시 켜서 씁니다.</p>
+<pre class="language-javascript"><code class="language-javascript">cylinder<span class="token punctuation">.</span><span class="token function">setParam</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">wireframe</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="6-외곽선-표시하기">6. 외곽선 표시하기</h2>
+<p>원기둥은 외곽선이 기본으로 켜져 있습니다.<br>윗면과 밑면의 테두리처럼 면이 크게 꺾이는 모서리에만 선이 그려지고, 매끄럽게 이어지는 옆면에는 그려지지 않습니다.</p>
+<p>외곽선 색상은 <code>setLineColor</code>로 바꿉니다.</p>
+<h4 class="api-heading" id="api-10">API</h4>
+<p>U3dCylinder.setLineColor(<code>lineColor</code>) : 외곽선 색상을 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>lineColor</code> (<code>ColorRepresentation</code>) : 외곽선 색상</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-11">API</h4>
+<p>U3dCylinder.getLineColor() : 외곽선 색상을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>ColorRepresentation</code>) : 외곽선 색상</li>
+</ul>
+</details>
+<h3 id="1-외곽선-제어-예제">1. 외곽선 제어 예제</h3>
+<p>원기둥은 외곽선이 기본으로 켜져 있어 윗면과 밑면 테두리가 드러납니다.<br>배경과 색이 비슷할 때는 외곽선 색을 바꿔 형태를 살립니다.</p>
+<pre class="language-javascript"><code class="language-javascript">cylinder<span class="token punctuation">.</span><span class="token function">setLineColor</span><span class="token punctuation">(</span><span class="token string">'#ffffff'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>     <span class="token comment">// 외곽선 색상 변경</span>
+cylinder<span class="token punctuation">.</span><span class="token function">setParam</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">outline</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// 외곽선 제거</span>
+</code></pre>
+<hr>
+<h2 id="7-윗면에-이미지-입히기">7. 윗면에 이미지 입히기</h2>
+<p><code>type</code>을 <code>&#39;topimage&#39;</code>로 두고 <code>topimageurl</code>에 이미지 주소를 넣으면 윗면에만 이미지가 입혀집니다.<br>옆면과 밑면은 <code>color</code>로 지정한 단색이 유지됩니다.</p>
+<p><code>type</code>은 <strong>생성할 때만 지정할 수 있습니다.</strong><br><code>setParam</code>으로는 바꿀 수 없습니다.</p>
+<p><code>&#39;standard&#39;</code>를 지정하면 조명을 받는 표준 재질을 사용해 면마다 밝기가 달라집니다.</p>
+<h3 id="1-윗면-이미지-예제">1. 윗면 이미지 예제</h3>
+<p>저장탱크 상판처럼 윗면에만 다른 재질이 필요한 경우입니다.<br>옆면과 밑면은 <code>color</code>로 지정한 단색이 유지됩니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> tank <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>geom<span class="token punctuation">.</span>U3dCylinder</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'tank_01'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">radiusTop</span><span class="token operator">:</span> <span class="token number">15</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">radiusBottom</span><span class="token operator">:</span> <span class="token number">15</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">height</span><span class="token operator">:</span> <span class="token number">12</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#cccccc'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">type</span><span class="token operator">:</span> <span class="token string">'topimage'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">topimageurl</span><span class="token operator">:</span> <span class="token string">'image/marker.png'</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+vectorLayer<span class="token punctuation">.</span><span class="token function">addGeometry</span><span class="token punctuation">(</span>tank<span class="token punctuation">)</span><span class="token punctuation">;</span>
+tank<span class="token punctuation">.</span><span class="token function">setPosition</span><span class="token punctuation">(</span><span class="token number">126.9393</span><span class="token punctuation">,</span> <span class="token number">37.5194</span><span class="token punctuation">,</span> <span class="token number">30</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="8-속성정보와-해제">8. 속성정보와 해제</h2>
+<p>도형에는 id, 이름, 업무 데이터 같은 부가 정보를 key-value 형태로 담아 둘 수 있습니다.</p>
+<p>새 속성을 넣을 때는 <code>addProperties</code>, 기존 값을 바꿀 때는 <code>changeProperties</code>, 전체를 통째로 교체할 때는 <code>setProperties</code>를 사용합니다.</p>
+<p>더 이상 쓰지 않는 원기둥은 <code>dispose</code>로 정리합니다.</p>
+<h4 class="api-heading" id="api-12">API</h4>
+<p>U3dCylinder.getProperties() : 사용자 정의 속성정보를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>KeyValue</code>) : 사용자 정의 속성정보</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-13">API</h4>
+<p>U3dCylinder.setProperties(<code>input</code>) : 사용자 정의 속성정보 전체를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>input</code> (<code>KeyValue | string</code>) : 속성 객체 또는 JSON 문자열</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-14">API</h4>
+<p>U3dCylinder.addProperties(<code>key</code>, <code>value</code>) : 속성정보를 하나 추가하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>key</code> (<code>string</code>) : 속성 식별키</li>
+<li><code>value</code> (<code>*</code>) : 속성 값</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-15">API</h4>
+<p>U3dCylinder.changeProperties(<code>key</code>, <code>value</code>) : 기존 속성정보의 값을 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>key</code> (<code>string</code>) : 변경할 속성 식별키</li>
+<li><code>value</code> (<code>*</code>) : 속성 값</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-16">API</h4>
+<p>U3dCylinder.removeProperties(<code>key</code>) : 속성정보를 제거하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>key</code> (<code>string</code>) : 제거할 속성 식별키</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-17">API</h4>
+<p>U3dCylinder.setShadow(<code>enabled</code>) : 그림자 사용 여부를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>enabled</code> (<code>boolean</code>) : 그림자 사용 여부. 기본값: <code>true</code></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-18">API</h4>
+<p>U3dCylinder.isShadow() : 그림자 사용 여부를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>boolean</code>) : 그림자 사용 여부</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-19">API</h4>
+<p>U3dCylinder.getUid() : 원기둥의 고유 식별자를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>number</code>) : <code>userData.id</code>가 지정되어 있으면 그 값, 없으면 내부 객체 id</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-20">API</h4>
+<p>U3dCylinder.dispose() : 원기둥과 관련 리소스를 해제하는 함수</p>
+<h3 id="1-속성정보-다루기-예제">1. 속성정보 다루기 예제</h3>
+<pre class="language-javascript"><code class="language-javascript">cylinder<span class="token punctuation">.</span><span class="token function">addProperties</span><span class="token punctuation">(</span><span class="token string">'시설명'</span><span class="token punctuation">,</span> <span class="token string">'제1저수정'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+cylinder<span class="token punctuation">.</span><span class="token function">addProperties</span><span class="token punctuation">(</span><span class="token string">'관리번호'</span><span class="token punctuation">,</span> <span class="token string">'C-0107'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+cylinder<span class="token punctuation">.</span><span class="token function">changeProperties</span><span class="token punctuation">(</span><span class="token string">'시설명'</span><span class="token punctuation">,</span> <span class="token string">'제2저수정'</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 기존 값 변경</span>
+cylinder<span class="token punctuation">.</span><span class="token function">removeProperties</span><span class="token punctuation">(</span><span class="token string">'관리번호'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>            <span class="token comment">// 속성 제거</span>
+
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>cylinder<span class="token punctuation">.</span><span class="token function">getProperties</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// {시설명: '제2저수정'}</span>
+</code></pre>
+<h3 id="2-해제-예제">2. 해제 예제</h3>
+<p>레이어에서 먼저 제거한 뒤 해제합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">vectorLayer<span class="token punctuation">.</span><span class="token function">removeGeometry</span><span class="token punctuation">(</span>cylinder<span class="token punctuation">)</span><span class="token punctuation">;</span>
+cylinder<span class="token punctuation">.</span><span class="token function">dispose</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+</main>
+</body>
+</html>
+

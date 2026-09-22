@@ -1,0 +1,2978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>3D 자료 변환 및 레이어 발행</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+
+        #analy-popup .div-popup {
+            width: 48vw;
+            height: 830px;
+            top: -1.5vh;
+            display: flow;
+        }
+
+        .vertical-divide-2 {
+            width: 47vw !important;
+            height: 700px !important;
+            float: left
+        }
+
+        .examples.vertical-divide-2 {
+
+            /*top: 45px;*/
+            right: 0;
+        }
+
+        #map-wrapper.vertical-divide-2 {
+            position: absolute;
+            /*top: 45px;*/
+            left: 0;
+        }
+
+        .layer-list-wrapper {
+            position: absolute;
+            top: 78%;
+            border: 2px solid #ddd;
+            margin-left:0.3%;
+            overflow: auto;
+            height: 173px;
+            width: 98%;
+        }
+
+        .layer-item {
+            padding: 5px 0;
+        }
+
+        .layer-item .item-title {
+            display: flex;
+            flex-display: row;
+        }
+
+        .layer-item .progress {
+            margin: auto 5px;
+            flex-grow: 1;
+        }
+
+        .layer-item .label {
+            margin: auto 2px;
+        }
+
+        .label-type {
+            width: 40px;
+        }
+
+        .label-gn, .label-jn, .label-tn {
+            width: 80px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .div-popup-content {
+            overflow-y: auto;
+            overflow-x: hidden;
+            height: 94%;
+        }
+
+        a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .ex-explanation {
+            width: 800px;
+        }
+
+        #analy-popup .div-popup .btn-primary {
+            background-color: rgb(43, 69, 140);
+
+        }
+
+        #analy-popup .div-popup select[disabled] {
+            background: #777;
+            pointer-events: none;
+        }
+
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu="return false;">
+    <div>
+        <img src="image/solution_GeOnDT.png" alt="">
+
+        <span> 3D 자료 변환 및 레이어 발행</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        모델이나 이미지 <strong>파일을 업로드하거나 레이어를 발행</strong>하는 예제입니다.<br>
+        레벨이나 좌표계, 품질 등 레이어 발행 정보를 지정할 수 있고, 업로드의 진행 상태를 확인하는 기능도 포함합니다.
+    </p>
+    <pre>업로드 파일 타일링 스케쥴 예제
+        1. 업로드 파일의 타입 선택(건물/고도)합니다.
+        2. 타일링 설정 정보를 입력합니다.
+        3. 업로드할 파일을 선택합니다.
+        4. 발행버튼을 클릭합니다.
+        5. 발행된 레이어에 보기 버튼을 클릭하면 서버에 발행된 레이어서 APP에 생성됩니다.
+        6. 이동버튼을 클릭하면 APP에 생성된 레이어의 위치로 이동합니다.
+    </pre>
+</div>
+<div style="height:770px;width:100%;">
+    <div>
+        <div id="map"></div>
+        <div id="div-left-menu">
+            <div id="left-menu-list-panel">
+                <div class="form-group div-layer">
+                    <div class="div-category">
+                        <label class="label-layerType">
+                            레이어
+                        </label>
+                    </div>
+                    <div id="layer-list">
+                        <div class="div-sub-category">
+                            <div class="sub-category-tile">
+                                <label class="label-layerType">
+                                    이미지 레이어
+                                </label>
+                                <div class="category-btn-group">
+                                    <label class="expand-btn layer">
+                                        <img src="image/btn_expand.svg" alt="">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sub-category-content">
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="satellite">
+                                        VWorld Satellite
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="hybrid">
+                                        VWorld Hybrid
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="div-sub-category">
+                            <div class="sub-category-tile">
+                                <label class="label-layerType">
+                                    지형 레이어
+                                </label>
+                                <div class="category-btn-group">
+                                    <label class="expand-btn layer">
+                                        <img src="image/btn_expand.svg" alt="">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sub-category-content">
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="korea_terrain">
+                                        전체 지형
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div style="display: inline-flex; position: relative">
+                    <button id="left-menu-bnt" class="btn btn-xs menu-btn">
+                        <img src="image/left_panel_open_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                    </button>
+                    <div class="div-btn-info" hidden>
+                        레이어 탭 열기
+                    </div>
+                </div>
+                <div style="display: inline-flex; position: relative">
+                    <button id="analy-bnt" class="btn btn-xs menu-btn">
+                        <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                    </button>
+                    <div class="div-btn-info" hidden>
+                        분석 팝업 열기
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="btn-group" id='top-sbar'>
+            <div class='btn-group-vertical-block' id='right-toolbar'>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                    <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                         src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                         alt="나침반">
+                </button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                        id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                        id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                        id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg"
+                                                                     alt="">
+                </button>
+            </div>
+            <div class='btn-group' id='bt-bottom-bar'>
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                       value="위경도: ##.####  ###.#### ">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                       value="고도:####">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                       value="각도: ##">
+            </div>
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu="return false;">
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content">
+                <div class="examples vertical-divide-2">
+                    <div class="col-sm-12" role="tabpanel">
+                        <ul class="nav nav-tabs" role="tablist">
+                            <li role="presentation">
+                                <a href="#tab-bim-full-step" aria-controls="tab-bim-full-step" role="tab"
+                                   data-toggle="tab">BIM
+                                    [step-full]</a>
+                            </li>
+                            <li role="presentation">
+                                <a href="#tab-bim-step1" aria-controls="tab-bim-step1" role="tab" data-toggle="tab">BIM
+                                    [step-1]</a>
+                            </li>
+                            <li role="presentation">
+                                <a href="#tab-bim-step2" aria-controls="tab-bim-step2" role="tab" data-toggle="tab">BIM
+                                    [step-2]</a>
+                            </li>
+                            <li role="presentation" class="active">
+                                <a href="#tab-build" aria-controls="tab-build" role="tab" data-toggle="tab">건물</a>
+                            </li>
+                            <li role="presentation">
+                                <a href="#tab-dem" aria-controls="tab-dem" role="tab" data-toggle="tab">고도</a>
+                            </li>
+                            <li role="presentation">
+                                <a href="#tab-raster" aria-controls="tab-raster" role="tab" data-toggle="tab">영상</a>
+                            </li>
+                            <li role="presentation">
+                                <a href="#tab-conversion" aria-controls="conversion" role="tab"
+                                   data-toggle="tab">자료변환</a>
+                            </li>
+                            <li role="presentation">
+                                <a href="#tab-copy" aria-controls="tab-copy" role="tab" data-toggle="tab">파일복사</a>
+                            </li>
+                        </ul>
+                        <div class="tab-content">
+                            <div role="tabpanel" class="tab-pane active" id="tab-build">
+                                <div class="form-group">
+                                    <input class="arg" type="hidden" name="tileDataType" value="model">
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-4">
+                                            <label>최소레벨</label>
+                                            <input class="form-control arg" type="number" value="17" name="minLevel">
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label>최대레벨</label>
+                                            <input class="form-control arg" type="number" value="17" name="maxLevel">
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label>건물(갯수)</label>
+                                            <input class="form-control arg" type="number" value="1024"
+                                                   name="divideFile">
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        <div class="form-group col-sm-6">
+                                            <label>원본 지도 투영법</label>
+                                            <input type="text" class="form-control arg" name="epsg" value="EPSG:5181">
+                                        </div>
+                                        <div class="form-group col-sm-6">
+                                            <label>원본 자료 형식</label>
+                                            <select class="form-control arg" name="startType">
+                                                <option value="3ds">3ds</option>
+                                                <option value="obj">obj</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-4">
+                                            <label>최소 병합 영상 크기</label>
+                                            <input class="form-control arg" type="number" value="128"
+                                                   name="minImageSize">
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label>최대 병합 영상 크기</label>
+                                            <input class="form-control arg" type="number" value="4096"
+                                                   name="maxImageSize">
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label>영상품질(%)</label>
+                                            <input class="form-control arg" type="number" value="50"
+                                                   name="qualityCompressJpg">
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="col-sm-12 checkbox">
+                                            <label>
+                                                <input class="arg" type="checkbox" name="useFilterRegion"><b>필터영역 설정</b>
+                                            </label>
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>최소경도</label>
+                                            <input class="form-control filter-input arg" type="number" value="0"
+                                                   name="filterMinX"
+                                                   disabled>
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>최소위도</label>
+                                            <input class="form-control filter-input arg" type="number" value="0"
+                                                   name="filterMinY"
+                                                   disabled>
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>최대위도</label>
+                                            <input class="form-control filter-input arg" type="number" value="0"
+                                                   name="filterMaxX"
+                                                   disabled>
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>최대경도</label>
+                                            <input class="form-control filter-input arg" type="number" value="0"
+                                                   name="filterMaxY"
+                                                   disabled>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-3">
+                                            <label>작업 그룹</label>
+                                            <input type="text" name="groupName" class="form-control"
+                                                   placeholder="작업그룹">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>작업명</label>
+                                            <input type="text" name="jobName" class="form-control" placeholder="작업명">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>레이어 이름</label>
+                                            <input type="text" name="tileName" class="form-control arg"
+                                                   placeholder="레이어 이름">
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="col-sm-3 checkbox">
+                                            <label>
+                                                <input class="arg" type="checkbox" name="useWebp"><b>Webp 사용</b>
+                                            </label>
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>Webp 영상품질(%)</label>
+                                            <input class="form-control webp-input arg" type="number" value="50"
+                                                   name="qualityWebp" disabled>
+                                        </div>
+                                        <div class="form-group col-sm-5">
+                                            <label>속성 폴더</label>
+                                            <input class="form-control arg" type="text" name="featureFile"
+                                                   placeholder="속성 폴더 ">
+
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="col-sm-6">
+                                            <input class="btn btn-default btn-block" type="file" name="buildFiles"
+                                                   multiple
+                                                   webkitdirectory>
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <button class="btn btn-primary btn-block" name="submit-build"
+                                                    data-toggle="tooltip"
+                                                    data-placement="top" title="파일이 선택되지 않았습니다.">발행
+                                            </button>
+                                        </div>
+                                        <p class="text-danger text-left error-message"></p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div role="tabpanel" class="tab-pane" id="tab-bim-step1">
+                                <div class="form-group">
+                                    <input class="arg" type="hidden" name="tileDataType" value="bimStep1">
+                                    <div class="col-sm-12" hidden>
+                                        <div class="form-group col-sm-3">
+                                            <label>최소레벨</label>
+                                            <input class="form-control arg" type="number" value="17" name="minLevel">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>최대레벨</label>
+                                            <input class="form-control arg" type="number" value="19" name="maxLevel">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>좌표계</label>
+                                            <select class="form-control arg" name=startType" disabled="disabled">
+                                                <option value="EPSG:3857">EPSG:3857</option>
+                                                <option value="EPSG:4326">EPSG:4326</option>
+                                                <option value="EPSG:5174">EPSG:5174</option>
+                                                <option value="EPSG:5179">EPSG:5179</option>
+                                                <option value="EPSG:5181">EPSG:5181</option>
+                                                <option value="EPSG:5183">EPSG:5183</option>
+                                                <option value="EPSG:5185">EPSG:5185</option>
+                                                <option value="EPSG:5186" selected>EPSG:5186</option>
+                                                <option value="EPSG:5187">EPSG:5187</option>
+                                                <option value="EPSG:5188">EPSG:5188</option>
+                                                <option value="EPSG:2097">EPSG:2097</option>
+                                                <option value="EPSG:2098">EPSG:2098</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-3">
+                                            <label>작업 그룹</label>
+                                            <input type="text" name="groupName" class="form-control"
+                                                   placeholder="작업그룹">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>작업명</label>
+                                            <input type="text" name="jobName" class="form-control" placeholder="작업명">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>레이어 이름</label>
+                                            <input type="text" name="tileName" class="form-control arg"
+                                                   placeholder="레이어 이름">
+                                        </div>
+
+                                        <div class="form-group col-sm-3">
+                                            <label>변환 속성</label>
+                                            <select class="form-control arg" name="param">
+                                                <option id='param-ifc' value="IfcOpenShell" selected>IfcOpenShell
+                                                </option>
+                                                <option id='param-fme' value="FME">FME</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-3">
+                                            <label>기존 파일 확장자</label>
+                                            <select class="form-control arg" name="startType" id="sType">
+                                                <option value="ifc" selected>IFC</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>변환 파일 확장자</label>
+                                            <select class="form-control arg" name="destType">
+                                                <option id='dType-obj' value="obj" selected>OBJ</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-3" style="margin-top: 30px;">
+                                            <label>일반적인 IFC 파일 여부</label>
+                                            <input class="form-check-input arg generalIfc" type="checkbox"
+                                                   name="generalIfc" checked>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-3">
+                                            <label>X</label>
+                                            <input type="text" name="posX" class="form-control arg"
+                                                   placeholder="x 좌표">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>Y</label>
+                                            <input type="text" name="posY" class="form-control arg"
+                                                   placeholder="y 좌표">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>Z</label>
+                                            <input type="text" name="posZ" class="form-control arg"
+                                                   placeholder="z 좌표">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>추가 파일 생성</label>
+                                            <select class="form-control arg" name="appendFileFormat">
+                                                <option value="none" selected>none</option>
+                                                <option value="glb">glb</option>
+                                                <option value="umesh">umesh</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="col-sm-6">
+                                            <input class="btn btn-default btn-block" type="file" name="buildFiles"
+                                                   multiple
+                                                   webkitdirectory>
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <button class="btn btn-primary btn-block" name="submit-bim-step1"
+                                                    data-toggle="tooltip"
+                                                    data-placement="top" title="파일이 선택되지 않았습니다.">발행
+                                            </button>
+                                        </div>
+                                        <p class="text-danger text-left error-message"></p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div role="tabpanel" class="tab-pane" id="tab-bim-step2">
+                                <div class="form-group">
+                                    <input class="arg" type="hidden" name="tileDataType" value="bimStep2">
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-9">
+                                            <label>< STEP1 작업 이어하기 시 (STEP1 레이어 이름) 검색 > 레이어 이름</label>
+                                            <input type="text" name="tileName" class="form-control arg"
+                                                   placeholder="레이어 이름">
+                                        </div>
+
+                                        <div class="col-sm-3">
+                                            <button class="btn btn-primary btn-block" name="search-bim-step2"
+                                                    data-toggle="tooltip"
+                                                    data-placement="top" title="해당이름으로 등록된 레이어가 없습니다."
+                                                    style="margin-top: 22px">검색
+                                            </button>
+                                        </div>
+
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-9">
+                                            <label>작업 그룹</label>
+                                            <input type="text" name="groupName" class="form-control"
+                                                   placeholder="작업그룹">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>작업명</label>
+                                            <input type="text" name="jobName" class="form-control" placeholder="작업명">
+                                        </div>
+                                    </div>
+
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-3">
+                                            <label>최소레벨</label>
+                                            <input class="form-control arg" type="number" value="14" name="minLevel">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>최대레벨</label>
+                                            <input class="form-control arg" type="number" value="19" name="maxLevel">
+                                        </div>
+                                        <div class="form-group col-sm-3" style="margin-top: 30px">
+                                            <label>Mesh 최적화</label>
+                                            <input class="form-check-input arg" type="checkbox" name="optimized"
+                                                   checked>
+                                        </div>
+
+                                        <div class="form-group col-sm-3" style="margin-top: 30px;">
+                                            <label>일반적인 IFC 파일 여부</label>
+                                            <input class="form-check-input arg generalIfc" type="checkbox"
+                                                   name="generalIfc" checked>
+                                        </div>
+
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-3">
+                                            <label>기존 파일 확장자</label>
+                                            <select class="form-control arg" name="startType">
+                                                <option value="obj" selected>OBJ</option>
+                                                <option value="3ds">3DS</option>
+                                            </select>
+
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>변환 파일 확장자</label>
+                                            <select class="form-control arg" name="destType">
+                                                <option id='dType2-3dtiles' value="3dTiles" selected>3DTiles</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="form-group col-sm-3">
+                                            <label>CASE Number</label>
+                                            <input type="text" name="caseNumber" class="form-control arg"
+                                                   placeholder="1부터 / [입력필수]">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>MAKE LEVEL</label>
+
+                                            <select class="form-control arg" name="makeLevel" disabled="disabled">
+                                                <option value="9">9</option>
+                                                <option value="4">4</option>
+                                                <option value="3">3</option>
+                                                <option value="2">2</option>
+                                                <option value="1">1</option>
+                                                <option value="0" selected>0</option>
+                                            </select>
+
+                                        </div>
+
+                                        
+                                        
+                                        
+                                        
+                                        
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-3">
+                                            <label>X</label>
+                                            <input type="text" name="posX" class="form-control arg"
+                                                   placeholder="x 좌표">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>Y</label>
+                                            <input type="text" name="posY" class="form-control arg"
+                                                   placeholder="y 좌표">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>Z</label>
+                                            <input type="text" name="posZ" class="form-control arg"
+                                                   placeholder="z 좌표">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>좌표계</label>
+                                            <select class="form-control arg" name="epsg" disabled="disabled">
+                                                <option value="EPSG:3857">EPSG:3857</option>
+                                                <option value="EPSG:4326" selected>EPSG:4326</option>
+                                                <option value="EPSG:5174">EPSG:5174</option>
+                                                <option value="EPSG:5179">EPSG:5179</option>
+                                                <option value="EPSG:5181">EPSG:5181</option>
+                                                <option value="EPSG:5183">EPSG:5183</option>
+                                                <option value="EPSG:5185">EPSG:5185</option>
+                                                <option value="EPSG:5186">EPSG:5186</option>
+                                                <option value="EPSG:5187">EPSG:5187</option>
+                                                <option value="EPSG:5188">EPSG:5188</option>
+                                                <option value="EPSG:2097">EPSG:2097</option>
+                                                <option value="EPSG:2098">EPSG:2098</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        
+                                        
+                                        
+                                        
+                                        <div class="col-sm-6">
+                                            <label>STEP1 결과 폴더 경로</label>
+                                            <input type="text" name="input" class="form-control arg"
+                                                   placeholder="파일 위치">
+                                        </div>
+
+                                        <div class="col-sm-6">
+                                            <button class="btn btn-primary btn-block" name="submit-bim-step2"
+                                                    data-toggle="tooltip"
+                                                    style="margin-top:25px"
+                                                    data-placement="top" title="파일이 선택되지 않았습니다.">발행
+                                            </button>
+                                        </div>
+                                        <p class="text-danger text-left error-message"></p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div role="tabpanel" class="tab-pane" id="tab-bim-full-step">
+                                <div class="form-group">
+                                    <input class="arg" type="hidden" name="tileDataType" value="bimFullStep">
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-3">
+                                            <label>작업 그룹</label>
+                                            <input type="text" name="groupName" class="form-control"
+                                                   placeholder="작업그룹">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>작업명</label>
+                                            <input type="text" name="jobName" class="form-control" placeholder="작업명">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>레이어 이름</label>
+                                            <input type="text" name="tileName" class="form-control arg"
+                                                   placeholder="레이어 이름">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>변환 속성</label>
+                                            <select class="form-control arg" name="param">
+                                                <option id='param-ifc-full' value="IfcOpenShell" selected>IfcOpenShell
+                                                </option>
+                                                <option id='param-fme-full' value="FME">FME</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-3">
+                                            <label>최소레벨</label>
+                                            <input class="form-control arg" type="number" value="14" name="minLevel">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>최대레벨</label>
+                                            <input class="form-control arg" type="number" value="19" name="maxLevel">
+                                        </div>
+                                        <div class="form-group col-sm-3" style="margin-top: 30px">
+                                            <label>Mesh 최적화</label>
+                                            <input class="form-check-input arg" type="checkbox" name="optimized"
+                                                   checked>
+                                        </div>
+                                        <div class="form-group col-sm-3" style="margin-top: 30px;">
+                                            <label>일반적인 IFC 파일 여부</label>
+                                            <input class="form-check-input arg generalIfc" type="checkbox"
+                                                   name="generalIfc" checked>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-3">
+                                            <label>기존 파일 확장자</label>
+                                            
+                                            <select class="form-control arg" name="startType">
+                                                <option value="ifc" selected>IFC</option>
+                                                <option value="3ds">3DS</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>변환 파일 확장자</label>
+                                            
+                                            <select class="form-control arg" name="destType">
+                                                
+                                                <option id='dType-3dtiles_1_2' value="3dTiles">3DTiles</option>
+                                                
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>CASE Number</label>
+                                            <input type="text" name="caseNumber" class="form-control arg"
+                                                   placeholder="1부터 / [입력필수]">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>MAKE LEVEL</label>
+
+                                            <select class="form-control arg" name="makeLevel" disabled="disabled">
+                                                <option value="9">9</option>
+                                                <option value="4">4</option>
+                                                <option value="3">3</option>
+                                                <option value="2">2</option>
+                                                <option value="1">1</option>
+                                                <option value="0" selected>0</option>
+                                            </select>
+                                        </div>
+                                        
+                                        
+                                        
+                                        
+                                        
+                                    </div>
+                                    <div class="col-sm-12">
+
+                                        <div class="form-group col-sm-3">
+                                            <label>X</label>
+                                            <input type="text" name="posX" class="form-control arg"
+                                                   placeholder="x 좌표">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>Y</label>
+                                            <input type="text" name="posY" class="form-control arg"
+                                                   placeholder="y 좌표">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>Z</label>
+                                            <input type="text" name="posZ" class="form-control arg"
+                                                   placeholder="z 좌표">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>좌표계</label>
+                                            <select class="form-control arg" name="epsg" disabled="disabled">
+                                                <option value="EPSG:3857">EPSG:3857</option>
+                                                <option value="EPSG:4326" selected>EPSG:4326</option>
+                                                <option value="EPSG:5174">EPSG:5174</option>
+                                                <option value="EPSG:5179">EPSG:5179</option>
+                                                <option value="EPSG:5181">EPSG:5181</option>
+                                                <option value="EPSG:5183">EPSG:5183</option>
+                                                <option value="EPSG:5185">EPSG:5185</option>
+                                                <option value="EPSG:5186">EPSG:5186</option>
+                                                <option value="EPSG:5187">EPSG:5187</option>
+                                                <option value="EPSG:5188">EPSG:5188</option>
+                                                <option value="EPSG:2097">EPSG:2097</option>
+                                                <option value="EPSG:2098">EPSG:2098</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-9">
+                                            <label>STEP 1 출력 폴더</label>
+                                            <input type="text" name="objResultFolder" class="form-control arg"
+                                                   placeholder="step1 출력 폴더">
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="col-sm-9">
+                                            <label>파일 입력</label>
+                                            <input class="btn btn-default btn-block" type="file" name="buildFiles"
+                                                   multiple
+                                                   webkitdirectory>
+                                        </div>
+                                        <div class="col-sm-3">
+                                            <button class="btn btn-primary btn-block" name="submit-bim-full-step"
+                                                    data-toggle="tooltip"
+                                                    data-placement="top" title="파일이 선택되지 않았습니다."
+                                                    style="margin-top: 28px;">발행
+                                            </button>
+                                        </div>
+                                        <p class="text-danger text-left error-message"></p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div role="tabpanel" class="tab-pane" id="tab-dem">
+                                <div class="form-group">
+                                    <input class="arg" type="hidden" name="tileDataType" value="dem">
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-4">
+                                            <label>최소레벨</label>
+                                            <input class="form-control minLevel arg" type="number" value="0"
+                                                   name="minLevel">
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label>최대레벨</label>
+                                            <input class="form-control maxLevel arg" type="number" value="15"
+                                                   name="maxLevel">
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label>타일 사이즈</label>
+                                            <input class="form-control tileSize arg" type="number" value="64"
+                                                   name="tileSize">
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-4">
+                                            <label>보간법</label>
+                                            <select class="form-control arg" name="resampling">
+                                                <option value="average" selected>average</option>
+                                                <option value="near">near</option>
+                                                <option value="bilinear">bilinear</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label>지도투영법</label>
+                                            <select class="form-control arg" name="profile">
+                                                <option value="mercator" selected>mercator</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label>파일포맷</label>
+                                            <select class="form-control arg" name="writeExt">
+                                                <option value="png" selected>png</option>
+                                                <option value="tif">tif</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-4">
+                                            <div class="checkbox">
+                                                <label>
+                                                    <input class="form-check-input arg" type="checkbox" name="writeGmf"><b>UMF
+                                                    파일</b>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <div class="checkbox">
+                                                <label>
+                                                    <input class="form-check-input arg" type="checkbox" name="reverseY"><b>Y축
+                                                    반전</b>
+                                                </label>
+
+
+                                            </div>
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <div class="checkbox">
+                                                <label>
+                                                    <input class="form-check-input arg" type="checkbox"
+                                                           name="overwrapped"><b>고도
+                                                    중첩</b>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-12">
+                                            <div class="checkbox">
+                                                <label>
+                                                    <input class="form-check-input arg" type="checkbox" name="useProj">
+                                                    <b>proj 변수</b>
+                                                </label>
+                                            </div>
+                                            <textarea type="text" class="form-control proj-input arg"
+                                                      placeholder="proj 수식입력..."
+                                                      name="projValue" disabled></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-4">
+                                            <label>생성형식</label>
+                                            <select class="form-control arg" name="createFormat">
+                                                <option value="ushort" selected>ushort</option>
+                                                <option value="float">float</option>
+                                                <option value="cesiumterrain">cesiumterrain</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-3">
+                                            <label>작업 그룹</label>
+                                            <input type="text" name="groupName" class="form-control"
+                                                   placeholder="작업그룹">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>작업명</label>
+                                            <input type="text" name="jobName" class="form-control" placeholder="작업명">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>레이어 이름</label>
+                                            <input type="text" name="tileName" class="form-control arg"
+                                                   placeholder="레이어 이름">
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        
+                                        <div class="col-sm-6">
+                                            <input class="btn btn-default btn-block" type="file" name="demFile" multiple
+                                                   webkitdirectory>
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <button class="btn btn-primary btn-block" name="submit-dem"
+                                                    data-toggle="tooltip"
+                                                    data-placement="top" title="파일이 선택되지 않았습니다.">발행
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div role="tabpanel" class="tab-pane" id="tab-raster">
+                                <div class="form-group">
+                                    <input class="arg" type="hidden" name="tileDataType" value="raster">
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-4">
+                                            <label>최소레벨</label>
+                                            <input class="form-control minLevel arg" type="number" value="0"
+                                                   name="minLevel">
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label>최대레벨</label>
+                                            <input class="form-control maxLevel arg" type="number" value="19"
+                                                   name="maxLevel">
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label>타일 사이즈</label>
+                                            <input class="form-control tileSize arg" type="number" value="256"
+                                                   name="tileSize">
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-4">
+                                            <label>보간법</label>
+                                            <select class="form-control arg" name="resampling">
+                                                <option value="average" selected>average</option>
+                                                <option value="near">near</option>
+                                                <option value="bilinear">bilinear</option>
+                                                <option value="cubic">cubic</option>
+                                                <option value="cubicspline">cubicspline</option>
+                                                <option value="lanczos">lanczos</option>
+                                                <option value="antialias">antialias</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label>지도투영법</label>
+                                            <select class="form-control arg" name="rasterProfile">
+                                                <option value="mercator" selected>MERCATOR</option>
+                                                <option value="epsg:3857">EPSG:3857</option>
+                                                <option value="epsg:4326">EPSG:4326</option>
+                                                <option value="epsg:5179">EPSG:5179</option>
+                                                <option value="epsg:5186">EPSG:5186</option>
+                                                <option value="epsg:5183">EPSG:5183</option>
+                                                <option value="epsg:5187">EPSG:5187</option>
+                                                <option value="epsg:5188">EPSG:5188</option>
+                                                <option value="epsg:5174">EPSG:5174</option>
+                                                <option value="epsg:5181">EPSG:5181</option>
+                                                <option value="epsg:2097">EPSG:2097</option>
+                                                <option value="epsg:6326">EPSG:6326</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label>파일포맷</label>
+                                            <select class="form-control arg" name="writeExt">
+                                                <option value="png" selected>png</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-4" hidden>
+                                            <div class="checkbox">
+                                                <label>
+                                                    <input class="form-check-input arg" type="checkbox" name="writeGmf"><b>UMF
+                                                    파일</b>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <div class="checkbox">
+                                                <label>
+                                                    <input class="form-check-input arg" type="checkbox" name="reverseY"><b>Y축
+                                                    반전</b>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="form-group col-sm-4" hidden>
+                                            <div class="checkbox">
+                                                <label>
+                                                    <input class="form-check-input arg" type="checkbox"
+                                                           name="overwrapped"><b>고도
+                                                    중첩</b>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-12">
+                                            <div class="checkbox">
+                                                <label>
+                                                    <input class="form-check-input arg" type="checkbox" name="useProj">
+                                                    <b>proj
+                                                        변수</b>
+                                                </label>
+                                            </div>
+                                            <textarea type="text" class="form-control proj-input arg"
+                                                      placeholder="proj 수식입력..."
+                                                      name="projValue" disabled></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-3">
+                                            <label>작업 그룹</label>
+                                            <input type="text" name="groupName" class="form-control"
+                                                   placeholder="작업그룹">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>작업명</label>
+                                            <input type="text" name="jobName" class="form-control" placeholder="작업명">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>레이어 이름</label>
+                                            <input type="text" name="tileName" class="form-control arg"
+                                                   placeholder="레이어 이름">
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="col-sm-6">
+                                            <input class="btn btn-default btn-block" type="file" name="rasterFiles"
+                                                   multiple
+                                                   webkitdirectory>
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <button class="btn btn-primary btn-block" name="submit-raster"
+                                                    data-toggle="tooltip"
+                                                    data-placement="top" title="파일이 선택되지 않았습니다.">발행
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div role="tabpanel" class="tab-pane" id="tab-conversion">
+                                <div class="form-group">
+                                    <input class="arg" type="hidden" name="tileDataType" value="tilesConvert">
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-3">
+                                            <label>작업 그룹</label>
+                                            <input type="text" name="groupName" class="form-control"
+                                                   placeholder="작업그룹">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>작업명</label>
+                                            <input type="text" name="jobName" class="form-control" placeholder="작업명">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>레이어 이름</label>
+                                            <input type="text" name="tileName" class="form-control arg"
+                                                   placeholder="레이어 이름">
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-3">
+                                            <label>최소레벨</label>
+                                            <input class="form-control arg" type="number" value="14" name="minLevel">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>최대레벨</label>
+                                            <input class="form-control arg" type="number" value="19" name="maxLevel">
+                                        </div>
+                                        <div class="form-group col-sm-3" style="margin-top: 30px">
+                                            <label>3dTiles 최적화</label>
+                                            <input class="form-check-input arg" type="checkbox" name="optimized" checked disabled="disabled">
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-3">
+                                            <label>원본 자료형식</label>
+                                            <select class="form-control arg" name="startType" id="convert-stype">
+                                                <option value="3ds" selected>3DS</option>
+                                                <option value="obj">OBJ</option>
+                                                <option value="umesh">UMesh</option>
+                                                <option value="umap">UMap</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>저장 자료형식</label>
+                                            <select class="form-control arg" name="destType" id="convert-dtype">
+                                                <option id='i3f' value="i3f">I3F</option>
+                                                <option id='umesh' value="umesh">UMesh</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-3" id="convertEpsg">
+                                            <label>좌표계</label>
+                                            <select class="form-control arg" name="epsg">
+                                                <option value="EPSG:5186" selected>model</option>
+                                                <option value="EPSG:3857">EPSG:3857</option>
+                                                <option value="EPSG:4326">EPSG:4326</option>
+                                                <option value="EPSG:5174">EPSG:5174</option>
+                                                <option value="EPSG:5179">EPSG:5179</option>
+                                                <option value="EPSG:5181">EPSG:5181</option>
+                                                <option value="EPSG:5183">EPSG:5183</option>
+                                                <option value="EPSG:5185">EPSG:5185</option>
+                                                <option value="EPSG:5186">EPSG:5186</option>
+                                                <option value="EPSG:5187">EPSG:5187</option>
+                                                <option value="EPSG:5188">EPSG:5188</option>
+                                                <option value="EPSG:2097">EPSG:2097</option>
+                                                <option value="EPSG:2098">EPSG:2098</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12 multipleJsonFile">
+                                        <div class="form-group col-sm-3">
+                                            <label>다중 입력 처리</label>
+                                            <input id="isMultiInput" type="checkbox">
+                                        </div>
+                                        <div class="form-group col-sm-3">
+                                            <label>레이어 생성</label>
+                                            <input class="form-check-input arg" type="checkbox" name="createLayer" checked>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12 multipleJsonFile" >
+                                        <div class="form-group col-sm-9" >
+                                            <label>다중 입력 파일</label>
+                                            <input type="text" name="multipleJsonFile" class="form-control arg"
+                                                    placeholder="다중 입력 파일 경로" disabled="disabled">
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-9">
+                                            <label>속성 폴더 경로</label>
+                                            <input type="text" name="featureFileFolder" class="form-control arg"
+                                                   placeholder="속성 폴더 경로">
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="col-sm-6">
+                                            <input class="btn btn-default btn-block" type="file" name="buildFiles"
+                                                   multiple
+                                                   webkitdirectory>
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <button class="btn btn-primary btn-block" name="submit-tiles-convert"
+                                                    data-toggle="tooltip"
+                                                    data-placement="top" title="파일이 선택되지 않았습니다.">발행
+                                            </button>
+                                        </div>
+                                        <p class="text-danger text-left error-message"></p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div role="tabpanel" class="tab-pane" id="tab-copy">
+                                <div class="form-group">
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-12">
+                                            <label>서버에 설정된 업로드 경로</label>
+                                            <input type="text" name="uploadPath" class="form-control uploadPath"
+                                                   value="" readonly>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-12">
+                                            <label>원본경로</label>
+                                            <label>(절대경로 미사용 시, [서버에 설정된 업로드 경로 + 원본경로] 로 파일을 검색합니다.)</label>
+                                            <input type="text" name="oriPath" class="form-control oriPath arg"
+                                                   placeholder="원본경로"
+                                                   value="copy_ori">
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-12">
+                                            <label>복사경로</label>
+                                            <label>(절대경로 미사용 시, [서버에 설정된 업로드 경로 + 복사경로] 로 파일을 복사합니다.)</label>
+                                            <input type="text" name="loadPath" class="form-control loadPath arg"
+                                                   placeholder="복사경로"
+                                                   value="copy_load">
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-6">
+                                            <label>파일이름 / 디렉토리 이름</label>
+                                            <input type="text" name="fileName" class="form-control fileName arg"
+                                                   placeholder="파일이름"
+                                                   value="sample.zip">
+                                        </div>
+                                        <div class="form-group col-sm-6">
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-6">
+                                            <div class="checkbox">
+                                                <label>
+                                                    <input class="form-check-input arg" type="checkbox"
+                                                           name="createRootDir"
+                                                           checked><b>압축해제시 루트디렉토리 만들기</b>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="form-group col-sm-6">
+                                            <div class="checkbox">
+                                                <label>
+                                                    <input class="form-check-input arg" type="checkbox"
+                                                           name="isAbsolutePath"><b>절대경로
+                                                    사용</b>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <div class="form-group col-sm-6">
+                                        </div>
+                                        <div class="form-group col-sm-6">
+                                            <button class="btn btn-primary btn-block" name="submit-copy"
+                                                    data-toggle="tooltip"
+                                                    data-placement="top">복사
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <div class="col-sm-12 layer-list-wrapper">
+                        <div class="col-sm-12 layer-item" style="display: flex; flex-direction: row">
+                            <div class="item-title">
+                                <div class="label label-info label-type label-gn">종류</div>
+                                <div class="label label-default label-gn">그룹명</div>
+                                <div class="label label-default label-jn">작업명</div>
+                                <div class="label label-default label-tn">레이어명</div>
+                            </div>
+                            <div class="progress">
+                                <div class="progress-bar progress-bar-striped" role="progressbar"
+                                     aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width: 100%;">
+                                    <span>진행율</span>
+                                </div>
+                            </div>
+                            <div>
+                                <button class="btn btn-xs btn-default" disabled>버튼</button>
+                                <button class="btn btn-xs btn-default" disabled>버튼</button>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script id="set-imagelayer">
+    let ImageLayer = function (Union3D, app, opt) {
+        this._type = "ImageLayer";
+        this.layer = undefined;
+        this._union3d = Union3D;
+        this._app = app;
+        this._name = opt.name;
+        this.options = opt;
+        this.ready = $.Deferred();
+    }
+    ImageLayer.prototype.create = function () {
+        let self = this;
+        if (self._name === 'emapbase') {
+            self.layer = self._app.createEmapBaseLayer(this.options);
+        } else if (self._name === 'emapsat') {
+            self.layer = self._app.createEmapSatLayer(this.options);
+        } else {
+            self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
+            self._app.addLayer(this.layer);
+        }
+        this.layer.then(() => {
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+    ImageLayer.prototype.show = function (isShow) {
+        let promies = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow ? "시작" : "종료"));
+        this._app.showLayer(this.options.name, isShow).then(() => {
+            promies.resolve();
+        })
+        this.isShow = isShow;
+        return promies;
+    }
+</script>
+<script id="set-terrain">
+    let HeightLayer = function (Union3D, app, opt) {
+        this._type = "HeightLayer";
+        this.layer = undefined;
+        this._app = app;
+        if (opt.rectangle === undefined)
+            opt.rectangle = Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수
+        this.options = opt;
+        this._name = opt.name;
+        this.ready = $.Deferred();
+    }
+    HeightLayer.prototype.create = function () {
+        let self = this;
+        self.layer = this._app.createHeightXYZLayer(self.options);
+        self.layer.then(() => {
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+    HeightLayer.prototype.show = function (isShow) {
+        let promies = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow ? "시작" : "종료"));
+        this._app.showLayer(this.options.name, isShow).then(() => {
+            promies.resolve();
+        })
+        this.isShow = isShow;
+        return promies;
+    }
+</script>
+<script id="layer-setting">
+    const LAYER_OPT = {
+        satellite: {
+            name: 'satellite',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldsaturl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+        },
+        base: {
+            name: 'base',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldbaseurl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+        },
+        hybrid: {
+            name: 'hybrid', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldhybirdurl,  //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            transparent: true //+ layer 투명화 여부
+        },
+        korea_terrain: {
+            name: 'korea_terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            ext: '.umf', //+ 파일 확장자, *필수 입력
+            reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+            minlevel: 9,  //+ 가시화 최소 레벨
+            maxlevel: 17, //+ 가시화 최대 레벨
+            useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+        }
+    };
+
+    let LayerList = function (Union3D, app) {
+        return {
+            //이미지레이어
+            satellite: new ImageLayer(Union3D, app, LAYER_OPT.satellite),
+            base: new ImageLayer(Union3D, app, LAYER_OPT.base),
+            hybrid: new ImageLayer(Union3D, app, LAYER_OPT.hybrid),
+            //고도레이어
+            korea_terrain: new HeightLayer(Union3D, app, LAYER_OPT.korea_terrain)
+        }
+    }
+</script>
+<script>
+    const TD_SERVER_URL = 'https://3d-dev.geon.kr'; // 3D 레이어 서버
+    // const TILE_SERVER_URL = 'http://localhost:8077'; // 타일 스케쥴링 서버
+    const TILE_SERVER_URL = 'https://3d.geon.kr'; // 타일 스케쥴링 서버
+
+    const API_KEY = '?api_key=66dd0019-905a-4d66-a0b7-eed7c418dbf0&api_key=66dd0019-905a-4d66-a0b7-eed7c418dbf0'
+    let mapFunc = {};
+    //라이센스 인증
+    Union3D.ready(function () {
+        var app = new Union3D.U3dAPP({
+            containername: 'map',
+            searchType: 'sphere',
+            postOption: {
+                brightness :1.0,
+                contrast : 1.00
+            }
+        });
+        window.app = app;
+        app.setHomePosition(126.9395, 37.52, 450, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+        app.updateHomePosition();
+
+        app.on('change', updatePosData);
+
+        app.createloadingBar('load');
+        app.loadingBar();
+
+        //이미지 레이어 생성
+        let layers = new LayerList(Union3D, app);
+        let initLayerList = ['base'];
+        initLayar(initLayerList);
+
+        $(document).on('click', '.input-showLayer:input[type=checkbox]', function (e) {
+            const $checkbox = $(e.target);
+            const name = $checkbox.attr('target');
+            checkLayer(name, $checkbox[0].checked);
+        });
+
+        function checkLayer(name, checked) {
+            if (checked) {
+                if (layers[name].layer === undefined) {
+                    layers[name].create();
+                }
+                layers[name].show(true);
+            } else {
+                layers[name].show(false);
+            }
+        }
+
+        function initLayar(list) {
+            const basename = list[0];
+            Union3D.UDEF.createPromise((resolve) => {
+                list.forEach((name) => {
+                    if (layers[name].layer === undefined) {
+                        layers[name].create();
+                        layers[name].ready.then(() => {
+                            if (name === basename)
+                                app.setNameBaseLayer(name);
+
+                            app.showLayer(name, true);
+                            $('.input-showLayer:input[target=' + name + ']').prop("checked", true);
+                        });
+                    }
+                });
+                resolve(true);
+            }).then((resolve) => {
+                if (resolve)
+                    app.endloadingBar();
+            });
+        }
+
+        /**
+         * 발행된 레이어 3D지도에 생성
+         * @param name
+         */
+        mapFunc.toggleLayer = function (name) {
+            let layer = app.getLayer(name);
+            if (layer !== undefined) {
+                app.showLayer(name, !layer.getVisible());
+            } else {
+                getInfo(name).then(function (e) {
+                    app.loadingBar();
+                    layer = createLayer(e.params.data);
+                });
+            }
+        }
+
+
+        /**
+         * 3D 서버에 발행된 레이어 정보 요청
+         */
+        function getInfo(name) {
+            return $.ajax({
+                url: TD_SERVER_URL + '/v1/layer/' + name,
+                method: 'GET'
+            });
+        }
+
+        /**
+         * 3D 서버에서 전달 받은 레이어 정보로 레이어 생성
+         * @param info
+         * @returns {*}
+         */
+        function createLayer(info) {
+            if (info.type === 'u3f') {
+                return createU3F(info);
+            } else if (info.type === 'umf') {
+                return createDEM(info);
+            } else if (info.type === 'tms') {
+                return createTMS(info);
+            } else if (info.type === '3dtiles_BIM' || info.type === '3dtiles') {
+                info.type = '3dtiles';
+                return createTilesLayer(info.name);
+            } else if (info.type === 'i3f') {
+                return createI3FLayer(info.name);
+            } else if (info.type === '3ds') {
+                return create3DSLayer(info);
+            } else if (info.type === 'fbx' || info.type === 'png' || info.type === 'glb' || info.type === 'obj') {
+                return createComponentLayer(info);
+            } else if (info.type === 'ifc2obj') {
+                return createBIMObjLayer(info);
+            } else if (info.type === 'umesh') {
+                return createUMeshLayer(info)
+            }
+        }
+
+        function createUMeshLayer(info) {
+            const opt = {
+                name: "UMeshLayer",
+                needtexture: true,
+                needxml: false,
+                drawline: false,
+                listmodel: []
+            };
+
+            let layer = new Union3D.model.U3dModelStaticLayer(opt);
+            app.addLayer(layer);
+            layer.ready.then(function () {
+                let url = info.baseUrl + "/" + info.fileName;
+                let importer = new Union3D.parser.UMeshParser();
+
+                importer.load(url, function (result) {
+                    if (!!result) {
+                        result.forEach(group => {
+                            if (layer) {
+                                for(let child of group.children) {
+                                    if(child.isMesh) {
+                                        layer.addModel(child);
+                                    }
+                                }
+                            }
+                        });
+                        app.fitLayerExtent(layer.getName(), false, 700);
+                        app.drawLayerExtent(layer.getName(), 0xff0000);
+                        app.showLayer(layer.getName(), true);
+                        app.endloadingBar();
+                    }
+                });
+            });
+
+            return layer;
+        }
+
+        function createTilesLayer(name) {
+            let url = TD_SERVER_URL + '/v1/layer/' + name;
+            //+ 서버 등록건물
+
+            //console.info('aa');
+            $.ajax({
+                url: url,
+                crossDomain: true,
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader('User-Authorization', trdDimAPIKey);
+                    xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+                },
+                error: function (e) {
+                    console.info(e);
+                }
+            }).then(function (res) {
+                Union3D.UDEF.assert(res.params);
+                Union3D.UDEF.assert(res.params.data);
+
+                var data = res.params.data;
+                Union3D.UDEF.assert(data.type);
+                Union3D.UDEF.assert(data.baseUrl);
+                Union3D.UDEF.assert(data.metaData);
+                Union3D.UDEF.assert(data.metaData.srs);
+                Union3D.UDEF.assert(data.metaData.geometricError);
+                Union3D.UDEF.assert(data.metaData.boundingVolume);
+                Union3D.UDEF.assert(data.metaPath);
+
+                //Union3D.UDEF.assert(data.type == "3dtiles");
+                Union3D.UDEF.assert(data.metaData.srs === "EPSG:4978");
+                Union3D.UDEF.assert(Array.isArray(data.metaData.boundingVolume));
+                Union3D.UDEF.assert(data.metaData.boundingVolume.length === 6);
+
+                var url = TD_SERVER_URL + '/data/' + data.metaPath;
+                let batchGroupPath;
+                if (data.metaData.batchGroupPath) {
+                    batchGroupPath = data.metaData.batchGroupPath;
+                }
+
+                console.info(url);
+                var modellayer = new Union3D.model.U3dModelTilesLayer({
+                    name: name,
+                    useproxy: false,
+                    baseurl: url,
+                    ext: '.b3dm',
+                    minlevel: Union3D.UDEF.isIE() ? 17 : 17,
+                    maxlevel: Union3D.UDEF.isIE() ? 17 : 17,
+                    apikey: '',
+                    autoHeight: false,
+                    batchGroupPath: batchGroupPath, // 3D 서버 등록 시에 저장된 batchGroup.json 파일 경로
+                    type: data.type
+                });
+
+                app.addLayer(modellayer);
+
+                //layer.ready.then 이나 layer.then 을 사용하여
+                //레이어 로딩 후 기능을 구현합니다.
+                modellayer.ready.then(function () {
+                    console.log(modellayer.getBoundingBox());
+                    //fitLayerExtent 함수는 app.addLayer 후 ready.then이나 then을 사용하여 이용합니다.
+                    var position = modellayer.getCenterGeographic();
+                    console.info(position);
+
+                    app.fitLayerExtent(name, false, 700).then(function () {
+                        console.log(name + "이동 완료");
+                    }).catch(function () {
+                        console.log(name + "이동 오류");
+                    });
+
+                    app.showLayer(name, true);
+                    app.endloadingBar();
+                });
+
+            });
+
+        }
+
+        function createI3FLayer(name) {
+            let url = TD_SERVER_URL + '/v1/layer/' + name;
+            $.ajax({
+                url: url,
+                crossDomain: true,
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader('User-Authorization', trdDimAPIKey);
+                    xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+                },
+                error: function (e) {
+                    console.info(e);
+                }
+            }).then(function (res) {
+                Union3D.UDEF.assert(res.params);
+                Union3D.UDEF.assert(res.params.data);
+
+                var data = res.params.data;
+                Union3D.UDEF.assert(data.type);
+                Union3D.UDEF.assert(data.baseUrl);
+                Union3D.UDEF.assert(data.metaData);
+                Union3D.UDEF.assert(data.metaData.srs);
+                Union3D.UDEF.assert(data.metaPath);
+
+                Union3D.UDEF.assert(data.type = "i3f");
+                var spath = data.metaPath.split('/');
+                var filename = spath[spath.length - 1];
+                var url = data.baseUrl + '/' + filename;
+                console.info(url);
+
+                var modellayer = new Union3D.model.U3dModelI3FLayer({
+                    name: name,
+                    useproxy: false,
+                    baseurl: url,
+                    ext: '.b3dm',
+                    minlevel: Union3D.UDEF.isIE() ? 17 : 17,
+                    maxlevel: Union3D.UDEF.isIE() ? 17 : 17,
+                    apikey: ''
+                });
+                app.addLayer(modellayer);
+                //layer.ready.then 이나 layer.then 을 사용하여
+                //레이어 로딩 후 기능을 구현합니다.
+                modellayer.then(function () {
+                    console.log(modellayer.getBoundingBox());
+                    //fitLayerExtent 함수는 app.addLayer 후 ready.then이나 then을 사용하여 이용합니다.
+                    var position = modellayer.getCenterGeographic();
+                    console.info(position);
+
+                    app.fitLayerExtent(name, false, 700).then(function () {
+                        console.log(name + "이동 완료");
+                    }).catch(function () {
+                        console.log(name + "이동 오류");
+                    });
+
+                    app.showLayer(name, true);
+                    app.endloadingBar();
+                });
+            });
+        }
+
+        function createTMS(info) {
+            let baseurl = TD_SERVER_URL + '/data/' + info.metaPath.replace('/tilemapresource.xml', '');
+            var image3dLayer = app.createTMSImageLayer({
+                name: info.name,
+                baseurl: baseurl,
+                metadata: info.metaData,
+                useproxy: true
+            });
+            image3dLayer.then(function (layer) {
+                app.showLayer(layer.getName(), true);
+                app.endloadingBar();
+            });
+        }
+
+        function createU3F(info) {
+            let metaData = info.metaData;
+            let fileNames = info.fileName.split('.');
+            let basename = fileNames[0];
+
+            // let split = info.metaPath.split('/');
+            // let baseUrl = TD_SERVER_URL + '/data';
+            // for (let i = 0; i < split.length - 1; i++) {
+            //     baseUrl = baseUrl + '/' + split[i];
+            // }
+            let makeU3FPackage = 1;
+            if (info.makeU3FPackage != null)
+                makeU3FPackage = info.makeU3FPackage;
+
+            var u3fLayer = app.create3DFModelLayer({
+                name: info.name,
+                basename: basename,
+                baseurl: info.baseUrl,
+                useproxy: false,
+                proxyurl: '/proxy/proxy.jsp?url=',
+                minlevel: metaData.minLevel,
+                maxlevel: metaData.maxLevel,
+                compressmodel: info.compressmodel || true,
+                isShareMaterial: info.isShareMaterial || false,
+                makeU3FPackage: makeU3FPackage
+            });
+
+            u3fLayer.then(function (layer) {
+                app.showLayer(layer.getName(), true);
+                app.endloadingBar();
+            });
+        }
+
+        function createDEM(info) {
+
+            let heightLayers = app.getHeightLayers();
+            for (let i = 0; i < heightLayers.length; i++) {
+                app.showLayer(heightLayers[0].getName(), false);
+            }
+
+            let metaData = info.metaData;
+            var box = metaData.boundingBox
+
+            var geoRect = Union3D.UMathEngine.createRectangleFromGeographic(
+                box.minx,
+                box.maxx,
+                box.miny,
+                box.maxy
+            )
+            var googleRect = app.createGeoRect();
+            googleRect.nModel = "epsg:3857";
+            googleRect.nWidth = geoRect.nWidth;
+            googleRect.nHeight = geoRect.nHeight;
+            googleRect = Union3D.UMathEngine.convertGoogleRectangle(geoRect, googleRect);
+            let baseurl = TD_SERVER_URL + '/data/' + info.metaPath.replace('/tilemapresource.xml', '');
+            var tileSets = metaData.tilesets.list;
+            let layer = app.createHeightXYZLayer({
+                name: info.name,
+                baseurl: baseurl,
+                ext: '.umf',
+                reverseY: true,
+                minlevel: tileSets[0].order,
+                maxlevel: tileSets[tileSets.length - 1].order,
+                rectangle: googleRect,
+                useproxy: false,
+                maxprocess: 2,
+                needXml: false,
+                width: metaData.tileUMFSet.width,
+                height: metaData.tileUMFSet.height,
+                unitheight: metaData.tileUMFSet.pixelSize,
+                unittype: metaData.tileUMFSet.pixelTypeName,
+                boundingbox: box
+            });
+
+            app.disposeQuadTree();
+            app.createQuadTreeSet();
+
+            layer.then(function (layer) {
+                app.showLayer(layer.getName(), true);
+                app.endloadingBar();
+            });
+
+            return layer;
+        }
+
+        function create3DSLayer(info) {
+            const meta = info.metaData;
+            let fileNames = info.fileName.split('.');
+            let fileFomat = fileNames[fileNames.length - 1];
+            let fileName = fileNames[0];
+
+            meta.location.z = 500;
+            const opt = {
+                name: info.name,
+                title: info.name,
+                type: "model",
+                baseurl: info.baseUrl,
+                fileName: fileName,
+                ext: meta.format,
+                listmodel: [],
+                scale: {x: 1000, y: 1000, z: 1000},
+                rotation: meta.rotation,
+                location: meta.location,
+                boundingBox: meta.boundingBox,
+                side: Union3D.UDEF.DoubleSide,
+                needtexture: true,
+                setAveragePosition: true
+            };
+
+            if (fileFomat.equal('xml')) {
+                opt.needxml = true;
+                opt.xmlurl = info.baseUrl + "/" + info.fileName
+            } else {
+                opt.needxml = false;
+            }
+
+            let optlayer = {
+                name: '3dsLayer',
+                baseurl: opt.baseurl,
+                fileName: fileName,
+                ext: meta.format
+            };
+            opt.listmodel.push(optlayer);
+
+            let layer = app.createTdsModelLayer(opt);
+            layer.then(function (layer) {
+                app.showLayer(layer.getName(), true);
+                app.endloadingBar();
+            });
+        }
+
+        function createComponentLayer(info) {
+            const meta = info.metaData;
+            const opt = {
+                name: info.name,
+                baseurl: info.baseUrl,
+                fileName: info.fileName,
+                ext: meta.format,
+                type: "model", //+ layer type, defaultValue(opt.type, 'model');
+                listmodel: [], //+ 모델 레이어를 구성할 모델 데이터 리스트
+                scale: meta.scale,
+                needxml: false,
+                rotation: meta.rotation,
+                location: meta.location,
+                boundingBox: meta.boundingBox
+            };
+            const optlayer = {
+                name: info.name,
+                baseurl: opt.baseurl + "/",
+                fileName: info.fileName,
+                ext: meta.format
+            };
+            opt.listmodel.push(optlayer);
+            let layer = app.createMultipleComponentLayer(opt);
+            layer.then(function (layer) {
+                app.showLayer(layer.getName(), true);
+                app.endloadingBar();
+            });
+        }
+
+        function createBIMObjLayer(info) {
+            let layerName = info.name;
+            const opt = {
+                name: layerName,
+                layername: layerName,
+                serverurl: TD_SERVER_URL + "/",
+                baseurl: info.baseUrl,
+                metaData: info.metaData,
+                autoHeight: true,
+                useproxy: false
+            };
+            let layer = app.createModelBIMObjLayer(opt);
+            layer.then(function (layer) {
+                app.showLayer(layer.getName(), true);
+                app.endloadingBar();
+            });
+        }
+
+        // 모델 정보 보기 모드 활성
+        //   var analy = app.getAnalysis('ObjectInfo');
+        //  analy.active();
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// event 등록 ///////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// function 선언 ////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    });
+</script>
+<script>
+    let Poll = (function () {
+        /**
+         * Polling with Ajax recursive call
+         * @param options
+         * @constructor
+         */
+        function Poll(options) {
+            this.url = options.url;
+            this.method = options.method || 'POST';
+            this.contentType = options.contentType || 'application/json'
+            this.data = options.data;
+            this.success = options.success;
+            this.error = options.error;
+            this.interval = options.interval || 1000;
+            this.timeoutId = [];
+            this.isActive = false;
+            this.isFirstCall = true; //첫 호출만 바로 실행하기 위해 사용
+        }
+
+        Poll.prototype.start = function () {
+            if (this.isActive) {
+                return;
+            }
+            this.isActive = true;
+            recursiveCall.call(this)
+        }
+
+        Poll.prototype.stop = function () {
+            for (let i = 0; i < this.timeoutId.length; i++) {
+                clearTimeout(this.timeoutId[i]);
+            }
+            this.timeoutId = [];
+            this.isFirstCall = true;
+            this.isActive = false;
+        }
+
+        function recursiveCall() {
+            let self = this;
+            if (!self.isActive) {
+                return;
+            }
+            let id = setTimeout(function () {
+                self.timeoutId.splice(self.timeoutId.indexOf(id), 1);
+
+                $.ajax({
+                    url: self.url,
+                    method: self.method,
+                    contentType: self.contentType,
+                    data: self.data,
+                    success: function (e) {
+                        if (self.success !== undefined &&
+                            typeof self.success === 'function') {
+                            self.success.apply(self, arguments);
+                        }
+                        recursiveCall.call(self);
+                    },
+                    error: function (e) {
+                        if (self.error !== undefined &&
+                            typeof self.error === 'function') {
+                            self.error.apply(self, arguments);
+                        }
+                    }
+                });
+            }, self.isFirstCall ? 0 : self.interval);
+            self.timeoutId.push(id);
+            self.isFirstCall = false;
+        }
+
+        return Poll;
+    })()
+</script>
+<script>
+    let LayerItem = (function () {
+        const STATUS = {
+            'CREATE': {
+                style: 'info',
+                message: 'Tile job created.'
+            },
+            'DELETE': {
+                style: 'danger',
+                message: 'Deleted.'
+            },
+            'PAUSE': {
+                style: 'warning',
+                message: 'Pause.'
+            },
+            'RUNNING': {
+                style: 'info',
+                message: 'Tile job running...${per}'
+            },
+            'END': {
+                style: 'success',
+                message: 'Layer Created.'
+            },
+            'FAILED': {
+                style: 'danger',
+                message: 'Error occurred while create layer check server message.'
+            }
+        }
+
+        function LayerItem(options) {
+            this.$parent = options.parent;
+            this.type = options.type;
+            this.jobName = options.jobName;
+            this.groupName = options.groupName;
+            this.name = options.name;
+            this.status = 'CREATE';
+            this.style = 'primary';
+
+            this.poll = new Poll({
+                url: TILE_SERVER_URL + '/api/history/jobStatus.do',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    jobName: this.jobName,
+                    groupName: this.groupName,
+                }),
+                interval: 3000,
+                success: pollStateSuccess.bind(this),
+                error: pollStateError.bind(this)
+            });
+            this.$ele = buildElement.call(this);
+        }
+
+        LayerItem.prototype.listenStatus = function () {
+            this.poll.start();
+        }
+
+        LayerItem.prototype.setProgress = function (v, type, message = '') {
+            let $progress = this.$ele.find('.progress-bar');
+            if ($progress.length === 0) {
+                return
+            }
+            $progress.attr('aria-valuenow', v);
+            $progress.width(v + '%');
+            let perStr = v + '%';
+
+            $progress.find('span').html(message.replace('${per}', perStr));
+            $progress[0].className = `progress-bar progress-bar-striped ${type === 'success' || type === 'danger' ? '' : 'active'} progress-bar-${type || 'primary'}`;
+        }
+
+        LayerItem.prototype.remove = function () {
+            this.$ele.remove();
+        }
+
+        function buildElement() {
+            var $ele = $(htmlTemplate.call(this));
+            addEventListener.call(this, $ele);
+            this.$parent.append($ele);
+            return $ele;
+        }
+
+        function addEventListener($ele) {
+            $ele.on('click', '.btn-remove', removeClick.bind(this));
+            // $ele.on('click', '.btn-pause', pauseClick.bind(this));
+            // $ele.on('click', '.btn-resume', resumeClick.bind(this));
+            $ele.on('click', '.btn-layer', layerClick.bind(this));
+            $ele.on('click', '.btn-fit', fitClick.bind(this))
+        }
+
+        /**
+         * TODO 정책에 따라 다음 내용 고려
+         * 1. 스케줄러에서 잡 지우기
+         * 2. 업로드 파일 지우기
+         * 3. 타일링 데이터 지우기
+         * 4. 발행된 레이어 지우기
+         */
+
+        function removeClick() {
+            jobAPI('delete', this.groupName, this.jobName).then(function () {
+                this.remove();
+            });
+        }
+
+        function pauseClick() {
+            jobAPI('pause', this.groupName, this.jobName)
+        }
+
+        function resumeClick() {
+            jobAPI('resume', this.groupName, this.jobName)
+        }
+
+
+        /**
+         * 잡스케줄 작업 API {delete|update|pause|resume}
+         */
+        function jobAPI(operation, groupName, jobName) {
+            return $.ajax({
+                url: TILE_SERVER_URL + '/api/scheduler/job/' + operation + '.do',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    groupName: groupName,
+                    jobName: jobName
+                })
+            })
+        }
+
+        /**
+         * 레이어 보기 버튼 클릭
+         * @param e
+         */
+        function layerClick(e) {
+            $(e.target).toggleClass('active');
+            mapFunc.toggleLayer(this.name);
+        }
+
+        /**
+         * 레이어 영역 이동 버튼 클릭
+         */
+        function fitClick() {
+            app.fitLayerExtent(this.name);
+            //   app._layerlist._listmap[5]._objectList[0].children[0].position.z = 31
+        }
+
+        function htmlTemplate() {
+            let name = this.name;
+            let style = this.style;
+            let type = this.type;
+            let groupName = this.groupName;
+            let jobName = this.jobName;
+
+            return `
+            <div class="col-sm-12 layer-item" style="display: flex; flex-direction: row">
+                <div class="item-title">
+                    <span class="label label-${type === 'dem' ? 'warning' : 'info'} label-type label-gn">${type}</span>
+                    <span class="label label-default label-gn" title="${groupName}">${groupName}</span>
+                    <span class="label label-default label-jn" title="${jobName}">${jobName}</span>
+                    <span class="label label-default label-tn" title="${name}">${name}</span>
+                </div>
+                <div class="progress">
+                    <div class="progress-bar progress-bar-striped active progress-bar-${style}" role="progressbar" aria-valuenow="0"
+                         aria-valuemin="0" aria-valuemax="100" style="width: 0">
+                        <span>0%</span>
+                    </div>
+                </div>
+                <div>
+                    <button class="btn btn-xs btn-default btn-layer" disabled>보기</button>
+                    <button class="btn btn-xs btn-default btn-fit" disabled>이동</button>
+                </div>
+            </div>
+            `;
+        }
+
+        /**
+         * 상태 풀링 성공 콜백함수
+         * @param e
+         */
+        function pollStateSuccess(e) {
+            let status = STATUS[e.stateType];
+            this.status = e.stateType;
+            this.style = status.style;
+
+            // 종료 이거나 실패일 경우 풀링중지.
+
+            if (e.progress < 0 || this.status === 'FAILED') {
+                if (!e.statusText) {
+                    e.statusText = 'error';
+                    let statusMsg = e['jobStateMessage'];
+                    console.log("Status Failed : " + e.jobName + ", Message : " + statusMsg);
+                }
+                this.setProgress(100, 'danger', e.statusText);
+                this.poll.stop();
+            } else if (e.progress === 100 && this.status === 'END') {
+                this.setProgress(e.progress, STATUS.END.style, STATUS.END.message);
+                this.$ele.find('.btn-layer').attr('disabled', false);
+                this.$ele.find('.btn-fit').attr('disabled', false);
+                this.poll.stop();
+            } else {
+                this.setProgress(e.progress, status.style, status.message);
+            }
+        }
+
+        /**
+         * 상태 풀링 실패 콜백함수
+         * @param e
+         */
+        function pollStateError(e) {
+            this.setProgress(100, 'danger', e.statusText);
+            this.$ele.find('.btn-layer').attr('disabled', false);
+            this.$ele.find('.btn-fit').attr('disabled', false);
+        }
+
+        return LayerItem;
+    })()
+</script>
+<script>
+
+    $('[data-toggle="tooltip"]').tooltip()
+
+    //인풋 체크박스 start
+    $('input[name="useFilterRegion"]').on('click', function () {
+        $('.filter-input').prop('disabled', function (i, v) {
+            return !v;
+        });
+    })
+
+    $('input[name="useWebp"]').on('click', function () {
+        $('.webp-input').prop('disabled', function (i, v) {
+            return !v;
+        });
+    })
+
+    $('input[name="useProj"]').on('click', function () {
+        $('.proj-input').prop('disabled', function (i, v) {
+            return !v;
+        });
+    });
+
+    $('select[id="sType"]').on('change', function () {
+        let selectVal = $("#sType option:selected").val();
+        if (selectVal === 'obj') {
+            $('#dType-obj').hide();
+            $('#dType-3dtiles').prop('selected', true);
+            $('#dType-obj').prop('selected', false);
+        } else {
+            $('#dType-obj').show();
+            $('#dType-3dtiles').prop('selected', false);
+            $('#dType-obj').prop('selected', true);
+        }
+
+    });
+
+    $("#convert-stype").on("change", (e)=>{
+        let $value = $(e.target).val();
+        const $convertDtype = $("#convert-dtype");
+        $convertDtype.empty();
+        if ($value === "3ds") {
+            $convertDtype.append('<option value="i3f">I3F</option>');
+            $convertDtype.append('<option value="umesh">UMesh</option>');
+
+            const $inputMultiJson =  document.getElementsByClassName("multipleJsonFile");
+            for (let item of $inputMultiJson) {
+                $(item).css("display", "block");
+            }
+        } else if ($value === "obj") {
+            $convertDtype.append('<option value="umesh">UMesh</option>');
+        } else if ($value === "umesh" || $value === "umap") {
+            $convertDtype.append('<option value="3dTiles">3DTiles</option>');
+        }
+
+
+        if ($value !== "3ds") {
+            const $inputMultiJson =  document.getElementsByClassName("multipleJsonFile");
+            for (let item of $inputMultiJson) {
+                $(item).val('');
+                $(item).css("display", "none");
+            }
+        }
+    });
+
+    $("#convert-dtype").on("change", (e)=>{
+        let $value = $(e.target).val();
+        const $convertStype = $("#convert-stype").val();
+        const $inputMultiJson =  document.getElementsByClassName("multipleJsonFile");
+        if ($convertStype === "3ds" && $value ==="i3f") {
+            for(let item of $inputMultiJson) {
+                $(item).css("display", "block");
+            }
+        }else {
+            if ($("#isMultiInput").prop("checked")) {
+                $("#isMultiInput").click();
+            }
+            for(let item of $inputMultiJson) {
+                $(item).children('input[name="multipleJsonFile"]').val('');
+                $(item).css("display", "none");
+            }
+        }
+    });
+
+    $("#isMultiInput").on("click", (e)=>{
+        const $inputMultiJson =  $('input[name="multipleJsonFile"]');
+        const $buildFiles =  $('input[name="buildFiles"]');
+        const $createLayer =  $('input[name="createLayer"]');
+        if( e.target.checked) {
+            $inputMultiJson.attr('disabled', false);
+            $buildFiles.attr('disabled', true);
+            $createLayer.attr("checked", false);
+            $createLayer.attr("disabled", true);
+        }else {
+            $inputMultiJson.val('');
+            $inputMultiJson.attr('disabled', true);
+            $buildFiles.attr('disabled', false);
+            $createLayer.attr("checked", true);
+            $createLayer.attr("disabled", false);
+        }
+    });
+
+    //인풋 체크박스 end
+
+    $('input[type="file"]').on('change', function () {
+        let $tab = $(this).closest('.tab-pane');
+        if (this.files.length === 0) {
+            $tab.find('button[name^="submit"]').tooltip();
+        } else {
+            $tab.find('button[name^="submit"]').tooltip('destroy');
+        }
+    })
+
+    $('.nav-tabs').on('click', function () {
+        $('.generalIfc').prop("checked", true);
+        $("select[name='makeLevel']").attr("disabled", true); //비활성화
+    })
+
+    $('.generalIfc').on('change', function (e) {
+        let checked = e.target.checked;
+        if (checked) {
+            $("select[name='makeLevel']").attr("disabled", true); //비활성화
+            $("select[name='epsg']").attr("disabled", true); //비활성화
+        } else {
+            $("select[name='makeLevel']").attr("disabled", false); //활성화
+            $("select[name='epsg']").attr("disabled", false); //활성화
+        }
+    })
+
+
+    //건물레이어 발행
+    $('.btn[name="submit-build"]').on('click', function () {
+        let $root = $('#tab-build');
+        if ($root.find('input[type="file"]')[0].files.length === 0) {
+            return;
+        }
+        let item = createItem($root);
+        upload($root, item).then(function (e) {
+            execScheduleJob(item, e.path, $root);
+        });
+
+    });
+    //BIM STEP 1 발행
+    $('.btn[name="submit-bim-step1"]').on('click', function () {
+        let $root = $('#tab-bim-step1');
+        if ($root.find('input[type="file"]')[0].files.length === 0) {
+            return;
+        }
+        let item = createItem($root);
+        upload($root, item).then(function (e) {
+            execScheduleJob(item, e.path, $root);
+        });
+    });
+    //BIM STEP 2 발행
+    $('.btn[name="submit-bim-step2"]').on('click', function () {
+        let $root = $('#tab-bim-step2');
+
+        if (!$root.find('input[name="input"]').val()) {
+            return;
+        }
+        if (!$root.find('input[name="caseNumber"]').val()) {
+            alert('Please insert a case number');
+            return;
+        }
+        if (!$root.find('input[name="minLevel"]').val() && !$root.find('input[name="maxLevel"]').val()) {
+            let minlevel = $root.find('input[name="minLevel"]').val();
+            let maxlevel = $root.find('input[name="maxLevel"]').val();
+            if (minlevel > maxlevel) {
+                alert('Please Insert Max level as a value bigger than Min level');
+            }
+        }
+
+        let item = createItem($root);
+        let inputPath = $root.find('input[name="input"]').val();
+        execScheduleJobStep2(item, inputPath, $root);
+        //     $root.find('input[name="tileDataType"]').val('bimStep2');
+    });
+    $('.btn[name="submit-bim-full-step"]').on('click', function () {
+
+        let $root = $('#tab-bim-full-step');
+        if ($root.find('input[name="buildFiles"]')[0].files.length === 0) {
+            return;
+        }
+        if (!$root.find('input[name="caseNumber"]').val()) {
+            alert('Please insert a case number');
+            return;
+        }
+        if (!$root.find('input[name="minLevel"]').val() && !$root.find('input[name="maxLevel"]').val()) {
+            let minlevel = $root.find('input[name="minLevel"]').val();
+            let maxlevel = $root.find('input[name="maxLevel"]').val();
+            if (minlevel > maxlevel) {
+                alert('Please Insert Max level as a value bigger than Min level');
+            }
+        }
+
+        let item = createItem($root);
+
+        stepFullUpload($root, item).then(function (e) {
+            execScheduleJob(item, e.path, $root);
+        });
+    });
+
+    //고도레이어 발행
+    $('.btn[name="submit-dem"]').on('click', function () {
+        let $root = $('#tab-dem');
+        if ($root.find('input[type="file"]')[0].files.length === 0) {
+            return;
+        }
+        let item = createItem($root);
+        upload($root, item).then(function (e) {
+            execScheduleJob(item, e.path, $root);
+        });
+    });
+
+    //이미지레이어 발행
+    $('.btn[name="submit-raster"]').on('click', function () {
+        let $root = $('#tab-raster');
+        if ($root.find('input[type="file"]')[0].files.length === 0) {
+            return;
+        }
+        let item = createItem($root);
+        upload($root, item).then(function (e) {
+            execScheduleJob(item, e.path, $root);
+        });
+    });
+
+    //파일복사
+    $('.btn[name="submit-copy"]').on('click', function () {
+        let $root = $('#tab-copy');
+        copy($root);
+    });
+
+
+    $('.btn[name="search-bim-step2"]').on('click', function () {
+        let $root = $('#tab-bim-step2');
+        search($root);
+    });
+
+
+    //자료 변환
+    $('.btn[name="submit-tiles-convert"]').on('click', function () {
+        let $root = $('#tab-conversion');
+        let fileInputNum = $root.find('input[type="file"]').length
+        if ($root.find('input[type="file"]')[fileInputNum-1].files.length === 0) {
+            const $isMultiInput = $("#isMultiInput").val();
+            if($isMultiInput) {
+                let item = createItem($root);
+                execScheduleJob(item, "", $root);
+                return;
+            }else {
+                return;
+            }
+        }
+
+        let item = createItem($root);
+        upload($root, item).then(function (e) {
+            execScheduleJob(item, e.path, $root);
+        });
+    });
+
+
+    (function () {
+        //최초 작업 히스토리 목록 조회
+        $.ajax({
+            url: TILE_SERVER_URL + '/api/history/list.do',
+            method: 'GET',
+            data: {
+                page: 0,
+                size: 2000,
+                sort: 'createDt'
+            },
+            success: function (e) {
+                let content = e.content;
+                for (let i = 0; i < content.length; i++) {
+                    let v = content[i];
+                    let item = new LayerItem({
+                        type: v.tileDataType,
+                        groupName: v.jobGroup,
+                        jobName: v.jobName,
+                        name: v.tileName,
+                        parent: $('.layer-list-wrapper')
+                    });
+                    item.poll.start();
+                }
+            }
+        });
+
+        //스케쥴서버에 설정된 업로드경로 가져오기
+        $.ajax({
+            url: TILE_SERVER_URL + '/api/upload/getUploadPath.do',
+            method: 'GET',
+            success: function (e) {
+                $(".uploadPath").val(e.message);
+            }
+        });
+    })();
+
+    //UI 생성
+    function createItem($root) {
+        let context = "user"
+        let groupName = $root.find('input[name="groupName"]').val();
+        if (groupName === '') {
+            groupName = context + '/' + 'Group' + random();
+        }
+        let jobName = $root.find('input[name="jobName"]').val();
+        if (jobName === '') {
+            jobName = 'Job' + random();
+        }
+        let name = $root.find('input[name="tileName"]').val();
+        if (name === '') {
+            name = 'Layer' + random();
+        }
+
+        let dataType = $root.find('input[name="tileDataType"]').val();
+        if (dataType === "bimFullStep") {
+            let objFolder = $root.find('input[name="objResultFolder"]').val()
+            if (objFolder === '') {
+                objFolder = groupName + '/' + jobName + '/STEP1_OUT_PUT';
+                $root.find('input[name="objResultFolder"]').val(objFolder)
+            }
+        }
+
+        $('input[name="groupName"]').val('');
+        $('input[name="jobName"]').val('');
+        $('input[name="tileName"]').val('');
+        return new LayerItem({
+            type: $root.find('input[name="tileDataType"]').val(),
+            groupName: groupName,
+            jobName: jobName,
+            name: name,
+            parent: $('.layer-list-wrapper')
+        });
+    }
+
+    //파일 업로드
+    function upload($root, item) {
+        let files = $root.find('input[type="file"]')[0].files;
+
+        if (files.length === 0) {
+            return;
+        }
+        let formData = new FormData();
+        for (let i = 0; i < files.length; i++) {
+            formData.append('files', files[i]);
+        }
+
+        formData.append('path', item.groupName + '/' + item.jobName);
+
+        return $.ajax({
+            url: TILE_SERVER_URL + '/api/upload/files.do',
+            method: 'POST',
+            enctype: 'multipart/form-data',
+            processData: false,
+            contentType: false,
+            cache: false,
+            data: formData,
+            xhr: function () {
+                //bind LayerItem
+                let xhr = $.ajaxSettings.xhr();
+                xhr.upload.onprogress = function (e) {
+                    let per = e.loaded * 100 / e.total;
+                    item.setProgress(per, 'info', 'File Upload.. (${per})');
+                };
+                return xhr;
+            },
+            success: function () {
+                item.setProgress(100, 'success', 'File Upload Complete.');
+            },
+            error: function (e) {
+                if (!!e)
+                    item.setProgress(100, 'danger', e.message);
+            }
+        })
+    }
+
+    function stepFullUpload($root, item) {
+        let files = $root.find('input[name="buildFiles"]')[0].files;
+        let controlFiles;
+
+        if (files.length === 0) {
+            return;
+        }
+
+        let formData = new FormData();
+        for (let i = 0; i < files.length; i++) {
+            formData.append('files', files[i]);
+            if (controlFiles) {
+                formData.append('controlFile', controlFiles[i]);
+            }
+        }
+
+        formData.append('path', item.groupName + '/' + item.jobName);
+
+        return $.ajax({
+            url: TILE_SERVER_URL + '/api/upload/files.do',
+            method: 'POST',
+            enctype: 'multipart/form-data',
+            processData: false,
+            contentType: false,
+            cache: false,
+            data: formData,
+            xhr: function () {
+                //bind LayerItem
+                let xhr = $.ajaxSettings.xhr();
+                xhr.upload.onprogress = function (e) {
+                    let per = e.loaded * 100 / e.total;
+                    item.setProgress(per, 'info', 'File Upload.. (${per})');
+                };
+                return xhr;
+            },
+            success: function () {
+                item.setProgress(100, 'success', 'File Upload Complete.');
+            },
+            error: function (e) {
+                item.setProgress(100, 'danger', e.responseText.message);
+            }
+        })
+    }
+
+    function search($root) {
+
+        let tileName = $root.find('input[name="tileName"]').val();
+        if (!tileName)
+            return;
+        return $.ajax({
+            url: TILE_SERVER_URL + '/api/history/getArgument/' + tileName,
+            type: 'GET',
+            async: true,
+            processData: false,
+            contentType: false,
+            cache: false,
+            success: function (e) {
+                let $groupName = $root.find('input[name="groupName"]');
+                let groupName = 'user/Group' + random();
+                $groupName.val(groupName);
+
+                let $jobName = $root.find('input[name="jobName"]');
+                let createJobName = 'Job' + random();
+                $jobName.val(createJobName)
+                let $sType = $root.find('select[name="startType"]');
+                $sType.val(e['dtype']);
+
+                let $input = $root.find('input[name="input"]');
+                $input.val(e.jobHistory['outputPath']);
+
+                let $tileName = $root.find('input[name="tileName"]');
+                $tileName.val("");
+
+                console.log("Registered Target Data : " + tileName);
+                // getLoadStatus(scheduleName);
+            }, error: function (e) {
+                let message = e.message;
+                if (!message) {
+                    message = e.responseText.message
+                    console.error(message)
+                }
+                console.error("Could not find a target registered with this layer name.");
+            }
+        });
+    }
+
+
+    function copy($root) {
+        let option = getTileOptions($root);
+
+        if (!option.oriPath || option.oriPath === "") {
+            alert("원본경로가 입력되지않았습니다.");
+            return;
+        }
+        if (!option.loadPath || option.loadPath === "") {
+            alert("복사경로가 입력되지않았습니다.");
+            return;
+        }
+        if (!option.fileName || option.fileName === "") {
+            alert("파일이름이 입력되지않았습니다.");
+            return;
+        }
+        let formData = new FormData();
+        formData.append('oriPath', option.oriPath);
+        formData.append('loadPath', option.loadPath);
+        formData.append('fileName', option.fileName);
+        formData.append('createRootDir', option.createRootDir);
+        formData.append('isAbsolutePath', option.isAbsolutePath);
+        return $.ajax({
+            url: TILE_SERVER_URL + '/api/upload/loadUploadFile.do',
+            type: 'POST',
+            async: true,
+            processData: false,
+            contentType: false,
+            cache: false,
+            data: formData,
+            success: function (e) {
+                let message = e.message;
+                let scheduleName = e.scheduleName;
+                console.log(scheduleName + " " + message);
+                getLoadStatus(scheduleName);
+            }, error: function (e) {
+                let message = e.message;
+                if (!message) {
+                    message = e.responseText.message
+                }
+                console.error(message);
+            }
+        });
+    }
+
+    function getLoadStatus(scheduleName) {
+        let interval = setInterval(function () {
+            $.ajax({
+                url: TILE_SERVER_URL + '/api/upload/getLoadStatus.do?scheduleName=' + scheduleName,
+                method: 'GET',
+                success: function (e) {
+                    let message = e.message;
+                    let scheduleName = e.scheduleName;
+                    let status = e.status;
+                    console.log(scheduleName + " " + message + " " + status);
+                    if (!status || status === "end") {
+                        clearInterval(interval);
+                        deleteLoadSchedule(scheduleName);
+                    } else if (status === "fail") {
+                        console.error(message);
+                        clearInterval(interval);
+                        deleteLoadSchedule(scheduleName);
+                    }
+                }, error: function (e) {
+                    let message = e.message;
+                    if (!message) {
+                        message = e.responseText.message
+                    }
+                    console.error(message);
+                    clearInterval(interval);
+                    deleteLoadSchedule(scheduleName);
+                }
+            });
+        }, 2000);
+    }
+
+    function deleteLoadSchedule(scheduleName) {
+        $.ajax({
+            url: TILE_SERVER_URL + '/api/upload/deleteLoadSchedule.do?scheduleName=' + scheduleName,
+            method: 'GET',
+            success: function (e) {
+                let message = e.message;
+                console.log(message);
+            }, error: function (e) {
+                let message = e.message;
+                if (!message) {
+                    message = e.responseText.message
+                }
+                console.error(message);
+            }
+        });
+    }
+
+    //레이어 타일링 및 발행
+    function execScheduleJob(item, path, $root) {
+        let tileParam = getTileOptions($root);
+        //타일링 인풋 경로
+        tileParam.input = path;
+        //타일링 아웃풋 경로
+        tileParam.output = item.groupName + '/' + item.jobName;
+        //레이어 발행에 사용할 이름
+        tileParam.name = item.name;
+        delete tileParam.tileName;
+        $.ajax({
+            url: TILE_SERVER_URL + '/api/scheduler/job.do',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                jobName: item.jobName,
+                groupName: item.groupName,
+                tileParam: tileParam
+            }),
+            success: function () {
+                item.poll.start(); //상태 풀링 시작
+                item.setProgress(100, 'success', 'Tile Job Running...');
+            },error: function (e) {
+                item.setProgress(100, 'danger', 'error');
+            }
+        });
+    }
+
+    function execScheduleJobStep2(item, path, $root) {
+        let tileParam = getTileOptions($root);
+        //타일링 인풋 경로
+        tileParam.input = path;
+        //타일링 아웃풋 경로
+        tileParam.output = item.groupName + '/' + item.jobName;
+        //레이어 발행에 사용할 이름
+        tileParam.name = item.name;
+        $.ajax({
+            url: TILE_SERVER_URL + '/api/scheduler/job.do',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                jobName: item.jobName,
+                groupName: item.groupName,
+                tileParam: tileParam
+            }),
+            success: function () {
+                item.poll.start(); //상태 풀링 시작
+                item.setProgress(100, 'success', 'Tile Job Running...');
+            },
+            error: function (e) {
+                item.setProgress(100, 'danger', e.responseText.message);
+            }
+        });
+    }
+
+    //타일링 옵션
+    function getTileOptions($tab) {
+        let options = {};
+        $tab.find('.arg').each(function (i, v) {
+
+            let value;
+            if (v.type === 'checkbox') {
+                value = v.checked
+            } else if (v.type === 'number') {
+                value = Number(v.value);
+            } else {
+                value = v.value;
+            }
+
+            options[v.name] = value;
+        });
+        return options;
+    }
+
+    function random() {
+        //임시 난수 발생
+        return Math.floor(Math.random() * 100000000);
+    }
+</script>
+</body>
+</html>

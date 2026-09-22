@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="550" viewBox="0 0 1200 560" role="img" aria-labelledby="title desc">
+  <title id="title">Helper와 Grid Box 기준 3×2 격자 데이터의 좌표와 배열 순서</title>
+  <desc id="desc">지리 배치 원점은 기준 격자 영역의 남서쪽이고, 현재 렌더러에서 grid 배열은 북서쪽 셀부터 행 우선 순서로 읽는다는 점을 설명한다.</desc>
+  <rect width="1200" height="700" fill="#f7f9fc"/>
+  <text x="60" y="65" font-family="sans-serif" font-size="34" font-weight="700" fill="#15264b">3×2 격자 데이터 읽는 방법</text>
+  <text x="60" y="105" font-family="sans-serif" font-size="20" fill="#42526e">width = 3, height = 2, grid.length = 6</text>
+
+  <g transform="translate(90 165)">
+    <rect x="0" y="0" width="600" height="360" rx="16" fill="#ffffff" stroke="#cad3e0" stroke-width="2"/>
+    <text x="30" y="44" font-family="sans-serif" font-size="22" font-weight="700" fill="#15264b">Helper·Grid Box·Particle의 셀 배치</text>
+
+    <g transform="translate(75 80)">
+      <rect x="0" y="0" width="420" height="220" fill="#eaf2ff" stroke="#2f6fed" stroke-width="3"/>
+      <path d="M140 0V220M280 0V220M0 110H420" stroke="#2f6fed" stroke-width="2"/>
+
+      <g font-family="sans-serif" text-anchor="middle" fill="#15264b">
+        <text x="70" y="38" font-size="21" font-weight="700">grid[0]</text><text x="70" y="66" font-size="17">x=0, y=0</text><text x="70" y="91" font-size="14" fill="#8d1c1c">북서쪽 배열 시작</text>
+        <text x="210" y="47" font-size="21" font-weight="700">grid[1]</text><text x="210" y="77" font-size="17">x=1, y=0</text>
+        <text x="350" y="47" font-size="21" font-weight="700">grid[2]</text><text x="350" y="77" font-size="17">x=2, y=0</text>
+        <text x="70" y="157" font-size="21" font-weight="700">grid[3]</text><text x="70" y="187" font-size="17">x=0, y=1</text>
+        <text x="210" y="157" font-size="21" font-weight="700">grid[4]</text><text x="210" y="187" font-size="17">x=1, y=1</text>
+        <text x="350" y="157" font-size="21" font-weight="700">grid[5]</text><text x="350" y="187" font-size="17">x=2, y=1</text>
+      </g>
+
+      <path d="M-35 0H-6M-35 0V220M-35 220H-6" fill="none" stroke="#e66a2c" stroke-width="3"/>
+      <text x="-48" y="112" transform="rotate(-90 -48 112)" font-family="sans-serif" font-size="17" text-anchor="middle" fill="#a84416">heightSize × 2</text>
+      <path d="M0 245V226M0 245H420M420 245V226" fill="none" stroke="#e66a2c" stroke-width="3"/>
+      <text x="210" y="273" font-family="sans-serif" font-size="17" text-anchor="middle" fill="#a84416">widthSize × 3</text>
+
+      <circle cx="0" cy="220" r="8" fill="#d12e2e"/>
+      <path d="M0 220L-42 258" stroke="#d12e2e" stroke-width="2"/>
+      <text x="-145" y="282" font-family="sans-serif" font-size="17" fill="#8d1c1c">남서쪽 지리 배치 원점</text>
+      <text x="-145" y="305" font-family="sans-serif" font-size="17" fill="#8d1c1c">originX(경도), originY(위도)</text>
+
+      <path d="M8 220H82L72 214M82 220L72 226" fill="none" stroke="#0e8a6a" stroke-width="3"/>
+      <text x="85" y="213" font-family="sans-serif" font-size="15" fill="#087357">+X 동쪽</text>
+      <path d="M0 212V138L-6 148M0 138L6 148" fill="none" stroke="#0e8a6a" stroke-width="3"/>
+      <text x="10" y="133" font-family="sans-serif" font-size="15" fill="#087357">+Y 북쪽</text>
+    </g>
+  </g>
+
+  <g transform="translate(735 165)">
+    <rect x="0" y="0" width="390" height="360" rx="16" fill="#ffffff" stroke="#cad3e0" stroke-width="2"/>
+    <text x="30" y="44" font-family="sans-serif" font-size="22" font-weight="700" fill="#15264b">행 우선 인덱스</text>
+    <rect x="30" y="72" width="330" height="64" rx="10" fill="#15264b"/>
+    <text x="195" y="113" font-family="monospace" font-size="23" text-anchor="middle" fill="#ffffff">index = x + y * width</text>
+
+    <text x="30" y="180" font-family="sans-serif" font-size="19" fill="#42526e">• 배열은 위쪽 행부터 왼쪽 → 오른쪽</text>
+    <text x="30" y="218" font-family="sans-serif" font-size="19" fill="#42526e">• 다음 행으로 내려가 같은 순서 반복</text>
+    <text x="30" y="256" font-family="sans-serif" font-size="19" fill="#42526e">• 모든 셀을 표시하려면 길이는 6</text>
+    <text x="30" y="300" font-family="sans-serif" font-size="18" font-weight="700" fill="#8d1c1c">주의</text>
+    <text x="30" y="327" font-family="sans-serif" font-size="17" fill="#8d1c1c">북서쪽 grid[0]과 남서쪽 원점은</text>
+    <text x="30" y="350" font-family="sans-serif" font-size="17" fill="#8d1c1c">현재 렌더러에서 서로 다른 모서리입니다.</text>
+  </g>
+
+</svg>

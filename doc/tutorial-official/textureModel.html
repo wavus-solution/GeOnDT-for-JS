@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>2.5D 가상건물 텍스쳐</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/tutorial.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        html, body {
+            height: 100%;
+        }
+
+        .examples {
+            padding: 15px 30px 15px 30px;
+        }
+
+    </style>
+</head>
+<body>
+<div id="map-wrapper">
+    <div id="map"></div>
+</div>
+<div class="execute-popup"><button>직접해보기</button></div>
+<div class="examples row">
+    <pre>2.5D 가상건물에 텍스쳐를 적용하여 가시화 합니다.</pre>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function() {
+        window.open('./runner.html?url=' + strings[strings.length-1] + '&title=' + document.title);
+    })
+</script>
+<script>
+    require(['app/Union3D'], function (Union3D) {
+        //라이센스 인증
+        var unionServerFor3D = 'http://www.theunionit.co.kr:7070/unionserver/';
+        Union3D.ready(function () {
+            //지도 기본 세팅///////////////////////////////////////
+            var app = new Union3D.U3dAPP({
+                containername: 'map'
+            });
+            app.setIntensityLight(0.8);
+            app.setHomePosition(126.9395, 37.52, 450, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+            app.updateHomePosition();
+
+            //이미지 레이어 생성
+            var layer = new Union3D.image.U3dImageXYZLayer({
+                name    : 'satellite',
+                baseurl : layerInfo.image.vworldsaturl,
+                reverseY: true
+            });
+            app.addLayer(layer);
+            //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+            app.showLayer('satellite', true);
+            app.setNameBaseLayer('satellite');
+            // 하이브리드 지도
+            var hybridLayer = new Union3D.image.U3dImageXYZLayer({
+                name       : 'hybrid',
+                baseurl    : layerInfo.image.vworldhybirdurl,
+                reverseY   : true,
+                transparent: true,
+                animation  : true
+            });
+            app.addLayer(hybridLayer);
+            app.showLayer('hybrid', true);
+            var terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+                name      : 'Korea Terrain',
+                baseurl   : layerInfo.height.url,
+                ext       : '.umf',
+                reverseY  : true,
+                minlevel  : 9,
+                maxlevel  : 15,
+                useproxy  : false,
+                maxprocess: 2,
+                rectangle : Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2)
+            });
+            app.addLayer(terrainLayer);
+            app.showLayer('Korea Terrain', true);
+            /////////////////////////////////////////////////////
+
+            //+ WFS 모델 ///////////////////////////////////////////////////////////////////
+            var wfsModel = undefined;
+            wfsModel = new Union3D.model.U3dModelWFSLayer({
+                name: 'WFS Model',
+                layername: layerInfo.wfs_korea.layername, //+ 레이어 이름, *필수 입력
+                // sldurl:  layerInfo.wfs_unionit.sldurl,
+                baseurl:  layerInfo.wfs_korea.baseurl, //+ baseurl 지도 서비스 기본 URL, *필수 입력
+                //층수필드나 높이필드를 선택하여 사용
+                //fieldheight: layerInfo.wfs_korea.fieldheight, //+ 높이 필드 (속성테이블 칼럼명), defaultValue(opt.fieldheight, undefined)
+                fieldfloor: layerInfo.wfs_korea.fieldfloor, //+ 층수 필드 (속성테이블 칼럼명), defaultValue(opt.fieldheight, undefined)
+                fieldheightfloor:layerInfo.wfs_korea.fieldheightfloor,
+                floorheight:layerInfo.wfs_korea.floorheight, //+ 층수 높이 필드
+                fieldKind: layerInfo.wfs_korea.fieldKind,  //+ 종류 필드 (속성테이블 칼럼명), defaultValue(opt.fieldKind, undefined)
+                transperent: true, //+ 투명화 여부
+                minlevel: 17, //+ 가시화 최소레벨,defaultValue(opt.minlevel, 17)
+                drawline: false, //+ WFS 모델에 테투리 추가 여부
+                opacity: 0.8, //+ 투명화 여부 true 일 경우, 투명도 설정값으로 적용
+                version:'1.0.0',
+                textureurl: './image/buld/buld_texture_1.jpg',  //+ 텍스처 url, defaultValue(opt.textureurl, undefined)
+                useproxy:true
+            });
+
+            app.addLayer(wfsModel);
+            app.showLayer('WFS Model', true);
+
+        });
+    });
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+

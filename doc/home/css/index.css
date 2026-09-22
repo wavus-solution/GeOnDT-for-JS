@@ -1,0 +1,1516 @@
+/* GeOnDT 시작하기 문서 페이지의 껍데기 테마입니다.
+   예제 목록 페이지(tutorial-official/css/example-index.css)와 같은 토큰 체계를 씁니다.
+   색은 모두 :root 토큰으로만 정의하고, html[data-theme="dark"]에서 값만 바꿉니다.
+   data-theme은 index.html의 머리 Script가 화면을 그리기 전에 정하고, 상단 전환 버튼이 바꿉니다. */
+
+:root {
+    color-scheme: light;
+
+    /* 바탕과 면 */
+    --bg: #f4f4f2;
+    --surface: #ffffff;
+    --hover-soft: #eceee9;
+    --glass-header: rgba(244, 244, 242, .78);
+    --glass-tools: rgba(244, 244, 242, .84);
+
+    /* 글자 */
+    --ink: #16181c;
+    --on-ink: #ffffff;
+    /* 이미지 위에 얹는 글자입니다. 뒤에 깔린 그늘이 테마와 무관하게 늘 어두우므로
+       이 색도 테마에 따라 바꾸지 않습니다. 다크에서 --on-ink를 쓰면 검은 글자가 됩니다. */
+    --on-image: #f4f5f2;
+    --ink-2: #454a52;
+    --muted: #666c75;
+    --faint: #82888f;
+
+    /* 선과 결 */
+    --line: #e3e4e1;
+    --line-strong: #cfd1cd;
+    --hairline: rgba(16, 18, 22, .07);
+    --focus-ring: rgba(22, 24, 28, .09);
+
+    /* 포인트 — 브랜드 로고의 라임과 시안 두 가지만 씁니다. */
+    --accent: #3c7a12;
+    --accent-2: #12658f;
+
+    /* 카테고리 개수 꼬리표입니다. 모양을 깎아 테두리를 쓸 수 없으므로 면 색만으로 바탕과 갈라 놓습니다. */
+    --badge-bg: #dde1d5;
+    /* 검색으로 좁혀졌을 때입니다. 채운 색은 목록에서 너무 튀어 연한 초록 면에 진한 글자로 둡니다. */
+    --badge-hit: #dcefc4;
+    --badge-hit-ink: #2f6a12;
+
+    /* 문서 안 코드와 표시 */
+    /* 코드 블록 바탕입니다. 페이지보다 한 톤 눌러 글이 박힌 자리로 읽히게 합니다. */
+    --code-surface: #eceee9;
+    --code-bg: #16181c;
+    --code-ink: #e8eae4;
+    /* 형광 표시입니다. 연한 바탕만으로는 페이지와의 대비가 1.2를 넘지 못해 강조로 읽히지 않았습니다.
+       그래서 바탕의 채도를 올리고 글자색을 진한 포인트 색으로 바꾼 뒤, 아래에 선을 한 줄 더 그었습니다. */
+    /* 형광 표시는 바탕을 깔아도 페이지와 대비가 1.2를 넘지 못해 지저분하게만 보였습니다.
+       아래에 선만 그어 강조를 표시하므로 선 색 하나만 둡니다. */
+    --mark-line: #3c7a12;
+
+    /* 코드 문법 색입니다. Prism이 붙이는 토큰 클래스에 대응합니다.
+       코드는 여러 갈래를 한눈에 갈라 봐야 해서 이 화면의 포인트 색 둘로는 부족합니다.
+       그래서 코드 안에서만 쓰는 색을 따로 둡니다. */
+    --code-plain: #16181c;
+    --code-punct: #5b6169;
+    --code-comment: #63695e;
+    --code-keyword: #0b5c88;
+    --code-string: #2f6a12;
+    --code-number: #9a4a0a;
+    --code-function: #6d3f9e;
+    --code-class: #8a5210;
+    /* API 설명에서 '중요' 표시에만 씁니다. 경고는 포인트 색으로 대신할 수 없어 한 가지만 둡니다. */
+    --danger: #b0184a;
+
+    --shadow-md: 0 10px 28px -14px rgba(16, 18, 22, .22);
+
+    --radius: 14px;
+    --ease: cubic-bezier(.22, 1, .36, 1);
+
+    /* 행간입니다. 한글은 받침이 있어 라틴 문자보다 줄 사이가 더 필요합니다.
+       규칙마다 숫자를 직접 쓰다 보니 1 / 1.4 / 1.45 / 1.5 / 1.65 / 2 여섯 종이 섞여 있었고,
+       손으로 쓴 조각들은 선언이 없어 브라우저 기본값(약 1.19)을 그대로 받고 있었습니다. */
+    --lh-tight: 1.3;   /* 제목 */
+    --lh-body: 1.75;   /* 본문과 목록 */
+    --lh-code: 1.55;   /* 코드 */
+    --lh-ui: 1.4;      /* 레일, 내비 등 조작부 */
+
+    /* 본문 글자 크기입니다. 그동안 열한 단계가 섞여 있었고, 그중 18.4px(h3의 1.15em)이나
+       21.44px(h1 기본 여백) 같은 값은 설계한 계단이 아니라 em 계산이 겹쳐 나온 값이었습니다.
+       실제로 필요한 일곱 단계만 남기고 px로 못박아 중첩 계산을 끊습니다.
+       머리말과 좌측 목록은 예제 목록 페이지와 값을 맞춰 둔 곳이라 여기서 다루지 않습니다. */
+    --fs-xs: 13px;       /* 이름표, 구획 라벨, 캡션 */
+    --fs-code: 14.5px;   /* 코드 */
+    --fs-sm: 15px;       /* 좌측 목록 항목. API 레퍼런스의 촘촘한 본문도 같은 값을 씁니다. */
+    --fs-md: 17px;       /* 본문과 목록 */
+    --fs-lg: 20px;       /* h3, 본문 안 강조 */
+    --fs-xl: 24px;       /* h2 */
+    --fs-2xl: 34px;      /* h1 */
+
+    /* 세로 리듬입니다. 그동안 h2 다음 20px, 문단 사이 17px, 구획을 나누는 hr 상하 8px로
+       간격이 위계와 무관하게 비슷했습니다. 네 단계로 나눠 계층이 간격에 드러나게 합니다. */
+    --gap-line: 8px;      /* 제목과 바로 아래 글, 이름표와 코드 사이 */
+    --gap-block: 18px;    /* 문단 사이 */
+    --gap-group: 32px;    /* 소절(h3) 시작, 코드 블록 아래 */
+    --gap-section: 72px;  /* 절(h2) 경계, 구분선 상하 */
+
+    /* 읽기 열 폭입니다. 처음 46em으로 좁혔더니 문장이 한 줄을 조금 넘겨 "니다." 같은
+       두세 글자만 다음 줄로 떨어지는 일이 잦았고, 코드 블록보다 27px 좁아 오른쪽 끝이
+       어긋나 보였습니다. 흔한 화면 폭에서는 본문 열과 같아지고 아주 넓은 화면에서만
+       걸리도록 60em으로 둡니다. 마지막 줄이 짧게 떨어지는 문제는 text-wrap: pretty가 맡습니다.
+       주의: em은 글자 크기 기준이라 한글 글자수와 다릅니다. Pretendard 한글 한 글자는
+       글자 크기의 0.864배이므로 1em에 약 1.16자가 들어갑니다. 60em은 69자입니다. */
+    --measure: 60em;
+
+    --header-height: 56px;
+    /* 문서 안 자리로 건너뛸 때 고정 머리말이 소제목을 덮지 않도록 비워 두는 높이입니다.
+       이 값이 없어 아래 scroll-margin-top 규칙이 계산되지 못하고 있었습니다. */
+    --fixed-header-anchor-offset: calc(var(--header-height) + 16px);
+    /* 머리말과 본문이 같은 세로선에서 시작하도록 폭과 좌우 여백을 한 곳에서 정합니다. */
+    --page-max: 1400px;
+    --page-gutter: 40px;
+    --rail-width: 308px;
+
+    --sans: "Pretendard Variable", Pretendard, "Noto Sans KR", system-ui, -apple-system, sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Roboto Mono", Consolas, monospace;
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+
+    --bg: #0b0b0d;
+    --surface: #141417;
+    --hover-soft: #1d1e22;
+    --glass-header: rgba(11, 11, 13, .72);
+    --glass-tools: rgba(11, 11, 13, .82);
+
+    --ink: #f0f1ec;
+    --on-ink: #0b0b0d;
+    --ink-2: #b6b9b2;
+    --muted: #8f938c;
+    --faint: #7a7d76;
+
+    --line: #26272b;
+    --line-strong: #383a3f;
+    --hairline: rgba(255, 255, 255, .08);
+    --focus-ring: rgba(240, 241, 236, .12);
+
+    --accent: #c3f53c;
+    --accent-2: #5fc6ef;
+
+    /* 어두운 화면에서는 연한 초록이 흰 쪽으로 뜨므로, 어두운 초록 면에 라임 글자로 뒤집습니다. */
+    --badge-bg: #24262b;
+    --badge-hit: #26330f;
+    --badge-hit-ink: #c3f53c;
+
+    --code-surface: #141417;
+    --code-bg: #17181b;
+    --code-ink: #e8eae4;
+    --mark-line: #9fd93f;
+
+    --code-plain: #e8eae4;
+    --code-punct: #9aa09a;
+    --code-comment: #7a8074;
+    --code-keyword: #5fc6ef;
+    --code-string: #b6dd7a;
+    --code-number: #f0a35e;
+    --code-function: #c9a2f0;
+    --code-class: #e8c07a;
+    --danger: #ff8fa8;
+
+    --shadow-md: 0 10px 28px -14px rgba(0, 0, 0, .7);
+}
+
+* { box-sizing: border-box; }
+
+html { min-width: 320px; background: var(--bg); overflow-x: clip; }
+
+html, body { height: auto; }
+
+body {
+    min-height: 100dvh;
+    margin: 0;
+    padding-top: var(--header-height);
+    color: var(--ink);
+    background: var(--bg);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+a { color: inherit; text-decoration: none; }
+button, input { font: inherit; }
+
+/* Bootstrap을 걷어냈으므로 검색이 쓰는 숨김 클래스를 직접 둡니다. */
+.hide { display: none !important; }
+[hidden] { display: none !important; }
+
+button:focus-visible, a:focus-visible, input:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 4px;
+}
+
+::selection { background: var(--accent); color: var(--on-ink); }
+
+/* ── Header ─────────────────────────────────────────────── */
+.gallery-header {
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: var(--header-height);
+    padding: 0 max(var(--page-gutter), calc((100% - var(--page-max)) / 2));
+    background: var(--glass-header);
+    border-bottom: 1px solid var(--line);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+}
+
+.gallery-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -.015em;
+}
+
+/* 로고 글자가 모두 라임과 시안이라 밝은 바탕과 어두운 바탕 모두에서 읽힙니다. */
+.gallery-brand img { width: 52px; height: auto; }
+
+.gallery-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 100%;
+}
+
+.gallery-nav > a,
+.more-menu > summary {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 30px;
+    padding: 0 10px;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 500;
+    letter-spacing: -.01em;
+    list-style: none;
+    transition: color 160ms ease;
+}
+
+.gallery-nav > a:hover,
+.more-menu > summary:hover,
+.more-menu[open] > summary { color: var(--ink); }
+
+.gallery-nav > a.active { color: var(--ink); font-weight: 600; }
+
+/* 활성 메뉴는 채운 알약 대신 글자 아래 짧은 선으로만 표시합니다. */
+.gallery-nav > a.active::after {
+    content: '';
+    position: absolute;
+    right: 10px;
+    bottom: -1px;
+    left: 10px;
+    height: 2px;
+    background: var(--accent);
+}
+
+.more-menu { position: relative; }
+.more-menu > summary::-webkit-details-marker { display: none; }
+
+.more-menu > div {
+    position: absolute;
+    top: 40px;
+    right: 0;
+    display: grid;
+    min-width: 168px;
+    padding: 6px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: var(--shadow-md);
+}
+
+.more-menu > div a {
+    padding: 8px 10px;
+    color: var(--ink-2);
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 500;
+    transition: color 120ms ease, background 120ms ease;
+}
+
+.more-menu > div a:hover { color: var(--ink); background: var(--hover-soft); }
+.mobile-nav-link { display: none; }
+
+/* Media와 Service Ex는 머리말 맨 위가 아니라 더보기 안에 있는 화면입니다.
+   그 화면을 보고 있을 때 어느 탭도 활성으로 보이지 않아, 지금 어디에 있는지 알 수 없었습니다.
+   더보기 자체를 활성 탭과 같은 모양으로 두고, 안에서도 현재 항목을 눌러 둡니다. */
+.more-menu.is-current > summary { color: var(--ink); font-weight: 600; }
+
+.more-menu.is-current > summary::after {
+    content: '';
+    position: absolute;
+    right: 10px;
+    bottom: -1px;
+    left: 10px;
+    height: 2px;
+    background: var(--accent);
+}
+
+.more-menu > div a.active { color: var(--ink); background: var(--hover-soft); font-weight: 600; }
+
+/* ── Theme toggle ───────────────────────────────────────── */
+.theme-toggle {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    margin-left: 6px;
+    padding: 0;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.theme-toggle:hover { color: var(--ink); background: var(--hover-soft); border-color: var(--line-strong); }
+.theme-toggle:active { transform: translateY(1px); }
+.theme-toggle svg { width: 14px; height: 14px; }
+
+/* 지금 테마에서 눌렀을 때 바뀔 모습을 보여 줍니다. 라이트에서는 달, 다크에서는 해입니다. */
+.theme-toggle .theme-icon-dark { display: none; }
+:root[data-theme="dark"] .theme-toggle .theme-icon-dark { display: block; }
+:root[data-theme="dark"] .theme-toggle .theme-icon-light { display: none; }
+
+/* ── Layout ─────────────────────────────────────────────── */
+#wrap {
+    display: grid;
+    grid-template-columns: var(--rail-width) minmax(0, 1fr);
+    align-items: start;
+    gap: 48px;
+    width: min(var(--page-max), calc(100% - var(--page-gutter) * 2));
+    margin: 0 auto;
+    padding: 40px 0 120px;
+}
+
+/* ── Rail — 카드 없이 페이지 위에 바로 놓인 목록 ───────── */
+.navigation {
+    position: sticky;
+    top: var(--header-height);
+    max-height: calc(100dvh - var(--header-height) - 24px);
+    /* 오른쪽 여백은 세로 스크롤바 자리입니다. 없으면 카테고리 개수 숫자가 스크롤바에 붙습니다. */
+    padding: 12px 12px 24px 0;
+    overflow-y: auto;
+    /* overflow-y만 지정하면 가로도 auto로 계산되어, 항목이 조금만 넘쳐도 아래에 가로 스크롤바가 생깁니다. */
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+}
+
+.navigation .search { padding: 0 2px 14px; }
+
+.navigation .search label { display: block; margin: 0; }
+
+.navigation .search input {
+    width: 100%;
+    height: 40px;
+    padding: 0 12px;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    outline: 0;
+    font-size: 13.5px;
+    transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.navigation .search input::placeholder { color: var(--faint); }
+.navigation .search input:hover { border-color: var(--line-strong); }
+
+.navigation .search input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.navigation .navigation-list,
+.navigation .list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.navigation li.item { border-top: 1px solid var(--line); }
+.navigation li.item:first-child { border-top: 0; }
+
+/* 카테고리 제목. 목록을 훑는 자리라 글자를 본문보다 키웁니다. */
+.navigation li.item > details > summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 2px;
+    color: var(--ink-2);
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: -.01em;
+    list-style: none;
+    transition: color 160ms ease;
+}
+
+.navigation li.item > details > summary::-webkit-details-marker { display: none; }
+.navigation li.item > details > summary:hover { color: var(--ink); }
+.navigation li.item > details > summary > span:nth-of-type(2) { flex: 1 1 auto; }
+
+/* 카테고리에 든 문서 수입니다. 숫자만 오른쪽 끝에 떠 있으면 순번처럼도 읽혀,
+   왼쪽 끝을 뾰족하게 깎은 꼬리표에 담아 물건에 붙인 수량표처럼 보이게 합니다.
+   깎인 자리에서는 테두리가 잘려 나가므로 윤곽은 면 색으로만 냅니다. */
+.navigation .badge {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 38px;
+    /* 왼쪽은 뾰족한 꼭지(11px)와 끈 구멍이 차지하므로 글자를 그만큼 안쪽으로 밉니다. */
+    padding: 4px 10px 4px 23px;
+    color: var(--ink-2);
+    background: var(--badge-bg);
+    border: 0;
+    border-radius: 0 999px 999px 0;
+    /* 왼쪽 가운데를 집어 넣은 꼬리표 모양입니다. 오른쪽 둥근 끝은 border-radius가 맡습니다. */
+    clip-path: polygon(11px 0, 100% 0, 100% 100%, 11px 100%, 0 50%);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    /* 고정폭 서체의 아래쪽 여백을 없애 상하 여백을 같게 둡니다. */
+    line-height: 1;
+}
+
+/* 꼬리표를 매다는 끈 구멍입니다. 페이지 바탕과 같은 색으로 두어 실제로 뚫린 것처럼 보이게 합니다.
+   구멍 하나로 이 표시가 물건에 매단 이름표라는 것이 단번에 읽혀, 단위를 적지 않아도 수량으로 통합니다. */
+.navigation .badge::before {
+    content: '';
+    position: absolute;
+    left: 14px;
+    width: 4px;
+    height: 4px;
+    background: var(--bg);
+    border-radius: 50%;
+}
+
+/* 검색으로 좁혀진 카테고리입니다. 채운 색은 목록 안에서 지나치게 튀므로
+   연한 초록 면에 진한 초록 글자로 두어 강조와 차분함을 함께 잡습니다. */
+.navigation .badge.is-filtered {
+    color: var(--badge-hit-ink);
+    background: var(--badge-hit);
+    font-weight: 700;
+}
+
+/* Bootstrap 아이콘 폰트를 걷어냈으므로 화살표를 직접 그립니다.
+   JavaScript가 chevron-down과 chevron-right 클래스를 갈아 끼우므로 기울기만 다르게 둡니다. */
+.navigation .glyphicon {
+    flex: 0 0 auto;
+    width: 6px;
+    height: 6px;
+    margin-right: 2px;
+    border-right: 1.4px solid currentColor;
+    border-bottom: 1.4px solid currentColor;
+    opacity: .45;
+    transition: transform 200ms var(--ease);
+}
+
+.navigation .glyphicon-chevron-down { transform: rotate(45deg); }
+.navigation .glyphicon-chevron-right { transform: rotate(-45deg); }
+
+.navigation .list {
+    padding-left: 12px;
+    border-left: 1px solid var(--line);
+}
+
+.navigation .list li { margin: 0; }
+
+/* 목록 항목은 input 버튼이라 기본 모양을 지우고 글처럼 보이게 합니다. */
+.navigation .list .link {
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 7px 4px;
+    color: var(--muted);
+    background: none;
+    border: 0;
+    cursor: pointer;
+    font-size: var(--fs-sm);
+    line-height: 1.5;
+    text-align: left;
+    transition: color 120ms ease, transform 160ms var(--ease);
+}
+
+.navigation .list .link:hover { color: var(--ink); transform: translateX(2px); }
+
+/* 지금 보고 있는 문서는 글자 굵기와 포인트 색으로만 알립니다. */
+.navigation .list li.is-active .link { color: var(--ink); font-weight: 700; }
+
+.navigation li.perfect-match { border: 0; }
+
+/* 지금 보고 있는 문서의 소제목 목록입니다. 본문 옆에 열을 새로 두면 코드 블록이 들어가는
+   본문이 좁아지므로, 목록에서 그 문서 항목 아래에 접어 넣습니다. */
+.doc-toc {
+    margin: 2px 0 8px;
+    padding: 0 0 0 10px;
+    border-left: 1px solid var(--line);
+    list-style: none;
+}
+
+.doc-toc-link {
+    display: block;
+    width: 100%;
+    padding: 4px 4px 4px 8px;
+    color: var(--faint);
+    background: none;
+    border: 0;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.45;
+    text-align: left;
+    transition: color 120ms ease;
+}
+
+.doc-toc-link:hover { color: var(--ink-2); }
+
+/* 지금 읽고 있는 대목입니다. 글자만 진하게 하면 목록 안에서 눈에 띄지 않아 왼쪽에 선을 세웁니다. */
+.doc-toc-link.is-current {
+    margin-left: -11px;
+    padding-left: 15px;
+    color: var(--ink);
+    border-left: 2px solid var(--accent);
+    font-weight: 600;
+}
+
+/* ── Document column ────────────────────────────────────── */
+/* 문서 머리입니다. 제목 아래에 실선을 깔고 그 밑에 <hr>이 한 줄 더 있어 선이 두 줄로 겹쳐
+   보였습니다. 선을 걷어내고, 대신 이 글이 속한 구획 이름을 작은 라벨로 위에 올립니다.
+   예제 목록 페이지의 .gallery-eyebrow와 같은 짜임입니다. */
+.doc-heading {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin: 0 0 36px;
+}
+
+.doc-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    color: var(--muted);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    letter-spacing: .1em;
+}
+
+.doc-eyebrow::before {
+    content: '';
+    width: 18px;
+    height: 2px;
+    background: var(--accent);
+}
+
+#title {
+    margin: 0;
+    color: var(--ink);
+    font-size: var(--fs-2xl);
+    font-weight: 700;
+    letter-spacing: -.035em;
+    line-height: var(--lh-tight);
+}
+
+#explanation { color: var(--ink); min-width: 0; }
+
+/* ── Document body basics ───────────────────────────────── */
+/* 조각 60여 개와 자동 생성 문서가 섞여 있어 본문 루트 클래스가 .content, .doc,
+   .markdown-document로 갈립니다. 어느 쪽이든 걸리도록 #explanation 기준으로 둡니다. */
+
+/* 본문 글줄입니다. 자동 생성 문서의 p만 1.65를 받고 있어서, 손으로 쓴 조각의 본문과
+   자동 생성 문서의 목록은 브라우저 기본값 그대로 답답하게 남아 있었습니다.
+   문서 계통에 상관없이 같은 행간을 받도록 한곳에 묶습니다.
+   표와 그림 설명은 각자 더 좁은 행간을 따로 두므로 여기서 건드리지 않습니다. */
+#explanation :is(p, li, dd, dt, blockquote),
+#explanation :is(.explane1, .explane_api, .explane_api_param, .explane_api_return, .content-list-text) {
+    line-height: var(--lh-body);
+}
+
+/* 글줄이 흐르는 요소만 읽기 좋은 폭으로 묶습니다. 표와 코드 블록, 그림, API 카드는
+   내용이 잘리면 안 되므로 본문 열 폭을 그대로 쓰게 둡니다.
+   text-wrap: pretty는 마지막 줄에 두세 글자만 남는 줄바꿈을 브라우저가 앞줄과
+   나눠 잡게 합니다. 지원하지 않는 브라우저에서는 지금까지와 같이 그려집니다. */
+#explanation :is(p, li, dd, dt, blockquote),
+#explanation :is(.explane1, .explane_api_param, .explane_api_return, .content-list-text) {
+    max-width: var(--measure);
+    text-wrap: pretty;
+}
+
+/* .explane1은 문단으로도 쓰이고 API 카드나 코드 블록을 감싸는 그릇으로도 쓰입니다.
+   그릇으로 쓰인 경우 글줄 폭 제한이 안에 든 카드까지 좁혀, 바로 아래 코드 블록과
+   오른쪽 끝이 어긋납니다. 블록 요소를 품고 있으면 제한을 풀어 줍니다. */
+#explanation .explane1:has(:is(div, pre, table, ul, ol, img)) {
+    max-width: none;
+}
+
+/* 본문 글자 크기입니다. 문단은 17px인데 목록은 몸통에서 흘러온 16px이라 갈려 있었습니다. */
+#explanation :is(ul, ol) li { font-size: var(--fs-md); }
+
+/* 구획을 나누는 선입니다. 브라우저 기본 여백(상하 8px)에 맡겨 두어 문단 사이보다 좁았고,
+   그래서 구획이 나뉜다는 신호가 되지 못했습니다. */
+#explanation hr {
+    margin: var(--gap-section) 0;
+    border: 0;
+    border-top: 1px solid var(--line);
+}
+
+/* 구분선은 도입부(목차·썸네일) 다음 한 줄만 두고 본문 안 구분선은 감춥니다.
+   손으로 쓴 문서는 목차 뒤에 한 줄씩만 있어 그대로 두면 되지만, 자동 생성 문서는
+   markdown 원본의 --- 에서 나온 구분선이 31개 문서에 183개 흩어져 있어 절마다 선이 그였습니다.
+   지금은 화면에서만 정리하며, 원본까지 지우려면 md에서 --- 를 걷어내야 합니다. */
+#explanation .markdown-document > hr { display: none; }
+#explanation .markdown-document > hr:first-of-type { display: block; }
+
+/* 형광 표시입니다. 브라우저 기본 노랑을 쓰고 있었고, 이 팔레트에 맞는 연한 바탕으로 바꿔 보아도
+   밝은 페이지와 대비가 1.2를 넘지 못했습니다. 바탕은 걷어내고 포인트 색 밑줄만 남깁니다.
+   accent는 이 조각들이 예전부터 쓰던 사용자 정의 태그로 mark와 같은 역할이라 함께 묶습니다. */
+#explanation mark,
+.markdown-document mark,
+accent {
+    padding: 0;
+    color: inherit;
+    background: none;
+    text-decoration-line: underline;
+    text-decoration-color: var(--mark-line);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+    /* 받침이나 y 같은 글자에서 선이 끊기면 강조가 흐려지므로 끊지 않고 그대로 긋습니다. */
+    text-decoration-skip-ink: none;
+}
+
+/* 껍데기에서 a의 색과 밑줄을 지웠으므로, 본문 링크는 다시 구분해 주어야 합니다.
+   색은 본문과 같은 잉크색으로 두고 링크라는 신호는 밑줄이 맡습니다.
+   시안으로 칠하면 목차처럼 링크가 여러 줄 이어지는 곳에서 글이 온통 파랗게 보입니다. */
+#explanation a,
+.markdown-document a {
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-color: var(--line-strong);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    transition: color 160ms ease, text-decoration-color 160ms ease;
+}
+
+#explanation a:hover,
+.markdown-document a:hover {
+    color: var(--accent-2);
+    text-decoration-color: currentColor;
+}
+
+/* 목차 링크입니다. 링크가 여러 줄 이어져 밑줄까지 겹치면 글이 어지러우므로,
+   링크라는 신호는 색이 맡고 밑줄은 가리킬 때만 보입니다.
+
+   목차 마크업이 두 가지입니다. 자동 생성 문서는 ol > li > a로 나오고,
+   손으로 쓴 조각 14개는 div.index 안에 a와 br을 늘어놓습니다. 둘 다 잡습니다. */
+#explanation :is(ol, ul) > li > a:only-child,
+#explanation .index a {
+    color: var(--accent-2);
+    text-decoration: none;
+}
+
+#explanation :is(ol, ul) > li > a:only-child:hover,
+#explanation .index a:hover {
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-color: currentColor;
+}
+
+/* div.index 목차에는 스타일이 전혀 없었습니다. 자동 생성 문서의 목차와 간격을 맞춥니다. */
+#explanation .index {
+    margin: 0 0 var(--gap-group);
+    font-size: var(--fs-md);
+    line-height: var(--lh-body);
+}
+
+/* 칸을 고르게 나누면 API 이름이 든 칸이 좁아 글자가 옆 칸으로 넘어갑니다.
+   내용에 맞춰 칸 너비를 잡게 두고, 그래도 넘칠 만큼 긴 이름은 안에서 줄을 바꿉니다.
+   표를 감싼 .document-table에 overflow-x: auto가 있어 넓어져도 가로로 밀려 나가지 않습니다. */
+#explanation table { table-layout: auto; }
+#explanation table :is(td, th) { overflow-wrap: anywhere; }
+
+/* API 이름이 든 칸은 되도록 한 줄로 두어 읽기 쉽게 합니다. */
+#explanation table :is(td, th) > code:only-child { white-space: nowrap; }
+
+/* 본문 제목과 글의 기본 색을 토큰에 맞춥니다. 조각마다 태그를 다르게 써서 요소로 잡습니다. */
+#explanation :is(h1, h2, h3, h4, h5) { color: var(--ink); line-height: var(--lh-tight); }
+#explanation :is(p, li, td, th, dd, dt) { color: var(--ink-2); }
+#explanation :is(td, th) { font-size: var(--fs-md); }
+#explanation strong { color: var(--ink); }
+
+/* ── 코드 블록 (Prism) ───────────────────────────────────── */
+/* 코드 블록입니다. 자동 생성 문서 38개는 빌드 시점에 Prism이 색을 입혀 두고, 손으로 쓴 조각의
+   코드는 index.html이 화면에서 Prism에 넘깁니다. 색을 모두 토큰으로 정의하므로 테마를
+   바꿀 때 코드 블록을 다시 그릴 필요가 없습니다. */
+#explanation :is(pre, code)[class*="language-"] {
+    color: var(--code-plain);
+    font-family: var(--mono);
+    font-size: var(--fs-code);
+    line-height: var(--lh-code);
+    text-align: left;
+    white-space: pre;
+    word-spacing: normal;
+    word-break: normal;
+    tab-size: 4;
+    hyphens: none;
+}
+
+#explanation pre[class*="language-"] {
+    margin: 0;
+    padding: 16px 18px;
+    overflow-x: auto;
+    background: var(--code-surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+}
+
+/* 자동 생성 문서에는 코드 블록을 감싸는 요소가 없어 아래 여백을 블록이 직접 가집니다.
+   조각 쪽은 감싼 .code가 이미 같은 여백을 들고 있습니다. */
+#explanation .markdown-document pre[class*="language-"] { margin-bottom: var(--gap-group); }
+
+/* 복사 단추를 코드 블록 오른쪽 위에 세웁니다. 코드 블록 자체가 가로 스크롤 상자라
+   그 안에 단추를 넣으면 코드를 밀 때 단추도 따라 밀려납니다. 감싸개를 기준으로 삼습니다. */
+.code-block { position: relative; }
+
+.code-copy {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 4px 10px;
+    color: var(--muted);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    cursor: pointer;
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    /* 코드를 가리지 않도록 평소에는 옅게 두고, 블록에 마우스를 올리면 또렷해집니다. */
+    opacity: 0;
+    transition: opacity 160ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.code-block:hover .code-copy,
+.code-copy:focus-visible { opacity: 1; }
+
+.code-copy:hover { color: var(--ink); border-color: var(--line-strong); }
+
+.code-copy.is-copied { color: var(--accent); border-color: var(--accent); opacity: 1; }
+
+/* 손가락으로 쓰는 화면에는 마우스를 올리는 동작이 없어 단추가 드러날 기회가 없습니다. */
+@media (hover: none) {
+    .code-copy { opacity: .8; }
+}
+
+/* 목차로 옮겼을 때도 소제목이 머리말에 가리지 않게 합니다.
+   아래 .markdown-document 규칙은 자동 생성 문서만 덮으므로, 손으로 쓴 조각까지 함께 묶습니다. */
+#explanation :is(h1, h2, h3)[id] {
+    scroll-margin-top: var(--fixed-header-anchor-offset);
+}
+
+/* 본문 속 짧은 코드입니다. 그동안 브라우저 기본 서체에 본문과 같은 크기로 나와 글줄에서 튀었습니다. */
+#explanation :not(pre) > code {
+    padding: 1px 5px;
+    color: var(--ink);
+    background: var(--hover-soft);
+    border-radius: 5px;
+    font-family: var(--mono);
+    font-size: .875em;
+}
+
+#explanation :is(.token.comment, .token.prolog, .token.doctype, .token.cdata) {
+    color: var(--code-comment);
+    font-style: italic;
+}
+#explanation :is(.token.punctuation, .token.operator, .token.entity, .token.url) { color: var(--code-punct); }
+#explanation :is(.token.keyword, .token.boolean, .token.atrule, .token.selector, .token.important, .token.builtin) { color: var(--code-keyword); }
+#explanation :is(.token.string, .token.char, .token.attr-value, .token.regex, .token.template-string) { color: var(--code-string); }
+#explanation :is(.token.number, .token.constant, .token.symbol) { color: var(--code-number); }
+#explanation :is(.token.function, .token.function-name) { color: var(--code-function); }
+#explanation :is(.token.class-name, .token.property, .token.tag, .token.attr-name) { color: var(--code-class); }
+#explanation .token.italic { font-style: italic; }
+#explanation .token.bold { font-weight: 700; }
+
+/* ── Motion / responsive ────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    .navigation .glyphicon,
+    .navigation .list .link,
+    .theme-toggle { transition: none; }
+
+    .navigation .list .link:hover { transform: none; }
+}
+
+@media (max-width: 1180px) {
+    #wrap {
+        display: block;
+        width: min(var(--page-max), calc(100% - var(--page-gutter) * 2));
+    }
+
+    /* 좁은 화면에서는 목록을 본문 위로 접어 올립니다. 사이드로 두면 본문이 읽을 수 없이 좁아집니다. */
+    .navigation {
+        position: static;
+        max-height: none;
+        margin-bottom: 32px;
+        padding-bottom: 24px;
+        border-bottom: 1px solid var(--line);
+        overflow: visible;
+    }
+}
+
+@media (max-width: 860px) {
+    .gallery-header { padding: 0 16px; }
+    .gallery-nav > a:not(.active) { display: none; }
+    .mobile-nav-link { display: block; }
+    #wrap { width: calc(100% - 32px); padding: 28px 0 88px; }
+    .doc-heading { gap: 10px; margin-bottom: 28px; }
+    #title { font-size: var(--fs-xl); }
+}
+
+@media (max-width: 560px) {
+    .gallery-brand span { display: none; }
+}
+
+/* ── 이하 문서 본문 스타일 ──────────────────────────────
+   조각 60여 개와 자동 생성 문서 38개가 함께 쓰는 규칙입니다.
+   클래스 이름을 그대로 두어야 기존 문서가 깨지지 않으므로,
+   구조는 유지하고 색과 글꼴만 위 토큰으로 옮겨 갑니다. */
+
+/* 문단만 왼쪽으로 10px 밀려 있어 같은 열의 제목, 코드 블록, 표와 왼쪽 끝이 어긋났습니다.
+   조각 쪽은 감싼 .doc가 이미 같은 값의 들여쓰기를 들고 있어 두 번 밀리고 있었습니다. */
+#explanation p {
+    margin: 0 0 var(--gap-block);
+    font-size: var(--fs-md);
+}
+
+#explanation p strong {
+    font-size: var(--fs-lg);
+}
+
+/* 손으로 쓴 문서의 이미지입니다. 문서마다 폭과 높이를 inline style로 직접 적어 19가지 크기가
+   섞여 있었고, object-fit: cover 때문에 30장 중 14장이 원본과 다른 비율로 잘려 있었습니다.
+   (예: 1486x756 화면을 410x300으로 담아 좌우를 잘라내고 있었습니다.)
+   자동 생성 문서의 data-size와 같은 세 단계로 맞추고 높이는 원본 비율을 따르게 합니다.
+   width가 아니라 max-width로 두어 원본보다 크게 늘려 흐려지는 일이 없게 합니다. */
+/* ── Media / Service Ex 목록 화면 ───────────────────────
+   두 화면은 home과 같은 껍데기(#wrap / .navigation / .main / #explanation)를 쓰므로
+   이 스타일시트를 그대로 가져다 씁니다. 아래 두 가지만 그쪽에만 있는 요소입니다. */
+
+/* 문서 제목 아래 줄입니다. 예전에는 제목 옆에 붙어 있었습니다. */
+#example { margin: 0 0 var(--gap-group); }
+
+#example a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    color: var(--ink-2);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+#example a:hover { color: var(--ink); background: var(--hover-soft); border-color: var(--line-strong); }
+
+/* Media 화면이 본문에 넣는 영상입니다. 그림과 같은 규격으로 둡니다. */
+#explanation video {
+    display: block;
+    /* 본문 열을 꽉 채웁니다. 앞서는 HTML에 width="80%"가 박혀 있어 열 폭 1044px 중
+       835px만 쓰고 오른쪽이 비어 그림·표와 끝이 어긋났습니다. */
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    margin: 0 0 var(--gap-group);
+    background: #000;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+}
+
+#explanation img {
+    display: inline-block;
+    max-width: 100%;
+    max-height: 900px;
+    height: auto;
+    margin: 0 0 var(--gap-group);
+    vertical-align: top;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+}
+
+#explanation img[data-size="small"] { max-width: 60%; }
+#explanation img[data-size="medium"] { max-width: 80%; }
+#explanation img[data-size="large"] { max-width: 100%; }
+
+/* 나란히 두고 견주는 두 장입니다. inline-block 사이에 마크업 줄바꿈에서 온 공백이
+   한 칸(약 4px) 끼므로, 두 장과 여백을 더해도 열 폭을 넘지 않도록 넉넉히 잡습니다. */
+#explanation img[data-size="half"] {
+    max-width: calc(50% - 16px);
+    margin-right: 8px;
+}
+
+.item-class ul {
+    padding-left: 3px;
+}
+
+.badge {
+    margin-left: 8px;
+}
+
+details span {
+    font-weight: bold;
+}
+details label {
+    font-size: var(--fs-md);
+    margin-left: 18px
+}
+details .list {
+    font-size: var(--fs-md);
+    margin-left: 5px
+}
+
+/*.font-white {*/
+/*    color: white;*/
+/*}*/
+/*.font-orange {*/
+/*    color: #ffa750;*/
+/*}*/
+/*.font-yellow {*/
+/*    color: #e5c464;*/
+/*}*/
+/*.font-pink {*/
+/*    color: #ff55ea;*/
+/*}*/
+/*.font-blue {*/
+/*    color: #3489e7;*/
+/*}*/
+/*.font-green {*/
+/*    color: #47b636;*/
+/*}*/
+.content-list-text {
+    margin-bottom: var(--gap-line);
+}
+
+.explane1 {
+    margin-bottom: var(--gap-block);
+    font-size: var(--fs-md);
+}
+
+/* 블록 위에 얹는 이름표입니다. 코드 블록의 .code-label과 API 카드의 h4.api-heading이
+   같은 성격이라 모양을 하나로 둡니다. 본문(17px)과 크기가 비슷해 글줄처럼 읽히던 것을
+   작게 눌렀고, 처음에는 --mono로 두었지만 그 스택에는 한글 글자가 없어 대체 서체로
+   그려지면서 획이 너무 얇아 읽히지 않았습니다. 본문 서체로 두고 굵기로 이름표임을 알립니다.
+   여백은 붙는 자리가 달라 각자 아래에서 따로 정합니다. */
+.code-label,
+#explanation .markdown-document :is(h4[id^="api"], h4.api-heading) {
+    display: block;
+    color: var(--ink-2);
+    font-family: var(--sans);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: none;
+}
+
+.code-label {
+    margin: var(--gap-block) 0 var(--gap-line);
+}
+
+.code {
+    margin-bottom: var(--gap-group);
+}
+
+/* Markdown 빌드 문서: 기존 HTML 문서에는 영향을 주지 않는다. */
+#explanation .markdown-document > h1:first-child {
+    display: none;
+}
+
+#explanation .markdown-document :is(h1, h2, h3, h4)[id] {
+    scroll-margin-top: var(--fixed-header-anchor-offset);
+}
+
+#explanation .markdown-document h1 {
+    margin: 0 0 var(--gap-block);
+    font-size: var(--fs-2xl);
+    letter-spacing: -.035em;
+    line-height: var(--lh-tight);
+}
+
+#explanation .markdown-document h2 {
+    margin: var(--gap-section) 0 var(--gap-block);
+    font-size: var(--fs-xl);
+}
+
+#explanation .markdown-document h3 {
+    margin: var(--gap-group) 0 var(--gap-line);
+    font-size: var(--fs-lg);
+}
+
+#explanation .markdown-document h4 {
+    margin: var(--gap-block) 0 var(--gap-line);
+    font-size: var(--fs-md);
+}
+
+#explanation .markdown-document ul,
+#explanation .markdown-document ol {
+    margin: 0 0 var(--gap-block) 28px;
+    padding: 0;
+}
+
+#explanation .markdown-document ul > li {
+    list-style-type: disc;
+}
+
+#explanation .markdown-document ol > li {
+    list-style-type: decimal;
+}
+
+#explanation .markdown-document li {
+    margin-bottom: 6px;
+}
+
+#explanation .markdown-document code:not([class*="language-"]) {
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: var(--hover-soft);
+    color: var(--accent-2);
+}
+
+#explanation .markdown-document .document-table {
+    margin: 20px 0 24px;
+    overflow-x: auto;
+}
+
+#explanation .markdown-document .document-table table {
+    width: 100%;
+    min-width: 680px;
+    margin: 0;
+    border: 1px solid var(--line-strong);
+    border-collapse: collapse;
+    /* 칸을 고르게 나누면 API 이름이 든 칸이 좁아 글자가 옆 칸으로 넘어갑니다.
+       내용에 맞춰 칸 너비를 잡게 둡니다. */
+    table-layout: auto;
+}
+
+#explanation .markdown-document .document-table th,
+#explanation .markdown-document .document-table td {
+    padding: 12px 14px;
+    border: 1px solid var(--line-strong);
+    line-height: 1.5;
+    text-align: left;
+    vertical-align: top;
+}
+
+#explanation .markdown-document .document-table thead th {
+    background: var(--hover-soft);
+    color: var(--ink);
+    font-weight: 700;
+}
+
+#explanation .markdown-document .document-table tbody tr:nth-child(even) {
+    background: var(--hover-soft);
+}
+
+#explanation .markdown-document .document-table th:first-child,
+#explanation .markdown-document .document-table td:first-child {
+    width: 16%;
+    font-weight: 700;
+}
+
+#explanation .markdown-document .document-image {
+    margin: 20px auto 28px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--hover-soft);
+    text-align: center;
+}
+
+#explanation .markdown-document .document-image img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto;
+    /* 감싼 .document-image가 이미 테두리를 두르므로 이중으로 두르지 않습니다. */
+    border: 0;
+    border-radius: 6px;
+}
+
+#explanation .markdown-document .document-image figcaption {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: var(--fs-xs);
+    line-height: var(--lh-ui);
+}
+
+#explanation .markdown-document .document-image-grid {
+    display: grid;
+    gap: 18px;
+    margin: 20px 0 28px;
+    align-items: stretch;
+}
+
+#explanation .markdown-document .document-image-grid {
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+#explanation .markdown-document .document-image-grid[data-columns="1"] {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+#explanation .markdown-document .document-image-grid[data-columns="1"] .document-image img {
+    aspect-ratio: auto;
+}
+
+#explanation .markdown-document .document-image-grid[data-columns="2"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#explanation .markdown-document .document-image-grid[data-columns="3"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+#explanation .markdown-document .document-image-grid[data-columns="4"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+#explanation .markdown-document .document-image-grid[data-columns="5"] {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+#explanation .markdown-document .document-image-grid[data-columns="6"] {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+#explanation .markdown-document .document-image-grid .document-image {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+#explanation .markdown-document .document-image-grid .document-image img {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: contain;
+    /*background: var(--hover-soft);*/
+}
+
+#explanation .markdown-document .document-image-grid .document-image figcaption {
+    margin-top: auto;
+    padding-top: 10px;
+}
+
+@media (max-width: 760px) {
+    #explanation .markdown-document .document-image-grid[data-columns] {
+        grid-template-columns: 1fr;
+    }
+}
+
+#explanation .markdown-document .document-sized-image {
+    margin: 20px auto 28px;
+}
+
+#explanation .markdown-document .document-sized-image[data-size="small"] {
+    width: 60%;
+}
+
+#explanation .markdown-document .document-sized-image[data-size="medium"] {
+    width: 80%;
+}
+
+#explanation .markdown-document .document-sized-image[data-size="large"] {
+    width: 100%;
+}
+
+#explanation .markdown-document .document-sized-image .document-image {
+    width: 100%;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+@media (max-width: 760px) {
+    #explanation .markdown-document .document-sized-image[data-size] {
+        width: 100%;
+    }
+}
+
+#explanation .markdown-document .document-thumbnail {
+    margin: 18px 0 30px;
+}
+
+#explanation .markdown-document .document-thumbnail[data-size="small"] {
+    width: 60%;
+    margin-right: auto;
+    margin-left: auto;
+}
+
+#explanation .markdown-document .document-thumbnail[data-size="medium"] {
+    width: 80%;
+    margin-right: auto;
+    margin-left: auto;
+}
+
+#explanation .markdown-document .document-thumbnail[data-size="large"] {
+    width: 100%;
+}
+
+#explanation .markdown-document .document-thumbnail .document-image {
+    position: relative;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    background: var(--code-bg);
+    box-sizing: border-box;
+    text-align: left;
+}
+
+#explanation .markdown-document .document-thumbnail .document-image img {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: 0;
+}
+
+#explanation .markdown-document .document-thumbnail .document-image figcaption {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    margin: 0;
+    padding: 44px 22px 17px;
+    background: linear-gradient(transparent, rgba(10, 18, 34, 0.88));
+    color: var(--on-image);
+    font-size: var(--fs-md);
+    font-weight: 700;
+    line-height: var(--lh-ui);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+@media (max-width: 760px) {
+    #explanation .markdown-document .document-thumbnail[data-size] {
+        width: 100%;
+    }
+}
+
+/* Markdown API 설명을 API 단위의 카드로 구분한다. */
+/* API 카드의 머리 라벨입니다. 모양은 위 .code-label과 함께 정하고 여백만 여기서 둡니다. */
+#explanation .markdown-document :is(h4[id^="api"], h4.api-heading) {
+    margin: var(--gap-group) 0 var(--gap-line);
+    padding: 0;
+}
+
+/* API 시그니처 줄입니다. 바탕을 면 색으로 올리고 테두리를 둘러 카드의 머리로 읽히게 합니다.
+   페이지 바탕과 비슷한 색을 쓰면 음영이 있는지조차 알기 어렵습니다.
+   문단이지만 아래 매개변수 카드와 위아래로 맞물린 카드라서, 글줄 폭 제한을 받으면
+   두 카드의 오른쪽 끝이 어긋납니다. 그래서 이 문단만 폭 제한에서 뺍니다. */
+#explanation .markdown-document :is(h4[id^="api"], h4.api-heading) + p {
+    max-width: none;
+    margin: 0;
+    padding: 13px 14px;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: 8px 8px 0 0;
+    font-size: var(--fs-md);
+    font-weight: 600;
+}
+
+#explanation .markdown-document .api-disclosure {
+    margin: 0;
+    border-top: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+    border-left: 1px solid var(--line);
+    background: var(--surface);
+}
+
+#explanation .markdown-document .api-disclosure > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    color: var(--accent-2);
+    font-size: var(--fs-md);
+    font-weight: 700;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+
+#explanation .markdown-document .api-disclosure > summary::-webkit-details-marker {
+    display: none;
+}
+
+#explanation .markdown-document .api-disclosure > summary::after {
+    content: "▼";
+    flex: 0 0 auto;
+    color: var(--muted);
+    font-size: 1.15em;
+    line-height: 1;
+}
+
+#explanation .markdown-document .api-disclosure[open] > summary::after {
+    content: "▲";
+}
+
+#explanation .markdown-document .api-disclosure > summary:hover,
+#explanation .markdown-document .api-disclosure > summary:focus-visible {
+    background: var(--hover-soft);
+}
+
+#explanation .markdown-document .api-disclosure > summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
+#explanation .markdown-document .api-disclosure > ul,
+#explanation .markdown-document .api-disclosure > ol {
+    margin: 0;
+    padding: 2px 14px 7px 42px;
+}
+
+#explanation .markdown-document .api-disclosure > ul > li,
+#explanation .markdown-document .api-disclosure > ol > li {
+    margin-bottom: 7px;
+}
+
+/* 마지막 항목 아래에서 li의 여백과 목록의 아래 여백이 겹쳐, 펼쳤을 때 아래쪽 빈칸이
+   위쪽의 두 배로 벌어져 보였습니다. 마지막 항목의 여백만 걷어 위아래를 맞춥니다. */
+#explanation .markdown-document .api-disclosure > :is(ul, ol) > li:last-child {
+    margin-bottom: 0;
+}
+
+#explanation .markdown-document .api-disclosure:not(:has(+ .api-disclosure)) {
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0 0 6px 6px;
+}
+
+/* 매개변수나 반환값 목록이 없는 API 카드 */
+#explanation .markdown-document :is(h4[id^="api"], h4.api-heading) + p:not(:has(+ .api-disclosure)) {
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0 0 6px 6px;
+}
+
+/* 조각의 절 제목과 본문 묶음입니다. 조각 스물두 개가 <h2 class="lead" style="margin-bottom: 20px">,
+   <div class="doc" style="margin-left: 10px"> 형태로 여백을 inline style에 담고 있어 CSS로
+   리듬을 잡을 수 없었습니다. 같은 값을 여기로 옮기고 조각의 inline style은 걷어냈습니다. */
+#explanation h2.lead {
+    margin: var(--gap-section) 0 var(--gap-block);
+    font-size: var(--fs-xl);
+}
+
+/* 조각 안 본문 묶음의 들여쓰기입니다. 기존 inline style과 같은 값입니다. */
+#explanation .doc { margin-left: 10px; }
+
+.explane_api {
+    background-color: var(--hover-soft);
+    padding: 10px;
+    margin: var(--gap-block) 0;
+    font-size: var(--fs-md);
+    border-radius: 5px;
+    border: 1px solid var(--line-strong);
+}
+
+.explane_api .api_name {
+    color: var(--accent-2);
+    font-weight: 600;
+}
+
+.explane_api .param_name {
+    color: var(--accent-2);
+    font-weight: 600;
+}
+
+.explane_api .return_name {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.explane_api .param_type {
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.explane_api .important_tg {
+    color: var(--danger);
+    font-weight: 600;
+    font-size: var(--fs-xs);
+}
+
+.explane_api_param .param_type::before {
+    content: " [ ";
+}
+.explane_api_param .param_type::after {
+    content: " ]";
+}
+
+.explane_api_param {
+    margin-left: 30px;
+    margin-top: 5px;
+}
+
+.explane_api_param .param_name::before {
+    content: "- ";
+    color: var(--accent-2);
+    font-weight: 600;
+}
+
+.explane_api_return .param_type::before {
+    content: " [ ";
+}
+.explane_api_return .param_type::after {
+    content: " ]";
+}
+
+.explane_api_return {
+    margin-left: 30px;
+    margin-top: 5px;
+    border-top: 1px solid var(--line-strong);
+    padding-top: 8px;
+}
+
+.explane_api_return .return_name::before {
+    content: " >>> ";
+    color: var(--accent);
+    font-weight: 600;
+}
+
+
+/* 맨 위로 가는 버튼입니다. 바탕이 white로 박혀 있어 다크 테마에서 그대로 흰 원으로 남았고,
+   그림자도 검은 rgba로 고정돼 있었습니다. 예제 목록 페이지의 같은 버튼과 토큰을 맞춥니다.
+   또 아이콘을 padding으로만 밀어 두어 가운데가 아니었으므로 grid로 정중앙에 놓습니다.
+   보임 여부는 jQuery fadeIn이 inline display를 써 버려 grid 정렬을 덮으므로 클래스로 다룹니다. */
+#top-btn {
+    display: grid;
+    place-items: center;
+    position: fixed;
+    bottom: 40px;
+    right: 40px;
+    z-index: 999;
+    width: 50px;
+    height: 50px;
+    padding: 0;
+    color: var(--ink);
+    background: var(--glass-tools);
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    box-shadow: var(--shadow-md);
+    outline: none;
+    cursor: pointer;
+    opacity: 0;
+    visibility: hidden;
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    transition: opacity 200ms ease, visibility 200ms ease,
+                color 180ms ease, background 180ms ease, border-color 180ms ease;
+}
+
+#top-btn.is-visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+#top-btn svg { width: 22px; height: 22px; }
+
+#top-btn:hover{
+    color: var(--on-ink);
+    background: var(--ink);
+    border-color: var(--ink)
+}
+
+#top-btn:active { transform: translateY(1px); }
+
+
+accent {
+    font-weight: bold;
+}
+
+/* 버튼 공통 */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    line-height: 1;
+    padding: 6px 12px;
+}

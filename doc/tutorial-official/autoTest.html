@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>자동이동 테스트</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/tutorial.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        .examples {
+            padding: 15px 30px 15px 30px;
+        }
+
+    </style>
+</head>
+<body>
+<div id="map-wrapper">
+    <div id="map"></div>
+</div>
+<div class="execute-popup"><button>직접해보기</button></div>
+<div class="examples row">
+    <div class="col-sm-2">
+        <label>[이동주기]</label>
+        <div class="form-inline form-group">
+            <input type="number" class="form-control interval" value="5" name="interval" style="max-width: 70px">초
+
+        </div>
+
+        <label>[이동범위]</label>
+        <div class="form-inline form-group range">
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="range" id="korea">
+                <label class="form-check-label">
+                    전국
+                </label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="range" id="busan" checked>
+                <label class="form-check-label">
+                    부산
+                </label>
+            </div>
+        </div>
+
+        <div class="form-inline form-group">
+            <div class="btn btn-default apply">옵션적용</div>
+        </div>
+
+        <label>[자동이동]</label>
+        <div class="form-inline form-group">
+            <div class="btn btn-default auto-move">자동이동</div>
+            <div class="btn btn-default auto-cancel">자동이동 취소</div>
+        </div>
+    </div>
+
+    <div class="col-sm-2">
+        <div class="layerlist">
+            <label>[레이어]</label>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" value="Busan Building" checked>
+                <label class="form-check-label">
+                    부산건물
+                </label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" value="2020수치지형도">
+                <label class="form-check-label">
+                    수치지형도
+                </label>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function() {
+        window.open('./runner.html?url=' + strings[strings.length-1] + '&title=' + document.title);
+    })
+</script>
+<script>
+    require(['app/Union3D'], function (Union3D) {
+        var sampleHeight = 500;
+        var samplePosition = {
+            '부산': {x: 129.075, y: 35.184, z: 500, rotateX: 0, rotateY: 60}
+        };
+
+      //  var dataServerUrl = 'http://175.126.38.102/';
+     //   var unionServerFor3D = 'http://www.theunionit.co.kr:7070/unionserver/';
+        //라이센스 인증
+        Union3D.ready(function () {
+            //지도 초기화
+            window.app = new Union3D.U3dAPP({
+                containername: 'map'
+            });
+
+            window.autoMove = false;
+            window.timerId = null;
+            window.interval = 5;
+            window.range = "busan";
+            window.autoPosition = [
+                {minx: 129.11218, miny: 35.15172, maxx: 129.17455, maxy: 35.17175, range: "busan"},  // 해운대 부근
+                {minx: 129.07052, miny: 35.17460, maxx: 129.08145, maxy: 35.18630, range: "busan"},  // 연산역 부근
+                {minx: 126.87527, miny: 36.98185, maxx: 127.39987, maxy: 37.60893, range: "korea"},  // 중부지방
+                {minx: 126.66192, miny: 36.12878, maxx: 127.55530, maxy: 36.88587, range: "korea"},  // 충청/대전
+                {minx: 126.87356, miny: 35.00278, maxx: 128.85110, maxy: 37.76182, range: "korea"}  // 전국
+            ]
+
+            var position = samplePosition['부산'];
+            app.setHomePosition(position.x, position.y, position.z, position.rotateX, position.rotateY); //경도, 위도, 높이, 방위각, 고도각
+            app.updateHomePosition();
+
+            createBuildingLayer();
+            createTerrainLayer();
+            createSatelliteLayer();
+            createWFSLayer("2020수치지형도", false);
+
+            $('.auto-move').on('click', function () {
+                if (timerId != null) {
+                    clearInterval(timerId);
+                }
+                timerId = setInterval(function () {
+                    var position = getRandomLonLat();
+                    app.setCameraGeographicPosition(position.x, position.y, position.z, position.rotateX, position.rotateY, undefined, 1);
+                    // app.flyToTarget(150, 1);
+                }, interval * 1000)
+            });
+
+            $('.auto-cancel').on('click', function () {
+                if (timerId != null) {
+                    clearInterval(timerId);
+                }
+            });
+
+            $('.apply').on('click', function () {
+                $('.auto-cancel').click();
+                interval = Number($('.interval').val());
+                $('.auto-move').click();
+            });
+
+            $('.layerlist').find('input').on('click', function (e) {
+                var layerName = e.target.value;
+                if (app.getLayerByName(layerName)) {
+                    var layer = app.getLayerByName(layerName);
+                    layer.show(e.target.checked);
+                }
+            });
+
+            $('.range').find('input').on('click', function (e) {
+                window.range = e.target.id;
+            });
+
+
+            function getRandomLonLat() {
+                var position = {};
+                var randomIndex = undefined;
+                while (true) {
+                    var temp = Math.floor((Math.random() * (autoPosition.length)));
+                    if (autoPosition[temp].range === range) {
+                        randomIndex = temp;
+                        break;
+                    }
+                }
+                position.x = Math.random() * (autoPosition[randomIndex].maxx - autoPosition[randomIndex].minx) + autoPosition[randomIndex].minx;
+                position.y = Math.random() * (autoPosition[randomIndex].maxy - autoPosition[randomIndex].miny) + autoPosition[randomIndex].miny;
+                position.z = autoPosition[temp].range === "korea" ? 1000 : 400;
+                position.rotateX = Math.random() * 360;
+                // position.rotateY = Math.random() * (80 - 45) + 45;
+                position.rotateY = autoPosition[temp].range === "korea" ? Math.random() * (50 - 45) + 45 : Math.random() * (80 - 45) + 45;
+
+                return position;
+            }
+
+            function createBuildingLayer(visible) {
+                if (visible === undefined) visible = true;
+                //+ 국토부 환경설정
+                var limitdistance = 9999999999999;
+                var maxprocess_image = 2;
+                var maxprocess_height = 2;
+                var maxprocess_model = 10;
+                var sizeblock_model = 10;
+                window.modelLayer = new Union3D.model.U3dModelU3FLayer({
+                    name: 'Busan Building',
+                    useproxy: false,
+                    baseurl: dataServerUrl + '/model/busan',
+                    basename: 'busan',
+                    minlevel: app.isIE() ? 17 : 17,
+                    maxlevel: app.isIE() ? 19 : 19,
+                    opacity: 0.7,
+                    maxprocess: maxprocess_model,
+                    sizeblock: sizeblock_model,
+                    limitdistance: limitdistance,
+                    animation: false
+                });
+                app.addLayer(modelLayer);
+                app.showLayer('Busan Building', visible);
+            }
+
+            function createTerrainLayer(visible) {
+                if (visible === undefined) visible = true;
+                window.terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+                    name: 'Korea Terrain',
+                    baseurl: layerInfo.height.url,
+                    ext: '.umf',
+                    reverseY: true,
+                    minlevel: 9,
+                    maxlevel: 15,
+                    useproxy: false,
+                    maxprocess: 2,
+                    interpolationheight: true,
+                    rectangle: Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2)
+                });
+                app.addLayer(terrainLayer);
+                app.showLayer('Korea Terrain', visible);
+            }
+
+            function createSatelliteLayer(visible) {
+                if (visible === undefined) visible = true;
+                //이미지 레이어 생성
+                window.imageLayer = new Union3D.image.U3dImageXYZLayer({
+                    name: 'satellite',
+                    baseurl: layerInfo.image.vworldsaturl,
+                    reverseY: true
+                });
+                app.addLayer(imageLayer);
+                //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+                app.setNameBaseLayer('satellite');
+                app.showLayer('satellite', visible);
+            }
+
+            function createWFSLayer(layerName, visible) {
+                if (app === undefined) return;
+                if (layerName === undefined) layerName = "2020수치지형도";
+                if (visible === undefined) visible = true;
+                if (app.getLayerByName(layerName)) {
+                    var layer = app.getLayerByName(layerName);
+                    layer.show(true);
+                    return;
+                }
+
+                //+ WFS 모델 ///////////////////////////////////////////////////////////////////
+                var wfsModel = undefined;
+                wfsModel = new Union3D.model.U3dModelWFSLayer({
+                    name: layerName,
+                    layername: layerInfo.wfs_korea.layername, //+ 레이어 이름, *필수 입력
+                    // sldurl:  layerInfo.wfs_unionit.sldurl,
+                    baseurl:  layerInfo.wfs_korea.baseurl, //+ baseurl 지도 서비스 기본 URL, *필수 입력
+                    //층수필드나 높이필드를 선택하여 사용
+                    //fieldheight: layerInfo.wfs_korea.fieldheight, //+ 높이 필드 (속성테이블 칼럼명), defaultValue(opt.fieldheight, undefined)
+                    fieldfloor: layerInfo.wfs_korea.fieldfloor, //+ 층수 필드 (속성테이블 칼럼명), defaultValue(opt.fieldheight, undefined)
+                    fieldheightfloor:layerInfo.wfs_korea.fieldheightfloor,
+                    floorheight:layerInfo.wfs_korea.floorheight, //+ 층수 높이 필드
+                    fieldKind: layerInfo.wfs_korea.fieldKind,  //+ 종류 필드 (속성테이블 칼럼명), defaultValue(opt.fieldKind, undefined)
+                    transperent: true, //+ 투명화 여부
+                    minlevel: 17, //+ 가시화 최소레벨,defaultValue(opt.minlevel, 17)
+                    drawline: false, //+ WFS 모델에 테투리 추가 여부
+                    opacity: 1, //+ 투명화 여부 true 일 경우, 투명도 설정값으로 적용
+                    textureurl: './image/buld/buld_texture_1.jpg',  //+ 텍스처 url, defaultValue(opt.textureurl, undefined)
+                    useproxy:true
+                    //   usetexture: true
+                });
+
+
+                app.addLayer(wfsModel);
+                app.showLayer(layerName, visible);
+            }
+        });
+    });
+</script>
+</body>
+</html>

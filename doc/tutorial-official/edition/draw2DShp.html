@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="../">
+    <title>2D SHP 레이어</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <link rel="stylesheet" href="css/pastel-glass-map-theme.css" type="text/css">
+    <link rel="stylesheet" href="css/example-editor.css" type="text/css">
+    <link rel="stylesheet" href="edition/assets/monaco/monaco-editor.css?v=ebbbdcf5172a" type="text/css">
+    <style id="example-viewer-style">
+
+    </style>
+</head>
+<body>
+<!-- 자동 생성 파일입니다. 원본 tutorial-official/examples\draw2DShp\draw2DShp.md을(를) 수정하세요. -->
+<main id="example-viewer" class="example-app">
+    <div id="map-wrapper"><div id="map"></div></div>
+
+    <!-- 지도 화면에서 예제 목록으로 돌아가는 유일한 통로입니다.
+         브라우저 뒤로가기만 두면 새 탭이나 공유받은 주소로 들어온 사람은 목록을 찾을 수 없습니다. -->
+    <a class="example-brand" href="edition/index.html" title="예제 목록" aria-label="예제 목록으로 이동"><img src="image/geondt-loading-color-logo.png" alt=""></a>
+    <h1 class="example-title">2D SHP 레이어</h1>
+
+    <nav class="example-rail" aria-label="예제 도구">
+        <button class="rail-button" type="button" data-panel-target="example-explanation" aria-expanded="false">
+            <span class="rail-icon">?</span><span>도움말</span>
+        </button>
+        <div data-common-ui-rail></div>
+        <div id="viewer-example-rail" class="viewer-example-rail">
+
+        </div>
+    </nav>
+
+    <button class="editor-mode-toggle" type="button" data-open-editor aria-pressed="false">
+        <span class="code-toggle-icon">&lt;/&gt;</span><span data-editor-toggle-label>코드 편집</span>
+    </button>
+
+    <aside class="glass-panel explanation-panel" id="example-explanation" aria-hidden="true">
+        <header class="panel-header">
+            <div><span class="eyebrow">EXAMPLE GUIDE</span><h2>2D SHP 레이어</h2></div>
+            <button class="panel-close" type="button" data-panel-close="example-explanation" aria-label="도움말 닫기">×</button>
+        </header>
+        <div class="panel-content markdown-document">
+<h1>2D SHP 레이어</h1>
+<h2>다루는 기능</h2>
+<ul>
+<li>브라우저에서 선택한 로컬 Shapefile(.shp/.prj/.dbf)을 서버 업로드 없이 FileReader로 읽습니다.</li>
+<li><code>UShpParser</code>로 도형(.shp)과 속성(.dbf)을 파싱해 GeoJSON FeatureCollection으로 합칩니다.</li>
+<li><code>U2dShpLayer</code>를 만들어 지도 위에 2D 이미지 레이어로 그리고, 첫 도형 위치로 홈 위치를 옮깁니다.</li>
+<li>패널의 스타일 컨트롤로 채우기·외곽선·공통 라벨을 생성된 모든 2D SHP 레이어에 <code>setStyle()</code>로 즉시 적용합니다.</li>
+</ul>
+<h2>사전 조건</h2>
+<p>배경지도(브이월드 정사영상) 서버에 접근할 수 있어야 하며 지형은 사용하지 않습니다. 표시할 Shapefile은 사용자가 직접 준비해야 하고, 같은 이름의 <code>.shp</code>(필수)·<code>.prj</code>·<code>.dbf</code>를 한 번에 선택해야 합니다. <code>.prj</code>가 없으면 EPSG:5179로 해석하고 <code>.dbf</code>가 없으면 속성 없이 도형만 그립니다.</p>
+<p><code>initialize()</code>는 레이어를 만들지 않고 파일 읽기·레이어 생성(<code>loadShapefiles</code>)과 스타일 적용(<code>applyStyle</code>) 동작만 반환합니다. UI가 파일 선택과 컨트롤 변경 시 이 동작을 호출하며, 종료 시 생성한 2D SHP 레이어를 모두 제거합니다.</p>
+<h2>조작 및 예상 결과</h2>
+<table>
+<thead>
+<tr>
+<th>조작</th>
+<th>예상 결과</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>「SHP」 버튼 누르기</td>
+<td>2D SHP 패널이 열리거나 닫힙니다.</td>
+</tr>
+<tr>
+<td>같은 이름의 .shp/.prj/.dbf 선택</td>
+<td>읽는 동안 상태에 진행 문구가 표시되고, 완료되면 <code>2d-shp-&lt;파일이름&gt;</code> 레이어가 그려지며 피처 수가 표시됩니다. 카메라가 첫 도형의 bbox 중심(높이 800m)으로 이동합니다.</td>
+</tr>
+<tr>
+<td>같은 이름의 파일을 다시 선택</td>
+<td>기존 레이어를 제거하고 새 레이어로 교체합니다.</td>
+</tr>
+<tr>
+<td>이름이 다른 파일을 함께 선택, .shp 누락, 확장자 중복</td>
+<td>레이어를 만들지 않고 상태에 빨간 오류 문구가 표시됩니다.</td>
+</tr>
+<tr>
+<td>채우기·외곽선 체크박스, 색상, 투명도, 두께 변경</td>
+<td>생성된 모든 2D SHP 레이어의 스타일이 바뀌고 슬라이더 옆 값이 갱신됩니다. 색상은 드래그 중에도 반영됩니다.</td>
+</tr>
+<tr>
+<td>공통 라벨 입력</td>
+<td>입력이 200ms 멈춘 뒤 모든 피처에 같은 라벨이 표시됩니다. 비우면 표시하지 않습니다.</td>
+</tr>
+<tr>
+<td>「기본 스타일」 누르기</td>
+<td>모든 컨트롤이 초기값(채우기 #3399cc·0.35, 외곽선 #0f4c75·2, 라벨 없음)으로 돌아가고 레이어에 적용됩니다.</td>
+</tr>
+</tbody></table>
+<h2>관련 API</h2>
+<ul>
+<li>UShpParser.parseShp / parseDbf / combine: Shapefile 도형·속성 파싱과 FeatureCollection 결합</li>
+<li>U2dShpLayer: 2D 벡터 피처를 타일 이미지로 그리는 레이어(sourceCRS·crs·style 옵션)</li>
+<li>U2dShpLayer.addFeatureCollection / setStyle / setLabelFunction: 피처 추가, 스타일 변경, 라벨 함수 지정</li>
+<li>U3dAPP.addLayer / removeLayer / showLayer: 레이어 등록·제거·표시</li>
+<li>U3dAPP.setHomePosition / updateHomePosition: 읽은 도형 위치로 홈 이동</li>
+</ul>
+<p>기존 Legacy draw2DShp.baseline.html과 동일한 동작을 Common Runtime 구조(main/ui/html/css)로 옮겼습니다.</p>
+        </div>
+    </aside>
+
+
+
+    <div data-common-ui-panels></div>
+    <div data-common-ui-tools></div>
+    <div data-common-ui-status></div>
+
+    <div id="load" class="loading-indicator" hidden><img src="image/loading.svg" alt="불러오는 중"></div>
+
+    <aside id="example-api-help" class="example-api-help" role="tooltip" hidden>
+        <header class="example-api-help-header">
+            <strong data-api-help-title></strong>
+            <button type="button" data-api-help-close aria-label="API 도움말 닫기">×</button>
+        </header>
+        <p data-api-help-description></p>
+        <section data-api-help-dynamic-section>
+            <b>현재 설정</b>
+            <pre><code data-api-help-code></code></pre>
+        </section>
+        <section data-api-help-source-section hidden>
+            <b>실제 구현</b>
+            <small data-api-help-source-location></small>
+            <pre><code data-api-help-source-code></code></pre>
+            <button type="button" data-api-help-open-source>코드에서 보기</button>
+        </section>
+        <p data-api-help-source-error hidden></p>
+    </aside>
+</main>
+
+<section id="example-editor" class="editor-workspace" hidden aria-label="예제 코드 편집기">
+    <header class="editor-toolbar">
+        <strong class="editor-title">2D SHP 레이어</strong>
+        <div class="editor-toolbar-actions">
+            <button class="editor-search-toggle" type="button" data-editor-action="search" aria-expanded="false" aria-controls="editor-search" title="모든 탭에서 검색 (Ctrl+Shift+F)" aria-label="모든 탭에서 검색">
+                <img src="image/search_white_24dp.svg" alt=""><span>검색</span>
+            </button>
+            <button type="button" data-editor-action="reset">초기화</button>
+            <button type="button" data-editor-action="console" aria-expanded="false">Console</button>
+            <button class="editor-close-button" type="button" data-editor-action="viewer" title="코드 편집 닫기" aria-label="코드 편집 닫기">
+                <span class="editor-close-icon" aria-hidden="true">×</span><span>닫기</span>
+            </button>
+        </div>
+    </header>
+    <div class="editor-layout" id="editor-layout">
+        <section class="editor-pane" id="editor-pane" aria-label="코드 편집">
+            <div class="editor-tabs" role="tablist" aria-label="코드 종류">
+                <button type="button" role="tab" data-code-tab="javascript" aria-selected="true">JavaScript</button>
+                <button type="button" role="tab" data-code-tab="html" aria-selected="false">HTML</button>
+                <button type="button" role="tab" data-code-tab="css" aria-selected="false">CSS</button>
+                <button class="editor-run-button" type="button" data-editor-action="run"><span>▶</span> 실행</button>
+            </div>
+            <div id="monaco-editor" class="monaco-host"></div>
+            <div class="editor-search" id="editor-search" hidden>
+                <div class="editor-search-bar">
+                    <img class="editor-search-bar-icon" src="image/search_white_24dp.svg" alt="">
+                    <input class="editor-search-input" id="editor-search-input" type="search" placeholder="모든 탭에서 검색" autocomplete="off" spellcheck="false" aria-label="모든 탭에서 검색">
+                    <button class="editor-search-option" type="button" data-search-option="matchCase" aria-pressed="false" title="대소문자 구분">Aa</button>
+                    <button class="editor-search-option" type="button" data-search-option="regex" aria-pressed="false" title="정규식 사용">.*</button>
+                    <button class="editor-search-close" type="button" data-search-close aria-label="검색 닫기">×</button>
+                </div>
+                <p class="editor-search-summary" id="editor-search-summary" aria-live="polite">검색어를 입력하세요.</p>
+                <div class="editor-search-results" id="editor-search-results" role="listbox" aria-label="검색 결과"></div>
+            </div>
+            <!--+ 실행 콘솔은 편집 패널 안에 둔다. 미리보기 안에 두면 실행 뒤 `position: fixed`인 미리보기가
+                 쌓임 맥락을 만들어 편집 패널에 가려지고, 실행 전과 위치도 달라진다. -->
+            <section id="preview-console" class="preview-console" aria-label="실행 콘솔" aria-hidden="true">
+                <header><strong>Console</strong><span class="console-count" id="preview-console-count">0</span><button class="console-clear" type="button" data-console-clear>Clear</button><button type="button" data-console-close aria-label="콘솔 닫기">×</button></header>
+                <div id="preview-console-output" class="preview-console-output" aria-live="polite"><p class="console-empty">실행 로그가 여기에 표시됩니다.</p></div>
+            </section>
+        </section>
+        <div class="editor-splitter" id="editor-splitter" role="separator" aria-label="편집기와 미리보기 너비 조절" aria-orientation="vertical" tabindex="0"></div>
+        <section class="preview-pane" aria-label="실행 미리보기">
+            <div id="preview-frame-container" class="preview-frame-container"></div>
+        </section>
+    </div>
+    <div class="editor-mobile-notice" id="editor-mobile-notice" hidden>
+        <strong>코드 편집은 데스크톱 환경에서 지원합니다.</strong>
+        <p>더 넓은 화면에서 Editor를 열거나 지도 Viewer로 돌아가세요.</p>
+        <button type="button" data-editor-action="viewer">지도로 보기</button>
+    </div>
+    <div class="editor-hint-stack">
+        <div class="editor-hint" id="editor-hint" role="status" hidden>
+            <p>실행 전에는 <b>× 닫기</b>와 가장자리 <b>◀</b> 버튼으로 지도로 돌아갑니다.<br>실행한 뒤에는 같은 버튼이 편집 패널만 접고, 실행한 화면은 그대로 남습니다. 접으면 왼쪽 가장자리 <b>▶</b>로 다시 펼칩니다.</p>
+        </div>
+        <div class="editor-hint editor-shortcut-hint" id="editor-shortcut-hint" role="status" hidden>
+            <dl>
+                <dt><kbd>Ctrl</kbd><kbd>F</kbd></dt>
+                <dd>현재 파일에서 찾기</dd>
+                <dt><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>F</kbd></dt>
+                <dd>열린 파일 전체에서 찾기</dd>
+                <dt><kbd>Ctrl</kbd><kbd>Space</kbd></dt>
+                <dd>자동완성 보기</dd>
+                <dt><kbd>Esc</kbd></dt>
+                <dd>찾기 닫기</dd>
+            </dl>
+            <p class="editor-shortcut-note">macOS에서는 <kbd>Ctrl</kbd> 대신 <kbd>Cmd</kbd>를 사용합니다.</p>
+        </div>
+    </div>
+    <div class="editor-panel-resizer" id="editor-panel-resizer" role="separator" aria-label="코드 편집 패널 너비 조절" aria-orientation="vertical" tabindex="0" title="드래그하거나 방향키로 너비 조절"></div>
+</section>
+
+<button class="editor-edge-toggle" type="button" data-editor-edge-toggle aria-pressed="false" title="코드 편집 열기" aria-label="코드 편집 열기">
+    <span class="editor-edge-icon" data-editor-edge-icon aria-hidden="true">▶</span>
+</button>
+
+<script id="example-source" type="application/json">{"format":"manifest","helpHtml":"\u003ch1\u003e2D SHP 레이어\u003c/h1\u003e\n\u003ch2\u003e다루는 기능\u003c/h2\u003e\n\u003cul\u003e\n\u003cli\u003e브라우저에서 선택한 로컬 Shapefile(.shp/.prj/.dbf)을 서버 업로드 없이 FileReader로 읽습니다.\u003c/li\u003e\n\u003cli\u003e\u003ccode\u003eUShpParser\u003c/code\u003e로 도형(.shp)과 속성(.dbf)을 파싱해 GeoJSON FeatureCollection으로 합칩니다.\u003c/li\u003e\n\u003cli\u003e\u003ccode\u003eU2dShpLayer\u003c/code\u003e를 만들어 지도 위에 2D 이미지 레이어로 그리고, 첫 도형 위치로 홈 위치를 옮깁니다.\u003c/li\u003e\n\u003cli\u003e패널의 스타일 컨트롤로 채우기·외곽선·공통 라벨을 생성된 모든 2D SHP 레이어에 \u003ccode\u003esetStyle()\u003c/code\u003e로 즉시 적용합니다.\u003c/li\u003e\n\u003c/ul\u003e\n\u003ch2\u003e사전 조건\u003c/h2\u003e\n\u003cp\u003e배경지도(브이월드 정사영상) 서버에 접근할 수 있어야 하며 지형은 사용하지 않습니다. 표시할 Shapefile은 사용자가 직접 준비해야 하고, 같은 이름의 \u003ccode\u003e.shp\u003c/code\u003e(필수)·\u003ccode\u003e.prj\u003c/code\u003e·\u003ccode\u003e.dbf\u003c/code\u003e를 한 번에 선택해야 합니다. \u003ccode\u003e.prj\u003c/code\u003e가 없으면 EPSG:5179로 해석하고 \u003ccode\u003e.dbf\u003c/code\u003e가 없으면 속성 없이 도형만 그립니다.\u003c/p\u003e\n\u003cp\u003e\u003ccode\u003einitialize()\u003c/code\u003e는 레이어를 만들지 않고 파일 읽기·레이어 생성(\u003ccode\u003eloadShapefiles\u003c/code\u003e)과 스타일 적용(\u003ccode\u003eapplyStyle\u003c/code\u003e) 동작만 반환합니다. UI가 파일 선택과 컨트롤 변경 시 이 동작을 호출하며, 종료 시 생성한 2D SHP 레이어를 모두 제거합니다.\u003c/p\u003e\n\u003ch2\u003e조작 및 예상 결과\u003c/h2\u003e\n\u003ctable\u003e\n\u003cthead\u003e\n\u003ctr\u003e\n\u003cth\u003e조작\u003c/th\u003e\n\u003cth\u003e예상 결과\u003c/th\u003e\n\u003c/tr\u003e\n\u003c/thead\u003e\n\u003ctbody\u003e\u003ctr\u003e\n\u003ctd\u003e「SHP」 버튼 누르기\u003c/td\u003e\n\u003ctd\u003e2D SHP 패널이 열리거나 닫힙니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e같은 이름의 .shp/.prj/.dbf 선택\u003c/td\u003e\n\u003ctd\u003e읽는 동안 상태에 진행 문구가 표시되고, 완료되면 \u003ccode\u003e2d-shp-\u0026lt;파일이름\u0026gt;\u003c/code\u003e 레이어가 그려지며 피처 수가 표시됩니다. 카메라가 첫 도형의 bbox 중심(높이 800m)으로 이동합니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e같은 이름의 파일을 다시 선택\u003c/td\u003e\n\u003ctd\u003e기존 레이어를 제거하고 새 레이어로 교체합니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e이름이 다른 파일을 함께 선택, .shp 누락, 확장자 중복\u003c/td\u003e\n\u003ctd\u003e레이어를 만들지 않고 상태에 빨간 오류 문구가 표시됩니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e채우기·외곽선 체크박스, 색상, 투명도, 두께 변경\u003c/td\u003e\n\u003ctd\u003e생성된 모든 2D SHP 레이어의 스타일이 바뀌고 슬라이더 옆 값이 갱신됩니다. 색상은 드래그 중에도 반영됩니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e공통 라벨 입력\u003c/td\u003e\n\u003ctd\u003e입력이 200ms 멈춘 뒤 모든 피처에 같은 라벨이 표시됩니다. 비우면 표시하지 않습니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e「기본 스타일」 누르기\u003c/td\u003e\n\u003ctd\u003e모든 컨트롤이 초기값(채우기 #3399cc·0.35, 외곽선 #0f4c75·2, 라벨 없음)으로 돌아가고 레이어에 적용됩니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003c/tbody\u003e\u003c/table\u003e\n\u003ch2\u003e관련 API\u003c/h2\u003e\n\u003cul\u003e\n\u003cli\u003eUShpParser.parseShp / parseDbf / combine: Shapefile 도형·속성 파싱과 FeatureCollection 결합\u003c/li\u003e\n\u003cli\u003eU2dShpLayer: 2D 벡터 피처를 타일 이미지로 그리는 레이어(sourceCRS·crs·style 옵션)\u003c/li\u003e\n\u003cli\u003eU2dShpLayer.addFeatureCollection / setStyle / setLabelFunction: 피처 추가, 스타일 변경, 라벨 함수 지정\u003c/li\u003e\n\u003cli\u003eU3dAPP.addLayer / removeLayer / showLayer: 레이어 등록·제거·표시\u003c/li\u003e\n\u003cli\u003eU3dAPP.setHomePosition / updateHomePosition: 읽은 도형 위치로 홈 이동\u003c/li\u003e\n\u003c/ul\u003e\n\u003cp\u003e기존 Legacy draw2DShp.baseline.html과 동일한 동작을 Common Runtime 구조(main/ui/html/css)로 옮겼습니다.\u003c/p\u003e","assetBaseUrl":"edition/examples/draw2DShp/","runtime":{"home":{"longitude":127,"latitude":37.5,"height":1800,"duration":2,"pitch":45},"baseLayers":["satellite"],"terrain":{"enabled":false},"mapTools":["home","north","zoom-in","zoom-out"],"cameraStatus":true,"help":true,"loading":true},"imports":[],"dependencies":[],"commonUi":{"imageLayerPanel":true,"terrainLayerPanel":true},"sourceTokens":{"draw2DShp.parse":{"id":"draw2DShp.parse","sourceId":"main","file":"./draw2DShp.main.js","label":"main.js","startLine":39,"endLine":45,"code":"const parser = new GeOnDT.parser.UShpParser();\nconst geometries = parser.parseShp(fileSet.shp, fileSet.prj || DEFAULT_SOURCE_CRS);\nif (!geometries || geometries.length === 0)\n    throw new Error('SHP 파일에 표시할 도형이 없습니다.');\n\nconst attributes = fileSet.dbf ? parser.parseDbf(fileSet.dbf) : [];\nconst featureCollection = parser.combine([geometries, attributes]);"},"draw2DShp.layer":{"id":"draw2DShp.layer","sourceId":"main","file":"./draw2DShp.main.js","label":"main.js","startLine":56,"endLine":71,"code":"const layer = new GeOnDT.image.U2dShpLayer({\n    name: layerName,\n    sourceCRS: 'EPSG:4326',\n    crs: 'EPSG:3857',\n    minLevel: 0,\n    maxLevel: 19,\n    transparent: true,\n    style\n});\nlayer.setLabelFunction(function (feature) {\n    const properties = feature.getProperties();\n    return properties.geometry.ol_uid + ' 동';\n});\napp.addLayer(layer);\napp.showLayer(layer.getName(), true);\nlayer.addFeatureCollection(featureCollection);"},"draw2DShp.style":{"id":"draw2DShp.style","sourceId":"main","file":"./draw2DShp.main.js","label":"main.js","startLine":87,"endLine":89,"code":"state.layers.forEach(function (layer) {\n    layer.setStyle(style);\n});"}},"sources":[{"id":"main","label":"main.js","path":"./draw2DShp.main.js","language":"javascript","editable":true,"url":"edition/examples/draw2DShp/draw2DShp.main.js","content":"/** 스타일 컨트롤의 기본값. 「기본 스타일」 버튼과 초기 레이어 스타일에 함께 사용합니다. */\r\nconst DEFAULT_STYLE = Object.freeze({\r\n    useFill: true,\r\n    fill: '#3399cc',\r\n    fillOpacity: 0.35,\r\n    useStroke: true,\r\n    stroke: '#0f4c75',\r\n    width: 2,\r\n    label: ''\r\n});\r\n\r\n/** .prj가 없는 SHP를 해석할 기본 좌표계 */\r\nconst DEFAULT_SOURCE_CRS = 'EPSG:5179';\r\n\r\n/**\r\n * 로컬 SHP 파일 세트를 2D 레이어로 그리는 기능을 초기화하고, UI가 호출할 동작을 반환합니다.\r\n * 파일 읽기와 레이어 생성은 loadShapefiles()에서 수행하며 초기화 시점에는 레이어를 만들지 않습니다.\r\n *\r\n * @param {GeOnDTExampleContext} context Common Runtime 컨텍스트\r\n * @returns {Promise\u003cRecord\u003cstring, unknown\u003e\u003e} UI에 전달할 예제 상태\r\n */\r\nexport async function initialize(context) {\r\n    const {app} = context;\r\n    const state = {disposed: false, layers: new Map()};\r\n\r\n    /**\r\n     * 선택한 파일 세트를 읽어 U2dShpLayer를 생성하고 첫 도형 위치로 이동합니다.\r\n     * 같은 이름의 레이어가 있으면 교체합니다.\r\n     *\r\n     * @param {Array\u003cFile\u003e} files 같은 이름의 .shp(필수)·.prj·.dbf 파일\r\n     * @param {Record\u003cstring, unknown\u003e} style 현재 스타일 컨트롤 값\r\n     * @returns {Promise\u003c{name: string, featureCount: number}\u003e} 생성한 레이어 정보\r\n     */\r\n    async function loadShapefiles(files, style) {\r\n        const fileSet = await readShapefileSet(files);\r\n        if (state.disposed) throw new Error('예제가 종료되어 레이어를 만들 수 없습니다.');\r\n\r\n        // @example-code:start draw2DShp.parse\r\n        const parser = new GeOnDT.parser.UShpParser();\r\n        const geometries = parser.parseShp(fileSet.shp, fileSet.prj || DEFAULT_SOURCE_CRS);\r\n        if (!geometries || geometries.length === 0)\r\n            throw new Error('SHP 파일에 표시할 도형이 없습니다.');\r\n\r\n        const attributes = fileSet.dbf ? parser.parseDbf(fileSet.dbf) : [];\r\n        const featureCollection = parser.combine([geometries, attributes]);\r\n        // @example-code:end draw2DShp.parse\r\n\r\n        const layerName = '2d-shp-' + fileSet.name;\r\n        const previousLayer = state.layers.get(layerName);\r\n        if (previousLayer) {\r\n            app.removeLayer(previousLayer.getName());\r\n            state.layers.delete(layerName);\r\n        }\r\n\r\n        // @example-code:start draw2DShp.layer\r\n        const layer = new GeOnDT.image.U2dShpLayer({\r\n            name: layerName,\r\n            sourceCRS: 'EPSG:4326',\r\n            crs: 'EPSG:3857',\r\n            minLevel: 0,\r\n            maxLevel: 19,\r\n            transparent: true,\r\n            style\r\n        });\r\n        layer.setLabelFunction(function (feature) {\r\n            const properties = feature.getProperties();\r\n            return properties.geometry.ol_uid + ' 동';\r\n        });\r\n        app.addLayer(layer);\r\n        app.showLayer(layer.getName(), true);\r\n        layer.addFeatureCollection(featureCollection);\r\n        // @example-code:end draw2DShp.layer\r\n        state.layers.set(layerName, layer);\r\n\r\n        moveToShapefile(app, geometries);\r\n        return {name: fileSet.name, featureCount: featureCollection.features.length};\r\n    }\r\n\r\n    /**\r\n     * 생성된 모든 2D SHP 레이어에 스타일을 적용합니다.\r\n     *\r\n     * @param {Record\u003cstring, unknown\u003e} style 스타일 컨트롤 값\r\n     * @returns {number} 스타일을 적용한 레이어 수\r\n     */\r\n    function applyStyle(style) {\r\n        // @example-code:start draw2DShp.style\r\n        state.layers.forEach(function (layer) {\r\n            layer.setStyle(style);\r\n        });\r\n        // @example-code:end draw2DShp.style\r\n        return state.layers.size;\r\n    }\r\n\r\n    return {\r\n        app,\r\n        state,\r\n        defaultStyle: DEFAULT_STYLE,\r\n        loadShapefiles,\r\n        applyStyle,\r\n        getLayerCount() { return state.layers.size; }\r\n    };\r\n}\r\n\r\n/**\r\n * 예제가 생성한 2D SHP 레이어를 모두 제거합니다.\r\n *\r\n * @param {GeOnDTExampleContext} context Common Runtime 컨텍스트\r\n * @param {Record\u003cstring, unknown\u003e} example 예제 상태\r\n */\r\nexport async function dispose(context, example) {\r\n    const state = example?.state;\r\n    if (!state || state.disposed) return;\r\n    state.disposed = true;\r\n    state.layers.forEach(function (layer) {\r\n        context.app.removeLayer(layer.getName());\r\n    });\r\n    state.layers.clear();\r\n}\r\n\r\n/**\r\n * 파일 목록을 읽어 확장자별로 정리합니다. 이름이 다르거나 .shp가 없으면 오류를 던집니다.\r\n *\r\n * @param {Array\u003cFile\u003e} files 선택한 파일\r\n * @returns {Promise\u003c{name: string, shp?: object, prj?: object, dbf?: object}\u003e} 파일 세트\r\n */\r\nasync function readShapefileSet(files) {\r\n    const entries = await Promise.all(files.map(readFile));\r\n    const names = new Set(entries.map(function (entry) {\r\n        return entry.name.toLowerCase();\r\n    }));\r\n    if (names.size !== 1)\r\n        throw new Error('.shp, .prj, .dbf 파일 이름이 서로 같아야 합니다.');\r\n\r\n    const result = {name: entries[0].name};\r\n    entries.forEach(function (entry) {\r\n        if (result[entry.ext])\r\n            throw new Error('.' + entry.ext + ' 파일이 중복되었습니다.');\r\n        result[entry.ext] = entry;\r\n    });\r\n    if (!result.shp)\r\n        throw new Error('.shp 파일을 반드시 선택해야 합니다.');\r\n    return result;\r\n}\r\n\r\n/**\r\n * 파일 하나를 읽습니다. .prj는 텍스트, .shp/.dbf는 ArrayBuffer로 읽습니다.\r\n *\r\n * @param {File} file 읽을 파일\r\n * @returns {Promise\u003c{result: string | ArrayBuffer, ext: string, name: string}\u003e} 읽은 내용\r\n */\r\nfunction readFile(file) {\r\n    return new Promise(function (resolve, reject) {\r\n        const fileInfo = getFileInfo(file.name);\r\n        if (!['shp', 'prj', 'dbf'].includes(fileInfo.ext)) {\r\n            reject(new Error('지원하지 않는 파일 형식입니다: ' + file.name));\r\n            return;\r\n        }\r\n\r\n        const reader = new FileReader();\r\n        reader.onload = function () {\r\n            resolve({result: reader.result, ext: fileInfo.ext, name: fileInfo.name});\r\n        };\r\n        reader.onerror = function () {\r\n            reject(new Error('파일을 읽지 못했습니다: ' + file.name));\r\n        };\r\n\r\n        if (fileInfo.ext === 'prj')\r\n            reader.readAsText(file);\r\n        else\r\n            reader.readAsArrayBuffer(file);\r\n    });\r\n}\r\n\r\n/**\r\n * 파일 이름을 확장자와 이름으로 나눕니다.\r\n *\r\n * @param {string} fileName 파일 이름\r\n * @returns {{name: string, ext: string}} 이름과 소문자 확장자\r\n */\r\nfunction getFileInfo(fileName) {\r\n    const dotIndex = fileName.lastIndexOf('.');\r\n    if (dotIndex \u003c= 0 || dotIndex === fileName.length - 1)\r\n        return {name: fileName, ext: ''};\r\n    return {\r\n        name: fileName.slice(0, dotIndex),\r\n        ext: fileName.slice(dotIndex + 1).toLowerCase()\r\n    };\r\n}\r\n\r\n/**\r\n * 첫 도형의 bbox 중심(없으면 첫 좌표)으로 홈 위치를 옮깁니다.\r\n *\r\n * @param {object} app GeOnDT 앱\r\n * @param {Array\u003cobject\u003e} geometries 파싱한 GeoJSON 도형\r\n */\r\nfunction moveToShapefile(app, geometries) {\r\n    const first = geometries[0];\r\n    let longitude;\r\n    let latitude;\r\n    if (first \u0026\u0026 Array.isArray(first.bbox) \u0026\u0026 first.bbox.length \u003e= 4) {\r\n        longitude = (first.bbox[0] + first.bbox[2]) / 2;\r\n        latitude = (first.bbox[1] + first.bbox[3]) / 2;\r\n    } else {\r\n        const coordinate = findCoordinate(first \u0026\u0026 first.coordinates);\r\n        if (coordinate) {\r\n            longitude = coordinate[0];\r\n            latitude = coordinate[1];\r\n        }\r\n    }\r\n\r\n    if (Number.isFinite(longitude) \u0026\u0026 Number.isFinite(latitude)) {\r\n        app.setHomePosition(longitude, latitude, 800, 0, 45);\r\n        app.updateHomePosition();\r\n    }\r\n}\r\n\r\n/**\r\n * 중첩 좌표 배열에서 첫 [경도, 위도] 좌표를 찾습니다.\r\n *\r\n * @param {unknown} value 좌표 또는 중첩 배열\r\n * @returns {Array\u003cnumber\u003e | undefined} 첫 좌표\r\n */\r\nfunction findCoordinate(value) {\r\n    if (!Array.isArray(value) || value.length === 0) return undefined;\r\n    if (Number.isFinite(value[0]) \u0026\u0026 Number.isFinite(value[1]))\r\n        return value;\r\n    for (let index = 0; index \u003c value.length; index++) {\r\n        const coordinate = findCoordinate(value[index]);\r\n        if (coordinate) return coordinate;\r\n    }\r\n    return undefined;\r\n}\r\n"},{"id":"ui","label":"ui.js","path":"./draw2DShp.ui.js","language":"javascript","editable":true,"url":"edition/examples/draw2DShp/draw2DShp.ui.js","content":"/**\r\n * 파일 선택·스타일 컨트롤을 예제 동작에 연결합니다.\r\n *\r\n * @param {GeOnDTExampleContext} context Common Runtime 컨텍스트\r\n * @param {Record\u003cstring, unknown\u003e} example initialize()가 반환한 예제 상태\r\n * @returns {function(): void} 등록한 UI 이벤트 정리 함수\r\n */\r\nexport function initializeUI(context, example) {\r\n    const panel = context.elements.root.querySelector('#draw2DShp-option-panel');\r\n    if (!panel) throw new Error('2D SHP 패널을 찾을 수 없습니다.');\r\n\r\n    const fileInput = panel.querySelector('#shp-files');\r\n    const sampleButton = panel.querySelector('#load-sample');\r\n    const status = panel.querySelector('#shp-status');\r\n    const resetButton = panel.querySelector('#reset-style');\r\n    const outputs = {\r\n        fillOpacity: panel.querySelector('#fill-opacity-value'),\r\n        width: panel.querySelector('#stroke-width-value')\r\n    };\r\n    const controls = {\r\n        useFill: panel.querySelector('#use-fill'),\r\n        fill: panel.querySelector('#fill-color'),\r\n        fillOpacity: panel.querySelector('#fill-opacity'),\r\n        useStroke: panel.querySelector('#use-stroke'),\r\n        stroke: panel.querySelector('#stroke-color'),\r\n        width: panel.querySelector('#stroke-width'),\r\n        label: panel.querySelector('#feature-label')\r\n    };\r\n    const DEFAULT_STYLE = example.defaultStyle;\r\n    const listeners = [];\r\n    let labelUpdateTimer;\r\n\r\n    /** 리스너를 등록하고 정리 목록에 넣습니다. */\r\n    function on(target, type, handler) {\r\n        target.addEventListener(type, handler);\r\n        listeners.push(() =\u003e target.removeEventListener(type, handler));\r\n    }\r\n\r\n    /** 컨트롤 값을 U2dShpLayer 스타일 객체로 만듭니다. */\r\n    function getStyleFromControls() {\r\n        return {\r\n            useFill: controls.useFill.checked,\r\n            fill: controls.fill.value,\r\n            fillOpacity: Number(controls.fillOpacity.value),\r\n            useStroke: controls.useStroke.checked,\r\n            stroke: controls.stroke.value,\r\n            width: Number(controls.width.value),\r\n            label: controls.label.value\r\n        };\r\n    }\r\n\r\n    function setStatus(message, isError) {\r\n        status.textContent = message;\r\n        status.classList.toggle('error', isError === true);\r\n    }\r\n\r\n    function updateStyleOutputs() {\r\n        outputs.fillOpacity.value = controls.fillOpacity.value;\r\n        outputs.width.value = controls.width.value;\r\n    }\r\n\r\n    function applyStyleToLayers() {\r\n        const count = example.applyStyle(getStyleFromControls());\r\n        updateStyleOutputs();\r\n        if (count \u003e 0) setStatus(count + '개 2D SHP 레이어에 스타일을 적용했습니다.');\r\n    }\r\n\r\n    function resetStyle() {\r\n        controls.useFill.checked = DEFAULT_STYLE.useFill;\r\n        controls.fill.value = DEFAULT_STYLE.fill;\r\n        controls.fillOpacity.value = String(DEFAULT_STYLE.fillOpacity);\r\n        controls.useStroke.checked = DEFAULT_STYLE.useStroke;\r\n        controls.stroke.value = DEFAULT_STYLE.stroke;\r\n        controls.width.value = String(DEFAULT_STYLE.width);\r\n        controls.label.value = DEFAULT_STYLE.label;\r\n        applyStyleToLayers();\r\n    }\r\n\r\n    async function handleFilesSelected(event) {\r\n        const files = Array.from(event.target.files || []);\r\n        if (files.length === 0) return;\r\n\r\n        await loadFiles(files, 'SHP 파일을 읽는 중입니다...');\r\n        fileInput.value = '';\r\n    }\r\n\r\n    async function handleSampleRequested() {\r\n        setBusy(true);\r\n        setStatus('샘플 SHP 파일을 불러오는 중입니다...');\r\n        try {\r\n            const response = await fetch('/tutorial-official/sample/건물.shp');\r\n            if (!response.ok)\r\n                throw new Error('샘플 SHP 파일을 불러오지 못했습니다. (' + response.status + ')');\r\n\r\n            const file = new File([await response.arrayBuffer()], '건물.shp');\r\n            await loadFiles([file]);\r\n        } catch (error) {\r\n            setStatus(error instanceof Error ? error.message : String(error), true);\r\n        } finally {\r\n            setBusy(false);\r\n        }\r\n    }\r\n\r\n    async function loadFiles(files, busyMessage) {\r\n        setBusy(true);\r\n        if (busyMessage) setStatus(busyMessage);\r\n        try {\r\n            const result = await example.loadShapefiles(files, getStyleFromControls());\r\n            setStatus(result.name + '.shp를 2D 레이어로 표시했습니다. (' + result.featureCount + '개 피처)');\r\n        } catch (error) {\r\n            setStatus(error instanceof Error ? error.message : String(error), true);\r\n        } finally {\r\n            setBusy(false);\r\n        }\r\n    }\r\n\r\n    function setBusy(isBusy) {\r\n        sampleButton.disabled = isBusy;\r\n        fileInput.disabled = isBusy;\r\n    }\r\n\r\n    // 색상은 드래그 중에도 즉시 반영하고, 체크박스·슬라이더는 확정값(change)에 반영합니다.\r\n    for (const [key, control] of Object.entries(controls)) {\r\n        if (key === 'label') continue;\r\n        const eventName = key === 'fill' || key === 'stroke' ? 'input' : 'change';\r\n        on(control, eventName, applyStyleToLayers);\r\n    }\r\n    on(controls.fillOpacity, 'input', updateStyleOutputs);\r\n    on(controls.width, 'input', updateStyleOutputs);\r\n    on(controls.label, 'input', function () {\r\n        window.clearTimeout(labelUpdateTimer);\r\n        labelUpdateTimer = window.setTimeout(applyStyleToLayers, 200);\r\n    });\r\n    on(resetButton, 'click', resetStyle);\r\n    on(sampleButton, 'click', handleSampleRequested);\r\n    on(fileInput, 'change', handleFilesSelected);\r\n    updateStyleOutputs();\r\n\r\n    return function cleanupExampleUI() {\r\n        window.clearTimeout(labelUpdateTimer);\r\n        for (const removeListener of listeners.reverse()) removeListener();\r\n    };\r\n}\r\n"},{"id":"html","label":"HTML","path":"./draw2DShp.html","language":"html","editable":true,"url":"edition/examples/draw2DShp/draw2DShp.html","content":"\u003ctemplate data-example-rail\u003e\r\n    \u003cbutton class=\"rail-button\" type=\"button\" data-panel-target=\"draw2DShp-option-panel\" aria-expanded=\"false\"\u003e\r\n        \u003cspan class=\"rail-icon\" aria-hidden=\"true\"\u003e▦\u003c/span\u003e\u003cspan\u003eSHP\u003c/span\u003e\r\n    \u003c/button\u003e\r\n\u003c/template\u003e\r\n\r\n\u003caside class=\"glass-panel example-panel draw2DShp-option-panel\" id=\"draw2DShp-option-panel\" aria-hidden=\"true\"\u003e\r\n    \u003cheader class=\"panel-header\"\u003e\r\n        \u003cdiv\u003e\r\n            \u003cspan class=\"eyebrow\"\u003e2D SHAPEFILE LAYER\u003c/span\u003e\r\n            \u003ch2\u003e2D SHP 레이어\u003c/h2\u003e\r\n        \u003c/div\u003e\r\n        \u003cbutton class=\"panel-close\" type=\"button\" data-panel-close=\"draw2DShp-option-panel\" aria-label=\"2D SHP 패널 닫기\"\u003e×\u003c/button\u003e\r\n    \u003c/header\u003e\r\n\r\n    \u003cdiv class=\"panel-content\"\u003e\r\n        \u003cp class=\"panel-description\"\u003e로컬 SHP 파일 세트를 읽어 2D 이미지 레이어(\u003ccode\u003eU2dShpLayer\u003c/code\u003e)로 그리고, 채우기·외곽선·라벨 스타일을 실시간으로 바꿉니다.\u003c/p\u003e\r\n        \u003csection class=\"draw2DShp-section\" aria-labelledby=\"draw2DShp-file-heading\"\u003e\r\n            \u003ch3 id=\"load-sample-heading\"\u003e불러오기\u003c/h3\u003e\r\n            \u003cbutton type=\"button\" class=\"draw2DShp-reset\" id=\"load-sample\"\u003e 샘플 데이터 출력 \u003c/button\u003e\r\n            \u003cp class=\"draw2DShp-help\"\u003e\r\n                기본적으로 제공되는 샘플 .shp 데이터를 출력합니다.\r\n            \u003c/p\u003e\r\n        \u003c/section\u003e\r\n        \u003csection class=\"draw2DShp-section\" aria-labelledby=\"draw2DShp-file-heading\"\u003e\r\n            \u003ch3 id=\"draw2DShp-file-heading\"\u003eSHP 파일\u003c/h3\u003e\r\n            \u003cinput type=\"file\" id=\"shp-files\" accept=\".shp,.prj,.dbf\" multiple\u003e\r\n            \u003cp class=\"draw2DShp-help\"\u003e\r\n                같은 이름의 SHP 파일 세트를 선택하세요.\u003cbr\u003e\r\n                .shp는 필수이며 .prj와 .dbf는 선택 사항입니다. .prj가 없으면 EPSG:5179로 해석합니다.\r\n            \u003c/p\u003e\r\n        \u003c/section\u003e\r\n\r\n        \u003csection class=\"draw2DShp-section\" aria-labelledby=\"draw2DShp-style-heading\"\u003e\r\n            \u003ch3 id=\"draw2DShp-style-heading\"\u003e2D SHP 스타일\u003c/h3\u003e\r\n            \u003cdiv class=\"draw2DShp-style-list\"\u003e\r\n                \u003clabel class=\"draw2DShp-style-row draw2DShp-style-toggle\"\u003e\r\n                    \u003cinput type=\"checkbox\" id=\"use-fill\" checked\u003e\r\n                    \u003cspan\u003e채우기 사용\u003c/span\u003e\r\n                \u003c/label\u003e\r\n                \u003cdiv class=\"draw2DShp-style-row\"\u003e\r\n                    \u003clabel for=\"fill-color\"\u003e채우기 색\u003c/label\u003e\r\n                    \u003cinput type=\"color\" id=\"fill-color\" value=\"#3399cc\"\u003e\r\n                \u003c/div\u003e\r\n                \u003cdiv class=\"draw2DShp-style-row\"\u003e\r\n                    \u003clabel for=\"fill-opacity\"\u003e채우기 투명도\u003c/label\u003e\r\n                    \u003cinput type=\"range\" id=\"fill-opacity\" min=\"0\" max=\"1\" step=\"0.05\" value=\"0.35\"\u003e\r\n                    \u003coutput id=\"fill-opacity-value\" for=\"fill-opacity\"\u003e0.35\u003c/output\u003e\r\n                \u003c/div\u003e\r\n                \u003clabel class=\"draw2DShp-style-row draw2DShp-style-toggle\"\u003e\r\n                    \u003cinput type=\"checkbox\" id=\"use-stroke\" checked\u003e\r\n                    \u003cspan\u003e외곽선 사용\u003c/span\u003e\r\n                \u003c/label\u003e\r\n                \u003cdiv class=\"draw2DShp-style-row\"\u003e\r\n                    \u003clabel for=\"stroke-color\"\u003e외곽선 색\u003c/label\u003e\r\n                    \u003cinput type=\"color\" id=\"stroke-color\" value=\"#0f4c75\"\u003e\r\n                \u003c/div\u003e\r\n                \u003cdiv class=\"draw2DShp-style-row\"\u003e\r\n                    \u003clabel for=\"stroke-width\"\u003e외곽선 두께\u003c/label\u003e\r\n                    \u003cinput type=\"range\" id=\"stroke-width\" min=\"0\" max=\"10\" step=\"0.5\" value=\"2\"\u003e\r\n                    \u003coutput id=\"stroke-width-value\" for=\"stroke-width\"\u003e2\u003c/output\u003e\r\n                \u003c/div\u003e\r\n                \u003cdiv class=\"draw2DShp-style-row\"\u003e\r\n                    \u003clabel for=\"feature-label\"\u003e공통 라벨\u003c/label\u003e\r\n                    \u003cinput type=\"text\" class=\"draw2DShp-text\" id=\"feature-label\" placeholder=\"표시하지 않음\"\u003e\r\n                \u003c/div\u003e\r\n            \u003c/div\u003e\r\n            \u003cbutton type=\"button\" class=\"draw2DShp-reset\" id=\"reset-style\"\u003e기본 스타일\u003c/button\u003e\r\n        \u003c/section\u003e\r\n\r\n        \u003csection class=\"draw2DShp-section\" aria-labelledby=\"draw2DShp-status-heading\"\u003e\r\n            \u003ch3 id=\"draw2DShp-status-heading\"\u003e상태\u003c/h3\u003e\r\n            \u003cp id=\"shp-status\" class=\"draw2DShp-status\" role=\"status\" aria-live=\"polite\"\u003eSHP 파일을 선택해 주세요.\u003c/p\u003e\r\n        \u003c/section\u003e\r\n    \u003c/div\u003e\r\n\u003c/aside\u003e\r\n"},{"id":"css","label":"CSS","path":"./draw2DShp.css","language":"css","editable":true,"url":"edition/examples/draw2DShp/draw2DShp.css","content":"/* 공통 테마로 표현할 수 없는 예제 전용 스타일만 작성합니다. */\r\n\r\n.draw2DShp-option-panel .panel-description {\r\n    margin: 0;\r\n    color: var(--theme-muted);\r\n    font-size: 13px;\r\n    line-height: 1.6;\r\n}\r\n\r\n.draw2DShp-section {\r\n    margin-top: 16px;\r\n    padding-top: 16px;\r\n    border-top: 1px solid var(--theme-line);\r\n}\r\n\r\n.draw2DShp-section h3 {\r\n    margin: 0 0 10px;\r\n    color: #eff9fd;\r\n    font-size: 13px;\r\n    font-weight: 700;\r\n    line-height: 1.3;\r\n}\r\n\r\n.draw2DShp-help {\r\n    margin: 9px 0 0;\r\n    color: var(--theme-muted);\r\n    font-size: 12px;\r\n    line-height: 1.6;\r\n}\r\n\r\n#shp-files {\r\n    width: 100%;\r\n    color: var(--theme-text);\r\n    font-size: 12px;\r\n}\r\n\r\n#shp-files::file-selector-button {\r\n    margin-right: 8px;\r\n    padding: 6px 12px;\r\n    border: 1px solid var(--theme-line);\r\n    border-radius: 8px;\r\n    background: var(--theme-surface);\r\n    color: var(--theme-text);\r\n    cursor: pointer;\r\n}\r\n\r\n#shp-files::file-selector-button:hover {\r\n    border-color: var(--theme-accent);\r\n}\r\n\r\n.draw2DShp-style-list {\r\n    display: grid;\r\n    gap: 6px;\r\n}\r\n\r\n.draw2DShp-style-row {\r\n    display: grid;\r\n    grid-template-columns: 104px minmax(0, 1fr) 38px;\r\n    align-items: center;\r\n    gap: 8px;\r\n    min-height: 32px;\r\n    margin: 0;\r\n    font-size: 12px;\r\n}\r\n\r\n.draw2DShp-style-row label {\r\n    margin: 0;\r\n    color: var(--theme-text);\r\n    font-weight: 400;\r\n}\r\n\r\n.draw2DShp-style-toggle {\r\n    grid-template-columns: 20px minmax(0, 1fr);\r\n    padding: 8px 12px;\r\n    border: 1px solid var(--theme-line);\r\n    border-radius: 10px;\r\n    background: var(--theme-surface);\r\n    cursor: pointer;\r\n}\r\n\r\n.draw2DShp-style-toggle:hover {\r\n    border-color: var(--theme-accent);\r\n}\r\n\r\n.draw2DShp-style-row input[type=\"color\"] {\r\n    grid-column: 2 / 4;\r\n    width: 100%;\r\n    height: 28px;\r\n    padding: 1px 2px;\r\n    border: 1px solid var(--theme-line);\r\n    border-radius: 6px;\r\n    background: transparent;\r\n}\r\n\r\n.draw2DShp-style-row input[type=\"range\"] {\r\n    width: 100%;\r\n}\r\n\r\n.draw2DShp-style-row output {\r\n    color: var(--theme-muted);\r\n    text-align: right;\r\n    font-variant-numeric: tabular-nums;\r\n}\r\n\r\n.draw2DShp-text {\r\n    grid-column: 2 / 4;\r\n    height: 28px;\r\n    padding: 3px 8px;\r\n    border: 1px solid var(--theme-line);\r\n    border-radius: 6px;\r\n    background: var(--theme-surface);\r\n    color: var(--theme-text);\r\n    font-size: 12px;\r\n}\r\n\r\n.draw2DShp-reset {\r\n    margin-top: 10px;\r\n    padding: 6px 12px;\r\n    border: 1px solid var(--theme-line);\r\n    border-radius: 8px;\r\n    background: var(--theme-surface);\r\n    color: var(--theme-text);\r\n    font-size: 12px;\r\n    cursor: pointer;\r\n}\r\n\r\n.draw2DShp-reset:hover {\r\n    border-color: var(--theme-accent);\r\n}\r\n\r\n.draw2DShp-status {\r\n    margin: 0;\r\n    color: var(--theme-text);\r\n    font-size: 13px;\r\n    line-height: 1.6;\r\n    overflow-wrap: anywhere;\r\n}\r\n\r\n.draw2DShp-status.error {\r\n    color: #ff9b9b;\r\n}\r\n"}]}</script>
+<script id="example-metadata" type="application/json">{"title":"2D SHP 레이어","url":"draw2DShp.html","category":"image","categoryLabel":"이미지 레이어","summary":"로컬 SHP 파일 세트를 U2dShpLayer로 그리고 채우기·외곽선·라벨 스타일을 실시간으로 바꿉니다.","tags":["SHP","2D 레이어","파일 업로드"],"apis":["U2dShpLayer","UShpParser","addLayer","removeLayer","showLayer","setHomePosition","updateHomePosition"],"editor":true,"apiHelp":false,"imageLayerPanel":true,"terrainLayerPanel":true,"featured":false,"thumbnail":"https://dt-data.mappick.co.kr/ServiceData/thumbnails/edition/draw2DShp.png","thumbnailMotion":"https://dt-data.mappick.co.kr/ServiceData/thumbnails/edition/draw2DShp.webm","legacy":false,"manifest":true,"sourceFile":"examples\\draw2DShp\\draw2DShp.md"}</script>
+<script>
+window.__EXAMPLE_BUILD_CONFIG__ = {
+    targetPrefix: 'edition/',
+    runnerUrl: 'edition/runner.html',
+    monacoModuleUrl: 'edition/assets/monaco/monaco-editor.js?v=ebbbdcf5172a',
+    // GeOnDT 타입 선언 번들입니다. 값이 없으면 코드 편집기는 자동완성 없이 동작합니다.
+    monacoTypesUrl: 'edition/assets/monaco/geondt-types.json?v=dbfb352606d5'
+};
+// 예제는 코드 편집 패널을 연 상태로 시작하며, 닫으면 editor=0이 남아 선택이 유지됩니다.
+// 패널 너비는 지도 Engine 생성 전에 확정되므로 초기 화면이 다시 배치되지 않습니다.
+// 좁은 화면에서는 편집기가 화면 전체를 덮으므로 기본 열기를 적용하지 않습니다.
+(function () {
+    var editorParameter = new URLSearchParams(window.location.search).get('editor');
+    window.__EXAMPLE_EDITOR_MODE__ = editorParameter === '1'
+        || (editorParameter !== '0' && window.innerWidth > 760);
+})();
+</script>
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/filesaver/FileSaver.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script src="js/example-theme.js"></script>
+<script type="module">
+import(/* @vite-ignore */ new URL('js/example-page.js', document.baseURI).href);
+</script>
+</body>
+</html>
+

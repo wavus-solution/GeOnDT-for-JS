@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="../">
+    <title>KML 레이어</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <link rel="stylesheet" href="css/pastel-glass-map-theme.css" type="text/css">
+    <link rel="stylesheet" href="css/example-editor.css" type="text/css">
+    <link rel="stylesheet" href="edition/assets/monaco/monaco-editor.css?v=ebbbdcf5172a" type="text/css">
+    <style id="example-viewer-style">
+
+    </style>
+</head>
+<body>
+<!-- 자동 생성 파일입니다. 원본 tutorial-official/examples\kmlModelLayer\kmlModelLayer.md을(를) 수정하세요. -->
+<main id="example-viewer" class="example-app">
+    <div id="map-wrapper"><div id="map"></div></div>
+
+    <!-- 지도 화면에서 예제 목록으로 돌아가는 유일한 통로입니다.
+         브라우저 뒤로가기만 두면 새 탭이나 공유받은 주소로 들어온 사람은 목록을 찾을 수 없습니다. -->
+    <a class="example-brand" href="edition/index.html" title="예제 목록" aria-label="예제 목록으로 이동"><img src="image/geondt-loading-color-logo.png" alt=""></a>
+    <h1 class="example-title">KML 레이어</h1>
+
+    <nav class="example-rail" aria-label="예제 도구">
+        <button class="rail-button" type="button" data-panel-target="example-explanation" aria-expanded="false">
+            <span class="rail-icon">?</span><span>도움말</span>
+        </button>
+        <div data-common-ui-rail></div>
+        <div id="viewer-example-rail" class="viewer-example-rail">
+
+        </div>
+    </nav>
+
+    <button class="editor-mode-toggle" type="button" data-open-editor aria-pressed="false">
+        <span class="code-toggle-icon">&lt;/&gt;</span><span data-editor-toggle-label>코드 편집</span>
+    </button>
+
+    <aside class="glass-panel explanation-panel" id="example-explanation" aria-hidden="true">
+        <header class="panel-header">
+            <div><span class="eyebrow">EXAMPLE GUIDE</span><h2>KML 레이어</h2></div>
+            <button class="panel-close" type="button" data-panel-close="example-explanation" aria-label="도움말 닫기">×</button>
+        </header>
+        <div class="panel-content markdown-document">
+<h1>KML 레이어</h1>
+<p>기존 예제의 목적과 사용 방법을 작성합니다.</p>
+        </div>
+    </aside>
+
+
+
+    <div data-common-ui-panels></div>
+    <div data-common-ui-tools></div>
+    <div data-common-ui-status></div>
+
+    <div id="load" class="loading-indicator" hidden><img src="image/loading.svg" alt="불러오는 중"></div>
+
+    <aside id="example-api-help" class="example-api-help" role="tooltip" hidden>
+        <header class="example-api-help-header">
+            <strong data-api-help-title></strong>
+            <button type="button" data-api-help-close aria-label="API 도움말 닫기">×</button>
+        </header>
+        <p data-api-help-description></p>
+        <section data-api-help-dynamic-section>
+            <b>현재 설정</b>
+            <pre><code data-api-help-code></code></pre>
+        </section>
+        <section data-api-help-source-section hidden>
+            <b>실제 구현</b>
+            <small data-api-help-source-location></small>
+            <pre><code data-api-help-source-code></code></pre>
+            <button type="button" data-api-help-open-source>코드에서 보기</button>
+        </section>
+        <p data-api-help-source-error hidden></p>
+    </aside>
+</main>
+
+<section id="example-editor" class="editor-workspace" hidden aria-label="예제 코드 편집기">
+    <header class="editor-toolbar">
+        <strong class="editor-title">KML 레이어</strong>
+        <div class="editor-toolbar-actions">
+            <button class="editor-search-toggle" type="button" data-editor-action="search" aria-expanded="false" aria-controls="editor-search" title="모든 탭에서 검색 (Ctrl+Shift+F)" aria-label="모든 탭에서 검색">
+                <img src="image/search_white_24dp.svg" alt=""><span>검색</span>
+            </button>
+            <button type="button" data-editor-action="reset">초기화</button>
+            <button type="button" data-editor-action="console" aria-expanded="false">Console</button>
+            <button class="editor-close-button" type="button" data-editor-action="viewer" title="코드 편집 닫기" aria-label="코드 편집 닫기">
+                <span class="editor-close-icon" aria-hidden="true">×</span><span>닫기</span>
+            </button>
+        </div>
+    </header>
+    <div class="editor-layout" id="editor-layout">
+        <section class="editor-pane" id="editor-pane" aria-label="코드 편집">
+            <div class="editor-tabs" role="tablist" aria-label="코드 종류">
+                <button type="button" role="tab" data-code-tab="javascript" aria-selected="true">JavaScript</button>
+                <button type="button" role="tab" data-code-tab="html" aria-selected="false">HTML</button>
+                <button type="button" role="tab" data-code-tab="css" aria-selected="false">CSS</button>
+                <button class="editor-run-button" type="button" data-editor-action="run"><span>▶</span> 실행</button>
+            </div>
+            <div id="monaco-editor" class="monaco-host"></div>
+            <div class="editor-search" id="editor-search" hidden>
+                <div class="editor-search-bar">
+                    <img class="editor-search-bar-icon" src="image/search_white_24dp.svg" alt="">
+                    <input class="editor-search-input" id="editor-search-input" type="search" placeholder="모든 탭에서 검색" autocomplete="off" spellcheck="false" aria-label="모든 탭에서 검색">
+                    <button class="editor-search-option" type="button" data-search-option="matchCase" aria-pressed="false" title="대소문자 구분">Aa</button>
+                    <button class="editor-search-option" type="button" data-search-option="regex" aria-pressed="false" title="정규식 사용">.*</button>
+                    <button class="editor-search-close" type="button" data-search-close aria-label="검색 닫기">×</button>
+                </div>
+                <p class="editor-search-summary" id="editor-search-summary" aria-live="polite">검색어를 입력하세요.</p>
+                <div class="editor-search-results" id="editor-search-results" role="listbox" aria-label="검색 결과"></div>
+            </div>
+            <!--+ 실행 콘솔은 편집 패널 안에 둔다. 미리보기 안에 두면 실행 뒤 `position: fixed`인 미리보기가
+                 쌓임 맥락을 만들어 편집 패널에 가려지고, 실행 전과 위치도 달라진다. -->
+            <section id="preview-console" class="preview-console" aria-label="실행 콘솔" aria-hidden="true">
+                <header><strong>Console</strong><span class="console-count" id="preview-console-count">0</span><button class="console-clear" type="button" data-console-clear>Clear</button><button type="button" data-console-close aria-label="콘솔 닫기">×</button></header>
+                <div id="preview-console-output" class="preview-console-output" aria-live="polite"><p class="console-empty">실행 로그가 여기에 표시됩니다.</p></div>
+            </section>
+        </section>
+        <div class="editor-splitter" id="editor-splitter" role="separator" aria-label="편집기와 미리보기 너비 조절" aria-orientation="vertical" tabindex="0"></div>
+        <section class="preview-pane" aria-label="실행 미리보기">
+            <div id="preview-frame-container" class="preview-frame-container"></div>
+        </section>
+    </div>
+    <div class="editor-mobile-notice" id="editor-mobile-notice" hidden>
+        <strong>코드 편집은 데스크톱 환경에서 지원합니다.</strong>
+        <p>더 넓은 화면에서 Editor를 열거나 지도 Viewer로 돌아가세요.</p>
+        <button type="button" data-editor-action="viewer">지도로 보기</button>
+    </div>
+    <div class="editor-hint-stack">
+        <div class="editor-hint" id="editor-hint" role="status" hidden>
+            <p>실행 전에는 <b>× 닫기</b>와 가장자리 <b>◀</b> 버튼으로 지도로 돌아갑니다.<br>실행한 뒤에는 같은 버튼이 편집 패널만 접고, 실행한 화면은 그대로 남습니다. 접으면 왼쪽 가장자리 <b>▶</b>로 다시 펼칩니다.</p>
+        </div>
+        <div class="editor-hint editor-shortcut-hint" id="editor-shortcut-hint" role="status" hidden>
+            <dl>
+                <dt><kbd>Ctrl</kbd><kbd>F</kbd></dt>
+                <dd>현재 파일에서 찾기</dd>
+                <dt><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>F</kbd></dt>
+                <dd>열린 파일 전체에서 찾기</dd>
+                <dt><kbd>Ctrl</kbd><kbd>Space</kbd></dt>
+                <dd>자동완성 보기</dd>
+                <dt><kbd>Esc</kbd></dt>
+                <dd>찾기 닫기</dd>
+            </dl>
+            <p class="editor-shortcut-note">macOS에서는 <kbd>Ctrl</kbd> 대신 <kbd>Cmd</kbd>를 사용합니다.</p>
+        </div>
+    </div>
+    <div class="editor-panel-resizer" id="editor-panel-resizer" role="separator" aria-label="코드 편집 패널 너비 조절" aria-orientation="vertical" tabindex="0" title="드래그하거나 방향키로 너비 조절"></div>
+</section>
+
+<button class="editor-edge-toggle" type="button" data-editor-edge-toggle aria-pressed="false" title="코드 편집 열기" aria-label="코드 편집 열기">
+    <span class="editor-edge-icon" data-editor-edge-icon aria-hidden="true">▶</span>
+</button>
+
+<script id="example-source" type="application/json">{"format":"manifest","helpHtml":"\u003ch1\u003eKML 레이어\u003c/h1\u003e\n\u003cp\u003e기존 예제의 목적과 사용 방법을 작성합니다.\u003c/p\u003e","assetBaseUrl":"edition/examples/kmlModelLayer/","runtime":{"home":{"longitude":126.9395,"latitude":37.52,"height":450,"duration":2,"pitch":60},"baseLayers":[],"terrain":{"enabled":false},"mapTools":["home","north","zoom-in","zoom-out"],"cameraStatus":true,"help":true,"loading":true},"imports":[],"dependencies":[],"commonUi":{"imageLayerPanel":true,"terrainLayerPanel":true},"sourceTokens":{},"sources":[{"id":"main","label":"main.js","path":"./kmlModelLayer.main.js","language":"javascript","editable":true,"url":"edition/examples/kmlModelLayer/kmlModelLayer.main.js","content":"/**\r\n * 자동 이관된 기존 예제 기능을 Common Runtime에서 실행합니다.\r\n * @param {Readonly\u003cRecord\u003cstring, unknown\u003e\u003e} context 공통 런타임 컨텍스트\r\n * @returns {Promise\u003cRecord\u003cstring, unknown\u003e\u003e} 예제 상태\r\n */\r\nexport async function initialize(context) {\r\n    const strings = document.location.href.split('/');\r\n        $('.execute-popup').click(function () {\r\n            window.open('./runner.html?url=' + strings[strings.length - 1] + '\u0026title=' + document.title);\r\n        });\r\n        const serverDevUrl = 'https://3d-dev.geon.kr/data/';\r\n        const localUrl = './';\r\n        const kmlInfo = {\r\n            test1 : serverDevUrl + 'sample/kml/SeoulData.kml',\r\n            test2  : serverDevUrl + 'sample/kml/ConvenienceStoreData.kml',\r\n            test3 : serverDevUrl +'sample/kml/DrawTool.kml',\r\n            test4 : localUrl + 'sample/kml/geoJsonSample.kml',\r\n            test5 : localUrl + 'sample/kml/sample.kml',\r\n            test6 : localUrl + 'sample/kml/geoJsonSample.kmz',   // KMZ 지원 확인용\r\n            test7 : localUrl + 'sample/kml/SeoulData.kmz',       // SeoulData.kml을 KMZ로 압축한 파일\r\n        }\r\n    \r\n    \r\n        const __runLegacyReadyCallback = function () {\r\n            const app = context.app;\r\n            window.app = app;\r\n            app.createloadingBar('load');\r\n            app.loadingBar();\r\n    \r\n            app.setHomePosition(126.9782, 37.5666, 700, 0, 70);\r\n            app.updateHomePosition();\r\n    \r\n            const baseLayer = new GeOnDT.image.U3dImageXYZLayer({\r\n                name: 'satellite',\r\n                baseurl: \"https://xdworld.vworld.kr/2d/Satellite/service/{z}/{x}/{-y}.jpeg\",\r\n                reverseY: true\r\n            });\r\n            app.addLayer(baseLayer);\r\n            app.setNameBaseLayer('satellite');\r\n            app.showLayer('satellite', true);\r\n    \r\n            const terrainLayer = app.createHeightXYZLayer({\r\n                name: 'korea_terrain',\r\n                baseurl: \"https://dt-data.mappick.co.kr/ServiceData/dem/DEM_4/Korean_peninsula/\",\r\n                ext: '.umf',\r\n                reverseY: true,\r\n                minlevel: 9,\r\n                maxlevel: 15,\r\n                maxprocess: 2,\r\n                interpolationheight: true\r\n            });\r\n            terrainLayer.then(function () {\r\n                app.showLayer('korea_terrain', true);\r\n                app.endloadingBar();\r\n            });\r\n    \r\n            const layerMap = new Map();\r\n            const pendingFitSet = new Set();\r\n            const $kmlList = $('#kml-list');\r\n            const defaultVisibleKeys = new Set(['test1']);\r\n            Object.entries(kmlInfo).forEach(([key, path]) =\u003e {\r\n                const label = path.split('/').pop().replace(/\\.kml$/i, '');\r\n                $kmlList.append(`\r\n                    \u003clabel class=\"kml-item\" for=\"chk-${key}\"\u003e\r\n                        \u003cinput type=\"checkbox\" id=\"chk-${key}\" data-key=\"${key}\" ${defaultVisibleKeys.has(key) ? \"checked\" : \"\"}\u003e\r\n                        \u003cspan\u003e${label}\u003c/span\u003e\r\n                    \u003c/label\u003e\r\n                `);\r\n            });\r\n    \r\n            $kmlList.on('change', 'input[type=\"checkbox\"]', async function () {\r\n                const key = this.dataset.key;\r\n                if (this.checked) {\r\n                    await showLayerByKey(key);\r\n                } else {\r\n                    hideLayerByKey(key);\r\n                }\r\n            });\r\n    \r\n            function createKmlModelLayer(key, path) {\r\n                const kmlModelLayer = new GeOnDT.vector.U3dModelKmlLayer({\r\n                    name:  `kml-${key}`,\r\n                    baseUrl: path,\r\n                    styleFunction: styleFunction\r\n                });\r\n    \r\n                kmlModelLayer.on('completed', function () {\r\n                    const checkbox = document.getElementById(`chk-${key}`);\r\n                    if (checkbox?.checked) {\r\n                        app.showLayer(kmlModelLayer.getName(), true);\r\n                        if (pendingFitSet.has(key)) {\r\n                            pendingFitSet.delete(key);\r\n                            app.fitLayerExtent(kmlModelLayer.getName());\r\n                        }\r\n                    }\r\n                });\r\n    \r\n                app.addLayer(kmlModelLayer);\r\n                layerMap.set(key, kmlModelLayer);\r\n                return kmlModelLayer;\r\n            }\r\n    \r\n            function styleFunction(properties, context) {\r\n                let style;\r\n                if (context.type === 'Polygon') {\r\n                    if(properties.SHAPE_AREA) {\r\n                        if(properties.SHAPE_AREA \u003c= 500000) {\r\n                            style = {\r\n                                color: '#418fff',\r\n                                opacity: 0.4,\r\n                                height: 100,\r\n                                useLine: false\r\n                            };\r\n                        } else if(500000 \u003c properties.SHAPE_AREA \u0026\u0026 properties.SHAPE_AREA \u003c= 1000000) {\r\n                            style =  {\r\n                                color: '#5eff00',\r\n                                opacity: 0.4,\r\n                                height: 300,\r\n                                useLine: false\r\n                            };\r\n                        } else if(1000000 \u003c properties.SHAPE_AREA \u0026\u0026 properties.SHAPE_AREA \u003c= 2000000) {\r\n                            style =  {\r\n                                color: '#ffcc00',\r\n                                opacity: 0.4,\r\n                                height: 500,\r\n                                useLine: false\r\n                            };\r\n                        } else if(2000000 \u003c properties.SHAPE_AREA \u0026\u0026 properties.SHAPE_AREA \u003c= 3000000) {\r\n                            style =  {\r\n                                color: '#ff7a18',\r\n                                opacity: 0.4,\r\n                                height: 700,\r\n                                useLine: false\r\n                            };\r\n                        } else {\r\n                            style =  {\r\n                                color: '#ff0000',\r\n                                opacity: 0.4,\r\n                                height: 900,\r\n                                useLine: false\r\n                            };\r\n                        }\r\n                    } else {\r\n                        style =  {\r\n                            color: '#ff55ea',\r\n                            opacity: 0.4,\r\n                            height: 100,\r\n                            useLine: true\r\n                        };\r\n                    }\r\n                    return  {\r\n                        ...style,\r\n                        depth: false\r\n                    }\r\n                }\r\n                if (context.type === 'LineString') {\r\n                    return {\r\n                        color: '#0055ff',\r\n                        lineWidth: 4,\r\n                        depth: false\r\n                    };\r\n                }\r\n    \r\n                if (context.type === 'Point') {\r\n                    return {\r\n                        color: '#ff0033',\r\n                        size: 32,\r\n                        depth: false\r\n                    };\r\n                }\r\n            }\r\n    \r\n            function ensureLayer(key) {\r\n                const layer = layerMap.get(key);\r\n                if (layer) {\r\n                    return layer;\r\n                }\r\n                return createKmlModelLayer(key, kmlInfo[key]);\r\n            }\r\n    \r\n            async function showLayerByKey(key) {\r\n                app.loadingBar();\r\n    \r\n                const layer = ensureLayer(key);\r\n                pendingFitSet.add(key);\r\n                await layer._loadingPromise;\r\n                app.endloadingBar();\r\n    \r\n                app.showLayer(layer.getName(), true);\r\n                await app.fitLayerExtent(layer.getName(), true);\r\n            }\r\n    \r\n            function hideLayerByKey(key) {\r\n                const layer = layerMap.get(key);\r\n                if (!layer) return;\r\n    \r\n                pendingFitSet.delete(key);\r\n                app.showLayer(layer.getName(), false);\r\n            }\r\n    \r\n            Array.from(defaultVisibleKeys).forEach((key) =\u003e {\r\n                showLayerByKey(key);\r\n            });\r\n        };\r\n\r\n    await __runLegacyReadyCallback();\r\n    return {app: context.app};\r\n}\r\n\r\n/**\r\n * 자동 이관 예제의 Lifecycle 정리 함수를 호출합니다.\r\n * @param {Readonly\u003cRecord\u003cstring, unknown\u003e\u003e} context 공통 런타임 컨텍스트\r\n * @param {Record\u003cstring, unknown\u003e} example 예제 상태\r\n */\r\nexport async function dispose(context, example) {\r\n    if (example \u0026\u0026 typeof example.dispose === 'function') example.dispose();\r\n}\r\n"},{"id":"ui","label":"ui.js","path":"./kmlModelLayer.ui.js","language":"javascript","editable":true,"url":"edition/examples/kmlModelLayer/kmlModelLayer.ui.js","content":"/**\r\n * 자동 이관된 기존 예제의 대표 패널 상태를 연결합니다.\r\n * @param {Readonly\u003cRecord\u003cstring, unknown\u003e\u003e} context 공통 런타임 컨텍스트\r\n * @param {Record\u003cstring, unknown\u003e} example 예제 상태\r\n * @returns {function(): void} UI 정리 함수\r\n */\r\nexport function initializeUI(context, example) {\r\n    const root = context.elements.root;\r\n    const rail = context.elements.rail || document;\r\n    const app = context.app;\r\n    const toggle = rail.querySelector('[data-legacy-toggle-state]');\r\n    const panel = root.querySelector('.legacy-main-feature-panel');\r\n    const legacyUiListeners = [];\r\n\r\n    // 자동 분리할 UI Script가 없으면 대표 패널 연결만 구성합니다.\r\n\r\n    if (window.jQuery) {\r\n        legacyUiListeners.push(() =\u003e window.jQuery(document).off('.geondtExampleUi'));\r\n        legacyUiListeners.push(() =\u003e window.jQuery(root).find('*').addBack().off('.geondtExampleUi'));\r\n    }\r\n\r\n    if (toggle \u0026\u0026 panel) {\r\n        setLegacyPanelOpen(toggle, panel, panel.style.display !== 'none');\r\n        for (const closeButton of panel.querySelectorAll('.popup-exit')) {\r\n            const closePanel = () =\u003e setLegacyPanelOpen(toggle, panel, false);\r\n            closeButton.addEventListener('click', closePanel);\r\n            legacyUiListeners.push(() =\u003e closeButton.removeEventListener('click', closePanel));\r\n        }\r\n        const togglePanel = () =\u003e setLegacyPanelOpen(toggle, panel, panel.style.display === 'none');\r\n        toggle.addEventListener('click', togglePanel);\r\n        legacyUiListeners.push(() =\u003e toggle.removeEventListener('click', togglePanel));\r\n    }\r\n\r\n    return function cleanupExampleUI() {\r\n        for (const removeListener of legacyUiListeners.reverse()) removeListener();\r\n    };\r\n}\r\n\r\n/**\r\n * 무거운 레거시 Main 초기화 전에 패널 이벤트를 연결합니다.\r\n * @param {Readonly\u003cRecord\u003cstring, unknown\u003e\u003e} context 공통 런타임 컨텍스트\r\n * @returns {function(): void} UI 정리 함수\r\n */\r\nexport function initializeUIBeforeMain(context) {\r\n    return initializeUI(context, {});\r\n}\r\n\r\n/**\r\n * 기존 대표 패널과 도구 버튼의 열림 상태를 맞춥니다.\r\n * @param {HTMLElement} toggle 패널 도구 버튼\r\n * @param {HTMLElement} panel 대표 기능 패널\r\n * @param {boolean} open 열림 여부\r\n */\r\nfunction setLegacyPanelOpen(toggle, panel, open) {\r\n    panel.style.display = open ? '' : 'none';\r\n    panel.setAttribute('aria-hidden', String(!open));\r\n    toggle.classList.toggle('active', open);\r\n    toggle.setAttribute('aria-pressed', String(open));\r\n}\r\n"},{"id":"html","label":"HTML","path":"./kmlModelLayer.html","language":"html","editable":true,"url":"edition/examples/kmlModelLayer/kmlModelLayer.html","content":"\u003cnav class=\"kmlModelLayer-rail\" data-example-rail aria-label=\"kmlModelLayer 도구\"\u003e\r\n    \u003cbutton id=\"analy-bnt\" class=\"rail-button\" type=\"button\" data-legacy-toggle-state aria-pressed=\"false\"\u003e\r\n        \u003cspan class=\"rail-icon\"\u003e▦\u003c/span\u003e\u003cspan\u003e분석\u003c/span\u003e\r\n    \u003c/button\u003e\r\n\u003c/nav\u003e\r\n\r\n\u003cdiv id=\"analy-popup\" oncontextmenu=\"return false\" class=\"legacy-floating-panel legacy-main-feature-panel legacy-migration-panel\" style=\"display:none;\"\u003e\r\n        \u003cdiv class=\"div-popup\"\u003e\r\n            \u003cdiv class=\"div-popup-control\"\u003e\r\n                \u003clabel class=\"label-popup-control btn btn-default btn-sm popup-exit\"\u003e닫기\u003c/label\u003e\r\n            \u003c/div\u003e\r\n            \u003cdiv class=\"div-popup-content\"\u003e\r\n                \u003cdiv id=\"kml-list\" class=\"kml-list\"\u003e\u003c/div\u003e\r\n            \u003c/div\u003e\r\n        \u003c/div\u003e\r\n    \u003c/div\u003e\r\n"},{"id":"css","label":"CSS","path":"./kmlModelLayer.css","language":"css","editable":true,"url":"edition/examples/kmlModelLayer/kmlModelLayer.css","content":"#map-wrapper {\r\n            position: relative;\r\n            width: 100%;\r\n            height: 100vh;\r\n        }\r\n\r\n        #map {\r\n            width: 100%;\r\n            height: 100%;\r\n        }\r\n\r\n        #analy-popup .div-popup {\r\n            width: 230px;\r\n            height: 230px;\r\n            top: 5px;\r\n        }\r\n\r\n        .kml-list {\r\n            margin-left: 12px;\r\n            max-height: 240px;\r\n            overflow-y: auto;\r\n        }\r\n\r\n        .kml-item {\r\n            display: flex;\r\n            align-items: center;\r\n            gap: 8px;\r\n            margin-bottom: 8px;\r\n            font-size: 13px;\r\n        }\r\n\r\n        .kml-item input {\r\n            margin: 0;\r\n        }\r\n\r\n        .panel-kml .btn + .btn {\r\n            margin-left: 6px;\r\n        }"}]}</script>
+<script id="example-metadata" type="application/json">{"title":"KML 레이어","url":"kmlModelLayer.html","category":"model","categoryLabel":"모델 레이어","summary":"기존 GeOnDT 기능과 API 동작을 확인하는 예제입니다.","tags":[],"apis":["addLayer","createHeightXYZLayer","createloadingBar","endloadingBar","fitLayerExtent","loadingBar","setHomePosition","setNameBaseLayer","showLayer","U3dAPP","U3dImageXYZLayer","U3dModelKmlLayer","updateHomePosition"],"editor":true,"apiHelp":false,"imageLayerPanel":true,"terrainLayerPanel":true,"featured":false,"thumbnail":"https://dt-data.mappick.co.kr/ServiceData/thumbnails/edition/kmlModelLayer.png","thumbnailMotion":"https://dt-data.mappick.co.kr/ServiceData/thumbnails/edition/kmlModelLayer.webm","legacy":false,"manifest":true,"sourceFile":"examples\\kmlModelLayer\\kmlModelLayer.md"}</script>
+<script>
+window.__EXAMPLE_BUILD_CONFIG__ = {
+    targetPrefix: 'edition/',
+    runnerUrl: 'edition/runner.html',
+    monacoModuleUrl: 'edition/assets/monaco/monaco-editor.js?v=ebbbdcf5172a',
+    // GeOnDT 타입 선언 번들입니다. 값이 없으면 코드 편집기는 자동완성 없이 동작합니다.
+    monacoTypesUrl: 'edition/assets/monaco/geondt-types.json?v=dbfb352606d5'
+};
+// 예제는 코드 편집 패널을 연 상태로 시작하며, 닫으면 editor=0이 남아 선택이 유지됩니다.
+// 패널 너비는 지도 Engine 생성 전에 확정되므로 초기 화면이 다시 배치되지 않습니다.
+// 좁은 화면에서는 편집기가 화면 전체를 덮으므로 기본 열기를 적용하지 않습니다.
+(function () {
+    var editorParameter = new URLSearchParams(window.location.search).get('editor');
+    window.__EXAMPLE_EDITOR_MODE__ = editorParameter === '1'
+        || (editorParameter !== '0' && window.innerWidth > 760);
+})();
+</script>
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/filesaver/FileSaver.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script src="js/example-theme.js"></script>
+<script type="module">
+import(/* @vite-ignore */ new URL('js/example-page.js', document.baseURI).href);
+</script>
+</body>
+</html>
+

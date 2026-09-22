@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>히트맵레이어</title>
+    <meta name="description" content="히트맵 예제">
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/tutorial.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        html, body {
+            height: 100%;
+        }
+
+        .examples {
+            padding: 15px 30px 15px 30px;
+        }
+
+        #map-wrapper {
+            flex-direction: row; /*=> X축방향으로 콘테이너 개설*/
+            display: -webkit-inline-flex; /* X축방향으로 콘테이너 개설*/
+            height: calc(100vh - 250px);
+            max-height: 800px;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        #legendList li {
+            margin-bottom: 5px;
+        }
+        .legend {
+            width: 100px;
+        }
+
+        .color {
+            margin-left: 5px;
+        }
+
+    </style>
+</head>
+<body>
+<div id="map-wrapper">
+    <div id="map"></div>
+</div>
+<div class="execute-popup">
+    <button>직접해보기</button>
+</div>
+<div class="examples row">
+    <div class="ex-explanation" hidden>
+        <p class="lead">
+            사용자가 업로드한 2D 히트맵 레이어를 <strong>3D 히트맵 레이어로 전환하여 출력하는</strong> 예제입니다.<br>
+        </p>
+    </div>
+    <div class="col-sm-6">
+        <div class="form-group">
+            <div class="row" style="margin-top: 10px;">
+                <label>
+                    <input type="radio" name ='layer' value='2d'> 2D 히트맵
+                </label>
+                <label>
+                    <input type="radio" name ='layer' value='3d' checked> 3D 히트맵
+                </label>
+            </div>
+            <div class="row" style="margin-top: 10px;">
+                <label style="margin-left: 30px">
+                    대상 property : <input class="legend_target" type="text" value="A1" style="width: 100px">
+                </label>
+                <button id="addLegend" class="btn btn-primary">범례추가</button>
+                <button id="removeLegend" class="btn btn-danger">범례삭제</button>
+            </div>
+            <div class="row" style="margin-top: 10px;">
+                <ol id="legendList">
+                    <li>
+                        <div class="inputLegend">
+                            <input class="legend" type="number"  value="-2" step="0.0001"> ~
+                            <input class="legend" type="number" value="-1.5"  step="0.0001">
+                            <input class="color" type="color" name="stroke" value="#0008ff" style="width:155px;">
+                        </div>
+                    </li>
+                    <li>
+                        <div class="inputLegend">
+                            <input class="legend" type="number"  value="-1.5" step="0.0001"> ~
+                            <input class="legend" type="number" value="0"  step="0.0001">
+                            <input class="color" type="color" name="stroke" value="#2d5625" style="width:155px;">
+                        </div>
+                    </li>
+                    <li>
+                        <div class="inputLegend">
+                            <input class="legend" type="number"  value="0" step="0.0001"> ~
+                            <input class="legend" type="number" value="1"  step="0.0001">
+                            <input class="color" type="color" name="stroke" value="#ffff00" style="width:155px;">
+                        </div>
+                    </li>
+                    <li>
+                        <div class="inputLegend">
+                            <input class="legend" type="number"  value="1" step="0.0001"> ~
+                            <input class="legend" type="number" value="2"  step="0.0001">
+                            <input class="color" type="color" name="stroke" value="#ff2400" style="width:155px;">
+                        </div>
+                    </li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    });
+</script>
+<script>
+    // var defaultStyles = new ol.layer.Vector().getStyleFunction();
+    // var styleFunction = function(feature) {
+    //     if (feature.get('layer') === 'Coastline') {
+    //         return(defaultStyles);
+    //     }
+    // };
+    //
+    // var raster = new ol.layer.Tile({
+    //     source: new ol.source.Stamen({
+    //         layer: 'toner'
+    //     }),
+    //     style : styleFunction
+    // });
+
+
+    require(['app/Union3D'], function (Union3D) {
+        Union3D.ready(function () {
+            const app = new Union3D.U3dAPP({ containername: 'map'});
+            window.app = app // debugg
+            // app.setHomePosition(126.9395, 37.52, 450, 2, 60);
+            app.setHomePosition(129.320381, 35.539047, 450, 0, 60);
+            app.updateHomePosition();
+
+            //이미지 레이어 생성
+            const layer = new Union3D.image.U3dImageXYZLayer({
+                name: 'base', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+                baseurl: layerInfo.image.vworldsaturl,  //+ 이미지 데이터 URL, *필수 입력
+                reverseY: true,  //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            });
+            app.addLayer(layer);
+            app.setNameBaseLayer('base');
+            app.showLayer('base', true);
+
+            // var hybrid = new Union3D.image.U3dImageXYZLayer({
+            //     name: 'hybrid', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            //     baseurl: layerInfo.image.vworldhybirdurl,  //+ 이미지 데이터 URL, *필수 입력
+            //     reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            //     transparent: true //+ layer 투명화 여부
+            // });
+            // app.addLayer(hybrid);
+            // app.showLayer('hybrid', true);
+
+
+            //고도 레이어 생성
+            const terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+                name: 'Korea Terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+                baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+                ext: '.umf', //+ 파일 확장자,  *필수 입력
+                reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false), *필수 입력
+                minlevel: 9,  //+ 가시화 최소 레벨
+                maxlevel: 15, //+ 가시화 최대 레벨
+                useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+                maxprocess: 2, //+ process 최대값
+                interpolationheight: true,  //+ 고도보간 기능 사용 여부
+                rectangle: Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수
+            });
+            app.addLayer(terrainLayer);
+            app.showLayer('Korea Terrain', true);
+
+            // $(document).on('click', 'input[type=radio]', checked);
+
+            var heatmap = new Union3D.model.U3dModelWFSLayer({
+                name: 'heatmap_wms',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+                baseurl: 'http://geon.wavus.co.kr:14066/geoserver/Wgeontest3/ows',  //+ 이미지 데이터 URL, *필수 입력
+                layername: 'L100002655', //+ layer 이름
+                fieldheight : 250, // 히트맵 높이
+                transperent: true, //+ 투명화 여부
+                minlevel: 12, //+ 가시화 최소레벨,defaultValue(opt.minlevel, 17)
+                drawline: false, //+ WFS 모델에 테투리 추가 여부
+                opacity: 0.8, //+ 투명화 여부 true 일 경우, 투명도 설정값으로 적용
+                useproxy:true,
+                styleFunction : styleFunction
+            });
+
+            app.addLayer(heatmap);
+            app.showLayer(heatmap._name, true);
+            window.layer = heatmap;
+
+            app.create3dOpenLayer({
+
+            })
+
+            function styleFunction(feature){
+                let legendList = [];
+                const list = document.getElementById('legendList');
+                const items = list.getElementsByTagName('li');
+
+                for(let i =0; i<items.length; i++) {
+                    let div = items[i].firstElementChild;
+                    let start = Number(div.children[0].value);
+                    let end = Number(div.children[1].value);
+                    let color = div.children[2].value
+                    let legend = {start : start, end : end, color : color}
+                    legendList.push(legend);
+                }
+
+                let style = {}
+                if(legendList.length > 0)  {
+                    let target = feature.properties.A1;
+                    legendList.forEach((legend) => {
+                        if(target > legend.start && target <= legend.end) {
+                            style.color = legend.color;
+                        }
+                    });
+                }
+                return style
+            }
+
+            $(document).on('click', '#addLegend', addInputLegend);
+            function addInputLegend(){
+                const list = document.getElementById('legendList');
+                const li = document.createElement("li");
+                const testDiv = document.getElementsByClassName('inputLegend')[0];
+                const newNode = testDiv.cloneNode(true);
+                li.appendChild(newNode);
+                list.appendChild(li);
+            }
+
+            $(document).on('click', '#removeLegend', removeInputLegend);
+            function removeInputLegend(){
+                const list = document.getElementById('legendList');
+                const items = list.getElementsByTagName('li');
+                if(items.length > 1)  {
+                    items[items.length -1].remove();
+                }
+            }
+
+
+            function initImageLayers() {
+                var vector = new ol.layer.Heatmap({
+                    source: new ol.source.Vector({
+                        // url: 'http://geon.wavus.co.kr:14066/geoserver/Wgeontest3/ows',
+
+                    }),
+                    blur: 10,
+                    radius: 10,
+                    weight: function (feature) {
+                        // var magnitude = parseFloat(feature.get('magnitude'));
+                        // return magnitude - 5;
+                        const name = feature.get('name');
+                        const magnitude = parseFloat(name.substr(2));
+                        return magnitude - 5;
+                    }
+                });
+                window.vector = vector;
+
+                var map = new ol.Map({
+                    layers: [raster, vector],
+                    target: 'map',
+                    view: new ol.View({
+                        center: [13331840.725387301, 3359560.2671900666],
+                        zoom: 3
+                    })
+                });
+            }
+
+        });
+    });
+
+</script>
+
+</body>
+</html>

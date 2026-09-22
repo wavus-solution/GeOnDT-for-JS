@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>컴포넌트 이동·회전·크기 제어</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="컴포넌트-이동회전크기-제어">컴포넌트 이동·회전·크기 제어</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-%EC%9C%84%EC%B9%98-%EC%A0%9C%EC%96%B4%ED%95%98%EA%B8%B0">위치 제어하기</a></li>
+<li><a href="#2-%ED%9A%8C%EC%A0%84-%EC%A0%9C%EC%96%B4%ED%95%98%EA%B8%B0">회전 제어하기</a></li>
+<li><a href="#3-%ED%81%AC%EA%B8%B0-%EC%A0%9C%EC%96%B4%ED%95%98%EA%B8%B0">크기 제어하기</a></li>
+</ol>
+<p>컴포넌트의 개념은 <a href="componentDoc.html#2-%EC%BB%B4%ED%8F%AC%EB%84%8C%ED%8A%B8">용어 설명 - 컴포넌트</a>를, 일반 컴포넌트와 인스턴스 컴포넌트의 차이는 <a href="componentDoc.html#3-%EC%9D%B8%EC%8A%A4%ED%84%B4%EC%8A%A4-%EC%BB%B4%ED%8F%AC%EB%84%8C%ED%8A%B8">용어 설명 - 인스턴스 컴포넌트</a>를 참고하세요.</p>
+<p>이 장에서는 컴포넌트의 위치를 이동시키고, 회전시키고, 크기를 변경하는 방법에 대해 다룹니다.<br>컴포넌트를 정의하는 <code>U3dComponentPosition</code>과 <code>U3dComponentInstancedPosition</code> 모두 동일한 함수를 사용합니다.<br>가독성을 위해 이 장의 API 설명과 코드 예시는 U3dComponentPosition 기준으로 서술합니다.</p>
+<h2 id="1-위치-제어하기">1. 위치 제어하기</h2>
+<p>컴포넌트는 <code>setPosition()</code> 함수로 <mark>월드 좌표(EPSG:3857)를 설정</mark>해 위치를 변경할 수 있습니다.<br>또한 <code>getPosition()</code>또는 <code>getWorldPosition()</code> 함수를 통해 컴포넌트의 현재 위치를 조회할 수 있습니다.</p>
+<h4 class="api-heading" id="api">API</h4>
+<p>U3dComponentPosition.setPosition(<code>position</code>) : 컴포넌트의 위치를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>position</code> (<code>WorldPositionVector3</code>) : 이동할 월드 좌표(EPSG:3857). <strong>필수</strong></li>
+</ul>
+</details>
+<h3 id="1-컴포넌트-위치-설정">1. 컴포넌트 위치 설정</h3>
+<pre class="language-javascript"><code class="language-javascript">component<span class="token punctuation">.</span><span class="token function">setPosition</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">14129044</span><span class="token punctuation">,</span>  
+    <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">4511042</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">z</span><span class="token operator">:</span> <span class="token number">30</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-컴포넌트-위치-조회">2. 컴포넌트 위치 조회</h3>
+<p><code>getPosition()</code> 함수와  <code>getWorldPosition()</code> 함수 모두 컴포넌트의 위치를 조회하는 역할을 합니다.<br>다른점은 <code>getPosition()</code>은 위경도 좌표(EPSG:4326)를 조회, <code>getWorldPosition()</code>은 GeOnDT 월드 좌표(EPSG:3857)를 조회합니다.<br><code>setPosition()</code> 함수의 매개변수가 월드 좌표(EPSG:3857)이다 보니 getPosition()도 월드 좌표를 반환한다고 혼동하기 쉽지만, <mark>getPosition()은 위경도 좌표를 반환</mark>한다는 점에 유의합니다.</p>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>U3dComponentPosition.getPosition() : 컴포넌트의 현재 위경도 좌표(EPSG:4326)를 조회 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>GeoPositionVector3</code>) : 컴포넌트의 현재 위경도 좌표(EPSG:4326)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-2">API</h4>
+<p>U3dComponentPosition.getWorldPosition() : 컴포넌트의 현재 월드 좌표(EPSG:3857)를 조회 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>WorldPositionVector3</code>) : 컴포넌트의 현재 월드 좌표(EPSG:3857)</li>
+</ul>
+</details>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> geographicPosition <span class="token operator">=</span> component<span class="token punctuation">.</span><span class="token function">getPosition</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// 위경도 좌표(EPSG:4326)</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>geographicPosition<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> worldPosition <span class="token operator">=</span> component<span class="token punctuation">.</span><span class="token function">getWorldPosition</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// 월드 좌표(EPSG:3857)</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>worldPosition<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h2 id="2-회전-제어하기">2. 회전 제어하기</h2>
+<p>컴포넌트는 전체 회전 값을 한 번에 설정하거나, 한 축의 각도만 변경하거나, 현재 방향을 기준으로 상대 회전할 수 있습니다.<br><code>setRotation()</code>은 **라디안(Radian)**을 사용하고, <code>setRotationX()</code>·<code>setRotationY()</code>·<code>setRotationZ()</code>와 <code>setRotationRelative()</code>는 **도(Degree)**를 사용합니다.</p>
+<h3 id="1-전체-회전값-설정">1. 전체 회전값 설정</h3>
+<h4 class="api-heading" id="api-3">API</h4>
+<p>U3dComponentPosition.setRotation(<code>rotation</code>) : 컴포넌트의 각 축 회전값을 라디안 단위로 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>rotation</code> (<code>RadianEulerLike</code>) : X·Y·Z축의 라디안 회전값. <strong>필수</strong></li>
+</ul>
+</details>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> rotation <span class="token operator">=</span> <span class="token punctuation">{</span>
+    <span class="token literal-property property">x</span><span class="token operator">:</span> Math<span class="token punctuation">.</span><span class="token constant">PI</span> <span class="token operator">/</span> <span class="token number">2</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">z</span><span class="token operator">:</span> <span class="token number">0</span>
+<span class="token punctuation">}</span><span class="token punctuation">;</span>
+
+component<span class="token punctuation">.</span><span class="token function">setRotation</span><span class="token punctuation">(</span>rotation<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>위 예제는 X축 회전값을 <code>π / 2</code> 라디안, 즉 90도로 설정합니다.</p>
+<h3 id="2-축별-회전값-설정">2. 축별 회전값 설정</h3>
+<p>축별 설정 함수는 선택한 축의 회전 값만 변경하고 나머지 축의 현재 값은 유지합니다.</p>
+<h4 class="api-heading" id="api-4">API</h4>
+<p>U3dComponentPosition.setRotationX(<code>degree</code>) : 컴포넌트의 X축 회전 값을 도 단위로 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>degree</code> (<code>number</code>) : X축 회전값(Degree). <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-5">API</h4>
+<p>U3dComponentPosition.setRotationY(<code>degree</code>) : 컴포넌트의 Y축 회전값을 도 단위로 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>degree</code> (<code>number</code>) : Y축 회전값(Degree). <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-6">API</h4>
+<p>U3dComponentPosition.setRotationZ(<code>degree</code>) : 컴포넌트의 Z축 회전값을 도 단위로 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>degree</code> (<code>number</code>) : Z축 회전값(Degree). <strong>필수</strong></li>
+</ul>
+</details>
+<pre class="language-javascript"><code class="language-javascript">component<span class="token punctuation">.</span><span class="token function">setRotationX</span><span class="token punctuation">(</span><span class="token number">90</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+component<span class="token punctuation">.</span><span class="token function">setRotationY</span><span class="token punctuation">(</span><span class="token number">45</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+component<span class="token punctuation">.</span><span class="token function">setRotationZ</span><span class="token punctuation">(</span><span class="token number">30</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="3-현재-방향을-기준으로-회전">3. 현재 방향을 기준으로 회전</h3>
+<p><code>setRotationRelative()</code>는 월드 축의 절대 회전 값을 새로 지정하지 않고, 컴포넌트의 현재 방향을 기준으로 입력한 각도만큼 회전합니다.</p>
+<h4 class="api-heading" id="api-7">API</h4>
+<p>U3dComponentPosition.setRotationRelative(<code>rotation</code>) : 현재 방향을 기준으로 각 축을 입력한 각도만큼 회전하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>rotation</code> (<code>DegreeEulerLike</code>) : X·Y·Z축에 적용할 도 단위 상대 회전값. <strong>필수</strong></li>
+</ul>
+</details>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> relativeRotation <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> <span class="token number">30</span><span class="token punctuation">}</span><span class="token punctuation">;</span>
+
+component<span class="token punctuation">.</span><span class="token function">setRotationRelative</span><span class="token punctuation">(</span>relativeRotation<span class="token punctuation">)</span><span class="token punctuation">;</span>
+component<span class="token punctuation">.</span><span class="token function">setRotationRelative</span><span class="token punctuation">(</span>relativeRotation<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>위 예제는 현재 방향을 기준으로 Z축 30도 회전을 두 번 적용합니다.  </p>
+<h3 id="4-현재-회전값-조회">4. 현재 회전값 조회</h3>
+<h4 class="api-heading" id="api-8">API</h4>
+<p>U3dComponentPosition.getRotation() : 컴포넌트의 현재 축별 회전 값을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Euler</code>) : 라디안 단위의 현재 회전 값</li>
+</ul>
+</details>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> rotation <span class="token operator">=</span> component<span class="token punctuation">.</span><span class="token function">getRotation</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>rotation<span class="token punctuation">.</span>x<span class="token punctuation">,</span> rotation<span class="token punctuation">.</span>y<span class="token punctuation">,</span> rotation<span class="token punctuation">.</span>z<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="5-회전-결과">5. 회전 결과</h3>
+<div class="document-image-grid">
+<figure class="document-image">
+<img src="image/controlComponent/회전_전.png" alt="회전 적용 전의 컴포넌트" loading="eager">
+<figcaption>회전 적용 전의 컴포넌트</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/controlComponent/회전_후.png" alt="첫 번째 회전을 적용한 컴포넌트" loading="eager">
+<figcaption>첫 번째 회전을 적용한 컴포넌트</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/controlComponent/회전_후_2.png" alt="두 번째 회전을 적용한 컴포넌트" loading="eager">
+<figcaption>두 번째 회전을 적용한 컴포넌트</figcaption>
+</figure>
+</div>
+<h2 id="3-크기-제어하기">3. 크기 제어하기</h2>
+<p>컴포넌트의 크기는 하나의 숫자로 모든 축을 같은 비율로 변경하거나, <code>{x, y, z}</code> 값을 입력해 축마다 다르게 설정할 수 있습니다.</p>
+<p><strong>인스턴스 방식에서는 각 축의 크기값을 <code>0.0001</code> 이상 <code>10000</code> 이하로 설정해야 합니다. 범위를 벗어난 값은 적용되지 않습니다.</strong></p>
+<h4 class="api-heading" id="api-9">API</h4>
+<p>U3dComponentPosition.setScale(<code>scale</code>) : 컴포넌트의 전체 크기 또는 축별 크기를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>scale</code> (<code>number | string | Vector3Like</code>) : 모든 축에 적용할 값 또는 <code>{x, y, z}</code> 형태의 축별 크기값. <strong>필수</strong></li>
+</ul>
+</details>
+<h3 id="1-모든-축을-같은-비율로-변경">1. 모든 축을 같은 비율로 변경</h3>
+<p>숫자 하나를 입력하면 X·Y·Z축에 같은 값이 적용됩니다.</p>
+<pre class="language-javascript"><code class="language-javascript">component<span class="token punctuation">.</span><span class="token function">setScale</span><span class="token punctuation">(</span><span class="token number">3</span><span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// {x: 3, y: 3, z: 3} 과 동일함 </span>
+</code></pre>
+<h3 id="2-축별-크기-설정">2. 축별 크기 설정</h3>
+<p><code>{x, y, z}</code> 값을 입력하면 각 축의 크기를 개별적으로 설정할 수 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript">component<span class="token punctuation">.</span><span class="token function">setScale</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">2</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">2</span><span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>위 예제는 X축과 Y축의 크기를 <code>2</code>, Z축의 크기를 <code>1</code>로 설정합니다.</p>
+<h3 id="3-현재-크기-조회">3. 현재 크기 조회</h3>
+<h4 class="api-heading" id="api-10">API</h4>
+<p>U3dComponentPosition.getScale() : 컴포넌트의 현재 축별 크기값을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Vector3</code>) : 현재 X·Y·Z축의 크기값</li>
+</ul>
+</details>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> scale <span class="token operator">=</span> component<span class="token punctuation">.</span><span class="token function">getScale</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>scale<span class="token punctuation">.</span>x<span class="token punctuation">,</span> scale<span class="token punctuation">.</span>y<span class="token punctuation">,</span> scale<span class="token punctuation">.</span>z<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="4-크기-변경-결과">4. 크기 변경 결과</h3>
+<div class="document-image-grid" data-columns="3">
+<figure class="document-image">
+<img src="image/controlComponent/크기_전.png" alt="크기 변경 전의 컴포넌트" loading="eager">
+<figcaption>크기 변경 전의 컴포넌트</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/controlComponent/크기_후.png" alt="모든 축의 크기를 변경한 컴포넌트" loading="eager">
+<figcaption>모든 축의 크기를 변경한 컴포넌트</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/controlComponent/크기_후_2.png" alt="축별 크기를 변경한 컴포넌트" loading="eager">
+<figcaption>축별 크기를 변경한 컴포넌트</figcaption>
+</figure>
+</div>
+</main>
+</body>
+</html>
+

@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>아시아문화전당 인도어(indoor) 모델</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        .ex-explanation {
+            width: 750px;
+        }
+        #analy-popup .div-popup {
+            width: 300px;
+            height: 200px;
+            top: 66vh;
+        }
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> 아시아문화전당 인도어(Indoor) 모델 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        입력한 좌표로 이동하여 <strong>사용자의 조작에 따라 도보이동 시뮬레이션</strong>하는 예제입니다.<br>
+        [1인칭 모드]의 버튼을 누르고 마우스 이동 및 키보드 조작으로 해당 보행 모델을 이동 할수 있습니다.
+    </p>
+    <pre>내부 인테리어가 된 인도어(indoor) 모델 예제
+        1. [1인칭 모드]의 버튼을 클릭하면 해당 위치로 이동하며, 보행모드가 활성화 됩니다.
+        2. 보행모드에서는 '방향키' 또는 'WASD' 버튼으로 이동할 수 있습니다.
+        3. 보행모드에서는 'F' 버튼으로 점프 할 수 있습니다.
+        4. 보행모드에서는 'Shift' 버튼으로 달리기/걷기 모드를 전환 할 수 있습니다.
+        5. 사용자 지정 키설정으로 조작키를 바꿀수 있습니다.
+        6. 'ESC' 버튼으로 보행모드를 해제 할수 있습니다.
+        7. [3인칭 모드] 버튼을 클릭하면, 보행모드가 해제 되며 3인칭 조작이 가능한 모드로 전환됩니다.</pre>
+
+</div>
+<div id="map-wrapper">
+    <div id="map"></div>
+    <div id="div-left-menu">
+        <div>
+            <div style="display: inline-flex; position: relative">
+                <button id="analy-bnt" class="btn btn-xs menu-btn">
+                    <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+                <div class="div-btn-info" hidden>
+                    분석 팝업 열기
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="btn-group" id='top-sbar'>
+        <div class='btn-group-vertical-block' id='right-toolbar'>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                     src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                     alt="나침반">
+            </button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                    id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                    id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                    id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+            </button>
+        </div>
+        <div class='btn-group' id='bt-bottom-bar'>
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                   value="위경도: ##.####  ###.#### ">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                   value="고도:####">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                   value="각도: ##">
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu='return false'>
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content" style="margin-left:10px;">
+                <label>[1인칭 모드]</label>
+                <div class="form-group">
+                    <button class="btn btn-default walkmode" id="exhibit1">Room1</button>
+                    <button class="btn btn-default walkmode" id="exhibit2">Room2</button>
+                    <button class="btn btn-default walkmode" id="exhibit3">Room3</button>
+                </div>
+
+                <label>[3인칭 모드]</label>
+                <div class="form-group">
+                    <button class="btn btn-default" id="third">3인칭 전환</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script>
+    //라이센스 인증
+    Union3D.ready(function () {
+        //지도 초기화
+        var indoorLayer = undefined;
+        var MIN_HEIGHT = 0;
+        var exhibitPosition = {
+            'Room1': {
+                x: 8.929527544679843,
+                y: -126.12636449225792,
+                z: 25.852703604570486,
+                rotateX: -1.030483796052712,
+                rotateY: -0.33004580839019215
+            },
+            'Room2': {
+                x: 196.78646294835798,
+                y: 243.31241172453767,
+                z: 20.66192619212297,
+                rotateX: -0.9915740397599448,
+                rotateY: 0.12437169847993751
+            },
+            'Room3': {
+                x: 202.48059877608156,
+                y: -119.58129808144336,
+                z: 12.082729385875377,
+                rotateX: 1.520594317095296,
+                rotateY: 0.0897025412070739
+            }
+        };
+        var exhibitDirection = {
+            'Room1': {x: 126.9206, y: 35.1471, z: 14},
+            'Room2': {x: 126.9206, y: 35.1471, z: 14},
+            'Room3': {x: 126.9206, y: 35.1471, z: 14}
+        };
+
+        const serverURL = 'https://3d.geon.kr/';
+        const API_KEY = 'YKAFjxVvNJEA/S1xcEjprW49M6wQSAva3PC7u3KHJxrZ3ZaTVfN40QdiqzAYrFf5';
+
+        window.app = new Union3D.U3dAPP({
+            containername: 'map',
+            undergroundGrid :false, // 지하 격자 비가시화
+            undergroundColor : 0xE2E8E5 // 지하 색상
+        });
+        app.createloadingBar('load');
+        app.setUnderGroundMode(true);
+        app.on('change', updatePosData);
+
+        function defined(value) {
+            return value !== undefined && value !== null;
+        }
+
+        function setIndoorUrl(name) {
+            var promise = $.Deferred();
+            getRegisteredIndoor(name).then((result) => {
+                const info = result.params.data;
+                //  let joinList=[info.baseUrl,info.fileName];
+                let metaPath = info.metaPath;
+                let xmlUrl = dataServerUrl + "/" + metaPath;
+                //  let roadImageURL = joinList.join('/');
+                let baseUrl = info.baseUrl;
+
+                app._mapControl.minDistance = 0;
+                var opt = {
+                    baseurl: baseUrl,
+                    name: info.name,
+                    xmlurl: xmlUrl,
+                    type: "model",
+                    ext: "3ds",
+                    drawline: false,
+                    needtexture: true,
+                    needxml: true,
+                    listmodel: [],
+                    scale: info.metaData.scale,
+                    rotation: info.metaData.rotation,
+                    location: info.metaData.location,
+                    boundingBox: info.metaData.boundingBox,
+                    side: Union3D.UDEF.DoubleSide,
+
+                    containMetaData: false, //metaData JSON 파일 포함 여부
+                    useWalkMode: true
+                };
+
+                promise.resolve(opt);
+                console.log(opt);
+            });
+            return promise;
+        }
+
+        //서버에 등록된 레이어의 정보를 가져옵니다.
+        function getRegisteredIndoor(name) {
+            return $.ajax({
+                url: serverURL + 'v1/layer/' + name,
+
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader('User-Authorization', API_KEY);
+                }
+            });
+        }
+
+        var indoorName = 'asia_mun_indoor' // 서버 등록시 작성한 name
+        var layer
+        setIndoorUrl(indoorName).then((opt) => {
+            layer = app.createTdsModelLayer(opt);
+            window.layerObject = layer;
+            layer.ready.then(function (TDSLayer) {
+                layer.setPosition(app.vector3ToGeoGraphic(opt.location));
+                app.endloadingBar(100);
+                app.fitLayerExtent(indoorName);
+                app.showLayer(indoorName, true);
+
+                const indoorLight = new GeOnDT.view.UIndoorLight({
+                    intensity : 5, // 광원 세기
+                    color : 0xffffff, // 광원 색상
+                    position : {x : 134.42681455508875, y: 53.93362446805896, z: 25}, // 위치
+                    target : {x : 134.42681455508875, y: 53.93362446805896, z: 0}, // 바라볼 방향 위치
+                    shadowSize : 128, // 크기
+                    shadownear : 0.5, // 조명 근접 거리
+                    shadowfar : 30, // 조명 최대 거리
+                    shadowbias : 0.0001, // 표면 그림자에 정규화된 깊이에서 offset 수치.
+                    normalbias : 1.5, // 객체 법선을 따라 얼마나 오프셋되는지 정의
+                    shadowRadius : 0.8, // 그림자 반경 (클수록 그림자 흐릿해짐)
+                    shadowIntensity : 1 // 그림자 강도 (클수록 어두운 색상)
+                })
+
+                layer.add(indoorLight); // Layer scene에 Object3D 객체 추가
+                //layer.remove(indoorLight); // Layer scene에 Object3D 객체 제거
+
+            });
+        });
+
+
+        $('#exhibit1').on('click', function () {
+            if (defined(controls) && controls.isTrace)
+                controls.unlock();
+            startWalkMode.call(this);
+        });
+        $('#exhibit2').on('click', function () {
+            if (defined(controls) && controls.isTrace)
+                controls.unlock();
+            startWalkMode.call(this);
+        });
+        $('#exhibit3').on('click', function () {
+            if (defined(controls) && controls.isTrace)
+                controls.unlock();
+            startWalkMode.call(this);
+        });
+        $('#third').on('click', function () {
+            if (defined(controls)) {
+                controls.unlock();
+            }
+            $('.walkmode').attr('disabled', false);
+            app.setPanMode();
+            app.fitLayerExtent(indoorName, true);
+
+            // 태양 플레어, 그림자맵 설정 - 도보모드 시작시 해제 하였을 경우 다시 설정하여 가시화
+            app.setSunFlare(true); // sun Flare 설정 - 해당 기능을 사용 할 경우 건물 재질에 속성값 변경, 태양 플레어 가시화 적용
+            app.enableShadowMap(true); // 그림자 생성 여부 설정 - 설정된 태양 광원에 위치에서 건물과 지형에 그림자에 대한 계산과 가시화가 적용
+
+        });
+
+        let controls;
+        let JUMP = 'jump';
+        let JUMP_RUNNING = 'jump_running';
+        let SPRINT = 'sprint';
+        let RUN = 'run';
+        let IDLE = 'idle';
+        let play = '';
+
+        function startWalkMode() {
+            var self = this;
+            $('.walkmode').attr('disabled', false);
+            $(self).attr('disabled', true);
+
+            controls = app.createCharacterControls({
+                    camera: app._camera,
+                    domElement: app._renderer.domElement,
+                    pos: exhibitPosition[self.textContent],
+                    dir: exhibitDirection[self.textContent],
+                    minHeight: MIN_HEIGHT
+                }
+            );
+            // 도보모드 시작 시 sunFlare, ShadowMap 설정 해제
+            // 실내 도보모드 사용시 내부에서 외부의 이미지 또는 배경에 대한 가시성 품질 향상이 요구되지 않는 경우에는 하위에 해당 옵션을 해제하여 사용 권장 드립니다.
+            // (도보 모드시 성능 영향)
+            app.enableShadowMap(false); // 그림자 생성 여부 설정 - 설정된 태양 광원에 위치에서 건물과 지형에 그림자에 대한 계산과 가시화가 적용
+            app.setSunFlare(false); // sun Flare 설정 - 해당 기능을 사용 할 경우 건물 재질에 속성값 변경, 태양 플레어 가시화 적용
+
+            let walkModelUrl = layerInfo.model.walkmodelurl;
+            //let fileName = layerInfo.model.walkmodelname;
+            let fileName = 'casual_man';
+            let ext = layerInfo.model.walkmodelext;
+            let loadFile = walkModelUrl + fileName + ext;
+
+            controls._baseUrl = walkModelUrl;
+            controls._fileName = fileName;
+            controls._ext = ext;
+
+            controls.setModelFile(loadFile).then(function () {
+                // let a = controls.getAnimationList();
+                initSettings();
+                controls.setStatusFunc(setStatus);
+
+            });
+            // controls.setModelFile('sample/boxman.glb');
+            controls.setModelScale({x: 0.8, y: 0.8, z: 0.8});
+            //controls.setModelRotate({x:Math.PI/2, y:0, z: 0, order:'ZYX'});
+            controls.setWalkSpeed(0.8);
+            controls.setJumpScale(0.7);
+            controls.active();
+        }
+
+        function initSettings() {
+            //   controls.setAction(actionName, animationName, Delta);
+            // let a = controls.getAnimationList();
+            controls.setAction(JUMP, 'Rig|man_jump_in_place', 1.0);
+            controls.setAction(JUMP_RUNNING, 'Rig|man_jump_in_place', 1.5);
+            controls.setAction(SPRINT, 'Rig|man_run_in_place', 1.0);
+            controls.setAction(RUN, 'Rig|man_walk_in_place', 1.8);
+            controls.setAction(IDLE, 'Rig|man_idle');
+
+            controls.setKeyboard('w', 'moveUp');
+            controls.setKeyboard('a', 'moveLeft');
+            controls.setKeyboard('d', 'moveRight');
+            controls.setKeyboard('s', 'moveDown');
+            controls.setKeyboard('f', 'jump');
+            controls.setKeyboard('shift', 'toggleRun');
+            //  let type ='direction';
+            //  let DIRECTIONS = controls.getKeyboard(type);
+        }
+
+        function setStatus(directionPressed, keysPressed, toggleRun) {
+            let actionList = {
+                JUMP,
+                JUMP_RUNNING,
+                SPRINT,
+                RUN,
+                IDLE
+            };
+
+            if (directionPressed && toggleRun) {
+                play = SPRINT;
+            } else if (directionPressed && !keysPressed.space) {
+                play = RUN;
+            } else if (directionPressed && keysPressed.space) {
+                play = JUMP_RUNNING;
+            } else if (!directionPressed && keysPressed.space) {
+                play = JUMP;
+            } else {
+                play = IDLE;
+            }
+            return {actionList, play};
+        }
+    });
+</script>
+</body>
+</html>

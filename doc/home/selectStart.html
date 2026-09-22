@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>객체 선택 (U3dSelect)</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="객체-선택-u3dselect">객체 선택 (U3dSelect)</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-%EC%84%A0%ED%83%9D-%EA%B8%B0%EB%8A%A5-%EC%9D%B4%ED%95%B4%ED%95%98%EA%B3%A0-%EC%8B%9C%EC%9E%91%ED%95%98%EA%B8%B0">선택 기능 이해하고 시작하기</a></li>
+<li><a href="#2-%EC%84%A0%ED%83%9D-%EB%AA%A8%EB%93%9C-%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0">선택 모드 설정하기</a></li>
+<li><a href="#3-%EC%84%A0%ED%83%9D-%EA%B2%B0%EA%B3%BC%EC%99%80-%EC%9D%B4%EB%B2%A4%ED%8A%B8-%ED%99%95%EC%9D%B8%ED%95%98%EA%B8%B0">선택 결과와 이벤트 확인하기</a></li>
+<li><a href="#4-%EC%84%A0%ED%83%9D-%ED%91%9C%EC%8B%9C%EC%99%80-%EC%83%81%ED%83%9C-%EC%A0%95%EB%A6%AC%ED%95%98%EA%B8%B0">선택 표시와 상태 정리하기</a></li>
+<li><a href="#5-%EB%8C%80%EC%83%81-%EC%A0%9C%ED%95%9C%EA%B3%BC-%EC%A7%81%EC%A0%91-%EC%84%A0%ED%83%9D%ED%95%98%EA%B8%B0">대상 제한과 직접 선택하기</a></li>
+</ol>
+<p>이 장에서는 GeOnDT가 마우스로 지정한 위치나 범위에서 3D 객체를 찾고, 찾은 객체를 외곽선이나 색상으로 표시하는 선택 도구입니다.</p>
+<div class="document-thumbnail" data-size="medium">
+<figure class="document-image">
+<img src="image/selectStart/thumbnail.png" alt="GeOnDT에 영역내의 선택된 사물들" loading="eager">
+<figcaption>GeOnDT에 영역내의 선택된 사물들</figcaption>
+</figure>
+</div>
+<hr>
+<h2 id="1-선택-기능-이해하고-시작하기">1. 선택 기능 이해하고 시작하기</h2>
+<blockquote>
+<ul>
+<li><strong>3D 객체</strong>: 3D 장면 안에서 따로 선택하거나 제어할 수 있는 건물, 시설물, 모델 등의 대상입니다.</li>
+<li><strong>레이어(layer)</strong>: 용도나 종류가 같은 3D 객체를 묶어서 관리하는 그룹입니다. <code>targetLayer</code>로 검색할 레이어를 제한할 수 있습니다.</li>
+<li><strong>피킹(picking)</strong>: 화면에서 클릭하거나 그린 범위를 3D 장면에 적용해, 조건과 교차하는 객체를 찾는 과정입니다. <code>point</code> 모드에서는 카메라에서 클릭 지점을 향해 보이지 않는 광선(ray)을 보내 가장 먼저 만나는 객체를 찾고, 다른 모드에서는 사용자가 그린 도형이나 화면 범위와 교차하는 객체를 찾습니다.</li>
+<li><strong>하이라이트(highlight)</strong>: 선택한 객체를 쉽게 알아볼 수 있도록 외곽선이나 색상으로 강조하는 표시입니다.</li>
+</ul>
+</blockquote>
+<h4 class="api-heading" id="api">API</h4>
+<p>new GeOnDT.select.U3dSelect(<code>opt</code>) : 객체 선택기를 생성하는 생성자</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opt</code> (<code>object</code>) : 선택 옵션. 생략 가능</li>
+<li><code>opt.mode</code> (<code>string</code>) : 선택 범위 입력 방식. <code>point</code>, <code>area</code>, <code>line</code>, <code>circle</code>, <code>box</code> 중 하나. 기본값: <code>point</code></li>
+<li><code>opt.selectType</code> (<code>string</code>) : 선택 표시 방식. <code>outline</code> 또는 <code>color</code>. 기본값: <code>outline</code></li>
+<li><code>opt.exceptTexture</code> (<code>boolean</code>) : <code>color</code> 방식에서 선택 표시 중 객체 표면에 입힌 이미지인 텍스처를 제외할지 여부. 기본값: <code>false</code></li>
+<li><code>opt.targetLayer</code> (<code>string[]</code>) : 검색할 레이어 이름 목록. 생략하면 전체 선택 대상 레이어를 검사</li>
+<li><code>opt.auto</code> (<code>boolean</code>) : 검색 결과의 선택과 하이라이트를 자동 처리할지 여부. 기본값: <code>true</code></li>
+</ul>
+</details>
+<p>선택은 다음 순서로 처리됩니다.</p>
+<ol>
+<li>사용자가 화면을 클릭하거나 선택 범위를 그립니다.</li>
+<li><code>U3dSelect</code>가 입력 위치 또는 범위와 교차하는 3D 객체를 찾습니다.</li>
+<li><code>auto: true</code>이면 검색 결과를 선택 목록에 넣고 하이라이트를 적용합니다.</li>
+<li><code>change</code>와 <code>end</code> 이벤트에서 선택 결과와 입력 범위를 확인합니다.</li>
+</ol>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>U3dSelect.setApp(<code>app</code>) : 선택기가 동작할 <code>U3dApp</code>을 연결하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>app</code> (<code>U3dApp</code>) : 선택 기능을 사용할 앱. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-2">API</h4>
+<p>U3dApp.addSelect(<code>select</code>) : <code>select.setApp(app)</code>을 호출해 선택기를 앱에 연결하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>select</code> (<code>U3dSelect</code>) : 앱에 연결할 선택기. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-3">API</h4>
+<p>U3dSelect.active() : 마우스 입력을 받을 수 있도록 선택 기능을 활성화하는 함수</p>
+<h3 id="1-기본-선택기-만들기">1. 기본 선택기 만들기</h3>
+<p>아래 예제는 객체를 한 번 클릭해 선택하고, 선택이 끝났을 때 결과를 확인하는 가장 단순한 구성입니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> select <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>select<span class="token punctuation">.</span>U3dSelect</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">mode</span><span class="token operator">:</span> <span class="token string">'point'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">selectType</span><span class="token operator">:</span> <span class="token string">'outline'</span><span class="token punctuation">,</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 선택기가 사용할 앱을 반드시 연결합니다.</span>
+select<span class="token punctuation">.</span><span class="token function">setApp</span><span class="token punctuation">(</span>app<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 이벤트를 통해 선택된 객체를 반환받습니다.</span>
+select<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'end'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">event</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'선택된 객체:'</span><span class="token punctuation">,</span> event<span class="token punctuation">.</span>data<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+select<span class="token punctuation">.</span><span class="token function">active</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p><code>select.setApp(app)</code> 대신 <code>app.addSelect(select)</code>을 호출해도 앱을 연결할 수 있습니다. 연결이 끝난 뒤 <code>active()</code>를 호출해야 화면에서 선택할 수 있습니다.</p>
+<hr>
+<h2 id="2-선택-모드-설정하기">2. 선택 모드 설정하기</h2>
+<p>선택 모드는 사용자가 검색 범위를 만드는 방법을 결정합니다. <code>setMode()</code>로 실행 중에도 모드를 바꿀 수 있습니다.</p>
+<div class="document-table">
+<table>
+<thead><tr><th>모드</th><th>사용자 입력</th><th>객체를 찾는 범위</th><th>좌표 기준</th><th>입력 완료</th></tr></thead>
+<tbody><tr><td><code>point</code></td><td>객체 위를 클릭</td><td>클릭 지점에서 만나는 객체</td><td>지리 좌표</td><td>클릭 즉시</td></tr>
+<tr><td><code>area</code></td><td>경계점을 차례로 클릭</td><td>지도 표면에 그린 다각형과 교차하는 객체</td><td>지리 좌표</td><td>더블클릭</td></tr>
+<tr><td><code>line</code></td><td>선의 점을 차례로 클릭</td><td>지도 표면에 그린 선과 교차하는 객체</td><td>지리 좌표</td><td>더블클릭</td></tr>
+<tr><td><code>circle</code></td><td>첫 클릭으로 중심을 정하고 다음 클릭으로 반지름을 지정</td><td>지도 표면에 그린 원과 교차하는 객체</td><td>지리 좌표</td><td>더블클릭</td></tr>
+<tr><td><code>box</code></td><td>화면을 드래그</td><td>화면의 사각형 안에 보이는 객체</td><td>정규화 화면 좌표</td><td>마우스 버튼 놓기</td></tr></tbody>
+</table>
+</div>
+<ul>
+<li><code>area</code>와 <code>box</code>는 모두 여러 객체를 고를 수 있지만 기준이 다릅니다. </li>
+<li><code>area</code>는 좌표를 찍는 지도 표면에 여러 점을 이은 자유로운 도형인 다각형을 그리고, 그 도형과 교차하는 객체를 찾습니다.</li>
+<li><code>box</code>는 현재 보이는 화면 위에 사각형을 그리고, 카메라에서 그 사각형 안에 들어오는 객체를 찾습니다.</li>
+<li><code>point</code> 모드에서 <code>Shift</code> 키를 누르지 않고 새 객체를 클릭하면 이전 선택이 해제됩니다. <code>Shift</code> 키를 누른 채 클릭하면 기존 선택에 객체를 추가할 수 있습니다. 이 <code>Shift</code> 누적 선택 안내는 <code>point</code> 모드에만 해당합니다.</li>
+</ul>
+<h4 class="api-heading" id="api-4">API</h4>
+<p>U3dSelect.setMode(<code>mode</code>) : 선택 모드를 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>mode</code> (<code>string</code>) : <code>point</code>, <code>area</code>, <code>line</code>, <code>circle</code>, <code>box</code> 중 하나. <strong>필수</strong></li>
+</ul>
+</details>
+<p><strong>모드를 변경하면 기존 선택 목록과 그려진 선택 범위가 함께 초기화됩니다.</strong> </p>
+<p>선택 결과를 보관해야 한다면 <code>setMode()</code>를 호출하기 전에 <code>getSelected()</code>로 목록을 저장합니다.</p>
+<h3 id="1-실행-중-선택-모드-변경하기">1. 실행 중 선택 모드 변경하기</h3>
+<pre class="language-javascript"><code class="language-javascript">select<span class="token punctuation">.</span><span class="token function">setMode</span><span class="token punctuation">(</span><span class="token string">'point'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+select<span class="token punctuation">.</span><span class="token function">setMode</span><span class="token punctuation">(</span><span class="token string">'area'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+select<span class="token punctuation">.</span><span class="token function">setMode</span><span class="token punctuation">(</span><span class="token string">'line'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+select<span class="token punctuation">.</span><span class="token function">setMode</span><span class="token punctuation">(</span><span class="token string">'circle'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+select<span class="token punctuation">.</span><span class="token function">setMode</span><span class="token punctuation">(</span><span class="token string">'box'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>아래 이미지에서 빨간색 또는 노란색 도형과 가는 선은 사용자가 지정한 검색 범위이고, 청록색 외곽선은 검색 결과로 선택된 객체입니다. 실제 색상은 선택기의 스타일 설정에 따라 달라질 수 있습니다.</p>
+<div class="document-image-grid" data-columns="3">
+<figure class="document-image">
+<img src="image/selectStart/point모드.png" alt="Point 모드에서 건물을 클릭하자 즉시 청록색 외곽선으로 선택된 결과" loading="eager">
+<figcaption>Point 모드에서 건물을 클릭하자 즉시 청록색 외곽선으로 선택된 결과</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/selectStart/area모드.png" alt="Area 모드에서 지도 표면에 경계점을 클릭하고 더블클릭으로 확정한 다각형과 교차하는 건물들이 선택된 결과" loading="eager">
+<figcaption>Area 모드에서 지도 표면에 경계점을 클릭하고 더블클릭으로 확정한 다각형과 교차하는 건물들이 선택된 결과</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/selectStart/line모드.png" alt="Line 모드에서 지도 표면에 점을 클릭하고 더블클릭으로 확정한 선과 교차하는 건물들이 선택된 결과" loading="eager">
+<figcaption>Line 모드에서 지도 표면에 점을 클릭하고 더블클릭으로 확정한 선과 교차하는 건물들이 선택된 결과</figcaption>
+</figure>
+</div>
+<div class="document-image-grid" data-columns="2">
+<figure class="document-image">
+<img src="image/selectStart/circle모드.png" alt="Circle 모드에서 중심과 반지름을 클릭하고 더블클릭으로 확정한 원과 교차하는 건물들이 선택된 결과" loading="eager">
+<figcaption>Circle 모드에서 중심과 반지름을 클릭하고 더블클릭으로 확정한 원과 교차하는 건물들이 선택된 결과</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/selectStart/box모드.png" alt="Box 모드에서 화면을 드래그하고 마우스 버튼을 놓자 사각형 안의 건물들이 선택된 결과" loading="eager">
+<figcaption>Box 모드에서 화면을 드래그하고 마우스 버튼을 놓자 사각형 안의 건물들이 선택된 결과</figcaption>
+</figure>
+</div>
+<hr>
+<h2 id="3-선택-결과와-이벤트-확인하기">3. 선택 결과와 이벤트 확인하기</h2>
+<p>선택 동작 중에는 <code>start</code>, <code>change</code>, <code>end</code> 이벤트로 진행 상태와 결과를 받을 수 있습니다.</p>
+<div class="document-table">
+<table>
+<thead><tr><th>이벤트</th><th>발생 시점</th><th>주로 확인할 값</th></tr></thead>
+<tbody><tr><td><code>start</code></td><td>클릭 기반 모드에서 각 입력 지점의 검색을 시작하기 전</td><td><code>type</code>, <code>data: null</code>, <code>target</code></td></tr>
+<tr><td><code>change</code></td><td>클릭 지점이나 드래그 범위가 바뀌어 검색 결과가 갱신될 때</td><td><code>data</code>, <code>work</code>, <code>target</code></td></tr>
+<tr><td><code>end</code></td><td>클릭 선택, 더블클릭 범위 확정 또는 박스 드래그가 끝났을 때</td><td><code>data</code>, <code>work</code>, <code>target</code></td></tr></tbody>
+</table>
+</div>
+<p>현재 구현에서 <code>box</code> 모드에는 <code>start</code>가 발생하지 않습니다. 모든 모드에 공통된 결과 처리가 필요하면 <code>change</code>와 <code>end</code>를 사용합니다.</p>
+<p>이벤트 객체의 주요 속성은 다음과 같습니다.</p>
+<ul>
+<li><code>type</code> (<code>string</code>) : 발생한 이벤트 이름</li>
+<li><code>data</code> (<code>USelect[] | null</code>) : <code>start</code>에서는 <code>null</code>. <code>change</code>와 <code>end</code>에서는 <code>auto: true</code>일 때 현재 선택된 객체 목록, <code>auto: false</code>일 때 검색된 후보 객체 목록</li>
+<li><code>work</code> (<code>object | undefined</code>) : 선택 모드와 입력 위치를 담은 작업 정보. 선택 조건이 아직 없거나 클릭한 곳에 결과가 없으면 없을 수 있음</li>
+<li><code>target</code> (<code>U3dSelect</code>) : 이벤트를 발생시킨 선택기</li>
+</ul>
+<p>여기서 <code>USelect</code>는 선택 결과로 반환될 수 있는 모델, 메시, 컴포넌트 등의 3D 객체 타입을 통칭합니다. 실제 객체 타입은 선택한 레이어의 종류에 따라 달라질 수 있습니다.</p>
+<p><code>work</code>는 선택 동작을 기록하거나 같은 범위를 다시 처리할 때 사용하는 정보입니다.</p>
+<ul>
+<li><code>work.type</code> (<code>string</code>) : 선택에 사용한 모드</li>
+<li><code>work.points</code> (<code>object[]</code>) : 선택 범위를 구성하는 입력 지점 목록</li>
+<li><code>work.worlds</code> (<code>object[]</code>) : 현재 <code>point</code> 모드에서 광선과 객체가 만난 3D 위치 목록</li>
+</ul>
+<div class="document-table">
+<table>
+<thead><tr><th>좌표 종류</th><th>사용 위치</th><th>값의 의미</th></tr></thead>
+<tbody><tr><td>지리 좌표</td><td><code>point</code>, <code>area</code>, <code>line</code>, <code>circle</code>의 <code>work.points</code></td><td><code>x</code>는 경도, <code>y</code>는 위도, <code>z</code>는 높이인 실제 지도 위치(EPSG:4326)</td></tr>
+<tr><td>월드 좌표</td><td><code>point</code>의 <code>work.worlds</code></td><td>3D 엔진이 거리와 위치 계산에 사용하는 장면 내부 좌표(EPSG:3857)</td></tr>
+<tr><td>정규화 화면 좌표</td><td><code>box</code>의 <code>work.points</code></td><td>캔버스 크기와 관계없이 <code>-1</code>부터 <code>1</code> 사이로 나타낸 드래그 시작점과 끝점</td></tr></tbody>
+</table>
+</div>
+<p><code>box</code> 모드의 <code>work.points</code>는 지도 위의 위치가 아니라 <strong>화면 안의 위치</strong> 정보입니다. </p>
+<p>화면 가운데는 <code>{normalizedX: 0, normalizedY: 0}</code>, 왼쪽 아래는 <code>{normalizedX: -1, normalizedY: -1}</code>, 오른쪽 위는 <code>{normalizedX: 1, normalizedY: 1}</code>로 표현됩니다.</p>
+<p>따라서 이 값을 위도와 경도처럼 지도 좌표로 바로 사용하지 않도록 주의합니다.</p>
+<h4 class="api-heading" id="api-5">API</h4>
+<p>U3dSelect.on(<code>type</code>, <code>listener</code>) : 선택 이벤트 수신 함수를 등록하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>type</code> (<code>string</code>) : <code>start</code>, <code>change</code>, <code>end</code> 중 수신할 이벤트 이름. <strong>필수</strong></li>
+<li><code>listener</code> (<code>function</code>) : 이벤트가 발생했을 때 실행할 함수. <strong>필수</strong></li>
+</ul>
+</details>
+<h3 id="1-선택-진행-상태와-결과-받기">1. 선택 진행 상태와 결과 받기</h3>
+<pre class="language-javascript"><code class="language-javascript">select<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'start'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">event</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'검색 시작:'</span><span class="token punctuation">,</span> event<span class="token punctuation">.</span>type<span class="token punctuation">,</span> event<span class="token punctuation">.</span>data<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+select<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'change'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">event</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'현재 결과:'</span><span class="token punctuation">,</span> event<span class="token punctuation">.</span>data<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'현재 입력 범위:'</span><span class="token punctuation">,</span> event<span class="token punctuation">.</span>work<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+select<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'end'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">event</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'최종 결과:'</span><span class="token punctuation">,</span> event<span class="token punctuation">.</span>data<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'확정된 입력 범위:'</span><span class="token punctuation">,</span> event<span class="token punctuation">.</span>work<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<div class="document-image-grid" data-columns="1">
+<figure class="document-image">
+<img src="image/selectStart/start이벤트.png" alt="Start 이벤트에서 data가 null이고 target이 선택기를 가리키는 모습" loading="eager">
+<figcaption>Start 이벤트에서 data가 null이고 target이 선택기를 가리키는 모습</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/selectStart/change이벤트.png" alt="Change 이벤트에서 현재 객체 목록인 data와 입력 정보인 work를 확인하는 모습" loading="eager">
+<figcaption>Change 이벤트에서 현재 객체 목록인 data와 입력 정보인 work를 확인하는 모습</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/selectStart/end이벤트.png" alt="End 이벤트에서 최종 객체 목록인 data와 확정된 work를 확인하는 모습" loading="eager">
+<figcaption>End 이벤트에서 최종 객체 목록인 data와 확정된 work를 확인하는 모습</figcaption>
+</figure>
+</div>
+<figure class="document-image">
+<img src="image/selectStart/work구성.png" alt="Area 모드 work에서 type과 위경도 points 목록을 확인하는 모습" loading="eager">
+<figcaption>Area 모드 work에서 type과 위경도 points 목록을 확인하는 모습</figcaption>
+</figure>
+<hr>
+<h2 id="4-선택-표시와-상태-정리하기">4. 선택 표시와 상태 정리하기</h2>
+<p>선택한 객체는 <code>outline</code> 또는 <code>color</code> 방식으로 강조할 수 있습니다.</p>
+<ul>
+<li><code>outline</code> : 원래 재질을 유지하면서 객체의 바깥 윤곽선을 표시합니다.</li>
+<li><code>color</code> : 객체의 표면 색상과 투명도를 바꿉니다.</li>
+</ul>
+<h4 class="api-heading" id="api-6">API</h4>
+<p>U3dSelect.setSelectType(<code>type</code>) : 선택 표시 방식을 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>type</code> (<code>string</code>) : <code>outline</code> 또는 <code>color</code>. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-7">API</h4>
+<p>U3dSelect.setSelectedColor(<code>color</code>, <code>opacity</code>) : 선택 표시의 색상과 투명도를 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>color</code> (<code>ColorRepresentation</code>) : 16진수 숫자나 CSS 색상 문자열로 표현한 선택 표시 색상. 예: <code>0xff0000</code>, <code>&#39;#ff0000&#39;</code></li>
+<li><code>opacity</code> (<code>number</code>) : 선택 표시 투명도. <code>0</code>부터 <code>1</code> 사이의 값</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-8">API</h4>
+<p>U3dSelect.clearHighlights() : 선택 목록은 유지하고 화면의 하이라이트만 제거하는 함수</p>
+<h3 id="1-선택-표시-방식-바꾸기">1. 선택 표시 방식 바꾸기</h3>
+<p>이미 선택된 객체의 표시 방식을 바꿀 때는 기존 하이라이트를 먼저 지운 뒤 새 방식을 적용합니다. <code>setSelectedColor()</code>는 <code>color</code>의 표면 색상뿐 아니라 <code>outline</code>의 외곽선 색상에도 사용됩니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token comment">// 선택 객체를 빨간색으로 채워 표시합니다.</span>
+select<span class="token punctuation">.</span><span class="token function">clearHighlights</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+select<span class="token punctuation">.</span><span class="token function">setSelectType</span><span class="token punctuation">(</span><span class="token string">'color'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+select<span class="token punctuation">.</span><span class="token function">setSelectedColor</span><span class="token punctuation">(</span><span class="token number">0xff0000</span><span class="token punctuation">,</span> <span class="token number">0.8</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 선택 객체를 빨간색 외곽선으로 표시합니다.</span>
+select<span class="token punctuation">.</span><span class="token function">clearHighlights</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+select<span class="token punctuation">.</span><span class="token function">setSelectType</span><span class="token punctuation">(</span><span class="token string">'outline'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+select<span class="token punctuation">.</span><span class="token function">setSelectedColor</span><span class="token punctuation">(</span><span class="token number">0xff0000</span><span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<div class="document-image-grid" data-columns="2">
+<figure class="document-image">
+<img src="image/selectStart/color선택.png" alt="Color 방식으로 선택한 건물의 표면 전체가 빨간색으로 표시된 결과" loading="eager">
+<figcaption>Color 방식으로 선택한 건물의 표면 전체가 빨간색으로 표시된 결과</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/selectStart/outLIne선택.png" alt="Outline 방식으로 선택한 건물의 바깥 윤곽선만 빨간색으로 표시된 결과" loading="eager">
+<figcaption>Outline 방식으로 선택한 건물의 바깥 윤곽선만 빨간색으로 표시된 결과</figcaption>
+</figure>
+</div>
+<h4 class="api-heading" id="api-9">API</h4>
+<p>U3dSelect.clearSelect() : 현재 선택 목록과 객체 하이라이트를 제거하는 함수</p>
+<h4 class="api-heading" id="api-10">API</h4>
+<p>U3dSelect.clear() : 선택 목록, 하이라이트, 그려진 선택 범위를 모두 초기화하는 함수</p>
+<h4 class="api-heading" id="api-11">API</h4>
+<p>U3dSelect.deactive() : 선택기의 마우스 입력을 비활성화하는 함수</p>
+<h4 class="api-heading" id="api-12">API</h4>
+<p>U3dSelect.remove() : 선택 상태와 이벤트를 정리하고 선택기를 폐기하는 함수</p>
+<p>선택 결과를 지우거나 기능 사용을 끝낼 때는 목적에 맞는 정리 API를 사용합니다.</p>
+<div class="document-table">
+<table>
+<thead><tr><th>API</th><th>선택 목록과 하이라이트</th><th>그려진 선택 범위</th><th>마우스 입력</th><th>다시 사용 가능 여부</th></tr></thead>
+<tbody><tr><td><code>clearSelect()</code></td><td>제거</td><td>유지</td><td>유지</td><td>가능</td></tr>
+<tr><td><code>clear()</code></td><td>제거</td><td>제거</td><td>유지</td><td>가능</td></tr>
+<tr><td><code>deactive()</code></td><td>완료된 결과는 유지될 수 있음</td><td>완료된 범위는 유지될 수 있음</td><td>중지</td><td><code>active()</code>로 재개 가능</td></tr>
+<tr><td><code>remove()</code></td><td>제거</td><td>제거</td><td>중지</td><td>제거된 선택기는 다시 사용하지 않음</td></tr></tbody>
+</table>
+</div>
+<ul>
+<li><code>deactive()</code>는 API에 정의된 실제 함수 이름입니다. </li>
+<li><code>deactivate()</code>로 작성하지 않도록 주의합니다.</li>
+<li>일시 중지에는 <code>deactive()</code>, 화면의 선택 표시까지 초기화하려면 <code>clear()</code>, 선택기를 완전히 폐기하려면 <code>remove()</code>를 사용합니다.</li>
+</ul>
+<h3 id="2-선택-해제-일시-중지-제거하기">2. 선택 해제, 일시 중지, 제거하기</h3>
+<p>아래 호출은 순서대로 모두 실행하는 예제가 아닙니다. 필요한 작업 하나를 골라 사용합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">select<span class="token punctuation">.</span><span class="token function">clearSelect</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 객체 선택만 해제</span>
+select<span class="token punctuation">.</span><span class="token function">clear</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>       <span class="token comment">// 선택 객체와 입력 범위를 모두 초기화</span>
+select<span class="token punctuation">.</span><span class="token function">deactive</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>    <span class="token comment">// 입력을 일시 중지</span>
+select<span class="token punctuation">.</span><span class="token function">remove</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>      <span class="token comment">// 선택기를 완전히 제거</span>
+</code></pre>
+<div class="document-image-grid" data-columns="3">
+<figure class="document-image">
+<img src="image/selectStart/선택형상.png" alt="Area 모드에서 선택 범위와 객체 하이라이트가 모두 표시된 초기 상태" loading="eager">
+<figcaption>Area 모드에서 선택 범위와 객체 하이라이트가 모두 표시된 초기 상태</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/selectStart/clearSelect.png" alt="clearSelect 호출 후 객체 하이라이트는 사라지고 빨간 선택 범위는 남은 상태" loading="eager">
+<figcaption>clearSelect 호출 후 객체 하이라이트는 사라지고 빨간 선택 범위는 남은 상태</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/selectStart/clear.png" alt="clear 호출 후 객체 하이라이트와 선택 범위가 모두 사라진 상태" loading="eager">
+<figcaption>clear 호출 후 객체 하이라이트와 선택 범위가 모두 사라진 상태</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/selectStart/deactive.png" alt="deactive 호출 후 완료된 선택 표시는 남아 있고 추가 마우스 입력만 중지된 상태" loading="eager">
+<figcaption>deactive 호출 후 완료된 선택 표시는 남아 있고 추가 마우스 입력만 중지된 상태</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/selectStart/remove.png" alt="remove 호출 후 선택 표시와 범위가 제거되고 선택기가 폐기된 상태" loading="eager">
+<figcaption>remove 호출 후 선택 표시와 범위가 제거되고 선택기가 폐기된 상태</figcaption>
+</figure>
+</div>
+<hr>
+<h2 id="5-대상-제한과-직접-선택하기">5. 대상 제한과 직접 선택하기</h2>
+<p><code>targetLayer</code>는 선택 결과가 아니라 <strong>검색 범위 지정</strong> 옵션입니다. </p>
+<p>예를 들어 건물 레이어만 지정하면 3D사물 또는 배경 레이어는 피킹 검사에서 제외됩니다. </p>
+<p>레이어 이름은 <code>app.getLayerByName(layerName)</code>으로 조회할 수 있는 실제 이름과 같아야 합니다.</p>
+<p><code>auto</code>는 검색 후보를 최종 선택으로 확정하는 주체를 정합니다.</p>
+<div class="document-table">
+<table>
+<thead><tr><th>설정</th><th><code>event.data</code></th><th>선택 목록과 하이라이트</th></tr></thead>
+<tbody><tr><td><code>auto: true</code></td><td>현재 선택된 객체 목록</td><td><code>U3dSelect</code>가 자동 처리</td></tr>
+<tr><td><code>auto: false</code></td><td>입력 범위에서 검색된 후보 객체 목록</td><td>애플리케이션이 후보를 고른 뒤 직접 처리</td></tr></tbody>
+</table>
+</div>
+<p><code>auto: false</code>는 권한이나 객체 속성에 따라 일부 후보만 선택해야 하거나, 겹친 후보 중 하나만 고르는 규칙이 필요할 때 사용합니다.</p>
+<h4 class="api-heading" id="api-13">API</h4>
+<p>U3dSelect.addTargetLayer(<code>layerName</code>) : 검색 대상 레이어를 추가하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>layerName</code> (<code>string</code>) : 추가할 레이어 이름. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-14">API</h4>
+<p>U3dSelect.removeTargetLayer(<code>layerName</code>) : 검색 대상 레이어를 제외하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>layerName</code> (<code>string</code>) : 제외할 레이어 이름. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-15">API</h4>
+<p>U3dSelect.addSelected(<code>object</code>) : 객체를 선택 목록에 직접 추가하고 하이라이트를 적용하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>object</code> (<code>USelect | USelect[]</code>) : 선택할 객체 또는 객체 목록. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Promise&lt;void&gt;</code>) : 선택 추가 작업의 완료 상태</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-16">API</h4>
+<p>U3dSelect.removeSelected(<code>object</code>) : 지정한 객체 하나를 선택 목록에서 제거하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>object</code> (<code>USelect</code>) : 선택을 해제할 객체. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-17">API</h4>
+<p>U3dSelect.getSelected() : 현재 최종 선택 목록을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>USelect[]</code>) : 현재 선택된 객체 목록</li>
+</ul>
+</details>
+<h3 id="1-검색할-레이어를-실행-중에-변경하기">1. 검색할 레이어를 실행 중에 변경하기</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> select <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>select<span class="token punctuation">.</span>U3dSelect</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">mode</span><span class="token operator">:</span> <span class="token string">'point'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">targetLayer</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'buildingLayer'</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+select<span class="token punctuation">.</span><span class="token function">setApp</span><span class="token punctuation">(</span>app<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 시설물 레이어도 검색 대상에 추가합니다.</span>
+select<span class="token punctuation">.</span><span class="token function">addTargetLayer</span><span class="token punctuation">(</span><span class="token string">'facilityLayer'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 건물 레이어는 검색 대상에서 제외합니다.</span>
+select<span class="token punctuation">.</span><span class="token function">removeTargetLayer</span><span class="token punctuation">(</span><span class="token string">'buildingLayer'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+select<span class="token punctuation">.</span><span class="token function">active</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-후보를-검사한-뒤-직접-선택하기">2. 후보를 검사한 뒤 직접 선택하기</h3>
+<p>아래 예제의 <code>userData.selectable</code>은 애플리케이션이 객체에 미리 저장해 둔 사용자 정의 값입니다.</p>
+<p>프로젝트에서 사용하는 공개 속성 구조에 맞게 <code>isSelectable()</code>의 조건만 바꿉니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> manualSelect <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>select<span class="token punctuation">.</span>U3dSelect</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">mode</span><span class="token operator">:</span> <span class="token string">'area'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">auto</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">selectType</span><span class="token operator">:</span> <span class="token string">'outline'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">targetLayer</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'buildingLayer'</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+manualSelect<span class="token punctuation">.</span><span class="token function">setApp</span><span class="token punctuation">(</span>app<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">function</span> <span class="token function">isSelectable</span><span class="token punctuation">(</span><span class="token parameter">object</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">return</span> object<span class="token operator">?.</span>userData<span class="token operator">?.</span>selectable <span class="token operator">===</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+manualSelect<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'end'</span><span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token parameter">event</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> candidates <span class="token operator">=</span> Array<span class="token punctuation">.</span><span class="token function">isArray</span><span class="token punctuation">(</span>event<span class="token punctuation">.</span>data<span class="token punctuation">)</span> <span class="token operator">?</span> event<span class="token punctuation">.</span>data <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+    <span class="token keyword">const</span> approvedObjects <span class="token operator">=</span> candidates<span class="token punctuation">.</span><span class="token function">filter</span><span class="token punctuation">(</span>isSelectable<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    manualSelect<span class="token punctuation">.</span><span class="token function">clearSelect</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>approvedObjects<span class="token punctuation">.</span>length <span class="token operator">></span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">await</span> manualSelect<span class="token punctuation">.</span><span class="token function">addSelected</span><span class="token punctuation">(</span>approvedObjects<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'최종 선택 객체:'</span><span class="token punctuation">,</span> manualSelect<span class="token punctuation">.</span><span class="token function">getSelected</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+manualSelect<span class="token punctuation">.</span><span class="token function">active</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<div class="document-image-grid" data-columns="1">
+<figure class="document-image">
+<img src="image/selectStart/고급사용법샘플.png" alt="Area 범위에서 사용자 조건을 통과한 일부 건물만 청록색으로 선택된 결과" loading="eager">
+<figcaption>Area 범위에서 사용자 조건을 통과한 일부 건물만 청록색으로 선택된 결과</figcaption>
+</figure>
+</div>
+</main>
+</body>
+</html>
+

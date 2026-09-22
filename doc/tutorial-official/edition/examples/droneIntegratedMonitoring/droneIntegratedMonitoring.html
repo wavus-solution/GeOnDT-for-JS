@@ -1,0 +1,747 @@
+<template data-example-rail>
+    <!-- 고도 범례 버튼: 고도 범례·등고선 분석 패널(#drone-height-legend-panel)을 엽니다. 공통 레일의 지형 버튼 아래, 드론 버튼 위에 놓입니다. -->
+    <button class="rail-button" type="button" data-panel-target="drone-height-legend-panel" aria-expanded="false">
+        <span class="rail-icon" aria-hidden="true">▤</span><span>고도 범례</span>
+    </button>
+    <button class="rail-button" type="button" data-panel-target="drone-monitoring-panel" aria-expanded="false">
+        <span class="rail-icon" aria-hidden="true">✈</span><span>드론</span>
+    </button>
+    <!-- 도형 버튼: 드론 통합 모니터링 패널 대신 3D 객체 그리기 패널(#shape-draw-panel)을 엽니다. Runtime이 패널을 하나만 열어 둡니다. -->
+    <button class="rail-button" type="button" data-panel-target="shape-draw-panel" aria-expanded="false">
+        <span class="rail-icon" aria-hidden="true">▦</span><span>도형</span>
+    </button>
+    <!-- 도구 버튼: 도구 패널(#drone-tools-panel)을 엽니다. 도구는 이후 작업에서 추가하며 지금은 안내만 있습니다. -->
+    <button class="rail-button" type="button" data-panel-target="drone-tools-panel" aria-expanded="false">
+        <span class="rail-icon" aria-hidden="true">⚒</span><span>도구</span>
+    </button>
+    <!-- 설정 버튼: 설정 패널(#drone-settings-panel)을 엽니다. Runtime이 예제 패널을 하나만 열어 두므로 열려 있던 다른 패널과 교체됩니다. -->
+    <button class="rail-button" type="button" data-panel-target="drone-settings-panel" aria-expanded="false">
+        <span class="rail-icon" aria-hidden="true">⚙</span><span>설정</span>
+    </button>
+</template>
+
+<!-- 오른쪽 분석창: 드론·그룹 목록. Common Runtime의 예제 패널 체계(data-panel-target)를 사용합니다.
+     실행 환경 정보는 아래 별도 팝업(#drone-env-panel)에 두고, 지도 도구의 실행 환경 버튼으로 엽니다. -->
+<aside class="glass-panel example-panel drone-monitoring-panel" id="drone-monitoring-panel" aria-hidden="true">
+    <header class="panel-header">
+        <div>
+            <span class="eyebrow">DRONE MONITORING</span>
+            <h2>드론 통합 모니터링</h2>
+        </div>
+        <button class="panel-close" type="button" data-panel-close="drone-monitoring-panel" aria-label="드론 통합 모니터링 닫기">×</button>
+    </header>
+
+    <div class="panel-content drone-monitoring-content">
+        <p class="panel-description">드론·그룹 목록을 확인합니다. 드론이나 그룹을 선택하면 왼쪽 상세 설정 창에 내용이 표시되고, WebGL·Instance 실행 환경은 오른쪽 위 지도 도구의 <strong>ⓘ</strong> 버튼으로 확인합니다.</p>
+
+        <section class="drone-monitoring-section" aria-labelledby="drone-list-heading">
+            <h3 id="drone-list-heading">드론 목록</h3>
+            <p class="drone-model-status" id="drone-model-status" data-status="loading" role="status">드론 모델을 불러오는 중입니다.</p>
+            <button id="drone-model-retry" class="drone-action drone-action-retry" type="button" hidden>모델 다시 불러오기</button>
+            <p class="drone-count-line">현재 비행 중인 드론 수: <b id="drone-flying-count">0</b>대<span id="drone-total-count-wrap" hidden> (등록 <b id="drone-total-count">0</b>대)</span></p>
+            <div class="drone-list-box" data-api-help="drone.select">
+                <ul class="drone-list" id="drone-list" role="tree" aria-label="드론·그룹 목록"></ul>
+                <p class="drone-list-empty" id="drone-list-empty">등록된 드론이 없습니다. 모델이 준비되면 <strong>드론 추가</strong>를 누르세요.</p>
+            </div>
+            <p class="drone-list-hint" id="drone-list-hint" data-active="false" data-api-help="select.box">Space 키를 누른 채 지도를 드래그하면 상자 안의 드론이 다중 선택됩니다. 드론을 그룹으로 끌어다 놓으면 그룹에 들어가고, 그룹 밖으로 끌어내면 목록으로 돌아옵니다.</p>
+            <div class="drone-action-grid">
+                <button id="drone-add" class="drone-action primary" type="button" data-api-help="drone.add" disabled>드론 추가</button>
+                <button id="drone-remove" class="drone-action" type="button" data-api-help="drone.remove" disabled>드론 삭제</button>
+                <button id="drone-group-add" class="drone-action" type="button">그룹 추가</button>
+                <button id="drone-group-remove" class="drone-action" type="button" disabled>그룹 삭제</button>
+                <button id="drone-pause" class="drone-action" type="button" data-api-help="flight.pause" aria-pressed="false" disabled>전체 비행 일시정지</button>
+                <button id="drone-resume" class="drone-action" type="button" data-api-help="flight.resume" aria-pressed="false" disabled>전체 비행 재개</button>
+            </div>
+            <button id="drone-detail-open" class="drone-action drone-detail-open" type="button" aria-controls="drone-detail-panel" hidden>드론 상세 설정 창 열기</button>
+            <p class="drone-notice" id="drone-notice" role="alert" hidden></p>
+        </section>
+    </div>
+</aside>
+
+<!-- 3D 객체 그리기 패널: vectorLayer 예제의 3D 객체 그리기 패널 내용을 옮겼습니다(단층 도형 제외).
+     오른쪽 레일의 [도형] 버튼으로 열리는 Runtime 예제 패널(data-panel-target)이며, 열리면 드론 통합 모니터링 패널은 닫힙니다.
+     패널이 열려 있는 동안(.open) 지도 클릭은 도형 그리기에 쓰입니다. -->
+<aside class="glass-panel example-panel shape-draw-panel" id="shape-draw-panel" aria-hidden="true">
+    <header class="panel-header">
+        <div>
+            <span class="eyebrow">VECTOR GEOMETRY</span>
+            <h2 id="shape-draw-heading">3D 객체 그리기</h2>
+        </div>
+        <button class="panel-close" type="button" data-panel-close="shape-draw-panel" aria-label="3D 객체 그리기 닫기">×</button>
+    </header>
+
+    <div class="panel-content shape-draw-content">
+        <p class="panel-description">도형 종류와 세부 설정을 고른 뒤 지도를 클릭하면 도형이 생성되어 아래 도형 목록에 추가됩니다. 이 패널이 열려 있는 동안 지도 클릭은 드론 선택 대신 도형 그리기에 쓰이며, 레일의 <strong>드론</strong> 버튼을 누르면 드론 패널로 돌아갑니다.</p>
+
+        <section class="shape-section" aria-labelledby="shape-list-heading">
+            <h3 id="shape-list-heading">도형 목록 <b id="shape-count">0</b>개</h3>
+            <div class="shape-list-box">
+                <ul class="shape-list" id="shape-list" role="listbox" aria-label="3D 도형 목록"></ul>
+                <p class="drone-list-empty" id="shape-list-empty">그린 도형이 없습니다. 아래에서 종류를 고르고 지도를 클릭하세요.</p>
+            </div>
+            <p class="shape-hint">목록에서 도형을 누르면 왼쪽에 3D 도형 상세 설정 창이 열립니다. 이 패널을 닫은 뒤 지도의 도형을 클릭해도 선택됩니다.</p>
+        </section>
+
+        <section class="shape-section" aria-labelledby="shape-type-heading" data-api-help="shape.create">
+            <h3 id="shape-type-heading">도형 종류</h3>
+            <div class="shape-type-grid">
+                <label><input type="radio" name="shape-type" value="Point" checked><span>포인트</span></label>
+                <label><input type="radio" name="shape-type" value="Line"><span>라인</span></label>
+                <label><input type="radio" name="shape-type" value="Cylinder"><span>실린더</span></label>
+                <label><input type="radio" name="shape-type" value="Box"><span>박스</span></label>
+                <label><input type="radio" name="shape-type" value="Circle"><span>원</span></label>
+                <label><input type="radio" name="shape-type" value="Sphere"><span>구</span></label>
+                <label><input type="radio" name="shape-type" value="Pipe"><span>파이프</span></label>
+                <label><input type="radio" name="shape-type" value="UserGeometry"><span>사용자도형</span></label>
+                <label><input type="radio" name="shape-type" value="PolygonLoftGeometry"><span>Loft도형</span></label>
+                <label><input type="radio" name="shape-type" value="PathGeometry"><span>경로 도형</span></label>
+            </div>
+            <p class="shape-hint" id="shape-type-hint">지도를 한 번 클릭하면 도형이 완성됩니다.</p>
+            <!-- 종류를 고른 뒤 [그리기 시작]을 눌러야 지도 클릭이 도형 그리기에 쓰입니다. 시작·완성·종료는 지도 위 토스트로 안내합니다. -->
+            <div class="shape-draw-buttons">
+                <button id="shape-draw-start" class="drone-action primary shape-draw-start" type="button" aria-pressed="false">그리기 시작</button>
+                <button id="shape-draw-stop" class="drone-action" type="button" disabled>그리기 종료</button>
+            </div>
+        </section>
+
+        <section class="shape-section" aria-labelledby="shape-common-heading">
+            <h3 id="shape-common-heading">공통 스타일</h3>
+            <div class="shape-form-grid" id="shape-color-field">
+                <label>색상<input type="color" name="shape-color" value="#2b448b"></label>
+                <label class="shape-check"><input type="checkbox" name="shape-shadow"><span>그림자</span></label>
+            </div>
+            <div class="shape-form-grid" id="shape-depth-field" hidden>
+                <label title="0~1 깊이 좌표 기준이며 미터가 아닙니다.">깊이 보정<input type="number" min="0" step="0.005" max="1" name="shape-depth-offset" value="0"></label>
+                <p class="shape-hint">0이면 보정 없음</p>
+            </div>
+        </section>
+
+        <section class="shape-section" aria-labelledby="shape-param-heading">
+            <h3 id="shape-param-heading">도형 세부 설정</h3>
+            <p class="shape-hint">드론이 수 km 상공에서 보이도록 기본 크기를 크게 두었습니다. 지도를 확대하면 더 작은 값도 잘 보입니다.</p>
+
+            <div class="shape-param shape-form-grid is-active" data-param-target="Point">
+                <label>점 크기<input type="number" min="1" step="1" name="size" value="30"></label>
+                <label class="shape-wide">이미지<input type="text" name="img" value="image/marker.png"></label>
+            </div>
+            <div class="shape-param shape-form-grid" data-param-target="Line">
+                <label>선두께<input type="number" min="0.1" step="0.5" name="lineWidth" value="8"></label>
+            </div>
+            <div class="shape-param shape-form-grid" data-param-target="Box">
+                <label>좌우폭<input type="number" name="width" value="40"></label>
+                <label>상하폭<input type="number" name="height" value="40"></label>
+                <label>높이<input type="number" name="depth" value="40"></label>
+                <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="1"></label>
+                <label class="shape-check"><input type="checkbox" name="outline" checked><span>외곽선 여부</span></label>
+            </div>
+            <div class="shape-param shape-form-grid" data-param-target="Circle">
+                <label>반지름<input type="number" name="radius" value="30"></label>
+                <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="0.8"></label>
+            </div>
+            <div class="shape-param shape-form-grid" data-param-target="Sphere">
+                <label>반지름<input type="number" name="radius" value="20"></label>
+                <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="1"></label>
+                <label class="shape-check"><input type="checkbox" name="outline"><span>외곽선 여부</span></label>
+            </div>
+            <div class="shape-param shape-form-grid" data-param-target="Cylinder">
+                <label>반지름(상)<input type="number" name="radiusTop" value="15"></label>
+                <label>반지름(하)<input type="number" name="radiusBottom" value="15"></label>
+                <label>길이<input type="number" name="height" value="60"></label>
+                <label>radialSegments<input type="number" min="3" step="1" name="radialSegments" value="32"></label>
+                <label>heightSegments<input type="number" min="1" step="1" name="heightSegments"></label>
+                <label>thetaStart (×π)<input type="number" step="0.25" name="thetaStart" placeholder="0.5 = π/2"></label>
+                <label>thetaLength (×π)<input type="number" step="0.25" name="thetaLength" placeholder="2 = 한 바퀴"></label>
+                <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="1"></label>
+                <label class="shape-check"><input type="checkbox" name="openEnded"><span>openEnded</span></label>
+                <label class="shape-check"><input type="checkbox" name="outline" checked><span>외곽선 여부</span></label>
+            </div>
+            <div class="shape-param shape-form-grid" data-param-target="Pipe">
+                <label>파이프 반지름<input type="number" min="0" step="0.1" name="piperadius" value="5"></label>
+                <label>경로 세분화 정도<input type="number" min="3" step="1" name="pathsegments" value="64"></label>
+                <label>반지름 세분화 정도<input type="number" min="3" step="1" name="radiussegments" value="16"></label>
+                <label>곡선 정도<input type="number" min="0" step="0.1" max="1" name="tension" value="0.5"></label>
+                <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="1"></label>
+                <label class="shape-check"><input type="checkbox" name="closed"><span>닫기 여부</span></label>
+            </div>
+            <div class="shape-param shape-form-grid" data-param-target="UserGeometry">
+                <label>높이<input type="number" name="height" value="100"></label>
+                <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="0.7"></label>
+                <label class="shape-check"><input type="checkbox" name="outline"><span>외곽선 여부</span></label>
+                <label class="shape-check"><input type="checkbox" name="usecurve"><span>곡선 보간</span></label>
+            </div>
+            <div class="shape-param shape-form-grid" data-param-target="PolygonLoftGeometry">
+                <label>높이<input type="number" name="height" value="150"></label>
+                <label>topScale<input type="number" min="0" step="0.1" name="topScale" value="0.7"></label>
+                <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="0.7"></label>
+                <label class="shape-check"><input type="checkbox" name="outline" checked><span>외곽선 여부</span></label>
+            </div>
+            <div class="shape-param shape-form-grid" data-param-target="PathGeometry">
+                <label>지면 높이<input type="number" name="height" value="100"></label>
+                <label>경로 너비<input type="number" name="width" value="30"></label>
+                <label>경로 높이<input type="number" name="pathheight" value="15"></label>
+                <label>경로 텐션<input type="number" min="0" step="0.1" max="1" name="tension" value="0.5"></label>
+                <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="0.4"></label>
+                <label class="shape-check"><input type="checkbox" name="outline" checked><span>외곽선 여부</span></label>
+            </div>
+
+            <button id="shape-apply" class="drone-action" type="button">설정 적용 (다음 도형부터)</button>
+            <p class="shape-hint" data-api-help="shape.path">[그리기 시작]을 누르면 현재 설정이 함께 적용됩니다. 경로 도형은 엔진 그리기 모드가 켜지며, 완성한 경로의 점을 클릭하면 높이를 편집할 수 있습니다.</p>
+        </section>
+
+        <section class="shape-section" aria-labelledby="shape-gizmo-heading" data-api-help="shape.gizmo">
+            <h3 id="shape-gizmo-heading">기즈모 편집</h3>
+            <div class="shape-gizmo-grid">
+                <button id="shape-gizmo-edit" class="drone-action" type="button" aria-pressed="false">기즈모 편집</button>
+                <button class="drone-action" type="button" data-shape-gizmo-mode="translate" aria-pressed="false" disabled>이동</button>
+                <button class="drone-action" type="button" data-shape-gizmo-mode="rotate" aria-pressed="false" disabled>회전</button>
+                <button class="drone-action" type="button" data-shape-gizmo-mode="scale" aria-pressed="false" disabled>크기</button>
+            </div>
+            <p class="shape-hint">편집을 켜고 지도의 도형을 클릭하면 이동·회전·크기 기즈모가 붙습니다. 상세 설정 창의 <strong>기즈모 편집</strong>은 선택한 도형에 바로 붙입니다.</p>
+        </section>
+
+        <section class="shape-section" aria-labelledby="shape-json-heading" data-api-help="shape.json">
+            <h3 id="shape-json-heading">JSON으로 생성</h3>
+            <textarea id="shape-json-input" spellcheck="false" aria-label="생성할 도형 JSON"></textarea>
+            <p class="shape-notice"><code>type</code>과 <code>coord</code>를 포함한 JSON을 입력하면 도형이 생성됩니다. 예시 좌표는 드론 출발 영역의 지면입니다.</p>
+            <div class="shape-actions">
+                <button id="shape-json-create" class="drone-action primary" type="button">생성</button>
+                <button id="shape-export" class="drone-action" type="button" data-api-help="shape.export">JSON 내보내기</button>
+                <button id="shape-clear" class="drone-action shape-danger" type="button" data-api-help="shape.clear">모두 지우기</button>
+            </div>
+            <p id="shape-json-result" class="shape-result" hidden></p>
+        </section>
+    </div>
+</aside>
+
+<!-- 도구 패널: 오른쪽 레일의 [도구] 버튼으로 열리는 Runtime 예제 패널(data-panel-target). 열리면 다른 예제 패널은 닫힙니다.
+     좌표계 변환: 위경도(EPSG:4326)와 WebMercator(EPSG:3857)를 엔진 월드 좌표 변환으로 서로 바꿉니다. -->
+<aside class="glass-panel example-panel drone-tools-panel" id="drone-tools-panel" aria-hidden="true">
+    <header class="panel-header">
+        <div>
+            <span class="eyebrow">TOOLS</span>
+            <h2 id="drone-tools-heading">도구</h2>
+        </div>
+        <button class="panel-close" type="button" data-panel-close="drone-tools-panel" aria-label="도구 닫기">×</button>
+    </header>
+
+    <div class="panel-content drone-tools-content">
+        <p class="panel-description">지도 작업에 쓰는 도구 모음입니다. 구획 제목을 누르면 내용이 펼쳐집니다.</p>
+
+        <!-- 좌표계 변환: 입력 좌표계 → 출력 좌표계 한 쌍만 두고, 가운데 ⇄ 버튼으로 방향을 바꿉니다. 변환 결과는 [변환하기]를 눌렀을 때 아래 결과 줄에 표시됩니다. -->
+        <details class="drone-monitoring-section drone-collapsible" aria-labelledby="drone-coords-heading" data-api-help="coords.convert">
+            <summary class="drone-collapsible-summary"><h3 id="drone-coords-heading">좌표계 변환</h3></summary>
+            <div class="drone-coords-direction">
+                <span class="drone-coords-crs" id="drone-coords-from" aria-label="입력 좌표계">위경도 (EPSG:4326)</span>
+                <button class="drone-coords-swap" id="drone-coords-swap" type="button" aria-label="입력·출력 좌표계 바꾸기" title="입력·출력 좌표계 바꾸기">⇄</button>
+                <span class="drone-coords-crs" id="drone-coords-to" aria-label="출력 좌표계">WebMercator (EPSG:3857)</span>
+            </div>
+            <div class="drone-coords-grid">
+                <label class="drone-field"><span id="drone-coords-x-label">경도 (°)</span><input id="drone-coords-x" type="number" step="any" placeholder="127.94650" inputmode="decimal" autocomplete="off"></label>
+                <label class="drone-field"><span id="drone-coords-y-label">위도 (°)</span><input id="drone-coords-y" type="number" step="any" placeholder="37.34920" inputmode="decimal" autocomplete="off"></label>
+            </div>
+            <div class="drone-coords-actions">
+                <button id="drone-coords-convert" class="drone-action primary" type="button">변환하기</button>
+                <button id="drone-coords-reset" class="drone-action" type="button">초기화</button>
+            </div>
+            <p class="drone-coords-result" id="drone-coords-result" role="status">변환 결과가 여기에 표시됩니다.</p>
+        </details>
+
+        <!-- 이미지 출력: 로컬 이미지를 업로드해 미리보기로 확인한 뒤, 중심 좌표(위경도)·정북 기준 회전을 넣고 [출력]을 누르면
+             엔진 UTerrainStamp가 지면에 이미지를 그립니다. 폭은 CONFIG.stamp.widthMeters, 높이는 이미지 비율로 정합니다. -->
+        <details class="drone-monitoring-section drone-collapsible" aria-labelledby="drone-stamp-heading" data-api-help="terrain.stamp">
+            <summary class="drone-collapsible-summary"><h3 id="drone-stamp-heading">이미지 출력</h3></summary>
+            <div class="drone-stamp-upload">
+                <input id="drone-stamp-file" type="file" accept="image/*" hidden>
+                <button id="drone-stamp-upload" class="drone-action" type="button">이미지 업로드</button>
+                <figure class="drone-stamp-preview" id="drone-stamp-preview">
+                    <img id="drone-stamp-preview-image" alt="업로드한 이미지 미리보기" hidden>
+                    <figcaption id="drone-stamp-preview-caption">선택한 이미지가 없습니다.</figcaption>
+                </figure>
+            </div>
+            <div class="drone-coords-grid">
+                <label class="drone-field"><span>출력 경도 (°)</span><input id="drone-stamp-lon" type="number" step="any" placeholder="127.94650" inputmode="decimal" autocomplete="off"></label>
+                <label class="drone-field"><span>출력 위도 (°)</span><input id="drone-stamp-lat" type="number" step="any" placeholder="37.34920" inputmode="decimal" autocomplete="off"></label>
+            </div>
+            <label class="drone-field"><span>회전 (정북 기준 시계 방향, °)</span><input id="drone-stamp-rotation" type="number" step="1" min="-360" max="360" value="0" inputmode="decimal" autocomplete="off"></label>
+            <div class="drone-coords-actions">
+                <button id="drone-stamp-apply" class="drone-action primary" type="button" disabled>출력</button>
+                <button id="drone-stamp-reset" class="drone-action" type="button">초기화</button>
+            </div>
+            <p class="drone-coords-result" id="drone-stamp-status" role="status">이미지를 업로드하고 출력 좌표를 입력하세요.</p>
+        </details>
+    </div>
+</aside>
+
+<!-- 설정 패널: 오른쪽 레일의 [설정] 버튼으로 열립니다. 지형 고도 배율 입력을 바꾸면 켜져 있는 고도 레이어마다 setHeightScale()을 호출합니다. -->
+<aside class="glass-panel example-panel drone-settings-panel" id="drone-settings-panel" aria-hidden="true">
+    <header class="panel-header">
+        <div>
+            <span class="eyebrow">SETTINGS</span>
+            <h2 id="drone-settings-heading">설정</h2>
+        </div>
+        <button class="panel-close" type="button" data-panel-close="drone-settings-panel" aria-label="설정 닫기">×</button>
+    </header>
+
+    <div class="panel-content drone-settings-content">
+        <p class="panel-description">예제 실행 환경을 조절합니다. 구획 제목을 누르면 내용이 펼쳐지고, 값을 바꾸면 바로 적용됩니다.</p>
+
+        <details class="drone-monitoring-section drone-collapsible" aria-labelledby="drone-terrain-heading">
+            <summary class="drone-collapsible-summary"><h3 id="drone-terrain-heading">지형</h3></summary>
+            <label class="drone-field drone-settings-field" for="drone-terrain-height-scale" data-api-help="terrain.heightScale">
+                <span>지형 고도 배율</span>
+                <input id="drone-terrain-height-scale" type="number" min="0.1" max="10" step="0.1" value="1" inputmode="decimal" autocomplete="off">
+            </label>
+            <p class="drone-group-hint" id="drone-terrain-height-status" role="status">배율 1 · 켜져 있는 고도 레이어 0개에 적용</p>
+        </details>
+    </div>
+</aside>
+
+<!-- 고도 범례 패널: 오른쪽 레일의 [고도 범례] 버튼으로 열리는 Runtime 예제 패널(data-panel-target).
+     analysisHeightLegend 예제의 고도 범례·등고선 분석(가시화 체크박스, 범례 편집, 등고선 스타일)을 담습니다. 후처리 제외 기능은 넣지 않았습니다. -->
+<aside class="glass-panel example-panel drone-legend-panel" id="drone-height-legend-panel" aria-hidden="true">
+    <header class="panel-header">
+        <div>
+            <span class="eyebrow">HEIGHT LEGEND</span>
+            <h2 id="drone-legend-heading">고도 범례</h2>
+        </div>
+        <button class="panel-close" type="button" data-panel-close="drone-height-legend-panel" aria-label="고도 범례 닫기">×</button>
+    </header>
+
+    <div class="panel-content drone-legend-content">
+        <p class="panel-description">지형과 건물, 드론의 고도를 색상 범례와 등고선으로 확인합니다. 가시화를 켜면 범례·등고선 설정 영역이 나타납니다.</p>
+
+        <section class="drone-monitoring-section" aria-labelledby="drone-legend-visibility-heading">
+            <h3 id="drone-legend-visibility-heading">분석 표시</h3>
+            <label class="drone-option-row" data-api-help="legend.visibility">
+                <input id="drone-legend-visible" type="checkbox">
+                <span class="drone-option-copy">
+                    <strong>고도 범례 가시화</strong>
+                    <small>화면 픽셀의 고도를 범례 색상으로 채웁니다.</small>
+                </span>
+            </label>
+            <label class="drone-option-row" data-api-help="contour.visibility">
+                <input id="drone-contour-visible" type="checkbox">
+                <span class="drone-option-copy">
+                    <strong>등고선 가시화</strong>
+                    <small>고도 구간마다 지정한 간격의 등고선을 그립니다.</small>
+                </span>
+            </label>
+        </section>
+
+        <!-- 고도 범례 편집: 고도 범례 가시화를 켜면 나타납니다. 고도 기준값은 읽기 전용이며 투명도·색상을 편집하고 +/−로 기준값을 추가·제거합니다. -->
+        <section class="drone-monitoring-section" id="drone-legend-section" aria-labelledby="drone-legend-style-heading" hidden>
+            <h3 id="drone-legend-style-heading">고도 범례</h3>
+            <div class="drone-legend-mode" role="radiogroup" aria-label="색상 선택 방식" data-api-help="legend.mode">
+                <label><input type="radio" name="drone-legend-mode" value="band" checked><span>band</span></label>
+                <label><input type="radio" name="drone-legend-mode" value="mix"><span>mix</span></label>
+            </div>
+            <p class="drone-group-hint">band는 기준값 구간의 색을 그대로, mix는 인접 기준값 색을 섞어 표현합니다. 고도 값은 읽기 전용이며 투명도(0~1)와 색상을 편집합니다.</p>
+            <div class="drone-legend-list" id="drone-legend-list" data-api-help="legend.style"></div>
+            <div class="drone-legend-actions">
+                <button class="drone-legend-action" type="button" id="drone-legend-add" title="범례 추가" data-api-help="legend.items">+</button>
+                <button class="drone-legend-action" type="button" id="drone-legend-remove" title="범례 제거" data-api-help="legend.items">−</button>
+            </div>
+        </section>
+
+        <!-- 등고선 스타일: 등고선 가시화를 켜면 나타납니다. -->
+        <section class="drone-monitoring-section" id="drone-contour-section" aria-labelledby="drone-contour-heading" hidden>
+            <h3 id="drone-contour-heading">등고선 스타일</h3>
+            <div class="drone-contour-fields">
+                <label class="drone-contour-field" data-api-help="contour.width"><span>선 두께</span><input id="drone-contour-width" type="number" value="3" min="1" max="12" step="0.5"></label>
+                <label class="drone-contour-field" data-api-help="contour.fade"><span>감쇠 시작 거리</span><input id="drone-contour-fade-start" type="number" value="2000" min="0" step="100"></label>
+                <label class="drone-contour-field" data-api-help="contour.fade"><span>표현 종료 거리</span><input id="drone-contour-fade-end" type="number" value="80000" min="1" step="100"></label>
+            </div>
+            <div class="drone-slider-row" data-api-help="contour.opacity">
+                <label class="drone-slider-label" for="drone-contour-opacity"><strong>투명도</strong><output id="drone-contour-opacity-value" for="drone-contour-opacity">0.85</output></label>
+                <input id="drone-contour-opacity" class="drone-slider" type="range" min="0" max="1" step="0.05" value="0.85">
+            </div>
+            <div class="drone-contour-list" id="drone-contour-list" data-api-help="contour.style"></div>
+            <div class="drone-legend-actions">
+                <button class="drone-legend-action" type="button" id="drone-contour-add" title="등고선 구간 추가" data-api-help="contour.items">+</button>
+                <button class="drone-legend-action" type="button" id="drone-contour-remove" title="등고선 구간 제거" data-api-help="contour.items">−</button>
+            </div>
+        </section>
+    </div>
+</aside>
+
+<!-- 왼쪽 3D 도형 상세 설정 창: 드론·그룹 상세 설정 창과 같은 자리에 놓이며 도형을 선택하면 열립니다. -->
+<aside class="glass-panel drone-detail-panel shape-detail-panel" id="shape-detail-panel" aria-labelledby="shape-detail-heading" aria-hidden="true" hidden>
+    <header class="panel-header">
+        <div>
+            <span class="eyebrow">SHAPE DETAIL</span>
+            <h2 id="shape-detail-heading">3D 도형 상세 설정 <span class="drone-detail-name" id="shape-detail-name">-</span></h2>
+        </div>
+        <button class="panel-close" id="shape-detail-close" type="button" aria-label="3D 도형 상세 설정 닫기">×</button>
+    </header>
+
+    <div class="panel-content drone-detail-content">
+        <p class="panel-description">목록이나 지도에서 선택한 도형의 정보입니다. 이름·표시·스타일을 바꾸고 기즈모로 위치·회전·크기를 편집할 수 있습니다.</p>
+
+        <label class="drone-field" for="shape-name-input">
+            <span>도형 이름</span>
+            <input id="shape-name-input" type="text" maxlength="40" autocomplete="off">
+        </label>
+
+        <div class="drone-detail-actions">
+            <button id="shape-focus" class="drone-action primary" type="button">도형 위치로 이동</button>
+        </div>
+
+        <label class="drone-option-row shape-visible-row">
+            <input id="shape-visible" type="checkbox" checked>
+            <span class="drone-option-copy">
+                <strong>도형 표시</strong>
+                <small>끄면 지도에서 숨기고 목록에는 남습니다.</small>
+            </span>
+        </label>
+
+        <h3 class="drone-group-members-heading">기즈모 편집</h3>
+        <div class="shape-gizmo-grid" data-api-help="shape.gizmo">
+            <button id="shape-detail-gizmo" class="drone-action" type="button" aria-pressed="false">기즈모 편집</button>
+            <button class="drone-action" type="button" data-shape-detail-gizmo-mode="translate" aria-pressed="false" disabled>이동</button>
+            <button class="drone-action" type="button" data-shape-detail-gizmo-mode="rotate" aria-pressed="false" disabled>회전</button>
+            <button class="drone-action" type="button" data-shape-detail-gizmo-mode="scale" aria-pressed="false" disabled>크기</button>
+        </div>
+        <p class="shape-hint">선택한 도형에 이동·회전·크기 기즈모를 붙입니다. 편집 중에는 버튼이 <strong>기즈모 편집 종료</strong>로 바뀌고, 다시 누르면 끝납니다.</p>
+
+        <h3 class="drone-group-members-heading">기본 정보</h3>
+        <dl class="drone-info-list">
+            <div><dt>종류</dt><dd id="shape-basic-type">-</dd></div>
+            <div><dt>좌표 수</dt><dd id="shape-basic-points">-</dd></div>
+            <div><dt>중심 경도</dt><dd id="shape-basic-longitude">-</dd></div>
+            <div><dt>중심 위도</dt><dd id="shape-basic-latitude">-</dd></div>
+            <div><dt>중심 고도</dt><dd id="shape-basic-altitude">-</dd></div>
+            <div><dt>크기(가로×세로×높이)</dt><dd id="shape-basic-size">-</dd></div>
+            <div><dt>생성 시각</dt><dd id="shape-basic-created">-</dd></div>
+        </dl>
+
+        <h3 class="drone-group-members-heading">스타일</h3>
+        <div class="shape-form-grid shape-style-form" id="shape-style-form" data-api-help="shape.style"></div>
+        <button id="shape-style-apply" class="drone-action primary" type="button" data-api-help="shape.style">스타일 적용</button>
+        <p id="shape-style-result" class="shape-result" hidden></p>
+
+        <!-- JSON 영역: vectorLayer 예제의 [JSON으로 설정]처럼 type·coord와 스타일이 담긴 JSON을 편집해 스타일을 적용합니다. -->
+        <h3 class="drone-group-members-heading">JSON</h3>
+        <p class="shape-hint">도형의 <code>type</code>·<code>coord</code>와 스타일이 담긴 JSON입니다. 스타일 값을 고쳐 <strong>JSON 적용</strong>을 누르면 스타일 폼과 같은 <code>setParam()</code>으로 도형에 반영됩니다. <code>type</code>·<code>coord</code>는 바뀌지 않으며, 이 JSON을 그리기 패널의 JSON으로 생성에 붙여 넣으면 같은 도형을 다시 만들 수 있습니다.</p>
+        <textarea id="shape-json-view" class="shape-json-view" spellcheck="false" aria-label="선택한 도형의 JSON(스타일 편집 가능)" data-api-help="shape.style"></textarea>
+        <div class="shape-json-actions">
+            <button id="shape-json-apply" class="drone-action primary" type="button" data-api-help="shape.style" disabled>JSON 적용</button>
+            <button id="shape-json-reset" class="drone-action" type="button" disabled>현재 값 다시 채우기</button>
+        </div>
+        <p id="shape-json-apply-result" class="shape-result" hidden></p>
+
+        <h3 class="drone-group-members-heading">삭제</h3>
+        <button id="shape-remove" class="drone-action shape-danger shape-detail-remove" type="button" data-api-help="shape.remove">도형 삭제</button>
+    </div>
+</aside>
+
+<!-- 실행 환경 정보 팝업: 지도 도구(오른쪽 위, 홈 버튼 왼쪽)의 실행 환경 버튼으로 열고 닫습니다. 버튼은 ui.js가 지도 도구 묶음에 끼워 넣습니다. -->
+<aside class="glass-panel drone-env-panel" id="drone-env-panel" aria-labelledby="drone-env-heading" aria-hidden="true" hidden>
+    <header class="panel-header">
+        <div>
+            <span class="eyebrow">RUNTIME ENVIRONMENT</span>
+            <h2 id="drone-env-heading">실행 환경</h2>
+        </div>
+        <button class="panel-close" id="drone-env-close" type="button" aria-label="실행 환경 닫기">×</button>
+    </header>
+
+    <div class="panel-content drone-env-content">
+        <p class="panel-description">실제 지도 렌더러의 WebGL 컨텍스트에서 읽은 값과 드론 레이어의 Instance 생성 상태입니다. 컨텍스트가 손실·복원되면 다시 읽습니다.</p>
+        <dl class="drone-info-list">
+            <div data-api-help="webgl.info"><dt>WebGL 2.0 사용</dt><dd id="drone-env-webgl2">확인 중</dd></div>
+            <div data-api-help="webgl.info"><dt>WebGL 버전</dt><dd id="drone-env-version">-</dd></div>
+            <div data-api-help="webgl.info"><dt>GLSL 버전</dt><dd id="drone-env-glsl">-</dd></div>
+            <div data-api-help="webgl.info"><dt>Renderer</dt><dd id="drone-env-renderer">-</dd></div>
+            <div data-api-help="instance.state"><dt>Instance 생성 모드</dt><dd id="drone-env-instance-mode">-</dd></div>
+            <div data-api-help="instance.state"><dt>Instance 드론 수</dt><dd id="drone-env-instance-count">-</dd></div>
+        </dl>
+        <p class="drone-env-note" id="drone-env-note" hidden></p>
+    </div>
+</aside>
+
+<!-- 왼쪽 드론 상세 설정 창: 단일 선택한 드론의 정보를 탭으로 표시합니다.
+     Runtime 패널은 하나만 열리므로 오른쪽 목록과 함께 보이도록 예제가 직접 표시·숨김을 관리합니다. -->
+<aside class="glass-panel drone-detail-panel" id="drone-detail-panel" aria-labelledby="drone-detail-heading" hidden>
+    <header class="panel-header">
+        <div>
+            <span class="eyebrow">DRONE DETAIL</span>
+            <h2 id="drone-detail-heading">드론 상세 설정 <span class="drone-detail-name" id="drone-detail-name">-</span></h2>
+        </div>
+        <button class="panel-close" id="drone-detail-close" type="button" aria-label="드론 상세 설정 닫기">×</button>
+    </header>
+
+    <div class="panel-content drone-detail-content">
+        <p class="panel-description">드론 목록이나 지도에서 선택한 드론의 정보입니다. 드론을 바꿔 선택해도 활성 탭은 유지됩니다.</p>
+
+        <div class="drone-detail-actions">
+            <button id="drone-focus" class="drone-action primary" type="button" data-api-help="camera.focus" disabled>드론 위치로 카메라 이동</button>
+        </div>
+        <!-- 좌표 입력 이동 명령: 좌표계를 고르고 X·Y를 입력한 뒤 [이동 명령]을 누르면 우클릭 이동과 같은 명령을 내립니다. -->
+        <div class="drone-move-form" role="group" aria-label="좌표 입력 이동 명령" data-api-help="flight.command">
+            <select id="drone-move-crs" class="drone-move-crs" aria-label="좌표계">
+                <option value="wgs84" selected>위경도 (EPSG:4326)</option>
+                <option value="webmercator">WebMercator (EPSG:3857)</option>
+            </select>
+            <input id="drone-move-x" class="drone-move-input" type="number" step="any" placeholder="X (경도)" aria-label="X 좌표" inputmode="decimal" autocomplete="off">
+            <input id="drone-move-y" class="drone-move-input" type="number" step="any" placeholder="Y (위도)" aria-label="Y 좌표" inputmode="decimal" autocomplete="off">
+            <button id="drone-move-command" class="drone-action" type="button" disabled>이동 명령</button>
+        </div>
+        <p class="drone-detail-hint" data-api-help="flight.command">지도를 <strong>우클릭</strong>하면 선택한 드론이 그 지점(현재 고도 유지)으로 선회하며 이동하고, 드론에서 목표까지 화살표가 표시됩니다.</p>
+
+        <div class="drone-tablist" id="drone-tablist" role="tablist" aria-label="드론 상세 설정 탭">
+            <button id="drone-tab-basic" class="drone-tab" type="button" role="tab" aria-selected="true" aria-controls="drone-tabpanel-basic" data-tab="basic">기본 정보</button>
+            <button id="drone-tab-settings" class="drone-tab" type="button" role="tab" aria-selected="false" aria-controls="drone-tabpanel-settings" data-tab="settings" tabindex="-1">드론 설정</button>
+            <button id="drone-tab-path" class="drone-tab" type="button" role="tab" aria-selected="false" aria-controls="drone-tabpanel-path" data-tab="path" tabindex="-1">비행 경로</button>
+            <button id="drone-tab-frustum" class="drone-tab" type="button" role="tab" aria-selected="false" aria-controls="drone-tabpanel-frustum" data-tab="frustum" tabindex="-1">촬영 영역</button>
+        </div>
+        <p class="drone-detail-empty" id="drone-detail-empty" hidden>선택한 드론이 없습니다. 목록에서 드론을 선택하거나 드론을 추가하세요.</p>
+
+        <div class="drone-tabpanel" id="drone-tabpanel-basic" role="tabpanel" aria-labelledby="drone-tab-basic" data-tab-panel="basic">
+            <dl class="drone-info-list">
+                <div><dt>드론 ID</dt><dd id="drone-basic-id">-</dd></div>
+                <div><dt>모델 이름</dt><dd id="drone-basic-model">-</dd></div>
+                <div><dt>소속 그룹</dt><dd id="drone-basic-group">-</dd></div>
+                <div><dt>현재 경도</dt><dd id="drone-basic-longitude">-</dd></div>
+                <div><dt>현재 위도</dt><dd id="drone-basic-latitude">-</dd></div>
+                <div><dt>현재 고도</dt><dd id="drone-basic-altitude">-</dd></div>
+                <div><dt>비행 상태</dt><dd id="drone-basic-flight">-</dd></div>
+                <div><dt>Instance 적용</dt><dd id="drone-basic-instanced">-</dd></div>
+            </dl>
+        </div>
+
+        <!-- 드론 설정 탭: 선택한 드론의 밝기·대비와 이동 보간 시간을 슬라이더로 바꿉니다. 값은 드론별로 유지됩니다. -->
+        <div class="drone-tabpanel" id="drone-tabpanel-settings" role="tabpanel" aria-labelledby="drone-tab-settings" data-tab-panel="settings" hidden>
+            <div class="drone-slider-row" data-api-help="drone.brightness">
+                <label class="drone-slider-label" for="drone-brightness"><strong>밝기</strong><output id="drone-brightness-value" for="drone-brightness">1.00</output></label>
+                <input id="drone-brightness" class="drone-slider" type="range" min="0" max="3" step="0.05" value="1" aria-describedby="drone-brightness-hint" disabled>
+                <small class="drone-slider-hint" id="drone-brightness-hint">1이 원래 밝기, 0은 검정, 1보다 크면 밝아집니다.</small>
+            </div>
+            <div class="drone-slider-row" data-api-help="drone.contrast">
+                <label class="drone-slider-label" for="drone-contrast"><strong>대비</strong><output id="drone-contrast-value" for="drone-contrast">1.00</output></label>
+                <input id="drone-contrast" class="drone-slider" type="range" min="0" max="3" step="0.05" value="1" aria-describedby="drone-contrast-hint" disabled>
+                <small class="drone-slider-hint" id="drone-contrast-hint">1이 원래 대비, 0은 중간 회색입니다.</small>
+            </div>
+            <div class="drone-slider-row" data-api-help="drone.duration">
+                <label class="drone-slider-label" for="drone-duration-ms"><strong>이동 보간 시간</strong><output id="drone-duration-ms-value" for="drone-duration-ms">20 ms · 빠른 이동</output></label>
+                <input id="drone-duration-ms" class="drone-slider" type="range" min="0" max="1000" step="20" value="1000" aria-describedby="drone-duration-ms-hint" disabled>
+                <small class="drone-slider-hint" id="drone-duration-ms-hint">선택한 드론에만 적용됩니다. 0은 순간 이동, 값이 클수록 보간 정도가 커지고 1000ms는 연속 보간입니다.</small>
+            </div>
+            <button id="drone-settings-reset" class="drone-action" type="button" disabled>기본값으로 되돌리기</button>
+        </div>
+
+        <div class="drone-tabpanel" id="drone-tabpanel-path" role="tabpanel" aria-labelledby="drone-tab-path" data-tab-panel="path" hidden>
+            <label class="drone-option-row" data-api-help="path.visible">
+                <input id="drone-path-visible" type="checkbox" checked>
+                <span class="drone-option-copy">
+                    <strong>비행 경로 표시</strong>
+                    <small>선택한 드론의 누적 비행 경로만 표시하거나 숨깁니다.</small>
+                </span>
+            </label>
+            <dl class="drone-info-list">
+                <div><dt>경로 생성 상태</dt><dd id="drone-path-created">-</dd></div>
+                <div><dt>현재 표시 상태</dt><dd id="drone-path-display">-</dd></div>
+            </dl>
+
+            <!-- 누적 경로 표현: animationComponents 예제와 같은 항목을 선택한 드론의 setCumulativePathStyle()로 즉시 적용합니다. 값은 드론별로 유지됩니다. -->
+            <section class="drone-subsection" aria-labelledby="drone-path-style-heading">
+                <h4 id="drone-path-style-heading" class="drone-subsection-title">누적 경로 표현</h4>
+                <p class="drone-slider-hint drone-subsection-note">선택한 드론의 경로 스타일과 오래된 경로가 사라지는 거리 기반 Fade를 공개 API로 즉시 변경합니다. Fade는 경로 캐시를 삭제하지 않고 최신 위치부터 표시할 구간만 제한합니다.</p>
+                <div class="drone-slider-row" data-api-help="path.style">
+                    <label class="drone-slider-label" for="drone-path-color"><strong>경로 색상</strong><output id="drone-path-color-value" for="drone-path-color">-</output></label>
+                    <input id="drone-path-color" class="drone-color-input" type="color" value="#ffd166" aria-describedby="drone-path-color-hint" disabled>
+                    <small class="drone-slider-hint" id="drone-path-color-hint">기본은 드론 색(그룹 소속이면 그룹 색)을 따르고, 색을 고르면 그룹에 넣고 빼도 그 색을 유지합니다.</small>
+                </div>
+                <div class="drone-slider-row" data-api-help="path.style">
+                    <label class="drone-slider-label" for="drone-path-opacity"><strong>경로 투명도</strong><output id="drone-path-opacity-value" for="drone-path-opacity">-</output></label>
+                    <input id="drone-path-opacity" class="drone-slider" type="range" min="0" max="1" step="0.05" value="0.8" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="path.style">
+                    <label class="drone-slider-label" for="drone-path-width"><strong>경로 폭</strong><output id="drone-path-width-value" for="drone-path-width">-</output></label>
+                    <input id="drone-path-width" class="drone-slider" type="range" min="0.5" max="20" step="0.5" value="5" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="path.fade">
+                    <label class="drone-slider-label" for="drone-path-fade"><strong>오래된 경로 Fade</strong><output id="drone-path-fade-value" for="drone-path-fade">-</output></label>
+                    <input id="drone-path-fade" class="drone-check-input" type="checkbox" checked disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="path.fade">
+                    <label class="drone-slider-label" for="drone-path-max-distance"><strong>최대 표시 거리</strong><output id="drone-path-max-distance-value" for="drone-path-max-distance">-</output></label>
+                    <input id="drone-path-max-distance" class="drone-slider" type="range" min="100" max="20000" step="100" value="14000" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="path.fade">
+                    <label class="drone-slider-label" for="drone-path-width-fade"><strong>폭 Fade 비율</strong><output id="drone-path-width-fade-value" for="drone-path-width-fade">-</output></label>
+                    <input id="drone-path-width-fade" class="drone-slider" type="range" min="0" max="1" step="0.05" value="0.5" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="path.fade">
+                    <label class="drone-slider-label" for="drone-path-alpha-fade"><strong>투명도 Fade 비율</strong><output id="drone-path-alpha-fade-value" for="drone-path-alpha-fade">-</output></label>
+                    <input id="drone-path-alpha-fade" class="drone-slider" type="range" min="0" max="1" step="0.05" value="0.4" disabled>
+                </div>
+                <button id="drone-path-style-reset" class="drone-action" type="button" disabled>경로 표현 기본값으로 되돌리기</button>
+            </section>
+        </div>
+
+        <!-- 촬영 영역 탭: animationComponents 예제의 Frustum 설정·Helper 품질/안정화·Helper 표현 항목입니다. 선택한 드론에 UFrustum과 지면 투영 Helper를 장착하며 값은 드론별로 유지됩니다. -->
+        <div class="drone-tabpanel" id="drone-tabpanel-frustum" role="tabpanel" aria-labelledby="drone-tab-frustum" data-tab-panel="frustum" hidden>
+            <label class="drone-option-row" data-api-help="frustum.helper-create">
+                <input id="drone-frustum-visible" type="checkbox">
+                <span class="drone-option-copy">
+                    <strong>촬영 영역 표시</strong>
+                    <small>선택한 드론에 카메라 Frustum을 장착하고 지면 투영 Helper(실제 촬영 지면 영역·옆면·외곽선)를 그립니다. 아래 값은 드론별로 저장되어 표시할 때 적용됩니다.</small>
+                </span>
+            </label>
+            <section class="drone-subsection" aria-labelledby="drone-frustum-camera-heading">
+                <h4 id="drone-frustum-camera-heading" class="drone-subsection-title">Frustum 설정</h4>
+                <p class="drone-slider-hint drone-subsection-note">카메라 투영값(FOV·Aspect·Near·Far)과 드론 기준 자세(Pitch·Yaw·Roll)를 UFrustum 공개 API로 즉시 반영합니다. Pitch는 위(+)/아래(−), Yaw는 오른쪽(+)/왼쪽(−) 각도이며, 지면 영역은 시야 광선이 Far 안에서 지면과 만날 때만 그려집니다. Far가 클수록 먼 지면까지 포함하지만 먼쪽 면이 커져 경계 변화가 커질 수 있습니다.</p>
+                <div class="drone-slider-row" data-api-help="frustum.camera-info">
+                    <label class="drone-slider-label" for="drone-frustum-fov"><strong>FOV</strong><output id="drone-frustum-fov-value" for="drone-frustum-fov">-</output></label>
+                    <input id="drone-frustum-fov" class="drone-slider" type="range" min="1" max="179" step="1" value="50" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.camera-info">
+                    <label class="drone-slider-label" for="drone-frustum-aspect"><strong>Aspect</strong><output id="drone-frustum-aspect-value" for="drone-frustum-aspect">-</output></label>
+                    <input id="drone-frustum-aspect" class="drone-slider" type="range" min="0.2" max="4" step="0.1" value="1.4" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.camera-info">
+                    <label class="drone-slider-label" for="drone-frustum-near"><strong>Near</strong><output id="drone-frustum-near-value" for="drone-frustum-near">-</output></label>
+                    <input id="drone-frustum-near" class="drone-slider" type="range" min="0.1" max="100" step="0.1" value="0.1" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.camera-info">
+                    <label class="drone-slider-label" for="drone-frustum-far"><strong>Far</strong><output id="drone-frustum-far-value" for="drone-frustum-far">-</output></label>
+                    <input id="drone-frustum-far" class="drone-slider" type="range" min="500" max="20000" step="50" value="18000" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.rotation">
+                    <label class="drone-slider-label" for="drone-frustum-pitch"><strong>Pitch</strong><output id="drone-frustum-pitch-value" for="drone-frustum-pitch">-</output></label>
+                    <input id="drone-frustum-pitch" class="drone-slider" type="range" min="-180" max="180" step="1" value="10" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.rotation">
+                    <label class="drone-slider-label" for="drone-frustum-yaw"><strong>Yaw</strong><output id="drone-frustum-yaw-value" for="drone-frustum-yaw">-</output></label>
+                    <input id="drone-frustum-yaw" class="drone-slider" type="range" min="-180" max="180" step="1" value="0" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.rotation">
+                    <label class="drone-slider-label" for="drone-frustum-roll"><strong>Roll</strong><output id="drone-frustum-roll-value" for="drone-frustum-roll">-</output></label>
+                    <input id="drone-frustum-roll" class="drone-slider" type="range" min="-180" max="180" step="1" value="0" disabled>
+                </div>
+            </section>
+            <section class="drone-subsection" aria-labelledby="drone-frustum-quality-heading">
+                <h4 id="drone-frustum-quality-heading" class="drone-subsection-title">Helper 품질 / 안정화</h4>
+                <p class="drone-slider-hint drone-subsection-note">지면 영역 관련 값은 실제로 보이는 지면의 모양을 조절합니다. 값을 올리면 더 자세해지지만 계산량이 늘어납니다. 움직임 관련 값은 프레임 사이 변화를 부드럽게 하지만, 값을 올리면 실제 드론 자세나 지면 변화의 반영이 늦어질 수 있습니다.</p>
+                <div class="drone-slider-row" data-api-help="frustum.helper-quality">
+                    <label class="drone-slider-label" for="drone-frustum-update-interval"><strong>Helper 고정 갱신 주기</strong><output id="drone-frustum-update-interval-value" for="drone-frustum-update-interval">-</output></label>
+                    <input id="drone-frustum-update-interval" class="drone-slider" type="range" min="10" max="200" step="5" value="20" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.helper-quality">
+                    <label class="drone-slider-label" for="drone-frustum-intersection-steps"><strong>지면 접촉 위치 정밀도</strong><output id="drone-frustum-intersection-steps-value" for="drone-frustum-intersection-steps">-</output></label>
+                    <input id="drone-frustum-intersection-steps" class="drone-slider" type="range" min="8" max="64" step="4" value="24" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.helper-quality">
+                    <label class="drone-slider-label" for="drone-frustum-grid-size"><strong>지면 영역 확인점 수</strong><output id="drone-frustum-grid-size-value" for="drone-frustum-grid-size">-</output></label>
+                    <input id="drone-frustum-grid-size" class="drone-slider" type="range" min="3" max="17" step="2" value="9" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.helper-quality">
+                    <label class="drone-slider-label" for="drone-frustum-boundary-refinement"><strong>지면 외곽선 정밀도</strong><output id="drone-frustum-boundary-refinement-value" for="drone-frustum-boundary-refinement">-</output></label>
+                    <input id="drone-frustum-boundary-refinement" class="drone-slider" type="range" min="0" max="12" step="1" value="9" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.helper-quality">
+                    <label class="drone-slider-label" for="drone-frustum-intersection-stabilization"><strong>지면 결과 안정화</strong><output id="drone-frustum-intersection-stabilization-value" for="drone-frustum-intersection-stabilization">-</output></label>
+                    <input id="drone-frustum-intersection-stabilization" class="drone-check-input" type="checkbox" checked disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.helper-quality">
+                    <label class="drone-slider-label" for="drone-frustum-median-window"><strong>최근 측정 비교 개수</strong><output id="drone-frustum-median-window-value" for="drone-frustum-median-window">-</output></label>
+                    <input id="drone-frustum-median-window" class="drone-slider" type="range" min="1" max="31" step="2" value="15" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.helper-quality">
+                    <label class="drone-slider-label" for="drone-frustum-intersection-half-life"><strong>지면 결과 부드러움 시간</strong><output id="drone-frustum-intersection-half-life-value" for="drone-frustum-intersection-half-life">-</output></label>
+                    <input id="drone-frustum-intersection-half-life" class="drone-slider" type="range" min="0" max="500" step="10" value="10" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.helper-quality">
+                    <label class="drone-slider-label" for="drone-frustum-max-lag"><strong>큰 경계 변화 1회 반영 거리</strong><output id="drone-frustum-max-lag-value" for="drone-frustum-max-lag">-</output></label>
+                    <input id="drone-frustum-max-lag" class="drone-slider" type="range" min="0" max="300" step="5" value="200" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.helper-quality">
+                    <label class="drone-slider-label" for="drone-frustum-hit-persistence"><strong>지면 영역 변경 확인 시간</strong><output id="drone-frustum-hit-persistence-value" for="drone-frustum-hit-persistence">-</output></label>
+                    <input id="drone-frustum-hit-persistence" class="drone-slider" type="range" min="0" max="300" step="10" value="100" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.helper-quality">
+                    <label class="drone-slider-label" for="drone-frustum-temporal-half-life"><strong>전체 움직임 부드러움</strong><output id="drone-frustum-temporal-half-life-value" for="drone-frustum-temporal-half-life">-</output></label>
+                    <input id="drone-frustum-temporal-half-life" class="drone-slider" type="range" min="10" max="1000" step="10" value="50" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.helper-quality">
+                    <label class="drone-slider-label" for="drone-frustum-hysteresis"><strong>작은 흔들림 무시 거리</strong><output id="drone-frustum-hysteresis-value" for="drone-frustum-hysteresis">-</output></label>
+                    <input id="drone-frustum-hysteresis" class="drone-slider" type="range" min="0" max="5" step="0.1" value="4" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.helper-quality">
+                    <label class="drone-slider-label" for="drone-frustum-far-smoothing"><strong>Far 회전 부드러움</strong><output id="drone-frustum-far-smoothing-value" for="drone-frustum-far-smoothing">-</output></label>
+                    <input id="drone-frustum-far-smoothing" class="drone-slider" type="range" min="0" max="4" step="0.05" value="0.75" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.helper-quality">
+                    <label class="drone-slider-label" for="drone-frustum-snap-gap"><strong>보정 이력 초기화 시간</strong><output id="drone-frustum-snap-gap-value" for="drone-frustum-snap-gap">-</output></label>
+                    <input id="drone-frustum-snap-gap" class="drone-slider" type="range" min="250" max="5000" step="250" value="2000" disabled>
+                </div>
+            </section>
+            <section class="drone-subsection" aria-labelledby="drone-frustum-style-heading">
+                <h4 id="drone-frustum-style-heading" class="drone-subsection-title">Helper 표현</h4>
+                <p class="drone-slider-hint drone-subsection-note">모든 항목은 UFrustumTerrainProjectionHelper가 제공하는 공개 setter로 현재 Helper에 즉시 반영합니다.</p>
+                <div class="drone-slider-row" data-api-help="frustum.helper-style">
+                    <label class="drone-slider-label" for="drone-frustum-line-color"><strong>옆면/외곽선 색상</strong><output id="drone-frustum-line-color-value" for="drone-frustum-line-color">-</output></label>
+                    <input id="drone-frustum-line-color" class="drone-color-input" type="color" value="#00ffff" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.helper-style">
+                    <label class="drone-slider-label" for="drone-frustum-line-width"><strong>선 두께</strong><output id="drone-frustum-line-width-value" for="drone-frustum-line-width">-</output></label>
+                    <input id="drone-frustum-line-width" class="drone-slider" type="range" min="1" max="10" step="0.5" value="3" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.helper-style">
+                    <label class="drone-slider-label" for="drone-frustum-line-opacity"><strong>선 투명도</strong><output id="drone-frustum-line-opacity-value" for="drone-frustum-line-opacity">-</output></label>
+                    <input id="drone-frustum-line-opacity" class="drone-slider" type="range" min="0" max="1" step="0.05" value="0.9" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.helper-fill">
+                    <label class="drone-slider-label" for="drone-frustum-fill-color"><strong>지면 영역 면 색상</strong><output id="drone-frustum-fill-color-value" for="drone-frustum-fill-color">-</output></label>
+                    <input id="drone-frustum-fill-color" class="drone-color-input" type="color" value="#ff55ea" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.helper-fill">
+                    <label class="drone-slider-label" for="drone-frustum-fill-opacity"><strong>지면 영역 면 투명도</strong><output id="drone-frustum-fill-opacity-value" for="drone-frustum-fill-opacity">-</output></label>
+                    <input id="drone-frustum-fill-opacity" class="drone-slider" type="range" min="0" max="1" step="0.05" value="0.28" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.helper-fill">
+                    <label class="drone-slider-label" for="drone-frustum-side-color"><strong>옆면 채움색</strong><output id="drone-frustum-side-color-value" for="drone-frustum-side-color">-</output></label>
+                    <input id="drone-frustum-side-color" class="drone-color-input" type="color" value="#006dff" disabled>
+                </div>
+                <div class="drone-slider-row" data-api-help="frustum.helper-fill">
+                    <label class="drone-slider-label" for="drone-frustum-side-opacity"><strong>옆면 채움 투명도</strong><output id="drone-frustum-side-opacity-value" for="drone-frustum-side-opacity">-</output></label>
+                    <input id="drone-frustum-side-opacity" class="drone-slider" type="range" min="0" max="1" step="0.05" value="0.12" disabled>
+                </div>
+            </section>
+            <button id="drone-frustum-reset" class="drone-action" type="button" disabled>촬영 영역 기본값으로 되돌리기</button>
+        </div>
+    </div>
+</aside>
+
+<!-- 왼쪽 그룹 상세 설정 창: 드론 상세 설정 창과 같은 자리에 놓이며 한 번에 하나만 보입니다. -->
+<aside class="glass-panel drone-detail-panel drone-group-panel" id="drone-group-panel" aria-labelledby="drone-group-heading" hidden>
+    <header class="panel-header">
+        <div>
+            <span class="eyebrow">DRONE GROUP</span>
+            <h2 id="drone-group-heading">그룹 상세 설정 <span class="drone-detail-name" id="drone-group-title">-</span></h2>
+        </div>
+        <button class="panel-close" id="drone-group-close" type="button" aria-label="그룹 상세 설정 닫기">×</button>
+    </header>
+
+    <div class="panel-content drone-detail-content">
+        <p class="panel-description">그룹 이름과 대형을 설정하고 소속 드론을 관리합니다. 드론 목록에서 드론을 이 그룹으로 끌어다 놓으면 그룹에 들어갑니다. 먼저 들어온 드론이 리더가 되고, 뒤에 들어온 드론은 리더 위치로 합류한 뒤 리더를 따라 비행합니다.</p>
+
+        <label class="drone-field" for="drone-group-name">
+            <span>그룹 이름</span>
+            <input id="drone-group-name" type="text" maxlength="30" autocomplete="off">
+        </label>
+
+        <div class="drone-detail-actions">
+            <button id="drone-group-shape" class="drone-action" type="button" aria-pressed="false" data-api-help="group.boundary">그룹 형상 가시화</button>
+            <div class="drone-formation-grid" role="group" aria-label="대형 선택" data-api-help="flight.follow">
+                <button class="drone-action" type="button" data-formation="column" aria-pressed="false">수직선 대형</button>
+                <button class="drone-action" type="button" data-formation="row" aria-pressed="false">수평선 대형</button>
+                <button class="drone-action" type="button" data-formation="v" aria-pressed="false">V 대형</button>
+            </div>
+            <p class="drone-group-hint" id="drone-group-formation-status">대형 없음 · 팔로우 드론은 합류한 자리의 간격을 유지하며 리더를 따라 비행합니다.</p>
+        </div>
+
+        <h3 class="drone-group-members-heading" data-api-help="flight.join">그룹 드론 <b id="drone-group-member-count">0</b>대</h3>
+        <ul class="drone-group-members" id="drone-group-members" aria-label="그룹에 속한 드론"></ul>
+        <p class="drone-detail-empty" id="drone-group-empty">그룹에 드론이 없습니다. 드론 목록에서 드론을 선택해 이 그룹으로 끌어다 놓으세요.</p>
+    </div>
+</aside>

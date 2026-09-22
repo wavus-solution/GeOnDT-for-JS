@@ -1,0 +1,4380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>이미지 레이어 커스텀 설정 예제</title>
+    
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <style>
+        /*
+         * 설정 팝업 레이아웃
+         * 데스크톱에서는 설정을 넓게 볼 수 있도록 최대 775px을 사용하고, 작은 화면에서는 뷰포트
+         * 높이에서 여백 20px을 뺀 크기로 줄입니다. 내부 .div-popup-content만 스크롤되므로 팝업의
+         * 닫기/드래그 영역과 지도 화면은 그대로 유지됩니다.
+         */
+        #analy-popup .div-popup {
+            position: fixed;
+            width: min(450px, calc(100vw - 20px));
+            height: min(775px, calc(100vh - 20px));
+            top: clamp(10px, 12vh, calc(100vh - 785px));
+            padding-bottom: 10px;
+        }
+
+        @supports (height: 100dvh) {
+            #analy-popup .div-popup {
+                height: min(775px, calc(100dvh - 20px));
+                top: clamp(10px, 12dvh, calc(100dvh - 785px));
+            }
+        }
+
+        /* Pointer Events 기반 드래그 손잡이입니다. touch-action:none은 터치 스크롤과 드래그의 충돌을 막습니다. */
+        #analy-popup .div-popup-control {
+            cursor: move;
+            user-select: none;
+            touch-action: none;
+        }
+
+        #analy-popup .div-popup-control .popup-exit {
+            cursor: pointer;
+        }
+
+        /* 브라우저 탭과 유사한 모양의 접근 가능한 tablist/tab UI입니다. 실제 전환은 setAnalysisTab이 담당합니다. */
+        #analy-popup .analysis-tab-list {
+            display: flex;
+            align-items: flex-end;
+            gap: 3px;
+            margin: 0 10px 14px 5px;
+            padding: 0 4px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.35);
+        }
+
+        #analy-popup .analysis-tab-button {
+            min-width: 105px;
+            padding: 8px 14px 7px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-bottom: 0;
+            border-radius: 6px 6px 0 0;
+            background-color: rgba(10, 10, 10, 0.45);
+            color: rgba(255, 255, 255, 0.72);
+            font-size: 13px;
+            line-height: 1.2;
+            cursor: pointer;
+        }
+
+        #analy-popup .analysis-tab-button:hover,
+        #analy-popup .analysis-tab-button:focus-visible {
+            background-color: rgba(43, 69, 140, 0.75);
+            color: white;
+            outline: none;
+        }
+
+        #analy-popup .analysis-tab-button.active {
+            position: relative;
+            bottom: -1px;
+            padding-top: 9px;
+            background-color: rgb(43, 69, 140);
+            border-color: rgba(255, 255, 255, 0.45);
+            color: white;
+            font-weight: 600;
+        }
+
+        #analy-popup .analysis-tab-panel[hidden] {
+            display: none !important;
+        }
+
+        /* 환경, 지면, 영상, 기복도, WMS처럼 하나의 GeOnDT 객체군을 제어하는 시각적 설정 그룹입니다. */
+        #analy-popup .background-settings {
+            margin-bottom: 20px;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 4px;
+            margin-left: 5px;
+            margin-right: 10px;
+        }
+
+        #analy-popup .background-settings-title {
+            display: block;
+            margin-bottom: 12px;
+            font-size: 15px;
+        }
+
+        /* 각 행은 라벨 / 입력 / 현재값의 3열 구조입니다. 체크박스와 색상 input은 아래에서 열 배치를 재정의합니다. */
+        #analy-popup .background-setting {
+            display: grid;
+            grid-template-columns: 105px 1fr 42px;
+            align-items: center;
+            column-gap: 10px;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        #analy-popup .background-setting:last-child {
+            margin-bottom: 0;
+        }
+
+        #analy-popup .background-setting label,
+        #analy-popup .background-setting output {
+            margin: 0;
+        }
+
+        #analy-popup .background-setting output {
+            text-align: right;
+        }
+
+        #analy-popup .background-setting input[type="range"] {
+            width: 100%;
+        }
+
+        #analy-popup .background-setting input[type="checkbox"] {
+            justify-self: start;
+            margin: 0;
+        }
+
+        #analy-popup .background-setting input[type="color"] {
+            grid-column: 2 / 4;
+            width: 100%;
+            height: 28px;
+            padding: 1px 2px;
+            cursor: pointer;
+        }
+        #analy-popup output {
+            color: white;
+        }
+
+        /*
+         * 오른쪽 프리셋 제어 패널
+         * 긴 설정 폼과 프리셋 목록을 분리해 왼쪽 팝업의 스크롤 길이를 줄입니다. 지도 기본 도구와
+         * 겹치지 않도록 처음에는 right-toolbar 왼쪽에 배치합니다. 이후 헤더 드래그로 이동할 수 있고,
+         * 작은 화면에서는 패널 크기와 위치를 뷰포트 안으로 제한합니다.
+         */
+        #theme-preset-control-panel {
+            position: fixed;
+            z-index: 9998;
+            top: 80px;
+            right: 55px;
+            display: flex;
+            flex-direction: column;
+            width: min(360px, calc(100vw - 75px));
+            height: min(620px, calc(100vh - 100px));
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 5px;
+            background-color: rgba(21, 21, 21, 0.85);
+            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+            color: white;
+        }
+
+        #theme-preset-control-panel[hidden] {
+            display: none !important;
+        }
+
+        /* 패널 상단 전체를 Pointer Events 드래그 손잡이로 사용합니다. */
+        #theme-preset-control-panel .theme-preset-panel-header {
+            display: flex;
+            flex: 0 0 auto;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+            cursor: move;
+            user-select: none;
+            touch-action: none;
+        }
+
+        #theme-preset-control-panel .theme-preset-title {
+            display: block;
+            margin: 0;
+            color: white;
+            font-size: 15px;
+        }
+
+        /* 헤더는 드래그 손잡이지만 닫기 버튼 자체는 일반 버튼처럼 조작할 수 있도록 커서를 분리합니다. */
+        #theme-preset-control-panel .theme-preset-panel-close {
+            flex: 0 0 auto;
+            padding: 2px 7px;
+            border: 1px solid rgba(255, 255, 255, 0.45);
+            border-radius: 3px;
+            background-color: transparent;
+            color: white;
+            font-size: 12px;
+            line-height: 20px;
+            cursor: pointer;
+        }
+
+        #theme-preset-control-panel .theme-preset-panel-close:hover,
+        #theme-preset-control-panel .theme-preset-panel-close:focus-visible {
+            background-color: rgba(255, 255, 255, 0.15);
+            color: white;
+            outline: none;
+        }
+
+        #theme-preset-control-panel .theme-preset-list {
+            flex: 1 1 auto;
+            min-height: 150px;
+            margin: 0 0 10px;
+            padding: 4px;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+
+        #theme-preset-control-panel .theme-preset-list-item {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            margin: 0 0 4px;
+            padding: 6px 7px 6px 9px;
+            border: 1px solid transparent;
+            border-radius: 3px;
+            background-color: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.85);
+            text-align: left;
+            cursor: pointer;
+        }
+
+        #theme-preset-control-panel .theme-preset-list-item:last-child {
+            margin-bottom: 0;
+        }
+
+        #theme-preset-control-panel .theme-preset-list-item:hover,
+        #theme-preset-control-panel .theme-preset-list-item:focus-visible {
+            background-color: rgba(43, 69, 140, 0.65);
+            color: white;
+            outline: none;
+        }
+
+        #theme-preset-control-panel .theme-preset-list-item.active {
+            border-color: rgba(255, 255, 255, 0.75);
+            background-color: rgb(43, 69, 140);
+            color: white;
+            font-weight: 600;
+        }
+
+        #theme-preset-control-panel .theme-preset-description {
+            display: flex;
+            align-items: center;
+            min-width: 0;
+            gap: 7px;
+        }
+
+        #theme-preset-control-panel .theme-preset-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #theme-preset-control-panel .theme-preset-kind {
+            flex: 0 0 auto;
+            padding: 1px 5px;
+            border-radius: 8px;
+            background-color: rgba(255, 255, 255, 0.16);
+            font-size: 10px;
+            font-weight: 400;
+        }
+
+        #theme-preset-control-panel .btn-load-theme-preset-item {
+            min-width: 58px;
+            padding: 4px 7px;
+            font-size: 12px;
+        }
+
+        #theme-preset-control-panel .theme-preset-actions {
+            display: grid;
+            flex: 0 0 auto;
+            grid-template-columns: 1fr;
+            gap: 7px;
+        }
+
+        #theme-preset-control-panel .theme-preset-actions .btn {
+            width: 100%;
+            min-height: 34px;
+            padding: 6px 5px;
+            white-space: normal;
+        }
+
+        #theme-preset-control-panel .theme-preset-actions .btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.45;
+        }
+
+        /* 오른쪽 지도 도구막대에서 패널이 숨겨진 뒤에도 다시 열 수 있는 고정 토글 버튼입니다. */
+        #right-toolbar .btn-toggle-theme-preset-panel {
+            padding: 0;
+            font-weight: 700;
+            line-height: 35px;
+            text-align: center;
+        }
+
+        /* 이름 입력 대화상자는 오른쪽 패널 안에서 열어 왼쪽 설정 팝업의 표시 여부와 독립적으로 동작합니다. */
+        #theme-preset-control-panel .preset-name-dialog-backdrop {
+            position: absolute;
+            z-index: 20;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.65);
+        }
+
+        #theme-preset-control-panel .preset-name-dialog-backdrop[hidden] {
+            display: none !important;
+        }
+
+        #theme-preset-control-panel .preset-name-dialog {
+            width: min(340px, 100%);
+            padding: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            border-radius: 6px;
+            background-color: #2d2d2d;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            color: white;
+        }
+
+        #theme-preset-control-panel .preset-name-dialog label {
+            display: block;
+            margin-bottom: 9px;
+            font-size: 14px;
+        }
+
+        #theme-preset-control-panel .preset-name-input {
+            width: 100%;
+            height: 34px;
+            padding: 6px 9px;
+            border: 1px solid #aaa;
+            border-radius: 3px;
+            color: #222;
+        }
+
+        #theme-preset-control-panel .preset-name-dialog-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        /* JSON 입출력은 특정 탭에 종속되지 않으므로 tab panel 밖, 팝업 콘텐츠 최상단에 배치합니다. */
+        #analy-popup .settings-json-controls {
+            margin: 4px 10px 20px 5px;
+        }
+
+        #analy-popup .settings-json-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        #analy-popup .settings-json-buttons .btn {
+            width: 100%;
+            min-height: 34px;
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+
+        #analy-popup .settings-json-file {
+            display: block;
+            width: 100%;
+            margin-top: 9px;
+            color: white;
+            font-size: 12px;
+        }
+
+        /* 자주 사용하는 이동·초기화 기능은 같은 우선순위로 보이도록 팝업 상단에 2열로 배치합니다. */
+        #analy-popup .settings-primary-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            margin: 0 10px 20px 5px;
+        }
+
+        #analy-popup .settings-primary-actions .btn {
+            width: 100%;
+            min-height: 34px;
+            padding: 6px 8px;
+            white-space: normal;
+        }
+
+        #analy-popup .settings-json-file::file-selector-button {
+            margin-right: 10px;
+            padding: 5px 10px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            background-color: #fff;
+            color: #333;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span>이미지 레이어 커스텀 설정 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead" style="font-size: 16px">
+        <strong>
+            <mark>이미지 레이어</mark>
+        </strong>를 서비스 목적에 맞게 설정하는 예제 입니다.<br>
+        이미지 레이어들을 생성하고, 설정 및 중첩 출력하여 서비스 목적에 맞게 3D 공간을 구성할 수 있습니다.
+    </p>
+</div>
+<div id="map-wrapper">
+    <div>
+        <div id="map"></div>
+        <div id="div-left-menu" oncontextmenu='return false'>
+            <div>
+                <div style="display: inline-flex; position: relative">
+                    <button id="analy-bnt" class="btn btn-xs menu-btn active">
+                        <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                    </button>
+                    <div class="div-btn-info" hidden>
+                        분석 팝업 열기
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="btn-group" id='top-sbar'>
+            <div class='btn-group-vertical-block' id='right-toolbar'>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                    <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                         src="./image/compass1.png"
+                         alt="나침반">
+                </button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                        id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                        id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                        id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg"
+                                                                     alt="">
+                </button>
+                <button type="button"
+                        class="btn btn-xs btn-block right-tbar-ex btn-toggle-theme-preset-panel"
+                        style="color: white !important;"
+                        title="지도 설정 프리셋 패널 열기/닫기"
+                        aria-label="지도 설정 프리셋 패널 숨기기"
+                        aria-controls="theme-preset-control-panel"
+                        aria-expanded="true">P</button>
+            </div>
+            <div class='btn-group' id='bt-bottom-bar'>
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                       value="위경도: ##.####  ###.#### ">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                       value="고도:####">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                       value="각도: ##">
+            </div>
+        </div>
+        
+        <aside id="theme-preset-control-panel" aria-labelledby="theme-preset-title">
+            <div class="theme-preset-panel-header">
+                <strong id="theme-preset-title" class="theme-preset-title">지도 설정 프리셋</strong>
+                <button type="button"
+                        class="theme-preset-panel-close"
+                        title="지도 설정 프리셋 패널 닫기"
+                        aria-label="지도 설정 프리셋 패널 닫기">닫기</button>
+            </div>
+            <div id="theme-preset-list"
+                 class="theme-preset-list"
+                 role="listbox"
+                 aria-label="저장된 지도 설정 프리셋"></div>
+            <div class="theme-preset-actions">
+                <button type="button" class="btn btn-default btn-sm btn-save-theme-preset">현재 설정으로 프리셋 새로 저장</button>
+                <button type="button" class="btn btn-default btn-sm btn-update-theme-preset">현재 설정으로 선택 프리셋 수정</button>
+                <button type="button" class="btn btn-default btn-sm btn-delete-theme-preset">선택된 프리셋 삭제</button>
+            </div>
+            
+            <div class="preset-name-dialog-backdrop" hidden>
+                <form class="preset-name-dialog" role="dialog" aria-modal="true" aria-labelledby="preset-name-dialog-title">
+                    <label id="preset-name-dialog-title" for="preset-name-input">저장할 프리셋 이름</label>
+                    <input type="text"
+                           id="preset-name-input"
+                           class="preset-name-input"
+                           maxlength="40"
+                           autocomplete="off"
+                           required>
+                    <div class="preset-name-dialog-actions">
+                        <button type="button" class="btn btn-default btn-sm btn-cancel-theme-preset">취소</button>
+                        <button type="submit" class="btn btn-primary btn-sm">확인</button>
+                    </div>
+                </form>
+            </div>
+        </aside>
+    </div>
+    
+    <div id="analy-popup" oncontextmenu='return false'>
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <button type="button" class="label-popup-control btn btn-default btn-sm popup-exit">닫기</button>
+            </div>
+            <div class="div-popup-content" style="margin:0 10px;overflow-y:auto;overflow-x:hidden;">
+                
+                <div class="settings-json-controls">
+                    <div class="settings-json-buttons">
+                        <button type="button" class="btn btn-default btn-sm btn-save-settings-json">JSON 저장</button>
+                        <button type="button" class="btn btn-default btn-sm btn-load-settings-json">JSON 입력</button>
+                    </div>
+                    <input type="file" id="settings-json-file" class="settings-json-file" accept=".json,application/json">
+                </div>
+                <div class="settings-primary-actions">
+                    <button type="button" class="btn btn-default btn-sm btn-move-target1">산정 지역 이동</button>
+                    <button type="button" class="btn btn-default btn-sm btn-reset-map-settings">설정 초기화</button>
+                </div>
+                <div class="analysis-tab-list" role="tablist" aria-label="설정 유형">
+                    <button type="button"
+                            id="analysis-background-map-tab"
+                            class="analysis-tab-button active"
+                            role="tab"
+                            aria-selected="true"
+                            aria-controls="analysis-background-map-panel"
+                            tabindex="0"
+                            data-analysis-tab="background-map">배경 지도</button>
+                    <button type="button"
+                            id="analysis-vector-info-tab"
+                            class="analysis-tab-button"
+                            role="tab"
+                            aria-selected="false"
+                            aria-controls="analysis-vector-info-panel"
+                            tabindex="-1"
+                            data-analysis-tab="vector-info"
+                            hidden>백터 정보</button>
+                </div>
+                <div id="analysis-background-map-panel"
+                     class="analysis-tab-panel"
+                     role="tabpanel"
+                     aria-labelledby="analysis-background-map-tab"
+                     data-analysis-tab-panel="background-map">
+                    
+                    <div class="background-settings">
+                    <label class="background-settings-title">환경 설정</label>
+                    <div class="background-setting">
+                        <label for="environment-sun-time">시간(태양 위치)</label>
+                        <input type="range" id="environment-sun-time" min="0" max="1439" step="1">
+                        <output id="environment-sun-time-value" for="environment-sun-time"></output>
+                    </div>
+                    <div class="background-setting">
+                        <label for="environment-light-intensity">전체 조명</label>
+                        <input type="range" id="environment-light-intensity" min="0" max="4" step="0.01">
+                        <output id="environment-light-intensity-value" for="environment-light-intensity"></output>
+                    </div>
+                </div>
+                <div class="background-settings">
+                    <label class="background-settings-title">배경 지면색 설정</label>
+                    <div class="background-setting">
+                        <label for="background-ground-color">색상</label>
+                        <input type="color" id="background-ground-color">
+                    </div>
+                    <div class="background-setting">
+                        <label for="background-ground-opacity">투명도</label>
+                        <input type="range" id="background-ground-opacity" min="0" max="1" step="0.01">
+                        <output id="background-ground-opacity-value" for="background-ground-opacity"></output>
+                    </div>
+                </div>
+                <div class="background-settings">
+                    <label class="background-settings-title">배경 영상 설정</label>
+                    <div class="background-setting">
+                        <label for="background-tile-background-color">타일배경색 설정</label>
+                        <input type="checkbox" id="background-tile-background-color">
+                    </div>
+                    <div class="background-setting">
+                        <label for="background-brightness">밝기</label>
+                        <input type="range" id="background-brightness" min="0" max="2" step="0.01">
+                        <output id="background-brightness-value" for="background-brightness"></output>
+                    </div>
+                    <div class="background-setting">
+                        <label for="background-contrast">대비</label>
+                        <input type="range" id="background-contrast" min="0" max="2" step="0.01">
+                        <output id="background-contrast-value" for="background-contrast"></output>
+                    </div>
+                    <div class="background-setting">
+                        <label for="background-saturation">채도</label>
+                        <input type="range" id="background-saturation" min="0" max="2" step="0.01">
+                        <output id="background-saturation-value" for="background-saturation"></output>
+                    </div>
+                    <div class="background-setting">
+                        <label for="background-hue-rotation">Hue</label>
+                        <input type="range" id="background-hue-rotation" min="-180" max="180" step="1">
+                        <output id="background-hue-rotation-value" for="background-hue-rotation"></output>
+                    </div>
+                    <div class="background-setting">
+                        <label for="background-opacity">투명도</label>
+                        <input type="range" id="background-opacity" min="0" max="1" step="0.01">
+                        <output id="background-opacity-value" for="background-opacity"></output>
+                    </div>
+                </div>
+                <div class="background-settings">
+                    <label class="background-settings-title">음영 기복도 설정</label>
+                    <div class="background-setting">
+                        <label for="hillshade-brightness">밝기</label>
+                        <input type="range" id="hillshade-brightness" min="0" max="2" step="0.01">
+                        <output id="hillshade-brightness-value" for="hillshade-brightness"></output>
+                    </div>
+                    <div class="background-setting">
+                        <label for="hillshade-contrast">대비</label>
+                        <input type="range" id="hillshade-contrast" min="0" max="2" step="0.01">
+                        <output id="hillshade-contrast-value" for="hillshade-contrast"></output>
+                    </div>
+                    <div class="background-setting">
+                        <label for="hillshade-saturation">채도</label>
+                        <input type="range" id="hillshade-saturation" min="0" max="2" step="0.01">
+                        <output id="hillshade-saturation-value" for="hillshade-saturation"></output>
+                    </div>
+                    <div class="background-setting">
+                        <label for="hillshade-hue-rotation">Hue</label>
+                        <input type="range" id="hillshade-hue-rotation" min="-180" max="180" step="1">
+                        <output id="hillshade-hue-rotation-value" for="hillshade-hue-rotation"></output>
+                    </div>
+                    <div class="background-setting">
+                        <label for="hillshade-light-color-enabled">밝은색 설정 적용</label>
+                        <input type="checkbox" id="hillshade-light-color-enabled">
+                    </div>
+                    <div class="background-setting">
+                        <label for="hillshade-light-color">밝은 색 설정</label>
+                        <input type="color" id="hillshade-light-color">
+                    </div>
+                    <div class="background-setting">
+                        <label for="hillshade-light-color-exposure">밝은 색 민감도</label>
+                        <input type="range" id="hillshade-light-color-exposure" min="0" max="4" step="0.01">
+                        <output id="hillshade-light-color-exposure-value" for="hillshade-light-color-exposure"></output>
+                    </div>
+                    <div class="background-setting">
+                        <label for="hillshade-dark-color-enabled">어두운색 설정 적용</label>
+                        <input type="checkbox" id="hillshade-dark-color-enabled">
+                    </div>
+                    <div class="background-setting">
+                        <label for="hillshade-dark-color">어두운 색 설정</label>
+                        <input type="color" id="hillshade-dark-color">
+                    </div>
+                    <div class="background-setting">
+                        <label for="hillshade-dark-color-exposure">어두운 색 민감도</label>
+                        <input type="range" id="hillshade-dark-color-exposure" min="0" max="4" step="0.01">
+                        <output id="hillshade-dark-color-exposure-value" for="hillshade-dark-color-exposure"></output>
+                    </div>
+                    <div class="background-setting">
+                        <label for="hillshade-opacity">투명도</label>
+                        <input type="range" id="hillshade-opacity" min="0" max="1" step="0.01">
+                        <output id="hillshade-opacity-value" for="hillshade-opacity"></output>
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <div class="col-sm-8">
+                        <label for="hillSideType1" class="control-label" style="margin-right: 5px;">WMS 음영 기복도 (사실적 혼합) </label>
+                        <input type="checkbox" id="hillSideType1" name="hillSideType1" style="vertical-align: top;">
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <div class="col-sm-8">
+                        <label for="hillSideType2" class="control-label" style="margin-right: 5px;">WMS 음영 기복도 (기복도 중심 혼합)</label>
+                        <input type="checkbox" id="hillSideType2" name="hillSideType2"  style="vertical-align: top;">
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <div class="col-sm-8">
+                        <label for="hillSideType3" class="control-label" style="margin-right: 5px;">WMS 음영 기복도 (중간 혼합)</label>
+                        <input type="checkbox" id="hillSideType3" name="hillSideType3"  style="vertical-align: top;">
+                    </div>
+                </div>
+                </div>
+                <div id="analysis-vector-info-panel"
+                     class="analysis-tab-panel"
+                     role="tabpanel"
+                     aria-labelledby="analysis-vector-info-tab"
+                     data-analysis-tab-panel="vector-info"
+                     hidden>
+                    
+                    <div class="background-settings">
+                        <label class="background-settings-title">환경 설정</label>
+                        <div class="background-setting">
+                            <label for="vector-environment-sun-time">시간(태양 위치)</label>
+                            <input type="range" id="vector-environment-sun-time" min="0" max="1439" step="1">
+                            <output id="vector-environment-sun-time-value" for="vector-environment-sun-time"></output>
+                        </div>
+                        <div class="background-setting">
+                            <label for="vector-environment-light-intensity">전체 조명</label>
+                            <input type="range" id="vector-environment-light-intensity" min="0" max="4" step="0.01">
+                            <output id="vector-environment-light-intensity-value" for="vector-environment-light-intensity"></output>
+                        </div>
+                    </div>
+                    <div class="background-settings">
+                        <label class="background-settings-title">배경 지면색 설정</label>
+                        <div class="background-setting">
+                            <label for="vector-background-ground-color">색상</label>
+                            <input type="color" id="vector-background-ground-color">
+                        </div>
+                        <div class="background-setting">
+                            <label for="vector-background-ground-opacity">투명도</label>
+                            <input type="range" id="vector-background-ground-opacity" min="0" max="1" step="0.01">
+                            <output id="vector-background-ground-opacity-value" for="vector-background-ground-opacity"></output>
+                        </div>
+                    </div>
+                    <div class="background-settings">
+                        <label class="background-settings-title">배경 기복도 설정</label>
+                        <div class="background-setting">
+                            <label for="base-hillshade-brightness">밝기</label>
+                            <input type="range" id="base-hillshade-brightness" min="0" max="2" step="0.01">
+                            <output id="base-hillshade-brightness-value" for="base-hillshade-brightness"></output>
+                        </div>
+                        <div class="background-setting">
+                            <label for="base-hillshade-contrast">대비</label>
+                            <input type="range" id="base-hillshade-contrast" min="0" max="2" step="0.01">
+                            <output id="base-hillshade-contrast-value" for="base-hillshade-contrast"></output>
+                        </div>
+                        <div class="background-setting">
+                            <label for="base-hillshade-saturation">채도</label>
+                            <input type="range" id="base-hillshade-saturation" min="0" max="2" step="0.01">
+                            <output id="base-hillshade-saturation-value" for="base-hillshade-saturation"></output>
+                        </div>
+                        <div class="background-setting">
+                            <label for="base-hillshade-hue-rotation">Hue</label>
+                            <input type="range" id="base-hillshade-hue-rotation" min="-180" max="180" step="1">
+                            <output id="base-hillshade-hue-rotation-value" for="base-hillshade-hue-rotation"></output>
+                        </div>
+                        <div class="background-setting">
+                            <label for="base-hillshade-light-color-enabled">밝은색 설정 적용</label>
+                            <input type="checkbox" id="base-hillshade-light-color-enabled">
+                        </div>
+                        <div class="background-setting">
+                            <label for="base-hillshade-light-color">밝은 색 설정</label>
+                            <input type="color" id="base-hillshade-light-color">
+                        </div>
+                        <div class="background-setting">
+                            <label for="base-hillshade-light-color-exposure">밝은 색 민감도</label>
+                            <input type="range" id="base-hillshade-light-color-exposure" min="0" max="4" step="0.01">
+                            <output id="base-hillshade-light-color-exposure-value" for="base-hillshade-light-color-exposure"></output>
+                        </div>
+                        <div class="background-setting">
+                            <label for="base-hillshade-dark-color-enabled">어두운색 설정 적용</label>
+                            <input type="checkbox" id="base-hillshade-dark-color-enabled">
+                        </div>
+                        <div class="background-setting">
+                            <label for="base-hillshade-dark-color">어두운 색 설정</label>
+                            <input type="color" id="base-hillshade-dark-color">
+                        </div>
+                        <div class="background-setting">
+                            <label for="base-hillshade-dark-color-exposure">어두운 색 민감도</label>
+                            <input type="range" id="base-hillshade-dark-color-exposure" min="0" max="4" step="0.01">
+                            <output id="base-hillshade-dark-color-exposure-value" for="base-hillshade-dark-color-exposure"></output>
+                        </div>
+                        <div class="background-setting">
+                            <label for="base-hillshade-opacity">투명도</label>
+                            <input type="range" id="base-hillshade-opacity" min="0" max="1" step="0.01">
+                            <output id="base-hillshade-opacity-value" for="base-hillshade-opacity"></output>
+                        </div>
+                    </div>
+                    <div class="background-settings">
+                        <label class="background-settings-title">행정경계 정보 설정</label>
+                        <div class="background-setting">
+                            <label for="osmBoundaryWMS">WMS 출력</label>
+                            <input type="checkbox" id="osmBoundaryWMS" name="osmBoundaryWMS">
+                        </div>
+                        <div class="background-setting">
+                            <label for="osm-boundary-brightness">밝기</label>
+                            <input type="range" id="osm-boundary-brightness" min="0" max="2" step="0.01">
+                            <output id="osm-boundary-brightness-value" for="osm-boundary-brightness"></output>
+                        </div>
+                        <div class="background-setting">
+                            <label for="osm-boundary-contrast">대비</label>
+                            <input type="range" id="osm-boundary-contrast" min="0" max="2" step="0.01">
+                            <output id="osm-boundary-contrast-value" for="osm-boundary-contrast"></output>
+                        </div>
+                        <div class="background-setting">
+                            <label for="osm-boundary-saturation">채도</label>
+                            <input type="range" id="osm-boundary-saturation" min="0" max="2" step="0.01">
+                            <output id="osm-boundary-saturation-value" for="osm-boundary-saturation"></output>
+                        </div>
+                        <div class="background-setting">
+                            <label for="osm-boundary-hue-rotation">Hue</label>
+                            <input type="range" id="osm-boundary-hue-rotation" min="-180" max="180" step="1">
+                            <output id="osm-boundary-hue-rotation-value" for="osm-boundary-hue-rotation"></output>
+                        </div>
+                        <div class="background-setting">
+                            <label for="osm-boundary-opacity">투명도</label>
+                            <input type="range" id="osm-boundary-opacity" min="0" max="1" step="0.01">
+                            <output id="osm-boundary-opacity-value" for="osm-boundary-opacity"></output>
+                        </div>
+                    </div>
+                    <div class="background-settings">
+                        <label class="background-settings-title">도로 정보 설정</label>
+                        <div class="background-setting">
+                            <label for="osmRoadWMS">WMS 출력</label>
+                            <input type="checkbox" id="osmRoadWMS" name="osmRoadWMS">
+                        </div>
+                        <div class="background-setting">
+                            <label for="osm-road-brightness">밝기</label>
+                            <input type="range" id="osm-road-brightness" min="0" max="2" step="0.01">
+                            <output id="osm-road-brightness-value" for="osm-road-brightness"></output>
+                        </div>
+                        <div class="background-setting">
+                            <label for="osm-road-contrast">대비</label>
+                            <input type="range" id="osm-road-contrast" min="0" max="2" step="0.01">
+                            <output id="osm-road-contrast-value" for="osm-road-contrast"></output>
+                        </div>
+                        <div class="background-setting">
+                            <label for="osm-road-saturation">채도</label>
+                            <input type="range" id="osm-road-saturation" min="0" max="2" step="0.01">
+                            <output id="osm-road-saturation-value" for="osm-road-saturation"></output>
+                        </div>
+                        <div class="background-setting">
+                            <label for="osm-road-hue-rotation">Hue</label>
+                            <input type="range" id="osm-road-hue-rotation" min="-180" max="180" step="1">
+                            <output id="osm-road-hue-rotation-value" for="osm-road-hue-rotation"></output>
+                        </div>
+                        <div class="background-setting">
+                            <label for="osm-road-opacity">투명도</label>
+                            <input type="range" id="osm-road-opacity" min="0" max="1" step="0.01">
+                            <output id="osm-road-opacity-value" for="osm-road-opacity"></output>
+                        </div>
+                    </div>
+                    <div class="background-settings">
+                        <label class="background-settings-title">수로 정보 설정</label>
+                        <div class="background-setting">
+                            <label for="osmWaterWayWMS">WMS 출력</label>
+                            <input type="checkbox" id="osmWaterWayWMS" name="osmWaterWayWMS">
+                        </div>
+                        <div class="background-setting">
+                            <label for="osm-waterway-brightness">밝기</label>
+                            <input type="range" id="osm-waterway-brightness" min="0" max="2" step="0.01">
+                            <output id="osm-waterway-brightness-value" for="osm-waterway-brightness"></output>
+                        </div>
+                        <div class="background-setting">
+                            <label for="osm-waterway-contrast">대비</label>
+                            <input type="range" id="osm-waterway-contrast" min="0" max="2" step="0.01">
+                            <output id="osm-waterway-contrast-value" for="osm-waterway-contrast"></output>
+                        </div>
+                        <div class="background-setting">
+                            <label for="osm-waterway-saturation">채도</label>
+                            <input type="range" id="osm-waterway-saturation" min="0" max="2" step="0.01">
+                            <output id="osm-waterway-saturation-value" for="osm-waterway-saturation"></output>
+                        </div>
+                        <div class="background-setting">
+                            <label for="osm-waterway-hue-rotation">Hue</label>
+                            <input type="range" id="osm-waterway-hue-rotation" min="-180" max="180" step="1">
+                            <output id="osm-waterway-hue-rotation-value" for="osm-waterway-hue-rotation"></output>
+                        </div>
+                        <div class="background-setting">
+                            <label for="osm-waterway-opacity">투명도</label>
+                            <input type="range" id="osm-waterway-opacity" min="0" max="1" step="0.01">
+                            <output id="osm-waterway-opacity-value" for="osm-waterway-opacity"></output>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script>
+    /**
+     * 이 예제의 상태는 크게 세 종류로 나뉩니다.
+     *
+     * 1) GeOnDT 객체 참조
+     *    app과 각 Layer 변수는 비동기 초기화 후 실제 인스턴스를 가리킵니다.
+     *
+     * 2) 출력 여부 상태
+     *    visibleHillSideLayer와 isVisible... 변수는 탭 전환으로 레이어를 잠시 숨겼다가
+     *    원래 체크 상태대로 복원하기 위해 사용합니다.
+     *
+     * 3) 탭별 공유 설정 복원값
+     *    태양 시간, 조명, 지면색은 두 탭에서 같은 API를 사용하지만 탭마다 다른 값을 가질 수 있습니다.
+     *    따라서 baseMap.../vectorMap... 전역 변수를 UI 값과 함께 갱신하고, 탭 전환 시 복원합니다.
+     *
+     * 새 레이어를 추가할 때는 "인스턴스 참조 + 출력 상태 + JSON 직렬화 값"이 모두 필요한지 확인하세요.
+     */
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60};
+
+    // mapType은 현재 활성 탭과 출력 레이어 묶음의 키이며, 전체 설정 JSON에도 같은 값을 사용합니다.
+    const BASE_MAP_TYPE = 'background-map';
+    const VECTOR_MAP_TYPE = 'vector-info';
+
+    /**
+     * 배포 버전별 벡터 정보 기능 노출 여부입니다.
+     * true이면 벡터 탭·레이어·JSON 설정을 모두 사용하고, false이면 배경 지도 기능만 초기화·저장합니다.
+     * 런타임 UI 옵션이 아니라 빌드/배포 전에 직접 정하는 상수이므로 실행 중에는 변경하지 않습니다.
+     */
+    const VECTOR_MAP_UI_SHOW = false;
+
+    /**
+     * JSON 호환 배경 지도 테마 프리셋
+     *
+     * 각 객체는 배경 지도 탭 하나의 sharedSettings와 layers를 완전히 설명합니다. 현재 배포본은
+     * 벡터 지도별 테마 프리셋을 별도로 두지 않고 NEUTRAL_MAP_SETTINGS_RESET의 벡터 설정을 재사용합니다.
+     *
+     * 1. BACKGROUND_MAP_...: 목록에서 선택할 배경 지도 표현값
+     * 2. NEUTRAL_MAP_SETTINGS_RESET: 레이어 생성·탭 복원·설정 초기화·벡터 공통 기준값
+     * 3. DEFAULT_THEME_PRESETS/loadThemePreset: 위 설정을 사용자에게 노출하고 적용하는 목록
+     *
+     * JSON.parse가 가능한 순수 데이터 형태만 사용하여, 사용자가 그대로 복사해 서비스 설정 파일로
+     * 옮기거나 AI에게 구조를 설명하기 쉽게 유지합니다.
+     * tileBackgroundColor.color는 레이어 데이터 확인용 메타데이터이며 설정 JSON에는 저장하지 않습니다.
+     * 초기 UI에 어떤 객체를 채우는지는 initializeSettingsUIFromPresets의 명시적인 참조가 결정합니다.
+     */
+    const COLOR_MAP_WHITE_LIGHT_MIX = {
+        mapType: BASE_MAP_TYPE,
+        sharedSettings: {
+            environment: {
+                sunTime: 930,
+                lightIntensity: 1.1,
+            },
+            backgroundGround: {
+                color: '#0036a1',
+                opacity: 1.0,
+            },
+        },
+        layers: {
+            baseTMSLayer: {
+                brightness: 1.0,
+                contrast: 1.0,
+                saturation: 1.0,
+                hueRotation: 0.0,
+                opacity: 1.0,
+                tileBackgroundColor: {
+                    enabled: true,
+                    color: '#083959',
+                },
+            },
+            hillshadeLayers: {
+                brightness: 1.0,
+                contrast: 1.07,
+                saturation: 1.0,
+                hueRotation: 0.0,
+                opacity: 0.35,
+                lightColor: {
+                    enabled: true,
+                    color: '#ffffff',
+                    exposure: 0.4,
+                },
+                darkColor: {
+                    enabled: true,
+                    color: '#000000',
+                    exposure: 1.0,
+                },
+                hillSideType1Layer: {enabled: false},
+                hillSideType2Layer: {enabled: true},
+                hillSideType3Layer: {enabled: false},
+            },
+        },
+    };
+
+    const COLOR_MAP_WHITE_HEAVY_MIX = {
+        mapType: BASE_MAP_TYPE,
+        sharedSettings: {
+            environment: {
+                sunTime: 930,
+                lightIntensity: 1.1,
+            },
+            backgroundGround: {
+                color: '#0036a1',
+                opacity: 1.0,
+            },
+        },
+        layers: {
+            baseTMSLayer: {
+                brightness: 1.0,
+                contrast: 1.0,
+                saturation: 1.0,
+                hueRotation: 0.0,
+                opacity: 1.0,
+                tileBackgroundColor: {
+                    enabled: true,
+                    color: '#083959',
+                },
+            },
+            hillshadeLayers: {
+                brightness: 1.0,
+                contrast: 1.05,
+                saturation: 1.0,
+                hueRotation: 0.0,
+                opacity: 0.50,
+                lightColor: {
+                    enabled: true,
+                    color: '#ffffff',
+                    exposure: 1.15,
+                },
+                darkColor: {
+                    enabled: true,
+                    color: '#000000',
+                    exposure: 1.0,
+                },
+                hillSideType1Layer: {enabled: false},
+                hillSideType2Layer: {enabled: true},
+                hillSideType3Layer: {enabled: false},
+            },
+        },
+    };
+
+    /**
+     * 일반 테마 프리셋2의 배경 지도 설정입니다.
+     *
+     * 프리셋1과 중첩 객체를 공유하지 않는 별도의 JSON 리터럴입니다. 따라서 이 객체의 값을 수정해도
+     * 프리셋1에는 영향을 주지 않으며, 예제 배포자가 두 일반 테마를 독립적으로 조정할 수 있습니다.
+     */
+    const COLOR_MAP_BROWN_LIGHT_MIX = {
+        mapType: BASE_MAP_TYPE,
+        sharedSettings: {
+            environment: {
+                sunTime: 930,
+                lightIntensity: 1.1,
+            },
+            backgroundGround: {
+                color: '#0036a1',
+                opacity: 1.0,
+            },
+        },
+        layers: {
+            baseTMSLayer: {
+                brightness: 1.0,
+                contrast: 1.0,
+                saturation: 1.0,
+                hueRotation: 0.0,
+                opacity: 1.0,
+                tileBackgroundColor: {
+                    enabled: true,
+                    color: '#083959',
+                },
+            },
+            hillshadeLayers: {
+                brightness: 1.07,
+                contrast: 1.07,
+                saturation: 0.8,
+                hueRotation: 0.0,
+                opacity: 0.8,
+                lightColor: {
+                    enabled: true,
+                    color: '#806b3c',
+                    exposure: 1.0,
+                },
+                darkColor: {
+                    enabled: true,
+                    color: '#192f1c',
+                    exposure: 1.0,
+                },
+                hillSideType1Layer: {enabled: false},
+                hillSideType2Layer: {enabled: true},
+                hillSideType3Layer: {enabled: false},
+            },
+        },
+    };
+
+    const COLOR_MAP_BROWN_HEAVY_MIX = {
+        mapType: BASE_MAP_TYPE,
+        sharedSettings: {
+            environment: {
+                sunTime: 930,
+                lightIntensity: 1.1,
+            },
+            backgroundGround: {
+                color: '#0036a1',
+                opacity: 1.0,
+            },
+        },
+        layers: {
+            baseTMSLayer: {
+                brightness: 1.0,
+                contrast: 1.0,
+                saturation: 0.8,
+                hueRotation: 0.0,
+                opacity: 1.0,
+                tileBackgroundColor: {
+                    enabled: true,
+                    color: '#083959',
+                },
+            },
+            hillshadeLayers: {
+                brightness: 1.10,
+                contrast: 1.00,
+                saturation: 1,
+                hueRotation: 0.0,
+                opacity: 0.8,
+                lightColor: {
+                    enabled: true,
+                    color: '#907847',
+                    exposure: 2.1,
+                },
+                darkColor: {
+                    enabled: true,
+                    color: '#121C13',
+                    exposure: 1.0,
+                },
+                hillSideType1Layer: {enabled: false},
+                hillSideType2Layer: {enabled: true},
+                hillSideType3Layer: {enabled: false},
+            },
+        },
+    };
+
+    const COLOR_MAP_DARKBROWN_LIGHT_MIX = {
+        mapType: BASE_MAP_TYPE,
+        sharedSettings: {
+            environment: {
+                sunTime: 930,
+                lightIntensity: 1.1,
+            },
+            backgroundGround: {
+                color: '#000000',
+                opacity: 1.0,
+            },
+        },
+        layers: {
+            baseTMSLayer: {
+                brightness: 0.8,
+                contrast: 1.0,
+                saturation: 1.0,
+                hueRotation: 0.0,
+                opacity: 0.6,
+                tileBackgroundColor: {
+                    enabled: true,
+                    color: '#083959',
+                },
+            },
+            hillshadeLayers: {
+                brightness: 1.10,
+                contrast: 1.00,
+                saturation: 1,
+                hueRotation: 0.0,
+                opacity: 0.5,
+                lightColor: {
+                    enabled: true,
+                    color: '#96876E',
+                    exposure: 0.7,
+                },
+                darkColor: {
+                    enabled: true,
+                    color: '#000000',
+                    exposure: 1.0,
+                },
+                hillSideType1Layer: {enabled: false},
+                hillSideType2Layer: {enabled: true},
+                hillSideType3Layer: {enabled: false},
+            },
+        },
+    };
+
+    const COLOR_MAP_DARKBROWN_HEAVY_MIX = {
+        mapType: BASE_MAP_TYPE,
+        sharedSettings: {
+            environment: {
+                sunTime: 930,
+                lightIntensity: 1.1,
+            },
+            backgroundGround: {
+                color: '#000000',
+                opacity: 1.0,
+            },
+        },
+        layers: {
+            baseTMSLayer: {
+                brightness: 0.8,
+                contrast: 1.0,
+                saturation: 1.0,
+                hueRotation: 0.0,
+                opacity: 0.6,
+                tileBackgroundColor: {
+                    enabled: true,
+                    color: '#083959',
+                },
+            },
+            hillshadeLayers: {
+                brightness: 1.10,
+                contrast: 1.00,
+                saturation: 1,
+                hueRotation: 0.0,
+                opacity: 0.4,
+                lightColor: {
+                    enabled: true,
+                    color: '#C5B9A5',
+                    exposure: 2.2,
+                },
+                darkColor: {
+                    enabled: true,
+                    color: '#000000',
+                    exposure: 1.0,
+                },
+                hillSideType1Layer: {enabled: false},
+                hillSideType2Layer: {enabled: true},
+                hillSideType3Layer: {enabled: false},
+            },
+        },
+    };
+
+    const DARK_MAP_PURPLE = {
+        mapType: BASE_MAP_TYPE,
+        sharedSettings: {
+            environment: {
+                sunTime: 1140,
+                lightIntensity: 2.8,
+            },
+            backgroundGround: {
+                color: '#c5b5de',
+                opacity: 1.0,
+            },
+        },
+        layers: {
+            baseTMSLayer: {
+                brightness: 1.0,
+                contrast: 0.98,
+                saturation: 0.15,
+                hueRotation: 96.0,
+                opacity: 0.97,
+                tileBackgroundColor: {
+                    enabled: true,
+                    color: '#083959',
+                },
+            },
+            hillshadeLayers: {
+                brightness: 1.0,
+                contrast: 1.0,
+                saturation: 1.0,
+                hueRotation: 0.0,
+                opacity: 1.0,
+                lightColor: {
+                    enabled: true,
+                    color: '#001475',
+                    exposure: 1.0,
+                },
+                darkColor: {
+                    enabled: true,
+                    color: '#000000',
+                    exposure: 1.0,
+                },
+                hillSideType1Layer: {enabled: false},
+                hillSideType2Layer: {enabled: false},
+                hillSideType3Layer: {enabled: false},
+            },
+        },
+    };
+
+    const DARK_MAP_PURPLE_BLUE_LIGHT_MIX = {
+        mapType: BASE_MAP_TYPE,
+        sharedSettings: {
+            environment: {
+                sunTime: 1140,
+                lightIntensity: 2.8,
+            },
+            backgroundGround: {
+                color: '#c5b5de',
+                opacity: 1.0,
+            },
+        },
+        layers: {
+            baseTMSLayer: {
+                brightness: 1.0,
+                contrast: 0.98,
+                saturation: 0.15,
+                hueRotation: 96.0,
+                opacity: 0.97,
+                tileBackgroundColor: {
+                    enabled: true,
+                    color: '#083959',
+                },
+            },
+            hillshadeLayers: {
+                brightness: 1.0,
+                contrast: 1.0,
+                saturation: 1.0,
+                hueRotation: 0.0,
+                opacity: 0.45,
+                lightColor: {
+                    enabled: true,
+                    color: '#001475',
+                    exposure: 1.3,
+                },
+                darkColor: {
+                    enabled: true,
+                    color: '#000000',
+                    exposure: 1.0,
+                },
+                hillSideType1Layer: {enabled: false},
+                hillSideType2Layer: {enabled: true},
+                hillSideType3Layer: {enabled: false},
+            },
+        },
+    };
+
+
+    /**
+     * 레이어의 초기 상태와 설정 초기화 버튼이 공유하는 기준 설정입니다.
+     *
+     * 이름에 NEUTRAL이 포함되어 있지만 모든 필드가 반드시 1/0인 수학적 중립값이라는 뜻은 아닙니다.
+     * 이 예제를 배포할 때 정한 초기 렌더링·초기화 기준값이며, 배경/벡터 레이어 생성 옵션과 탭별
+     * 복원값도 이 객체를 참조합니다. 현재 사용하지 않는 벡터 지도 전용 프리셋 대신 벡터 설정의
+     * 단일 기준값으로도 사용하므로, 벡터 기능을 다시 노출할 때 이 객체의 값을 조정하면 됩니다.
+     *
+     * applyCustomImageLayerSettings가 입력 객체를 복제한 뒤 검증하므로 이 원본 객체는 변경되지 않습니다.
+     */
+    const NEUTRAL_MAP_SETTINGS_RESET = {
+        version: 3,
+        mapType: BASE_MAP_TYPE,
+        maps: {
+            [BASE_MAP_TYPE]: {
+                sharedSettings: {
+                    environment: {
+                        sunTime: 930,
+                        lightIntensity: 1.1,
+                    },
+                    backgroundGround: {
+                        color: '#0036a1',
+                        opacity: 1.0,
+                    },
+                },
+                layers: {
+                    baseTMSLayer: {
+                        brightness: 1.0,
+                        contrast: 1.0,
+                        saturation: 1.0,
+                        hueRotation: 0.0,
+                        opacity: 1.0,
+                        tileBackgroundColor: {
+                            enabled: true,
+                            color: '#083959',
+                        },
+                    },
+                    hillshadeLayers: {
+                        brightness: 1.0,
+                        contrast: 1.0,
+                        saturation: 1.0,
+                        hueRotation: 0.0,
+                        opacity: 1.0,
+                        lightColor: {
+                            enabled: true,
+                            color: '#ffffff',
+                            exposure: 1.0,
+                        },
+                        darkColor: {
+                            enabled: true,
+                            color: '#000000',
+                            exposure: 1.0,
+                        },
+                        hillSideType1Layer: {enabled: false},
+                        hillSideType2Layer: {enabled: false},
+                        hillSideType3Layer: {enabled: false},
+                    },
+                },
+            },
+            [VECTOR_MAP_TYPE]: {
+                sharedSettings: {
+                    environment: {
+                        sunTime: 1140,
+                        lightIntensity: 3.10,
+                    },
+                    backgroundGround: {
+                        color: '#737373',
+                        opacity: 1.0,
+                    },
+                },
+                layers: {
+                    baseHillSideLayer: {
+                        brightness: 1.1,
+                        contrast: 1.0,
+                        saturation: 1.15,
+                        hueRotation: 15.0,
+                        opacity: 1.0,
+                        lightColor: {
+                            enabled: true,
+                            color: '#ffffff',
+                            exposure: 1.0,
+                        },
+                        darkColor: {
+                            enabled: true,
+                            color: '#000000',
+                            exposure: 1.0,
+                        },
+                    },
+                    osmBoundaryLayer: {
+                        enabled: true,
+                        brightness: 1.0,
+                        contrast: 1.7,
+                        saturation: 0.45,
+                        hueRotation: 0.0,
+                        opacity: 0.7,
+                    },
+                    osmRoadLayer: {
+                        enabled: true,
+                        brightness: 1.3,
+                        contrast: 1.5,
+                        saturation: 0.35,
+                        hueRotation: 0.0,
+                        opacity: 0.4,
+                    },
+                    osmWaterWayLayer: {
+                        enabled: true,
+                        brightness: 1.0,
+                        contrast: 1.0,
+                        saturation: 1.0,
+                        hueRotation: 0.0,
+                        opacity: 0.6,
+                    },
+                },
+            },
+        },
+    };
+
+    /**
+     * 화면에 출력할 기본 프리셋 목록입니다.
+     *
+     * 기존 프리셋 JSON 객체를 그대로 참조하므로 사용자가 조정한 수치가 중간 변환 과정에서 유실되지 않습니다.
+     * 배경 지도 프리셋에 벡터 설정이 필요한 항목은 별도 테마 객체 대신 NEUTRAL_MAP_SETTINGS_RESET의
+     * 벡터 설정을 연결합니다. 배경 지도 전용 항목은 background-map만 가지며, 새 기본 프리셋을
+     * 제공하려면 이 배열에 같은 settingsByMapType 구조의 항목을 추가합니다.
+     */
+    const DEFAULT_THEME_PRESETS = [
+        {
+            id: 'default-normal-theme-1',
+            name: '컬러배경-흰색-옅은혼합',
+            isBuiltIn: true,
+            settingsByMapType: {
+                [BASE_MAP_TYPE]: COLOR_MAP_WHITE_LIGHT_MIX
+            },
+        },
+        {
+            id: 'default-normal-theme-1-2',
+            name: '컬러배경-흰색-강조혼합',
+            isBuiltIn: true,
+            settingsByMapType: {
+                [BASE_MAP_TYPE]: COLOR_MAP_WHITE_HEAVY_MIX
+            },
+        },
+        {
+            id: 'default-normal-theme-2',
+            name: '컬러배경-갈색-옅은혼합',
+            isBuiltIn: true,
+            settingsByMapType: {
+                [BASE_MAP_TYPE]: COLOR_MAP_BROWN_LIGHT_MIX
+            },
+        },
+        {
+            id: 'default-normal-theme-2-1',
+            name: '컬러배경-갈색-강조혼합',
+            isBuiltIn: true,
+            settingsByMapType: {
+                [BASE_MAP_TYPE]: COLOR_MAP_BROWN_HEAVY_MIX
+            },
+        },
+        {
+            id: 'default-normal-theme-3',
+            name: '어두운컬러배경-백갈색-옅은혼합',
+            isBuiltIn: true,
+            settingsByMapType: {
+                [BASE_MAP_TYPE]: COLOR_MAP_DARKBROWN_LIGHT_MIX
+            },
+        },
+        {
+            id: 'default-normal-theme-3-1',
+            name: '어두운컬러배경-백갈색-강조혼합',
+            isBuiltIn: true,
+            settingsByMapType: {
+                [BASE_MAP_TYPE]: COLOR_MAP_DARKBROWN_HEAVY_MIX
+            },
+        },
+        {
+            id: 'default-dark-theme',
+            name: '흑백배경-보라색',
+            isBuiltIn: true,
+            settingsByMapType: {
+                [BASE_MAP_TYPE]: DARK_MAP_PURPLE,
+            },
+        },
+        {
+            id: 'default-dark-blue-theme',
+            name: '흑백배경-청색-옅은혼합',
+            isBuiltIn: true,
+            settingsByMapType: {
+                [BASE_MAP_TYPE]: DARK_MAP_PURPLE_BLUE_LIGHT_MIX,
+            },
+        },
+    ];
+
+
+
+    // 사용자 추가 항목과 기본 프리셋의 수정/삭제 상태를 함께 저장하여 새로고침 뒤에도 목록을 동일하게 복원합니다.
+    const USER_THEME_PRESET_STORAGE_KEY = 'GeOnDT.customImageLayer.userThemePresets.v1';
+    const USER_THEME_PRESET_STORAGE_VERSION = 1;
+    let userThemePresets = [];
+    let defaultThemePresetOverrides = {};
+    let deletedDefaultThemePresetIds = new Set();
+    // 선택 대상과 시각적 하이라이트를 분리해야 버튼으로 포커스가 이동하는 동안 작업 대상을 잃지 않습니다.
+    let selectedThemePresetId = null;
+    let highlightedThemePresetId = null;
+    let presetNameDialogPreviousFocus = null;
+
+    let app = null;
+    let basePatternLayer = null;
+    let baseTMSLayer = null;
+    let baseHeightLayer = null;
+    // 타일 배경색 자체는 레이어 데이터 확인용 고정값으로 초기 기준 설정에서 읽고, 설정 JSON에는 on/off만 보관합니다.
+    const baseTMSBackgroundColor = NEUTRAL_MAP_SETTINGS_RESET.maps[BASE_MAP_TYPE].layers.baseTMSLayer.tileBackgroundColor.color;
+    let hillSideType1Layer = null;
+    let hillSideType2Layer = null;
+    let hillSideType3Layer = null;
+
+    let visibleHillSideLayer = null;
+
+    let baseHillSideLayer = null;
+
+    let osmRoadLayer = null;
+    let isVisibleOSMRoadLayer = NEUTRAL_MAP_SETTINGS_RESET.maps[VECTOR_MAP_TYPE].layers.osmRoadLayer.enabled;
+
+    let osmWaterWayLayer = null;
+    let isVisibleOSMWaterWayLayer = NEUTRAL_MAP_SETTINGS_RESET.maps[VECTOR_MAP_TYPE].layers.osmWaterWayLayer.enabled;
+
+    let osmBoundaryLayer = null;
+    let isVisibleOSMBoundaryLayer = NEUTRAL_MAP_SETTINGS_RESET.maps[VECTOR_MAP_TYPE].layers.osmBoundaryLayer.enabled;
+
+    // 동일한 app/basePatternLayer API를 사용하더라도 탭별로 마지막 값을 독립 보존합니다.
+    let baseMapSunTime = NEUTRAL_MAP_SETTINGS_RESET.maps[BASE_MAP_TYPE].sharedSettings.environment.sunTime;
+    let baseMapLightIntensity = NEUTRAL_MAP_SETTINGS_RESET.maps[BASE_MAP_TYPE].sharedSettings.environment.lightIntensity;
+    let baseMapPatternLayerColor = NEUTRAL_MAP_SETTINGS_RESET.maps[BASE_MAP_TYPE].sharedSettings.backgroundGround.color;
+    let baseMapPatternLayerOpacity = NEUTRAL_MAP_SETTINGS_RESET.maps[BASE_MAP_TYPE].sharedSettings.backgroundGround.opacity;
+
+    let vectorMapSunTime = NEUTRAL_MAP_SETTINGS_RESET.maps[VECTOR_MAP_TYPE].sharedSettings.environment.sunTime;
+    let vectorMapLightIntensity = NEUTRAL_MAP_SETTINGS_RESET.maps[VECTOR_MAP_TYPE].sharedSettings.environment.lightIntensity;
+    let vectorMapPatternLayerColor = NEUTRAL_MAP_SETTINGS_RESET.maps[VECTOR_MAP_TYPE].sharedSettings.backgroundGround.color;
+    let vectorMapPatternLayerOpacity = NEUTRAL_MAP_SETTINGS_RESET.maps[VECTOR_MAP_TYPE].sharedSettings.backgroundGround.opacity;
+
+    let mapType = BASE_MAP_TYPE;
+</script>
+<script id="common">
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+        const height = '높이: ' + parseFloat(info.height).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        if (app === undefined) return;
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+</script>
+
+<script id="main" type="module">
+    /**
+     * GeOnDT 및 레이어 초기화 순서
+     *
+     * - `await GeOnDT`로 제품 스크립트 준비를 기다린 뒤 U3dAPP을 생성합니다.
+     * - 지형을 구성하는 기본 레이어를 먼저 만들고, 그 위에 선택적으로 표시할 WMS 레이어를 추가합니다.
+     * - 각 init 함수는 app.addLayer() 후 레이어의 비동기 준비까지 await합니다.
+     * - 서비스 코드에서는 로딩 중 UI 조작을 막거나 setter의 optional chaining을 유지해야 합니다.
+     *
+     * 레이어 생성 순서는 렌더링 순서와 완전히 같은 개념은 아닙니다. 실제 표시 여부는
+     * app.showLayer(layer.getName(), boolean)과 현재 탭의 setBaseMapLayers/setVectorMapLayers가 결정합니다.
+     */
+    await GeOnDT;
+    app = new GeOnDT.U3dAPP({
+        containername:'map',
+        useShadowMap:false,
+        ratiotilesize:1.5,
+        improveTexture:'medium',
+        postOption: {
+            useAO: false
+        }
+    });
+
+    // U3dAPP의 제품 기본값에 기대지 않고, 초기 기준 설정의 태양 시간과 조명을 최초 렌더링에 적용합니다.
+    // NEUTRAL_MAP_SETTINGS_RESET의 환경값을 바꾸면 app의 최초 실제 상태도 같은 값으로 시작합니다.
+    setSunTime(NEUTRAL_MAP_SETTINGS_RESET.maps[BASE_MAP_TYPE].sharedSettings.environment.sunTime);
+    setLightIntensity(NEUTRAL_MAP_SETTINGS_RESET.maps[BASE_MAP_TYPE].sharedSettings.environment.lightIntensity);
+
+    app.setHomePosition(homePositon.lat, homePositon.lon, homePositon.height, homePositon.left, homePositon.down); //경도, 위도, 높이, 방위각, 고도각
+    app.updateHomePosition();
+    app.createloadingBar('load');
+    app.loadingBar();
+
+    app.on('change', updatePosData);
+
+    // 기본 지형: 단색 지면 + 배경 영상 + 고도 데이터
+    await initBasePatternLayer();
+    await initBaseTMSLayer();
+    await initBaseHeightLayer();
+
+    // 배경 지도 탭에서 서로 배타적으로 선택할 수 있는 WMS 음영 기복도 세 종류
+    await initHillSideType1Layer();
+    await initHillSideType2Layer();
+    await initHillSideType3Layer();
+    // 세 레이어 생성 후 초기 기준 설정의 enabled 값을 적용해 체크박스·실제 출력·복원 객체를 일치시킵니다.
+    applyBackgroundHillshadeLayerVisibility(NEUTRAL_MAP_SETTINGS_RESET.maps[BASE_MAP_TYPE].layers.hillshadeLayers);
+
+    // 벡터 UI를 제외한 배포본에서는 숨겨진 WMS를 생성하거나 요청하지 않아 초기 로딩 비용도 제거합니다.
+    if(VECTOR_MAP_UI_SHOW){
+        await initBaseHillSideLayer();
+        await initOSMBoundaryLayer();
+        await initOSMRoadLayer();
+        await initOSMWaterWayLayer();
+    }
+
+    // 벡터 레이어 생성자가 내부 기본 표시 상태를 갖더라도 최초 활성 탭은 항상 배경 지도로 확정합니다.
+    setBaseMapLayers();
+    app.endloadingBar();
+</script>
+<script>
+    /**
+     * 레이어 생성 옵션 안내
+     *
+     * - name: app 내부에서 레이어를 식별하는 고유 이름입니다. showLayer에도 이 이름을 사용합니다.
+     * - baseurl/layername/styles: WMS 서버 주소, 발행 레이어명, 스타일명입니다.
+     * - minlevel/maxlevel: 요청할 타일 레벨 범위입니다. 데이터 해상도와 서비스 정책에 맞춰 조정합니다.
+     * - transparent: 다른 레이어와 합성하려는 PNG WMS에서는 일반적으로 true를 사용합니다.
+     * - proxyurl/useproxy: 다른 출처의 WMS를 호출할 때 CORS 정책에 맞춰 설정합니다.
+     * - appendQuery: GeoWebCache 등 서버가 요구하는 추가 쿼리가 있을 때 사용합니다.
+     *
+     * 아래 URL과 레이어명은 예제 서버 값입니다. 실제 서비스에서는 접근 권한, HTTPS, CORS,
+     * 타일 캐시 사용 여부를 확인한 뒤 교체해야 합니다.
+     */
+
+    // 단색 지면 레이어입니다. U3dPatternXYZLayer는 속성 변경 후 commit()해야 화면에 반영됩니다.
+    async function initBasePatternLayer(){
+        try{
+            basePatternLayer = new GeOnDT.image.U3dPatternXYZLayer({
+                name: 'basePattern',
+                baseurl: 'default',
+                usebasetexture : false,
+                color: NEUTRAL_MAP_SETTINGS_RESET.maps[BASE_MAP_TYPE].sharedSettings.backgroundGround.color,
+                opacity: NEUTRAL_MAP_SETTINGS_RESET.maps[BASE_MAP_TYPE].sharedSettings.backgroundGround.opacity,
+            });
+
+            app.addLayer(basePatternLayer);
+            await basePatternLayer;
+
+            app.showLayer(basePatternLayer.getName());
+
+        }catch (e) {
+            console.error('basePatternLayer 생성 오류');
+            console.error(e);
+
+            app.endloadingBar();
+        }
+    }
+
+    //TMS 레이어 생성
+    // 일반 배경 타일 영상입니다. 생성 옵션과 런타임 setter가 같은 초기값을 갖도록 유지합니다.
+    async function initBaseTMSLayer(){
+        try{
+            const proxyurl =  (window.location.hostname !== 'localhost') ? './proxy.jsp?url=' : '';
+            const serverResponse = await $.ajax({
+                url: proxyurl + 'http://210.217.19.185:8082/v1/layer/tile_21',
+                crossDomain: true,
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader('User-Authorization', 'liSYJPYJhPitIeP6UQznNyhy54iVE2eigdHZGQBgCxcBZng6MxvqMBe2cPbxu2ti');
+                    xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+                },
+                error: function (e) {
+                    console.error(e);
+                }
+            });
+            const layerInfo = serverResponse.params.data;
+
+            baseTMSLayer = app.createTMSImageLayer({
+                name: layerInfo.name,
+                baseurl: layerInfo.baseUrl,
+                metadata: layerInfo.metaData,
+                proxyurl: './proxy.jsp?url=',
+                useproxy: (window.location.hostname !== 'localhost'),
+                brightness: NEUTRAL_MAP_SETTINGS_RESET.maps[BASE_MAP_TYPE].layers.baseTMSLayer.brightness,
+                contrast: NEUTRAL_MAP_SETTINGS_RESET.maps[BASE_MAP_TYPE].layers.baseTMSLayer.contrast,
+                saturation: NEUTRAL_MAP_SETTINGS_RESET.maps[BASE_MAP_TYPE].layers.baseTMSLayer.saturation,
+                hueRotation: NEUTRAL_MAP_SETTINGS_RESET.maps[BASE_MAP_TYPE].layers.baseTMSLayer.hueRotation,
+                opacity: NEUTRAL_MAP_SETTINGS_RESET.maps[BASE_MAP_TYPE].layers.baseTMSLayer.opacity,
+                tileBackgroundColor: NEUTRAL_MAP_SETTINGS_RESET.maps[BASE_MAP_TYPE].layers.baseTMSLayer.tileBackgroundColor.enabled
+                    ? baseTMSBackgroundColor
+                    : null,
+                minlevel: 6,
+                //burnLevels:[7,9,11,13,15],
+                useNotFoundPass: true,
+                debugLog: false
+            });
+
+            await baseTMSLayer;
+            app.showLayer(baseTMSLayer.getName());
+
+        }catch (e){
+            console.error('baseTMSLayer 생성 오류');
+            console.error(e);
+
+            app.endloadingBar();
+        }
+    }
+
+    //고도 레이어 생성
+    // 지형 메쉬의 높이를 만드는 DEM 레이어입니다. 영상 레이어와 달리 화면 색상 조절 대상이 아닙니다.
+    async function initBaseHeightLayer(){
+        try{
+            baseHeightLayer = app.createHeightXYZLayer({
+                name: 'korea_terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+                baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+                ext: '.umf', //+ 파일 확장자, *필수 입력
+                reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+                minlevel: 9,  //+ 가시화 최소 레벨
+                maxlevel: 17, //+ 가시화 최대 레벨
+            });
+
+            await baseHeightLayer;
+
+            app.showLayer(baseHeightLayer.getName());
+        }catch (e){
+            console.error('baseHeightLayer 생성 오류');
+            console.error(e);
+
+            app.endloadingBar();
+        }
+    }
+
+    // 배경 지도용 음영 기복도 1: 사실적 혼합 스타일
+    async function initHillSideType1Layer(){
+        try{
+            const layerDefaults = NEUTRAL_MAP_SETTINGS_RESET.maps[BASE_MAP_TYPE].layers.hillshadeLayers;
+            hillSideType1Layer = new GeOnDT.image.U3dImageWMSLayer({
+                name:'hillSideType1Layer',
+                baseurl: 'http://210.217.19.185:58089/geoserver/gcs/wms',  //+ 이미지 데이터 URL, *필수 입력
+                layername: 'gcs:hillshading_4326', //+ layer 이름
+                styles: 'gcs:AnalyticHillshading-AZ225-G',
+                appendQuery: '&TILED=true',
+                ext: 'image/png', //+ 파일 확장자
+                minlevel: 6,
+                maxlevel: 19,
+                transparent: true,
+                brightness: layerDefaults.brightness,
+                contrast: layerDefaults.contrast,
+                saturation: layerDefaults.saturation,
+                hueRotation: layerDefaults.hueRotation,
+                opacity: layerDefaults.opacity,
+                lightColorTone: layerDefaults.lightColor.color,
+                lightColorToneEnabled: layerDefaults.lightColor.enabled,
+                lightColorToneExposure: layerDefaults.lightColor.exposure,
+                darkColorTone: layerDefaults.darkColor.color,
+                darkColorToneEnabled: layerDefaults.darkColor.enabled,
+                darkColorToneExposure: layerDefaults.darkColor.exposure,
+                blendingType: 'multiply',
+                proxyurl: './proxy.jsp?url=',
+                useproxy: (window.location.hostname !== 'localhost'),
+            });
+            app.addLayer(hillSideType1Layer);
+            await hillSideType1Layer;
+        }catch (e){
+            console.error('hillSideType1Layer 생성 오류');
+            console.error(e);
+
+            app.endloadingBar();
+        }
+    }
+
+    // 배경 지도용 음영 기복도 2: 기복도 중심 혼합 스타일
+    async function initHillSideType2Layer(){
+        try{
+            const layerDefaults = NEUTRAL_MAP_SETTINGS_RESET.maps[BASE_MAP_TYPE].layers.hillshadeLayers;
+            hillSideType2Layer = new GeOnDT.image.U3dImageWMSLayer({
+                name:'hillSideType2Layer',
+                baseurl: 'http://210.217.19.185:58089/geoserver/gcs/wms',  //+ 이미지 데이터 URL, *필수 입력
+                layername: 'gcs:hillshading_4326', //+ layer 이름
+                styles: 'gcs:AnalyticHillshading-AZ225-M',
+                appendQuery: '&TILED=true',
+                ext: 'image/png', //+ 파일 확장자
+                minlevel: 6,
+                maxlevel: 19,
+                transparent: true,
+                brightness: layerDefaults.brightness,
+                contrast: layerDefaults.contrast,
+                saturation: layerDefaults.saturation,
+                hueRotation: layerDefaults.hueRotation,
+                opacity: layerDefaults.opacity,
+                lightColorTone: layerDefaults.lightColor.color,
+                lightColorToneEnabled: layerDefaults.lightColor.enabled,
+                lightColorToneExposure: layerDefaults.lightColor.exposure,
+                darkColorTone: layerDefaults.darkColor.color,
+                darkColorToneEnabled: layerDefaults.darkColor.enabled,
+                darkColorToneExposure: layerDefaults.darkColor.exposure,
+                proxyurl: './proxy.jsp?url=',
+                useproxy: (window.location.hostname !== 'localhost'),
+                debugLog: false
+            });
+            app.addLayer(hillSideType2Layer);
+            await hillSideType2Layer;
+        }catch (e){
+            console.error('hillSideType2Layer 생성 오류');
+            console.error(e);
+
+            app.endloadingBar();
+        }
+    }
+
+    // 배경 지도용 음영 기복도 3: 중간 혼합 스타일
+    async function initHillSideType3Layer(){
+        try{
+            const layerDefaults = NEUTRAL_MAP_SETTINGS_RESET.maps[BASE_MAP_TYPE].layers.hillshadeLayers;
+            hillSideType3Layer = new GeOnDT.image.U3dImageWMSLayer({
+                name:'hillSideType3Layer',
+                baseurl: 'http://210.217.19.185:58089/geoserver/gcs/wms',  //+ 이미지 데이터 URL, *필수 입력
+                layername: 'gcs:hillshading_4326', //+ layer 이름
+                styles: 'gcs:AnalyticHillshading-AZ225-MG',
+                appendQuery: '&TILED=true',
+                ext: 'image/png', //+ 파일 확장자
+                minlevel: 6,
+                maxlevel: 19,
+                transparent: true,
+                brightness: layerDefaults.brightness,
+                contrast: layerDefaults.contrast,
+                saturation: layerDefaults.saturation,
+                hueRotation: layerDefaults.hueRotation,
+                opacity: layerDefaults.opacity,
+                lightColorTone: layerDefaults.lightColor.color,
+                lightColorToneEnabled: layerDefaults.lightColor.enabled,
+                lightColorToneExposure: layerDefaults.lightColor.exposure,
+                darkColorTone: layerDefaults.darkColor.color,
+                darkColorToneEnabled: layerDefaults.darkColor.enabled,
+                darkColorToneExposure: layerDefaults.darkColor.exposure,
+                proxyurl: './proxy.jsp?url=',
+                useproxy: (window.location.hostname !== 'localhost'),
+            });
+            app.addLayer(hillSideType3Layer);
+            await hillSideType3Layer;
+        }catch (e){
+            console.error('hillSideType3Layer 생성 오류');
+            console.error(e);
+
+            app.endloadingBar();
+        }
+    }
+
+    // 벡터 정보 탭의 지면 위에 항상 사용할 전용 기복도입니다. 위 세 레이어와 설정을 공유하지 않습니다.
+    async function initBaseHillSideLayer(){
+        try{
+            const layerDefaults = NEUTRAL_MAP_SETTINGS_RESET.maps[VECTOR_MAP_TYPE].layers.baseHillSideLayer;
+            baseHillSideLayer = new GeOnDT.image.U3dImageWMSLayer({
+                name:'baseHillSideLayer',
+                baseurl: 'http://210.217.19.185:58089/geoserver/gcs/wms',  //+ 이미지 데이터 URL, *필수 입력
+                layername: 'gcs:hillshading_4326', //+ layer 이름
+                styles: 'gcs:AnalyticHillshading-AZ225-V',
+                appendQuery: '&TILED=true',
+                ext: 'image/png', //+ 파일 확장자
+                minlevel: 6,
+                maxlevel: 19,
+                transparent: true,
+                brightness: layerDefaults.brightness,
+                contrast: layerDefaults.contrast,
+                saturation: layerDefaults.saturation,
+                hueRotation: layerDefaults.hueRotation,
+                opacity: layerDefaults.opacity,
+                lightColorTone: layerDefaults.lightColor.color,
+                lightColorToneEnabled: layerDefaults.lightColor.enabled,
+                lightColorToneExposure: layerDefaults.lightColor.exposure,
+                darkColorTone: layerDefaults.darkColor.color,
+                darkColorToneEnabled: layerDefaults.darkColor.enabled,
+                darkColorToneExposure: layerDefaults.darkColor.exposure,
+                proxyurl: './proxy.jsp?url=',
+                useproxy: (window.location.hostname !== 'localhost'),
+            });
+            app.addLayer(baseHillSideLayer);
+            await baseHillSideLayer;
+        }catch (e){
+            console.error('baseHillSideLayer 생성 오류');
+            console.error(e);
+
+            app.endloadingBar();
+        }
+    }
+
+    // 도로 WMS입니다. 초기 기준 설정의 영상 보정값을 생성 옵션에도 그대로 전달합니다.
+    async function initOSMRoadLayer(){
+        try{
+            const layerDefaults = NEUTRAL_MAP_SETTINGS_RESET.maps[VECTOR_MAP_TYPE].layers.osmRoadLayer;
+            osmRoadLayer = new GeOnDT.image.U3dImageWMSLayer({
+                name:'osmRoadLayer',
+                baseurl: 'http://210.217.19.185:58089/geoserver/gcs/wms',  //+ 이미지 데이터 URL, *필수 입력
+                layername:'gcs:gis_osm_roads_free_1', //+ layer 이름
+                styles: 'gcs:gis_osm_roads_free_1_default',
+                ext: 'image/png', //+ 파일 확장자
+                minlevel: 9,
+                maxlevel: 19,
+                transparent: true,
+                brightness: layerDefaults.brightness,
+                contrast: layerDefaults.contrast,
+                saturation: layerDefaults.saturation,
+                hueRotation: layerDefaults.hueRotation,
+                opacity: layerDefaults.opacity,
+                appendQuery: '&TILED=true',
+
+                proxyurl: './proxy.jsp?url=',
+                useproxy: (window.location.hostname !== 'localhost'),
+            });
+            app.addLayer(osmRoadLayer);
+            await osmRoadLayer;
+        }catch (e){
+            console.error('osmRoadLayer 생성 오류');
+            console.error(e);
+
+            app.endloadingBar();
+        }
+    }
+
+    // 수로 WMS입니다. 도로/행정경계와 독립적으로 표시 및 색상 보정을 적용합니다.
+    async function initOSMWaterWayLayer(){
+        try{
+            const layerDefaults = NEUTRAL_MAP_SETTINGS_RESET.maps[VECTOR_MAP_TYPE].layers.osmWaterWayLayer;
+            osmWaterWayLayer = new GeOnDT.image.U3dImageWMSLayer({
+                name:'osmWaterWayLayer',
+                baseurl: 'http://210.217.19.185:58089/geoserver/gcs/wms',  //+ 이미지 데이터 URL, *필수 입력
+                layername:'gcs:gis_osm_waterways_free_1', //+ layer 이름
+                styles: 'gcs:gis_osm_waterways_free_1_default',
+                appendQuery: '&TILED=true',
+                ext: 'image/png', //+ 파일 확장자
+                minlevel: 6,
+                maxlevel: 19,
+                transparent: true,
+                brightness: layerDefaults.brightness,
+                contrast: layerDefaults.contrast,
+                saturation: layerDefaults.saturation,
+                hueRotation: layerDefaults.hueRotation,
+                opacity: layerDefaults.opacity,
+                proxyurl: './proxy.jsp?url=',
+                useproxy: (window.location.hostname !== 'localhost'),
+            });
+            app.addLayer(osmWaterWayLayer);
+            await osmWaterWayLayer;
+        }catch (e){
+            console.error('osmWaterWayLayer 생성 오류');
+            console.error(e);
+
+            app.endloadingBar();
+        }
+    }
+
+    // 행정경계 WMS입니다. 체크 상태는 isVisibleOSMBoundaryLayer에 저장해 탭 전환 후 복원합니다.
+    async function initOSMBoundaryLayer(){
+        try{
+            const layerDefaults = NEUTRAL_MAP_SETTINGS_RESET.maps[VECTOR_MAP_TYPE].layers.osmBoundaryLayer;
+            osmBoundaryLayer = new GeOnDT.image.U3dImageWMSLayer({
+                name:'osmBoundaryLayer',
+                baseurl: 'http://210.217.19.185:58089/geoserver/gcs/wms',  //+ 이미지 데이터 URL, *필수 입력
+                layername:'gcs:gis_osm_adminareas_a_free_1', //+ layer 이름
+                styles: 'gcs:gis_osm_adminareas_a_free_1_default',
+                ext: 'image/png', //+ 파일 확장자
+                appendQuery: '&TILED=true',
+                minlevel: 6,
+                maxlevel: 19,
+                transparent: true,
+                brightness: layerDefaults.brightness,
+                contrast: layerDefaults.contrast,
+                saturation: layerDefaults.saturation,
+                hueRotation: layerDefaults.hueRotation,
+                opacity: layerDefaults.opacity,
+                proxyurl: './proxy.jsp?url=',
+                useproxy: (window.location.hostname !== 'localhost'),
+            });
+            app.addLayer(osmBoundaryLayer);
+            await osmBoundaryLayer;
+        }catch (e){
+            console.error('osmBoundaryLayer 생성 오류');
+            console.error(e);
+
+            app.endloadingBar();
+        }
+    }
+
+    function moveCameraState(){
+        app.loadCameraState({
+            "camera": {
+                "x": 127.32153554981548,
+                "y": 38.02520169672219,
+                "z": 3133.728050911984
+            },
+            "center": {
+                "x": 127.36703364594094,
+                "y": 38.063549881967646,
+                "z": 3.580350518065973e-13
+            },
+            "distance": 8417.884306358193,
+            "azimuth": -0.7514812544136008,
+            "polar": 1.0785800781342607,
+            "homePosition": [
+                127.36703364594094,
+                38.063549881967646,
+                8417.884306358193,
+                -43.05670426109619,
+                61.798086343983705
+            ],
+            "type": "GEOGRAPHIC",
+            "height": 3133.728050911984
+        });
+    }
+
+    /**
+     * UI setter 작성 규칙
+     *
+     * 이 예제의 setter는 다음 세 작업을 한곳에서 수행합니다.
+     * 1. range input의 문자열 값을 Number로 변환하고 output 표시를 갱신합니다.
+     * 2. 대응하는 GeOnDT API를 호출합니다.
+     * 3. 환경/지면처럼 탭 사이에서 복원해야 하는 값은 탭별 전역 변수에도 저장합니다.
+     *
+     * 권장 기본값은 밝기/대비/채도/투명도 1.0, Hue 0도입니다. 이 값들은 원본 출력에
+     * 영향을 주지 않는 중립값입니다. 새 조정 항목을 추가하면 UI, setter, 이벤트, JSON 저장/입력을
+     * 모두 같은 이름과 단위로 연결해야 합니다.
+     */
+
+    // 0~1439분 값을 GeOnDT setTimeSun에 전달할 Date의 시/분과 UI 문자열로 변환합니다.
+    function covertTimeString(value){
+        const totalMinutes = Number(value);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        const timeText = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+
+        return {hours,minutes,timeText};
+    }
+
+    // app.setTimeSun은 태양 위치를 바꾸며, 실제 서비스에서는 날짜까지 사용자 입력으로 확장할 수 있습니다.
+    function setSunTime(time){
+        const {hours,minutes,timeText} = covertTimeString(time);
+        const timeValue = Number(time);
+
+        // 두 탭은 하나의 app을 제어하므로 두 input에는 현재 렌더링 중인 값을 함께 표시합니다.
+        // 탭별 프리셋 값 자체는 아래 baseMap.../vectorMap... 복원 변수에 각각 보존됩니다.
+        $('#environment-sun-time, #vector-environment-sun-time').val(timeValue);
+        $('#environment-sun-time-value, #vector-environment-sun-time-value').text(timeText);
+        app?.setTimeSun(new Date(2023, 11, 1, hours, minutes, 0, 0));
+
+        if(mapType === BASE_MAP_TYPE)
+            baseMapSunTime = timeValue;
+        else if(mapType === VECTOR_MAP_TYPE)
+            vectorMapSunTime = timeValue;
+    }
+
+    // app.setIntensityLight는 장면 전체 조명 세기를 제어합니다.
+    function setLightIntensity(value){
+        const intensity = updateLinkedSliderValues(
+            ['environment-light-intensity', 'vector-environment-light-intensity'],
+            value,
+        );
+        app?.setIntensityLight(intensity);
+
+        if(mapType === BASE_MAP_TYPE)
+            baseMapLightIntensity = intensity;
+        else if(mapType === VECTOR_MAP_TYPE)
+            vectorMapLightIntensity = intensity;
+    }
+
+    // U3dPatternXYZLayer는 setter만 호출해서는 부족하며 반드시 commit()해야 다시 렌더링됩니다.
+    function setBasePatternLayerColor(value){
+        // 배경 지도와 벡터 정보 탭의 색상 입력은 동일한 지면 레이어를 제어합니다.
+        $('#background-ground-color, #vector-background-ground-color').val(value);
+
+        if(mapType === BASE_MAP_TYPE)
+            baseMapPatternLayerColor = value;
+        else if(mapType === VECTOR_MAP_TYPE)
+            vectorMapPatternLayerColor = value;
+
+        // 레이어 초기화 전 JSON을 입력하더라도 위 전역 상태는 먼저 보존되어야 합니다.
+        if (!basePatternLayer) return;
+
+        basePatternLayer.setColor(value);
+        basePatternLayer.commit();
+    }
+
+    function setBasePatternLayerOpacity(value){
+        const opacity = updateLinkedSliderValues(
+            ['background-ground-opacity', 'vector-background-ground-opacity'],
+            value,
+        );
+        if(mapType === BASE_MAP_TYPE)
+            baseMapPatternLayerOpacity = opacity;
+        else if(mapType === VECTOR_MAP_TYPE)
+            vectorMapPatternLayerOpacity = opacity;
+
+        // 레이어 유무와 관계없이 탭별 상태를 먼저 저장하여 다음 탭 전환 때 복원합니다.
+        if (!basePatternLayer) return;
+
+        basePatternLayer.setOpacity(opacity);
+        basePatternLayer.commit();
+    }
+
+    // 아래 다섯 setter는 UTerrainMesh의 선택적 색상 보정 shader 기능과 연결됩니다.
+    function setBaseTMSLayerBrightness(value){
+        const brightness = updateBackgroundSliderValue('background-brightness', value);
+        baseTMSLayer?.setBrightness(brightness);
+    }
+
+    function setBaseTMSLayerContrast(value){
+        const contrast = updateBackgroundSliderValue('background-contrast', value);
+        baseTMSLayer?.setContrast(contrast);
+    }
+
+    function setBaseTMSLayerSaturation(value){
+        const saturation = updateBackgroundSliderValue('background-saturation', value);
+        baseTMSLayer?.setSaturation(saturation);
+    }
+
+    function setBaseTMSLayerHueRotation(value){
+        const hueRotation = updateBackgroundSliderValue('background-hue-rotation', value, '°');
+        baseTMSLayer?.setHueRotation(hueRotation);
+    }
+
+    // 도로 WMS 슬라이더의 표시값과 실제 레이어 속성을 항상 같은 값으로 갱신합니다.
+    // 레이어가 아직 초기화되지 않은 시점에는 UI만 갱신하고, optional chaining으로 오류를 방지합니다.
+    function setOSMRoadLayerBrightness(value){
+        const brightness = updateBackgroundSliderValue('osm-road-brightness', value);
+        osmRoadLayer?.setBrightness(brightness);
+    }
+
+    function setOSMRoadLayerContrast(value){
+        const contrast = updateBackgroundSliderValue('osm-road-contrast', value);
+        osmRoadLayer?.setContrast(contrast);
+    }
+
+    function setOSMRoadLayerSaturation(value){
+        const saturation = updateBackgroundSliderValue('osm-road-saturation', value);
+        osmRoadLayer?.setSaturation(saturation);
+    }
+
+    function setOSMRoadLayerHueRotation(value){
+        const hueRotation = updateBackgroundSliderValue('osm-road-hue-rotation', value, '°');
+        osmRoadLayer?.setHueRotation(hueRotation);
+    }
+
+    function setOSMRoadLayerOpacity(value){
+        const opacity = updateBackgroundSliderValue('osm-road-opacity', value);
+        osmRoadLayer?.setOpacity(opacity);
+    }
+
+    // 수로 WMS도 도로와 동일한 순서로 값을 적용하여 두 설정 영역을 쉽게 비교·유지보수할 수 있게 합니다.
+    function setOSMWaterWayLayerBrightness(value){
+        const brightness = updateBackgroundSliderValue('osm-waterway-brightness', value);
+        osmWaterWayLayer?.setBrightness(brightness);
+    }
+
+    function setOSMWaterWayLayerContrast(value){
+        const contrast = updateBackgroundSliderValue('osm-waterway-contrast', value);
+        osmWaterWayLayer?.setContrast(contrast);
+    }
+
+    function setOSMWaterWayLayerSaturation(value){
+        const saturation = updateBackgroundSliderValue('osm-waterway-saturation', value);
+        osmWaterWayLayer?.setSaturation(saturation);
+    }
+
+    function setOSMWaterWayLayerHueRotation(value){
+        const hueRotation = updateBackgroundSliderValue('osm-waterway-hue-rotation', value, '°');
+        osmWaterWayLayer?.setHueRotation(hueRotation);
+    }
+
+    function setOSMWaterWayLayerOpacity(value){
+        const opacity = updateBackgroundSliderValue('osm-waterway-opacity', value);
+        osmWaterWayLayer?.setOpacity(opacity);
+    }
+
+    // 행정경계 WMS의 조정값도 UI 표시값과 레이어 속성에 동시에 적용합니다.
+    // 레이어 초기화 전에도 슬라이더는 정상적으로 갱신되도록 레이어 호출에는 optional chaining을 사용합니다.
+    function setOSMBoundaryLayerBrightness(value){
+        const brightness = updateBackgroundSliderValue('osm-boundary-brightness', value);
+        osmBoundaryLayer?.setBrightness(brightness);
+    }
+
+    function setOSMBoundaryLayerContrast(value){
+        const contrast = updateBackgroundSliderValue('osm-boundary-contrast', value);
+        osmBoundaryLayer?.setContrast(contrast);
+    }
+
+    function setOSMBoundaryLayerSaturation(value){
+        const saturation = updateBackgroundSliderValue('osm-boundary-saturation', value);
+        osmBoundaryLayer?.setSaturation(saturation);
+    }
+
+    function setOSMBoundaryLayerHueRotation(value){
+        const hueRotation = updateBackgroundSliderValue('osm-boundary-hue-rotation', value, '°');
+        osmBoundaryLayer?.setHueRotation(hueRotation);
+    }
+
+    function setOSMBoundaryLayerOpacity(value){
+        const opacity = updateBackgroundSliderValue('osm-boundary-opacity', value);
+        osmBoundaryLayer?.setOpacity(opacity);
+    }
+
+    function setBaseTMSLayerOpacity(value){
+        const opacity = updateBackgroundSliderValue('background-opacity', value);
+        baseTMSLayer?.setOpacity(opacity);
+    }
+
+    /**
+     * 좌표계 변환 또는 네트워크 오류로 타일 일부가 비었을 때 사용할 기본 배경색을 설정합니다.
+     *
+     * @param {boolean} enabled true이면 baseTMSBackgroundColor, false이면 null을 전달합니다.
+     * @param {boolean} restart 일반 UI 조작에서는 쿼드트리를 재시작하고, JSON 일괄 입력에서는
+     *                           마지막에 한 번만 재시작하도록 false를 사용합니다.
+     */
+    function setBaseTMSTileBackgroundColor(enabled, restart = true){
+        const isEnabled = Boolean(enabled);
+        $('#background-tile-background-color').prop('checked', isEnabled);
+        baseTMSLayer?.setTileBackgroundColor(isEnabled ? baseTMSBackgroundColor : null);
+
+        if(restart)
+            app?.restartQuadTree();
+    }
+
+    /**
+     * 배경 지도 탭의 음영 기복도 색상톤
+     *
+     * hillSideType1~3Layer는 사용자가 스타일을 바꿔 선택해도 같은 시각 설정을 유지해야 하므로
+     * 세 레이어에 동일한 값을 미리 적용합니다. 체크된 레이어 하나만 실제 화면에 출력됩니다.
+     */
+    function setHillshadeBrightness(value){
+        const brightness = updateBackgroundSliderValue('hillshade-brightness', value);
+        hillSideType1Layer?.setBrightness(brightness);
+        hillSideType2Layer?.setBrightness(brightness);
+        hillSideType3Layer?.setBrightness(brightness);
+    }
+
+    function setHillshadeContrast(value){
+        const contrast = updateBackgroundSliderValue('hillshade-contrast', value);
+        hillSideType1Layer?.setContrast(contrast);
+        hillSideType2Layer?.setContrast(contrast);
+        hillSideType3Layer?.setContrast(contrast);
+    }
+
+    function setHillshadeSaturation(value){
+        const saturation = updateBackgroundSliderValue('hillshade-saturation', value);
+        hillSideType1Layer?.setSaturation(saturation);
+        hillSideType2Layer?.setSaturation(saturation);
+        hillSideType3Layer?.setSaturation(saturation);
+    }
+
+    function setHillshadeHueRotation(value){
+        const hueRotation = updateBackgroundSliderValue('hillshade-hue-rotation', value, '°');
+        hillSideType1Layer?.setHueRotation(hueRotation);
+        hillSideType2Layer?.setHueRotation(hueRotation);
+        hillSideType3Layer?.setHueRotation(hueRotation);
+    }
+
+    function setHillshadeLightColorTone(value){
+        $('#hillshade-light-color').val(value ?? '#ffffff');
+        hillSideType1Layer?.setLightColorTone(value);
+        hillSideType2Layer?.setLightColorTone(value);
+        hillSideType3Layer?.setLightColorTone(value);
+    }
+
+    function setHillshadeLightColorToneEnabled(enabled){
+        const isEnabled = Boolean(enabled);
+        $('#hillshade-light-color-enabled').prop('checked', isEnabled);
+        hillSideType1Layer?.setLightColorToneEnabled(isEnabled);
+        hillSideType2Layer?.setLightColorToneEnabled(isEnabled);
+        hillSideType3Layer?.setLightColorToneEnabled(isEnabled);
+    }
+
+    function setHillshadeDarkColorTone(value){
+        $('#hillshade-dark-color').val(value ?? '#000000');
+        hillSideType1Layer?.setDarkColorTone(value);
+        hillSideType2Layer?.setDarkColorTone(value);
+        hillSideType3Layer?.setDarkColorTone(value);
+    }
+
+    function setHillshadeDarkColorToneEnabled(enabled){
+        const isEnabled = Boolean(enabled);
+        $('#hillshade-dark-color-enabled').prop('checked', isEnabled);
+        hillSideType1Layer?.setDarkColorToneEnabled(isEnabled);
+        hillSideType2Layer?.setDarkColorToneEnabled(isEnabled);
+        hillSideType3Layer?.setDarkColorToneEnabled(isEnabled);
+    }
+
+    function setHillshadeLightColorToneExposure(value){
+        const exposure = updateBackgroundSliderValue('hillshade-light-color-exposure', value);
+        hillSideType1Layer?.setLightColorToneExposure(exposure);
+        hillSideType2Layer?.setLightColorToneExposure(exposure);
+        hillSideType3Layer?.setLightColorToneExposure(exposure);
+    }
+
+    function setHillshadeDarkColorToneExposure(value){
+        const exposure = updateBackgroundSliderValue('hillshade-dark-color-exposure', value);
+        hillSideType1Layer?.setDarkColorToneExposure(exposure);
+        hillSideType2Layer?.setDarkColorToneExposure(exposure);
+        hillSideType3Layer?.setDarkColorToneExposure(exposure);
+    }
+
+    // 현재 선택된 음영 기복도 종류가 바뀌어도 같은 투명도가 유지되도록
+    // 화면 표시 여부와 관계없이 세 WMS 레이어의 투명도를 함께 갱신합니다.
+    function setHillshadeOpacity(value){
+        const opacity = updateBackgroundSliderValue('hillshade-opacity', value);
+        hillSideType1Layer?.setOpacity(opacity);
+        hillSideType2Layer?.setOpacity(opacity);
+        hillSideType3Layer?.setOpacity(opacity);
+    }
+
+    /**
+     * 벡터 정보 탭의 배경 기복도 색상톤
+     *
+     * baseHillSideLayer는 벡터 정보의 지면 표현을 위한 단일 레이어입니다. 배경 지도 탭의
+     * hillSideType1~3Layer와 분리해야 두 탭의 표현을 독립적으로 설계할 수 있습니다.
+     */
+    // 벡터 정보 탭의 배경 기복도 설정은 다른 음영 기복도 레이어와 값을 공유하지 않습니다.
+    // 각 setter는 baseHillSideLayer 하나만 변경하여 탭별 설정의 영향 범위를 명확히 제한합니다.
+    function setBaseHillshadeBrightness(value){
+        const brightness = updateBackgroundSliderValue('base-hillshade-brightness', value);
+        baseHillSideLayer?.setBrightness(brightness);
+    }
+
+    function setBaseHillshadeContrast(value){
+        const contrast = updateBackgroundSliderValue('base-hillshade-contrast', value);
+        baseHillSideLayer?.setContrast(contrast);
+    }
+
+    function setBaseHillshadeSaturation(value){
+        const saturation = updateBackgroundSliderValue('base-hillshade-saturation', value);
+        baseHillSideLayer?.setSaturation(saturation);
+    }
+
+    function setBaseHillshadeHueRotation(value){
+        const hueRotation = updateBackgroundSliderValue('base-hillshade-hue-rotation', value, '°');
+        baseHillSideLayer?.setHueRotation(hueRotation);
+    }
+
+    function setBaseHillshadeLightColorTone(value){
+        $('#base-hillshade-light-color').val(value ?? '#ffffff');
+        baseHillSideLayer?.setLightColorTone(value);
+    }
+
+    function setBaseHillshadeLightColorToneEnabled(enabled){
+        const isEnabled = Boolean(enabled);
+        $('#base-hillshade-light-color-enabled').prop('checked', isEnabled);
+        baseHillSideLayer?.setLightColorToneEnabled(isEnabled);
+    }
+
+    function setBaseHillshadeDarkColorTone(value){
+        $('#base-hillshade-dark-color').val(value ?? '#000000');
+        baseHillSideLayer?.setDarkColorTone(value);
+    }
+
+    function setBaseHillshadeDarkColorToneEnabled(enabled){
+        const isEnabled = Boolean(enabled);
+        $('#base-hillshade-dark-color-enabled').prop('checked', isEnabled);
+        baseHillSideLayer?.setDarkColorToneEnabled(isEnabled);
+    }
+
+    function setBaseHillshadeLightColorToneExposure(value){
+        const exposure = updateBackgroundSliderValue('base-hillshade-light-color-exposure', value);
+        baseHillSideLayer?.setLightColorToneExposure(exposure);
+    }
+
+    function setBaseHillshadeDarkColorToneExposure(value){
+        const exposure = updateBackgroundSliderValue('base-hillshade-dark-color-exposure', value);
+        baseHillSideLayer?.setDarkColorToneExposure(exposure);
+    }
+
+    function setBaseHillshadeOpacity(value){
+        const opacity = updateBackgroundSliderValue('base-hillshade-opacity', value);
+        baseHillSideLayer?.setOpacity(opacity);
+    }
+
+    /**
+     * 탭별 레이어 묶음 전환
+     *
+     * 탭을 바꿀 때 레이어 객체를 제거/재생성하지 않고 app.showLayer만 변경합니다. 이렇게 해야
+     * 네트워크 재요청과 객체 생성 비용을 피하고, 체크박스로 선택한 WMS 상태도 복원할 수 있습니다.
+     * showLayerIfReady는 비동기 초기화 중인 예제 페이지에서도 UI 전환이 중단되지 않게 합니다.
+     */
+    function setBaseMapLayers(){
+        showLayerIfReady(baseHillSideLayer, false);
+        showLayerIfReady(osmRoadLayer, false);
+        showLayerIfReady(osmWaterWayLayer, false);
+        showLayerIfReady(osmBoundaryLayer, false);
+
+        showLayerIfReady(basePatternLayer, true);
+        showLayerIfReady(baseTMSLayer, true);
+
+        if(visibleHillSideLayer)
+            showLayerIfReady(visibleHillSideLayer, true);
+    }
+
+    function setVectorMapLayers(){
+        showLayerIfReady(basePatternLayer, true);
+        showLayerIfReady(baseTMSLayer, false);
+
+        if(visibleHillSideLayer)
+            showLayerIfReady(visibleHillSideLayer, false);
+
+        showLayerIfReady(baseHillSideLayer, true);
+        showLayerIfReady(osmRoadLayer, isVisibleOSMRoadLayer);
+        showLayerIfReady(osmWaterWayLayer, isVisibleOSMWaterWayLayer);
+        showLayerIfReady(osmBoundaryLayer, isVisibleOSMBoundaryLayer);
+
+    }
+
+    /**
+     * 프리셋 적용 시 벡터 WMS의 독립 출력 상태만 현재값으로 보존합니다.
+     *
+     * 배경 지도의 WMS 음영 기복도는 프리셋 자체가 출력 유형까지 표현하므로 현재 체크값으로
+     * 덮어쓰지 않습니다. 사용자가 직접 유형을 바꾼 뒤 프리셋을 다시 불러오면 프리셋 JSON의
+     * hillSideType1~3Layer.enabled 값이 체크박스·실제 레이어·탭 복원 상태에 다시 반영됩니다.
+     *
+     * 벡터 WMS는 기존 정책대로 프리셋의 영상 보정값과 별개로 사용자가 켜고 끈 상태를 유지합니다.
+     * 이 경우에만 하위 객체를 얕게 복사하여 원본 프리셋 JSON을 변경하지 않습니다.
+     */
+    function createThemePresetWithCurrentVectorLayerVisibility(preset){
+        if(preset.mapType === BASE_MAP_TYPE) return preset;
+
+        return {
+            ...preset,
+            layers: {
+                ...preset.layers,
+                osmBoundaryLayer: {
+                    ...preset.layers.osmBoundaryLayer,
+                    enabled: isVisibleOSMBoundaryLayer,
+                },
+                osmRoadLayer: {
+                    ...preset.layers.osmRoadLayer,
+                    enabled: isVisibleOSMRoadLayer,
+                },
+                osmWaterWayLayer: {
+                    ...preset.layers.osmWaterWayLayer,
+                    enabled: isVisibleOSMWaterWayLayer,
+                },
+            },
+        };
+    }
+
+    /**
+     * 프리셋 한 탭의 설정을 기존 탭별 setter 경로에 적용합니다.
+     * 준비 상태 검사와 최종 쿼드트리 재시작은 여러 탭을 묶어 처리하는 loadThemePreset에서
+     * 한 번만 수행하여, 일반 테마처럼 두 탭을 가진 프리셋도 중간 상태가 화면에 남지 않게 합니다.
+     */
+    function applyThemePresetMapSettings(preset){
+        const settings = createThemePresetWithCurrentVectorLayerVisibility(preset);
+
+        setAnalysisTab(settings.mapType);
+        applyMapSharedSettings(settings.sharedSettings);
+
+        if(settings.mapType === BASE_MAP_TYPE){
+            applyBackgroundMapSettings(settings);
+        }else{
+            applyVectorMapSettings(settings);
+        }
+    }
+</script>
+
+<script>
+    /**
+     * 팝업/탭 UI 상태
+     * analysisPopupDragState와 themePresetPanelDragState는 드래그 중에만 사용하는 임시 상태이며,
+     * 지도 설정과 JSON에는 포함하지 않습니다.
+     * 탭의 영구 설정은 위 전역 복원 변수와 각 input 값이 담당합니다.
+     */
+    let analysisPopupDragState = null;
+    let themePresetPanelDragState = null;
+
+    /**
+     * 사용자가 마지막으로 정상 적용한 input 값을 보관합니다.
+     *
+     * range/color/checkbox는 이벤트가 발생하기 전에 DOM 값이 먼저 바뀝니다. 따라서 레이어가 아직
+     * 준비되지 않은 시점에 단순히 API 호출만 중단하면 UI와 실제 지도 상태가 서로 달라집니다.
+     * WeakMap에 마지막 정상값을 저장해 두었다가 준비 검사 실패 시 해당 input만 즉시 복원합니다.
+     */
+    const SETTINGS_INPUT_SELECTOR = [
+        '#analy-popup input[type="range"]',
+        '#analy-popup input[type="color"]',
+        '#analy-popup input[type="checkbox"]',
+    ].join(', ');
+    const committedSettingInputValues = new WeakMap();
+
+    function rememberSettingInputValue(input){
+        if(!input) return;
+        const value = input.type === 'checkbox' ? Boolean(input.checked) : String(input.value);
+        committedSettingInputValues.set(input, value);
+    }
+
+    function rememberAllSettingInputValues(){
+        $(SETTINGS_INPUT_SELECTOR).each(function () {
+            rememberSettingInputValue(this);
+        });
+    }
+
+    function restoreSettingInputValue(input){
+        if(!input || !committedSettingInputValues.has(input)) return;
+        const value = committedSettingInputValues.get(input);
+
+        if(input.type === 'checkbox') input.checked = Boolean(value);
+        else input.value = String(value);
+    }
+
+    /**
+     * input id와 실제로 필요한 GeOnDT 객체의 대응 관계입니다.
+     * 새 설정 UI를 추가할 때 이 함수에도 의존 객체를 등록해야 로딩 중 조작이 안전하게 차단됩니다.
+     */
+    function getSettingInputDependencies(inputId){
+        if(inputId === 'environment-sun-time' || inputId === 'vector-environment-sun-time'
+            || inputId === 'environment-light-intensity' || inputId === 'vector-environment-light-intensity')
+            return [app];
+
+        if(inputId === 'background-ground-color' || inputId === 'vector-background-ground-color'
+            || inputId === 'background-ground-opacity' || inputId === 'vector-background-ground-opacity')
+            return [basePatternLayer];
+
+        if(inputId === 'background-tile-background-color') return [app, baseTMSLayer];
+        if(inputId.startsWith('background-')) return [baseTMSLayer];
+
+        if(inputId.startsWith('hillshade-'))
+            return [hillSideType1Layer, hillSideType2Layer, hillSideType3Layer];
+        if(['hillSideType1', 'hillSideType2', 'hillSideType3'].includes(inputId))
+            return [app, hillSideType1Layer, hillSideType2Layer, hillSideType3Layer];
+
+        if(inputId.startsWith('base-hillshade-')) return [baseHillSideLayer];
+
+        if(inputId === 'osmBoundaryWMS') return [app, osmBoundaryLayer];
+        if(inputId.startsWith('osm-boundary-')) return [osmBoundaryLayer];
+        if(inputId === 'osmRoadWMS') return [app, osmRoadLayer];
+        if(inputId.startsWith('osm-road-')) return [osmRoadLayer];
+        if(inputId === 'osmWaterWayWMS') return [app, osmWaterWayLayer];
+        if(inputId.startsWith('osm-waterway-')) return [osmWaterWayLayer];
+
+        return [];
+    }
+
+    function areSettingsObjectsReady(objects){
+        return objects.every(Boolean);
+    }
+
+    function notifyMapNotReady(){
+        toast('지도가 아직 준비되지 않았습니다');
+    }
+
+    function ensureSettingInputReady(event, input){
+        if(areSettingsObjectsReady(getSettingInputDependencies(input.id))) return true;
+
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        restoreSettingInputValue(input);
+        notifyMapNotReady();
+        return false;
+    }
+
+    function getMapSettingsDependencies(targetMapType){
+        if(targetMapType === BASE_MAP_TYPE)
+            return [app, basePatternLayer, baseTMSLayer, hillSideType1Layer, hillSideType2Layer, hillSideType3Layer];
+
+        if(targetMapType === VECTOR_MAP_TYPE)
+            return [app, basePatternLayer, baseHillSideLayer, osmBoundaryLayer, osmRoadLayer, osmWaterWayLayer];
+
+        return [];
+    }
+
+    function ensureMapSettingsReady(targetMapType){
+        if(areSettingsObjectsReady(getMapSettingsDependencies(targetMapType))) return true;
+        notifyMapNotReady();
+        return false;
+    }
+
+    function ensureAllMapSettingsReady(){
+        const allObjects = [
+            ...getMapSettingsDependencies(BASE_MAP_TYPE),
+            ...(VECTOR_MAP_UI_SHOW ? getMapSettingsDependencies(VECTOR_MAP_TYPE) : []),
+        ];
+        if(areSettingsObjectsReady(allObjects)) return true;
+        notifyMapNotReady();
+        return false;
+    }
+
+    function setAnalysisPopupVisible(visible){
+        const isVisible = Boolean(visible);
+        $('#analy-popup').toggle(isVisible);
+        $('#analy-bnt').toggleClass('active', isVisible);
+    }
+
+    /**
+     * 오른쪽 도구막대 버튼과 프리셋 패널의 표시 상태를 함께 갱신합니다.
+     * 패널을 숨길 때는 진행 중인 이름 입력과 선택 상태를 정리하여 다시 열었을 때 이전 임시 UI가 남지 않게 합니다.
+     */
+    function setThemePresetPanelVisible(visible){
+        const isVisible = Boolean(visible);
+        $('#theme-preset-control-panel').prop('hidden', !isVisible);
+        $('.btn-toggle-theme-preset-panel')
+            .attr('aria-expanded', String(isVisible))
+            .attr('aria-label', `지도 설정 프리셋 패널 ${isVisible ? '숨기기' : '보이기'}`);
+
+        if(!isVisible){
+            closePresetNameDialog(false);
+            clearThemePresetSelection();
+            themePresetPanelDragState = null;
+        }
+    }
+
+    /**
+     * 배포 상수에 따라 벡터 탭 버튼과 패널을 DOM에서 접근할 수 없도록 숨깁니다.
+     * 요소 자체는 소스에 유지하므로 VECTOR_MAP_UI_SHOW만 true로 바꾼 다른 배포본에서 즉시 재사용할 수 있습니다.
+     */
+    function initializeVectorMapUIVisibility(){
+        $('#analysis-vector-info-tab').prop('hidden', !VECTOR_MAP_UI_SHOW);
+        if(!VECTOR_MAP_UI_SHOW)
+            $('#analysis-vector-info-panel').prop('hidden', true);
+    }
+
+    // 키보드 방향키 탐색에서도 배포 설정으로 숨긴 탭을 선택 대상에서 제외합니다.
+    function getAvailableAnalysisTabs(){
+        return $('#analy-popup .analysis-tab-button').filter(function () {
+            return !$(this).prop('hidden');
+        });
+    }
+
+    /**
+     * 설정 탭과 대응 레이어 묶음을 전환합니다.
+     *
+     * 처리 순서가 중요합니다.
+     * 1. 실제 탭 변경이면 대상 탭의 app·레이어가 모두 준비되었는지 먼저 검사합니다.
+     * 2. 준비된 경우에만 ARIA 속성, panel hidden 상태, mapType을 함께 변경합니다.
+     * 3. setBaseMapLayers/setVectorMapLayers로 출력 묶음을 교체하고 탭별 환경·지면값을 복원합니다.
+     *
+     * 준비 검사에 실패하면 toast만 출력하고 현재 탭의 UI, mapType, 레이어 출력 상태를 그대로 유지합니다.
+     *
+     * @param {string} tabName BASE_MAP_TYPE 또는 VECTOR_MAP_TYPE
+     * @param {boolean} focusTab 키보드 이동 시 선택 탭에 포커스를 줄지 여부
+     * @returns {boolean} 전환 가능 여부. 현재 활성 탭을 다시 선택한 경우에도 true입니다.
+     */
+    function setAnalysisTab(tabName, focusTab = false){
+        if(tabName === VECTOR_MAP_TYPE && !VECTOR_MAP_UI_SHOW) return false;
+
+        const tabs = getAvailableAnalysisTabs();
+        const selectedTab = tabs.filter(`[data-analysis-tab="${tabName}"]`);
+        if(selectedTab.length === 0) return false;
+
+        const isTabChange = mapType !== tabName;
+        if(isTabChange && !ensureMapSettingsReady(tabName)) return false;
+
+        // 준비 검사를 통과한 뒤 접근성 속성과 panel을 함께 바꿔 시각 상태와 mapType이 어긋나지 않게 합니다.
+        tabs.each(function () {
+            const isSelected = this === selectedTab[0];
+            $(this)
+                .toggleClass('active', isSelected)
+                .attr('aria-selected', String(isSelected))
+                .attr('tabindex', isSelected ? '0' : '-1');
+        });
+
+        $('#analy-popup .analysis-tab-panel').each(function () {
+            this.hidden = this.dataset.analysisTabPanel !== tabName;
+        });
+
+        if(isTabChange){
+            mapType = tabName;
+
+            // 탭 전환은 테마 프리셋을 다시 적용하지 않고 탭별 전역 상태만 복원합니다.
+            // 이 구조 덕분에 JSON 입력으로 변경한 값이 다른 탭을 다녀와도 유지됩니다.
+            if(mapType === BASE_MAP_TYPE){
+                setBaseMapLayers();
+                setSunTime(baseMapSunTime);
+                setLightIntensity(baseMapLightIntensity);
+                setBasePatternLayerColor(baseMapPatternLayerColor);
+                setBasePatternLayerOpacity(baseMapPatternLayerOpacity);
+            }else if(mapType === VECTOR_MAP_TYPE){
+                setVectorMapLayers();
+                setSunTime(vectorMapSunTime);
+                setLightIntensity(vectorMapLightIntensity);
+                setBasePatternLayerColor(vectorMapPatternLayerColor);
+                setBasePatternLayerOpacity(vectorMapPatternLayerOpacity);
+            }
+        }
+
+        if(focusTab) selectedTab.trigger('focus');
+
+        // 탭 전환 setter가 바꾼 현재 표시값을 다음 준비 실패 시 되돌아갈 기준값으로 확정합니다.
+        rememberAllSettingInputValues();
+        return true;
+    }
+
+    // Pointer Events를 사용하므로 마우스와 터치 입력에서 같은 드래그 로직을 사용할 수 있습니다.
+    function startAnalysisPopupDrag(event, handle){
+        if(event.button !== 0 || $(event.target).closest('.popup-exit').length > 0) return;
+
+        const popup = $('#analy-popup .div-popup')[0];
+        if(!popup) return;
+
+        analysisPopupDragState = {
+            pointerId: event.pointerId,
+            handle,
+            popup,
+            startClientX: event.clientX,
+            startClientY: event.clientY,
+            startLeft: popup.offsetLeft,
+            startTop: popup.offsetTop,
+        };
+
+        handle.setPointerCapture?.(event.pointerId);
+        event.preventDefault();
+    }
+
+    function moveAnalysisPopup(event){
+        const dragState = analysisPopupDragState;
+        if(!dragState || event.pointerId !== dragState.pointerId) return;
+
+        const {popup} = dragState;
+        const parent = popup.offsetParent;
+        const parentWidth = parent?.clientWidth ?? window.innerWidth;
+        const parentHeight = parent?.clientHeight ?? window.innerHeight;
+        const maxLeft = Math.max(0, parentWidth - popup.offsetWidth);
+        const maxTop = Math.max(0, parentHeight - popup.offsetHeight);
+        const nextLeft = dragState.startLeft + event.clientX - dragState.startClientX;
+        const nextTop = dragState.startTop + event.clientY - dragState.startClientY;
+
+        popup.style.left = `${Math.min(Math.max(0, nextLeft), maxLeft)}px`;
+        popup.style.top = `${Math.min(Math.max(0, nextTop), maxTop)}px`;
+        event.preventDefault();
+    }
+
+    function endAnalysisPopupDrag(event){
+        const dragState = analysisPopupDragState;
+        if(!dragState || event.pointerId !== dragState.pointerId) return;
+
+        if(dragState.handle.hasPointerCapture?.(event.pointerId)){
+            dragState.handle.releasePointerCapture(event.pointerId);
+        }
+        analysisPopupDragState = null;
+    }
+
+    /**
+     * 프리셋 패널은 position:fixed이므로 뷰포트 좌표를 기준으로 드래그합니다.
+     * 최초에는 CSS의 right 값으로 배치되지만 드래그가 시작되면 현재 화면 위치를 left/top으로 고정해
+     * 포인터 이동량을 그대로 반영합니다.
+     */
+    function startThemePresetPanelDrag(event, handle){
+        // 닫기 버튼도 헤더 안에 있지만 버튼 조작은 패널 이동으로 해석하지 않습니다.
+        if(event.button !== 0 || $(event.target).closest('.theme-preset-panel-close').length > 0) return;
+
+        const panel = $('#theme-preset-control-panel')[0];
+        if(!panel || panel.hidden) return;
+
+        const rect = panel.getBoundingClientRect();
+        panel.style.left = `${rect.left}px`;
+        panel.style.top = `${rect.top}px`;
+        panel.style.right = 'auto';
+        themePresetPanelDragState = {
+            pointerId: event.pointerId,
+            handle,
+            panel,
+            startClientX: event.clientX,
+            startClientY: event.clientY,
+            startLeft: rect.left,
+            startTop: rect.top,
+        };
+
+        handle.setPointerCapture?.(event.pointerId);
+        event.preventDefault();
+    }
+
+    function moveThemePresetPanel(event){
+        const dragState = themePresetPanelDragState;
+        if(!dragState || event.pointerId !== dragState.pointerId) return;
+
+        const {panel} = dragState;
+        const maxLeft = Math.max(0, window.innerWidth - panel.offsetWidth);
+        const maxTop = Math.max(0, window.innerHeight - panel.offsetHeight);
+        const nextLeft = dragState.startLeft + event.clientX - dragState.startClientX;
+        const nextTop = dragState.startTop + event.clientY - dragState.startClientY;
+
+        panel.style.left = `${Math.min(Math.max(0, nextLeft), maxLeft)}px`;
+        panel.style.top = `${Math.min(Math.max(0, nextTop), maxTop)}px`;
+        event.preventDefault();
+    }
+
+    function endThemePresetPanelDrag(event){
+        const dragState = themePresetPanelDragState;
+        if(!dragState || event.pointerId !== dragState.pointerId) return;
+
+        if(dragState.handle.hasPointerCapture?.(event.pointerId))
+            dragState.handle.releasePointerCapture(event.pointerId);
+        themePresetPanelDragState = null;
+    }
+
+    // 창 크기가 줄어든 뒤에도 드래그된 패널의 상단 손잡이가 화면 밖으로 밀려나지 않게 보정합니다.
+    function keepThemePresetPanelInViewport(){
+        const panel = $('#theme-preset-control-panel')[0];
+        if(!panel || panel.hidden || !panel.style.left) return;
+
+        const rect = panel.getBoundingClientRect();
+        const maxLeft = Math.max(0, window.innerWidth - panel.offsetWidth);
+        const maxTop = Math.max(0, window.innerHeight - panel.offsetHeight);
+        panel.style.left = `${Math.min(Math.max(0, rect.left), maxLeft)}px`;
+        panel.style.top = `${Math.min(Math.max(0, rect.top), maxTop)}px`;
+    }
+
+    // 하나의 실제 설정값을 여러 탭에서 편집할 때 모든 슬라이더와 출력값을 함께 갱신합니다.
+    // 반환값은 숫자로 정규화하여 이후 레이어 API에 문자열이 전달되지 않도록 합니다.
+    function updateLinkedSliderValues(sliderIds, value, suffix = '') {
+        const numberValue = Number(value);
+        sliderIds.forEach(sliderId => {
+            $(`#${sliderId}`).val(numberValue);
+            $(`#${sliderId}-value`).text(`${numberValue.toFixed(2)}${suffix}`);
+        });
+        return numberValue;
+    }
+
+    function updateBackgroundSliderValue(sliderId, value, suffix = '') {
+        return updateLinkedSliderValues([sliderId], value, suffix);
+    }
+
+    /**
+     * HTML에 중복 하드코딩하지 않은 설정 UI 값을 구성 객체에서 채웁니다.
+     *
+     * 현재 배경 지도 input은 NEUTRAL_MAP_SETTINGS_RESET.maps[BASE_MAP_TYPE], 벡터 지도 input은 별도 벡터
+     * 프리셋 대신 NEUTRAL_MAP_SETTINGS_RESET의 벡터 설정을 사용합니다. 레이어 생성과 탭별 전역
+     * 복원값은 초기 기준 설정을 사용하므로, 초기 UI의 참조 정책을 바꿀 때는 아래 두 지역 변수의
+     * 출처도 함께 확인해야 화면 표시값과 실제 레이어 상태가 어긋나지 않습니다.
+     */
+    function initializeSettingsUIFromPresets(){
+        const baseMapSettings = NEUTRAL_MAP_SETTINGS_RESET.maps[BASE_MAP_TYPE]
+        const vectorMapSettings = NEUTRAL_MAP_SETTINGS_RESET.maps[VECTOR_MAP_TYPE];
+
+        const setRangeValue = (id, value, suffix = '') => {
+            const numberValue = Number(value);
+            $(`#${id}`).val(numberValue);
+            $(`#${id}-value`).text(`${numberValue.toFixed(2)}${suffix}`);
+        };
+        const setTimeValue = (id, value) => {
+            const numberValue = Number(value);
+            $(`#${id}`).val(numberValue);
+            $(`#${id}-value`).text(covertTimeString(numberValue).timeText);
+        };
+        const setColorValue = (id, value) => $(`#${id}`).val(value);
+        const setCheckedValue = (id, value) => $(`#${id}`).prop('checked', Boolean(value));
+
+        const setImageAdjustmentValues = (prefix, settings) => {
+            setRangeValue(`${prefix}-brightness`, settings.brightness);
+            setRangeValue(`${prefix}-contrast`, settings.contrast);
+            setRangeValue(`${prefix}-saturation`, settings.saturation);
+            setRangeValue(`${prefix}-hue-rotation`, settings.hueRotation, '°');
+            setRangeValue(`${prefix}-opacity`, settings.opacity);
+        };
+        const setColorToneValues = (prefix, settings) => {
+            setImageAdjustmentValues(prefix, settings);
+            setCheckedValue(`${prefix}-light-color-enabled`, settings.lightColor.enabled);
+            setColorValue(`${prefix}-light-color`, settings.lightColor.color);
+            setRangeValue(`${prefix}-light-color-exposure`, settings.lightColor.exposure);
+            setCheckedValue(`${prefix}-dark-color-enabled`, settings.darkColor.enabled);
+            setColorValue(`${prefix}-dark-color`, settings.darkColor.color);
+            setRangeValue(`${prefix}-dark-color-exposure`, settings.darkColor.exposure);
+        };
+
+        setTimeValue('environment-sun-time', baseMapSettings.sharedSettings.environment.sunTime);
+        setRangeValue('environment-light-intensity', baseMapSettings.sharedSettings.environment.lightIntensity);
+        setColorValue('background-ground-color', baseMapSettings.sharedSettings.backgroundGround.color);
+        setRangeValue('background-ground-opacity', baseMapSettings.sharedSettings.backgroundGround.opacity);
+        setImageAdjustmentValues('background', baseMapSettings.layers.baseTMSLayer);
+        setCheckedValue(
+            'background-tile-background-color',
+            baseMapSettings.layers.baseTMSLayer.tileBackgroundColor.enabled,
+        );
+        setColorToneValues('hillshade', baseMapSettings.layers.hillshadeLayers);
+        setCheckedValue('hillSideType1', baseMapSettings.layers.hillshadeLayers.hillSideType1Layer.enabled);
+        setCheckedValue('hillSideType2', baseMapSettings.layers.hillshadeLayers.hillSideType2Layer.enabled);
+        setCheckedValue('hillSideType3', baseMapSettings.layers.hillshadeLayers.hillSideType3Layer.enabled);
+
+        setTimeValue('vector-environment-sun-time', vectorMapSettings.sharedSettings.environment.sunTime);
+        setRangeValue('vector-environment-light-intensity', vectorMapSettings.sharedSettings.environment.lightIntensity);
+        setColorValue('vector-background-ground-color', vectorMapSettings.sharedSettings.backgroundGround.color);
+        setRangeValue('vector-background-ground-opacity', vectorMapSettings.sharedSettings.backgroundGround.opacity);
+        setColorToneValues('base-hillshade', vectorMapSettings.layers.baseHillSideLayer);
+        setImageAdjustmentValues('osm-boundary', vectorMapSettings.layers.osmBoundaryLayer);
+        setCheckedValue('osmBoundaryWMS', vectorMapSettings.layers.osmBoundaryLayer.enabled);
+        setImageAdjustmentValues('osm-road', vectorMapSettings.layers.osmRoadLayer);
+        setCheckedValue('osmRoadWMS', vectorMapSettings.layers.osmRoadLayer.enabled);
+        setImageAdjustmentValues('osm-waterway', vectorMapSettings.layers.osmWaterWayLayer);
+        setCheckedValue('osmWaterWayWMS', vectorMapSettings.layers.osmWaterWayLayer.enabled);
+    }
+
+    initializeVectorMapUIVisibility();
+    initializeSettingsUIFromPresets();
+    initializeThemePresetManager();
+    rememberAllSettingInputValues();
+
+    /**
+     * 설정 JSON(version 3) 구조
+     *
+     * {
+     *   version: 3,
+     *   mapType: "background-map" | "vector-info",
+     *   maps: {
+     *     "background-map": { sharedSettings: {...}, layers: {...} },
+     *     "vector-info": { sharedSettings: {...}, layers: {...} } // VECTOR_MAP_UI_SHOW=true일 때만 포함
+     *   }
+     * }
+     *
+     * mapType은 파일 입력 완료 후 활성화할 탭만 의미합니다. 목록의 테마 프리셋은 설정값을 채워 주는
+     * 데이터일 뿐 별도의 모드 상태를 만들지 않습니다. VECTOR_MAP_UI_SHOW가 false인 배포본은
+     * mapType을 background-map으로 고정하고 maps에서도 vector-info 항목을 제외합니다.
+     *
+     * 이 예제는 version 3 형식만 지원합니다. JSON 항목을 추가할 때는 다음 세 위치를 함께 수정해야 합니다.
+     * 1. get...Settings: 현재 값을 JSON으로 직렬화
+     * 2. validate...Settings: 외부 파일의 타입과 필수값 검증
+     * 3. apply...Settings: 검증된 값을 setter로 적용
+     */
+    const numberSettingValue = id => Number($(`#${id}`).val());
+    const colorSettingValue = id => String($(`#${id}`).val());
+    const checkedSettingValue = id => Boolean($(`#${id}`).prop('checked'));
+
+    /**
+     * 같은 영상 조정 UI를 사용하는 레이어의 공통 값을 읽습니다.
+     * prefix는 HTML input id의 접두사입니다. 예를 들어 prefix가 "osm-road"이면
+     * osm-road-brightness, osm-road-contrast 등의 input을 하나의 설정 객체로 묶습니다.
+     */
+    function getImageAdjustmentSettings(prefix){
+        return {
+            brightness: numberSettingValue(`${prefix}-brightness`),
+            contrast: numberSettingValue(`${prefix}-contrast`),
+            saturation: numberSettingValue(`${prefix}-saturation`),
+            hueRotation: numberSettingValue(`${prefix}-hue-rotation`),
+            opacity: numberSettingValue(`${prefix}-opacity`),
+        };
+    }
+
+    /**
+     * 음영 기복도의 영상 조절값과 밝은색/어두운색 톤 설정을 공통 JSON 형태로 변환합니다.
+     * enabled는 셰이더 효과의 적용 여부, color는 목표 색상, exposure는 색 적용 민감도입니다.
+     */
+    function getColorToneSettings(prefix){
+        return {
+            brightness: numberSettingValue(`${prefix}-brightness`),
+            contrast: numberSettingValue(`${prefix}-contrast`),
+            saturation: numberSettingValue(`${prefix}-saturation`),
+            hueRotation: numberSettingValue(`${prefix}-hue-rotation`),
+            opacity: numberSettingValue(`${prefix}-opacity`),
+            lightColor: {
+                enabled: checkedSettingValue(`${prefix}-light-color-enabled`),
+                color: colorSettingValue(`${prefix}-light-color`),
+                exposure: numberSettingValue(`${prefix}-light-color-exposure`),
+            },
+            darkColor: {
+                enabled: checkedSettingValue(`${prefix}-dark-color-enabled`),
+                color: colorSettingValue(`${prefix}-dark-color`),
+                exposure: numberSettingValue(`${prefix}-dark-color-exposure`),
+            },
+        };
+    }
+
+    /**
+     * 지정한 탭의 환경·지면 설정을 반환합니다.
+     *
+     * DOM input 대신 탭별 전역 복원값을 기준으로 읽는 이유는 두 탭이 동일한 GeOnDT API를 공유하면서도
+     * 서로 다른 설정을 기억하기 때문입니다. 탭을 전환하거나 JSON을 입력할 때 setter가 이 전역값까지
+     * 갱신하므로, 현재 보이지 않는 탭의 값도 정확하게 저장할 수 있습니다.
+     */
+    function getMapSharedSettings(targetMapType){
+        const isBaseMap = targetMapType === BASE_MAP_TYPE;
+        return {
+            environment: {
+                sunTime: Number(isBaseMap ? baseMapSunTime : vectorMapSunTime),
+                lightIntensity: Number(isBaseMap ? baseMapLightIntensity : vectorMapLightIntensity),
+            },
+            backgroundGround: {
+                color: String(isBaseMap ? baseMapPatternLayerColor : vectorMapPatternLayerColor),
+                opacity: Number(isBaseMap ? baseMapPatternLayerOpacity : vectorMapPatternLayerOpacity),
+            },
+        };
+    }
+
+    // 배경 지도 탭에서 조정 가능한 TMS와 세 가지 배경 음영 기복도 설정을 수집합니다.
+    function getBackgroundMapLayerSettings(){
+        return {
+            baseTMSLayer: {
+                ...getImageAdjustmentSettings('background'),
+                tileBackgroundColor: {
+                    enabled: checkedSettingValue('background-tile-background-color'),
+                },
+            },
+            hillshadeLayers: {
+                ...getColorToneSettings('hillshade'),
+                hillSideType1Layer: {
+                    description: '사실적 혼합',
+                    enabled: checkedSettingValue('hillSideType1'),
+                },
+                hillSideType2Layer: {
+                    description: '기복도 중심 혼합',
+                    enabled: checkedSettingValue('hillSideType2'),
+                },
+                hillSideType3Layer: {
+                    description: '중간 혼합',
+                    enabled: checkedSettingValue('hillSideType3'),
+                },
+            },
+        };
+    }
+
+    // 벡터 정보 탭의 전용 기복도와 행정경계/도로/수로 WMS 설정을 수집합니다.
+    function getVectorMapLayerSettings(){
+        return {
+            baseHillSideLayer: getColorToneSettings('base-hillshade'),
+            osmBoundaryLayer: {
+                enabled: checkedSettingValue('osmBoundaryWMS'),
+                ...getImageAdjustmentSettings('osm-boundary'),
+            },
+            osmRoadLayer: {
+                enabled: checkedSettingValue('osmRoadWMS'),
+                ...getImageAdjustmentSettings('osm-road'),
+            },
+            osmWaterWayLayer: {
+                enabled: checkedSettingValue('osmWaterWayWMS'),
+                ...getImageAdjustmentSettings('osm-waterway'),
+            },
+        };
+    }
+
+    // 배포본에 노출한 탭의 설정만 maps에 넣어 숨긴 기능의 내부값이 JSON으로 유출되지 않게 합니다.
+    function getAllMapSettings(){
+        const maps = {
+            [BASE_MAP_TYPE]: {
+                sharedSettings: getMapSharedSettings(BASE_MAP_TYPE),
+                layers: getBackgroundMapLayerSettings(),
+            },
+        };
+
+        if(VECTOR_MAP_UI_SHOW){
+            maps[VECTOR_MAP_TYPE] = {
+                sharedSettings: getMapSharedSettings(VECTOR_MAP_TYPE),
+                layers: getVectorMapLayerSettings(),
+            };
+        }
+
+        return maps;
+    }
+
+    /**
+     * 현재 배포본에서 노출한 페이지 상태를 재현하는 최상위 설정 객체를 만듭니다.
+     * 벡터 UI가 없는 배포본은 mapType을 배경 지도로 고정하고 배경 지도 설정만 저장합니다.
+     */
+    function getCustomImageLayerSettings(){
+        return {
+            version: 3,
+            mapType: VECTOR_MAP_UI_SHOW ? mapType : BASE_MAP_TYPE,
+            maps: getAllMapSettings(),
+        };
+    }
+
+    /**
+     * 설정 객체를 브라우저에서 내려받을 수 있는 JSON 파일로 만듭니다.
+     * Object URL은 다운로드 클릭 직후 해제하여 반복 저장 시 브라우저 메모리에 Blob URL이 남지 않게 합니다.
+     * 파일명에는 로컬 날짜·시간을 넣어 여러 설정 파일을 구분하기 쉽게 합니다.
+     */
+    function saveCustomImageLayerSettings(){
+        const settings = getCustomImageLayerSettings();
+        const blob = new Blob([JSON.stringify(settings, null, 2)], {type: 'application/json'});
+        const downloadUrl = URL.createObjectURL(blob);
+        const downloadLink = document.createElement('a');
+        const now = new Date();
+        const pad = value => String(value).padStart(2, '0');
+        const dateTime = [
+            now.getFullYear(),
+            pad(now.getMonth() + 1),
+            pad(now.getDate()),
+            '_',
+            pad(now.getHours()),
+            pad(now.getMinutes()),
+            pad(now.getSeconds()),
+        ].join('');
+
+        downloadLink.href = downloadUrl;
+        downloadLink.download = `custom-image-layer-settings_${dateTime}.json`;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        downloadLink.remove();
+        setTimeout(() => URL.revokeObjectURL(downloadUrl), 0);
+    }
+
+    /**
+     * 외부 JSON은 신뢰할 수 없는 입력이므로 레이어 API를 호출하기 전에 전체 구조를 검증합니다.
+     * 오류 메시지에 JSON 경로(path)를 포함하여 사용자가 잘못된 항목을 바로 찾을 수 있게 합니다.
+     * 타입 오류는 적용을 중단하고, 숫자가 UI 슬라이더 범위를 벗어난 경우에는 가장 가까운 min/max로 보정합니다.
+     */
+    function assertNumberSetting(value, path){
+        if(typeof value !== 'number' || !Number.isFinite(value))
+            throw new Error(`${path} 숫자 설정값이 올바르지 않습니다.`);
+    }
+
+    function clampNumberSetting(value, path, min, max){
+        assertNumberSetting(value, path);
+        return Math.min(max, Math.max(min, value));
+    }
+
+    function assertBooleanSetting(value, path){
+        if(typeof value !== 'boolean')
+            throw new Error(`${path} 체크박스 설정값이 올바르지 않습니다.`);
+    }
+
+    function assertColorSetting(value, path){
+        if(typeof value !== 'string' || !/^#[0-9a-f]{6}$/i.test(value))
+            throw new Error(`${path} 색상 설정값이 올바르지 않습니다.`);
+    }
+
+    function validateImageAdjustmentSettings(settings, path){
+        if(!settings) throw new Error(`${path} 설정이 없습니다.`);
+
+        settings.brightness = clampNumberSetting(settings.brightness, `${path}.brightness`, 0, 2);
+        settings.contrast = clampNumberSetting(settings.contrast, `${path}.contrast`, 0, 2);
+        settings.saturation = clampNumberSetting(settings.saturation, `${path}.saturation`, 0, 2);
+        settings.hueRotation = clampNumberSetting(settings.hueRotation, `${path}.hueRotation`, -180, 180);
+        settings.opacity = clampNumberSetting(settings.opacity, `${path}.opacity`, 0, 1);
+    }
+
+    function validateColorToneSettings(settings, path){
+        if(!settings?.lightColor || !settings?.darkColor)
+            throw new Error(`${path} 색상톤 설정이 없습니다.`);
+
+        validateImageAdjustmentSettings(settings, path);
+        assertBooleanSetting(settings.lightColor.enabled, `${path}.lightColor.enabled`);
+        assertColorSetting(settings.lightColor.color, `${path}.lightColor.color`);
+        settings.lightColor.exposure = clampNumberSetting(
+            settings.lightColor.exposure,
+            `${path}.lightColor.exposure`,
+            0,
+            4,
+        );
+        assertBooleanSetting(settings.darkColor.enabled, `${path}.darkColor.enabled`);
+        assertColorSetting(settings.darkColor.color, `${path}.darkColor.color`);
+        settings.darkColor.exposure = clampNumberSetting(
+            settings.darkColor.exposure,
+            `${path}.darkColor.exposure`,
+            0,
+            4,
+        );
+    }
+
+    function validateMapSharedSettings(mapSettings, path){
+        const {environment, backgroundGround} = mapSettings?.sharedSettings ?? {};
+        if(!environment || !backgroundGround)
+            throw new Error(`${path}.sharedSettings 탭 공유 설정값이 없습니다.`);
+
+        environment.sunTime = clampNumberSetting(
+            environment.sunTime,
+            `${path}.sharedSettings.environment.sunTime`,
+            0,
+            1439,
+        );
+        environment.lightIntensity = clampNumberSetting(
+            environment.lightIntensity,
+            `${path}.sharedSettings.environment.lightIntensity`,
+            0,
+            4,
+        );
+        assertColorSetting(backgroundGround.color, `${path}.sharedSettings.backgroundGround.color`);
+        backgroundGround.opacity = clampNumberSetting(
+            backgroundGround.opacity,
+            `${path}.sharedSettings.backgroundGround.opacity`,
+            0,
+            1,
+        );
+    }
+
+    function validateBackgroundMapSettings(mapSettings, path){
+        const {baseTMSLayer, hillshadeLayers} = mapSettings?.layers ?? {};
+        validateImageAdjustmentSettings(baseTMSLayer, `${path}.layers.baseTMSLayer`);
+        if(!baseTMSLayer?.tileBackgroundColor)
+            throw new Error(`${path}.layers.baseTMSLayer.tileBackgroundColor 설정이 없습니다.`);
+        assertBooleanSetting(
+            baseTMSLayer.tileBackgroundColor.enabled,
+            `${path}.layers.baseTMSLayer.tileBackgroundColor.enabled`,
+        );
+        validateColorToneSettings(hillshadeLayers, `${path}.layers.hillshadeLayers`);
+
+        const hillshadeTypeNames = ['hillSideType1Layer', 'hillSideType2Layer', 'hillSideType3Layer'];
+        const hillshadeTypes = hillshadeTypeNames.map(layerName => hillshadeLayers?.[layerName]);
+        hillshadeTypes.forEach((layer, index) => {
+            assertBooleanSetting(
+                layer?.enabled,
+                `${path}.layers.hillshadeLayers.${hillshadeTypeNames[index]}.enabled`,
+            );
+        });
+        if(hillshadeTypes.filter(layer => layer.enabled).length > 1)
+            throw new Error('음영 기복도 WMS는 하나만 활성화할 수 있습니다.');
+    }
+
+    function validateVectorMapSettings(mapSettings, path){
+        const layers = mapSettings?.layers;
+        if(!layers) throw new Error(`${path}.layers 설정이 없습니다.`);
+
+        validateColorToneSettings(layers.baseHillSideLayer, `${path}.layers.baseHillSideLayer`);
+        ['osmBoundaryLayer', 'osmRoadLayer', 'osmWaterWayLayer'].forEach(layerName => {
+            const layerSettings = layers[layerName];
+            assertBooleanSetting(layerSettings?.enabled, `${path}.layers.${layerName}.enabled`);
+            validateImageAdjustmentSettings(layerSettings, `${path}.layers.${layerName}`);
+        });
+    }
+
+    /**
+     * version 3 JSON에서 현재 배포본에 노출된 탭의 필수값과 타입을 검사하고 숫자 범위를 보정합니다.
+     * 이전 형식을 암묵적으로 보완하지 않아 잘못된 파일이 일부 기본값과 섞여 적용되는 일을 막습니다.
+     * 입력 객체를 복제한 뒤 clamp하므로 호출자가 보관한 원본 JSON 객체는 변경하지 않습니다.
+     * 벡터 UI가 꺼진 배포본에서 vector-info 데이터가 들어와도 적용하지 않고 결과 객체에서 제거합니다.
+     * 배경 음영 기복도는 화면에서 상호 배타적으로 동작하므로 enabled가 두 개 이상인 파일도 거부합니다.
+     */
+    function validateCustomImageLayerSettings(inputSettings){
+        if(inputSettings?.version !== 3 || !inputSettings.maps)
+            throw new Error('version 3 형식이 아니거나 필수 항목이 없는 설정 파일입니다.');
+        const settings = JSON.parse(JSON.stringify(inputSettings));
+        if(![BASE_MAP_TYPE, VECTOR_MAP_TYPE].includes(settings.mapType))
+            throw new Error('mapType 값이 올바르지 않습니다.');
+
+        const baseMapPath = `maps.${BASE_MAP_TYPE}`;
+        const baseMapSettings = settings.maps[BASE_MAP_TYPE];
+
+        validateMapSharedSettings(baseMapSettings, baseMapPath);
+        validateBackgroundMapSettings(baseMapSettings, baseMapPath);
+
+        if(VECTOR_MAP_UI_SHOW){
+            const vectorMapPath = `maps.${VECTOR_MAP_TYPE}`;
+            const vectorMapSettings = settings.maps[VECTOR_MAP_TYPE];
+            validateMapSharedSettings(vectorMapSettings, vectorMapPath);
+            validateVectorMapSettings(vectorMapSettings, vectorMapPath);
+        }else{
+            settings.mapType = BASE_MAP_TYPE;
+            delete settings.maps[VECTOR_MAP_TYPE];
+        }
+
+        return settings;
+    }
+
+    /**
+     * JSON 필드와 레이어별 setter의 대응 관계를 재사용하기 위한 적용 함수입니다.
+     * 레이어 객체를 직접 조작하지 않고 setter를 주입받아 호출하므로 UI 표시값 갱신과 숫자 정규화가
+     * 일반 슬라이더 조작 때와 동일하게 수행됩니다.
+     */
+    function applyImageAdjustmentSettings(settings, setters){
+        setters.brightness(settings.brightness);
+        setters.contrast(settings.contrast);
+        setters.saturation(settings.saturation);
+        setters.hueRotation(settings.hueRotation);
+        setters.opacity(settings.opacity);
+    }
+
+    // 영상 조절값과 밝은색/어두운색 톤을 각 레이어 묶음의 기존 setter를 통해 같은 방식으로 적용합니다.
+    function applyColorToneSettings(settings, setters){
+        setters.brightness(settings.brightness);
+        setters.contrast(settings.contrast);
+        setters.saturation(settings.saturation);
+        setters.hueRotation(settings.hueRotation);
+        setters.opacity(settings.opacity);
+        setters.lightColor(settings.lightColor.color);
+        setters.lightExposure(settings.lightColor.exposure);
+        setters.lightEnabled(settings.lightColor.enabled);
+        setters.darkColor(settings.darkColor.color);
+        setters.darkExposure(settings.darkColor.exposure);
+        setters.darkEnabled(settings.darkColor.enabled);
+    }
+
+    /**
+     * WMS 초기화가 끝난 레이어에만 표시 명령을 전달합니다.
+     * 페이지 시작 직후처럼 레이어 객체가 아직 없는 시점에도 탭/JSON UI가 예외로 중단되지 않게 합니다.
+     */
+    function showLayerIfReady(layer, visible){
+        if(app && layer) app.showLayer(layer.getName(), Boolean(visible));
+    }
+
+    /**
+     * 배경 지도용 음영 기복도 세 개를 상호 배타적으로 적용합니다.
+     * visibleHillSideLayer는 현재 선택한 객체를 기억하여 탭 전환 시 같은 레이어를 다시 표시하는 기준입니다.
+     */
+    function applyBackgroundHillshadeLayerVisibility(settings){
+        const layers = [
+            {checkboxId: 'hillSideType1', layer: hillSideType1Layer, settings: settings.hillSideType1Layer},
+            {checkboxId: 'hillSideType2', layer: hillSideType2Layer, settings: settings.hillSideType2Layer},
+            {checkboxId: 'hillSideType3', layer: hillSideType3Layer, settings: settings.hillSideType3Layer},
+        ];
+
+        // 먼저 전부 해제한 뒤 활성 레이어 하나만 마지막에 적용해야 visibleHillSideLayer가 정확히 유지됩니다.
+        visibleHillSideLayer = null;
+        layers.forEach(item => {
+            const checkbox = $(`#${item.checkboxId}`).prop('checked', false)[0];
+            rememberSettingInputValue(checkbox);
+            showLayerIfReady(item.layer, false);
+        });
+
+        const activeItem = layers.find(item => item.settings.enabled);
+        if(activeItem){
+            const checkbox = $(`#${activeItem.checkboxId}`).prop('checked', true)[0];
+            rememberSettingInputValue(checkbox);
+            showLayerIfReady(activeItem.layer, true);
+            visibleHillSideLayer = activeItem.layer;
+        }
+    }
+
+    // 벡터 WMS의 체크 상태와 실제 레이어 표시 상태를 함께 갱신하고 정규화된 boolean을 반환합니다.
+    function applyVectorLayerVisibility(checkboxId, layer, enabled){
+        const isEnabled = Boolean(enabled);
+        const checkbox = $(`#${checkboxId}`).prop('checked', isEnabled)[0];
+        rememberSettingInputValue(checkbox);
+        showLayerIfReady(layer, isEnabled);
+        return isEnabled;
+    }
+
+    // 검증된 배경 지도 layers 항목을 해당 UI setter와 레이어 표시 상태에 연결합니다.
+    function applyBackgroundMapSettings(settings){
+        const {baseTMSLayer: baseTMSSettings, hillshadeLayers} = settings.layers;
+        setBaseTMSTileBackgroundColor(baseTMSSettings.tileBackgroundColor.enabled, false);
+        applyImageAdjustmentSettings(baseTMSSettings, {
+            brightness: setBaseTMSLayerBrightness,
+            contrast: setBaseTMSLayerContrast,
+            saturation: setBaseTMSLayerSaturation,
+            hueRotation: setBaseTMSLayerHueRotation,
+            opacity: setBaseTMSLayerOpacity,
+        });
+        applyColorToneSettings(hillshadeLayers, {
+            brightness: setHillshadeBrightness,
+            contrast: setHillshadeContrast,
+            saturation: setHillshadeSaturation,
+            hueRotation: setHillshadeHueRotation,
+            opacity: setHillshadeOpacity,
+            lightColor: setHillshadeLightColorTone,
+            lightExposure: setHillshadeLightColorToneExposure,
+            lightEnabled: setHillshadeLightColorToneEnabled,
+            darkColor: setHillshadeDarkColorTone,
+            darkExposure: setHillshadeDarkColorToneExposure,
+            darkEnabled: setHillshadeDarkColorToneEnabled,
+        });
+        applyBackgroundHillshadeLayerVisibility(hillshadeLayers);
+    }
+
+    /**
+     * 검증된 벡터 지도 설정을 적용합니다.
+     * vectorLayers 배열에 JSON, DOM, GeOnDT 레이어, setter의 대응 관계를 한곳에 모아 새 WMS를 추가할 때
+     * 누락되는 항목을 줄입니다. setVisible은 탭 복원용 isVisible... 전역값까지 반드시 갱신합니다.
+     */
+    function applyVectorMapSettings(settings){
+        applyColorToneSettings(settings.layers.baseHillSideLayer, {
+            brightness: setBaseHillshadeBrightness,
+            contrast: setBaseHillshadeContrast,
+            saturation: setBaseHillshadeSaturation,
+            hueRotation: setBaseHillshadeHueRotation,
+            opacity: setBaseHillshadeOpacity,
+            lightColor: setBaseHillshadeLightColorTone,
+            lightExposure: setBaseHillshadeLightColorToneExposure,
+            lightEnabled: setBaseHillshadeLightColorToneEnabled,
+            darkColor: setBaseHillshadeDarkColorTone,
+            darkExposure: setBaseHillshadeDarkColorToneExposure,
+            darkEnabled: setBaseHillshadeDarkColorToneEnabled,
+        });
+
+        const vectorLayers = [
+            {
+                settings: settings.layers.osmBoundaryLayer,
+                checkboxId: 'osmBoundaryWMS',
+                layer: osmBoundaryLayer,
+                setters: {
+                    brightness: setOSMBoundaryLayerBrightness,
+                    contrast: setOSMBoundaryLayerContrast,
+                    saturation: setOSMBoundaryLayerSaturation,
+                    hueRotation: setOSMBoundaryLayerHueRotation,
+                    opacity: setOSMBoundaryLayerOpacity,
+                },
+                setVisible: value => { isVisibleOSMBoundaryLayer = value; },
+            },
+            {
+                settings: settings.layers.osmRoadLayer,
+                checkboxId: 'osmRoadWMS',
+                layer: osmRoadLayer,
+                setters: {
+                    brightness: setOSMRoadLayerBrightness,
+                    contrast: setOSMRoadLayerContrast,
+                    saturation: setOSMRoadLayerSaturation,
+                    hueRotation: setOSMRoadLayerHueRotation,
+                    opacity: setOSMRoadLayerOpacity,
+                },
+                setVisible: value => { isVisibleOSMRoadLayer = value; },
+            },
+            {
+                settings: settings.layers.osmWaterWayLayer,
+                checkboxId: 'osmWaterWayWMS',
+                layer: osmWaterWayLayer,
+                setters: {
+                    brightness: setOSMWaterWayLayerBrightness,
+                    contrast: setOSMWaterWayLayerContrast,
+                    saturation: setOSMWaterWayLayerSaturation,
+                    hueRotation: setOSMWaterWayLayerHueRotation,
+                    opacity: setOSMWaterWayLayerOpacity,
+                },
+                setVisible: value => { isVisibleOSMWaterWayLayer = value; },
+            },
+        ];
+
+        vectorLayers.forEach(item => {
+            applyImageAdjustmentSettings(item.settings, item.setters);
+            item.setVisible(applyVectorLayerVisibility(item.checkboxId, item.layer, item.settings.enabled));
+        });
+    }
+
+    // setAnalysisTab으로 대상 탭을 활성화한 뒤 호출해야 올바른 탭의 전역 복원값이 갱신됩니다.
+    function applyMapSharedSettings(sharedSettings){
+        const {environment, backgroundGround} = sharedSettings;
+        setSunTime(environment.sunTime);
+        setLightIntensity(environment.lightIntensity);
+        setBasePatternLayerColor(backgroundGround.color);
+        setBasePatternLayerOpacity(backgroundGround.opacity);
+    }
+
+    /**
+     * JSON 설정 적용 순서
+     *
+     * 1. 전체 JSON을 검증하여 잘못된 파일의 부분 적용을 방지합니다.
+     * 2. 배경 지도 탭을 활성화하고 환경·지면·레이어 설정을 적용합니다.
+     * 3. VECTOR_MAP_UI_SHOW가 true이면 벡터 설정도 적용합니다.
+     * 4. JSON의 mapType 탭으로 돌아가 파일 저장 당시의 화면을 복원합니다.
+     * 5. 노출된 탭의 모든 변경이 끝난 뒤 restartQuadTree를 한 번만 호출합니다.
+     *
+     * 중간 setter마다 쿼드트리를 재시작하지 않는 이유는 JSON 하나에 포함된 여러 변경을 묶어서 처리하여
+     * 불필요한 타일 재요청과 재렌더링을 줄이기 위해서입니다.
+     */
+    function applyCustomImageLayerSettings(inputSettings){
+        const settings = validateCustomImageLayerSettings(inputSettings);
+        // 현재 배포본에 포함된 모든 대상 객체가 준비된 뒤에만 설정을 원자적으로 적용합니다.
+        if(!ensureAllMapSettingsReady()) return false;
+
+        app?.loadingBar();
+        setTimeout(() => app?.endloadingBar(), 2000);
+
+        const baseMapSettings = settings.maps[BASE_MAP_TYPE];
+
+        setAnalysisTab(BASE_MAP_TYPE);
+        applyMapSharedSettings(baseMapSettings.sharedSettings);
+        applyBackgroundMapSettings(baseMapSettings);
+
+        if(VECTOR_MAP_UI_SHOW){
+            const vectorMapSettings = settings.maps[VECTOR_MAP_TYPE];
+            setAnalysisTab(VECTOR_MAP_TYPE);
+            applyMapSharedSettings(vectorMapSettings.sharedSettings);
+            applyVectorMapSettings(vectorMapSettings);
+        }
+
+        // 마지막 탭 전환이 각 탭의 전역 환경·지면값과 레이어 출력 묶음을 최종 화면에 복원합니다.
+        setAnalysisTab(settings.mapType);
+
+        rememberAllSettingInputValues();
+        app?.restartQuadTree();
+        return true;
+    }
+
+    /**
+     * 사용자가 파일 탐색기에서 선택한 로컬 JSON을 읽어 적용합니다.
+     * 성공/실패와 관계없이 file input을 비워 같은 파일도 수정 후 다시 선택할 수 있게 합니다.
+     */
+    async function loadCustomImageLayerSettings(file){
+        try{
+            const settings = JSON.parse(await file.text());
+            applyCustomImageLayerSettings(settings);
+        }catch(error){
+            console.error('JSON 설정 입력 오류', error);
+            alert(`JSON 설정을 적용할 수 없습니다.\n${error.message}`);
+        }finally{
+            $('#settings-json-file').val('');
+        }
+    }
+
+    // 프리셋 데이터는 JSON으로 저장 가능한 값만 사용하므로 이 복사 함수로 소스 객체와 사용자 객체의 참조를 분리합니다.
+    function cloneThemePresetData(value){
+        return JSON.parse(JSON.stringify(value));
+    }
+
+    function getAllThemePresets(){
+        const defaultPresets = DEFAULT_THEME_PRESETS
+            .filter(preset => !deletedDefaultThemePresetIds.has(preset.id))
+            .map(preset => {
+                const overriddenSettings = defaultThemePresetOverrides[preset.id];
+                return overriddenSettings
+                    ? {...preset, settingsByMapType: overriddenSettings}
+                    : preset;
+            });
+        return [...defaultPresets, ...userThemePresets];
+    }
+
+    function getSelectedThemePreset(){
+        return getAllThemePresets().find(preset => preset.id === selectedThemePresetId) ?? null;
+    }
+
+    // 사용자 프리셋과 기본 프리셋 수정본이 공유하는 탭별 설정 검증 경로입니다.
+    function normalizeThemePresetSettingsByMapType(rawSettingsByMapType){
+        if(!rawSettingsByMapType || typeof rawSettingsByMapType !== 'object')
+            throw new Error('프리셋 지도 설정이 없습니다.');
+
+        const settingsByMapType = {};
+        [BASE_MAP_TYPE, VECTOR_MAP_TYPE].forEach(targetMapType => {
+            if(!rawSettingsByMapType[targetMapType]) return;
+
+            const mapSettings = cloneThemePresetData(rawSettingsByMapType[targetMapType]);
+            mapSettings.mapType = targetMapType;
+            validateMapSharedSettings(mapSettings, `preset.${targetMapType}`);
+            if(targetMapType === BASE_MAP_TYPE)
+                validateBackgroundMapSettings(mapSettings, `preset.${targetMapType}`);
+            else
+                validateVectorMapSettings(mapSettings, `preset.${targetMapType}`);
+            settingsByMapType[targetMapType] = mapSettings;
+        });
+
+        if(Object.keys(settingsByMapType).length === 0)
+            throw new Error('프리셋에 적용할 지도 설정이 없습니다.');
+
+        return settingsByMapType;
+    }
+
+    /**
+     * 저장소에서 읽은 사용자 프리셋 한 개를 검사하고 숫자 범위를 보정합니다.
+     * DOM에는 name을 text로만 넣지만, 저장 데이터 자체도 크기와 구조를 제한하여 손상된 localStorage가
+     * 페이지의 나머지 기본 프리셋 초기화를 중단시키지 않게 합니다.
+     */
+    function normalizeStoredThemePreset(rawPreset){
+        const id = typeof rawPreset?.id === 'string' ? rawPreset.id.trim() : '';
+        const name = typeof rawPreset?.name === 'string' ? rawPreset.name.trim() : '';
+        if(!id || id.length > 100 || !name || name.length > 40)
+            throw new Error('사용자 프리셋 식별자 또는 이름이 올바르지 않습니다.');
+
+        return {
+            id,
+            name,
+            isBuiltIn: false,
+            settingsByMapType: normalizeThemePresetSettingsByMapType(rawPreset?.settingsByMapType),
+        };
+    }
+
+    /**
+     * 사용자 추가 프리셋과 기본 프리셋의 수정/삭제 상태를 localStorage에서 복원합니다.
+     * 예전 저장 데이터에는 기본 프리셋 상태 필드가 없을 수 있으므로 선택 필드로 읽고, 손상된 개별
+     * 항목만 제외하여 나머지 목록은 계속 사용할 수 있게 합니다.
+     */
+    function loadThemePresetStateFromStorage(){
+        const emptyState = {
+            userPresets: [],
+            defaultOverrides: {},
+            deletedDefaultIds: new Set(),
+        };
+
+        try{
+            const serialized = window.localStorage.getItem(USER_THEME_PRESET_STORAGE_KEY);
+            if(!serialized) return emptyState;
+
+            const storedData = JSON.parse(serialized);
+            if(storedData?.version !== USER_THEME_PRESET_STORAGE_VERSION || !Array.isArray(storedData.presets))
+                throw new Error('지원하지 않는 사용자 프리셋 저장 형식입니다.');
+
+            const usedIds = new Set(DEFAULT_THEME_PRESETS.map(preset => preset.id));
+            const userPresets = storedData.presets.flatMap(rawPreset => {
+                try{
+                    const preset = normalizeStoredThemePreset(rawPreset);
+                    if(usedIds.has(preset.id))
+                        throw new Error('중복된 사용자 프리셋 식별자입니다.');
+                    usedIds.add(preset.id);
+                    return [preset];
+                }catch(error){
+                    console.warn('손상된 사용자 프리셋을 제외했습니다.', error);
+                    return [];
+                }
+            });
+
+            const defaultIds = new Set(DEFAULT_THEME_PRESETS.map(preset => preset.id));
+            const defaultOverrides = {};
+            const storedOverrides = Array.isArray(storedData.defaultPresetOverrides)
+                ? storedData.defaultPresetOverrides
+                : [];
+            storedOverrides.forEach(rawOverride => {
+                try{
+                    if(!defaultIds.has(rawOverride?.id))
+                        throw new Error('존재하지 않는 기본 프리셋 수정본입니다.');
+                    defaultOverrides[rawOverride.id] = normalizeThemePresetSettingsByMapType(
+                        rawOverride.settingsByMapType
+                    );
+                }catch(error){
+                    console.warn('손상된 기본 프리셋 수정본을 제외했습니다.', error);
+                }
+            });
+
+            const deletedDefaultIds = new Set(
+                (Array.isArray(storedData.deletedDefaultPresetIds) ? storedData.deletedDefaultPresetIds : [])
+                    .filter(id => defaultIds.has(id))
+            );
+            return {userPresets, defaultOverrides, deletedDefaultIds};
+        }catch(error){
+            console.warn('프리셋 저장 상태를 불러올 수 없습니다.', error);
+            return emptyState;
+        }
+    }
+
+    function persistThemePresetState(){
+        try{
+            const storedData = {
+                version: USER_THEME_PRESET_STORAGE_VERSION,
+                presets: userThemePresets.map(({id, name, settingsByMapType}) => ({
+                    id,
+                    name,
+                    settingsByMapType,
+                })),
+                defaultPresetOverrides: Object.entries(defaultThemePresetOverrides).map(
+                    ([id, settingsByMapType]) => ({id, settingsByMapType})
+                ),
+                deletedDefaultPresetIds: [...deletedDefaultThemePresetIds],
+            };
+            window.localStorage.setItem(USER_THEME_PRESET_STORAGE_KEY, JSON.stringify(storedData));
+            return true;
+        }catch(error){
+            console.warn('사용자 프리셋을 브라우저 저장소에 기록할 수 없습니다.', error);
+            return false;
+        }
+    }
+
+    // 목록 항목을 안전한 DOM API로 생성하여 사용자가 입력한 이름이 HTML로 해석되지 않게 합니다.
+    function renderThemePresetList(){
+        const presets = getAllThemePresets();
+        if(!presets.some(preset => preset.id === selectedThemePresetId)){
+            selectedThemePresetId = null;
+            highlightedThemePresetId = null;
+        }
+
+        const list = $('#theme-preset-list').empty();
+        presets.forEach(preset => {
+            const item = $('<div>', {
+                class: 'theme-preset-list-item',
+                role: 'option',
+                tabindex: '0',
+            }).attr('data-preset-id', preset.id);
+            const description = $('<span>', {class: 'theme-preset-description'});
+            description.append($('<span>', {class: 'theme-preset-name'}).text(preset.name));
+            description.append($('<span>', {class: 'theme-preset-kind'}).text(preset.isBuiltIn ? '기본' : '사용자'));
+            item.append(description);
+            item.append(
+                $('<button>', {
+                    type: 'button',
+                    class: 'btn btn-default btn-xs btn-load-theme-preset-item',
+                }).attr('data-preset-id', preset.id).text('불러오기')
+            );
+            list.append(item);
+        });
+
+        updateThemePresetSelectionUI();
+    }
+
+    function updateThemePresetSelectionUI(focusSelected = false){
+        const selectedPreset = getSelectedThemePreset();
+        const items = $('#theme-preset-list .theme-preset-list-item');
+        let selectedItem = null;
+
+        items.each(function () {
+            const presetId = $(this).attr('data-preset-id');
+            const isHighlighted = presetId === highlightedThemePresetId;
+            $(this).toggleClass('active', isHighlighted).attr('aria-selected', String(isHighlighted));
+            if(presetId === selectedThemePresetId) selectedItem = this;
+        });
+
+        $('.btn-update-theme-preset, .btn-delete-theme-preset').prop('disabled', !selectedPreset);
+
+        if(focusSelected) selectedItem?.focus();
+    }
+
+    function selectThemePreset(presetId, focusSelected = false){
+        const preset = getAllThemePresets().find(item => item.id === presetId);
+        selectedThemePresetId = preset?.id ?? null;
+        highlightedThemePresetId = selectedThemePresetId;
+        updateThemePresetSelectionUI(focusSelected);
+    }
+
+    function clearThemePresetHighlight(){
+        highlightedThemePresetId = null;
+        updateThemePresetSelectionUI();
+    }
+
+    function clearThemePresetSelection(){
+        selectedThemePresetId = null;
+        highlightedThemePresetId = null;
+        updateThemePresetSelectionUI();
+    }
+
+    /**
+     * 목록 행의 불러오기 버튼에 연결된 프리셋을 하나의 작업으로 적용합니다.
+     * 배경 지도 WMS 음영 기복도는 저장된 enabled 값을 포함해 불러오고, 벡터 WMS 출력은 기존의
+     * 독립 제어 정책에 따라 현재 상태를 유지합니다. 모든 대상 객체의 준비를 먼저 검사하고
+     * 쿼드트리는 마지막에 한 번만 재시작합니다.
+     */
+    function loadThemePreset(preset){
+        if(!preset) return false;
+
+        const applicableMapTypes = [BASE_MAP_TYPE, VECTOR_MAP_TYPE].filter(targetMapType => {
+            if(targetMapType === VECTOR_MAP_TYPE && !VECTOR_MAP_UI_SHOW) return false;
+            return Boolean(preset.settingsByMapType[targetMapType]);
+        });
+        if(applicableMapTypes.length === 0){
+            toast('현재 배포본에서 사용할 수 없는 프리셋입니다');
+            return false;
+        }
+
+        const requiredObjects = applicableMapTypes.flatMap(getMapSettingsDependencies);
+        if(!areSettingsObjectsReady(requiredObjects)){
+            notifyMapNotReady();
+            return false;
+        }
+
+        const previousMapType = mapType;
+        applicableMapTypes.forEach(targetMapType => {
+            applyThemePresetMapSettings(preset.settingsByMapType[targetMapType]);
+        });
+
+        // 현재 탭 설정이 프리셋에 있으면 그 탭을 유지하고, 다크 테마처럼 한 탭 전용이면 해당 탭으로 이동합니다.
+        const finalMapType = applicableMapTypes.includes(previousMapType) ? previousMapType : applicableMapTypes[0];
+        setAnalysisTab(finalMapType);
+        rememberAllSettingInputValues();
+        app?.restartQuadTree();
+        return true;
+    }
+
+    /**
+     * 현재 JSON 내보내기 결과를 프리셋의 탭별 구조로 변환합니다.
+     * JSON 저장 기능과 같은 getter를 재사용하므로 화면 값과 프리셋 값이 서로 다른 별도 수집 로직을 갖지 않습니다.
+     */
+    function captureCurrentThemePresetSettings(){
+        const currentSettings = getCustomImageLayerSettings();
+        const settingsByMapType = {};
+        Object.entries(currentSettings.maps).forEach(([targetMapType, mapSettings]) => {
+            settingsByMapType[targetMapType] = {
+                mapType: targetMapType,
+                ...cloneThemePresetData(mapSettings),
+            };
+        });
+        return settingsByMapType;
+    }
+
+    function createUserThemePresetId(){
+        return `user-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+    }
+
+    function openPresetNameDialog(){
+        // 저장은 노출된 모든 탭의 현재값을 읽으므로 한 객체라도 준비되지 않았으면 이름 입력 전에 중단합니다.
+        if(!ensureAllMapSettingsReady()) return;
+
+        presetNameDialogPreviousFocus = document.activeElement;
+        $('#preset-name-input').val('');
+        $('.preset-name-dialog-backdrop').prop('hidden', false);
+        requestAnimationFrame(() => $('#preset-name-input').trigger('focus'));
+    }
+
+    function closePresetNameDialog(restoreFocus = true){
+        $('.preset-name-dialog-backdrop').prop('hidden', true);
+        $('#preset-name-input').val('');
+        if(restoreFocus && presetNameDialogPreviousFocus instanceof HTMLElement)
+            presetNameDialogPreviousFocus.focus();
+        presetNameDialogPreviousFocus = null;
+    }
+
+    function saveCurrentThemePreset(name){
+        const normalizedName = String(name ?? '').trim().slice(0, 40);
+        if(!normalizedName){
+            toast('프리셋 이름을 입력해 주세요');
+            $('#preset-name-input').trigger('focus');
+            return false;
+        }
+
+        const isDuplicateName = getAllThemePresets().some(
+            preset => preset.name.toLocaleLowerCase() === normalizedName.toLocaleLowerCase()
+        );
+        if(isDuplicateName){
+            toast('같은 이름의 프리셋이 이미 있습니다');
+            $('#preset-name-input').trigger('select');
+            return false;
+        }
+        if(!ensureAllMapSettingsReady()) return false;
+
+        const newPreset = {
+            id: createUserThemePresetId(),
+            name: normalizedName,
+            isBuiltIn: false,
+            settingsByMapType: captureCurrentThemePresetSettings(),
+        };
+        userThemePresets.push(newPreset);
+        const isPersisted = persistThemePresetState();
+        selectedThemePresetId = null;
+        highlightedThemePresetId = null;
+        renderThemePresetList();
+        closePresetNameDialog(false);
+        toast(isPersisted
+            ? `'${newPreset.name}' 프리셋을 저장했습니다`
+            : `'${newPreset.name}' 프리셋을 현재 페이지에만 저장했습니다`);
+        return true;
+    }
+
+    function updateSelectedThemePreset(){
+        const selectedPreset = getSelectedThemePreset();
+        if(!selectedPreset) return false;
+
+        clearThemePresetHighlight();
+        if(!confirm(`선택된 '${selectedPreset.name}' 을  현재 지도 설정값으로 수정합니다`)){
+            clearThemePresetSelection();
+            return false;
+        }
+        if(!ensureAllMapSettingsReady()){
+            clearThemePresetSelection();
+            return false;
+        }
+
+        const currentSettings = captureCurrentThemePresetSettings();
+        if(selectedPreset.isBuiltIn){
+            // 하드코딩 원본은 유지하고 수정본만 저장해야 소스 기본값과 사용자 변경값의 소유권이 섞이지 않습니다.
+            defaultThemePresetOverrides[selectedPreset.id] = currentSettings;
+        }else{
+            const userPreset = userThemePresets.find(preset => preset.id === selectedPreset.id);
+            if(!userPreset){
+                clearThemePresetSelection();
+                return false;
+            }
+            userPreset.settingsByMapType = currentSettings;
+        }
+
+        const isPersisted = persistThemePresetState();
+        clearThemePresetSelection();
+        renderThemePresetList();
+        toast(isPersisted
+            ? `'${selectedPreset.name}' 프리셋을 수정했습니다`
+            : `'${selectedPreset.name}' 프리셋을 현재 페이지에서만 수정했습니다`);
+        return true;
+    }
+
+    function deleteSelectedThemePreset(){
+        const selectedPreset = getSelectedThemePreset();
+        if(!selectedPreset) return false;
+
+        clearThemePresetHighlight();
+        if(!confirm(`선택된 '${selectedPreset.name}' 을 삭제합니다.`)){
+            clearThemePresetSelection();
+            return false;
+        }
+
+        if(selectedPreset.isBuiltIn){
+            deletedDefaultThemePresetIds.add(selectedPreset.id);
+            delete defaultThemePresetOverrides[selectedPreset.id];
+        }else{
+            userThemePresets = userThemePresets.filter(preset => preset.id !== selectedPreset.id);
+        }
+        const isPersisted = persistThemePresetState();
+        selectedThemePresetId = null;
+        highlightedThemePresetId = null;
+        renderThemePresetList();
+        toast(isPersisted
+            ? `'${selectedPreset.name}' 프리셋을 삭제했습니다`
+            : `'${selectedPreset.name}' 프리셋을 현재 페이지 목록에서만 삭제했습니다`);
+        return true;
+    }
+
+    function initializeThemePresetManager(){
+        const storedState = loadThemePresetStateFromStorage();
+        userThemePresets = storedState.userPresets;
+        defaultThemePresetOverrides = storedState.defaultOverrides;
+        deletedDefaultThemePresetIds = storedState.deletedDefaultIds;
+        selectedThemePresetId = null;
+        highlightedThemePresetId = null;
+        renderThemePresetList();
+    }
+
+    /**
+     * 설정 UI 이벤트 연결 규칙
+     *
+     * - 슬라이더와 색상 input은 드래그 중 결과를 즉시 확인할 수 있도록 input 이벤트를 사용합니다.
+     * - 체크박스는 확정된 on/off 상태가 필요하므로 change 이벤트를 사용합니다.
+     * - 이벤트 안에서 GeOnDT API를 직접 반복 호출하지 않고 위 setter를 호출합니다. 그래야 숫자 변환,
+     *   출력 라벨, 레이어 값, 탭별 복원 상태가 한 경로에서 함께 갱신됩니다.
+     * - document 위임 방식은 팝업 내부 DOM을 나중에 다시 만들더라도 같은 이벤트 연결을 유지합니다.
+     */
+    // 아래 개별 setter 이벤트보다 먼저 등록하여, 준비되지 않은 객체에 대한 호출을 한곳에서 차단합니다.
+    $(document).on('input change', SETTINGS_INPUT_SELECTOR, function (event) {
+        ensureSettingInputReady(event, this);
+    });
+
+    $(document).on('input', '#environment-sun-time', function () {
+        setSunTime(this.value);
+    });
+
+    $(document).on('input', '#vector-environment-sun-time', function () {
+        setSunTime(this.value);
+    });
+
+    $(document).on('click', '.btn-save-settings-json', function () {
+        saveCustomImageLayerSettings();
+    });
+
+    $(document).on('click', '.btn-load-settings-json', function () {
+        const file = $('#settings-json-file')[0]?.files?.[0];
+        if(!file){
+            alert('아래 파일 선택에서 JSON 설정 파일을 먼저 선택해 주세요.');
+            return;
+        }
+        loadCustomImageLayerSettings(file);
+    });
+
+    $(document).on('input', '#environment-light-intensity', function () {
+        setLightIntensity(this.value);
+    });
+
+    $(document).on('input', '#vector-environment-light-intensity', function () {
+        setLightIntensity(this.value);
+    });
+
+    $(document).on('input', '#background-ground-color', function () {
+        setBasePatternLayerColor(this.value);
+    });
+
+    $(document).on('input', '#vector-background-ground-color', function () {
+        setBasePatternLayerColor(this.value);
+    });
+
+    $(document).on('input', '#background-ground-opacity', function () {
+        setBasePatternLayerOpacity(this.value);
+    });
+
+    $(document).on('input', '#vector-background-ground-opacity', function () {
+        setBasePatternLayerOpacity(this.value);
+    });
+
+    $(document).on('input', '#background-brightness', function () {
+        setBaseTMSLayerBrightness(this.value);
+    });
+
+    $(document).on('input', '#background-contrast', function () {
+        setBaseTMSLayerContrast(this.value);
+    });
+
+    $(document).on('input', '#background-saturation', function () {
+        setBaseTMSLayerSaturation(this.value);
+    });
+
+    $(document).on('input', '#background-hue-rotation', function () {
+        setBaseTMSLayerHueRotation(this.value);
+    });
+
+    $(document).on('input', '#background-opacity', function () {
+        setBaseTMSLayerOpacity(this.value);
+    });
+
+    $(document).on('change', '#background-tile-background-color', function () {
+        setBaseTMSTileBackgroundColor(this.checked);
+    });
+
+    $(document).on('input', '#hillshade-brightness', function () {
+        setHillshadeBrightness(this.value);
+    });
+
+    $(document).on('input', '#hillshade-contrast', function () {
+        setHillshadeContrast(this.value);
+    });
+
+    $(document).on('input', '#hillshade-saturation', function () {
+        setHillshadeSaturation(this.value);
+    });
+
+    $(document).on('input', '#hillshade-hue-rotation', function () {
+        setHillshadeHueRotation(this.value);
+    });
+
+    $(document).on('input', '#hillshade-light-color', function () {
+        setHillshadeLightColorTone(this.value);
+    });
+
+    $(document).on('change', '#hillshade-light-color-enabled', function () {
+        setHillshadeLightColorToneEnabled(this.checked);
+    });
+
+    $(document).on('input', '#hillshade-dark-color', function () {
+        setHillshadeDarkColorTone(this.value);
+    });
+
+    $(document).on('change', '#hillshade-dark-color-enabled', function () {
+        setHillshadeDarkColorToneEnabled(this.checked);
+    });
+
+    $(document).on('input', '#hillshade-light-color-exposure', function () {
+        setHillshadeLightColorToneExposure(this.value);
+    });
+
+    $(document).on('input', '#hillshade-dark-color-exposure', function () {
+        setHillshadeDarkColorToneExposure(this.value);
+    });
+
+    $(document).on('input', '#hillshade-opacity', function () {
+        setHillshadeOpacity(this.value);
+    });
+
+    $(document).on('input', '#base-hillshade-brightness', function () {
+        setBaseHillshadeBrightness(this.value);
+    });
+
+    $(document).on('input', '#base-hillshade-contrast', function () {
+        setBaseHillshadeContrast(this.value);
+    });
+
+    $(document).on('input', '#base-hillshade-saturation', function () {
+        setBaseHillshadeSaturation(this.value);
+    });
+
+    $(document).on('input', '#base-hillshade-hue-rotation', function () {
+        setBaseHillshadeHueRotation(this.value);
+    });
+
+    $(document).on('input', '#base-hillshade-light-color', function () {
+        setBaseHillshadeLightColorTone(this.value);
+    });
+
+    $(document).on('change', '#base-hillshade-light-color-enabled', function () {
+        setBaseHillshadeLightColorToneEnabled(this.checked);
+    });
+
+    $(document).on('input', '#base-hillshade-dark-color', function () {
+        setBaseHillshadeDarkColorTone(this.value);
+    });
+
+    $(document).on('change', '#base-hillshade-dark-color-enabled', function () {
+        setBaseHillshadeDarkColorToneEnabled(this.checked);
+    });
+
+    $(document).on('input', '#base-hillshade-light-color-exposure', function () {
+        setBaseHillshadeLightColorToneExposure(this.value);
+    });
+
+    $(document).on('input', '#base-hillshade-dark-color-exposure', function () {
+        setBaseHillshadeDarkColorToneExposure(this.value);
+    });
+
+    $(document).on('input', '#base-hillshade-opacity', function () {
+        setBaseHillshadeOpacity(this.value);
+    });
+
+    $(document).on('pointerdown', '#analy-popup .div-popup-control', function (event) {
+        startAnalysisPopupDrag(event.originalEvent ?? event, this);
+    });
+
+    $(document).on('pointerdown', '#theme-preset-control-panel .theme-preset-panel-header', function (event) {
+        startThemePresetPanelDrag(event.originalEvent ?? event, this);
+    });
+
+    $(document).on('click', '#analy-popup .analysis-tab-button', function () {
+        setAnalysisTab(this.dataset.analysisTab);
+    });
+
+    $(document).on('keydown', '#analy-popup .analysis-tab-button', function (event) {
+        const tabs = getAvailableAnalysisTabs();
+        const currentIndex = tabs.index(this);
+        let nextIndex = currentIndex;
+
+        if(event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % tabs.length;
+        else if(event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+        else if(event.key === 'Home') nextIndex = 0;
+        else if(event.key === 'End') nextIndex = tabs.length - 1;
+        else return;
+
+        event.preventDefault();
+        setAnalysisTab(tabs.eq(nextIndex).data('analysis-tab'), true);
+    });
+
+    $(document).on('pointermove', function (event) {
+        const pointerEvent = event.originalEvent ?? event;
+        moveAnalysisPopup(pointerEvent);
+        moveThemePresetPanel(pointerEvent);
+    });
+
+    $(document).on('pointerup pointercancel', function (event) {
+        const pointerEvent = event.originalEvent ?? event;
+        endAnalysisPopupDrag(pointerEvent);
+        endThemePresetPanelDrag(pointerEvent);
+    });
+
+    $(window).on('resize', keepThemePresetPanelInViewport);
+
+    $(document).on('click', '#analy-popup .popup-exit', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        setAnalysisPopupVisible(false);
+    });
+
+    $(document).on('click', '#analy-bnt', function () {
+        setAnalysisPopupVisible(!$(this).hasClass('active'));
+    });
+
+    $(document).on('click', '.btn-toggle-theme-preset-panel', function () {
+        setThemePresetPanelVisible($(this).attr('aria-expanded') !== 'true');
+    });
+
+    // 패널 내부 닫기 버튼도 오른쪽 P 버튼과 같은 상태 갱신 경로를 사용합니다.
+    $(document).on('click', '.theme-preset-panel-close', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        setThemePresetPanelVisible(false);
+    });
+
+    $(document).on('click', '.btn-move-target1', function () {
+        moveCameraState();
+    });
+
+    /**
+     * 모든 지도 조정값과 출력 체크 상태를 NEUTRAL_MAP_SETTINGS_RESET의 기준값으로 되돌립니다.
+     * 현재 탭은 유지하고 지도 설정만 초기화하며, 사용자 프리셋 목록과 로컬 저장 데이터는 삭제하지 않습니다.
+     * 전체 JSON 적용 경로를 재사용해 대상 객체 준비 검사와 쿼드트리 재시작을 한 번만 수행합니다.
+     */
+    $(document).on('click', '.btn-reset-map-settings', function () {
+        const resetSettings = {
+            ...NEUTRAL_MAP_SETTINGS_RESET,
+            mapType: VECTOR_MAP_UI_SHOW ? mapType : BASE_MAP_TYPE,
+        };
+        if(!applyCustomImageLayerSettings(resetSettings)) return;
+
+        clearThemePresetSelection();
+        toast('지도 설정을 초기화했습니다');
+    });
+
+    /**
+     * 배경 지도 음영 기복도 선택
+     * 세 체크박스는 UI 모양만 체크박스이고 실제 동작은 단일 선택입니다. 하나를 켤 때 나머지를 끄고,
+     * visibleHillSideLayer를 갱신해야 벡터 탭을 다녀온 뒤에도 사용자가 고른 유형이 복원됩니다.
+     */
+    $(document).on('change', '#hillSideType1, #hillSideType2, #hillSideType3', function () {
+        const selectedId = this.checked ? this.id : null;
+
+        // JSON/프리셋 적용과 같은 공통 함수로 통합하여 체크 상태, 실제 출력, 복원 객체가 어긋나지 않게 합니다.
+        applyBackgroundHillshadeLayerVisibility({
+            hillSideType1Layer: {enabled: selectedId === 'hillSideType1'},
+            hillSideType2Layer: {enabled: selectedId === 'hillSideType2'},
+            hillSideType3Layer: {enabled: selectedId === 'hillSideType3'},
+        });
+    });
+
+    /**
+     * 벡터 WMS 표시 상태
+     * isVisible... 값은 탭 전환 중 레이어를 잠시 숨겼다가 벡터 탭으로 돌아올 때 원래 체크 상태를
+     * 복원하기 위한 영구 UI 상태입니다. 레이어 표시만 바꾸고 이 값을 누락하면 탭 이동 후 상태가 달라집니다.
+     */
+    $(document).on('change', '#osmRoadWMS, #osmWaterWayWMS, #osmBoundaryWMS', function () {
+        const controls = {
+            osmRoadWMS: {
+                layer: osmRoadLayer,
+                setVisible: value => { isVisibleOSMRoadLayer = value; },
+            },
+            osmWaterWayWMS: {
+                layer: osmWaterWayLayer,
+                setVisible: value => { isVisibleOSMWaterWayLayer = value; },
+            },
+            osmBoundaryWMS: {
+                layer: osmBoundaryLayer,
+                setVisible: value => { isVisibleOSMBoundaryLayer = value; },
+            },
+        };
+        const control = controls[this.id];
+        const isVisible = applyVectorLayerVisibility(this.id, control.layer, this.checked);
+        control.setVisible(isVisible);
+    });
+
+    $(document).on('input', '#osm-road-brightness', function () {
+        setOSMRoadLayerBrightness(this.value);
+    });
+
+    $(document).on('input', '#osm-road-contrast', function () {
+        setOSMRoadLayerContrast(this.value);
+    });
+
+    $(document).on('input', '#osm-road-saturation', function () {
+        setOSMRoadLayerSaturation(this.value);
+    });
+
+    $(document).on('input', '#osm-road-hue-rotation', function () {
+        setOSMRoadLayerHueRotation(this.value);
+    });
+
+    $(document).on('input', '#osm-road-opacity', function () {
+        setOSMRoadLayerOpacity(this.value);
+    });
+
+    $(document).on('input', '#osm-waterway-brightness', function () {
+        setOSMWaterWayLayerBrightness(this.value);
+    });
+
+    $(document).on('input', '#osm-waterway-contrast', function () {
+        setOSMWaterWayLayerContrast(this.value);
+    });
+
+    $(document).on('input', '#osm-waterway-saturation', function () {
+        setOSMWaterWayLayerSaturation(this.value);
+    });
+
+    $(document).on('input', '#osm-waterway-hue-rotation', function () {
+        setOSMWaterWayLayerHueRotation(this.value);
+    });
+
+    $(document).on('input', '#osm-waterway-opacity', function () {
+        setOSMWaterWayLayerOpacity(this.value);
+    });
+
+    $(document).on('input', '#osm-boundary-brightness', function () {
+        setOSMBoundaryLayerBrightness(this.value);
+    });
+
+    $(document).on('input', '#osm-boundary-contrast', function () {
+        setOSMBoundaryLayerContrast(this.value);
+    });
+
+    $(document).on('input', '#osm-boundary-saturation', function () {
+        setOSMBoundaryLayerSaturation(this.value);
+    });
+
+    $(document).on('input', '#osm-boundary-hue-rotation', function () {
+        setOSMBoundaryLayerHueRotation(this.value);
+    });
+
+    $(document).on('input', '#osm-boundary-opacity', function () {
+        setOSMBoundaryLayerOpacity(this.value);
+    });
+
+    $(document).on('click', '#theme-preset-list .theme-preset-list-item', function (event) {
+        if($(event.target).closest('.btn-load-theme-preset-item').length > 0) return;
+        selectThemePreset($(this).attr('data-preset-id'));
+        this.focus();
+    });
+
+    // Tab 키로 행에 진입한 경우에도 마우스 클릭과 같은 수정·삭제 대상을 선택합니다.
+    $(document).on('focusin', '#theme-preset-list .theme-preset-list-item', function (event) {
+        if(event.target === this)
+            selectThemePreset($(this).attr('data-preset-id'));
+    });
+
+    /**
+     * 행에서 포커스가 빠지면 하이라이트를 즉시 지웁니다. 오른쪽 패널 안에서 Tab 키로 이동하는 동안에는
+     * 이어지는 불러오기·수정·삭제가 대상을 사용할 수 있도록 ID만 유지하고, 패널 밖으로 이동하면
+     * 논리적 선택도 함께 해제합니다.
+     */
+    $(document).on('focusout', '#theme-preset-list .theme-preset-list-item', function (event) {
+        const staysInPresetPanel = $(event.relatedTarget).closest('#theme-preset-control-panel').length > 0;
+        clearThemePresetHighlight();
+        if(!staysInPresetPanel) clearThemePresetSelection();
+    });
+
+    // 목록 행은 방향키/Home/End로 이동하고 Enter/Space로 현재 행을 선택할 수 있습니다.
+    $(document).on('keydown', '#theme-preset-list .theme-preset-list-item', function (event) {
+        if($(event.target).closest('.btn-load-theme-preset-item').length > 0) return;
+
+        const items = $('#theme-preset-list .theme-preset-list-item');
+        const currentIndex = items.index(this);
+        let nextIndex = currentIndex;
+
+        if(event.key === 'ArrowDown') nextIndex = Math.min(currentIndex + 1, items.length - 1);
+        else if(event.key === 'ArrowUp') nextIndex = Math.max(currentIndex - 1, 0);
+        else if(event.key === 'Home') nextIndex = 0;
+        else if(event.key === 'End') nextIndex = items.length - 1;
+        else if(event.key === 'Enter' || event.key === ' '){
+            event.preventDefault();
+            selectThemePreset($(this).attr('data-preset-id'));
+            return;
+        }
+        else return;
+
+        event.preventDefault();
+        selectThemePreset($(items[nextIndex]).attr('data-preset-id'), true);
+    });
+
+    // 각 행의 불러오기 버튼은 별도의 행 선택 없이 자신의 data-preset-id만으로 프리셋을 적용합니다.
+    $(document).on('click', '.btn-load-theme-preset-item', function (event) {
+        event.stopPropagation();
+        const presetId = $(this).attr('data-preset-id');
+        const preset = getAllThemePresets().find(item => item.id === presetId) ?? null;
+        const isLoaded = loadThemePreset(preset);
+        clearThemePresetSelection();
+        if(isLoaded && preset)
+            toast(`'${preset.name}' 프리셋을 불러왔습니다`);
+    });
+
+    $(document).on('click', '.btn-save-theme-preset', function () {
+        clearThemePresetSelection();
+        openPresetNameDialog();
+    });
+
+    $(document).on('click', '.btn-update-theme-preset', function () {
+        updateSelectedThemePreset();
+    });
+
+    $(document).on('click', '.btn-delete-theme-preset', function () {
+        deleteSelectedThemePreset();
+    });
+
+    // 지도나 왼쪽 설정 팝업처럼 프리셋 조작 영역 밖을 누르면 보이지 않는 선택 상태도 남기지 않습니다.
+    $(document).on('pointerdown', function (event) {
+        const keepsSelection = $(event.target).closest(
+            '#theme-preset-list .theme-preset-list-item, .theme-preset-actions, .preset-name-dialog'
+        ).length > 0;
+        if(!keepsSelection) clearThemePresetSelection();
+    });
+
+    $(document).on('submit', '.preset-name-dialog', function (event) {
+        event.preventDefault();
+        saveCurrentThemePreset($('#preset-name-input').val());
+    });
+
+    $(document).on('click', '.btn-cancel-theme-preset', function () {
+        closePresetNameDialog();
+    });
+
+    $(document).on('click', '.preset-name-dialog-backdrop', function (event) {
+        if(event.target === this) closePresetNameDialog();
+    });
+
+    $(document).on('keydown', function (event) {
+        if(event.key === 'Escape' && !$('.preset-name-dialog-backdrop').prop('hidden')){
+            event.preventDefault();
+            closePresetNameDialog();
+        }
+    });
+
+    // 준비 검사를 통과해 setter가 실행된 뒤의 값을 다음 조작을 위한 원복 기준값으로 저장합니다.
+    $(document).on('input change', SETTINGS_INPUT_SELECTOR, function () {
+        rememberSettingInputValue(this);
+    });
+</script>
+</body>
+</html>

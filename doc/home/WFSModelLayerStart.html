@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WFS 모델 레이어</title>
+</head>
+<body style="padding-top: 0">
+<div class="index">
+    <a href="#jump1">1. 시작하기 </a><br>
+    <a href="#jump2">2. 콜백 함수 사용 </a><br>
+</div>
+<hr>
+<div class="content">
+    <h2 class="lead" id="jump1"> 1. 시작하기 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            WFS 모델 레이어는 서버에 저장된 벡터 공간 데이터(점, 선, 면)를 속성 정보와 함께 불러와 지도 상에 3D 객체로 표출하는 레이어입니다. <br>
+            <accent>fieldheight, fieldfloor, fieldheightfloor</accent>와 같은 <strong>속성 정보가 존재할 경우 해당 값을 우선적으로 사용</strong>하며,<br>
+            해당 속성 정보가 없을 경우에는 수동으로 설정한 <accent>floorHeight, defaultHeight, defaultZOffset</accent> 값을 기준으로 모델을 생성합니다.
+        </div>
+        <div class="explane_api">
+            <strong>U3dModelWFSLayer</strong> (<span class="param_name">opt</span>)<br>
+            <div class="explane_api_param">
+                <span class="param_name">opt.name</span><span class="param_type">string</span> : 레이어 이름 <br>
+                <span class="param_name">opt.layername</span><span class="param_type">string</span> : WFS 데이터 레이어 이름<br>
+                <span class="param_name">opt.baseurl</span><span class="param_type">string</span> : WFS 데이터 요청 URL <br>
+                <span class="param_name">opt.fieldpk</span><span class="param_type">string</span> : ID 필드 (속성정보 명) <br>
+                <span class="param_name">opt.fieldheight</span><span class="param_type">string</span> : 높이 필드 (속성정보 명) <br>
+                <span class="param_name">opt.fieldfloor</span><span class="param_type">string</span> : 층 수 필드 (속성정보 명) <br>
+                <span class="param_name">opt.fieldheightfloor</span><span class="param_type">string</span> : 한 층 높이 필드 (속성정보 명)  <br>
+                <span class="param_name">opt.fieldKind</span><span class="param_type">string</span> : 종류 필드 (속성정보 명) <br>
+                <span class="param_name">opt.fieldlabel</span><span class="param_type">string</span> : 라벨 필드 (속성정보 명)<br>
+                <span class="param_name">opt.floorheight</span><span class="param_type">number</span> : 모델의 한 층 높이 (m)<br>
+                <span class="param_name">opt.defaultheight</span><span class="param_type">number</span> : 모델의 총 높이 (m) <br>
+                <span class="param_name">opt.defaultZoffset</span><span class="param_type">number</span> : 모델의 높이 보정값 (m) <br>
+                <span class="param_name">opt.color</span><span class="param_type">Color</span> : 모델 색상 <br>
+                <span class="param_name">opt.opacity</span><span class="param_type">number</span> : 모델 투명도 <br>
+                <span class="param_name">opt.drawline</span><span class="param_type">boolean</span> : 모델에 외곽선을 그릴지 여부 <br>
+                <span class="param_name">opt.styleFunction</span><span class="param_type">string</span> : 스타일 설정 콜백함수  <br>
+                <span class="param_name">opt.heightFunction</span><span class="param_type">string</span> : 높이 설정 콜백함수 <br>
+                <span class="param_name">opt.depthFunction</span><span class="param_type">string</span> : 깊이 설정 콜백함수 <br>
+                <span class="param_name">opt.labelFunction</span><span class="param_type">string</span> : 라벨 설정 콜백함수 <br>
+            </div>
+        </div>
+        <label class="code-label">WFS 레이어 생성</label>
+        <div class="code" id="text1-code"></div>
+        <div class="code-text" id="text1" hidden="hidden">
+            // WFSLayer 생성
+            const WFSLayer = new GeOnDT.model.U3dModelWFSLayer({
+                name: 'wfs Layer',
+                layername: 'z_kais_tl_spbd_buld_202007',
+                baseurl: 'https://3d.geon.kr/geoserver/digitaltwin/ows',
+                fieldfloor: 'gro_flo_co', // 속성 정보의 'gro_flo_co' 필드 명으로 층 수 수집 (ex : 10층)
+                floorheight: 3, // 충 당 높이 (m)
+                fieldKind: 'REFNF_ID', // 속성 정보의 'REFNF_ID' 필드 명으로 건물 종류 수집  (ex : '관공서')
+                drawline: true,
+                textureurl: './image/buld/buld_texture_1.jpg',
+            });
+
+            app.addLayer(WFSLayer);            // U3dApp에 WFS 레이어 등록
+            app.showLayer('wfs Layer', true);   // 등록한 레이어 가시화
+        </div>
+    </div>
+
+    <h2 class="lead" id="jump2"> 2. 콜백 함수 사용 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            WFS 모델 레이어는 사용자가 속성 정보를 기반으로 모델을 자유롭게 커스터마이징할 수 있도록 <strong>다양한 콜백 함수를 등록</strong>할 수 있습니다. <br>
+            WFS 모델 레이어 생성 옵션으로 <accent>styleFunction, heightFunction, depthFunction, labelFunction</accent> 함수를 등록해 사용합니다. <br>
+            각 콜백 함수는 파라미터로 모델의 속성 정보를 전달받으며, 리턴값으로 모델에 적용할 설정 값을 반환합니다.<br><br>
+
+            <accent> * styleFunction</accent>  : 리턴 값으로 모델의 {색상, 투명도, 가시화 여부, 이미지 텍스처 사용 여부, 이미지 텍스처 URL}을 반환합니다.<br><br>
+            <accent>* heightFunction</accent> : 리턴 값으로 모델의 지면 오프셋(number)을 반환합니다.<br><br>
+            <accent>* depthFunction</accent>  : 리턴 값으로 모델 높이(number)를 반환합니다.<br><br>
+            <accent>* labelFunction</accent>  : 리턴 값으로 모델의 {라벨 가시화 여부, 라벨 텍스트 정보, 라벨 이미지 URL, 라벨 색상}을 반환합니다.
+        </div>
+        <label class="code-label">styleFunction 적용</label>
+        <div class="code" id="text2-code"></div>
+        <div class="code-text" id="text2" hidden="hidden">
+            function styleFunction (feature) {
+                const properties = feature.properties;
+                let code = properties['bsi_int_sn']; // 원하는 속정 정보 필드명
+                code = Math.floor(code / 100);
+
+                // 스타일 커스텀
+                let color, imgvisible = false, imgurl = undefined;
+                if(code  <= 10) {
+                    color = '#3489e7'
+                } else if(code  <= 30) {
+                    color = '#ff55ea'
+                } else if(code  <= 50) {
+                    color = '#f61212'
+                } else if(code  <= 100) {
+                    color = '#1af612'
+                } else if(code  <= 250) {
+                    color = '#fff000'
+                } else {
+                    imgvisible = true
+                    imgurl = './image/buld/buld_texture_1.jpg'
+                }
+
+                // 적용할 스타일 정보를 리턴
+                return {
+                    color: color,            // 색상
+                    opacity: 1,              // 투명도
+                    visible: true,           // 가시화 여부
+                    imgvisible: imgvisible,  // 이미지 텍스처 적용 여부
+                    imgurl: imgurl,          // 이미지 텍스처 URL
+                }
+            }
+
+            const WFSLayer = new GeOnDT.model.U3dModelWFSLayer({
+                ...  // 기존 생성 옵션
+                styleFunction : styleFunction // 생성 옵션으로 추가
+            });
+            app.addLayer(WFSLayer);
+            app.showLayer('wfs Layer', true);
+        </div>
+        <label class="code-label">labelFunction 적용</label>
+        <div class="code" id="text3-code"></div>
+        <div class="code-text" id="text3" hidden="hidden">
+            function labelFunction (feature) {
+                const properties = feature.properties;
+                const name = properties['buld_nm']; // 원하는 속정 정보 필드명
+
+                // 적용할 스타일 정보를 리턴
+                return {
+                    visible: true,             // 라벨 가시화 여부
+                    textLabel: name,           // 라벨 텍스트 정보
+                    imgLabel: './image/v.png', // 라벨 이미지 URL
+                    color: "#ffffff",          // 라벨 색상
+                }
+            }
+
+            const WFSLayer = new GeOnDT.model.U3dModelWFSLayer({
+                ...  // 기존 생성 옵션
+                labelFunction : labelFunction // 생성 옵션으로 추가
+            });
+            app.addLayer(WFSLayer);
+            app.showLayer('wfs Layer', true);
+        </div>
+
+        <label class="code-label">heightFunction 적용</label>
+        <div class="code" id="text5-code"></div>
+        <div class="code-text" id="text5" hidden="hidden">
+            function heightFunction (feature) {
+                const properties = feature.properties;
+                // 원하는 속정 정보 필드명
+                return properties['lnbr_slno'];
+            }
+
+            const WFSLayer = new GeOnDT.model.U3dModelWFSLayer({
+                ...  // 기존 생성 옵션
+                heightFunction : heightFunction // 생성 옵션으로 추가
+            });
+            app.addLayer(WFSLayer);
+            app.showLayer('wfs Layer', true);
+        </div>
+
+        <label class="code-label">depthFunction 적용</label>
+        <div class="code" id="text6-code"></div>
+        <div class="code-text" id="text6" hidden="hidden">
+            function depthFunction (feature) {
+                const properties = feature.properties;
+                // 원하는 속정 정보 필드명
+                return properties['lnbr_slno'];
+            }
+
+            const WFSLayer = new GeOnDT.model.U3dModelWFSLayer({
+                ...  // 기존 생성 옵션
+                depthFunction : depthFunction // 생성 옵션으로 추가
+            });
+            app.addLayer(WFSLayer);
+            app.showLayer('wfs Layer', true);
+        </div>
+
+        <label class="code-label">heightFunc 적용 : 지면으로 부터 높이 적용 <br>
+            <img src="./image/WFSModelLayerStart/heightFunc.png" alt="heightFunc" data-size="small">
+        </label>
+        <label class="code-label"> depthFunc 적용 : 건물의 높이 적용 <br>
+            <img src="./image/WFSModelLayerStart/depthFunc.png" alt="depthFunc" data-size="small">
+        </label>
+
+    </div>
+</div>
+
+</body>
+</html>

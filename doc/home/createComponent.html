@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>컴포넌트 생성하기</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="컴포넌트-생성하기">컴포넌트 생성하기</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-%EB%A0%88%EC%9D%B4%EC%96%B4-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">레이어 생성하기</a></li>
+<li><a href="#2-%EB%8D%B0%EC%9D%B4%ED%84%B0-%EB%93%B1%EB%A1%9D%ED%95%98%EA%B8%B0">데이터 등록하기</a></li>
+<li><a href="#3-%EC%BB%B4%ED%8F%AC%EB%84%8C%ED%8A%B8-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">컴포넌트 생성하기</a></li>
+<li><a href="#4-%EC%BB%B4%ED%8F%AC%EB%84%8C%ED%8A%B8-%EC%83%9D%EC%84%B1-%EB%B0%A9%EC%8B%9D-%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0">컴포넌트 생성 방식 설정하기</a></li>
+</ol>
+<p>컴포넌트의 개념 및 구성은 <a href="componentDoc.html#2-%EC%BB%B4%ED%8F%AC%EB%84%8C%ED%8A%B8">용어 설명 - 컴포넌트</a>를 참고하세요.</p>
+<p>이 장에서는 GeOnDT가 3D 에셋을 어떻게 인식하고, 이를 3D 공간에 출력되는 컴포넌트로 생성하는지 다룹니다.</p>
+<div class="document-thumbnail" data-size="medium">
+<figure class="document-image">
+<img src="image/createComponent/thumbnail.png" alt="컴포넌트 생성" loading="eager">
+<figcaption>컴포넌트 생성</figcaption>
+</figure>
+</div>
+<h2 id="1-레이어-생성하기">1. 레이어 생성하기</h2>
+<p>컴포넌트 레이어는 등록된 3D 에셋 정보를 통해 GeOnDT에서 사용할 수 있는 데이터로 변환하고, 컴포넌트를 생성하고, 생성된 컴포넌트를 출력·조회·관리합니다.<br>GeOnDT에서 주로 사용되는 대표적인 컴포넌트 레이어는 <code>U3dMultipleComponentLayer</code> 입니다. </p>
+<h3 id="1-createmultiplecomponentlayer로-생성">1. <code>createMultipleComponentLayer()</code>로 생성</h3>
+<h4 class="api-heading" id="api">API</h4>
+<p>U3dApp.createMultipleComponentLayer(<code>opt</code>) : app에 컴포넌트 레이어를 생성하고 등록하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opt</code> (<code>object</code>) : 레이어 생성 옵션. <strong>필수</strong></li>
+<li><code>opt.name</code> (<code>string</code>) : 레이어 이름. <strong>필수</strong></li>
+<li><code>opt.needxml</code> (<code>boolean</code>) : XML 사용 여부. 준비된 XML이 없으면 <code>false</code></li>
+<li><code>opt.rotation</code> (<code>Vector3</code>) : 레이어 전체에 적용할 회전값</li>
+<li><code>opt.scale</code> (<code>Vector3</code>) : 레이어 전체에 적용할 크기값</li>
+<li><code>opt.listmodel</code> (<code>ModelDataInfo[]</code>) : 레이어를 생성할 때 함께 등록할 3D 에셋 정보 목록</li>
+<li><code>opt.setInstanced</code> (<code>boolean</code>) : 대량 배치 방식 사용 여부. 기본값: <code>true</code></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>U3dMultipleComponentLayer | false</code>) : 생성된 레이어. 옵션이 올바르지 않으면 <code>false</code></li>
+</ul>
+</details>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> layer <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">createMultipleComponentLayer</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'ComponentLayer'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">needxml</span><span class="token operator">:</span> <span class="token boolean">false</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>layer<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'컴포넌트 레이어 생성에 실패했습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">await</span> layer<span class="token punctuation">;</span>
+app<span class="token punctuation">.</span><span class="token function">showLayer</span><span class="token punctuation">(</span>layer<span class="token punctuation">.</span><span class="token function">getName</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-생성자-함수로-직접-생성">2. 생성자 함수로 직접 생성</h3>
+<p><code>new GeOnDT.model.U3dMultipleComponentLayer()</code>로도 레이어 객체를 생성할 수 있습니다.<br>생성자 함수로 직접 생성할 때는  <strong>반드시 <code>app.addLayer()</code> 메서드를 통해 수동으로 app에 레이어를 등록</strong>해야 합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> layer <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>model<span class="token punctuation">.</span>U3dMultipleComponentLayer</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'ComponentLayer'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">needxml</span><span class="token operator">:</span> <span class="token boolean">false</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+app<span class="token punctuation">.</span><span class="token function">addLayer</span><span class="token punctuation">(</span>layer<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">await</span> layer<span class="token punctuation">;</span>
+app<span class="token punctuation">.</span><span class="token function">showLayer</span><span class="token punctuation">(</span>layer<span class="token punctuation">.</span><span class="token function">getName</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>특별히 직접 생성해야 할 이유가 없다면 레이어 생성과 app 등록을 함께 처리하는 <code>createMultipleComponentLayer()</code> 사용을 권장합니다.<br>생성된 레이어는 반드시 <code>app.showLayer</code> 메서드로 가시화 여부를 true로 설정해야 화면에 출력됩니다.</p>
+<h2 id="2-데이터-등록하기">2. 데이터 등록하기</h2>
+<p>컴포넌트를 생성하려면 원본 <mark>3D 에셋 정보를 레이어에 등록</mark>해야 합니다.<br>각 에셋은 <code>ModelDataInfo</code> 객체로 정보를 전달하며, 다음과 같은 정보를 포함합니다. </p>
+<ul>
+<li><code>name</code> (<code>string</code>) : 3D 에셋을 구분하는 고유한 이름 (사용자 지정 값)</li>
+<li><code>baseurl</code> (<code>string</code>) : 3D 에셋 파일이 위치한 기본 URL 경로. 마지막 <code>/</code>까지 입력</li>
+<li><code>fileName</code> (<code>string</code>) : 확장자를 포함한 원본 파일명 (예: <code>building.glb</code>)</li>
+<li><code>ext</code> (<code>string</code>) : 3D 에셋 파일 형식 (예: <code>3ds</code>, <code>obj</code>, <code>glb</code>, <code>fbx</code>)</li>
+</ul>
+<p><code>fileName</code>의 확장자와 <code>ext</code>는 일치해야 합니다.<br><code>baseurl</code>과 <code>fileName</code>을 연결한 주소에 실제 파일이 존재하는지도 확인합니다.<br><code>name</code>은 이후  3D 에셋을 구분하는 고유한 키 값으로 사용되므로 중복되지 않게 지정합니다.</p>
+<p>에셋 데이터는 다음 두 방법으로 컴포넌트 레이어에 등록할 수 있습니다.</p>
+<ol>
+<li>레이어를 생성할 때 <code>listmodel</code> 옵션으로 한 번에 등록</li>
+<li>레이어를 생성한 뒤 <code>loadModel()</code>로 동적으로 등록</li>
+</ol>
+<h3 id="1-listmodel로-한-번에-등록">1. <code>listmodel</code>로 한 번에 등록</h3>
+<p><code>listmodel</code>은 여러 <code>ModelDataInfo</code> 객체를 받는 배열입니다. 레이어 생성과 동시에 사용할 에셋이 정해져 있을 때 적합합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> layer <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">createMultipleComponentLayer</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'ComponentLayer'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">needxml</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">listmodel</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+        <span class="token punctuation">{</span>
+            <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'building'</span><span class="token punctuation">,</span>
+            <span class="token literal-property property">baseurl</span><span class="token operator">:</span> <span class="token string">'component/building/'</span><span class="token punctuation">,</span>
+            <span class="token literal-property property">fileName</span><span class="token operator">:</span> <span class="token string">'building.glb'</span><span class="token punctuation">,</span>
+            <span class="token literal-property property">ext</span><span class="token operator">:</span> <span class="token string">'glb'</span>
+        <span class="token punctuation">}</span><span class="token punctuation">,</span>
+        <span class="token punctuation">{</span>
+            <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'tree'</span><span class="token punctuation">,</span>
+            <span class="token literal-property property">baseurl</span><span class="token operator">:</span> <span class="token string">'component/tree/'</span><span class="token punctuation">,</span>
+            <span class="token literal-property property">fileName</span><span class="token operator">:</span> <span class="token string">'tree.fbx'</span><span class="token punctuation">,</span>
+            <span class="token literal-property property">ext</span><span class="token operator">:</span> <span class="token string">'fbx'</span>
+        <span class="token punctuation">}</span>
+    <span class="token punctuation">]</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>layer<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'컴포넌트 레이어 생성에 실패했습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">await</span> layer<span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-loadmodel로-동적-등록">2. <code>loadModel()</code>로 동적 등록</h3>
+<p>레이어 생성 시점과 3D 에셋 데이터를 읽어오는 시점이 다르거나,<br>실행 중에 필요한 에셋만 동적으로 추가하려면 <code>loadModel()</code>을 통해 등록 가능합니다.<br><code>loadModel()</code>의 매개변수는 앞서 설명한 <code>ModelDataInfo</code> 객체입니다.  </p>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>U3dMultipleComponentLayer.loadModel(<code>modelDataInfo</code>) : 3D 에셋을 레이어에 등록하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>modelDataInfo</code> (<code>ModelDataInfo</code>) : 등록할 3D 에셋 정보. <strong>필수</strong></li>
+<li><code>modelDataInfo.name</code> (<code>string</code>) : 3D 에셋 이름. <strong>필수</strong></li>
+<li><code>modelDataInfo.baseurl</code> (<code>string</code>) : 에셋 파일이 위치한 기본 URL 경로. <strong>필수</strong></li>
+<li><code>modelDataInfo.fileName</code> (<code>string</code>) : 확장자를 포함한 원본 파일명. <strong>필수</strong></li>
+<li><code>modelDataInfo.ext</code> (<code>string</code>) : 3D 에셋 파일 형식. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Promise&lt;void&gt;</code>) : 에셋 로드가 끝나면 완료되는 Promise</li>
+</ul>
+</details>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> layer <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">createMultipleComponentLayer</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'ComponentLayer'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">needxml</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">listmodel</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>layer<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'컴포넌트 레이어 생성에 실패했습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">await</span> layer<span class="token punctuation">;</span>
+
+<span class="token keyword">await</span> layer<span class="token punctuation">.</span><span class="token function">loadModel</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'helicopter2'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">baseurl</span><span class="token operator">:</span> <span class="token string">'component/drone/Drone_02/'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">fileName</span><span class="token operator">:</span> <span class="token string">'Drone_02.3ds'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">ext</span><span class="token operator">:</span> <span class="token string">'3ds'</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>반드시 <code>listmodel</code> 또는 <code>loadModel()</code>의 비동기 로드가 완료된 뒤 해당 에셋으로 컴포넌트를 생성해야 합니다.</p>
+<h2 id="3-컴포넌트-생성하기">3. 컴포넌트 생성하기</h2>
+<p>에셋 등록이 완료되면 <code>addPosition()</code>으로 원하는 위치에 컴포넌트를 생성합니다.<br><code>object</code>에는 앞에서 지정한 <code>ModelDataInfo.name</code>을 입력합니다.<br>GeOnDT에서 컴포넌트는 <code>U3dComponentPosition</code> / <code>U3dComponentInstancedPosition</code> 클래스로 정의됩니다.</p>
+<h4 class="api-heading" id="api-2">API</h4>
+<p>U3dMultipleComponentLayer.addPosition(<code>opt</code>) : 등록된 3D 에셋으로 컴포넌트를 생성하고 레이어에 추가하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opt</code> (<code>object</code>) : 컴포넌트 생성 옵션. <strong>필수</strong></li>
+<li><code>opt.name</code> (<code>string</code>) : 레이어 안에서 컴포넌트를 조회할 때 사용하는 고유한 이름. <strong>필수</strong></li>
+<li><code>opt.object</code> (<code>string</code>) : 미리 등록한 3D 에셋 이름. <strong>필수</strong></li>
+<li><code>opt.position</code> (<code>Vector3</code>) : 월드 좌표(EPSG:3857). <code>geoPosition</code>과 둘 중 하나를 입력</li>
+<li><code>opt.geoPosition</code> (<code>Vector3</code>) : 위도·경도 좌표. <code>position</code>과 둘 중 하나를 입력</li>
+<li><code>opt.rotation</code> (<code>Vector3</code>) : 컴포넌트 회전값(라디안)</li>
+<li><code>opt.scale</code> (<code>Vector3</code>) : 컴포넌트 크기값</li>
+<li><code>opt.visible</code> (<code>boolean</code>) : 컴포넌트 표시 여부</li>
+<li><code>opt.labelVisible</code> (<code>boolean</code>) : 라벨 표시 여부</li>
+<li><code>opt.properties</code> (<code>object</code>) : 컴포넌트에 저장할 사용자 속성</li>
+<li><code>opt.style</code> (<code>object</code>) : 생성할 때 적용할 스타일</li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>U3dComponentPosition | U3dComponentInstancedPosition | undefined</code>) : 생성된 컴포넌트. 실패하면 <code>undefined</code></li>
+</ul>
+</details>
+<h3 id="1-위도경도-좌표-epsg4326로-생성">1. 위도·경도 좌표 (EPSG:4326)로 생성</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> placedObject <span class="token operator">=</span> layer<span class="token punctuation">.</span><span class="token function">addPosition</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'helicopter-1'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">object</span><span class="token operator">:</span> <span class="token string">'helicopter2'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">geoPosition</span><span class="token operator">:</span> <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">126.62241</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">37.55637</span><span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> <span class="token number">16</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">rotation</span><span class="token operator">:</span> <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">scale</span><span class="token operator">:</span> <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>placedObject<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'컴포넌트 생성에 실패했습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h3 id="2-월드-좌표-epsg3857로-생성">2. 월드 좌표 (EPSG:3857)로 생성</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> placedObject <span class="token operator">=</span> layer<span class="token punctuation">.</span><span class="token function">addPosition</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'helicopter-2'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">object</span><span class="token operator">:</span> <span class="token string">'helicopter2'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">position</span><span class="token operator">:</span> <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">14129044</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">4511042</span><span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> <span class="token number">16</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">rotation</span><span class="token operator">:</span> <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">scale</span><span class="token operator">:</span> <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>placedObject<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'컴포넌트 생성에 실패했습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<p><code>position</code>과 <code>geoPosition</code>을 동시에 입력하지 말고 좌표 체계에 맞는 값 하나만 사용합니다.</p>
+<h2 id="4-컴포넌트-생성-방식-설정하기">4. 컴포넌트 생성 방식 설정하기</h2>
+<p>컴포넌트는 <strong>일반 방식</strong> 또는 <strong>대량 배치 방식</strong>으로 생성할 수 있습니다.</p>
+<blockquote>
+<p>일반 방식은 각 컴포넌트의 위치나 크기, 회전 값을 빈번하게 수정하거나, 개별적으로 제어 해야할 애니메이션이나 특성 정보가 있는 경우 적합합니다.<br>대량 배치 방식은 같은 3D 에셋을 공유하는 컴포넌트를 수만 ~ 수십만개 씩 대량/대규모로 출력할 때 적합합니다.</p>
+</blockquote>
+<p>일반 방식으로 생성 시 사용되는 클래스는 <code>U3dComponentPosition</code>입니다.<br>대량 배치 방식으로 생성 시 사용되는 클래스는 <code>U3dComponentInstancedPosition</code>입니다.</p>
+<p>일반적으로 각각 다른 3D 에셋을 사용하거나, 개별적인 제어가 필요한 경우는 일반 방식을 사용하는  것을  권장합니다.<br>예를 들어 계속해서 움직이고 개별적인 3D 에셋을 사용하는 사람이나 비행기 같은것은 일반 방식으로, 숲의 나무나 가로등 같이 정적이고 대규모로 출력되야하는 컴포넌트는 대량 배치 방식을 사용하는 것이 좋습니다.</p>
+<p>방식을 설정하는 방법은 두가지가 있습니다.<br>레이어 생성 시 옵션(setInstanced)으로 설정하거나 <code>layer.setInstanced(true|false)</code> 메서드로 설정할수 있습니다.</p>
+<h3 id="1-레이어-생성-옵션으로-설정">1. 레이어 생성 옵션으로 설정</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> layer <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">createMultipleComponentLayer</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'ComponentLayer'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">needxml</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">setInstanced</span><span class="token operator">:</span> <span class="token boolean">false</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-setinstanced로-설정">2. <code>setInstanced()</code>로 설정</h3>
+<h4 class="api-heading" id="api-3">API</h4>
+<p>U3dMultipleComponentLayer.setInstanced(<code>isInstanced</code>) : 이후 생성할 컴포넌트의 생성 방식을 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>isInstanced</code> (<code>boolean</code>) : <code>true</code>이면 대량 배치 방식, <code>false</code>이면 일반 방식. <strong>필수</strong></li>
+</ul>
+</details>
+<pre class="language-javascript"><code class="language-javascript">layer<span class="token punctuation">.</span><span class="token function">setInstanced</span><span class="token punctuation">(</span><span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token comment">// 일반 방식으로 생성 </span>
+<span class="token keyword">const</span> placedObject <span class="token operator">=</span> layer<span class="token punctuation">.</span><span class="token function">addPosition</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'helicopter-1'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">object</span><span class="token operator">:</span> <span class="token string">'helicopter2'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">geoPosition</span><span class="token operator">:</span> <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">126.62241</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">37.55637</span><span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> <span class="token number">16</span><span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+layer<span class="token punctuation">.</span><span class="token function">setInstanced</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token comment">// 대량 배치 방식으로 생성 </span>
+<span class="token keyword">const</span> placedObject <span class="token operator">=</span> layer<span class="token punctuation">.</span><span class="token function">addPosition</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'helicopter-1'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">object</span><span class="token operator">:</span> <span class="token string">'helicopter2'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">geoPosition</span><span class="token operator">:</span> <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">126.62241</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">37.55637</span><span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> <span class="token number">16</span><span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>현재 설정을 확인하려면 <code>isInstanced()</code>를 사용합니다.</p>
+<h4 class="api-heading" id="api-4">API</h4>
+<p>U3dMultipleComponentLayer.isInstanced() : 현재 설정된 컴포넌트 생성 방식을 확인하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>boolean</code>) : 대량 배치 방식이면 <code>true</code>, 일반 방식이면 <code>false</code></li>
+</ul>
+</details>
+<p><code>setInstanced()</code>는 이미 생성된 컴포넌트의 방식을 변환하지 않습니다. 호출 이후 <code>addPosition()</code>으로 생성하는 컴포넌트에만 적용됩니다.</p>
+</main>
+</body>
+</html>
+

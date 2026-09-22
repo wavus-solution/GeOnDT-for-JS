@@ -1,0 +1,2210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>드론 경로 시뮬레이션 예제</title>
+    <meta charset="UTF-8">
+    <meta name="description" content="드론 경로 시뮬레이션 예제">
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+
+        #analy-popup .div-popup {
+            top: 50vh;
+        }
+
+        #map-wrapper {
+            display: flex;
+        }
+
+        #map2d-wrapper {
+            width: 100%;
+            height: 100%;
+            transition: width 0.5s;
+        }
+
+        #map3d-wrapper {
+            width: 0;
+            height: 100%;
+            transition: width 0.5s;
+        }
+
+        #map2d, #map3d {
+            width: 100%;
+            height: 100%;
+        }
+
+        .u3-plane-popup {
+            height: fit-content;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 12px;
+            margin-right: 0;
+        }
+
+        .ui-spinner a.ui-spinner-button {
+            background-color: rgba(145, 145, 145, 0.5);
+        }
+
+
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            opacity: 1;
+        }
+
+        .ui-spinner {
+            background-color: black;
+        }
+
+        #analy-popup {
+            top: 5vh;
+            position: absolute;
+        }
+
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> 드론 경로 주행 시뮬레이션 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        사용자가 생성한 <strong>가상 항로를 따라 비행하는 드론 비행 시뮬레이션</strong> 예제입니다.<br>
+        경로그리기 버튼을 누르고 화면을 클릭해 가상 항로를 생성하며, 3D전환 버튼을 눌러 시뮬레이션을 시작합니다.<br>
+        상행/하행항로에 각각 한개씩, 총 두개의 드론이 생성되며 추가 버튼을 눌러 기체를 추가할 수 있습니다.
+        애니메이션을 제어하거나, 화면의 시점을 제어하는 기능 또한 포함하며<br> 경로의 색상, 투명도도 조절 가능합니다.
+        또한, 정보 버튼 클릭 시 비행기 명과, 이동 시간, 이동 거리 등의 비행 정보를 확인할 수 있습니다.
+    </p>
+</div>
+<div id="map-wrapper">
+    <div id="map2d-wrapper">
+        <div id="map2d"></div>
+    </div>
+    <div id="map3d-wrapper">
+        <div id="map3d"></div>
+    </div>
+    <div id="div-left-menu" oncontextmenu='return false'>
+        <div>
+            <div style="display: inline-flex; position: relative">
+                <button id="analy-bnt" class="btn btn-xs menu-btn">
+                    <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+                <div class="div-btn-info" hidden>
+                    분석 팝업 열기
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="btn-group" id='top-sbar'>
+        <div class='btn-group-vertical-block' id='right-toolbar'>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                     src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                     alt="나침반">
+            </button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                    id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                    id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                    id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+            </button>
+        </div>
+        <div class='btn-group' id='bt-bottom-bar'>
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                   value="위경도: ##.####  ###.#### ">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                   value="고도:####">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                   value="각도: ##">
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu='return false'>
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content">
+                <div class="col-sm-4">
+                    <label>[생성]</label>
+                    <div class="form-inline form-group">
+                        <button class="btn btn-default map2d " id="drawmode" onclick=drawMode()>경로그리기</button>
+                        <button class="btn btn-default " id="realpath" onclick=createRealPath()>가상항로</button>
+                        <button class="btn btn-default" id="convertmap" onclick=convertMap()>3D전환</button>
+                    </div>
+
+                    <label>[기체선택/추가]</label>
+                    <div class="form-inline form-group">
+                        <div class="btn-group drone-list">
+                            <select id="droneList" name="name" class="form-control">
+                            </select>
+                        </div>
+                        <button type="button" class="btn  btn-default map3d add" disabled>추가</button>
+                        <button type="button" class="btn  btn-default map3d info" disabled>정보</button>
+                    </div>
+                </div>
+
+                <div class="col-sm-4">
+                    
+                    <label class="col-sm-12 row">[제어]</label>
+                    <div class="form-inline form-group">
+                        <button type="button" class="btn btn-default map3d move" disabled>이동</button>
+                        <button type="button" class="btn btn-default map3d  stop" disabled>정지</button>
+                        <button type="button" class="btn btn-default map3d  restart" disabled>재시작</button>
+                        <input type="number" class="spinner speed" value="200" disabled name="plane1"> km/h
+                    </div>
+                    <div class="form-inline form-group">
+                        <div style="border-bottom: 1px solid rgba(255,255,255,0.41); border-top: 1px solid rgba(255,255,255,0.41); padding: 3px ">
+                            <label style="width:90px;">X(pitch) 회전</label>
+                            <input type="number" class="spinner rotateX" value="0" disabled name="plane1">
+                            <br>
+                            <label style="width:90px;">X축 스케일</label>
+                            <input type="number" class="spinner scaleX" value="0" disabled name="plane1">
+                        </div>
+                        <div style="border-bottom: 1px solid rgba(255,255,255,0.41); padding: 3px ">
+                            <label style="width:90px;">Y(roll) 회전</label>
+                            <input type="number" class="spinner rotateY" value="0" disabled name="plane1">
+                            <br>
+                            <label style="width:90px;">Y축 스케일</label>
+                            <input type="number" class="spinner scaleY" value="0" disabled name="plane1">
+                        </div>
+                        <div style="border-bottom: 1px solid rgba(255,255,255,0.41); padding: 3px ">
+                            <label style="width:90px;">Z(yaw) 회전</label>
+                            <input type="number" class="spinner rotateZ" value="0" disabled name="plane1">
+                            <br>
+                            <label style="width:90px;">Z축 스케일</label>
+                            <input type="number" class="spinner scaleZ" value="0" disabled name="plane1">
+                        </div>
+                        <div style="padding: 3px ">
+                            <label style="width:90px;">높이 조절</label>
+                            <input type="number" class="spinner positionZ" value="0" disabled name="plane1">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-sm-4">
+                    <label>[색상]</label>
+                    <div class="form-group form-inline path-cube-color">
+                        <label class="control-label">상행항로</label>
+                        <input class="path-color" name="plane1" type="color" value="#87cefa">
+                        <label class="control-label">하행항로</label>
+                        <input class="path-color" name="plane2" type="color" value="#00ff00">
+
+                    </div>
+
+                    <label>[투명도]</label>
+                    <div class="form-group form-inline path-opacity">
+                        <label class="control-label">상행항로</label>
+                        <input type="number" class="spinner opacity" value="0.2" disabled name="plane1">
+                        <label class="control-label">하행항로</label>
+                        <input type="number" class="spinner opacity" value="0.2" disabled name="plane2">
+                    </div>
+
+                    <label>[충돌체크 여부]</label>
+                    <div class="form-group form-inline collision-active">
+                        <label class="control-label">활성화</label>
+                        <input type="checkbox" class="checkbox collision-active" name="collision-active"
+                               value="collision-active" checked>
+                        <label class="control-label">충돌 거리</label>
+                        <input type="number" class="collision-dist" value="10" name="collision-dist">
+                    </div>
+                </div>
+                <div class="col-sm-12">
+                    <label>[화면전환]</label>
+                    <div class="form-inline form-group">
+                        <button type="button" class="btn  btn-default map3d front" value="plane1" disabled>1인칭</button>
+                        <button type="button" class="btn  btn-default map3d third" value="plane1" disabled>앞면</button>
+                        <button type="button" class="btn  btn-default map3d third-back" value="plane1" disabled>뒷면
+                        </button>
+                        <button type="button" class="btn  btn-default map3d third-left" value="plane1" disabled>좌측
+                        </button>
+                        <button type="button" class="btn  btn-default map3d third-right" value="plane1" disabled>우측
+                        </button>
+                        <button type="button" class="btn  btn-default map3d third-round" value="plane1" disabled>회전
+                        </button>
+                        <button type="button" class="btn  btn-default map3d  trace" value="plane1" disabled>따라가기
+                        </button>
+                        <button type="button" class="btn btn-default map3d mapMode" value="mapMode" disabled>지도모드 전환
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="../common/ol/ol-debug.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function () {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function () {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function () {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function () {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+
+<script>
+    const serverURL = 'https://3d.geon.kr/';
+    const API_KEY = 'YKAFjxVvNJEA/S1xcEjprW49M6wQSAva3PC7u3KHJxrZ3ZaTVfN40QdiqzAYrFf5';
+
+    // 활성된 전체 active를 제거하는 함수
+    function deactiveAll() {
+        //분석 모드 종료
+        app.deactiveAllAnalysis();
+
+        //클릭 더블클릭 이벤트 off
+        app.off('click');
+        app.off('dblclick');
+    }
+
+    // 3인칭 전환
+    function changeMapMode() {
+        let components = componentLayer.getComponents();
+        for (let i = 0; i < components.length; i++) {
+            let component = components[i];
+            if (component.isTrace) {
+                component.setCameraTrace(false);
+                const position = component.position.clone();
+                app.setCameraWorldPosition({
+                    x: position.x,
+                    y: position.y,
+                    z: position.z + 1000,
+                    rotateX: 0,
+                    rotateY: 0
+                });
+            }
+        }
+    }
+
+    // selectBox에서 선택된 plane을 반환하는 함수
+    function getSelectedPlane() {
+        const $select = $('.drone-list').find("select[name=name]");
+        return $select.find("option:selected").val()
+    }
+
+    // 드론 이름 생성 (plane1, plane2 ...)
+    window.createComponentName = function () {
+        componentCnt++;
+        return componentName + componentCnt;
+    };
+
+    // 제어 ///////////////////////////////////////////////////////////
+    // 드론 이동
+    let startTimer = false;
+    $(document).on('click', '.move', function () {
+        const componentName = getSelectedPlane();
+        const component = componentLayer.getComponentByName(componentName);
+        if (component !== undefined) {
+            // 애니메이션 시작
+
+
+            //  var plane = componentLayer.getComponentByName(componentName);
+            //   var start = plane.movePointList[1].z;
+
+            if (defined(window.planeInfo[componentName].timerId)) {
+                clearInterval(window.planeInfo[componentName].timerId);
+                window.planeInfo[componentName].timerId = undefined;
+            }
+            try {
+                window.planeInfo[componentName].timerId = createTimer(componentName);
+            } catch (e) {
+                console.error('computePlaneDistance interval Error : ' + e)
+                clearInterval(createTimer(componentName));
+            }
+        }
+    });
+
+    // 드론 정지
+    $(document).on('click', '.stop', function () {
+        componentLayer.stopAnimation();
+        const componentName = getSelectedPlane();
+        const timerId = window.planeInfo[componentName].timerId;
+        let timer;
+
+        if (defined(timerId)) {
+            timer = window.planeInfo[componentName].timer;
+            window.planeInfo[componentName].timerId = undefined;
+            delete window.planeInfo[componentName].timerId;
+            clearInterval(timerId);
+        }
+
+        if (defined(timer))
+            window.planeInfo[componentName].timer = timer;
+    });
+
+    // 드론 재시작
+    $(document).on('click', '.restart', function () {
+        const componentName = getSelectedPlane();
+        const component = componentLayer.getComponentByName(componentName);
+        if (component !== undefined) {
+
+            var timerId = window.planeInfo[componentName].timerId
+            if (defined(timerId)) {
+
+                window.planeInfo[componentName].timerId = undefined;
+                delete window.planeInfo[componentName].timerId;
+                clearInterval(timerId);
+            }
+
+            // 애니메이션 재시작
+            component.restart();
+            startTimer = false;
+            window.planeInfo[componentName].timer = 0;
+            window.planeInfo[componentName].distance = 0;
+            var plane = componentLayer.getComponentByName(componentName);
+            var start = plane.movePointList[1].z;
+
+            if (defined(window.planeInfo[componentName].timerId)) {
+                clearInterval(window.planeInfo[componentName].timerId);
+                window.planeInfo[componentName].timerId = undefined;
+            }
+            try {
+                var timerId = setInterval(function () {
+                    var prePosition = window.planeInfo[componentName].prePosition;
+                    if (plane.speed === 0
+                        || plane.getPosition().x === prePosition.x
+                        && plane.getPosition().y === prePosition.y
+                        && plane.getPosition().z === plane.movePointList[plane.movePointList.length - 1].z) {
+                        clearInterval(timerId);
+                        component.movePause();
+                        window.planeInfo[componentName].timerId = undefined;
+                        delete window.planeInfo[componentName].timerId;
+                        return;
+                    }
+
+                    if (Math.floor(plane.getPosition().z) === Math.floor(start)) {
+                        if (!defined(window.planeInfo[componentName].timerId) || !defined(plane.drawArg)) {
+                            clearInterval(timerId);
+                            return;
+                        }
+                        startTimer = true;
+                    }
+                    computePlaneDistance(componentName, component);
+                    if (defined(component)) {
+                        changeHasOverLay(componentName, component);
+                    }
+
+                    window.planeInfo[componentName].prePosition = plane.getPosition();
+                }, 100)
+                window.planeInfo[componentName].timerId = timerId;
+            } catch (e) {
+                console.error('computePlaneDistance interval Error : ' + e)
+                clearInterval(timerId);
+            }
+
+        }
+    });
+
+    // 이동 속도 제어
+    $(".spinner.speed").spinner({min: 0, max: 1500, step: 50});
+    $('.spinner.speed').on("spinstop", function (e) {
+        const componentName = getSelectedPlane();
+        const component = componentLayer.getComponentByName(componentName);
+        if (component !== undefined) {
+            // 컴포넌트에 스피드 setting
+            const speed =Number(e.target.value);
+            if(speed !== 0 && !component._animation)
+                component.moveResume();
+
+            component.setSpeed(speed);
+        }
+    });
+
+    function setRotation() {
+        const componentName = getSelectedPlane();
+        const component = componentLayer.getComponentByName(componentName);
+        if (component !== undefined) {
+            component.setRotation(window.rotation);
+        }
+    }
+
+    function setPositionZ() {
+        const componentName = getSelectedPlane();
+        const component = componentLayer.getComponentByName(componentName);
+        if (component !== undefined) {
+            let height = Number(window.height);
+            component.setHeight(height);
+        }
+    }
+
+    function setScale() {
+        const componentName = getSelectedPlane();
+        const component = componentLayer.getComponentByName(componentName);
+        if (component !== undefined) {
+            component.setScale(window.scale);
+        }
+    }
+
+    function setCollisionActive(isActive) {
+        const componentName = getSelectedPlane();
+        const component = componentLayer.getComponentByName(componentName);
+        if (component !== undefined) {
+            if (isActive) {
+                component.setCollisionFunction(window.collisionFunction);
+            } else {
+                component.setCollisionFunction();
+            }
+        }
+    }
+
+    function collisionDist(distance) {
+        const componentName = getSelectedPlane();
+        const component = componentLayer.getComponentByName(componentName);
+        if (component !== undefined) {
+            component.setCollisionDistance(distance);
+        }
+    }
+
+    $(".spinner.rotateX").spinner({min: -360, max: 360, step: 1});
+    $('.spinner.rotateX').on("spinstop", function (e) {
+        window.rotation.x = e.target.value;
+        setRotation();
+    });
+    $(".spinner.rotateY").spinner({min: -360, max: 360, step: 1});
+    $('.spinner.rotateY').on("spinstop", function (e) {
+        window.rotation.y = e.target.value;
+        setRotation();
+    });
+    $(".spinner.rotateZ").spinner({min: -360, max: 360, step: 1});
+    $('.spinner.rotateZ').on("spinstop", function (e) {
+        window.rotation.z = e.target.value;
+        setRotation();
+    });
+
+    $(".spinner.scaleX").spinner({min: 0.1, max: 10, step: 0.1});
+    $('.spinner.scaleX').on("spinstop", function (e) {
+        window.scale.x = e.target.value;
+        setScale();
+    });
+    $(".spinner.scaleY").spinner({min: 0.1, max: 10, step: 0.1});
+    $('.spinner.scaleY').on("spinstop", function (e) {
+        window.scale.y = e.target.value;
+        setScale();
+    });
+    $(".spinner.scaleZ").spinner({min: 0.1, max: 10, step: 0.1});
+    $('.spinner.scaleZ').on("spinstop", function (e) {
+        window.scale.z = e.target.value;
+        setScale();
+    });
+
+    $(".spinner.positionZ").spinner({min: -1000, max: 1000, step: 10});
+    $('.spinner.positionZ').on("spinstop", function (e) {
+        window.height = e.target.value;
+        setPositionZ();
+    });
+
+
+    $('.checkbox.collision-active').on("click", function (e) {
+        var $checkbox = $(e.target);
+        let isActive = $checkbox[0].checked;
+        setCollisionActive(isActive);
+    });
+
+    $(".collision-dist").spinner({min: 0, max: 1000, step: 1000});
+    $('.collision-dist').on("spinstop", function (e) {
+        let distance = e.target.value;
+        setCollisionDist(distance);
+    });
+
+
+    // 화면 전환 ///////////////////////////////////////////////////////////
+    //오버레이 가시화 함수
+    function visibleAllOverlay(visible) {
+        const overlays = app._overlayList;
+
+        for (let i = 0; i < overlays.length; i++) {
+            if (visible)
+                overlays[i].show();
+            else
+                overlays[i].hide();
+        }
+    }
+
+    //1인칭 화면
+    $(document).on('click', '.front', function () {
+
+        visibleAllOverlay(false);
+
+        const componentName = getSelectedPlane();
+        const component = componentLayer.getComponentByName(componentName);
+        if (component !== undefined) {
+            const opt = {
+                component: component,
+                view: 'FrontView',
+                active: true
+            };
+            //opt 값을 통해 카메라 시점을 FrontView (1인칭)으로 변경
+            componentLayer.setCameraTrace(opt);
+        }
+    });
+
+    //앞면 화면
+    $(document).on('click', '.third', function () {
+
+        //visibleAllOverlay(false);
+
+        var componentName = getSelectedPlane();
+        var component = componentLayer.getComponentByName(componentName);
+        if (component !== undefined) {
+            var opt = {
+                component: component,
+                view: 'ThirdPersonFront',
+                active: true
+            };
+            componentLayer.setCameraTrace(opt);
+
+        }
+    });
+
+    // 뒷면 화면
+    $(document).on('click', '.third-back', function () {
+        visibleAllOverlay(false);
+
+        var componentName = getSelectedPlane();
+        var component = componentLayer.getComponentByName(componentName);
+        if (component !== undefined) {
+            var opt = {
+                component: component,
+                view: 'ThirdPersonBack',
+                active: true
+            };
+            componentLayer.setCameraTrace(opt);
+        }
+    });
+
+    // 좌측 화면
+    $(document).on('click', '.third-left', function () {
+        visibleAllOverlay(false);
+
+        var componentName = getSelectedPlane();
+        var component = componentLayer.getComponentByName(componentName);
+        if (component !== undefined) {
+            var opt = {
+                component: component,
+                view: 'ThirdPersonLeft',
+                active: true
+            };
+            componentLayer.setCameraTrace(opt);
+        }
+    });
+
+    //우측 화면
+    $(document).on('click', '.third-right', function () {
+        visibleAllOverlay(false);
+
+        var componentName = getSelectedPlane();
+        var component = componentLayer.getComponentByName(componentName);
+        if (component !== undefined) {
+            var opt = {
+                component: component,
+                view: 'ThirdPersonRight',
+                active: true
+            };
+            componentLayer.setCameraTrace(opt);
+        }
+    });
+
+    // 회전
+    $(document).on('click', '.third-round', function () {
+        visibleAllOverlay(false);
+
+        var componentName = getSelectedPlane();
+        var component = componentLayer.getComponentByName(componentName);
+        if (component !== undefined) {
+            var opt = {
+                component: component,
+                view: 'ThirdPersonRound',
+                active: true
+            };
+            componentLayer.setCameraTrace(opt);
+        }
+    });
+
+    // 따라가기
+    $(document).on('click', '.trace', function () {
+        visibleAllOverlay(false);
+
+        var componentName = getSelectedPlane();
+        var component = componentLayer.getComponentByName(componentName);
+        if (component !== undefined) {
+            var opt = {
+                component: component,
+                view: 'TopView',
+                active: true
+            };
+            componentLayer.setCameraTrace(opt);
+        }
+    });
+
+    $(document).on('click', '.mapMode', function () {
+        changeMapMode();
+        visibleAllOverlay(true);
+    });
+
+    // 기체 선택/추가 ///////////////////////////////////////////////////////////
+
+    // 기체 선택
+    $(document).on('change', '#droneList', function (e) {
+        const name = e.target.value;
+        const component = componentLayer.getComponentByName(name);
+        $('.spinner.speed').val(component.getSpeed().toString());
+
+        $('.spinner.rotateX').val(component.getRotation().x);
+        $('.spinner.rotateY').val(component.getRotation().y);
+        $('.spinner.rotateZ').val(component.getRotation().z);
+
+        $('.spinner.scaleX').val(component.getScale().x);
+        $('.spinner.scaleY').val(component.getScale().y);
+        $('.spinner.scaleZ').val(component.getScale().z);
+    });
+
+    //기체 추가
+    $(document).on('click', '.add', function () {
+        var component = componentLayer.getComponentByName("plane1");
+        var component2 = componentLayer.getComponentByName("plane2");
+
+        // 추가할 기체의 이동경로를 지정하기 위해 기존 기체들의 경로를 대입
+        var movePointList = component.movePointList;
+        var reverse = component2.movePointList;
+
+        //추가할 기체의 이름 생성
+        var name = createComponentName();
+        var name2 = createComponentName();
+        // 새로운 기체 추가
+        createComponent(name, movePointList[0].x, movePointList[0].y, movePointList[0].z, movePointList, undefined, false, false);
+        createComponent(name2, reverse[0].x, reverse[0].y, reverse[0].z, reverse, undefined, false, false);
+
+        //추가된 기체의 이름을 기체선택 selectOption에 추가
+        addSelectOption(name);
+        addSelectOption(name2);
+
+        //plane1
+        var $select = $('.drone-list').find("select[name=name]");
+        $select.find("option[value=" + name + "]").prop("selected", true);
+
+        $('.third').trigger('click');
+        $('.move').trigger('click');
+
+        createTimer(name2);
+
+
+    });
+
+    // 기체 정보
+    $(document).on('click', '.info', function () {
+        const componentName = getSelectedPlane();
+        const component = componentLayer.getComponentByName(componentName);
+
+        let check = checkTimerStart(component);
+        if (check) {
+
+            startTimer = true;
+            computePlaneDistance(componentName, component);
+        }
+        if (defined(component)) {
+            window.planeInfo[componentName].distance = component.getDistanceTraveled();
+            changeHasOverLay(componentName, component);
+        }
+    });
+
+    function checkTimerStart(plane) {
+        let start = plane.movePointList[1].z;
+        return Math.floor(plane.getPosition().z) === Math.floor(start);
+    }
+
+    function createTimer(componentName) {
+        var plane = componentLayer.getComponentByName(componentName);
+        var start = plane.movePointList[1].z;
+        const component = componentLayer.getComponentByName(componentName);
+        componentLayer.startAnimation();
+        let timerId = setInterval(function () {
+
+            var prePosition = window.planeInfo[componentName].prePosition;
+            if (plane.speed === 0
+                || plane.getPosition().x === prePosition.x
+                && plane.getPosition().y === prePosition.y
+                && plane.getPosition().z === plane.movePointList[plane.movePointList.length - 1].z) {
+                clearInterval(timerId);
+                component.movePause();
+                window.planeInfo[componentName].timerId = undefined;
+                delete window.planeInfo[componentName].timerId;
+                return;
+            }
+
+            if (Math.floor(plane.getPosition().z) === Math.floor(start)) {
+                if (!defined(window.planeInfo[componentName].timerId) || !defined(plane.drawArg)) {
+                    clearInterval(timerId);
+                    window.planeInfo[componentName].timerId = undefined;
+                    return;
+                }
+                startTimer = true;
+            }
+            computePlaneDistance(componentName, component);
+
+            if (defined(component)) {
+                changeHasOverLay(componentName, component);
+            }
+            window.planeInfo[componentName].prePosition = plane.getPosition();
+        }, 100)
+        return timerId;
+    }
+
+    function computePlaneDistance(componentName, component) {
+        if (!startTimer) return;
+        var timer = window.planeInfo[componentName].timer;
+        var distance = component.getDistanceTraveled();
+
+        timer += 0.1;
+        window.planeInfo[componentName].timer = timer;
+        window.planeInfo[componentName].distance = distance;
+    }
+
+    function changeHasOverLay(componentName, component) {
+        //기체가 오버레이를 가지고 있지 않은 경우만 새 오버레이 생성
+        if (!component.hasOverlay()) {
+            //기체 정보를 담은 overlay 생성
+            const overlay = createPlaneDetailOverlay(componentName, component, component.getGeographicPosition());
+            component.setOverlay(overlay);
+        } else {
+            const orioverlay = component.getOverlay();
+
+            var target = orioverlay.find(function (overlay) {
+                return overlay.name === componentName;
+            })
+            if (defined(target)) {
+                $(target.element).find(".moveTime").text(window.planeInfo[componentName].timer.toFixed(1));
+                $(target.element).find(".moveDistance").text(window.planeInfo[componentName].distance.toFixed(1));
+            }
+
+        }
+    }
+
+    // 기체 정보 오버레이 생성
+    function createPlaneDetailOverlay(name, obj, position) {
+        const html = printPlaneOverlayHtml(name, obj);
+        const overlay = new Union3D.overlay.U3dOverlay({
+            name: name,
+            id: obj.uuid,
+            element: $(html),
+            position: position,
+            balloon: {x: -10, y: 20},
+            useanchor: false
+        });
+        app.addOverlay(overlay);
+
+        const element = overlay.getElement();
+        $(element).on('click', '.close', popUpCloseClick.bind(overlay));
+        return overlay;
+    }
+
+    // 오버레이 elemenet 생성
+    function printPlaneOverlayHtml(name, obj) {
+        var str = '';
+        str += '<div class="u3-plane-popup" id=' + obj.uuid + '>';
+        str += '<div class="u3-plane-popup-content">';
+        str += '<button type="button" class="close"><span aria-hidden="true">&times;</span>';
+        str += '</button>';
+        if (defined(window.planeInfo[name].timer)) {
+
+            str += '<div class="item-sub-title"><span class="text-icon"> 비행기명: </span>' + name + '</div>';
+            str +=
+                '<div class="item-sub-title">' +
+                '<span class="text-icon"> 이동시간: </span>' +
+                '<span class="text-icon moveTime" >' + window.planeInfo[name].timer.toFixed(1) + ' 초</span>' +
+                '</div>';
+            str +=
+                '<div class="item-sub-title">' +
+                '<span class="text-icon"> 이동거리: </span>' +
+                '<span class="text-icon moveDistance">' + window.planeInfo[name].distance.toFixed(1) + ' m</span>' +
+                '</div>';
+        }
+
+        if (defined(obj._uUrl))
+            str += '<div class="item-sub-title"><span class="text-icon">URL: </span>' + obj._uUrl + '</div>';
+
+        str += '</div>';
+        str += '</div>';
+        return str;
+    }
+
+    // 오버레이 'X'버튼 클릭 이벤트
+    function popUpCloseClick() {
+        $(this.element).off('click', '.close', popUpCloseClick);
+        //오버레이 삭제
+        clearOverlayList(this);
+        app.removeOverlay(this);
+
+        // ObjectInfo 분석모드 종료
+        const analy = app.getAnalysis('ObjectInfo');
+        analy.clear();
+    }
+
+    // 컴포넌트가 가지고 있는 view를 삭제하는 함수
+    function clearOverlayList(view) {
+        let components = componentLayer.getPositionList();
+
+        for (let i = 0; i < components.length; i++) {
+            if (!components[i].hasOverlay()) return
+
+            let views = components[i].getOverlay();
+            for (let i = 0; i < views.length; i++) {
+                if (views[i].getId() === view.getId())
+                    views.splice(i--, 1);
+            }
+        }
+    }
+
+    // 항로 색상 변경 ///////////////////////////////////////////////////////////
+    $(document).on('change', '.path-color', function (e) {
+        const componentName = e.target.name;
+        const component = componentLayer.getComponentByName(componentName);
+        if (component !== undefined)
+            component.setPathColor(e.target.value);
+    });
+
+    // 항로 투명도 제어 ///////////////////////////////////////////////////////////
+    $(".spinner.opacity").spinner({min: 0, max: 1, step: 0.1});
+    $('.spinner.opacity').on("spinstop", function (e) {
+        var componentName = e.target.name;
+        var component = componentLayer.getComponentByName(componentName);
+        if (component !== undefined) {
+            component.setPathOpacity(Number(e.target.value));
+        }
+    });
+
+</script>
+
+<script>
+    let toggleMap3D = false;
+
+    // 맵 모드 전환 ( 2D전환 / 3D 전환)
+    function convertMap() {
+        toggleMap3D = !toggleMap3D;
+        if (toggleMap3D) {
+            if (!defined(lastfeature)) {
+                alert('경로를 더블클릭으로 마치세요');
+                toggleMap3D = false;
+                return;
+            }
+            app.setStopRender(false);
+            $('.spinner.speed').val(window.speed);
+
+            $('.spinner.rotateX').val(window.rotation.x);
+            $('.spinner.rotateY').val(window.rotation.y);
+            $('.spinner.rotateZ').val(window.rotation.z);
+            $('.spinner.scaleX').val(window.scale.x);
+            $('.spinner.scaleY').val(window.scale.y);
+            $('.spinner.scaleZ').val(window.scale.z);
+
+            removePath();
+            $('#map2d-wrapper').css('width', '0%');
+            $('#map3d-wrapper').css('width', '100%');
+
+            $('#convertmap').text('2D전환');
+
+            $('.map3d').attr('disabled', false);
+            $('.map2d').attr('disabled', true);
+            $('#realpath').attr('disabled', true);
+
+        } else {
+            app.setStopRender(true);
+            $('.spinner.speed').val(window.speed);
+
+            $('.spinner.rotateX').val(window.rotation.x);
+            $('.spinner.rotateY').val(window.rotation.y);
+            $('.spinner.rotateZ').val(window.rotation.z);
+            $('.spinner.scaleX').val(window.scale.x);
+            $('.spinner.scaleY').val(window.scale.y);
+            $('.spinner.scaleZ').val(window.scale.z);
+            removePath();
+            $('#map2d-wrapper').css('width', '100%');
+            $('#map3d-wrapper').css('width', '0%');
+
+            $('#convertmap').text('3D전환');
+
+            $('.map2d').attr('disabled', false);
+            $('.map3d').attr('disabled', true);
+            $('#realpath').attr('disabled', false);
+
+            if (defined(window.planeInfo)) {
+                Object.keys(window.planeInfo).forEach(function (child) {
+                    if (defined(window.planeInfo[child].timerId)) {
+                        clearInterval(window.planeInfo[child].timerId)
+                        window.planeInfo[child].timerId = undefined;
+                        delete window.planeInfo[child].timerId;
+                    }
+                })
+            }
+        }
+    }
+
+    // 가상항로 생성
+    function createRealPath() {
+        source.clear();
+        let ptArray = [];
+        for (let i = 0; i < realAirPath.length; i++) {
+            //const point = realAirPath[i].array;
+            const point = [realAirPath[i].x, realAirPath[i].y];
+            const pnt = new ol.geom.Point(point).transform('EPSG:4326', 'EPSG:3857');
+            const changePoints = pnt.getCoordinates();
+            ptArray.push(changePoints);
+        }
+
+        // 항로를 그릴 line Geometry 생성
+        const line = new ol.geom.LineString(ptArray);  //좌표, 반경 넓이
+        const lineFeature = new ol.Feature(line); //구조체로 형성
+        source.addFeatures([lineFeature]); // 벡터소스에 추가
+        window.lastfeature = lineFeature;
+
+        // 기존 POI 제거
+        removeAllPOI();
+
+        //시작 및 종료 POI 초기화
+        initStartPOI();
+        initEndPOI();
+
+        // 시작 POI 생성
+        addStartPOI();
+        modifyStartPOI(ptArray[0]);
+
+        // 종료  POI 생성
+        addEndPOI();
+        modifyEndPOI(ptArray[ptArray.length - 1]);
+    }
+
+    // 맵 모드 전환 ///////////////////////////////////////////////////////////////
+    let continuesResize = false;
+    $('#map2d-wrapper').on('transitionstart', function () {
+        app.resize();
+        continuesResize = true;
+        resizeApp();
+    });
+
+    $('#map2d-wrapper').on('transitionend', function () {
+        app.resize();
+        continuesResize = false;
+        if (toggleMap3D) initPath();
+    });
+    //////////////////////////////////////////////////////////////////////////////
+
+    // 맵 모든 전환 시 app 사이즈를 다시 계산
+    function resizeApp() {
+        setTimeout(function () {
+            app.resize();
+            if (continuesResize) resizeApp();
+        });
+    }
+
+    // undefined 체크
+    function defined(value) {
+        return value !== undefined && value !== null;
+    }
+
+    window.defined = defined;
+    window.componentName = 'plane';
+    window.componentCnt = 0;
+    window.speed = 200;
+    window.planeInfo = {};
+
+    window.rotation = {
+        x: 0,
+        y: 0,
+        z: 0
+    };
+
+    window.scale = {
+        x: 2,
+        y: 2,
+        z: 2
+    };
+
+    // 경로 초기화
+    function initPath(useTruePath, paramTruePath) {
+        if (!defined(useTruePath))
+            useTruePath = false;
+
+        if (!defined(app)) {
+            console.info('initPath is error');
+            return;
+        }
+
+        if (!useTruePath) {
+            if (!defined(lastfeature)) {
+                console.info('lastFeature is error');
+                return;
+            }
+
+            if (ptcount !== 0) {
+                alert("더블클릭으로 경로를 만드세요!!");
+                return;
+            }
+        }
+
+        if (defined(createComponent) && defined(componentLayer)) {
+            componentLayer.removeAllComponent();
+            componentCnt = 0;
+
+            let geom = undefined;
+            let list = undefined;
+            let pitchlist = undefined;
+            let reverseList = undefined;
+
+            if (!useTruePath) {
+                geom = lastfeature.getGeometry().clone();
+                list = getMovePointList(geom);
+                reverseList = getMovePointList(geom, true);
+            } else {
+                if (!defined(paramTruePath))
+                    throw new Error('paramTruePath is null');
+
+                list = getMovePointListByTruePath_(paramTruePath);
+                pitchlist = getPitchYallRollListByTruePath_(paramTruePath);
+            }
+
+            if (list.length > 1) {
+                app.loadingBar();
+
+                app.setHomePosition(list[0].x, list[0].y, 2000, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+                app.updateHomePosition().then(function () {
+                    let name = createComponentName();
+                    let name2 = createComponentName();
+                    let startHeight = app.getHeightAtGeographicPoint(list[0]);
+                    console.info('startHeight : ' + startHeight);
+                    list[0].z = startHeight;
+
+                    let endHeight = app.getHeightAtGeographicPoint(list[list.length - 1]);
+                    console.info('endHeight : ' + endHeight);
+                    list[list.length - 1].z = endHeight;
+
+                    //point의 callback 인자에다 포인드 도달시 실행될 콜백함수를 정의하여 줍니다.
+                    for (let point of list) {
+                        point.callback = function (result) {
+                            //콜백함수 호출시 입력될 아규먼드 정의
+                            console.log("이름: " + result.name);
+                            console.log("실행 index: " + result.index);
+                            console.log("도달한 movePoint: " + result.movePoint.x + " / " + result.movePoint.y);
+                            console.log("현재 distance: " + result.distance);
+                        }
+                    }
+
+                    // 모델이 제대로 불러와졌는지 검사
+                    const loadedModelInfo = componentLayer.getModelInfo(useModelInfo.name , useModelInfo.baseurl)
+                    if( loadedModelInfo ){
+                        loadedModelInfo.then(async () => {
+                            if (useTruePath) {
+                                await createComponent(name, list[0].x, list[0].y, list[0].z, list, pitchlist, true, false, useTruePath);
+                                addSelectOption(name);
+                            } else {
+                                await createComponent(name, list[0].x, list[0].y, list[0].z, list, undefined, true, true, false);
+                                addSelectOption(name);
+
+                                await createComponent(name2, reverseList[0].x, reverseList[0].y, reverseList[0].z, reverseList, undefined);
+                                addSelectOption(name2);
+                            }
+                            $('.third').trigger('click');
+                            $('.move').trigger('click');
+
+                            app.endloadingBar();
+                        });
+                    } else {
+                        componentLayer.loadModel(useModelInfo).then(async () => {
+                            if (useTruePath) {
+                                await createComponent(name, list[0].x, list[0].y, list[0].z, list, pitchlist, true, false, useTruePath);
+                                addSelectOption(name);
+                            } else {
+                                await createComponent(name, list[0].x, list[0].y, list[0].z, list, undefined, true, true, false);
+                                addSelectOption(name);
+
+                                await createComponent(name2, reverseList[0].x, reverseList[0].y, reverseList[0].z, reverseList, undefined);
+                                addSelectOption(name2);
+                            }
+
+                            $('.third').trigger('click');
+                            $('.move').trigger('click');
+
+                            app.endloadingBar();
+                        }).catch(()=>{
+                            console.error("animationLayer fail to load model.");
+                        });
+                    }
+                });
+            }
+        }
+    }
+
+    // 경로의 좌표 포인트 list를 반환
+    function getMovePointList(geom, reverse) {
+        let list = [];
+        const proj4326 = ol.proj.get('EPSG:4326');
+        const proj3857 = ol.proj.get('EPSG:3857');
+
+        const tempGeom = geom.clone();
+        tempGeom.transform(proj3857, proj4326);
+        const coordinates = tempGeom.getCoordinates();
+        let point;
+
+        //+ start point 추가
+        point = coordinates[0];
+        list.unshift({x: parseFloat(point[0]), y: parseFloat(point[1]), z: 0});
+
+        //+ start ~ end 사이의 point 추가
+        for (let i = 0; i < coordinates.length; i++) {
+            point = coordinates[i];
+            if (reverse === true) {
+                list.push({x: parseFloat(point[0]), y: parseFloat(point[1]), z: 100});
+            } else {
+                list.push({x: parseFloat(point[0]), y: parseFloat(point[1]), z: 150});
+            }
+        }
+
+        //+ end point 추가
+        point = coordinates[coordinates.length - 1];
+        list.push({x: parseFloat(point[0]), y: parseFloat(point[1]), z: 0});
+
+        // 반대 항로 pointList 생성
+        if (reverse === true)
+            list.reverse();
+
+        return list;
+    }
+
+    // 기체 선택 목록해서 해당 컴포넌트를 추가
+    function addSelectOption(componentName) {
+        var $select = $('.drone-list').find("select[name=name]");
+        $select.append("<option value=" + componentName + ">" + componentName + "</option>");
+    }
+
+    // 기체 선택 목록해서 해당 컴포넌트를 제거
+    function removeSelectOption(componentName) {
+        var $select = $('.drone-list').find("select[name=name]");
+        $select.find("option[value=" + componentName + "]").remove();
+
+    }
+
+    // 맵 모드 전환에 따른 경로 제거
+    function removePath() {
+        if (defined(createComponent) && defined(componentLayer)) {
+            var $select = $('.drone-list').find("select[name=name]");
+            $select.find("option").remove();
+
+            componentLayer.removeAllComponent();
+            componentCnt = 0;
+        }
+    }
+
+</script>
+
+
+<script>
+    let toggleDrawMode = false;
+    window.lastfeature = undefined;
+    // 가상항로 좌표
+    window.realAirPath = [
+        {
+            "x": 126.489723,
+            "y": 37.456944,
+            "z": 300,
+            "distance": true
+        },
+        {
+            "x": 126.554052,
+            "y": 37.475109,
+            "z": 300,
+            "distance": true
+        },
+        {
+            "x": 126.583275,
+            "y": 37.488125,
+            "z": 300,
+            "distance": true
+        },
+        {
+            "x": 126.594859,
+            "y": 37.507696,
+            "z": 300,
+            "distance": true
+        },
+        {
+            "x": 126.59484,
+            "y": 37.545672,
+            "z": 300,
+            "distance": true
+        },
+        {
+            "x": 126.613426,
+            "y": 37.570962,
+            "z": 300,
+            "distance": true
+        },
+        {
+            "x": 126.72945,
+            "y": 37.5733,
+            "z": 300,
+            "distance": true
+        },
+        {
+            "x": 126.749898,
+            "y": 37.557339,
+            "z": 300,
+            "distance": true
+        }
+    ];
+    /*window.realAirPath = [
+        {
+            "x": 127.06205817670582,
+            "y": 37.48098202371074,
+            "z": 20.000000000000114,
+            "distance": true
+        },
+        {
+            "x": 127.06205817670582,
+            "y": 37.48255583434724,
+            "z": 20.000000000000114,
+            "distance": true
+        },
+        {
+            "x": 127.06205817670582,
+            "y": 37.48412964498377,
+            "z": 20.000000000000114,
+            "distance": true
+        },
+        {
+            "x": 127.06404141597439,
+            "y": 37.48412964498377,
+            "z": 20.000000000000114,
+            "distance": true
+        },
+        {
+            "x": 127.06404141597439,
+            "y": 37.48255583434724,
+            "z": 20.000000000000114,
+            "distance": true
+        },
+        {
+            "x": 127.06404141597439,
+            "y": 37.48098202371074,
+            "z": 20.000000000000114,
+            "distance": true
+        }
+    ];*/
+    // 경로 그리기
+    function drawMode() {
+
+        //기존 ol.source와 POI를 제거
+        source.clear();
+        removeAllPOI();
+
+        toggleDrawMode = !toggleDrawMode;
+        if (toggleDrawMode) {
+            map.on('pointermove', pointerMoveHandler);
+            map.addInteraction(draw);
+            map.addInteraction(snap);
+            createHelpTooltip();
+            $('#drawmode').text('그리기종료');
+        } else {
+            map.un('pointermove', pointerMoveHandler);
+            map.removeInteraction(draw);
+            map.removeInteraction(snap);
+            if (helpTooltipElement) {
+                helpTooltipElement.parentNode.removeChild(helpTooltipElement);
+            }
+            $(".ol-tooltip-static").remove();
+            $('#drawmode').text('경로그리기');
+        }
+    }
+
+    const proj4326 = ol.proj.get('EPSG:4326');
+    const proj3857 = ol.proj.get('EPSG:3857');
+    let center = [126.66750361038152, 37.482862375375475];
+    center = ol.proj.transform(center, proj4326, proj3857);
+
+    //+ 배경영상
+    var vworldlayer = new ol.layer.Tile({
+        source: new ol.source.XYZ({
+            url: 'https://xdworld.vworld.kr/2d/Satellite/service/{z}/{x}/{y}.jpeg'
+        })
+    });
+
+    //+ 비행제한구역
+    var flyForbid = new ol.layer.Tile({
+        source: new ol.source.TileWMS({
+            url: 'https://2d.vworld.kr/2DCache/gis/map/WMS2',
+            params: {
+                LAYERS: 'LT_C_AISPRHC',
+                STYLES: 'LT_C_AISPRHC',
+                TITLE: '비행금지구역',
+                APIKEY: "767B7ADF-10BA-3D86-AB7E-02816B5B92E9"
+            }
+        })
+    });
+
+    //+ 백터
+    var source = new ol.source.Vector();
+    var pathLayer = new ol.layer.Vector({
+        source: source,
+        style: new ol.style.Style({
+            fill: new ol.style.Fill({
+                color: 'rgba(255, 255, 255, 0.2)'
+            }),
+            stroke: new ol.style.Stroke({
+                color: '#ffcc33',
+                width: 2
+            }),
+            image: new ol.style.Circle({
+                radius: 7,
+                fill: new ol.style.Fill({
+                    color: '#ffcc33'
+                })
+            })
+        })
+    });
+
+    // //+ poi layer -> 비터포트
+    var poisource = new ol.source.Vector();
+    var poilayer = new ol.layer.Vector({source: poisource});
+    poilayer.setZIndex(999);
+
+    function getVectorSource() {
+        //새로운 벡터 생성
+        return new ol.source.Vector();
+    }
+
+    //+ 가상 백터레이어 (임의의 점 포함)
+    var vectorSource = getVectorSource();
+    var vectorLayer = new ol.layer.Vector({  //추가할 벡터레이어
+        source: vectorSource,
+        style: [
+            new ol.style.Style({
+                stroke: new ol.style.Stroke({   //두께
+                    color: 'rgba( 240, 79, 79 ,0.9)',
+                    width: 2
+                }),
+                fill: new ol.style.Fill({  //채우기
+                    color: 'rgba( 255, 133, 133 ,0.5)'
+                })
+            })]
+    });
+
+    var map = new ol.Map({
+        target: 'map2d',
+        layers: [
+            vworldlayer, flyForbid, pathLayer, poilayer, vectorLayer
+        ],
+        view: new ol.View({
+            center: center,
+            zoom: 11
+        })
+    });
+
+    var modify = new ol.interaction.Modify({source: source});
+    map.addInteraction(modify);
+
+    var measureTooltipElement;
+    var helpTooltipElement;
+    var measureTooltip;
+    var helpTooltip;
+    createMeasureTooltip();
+    createHelpTooltip();
+
+    var draw, snap; // global so we can remove them later
+    var sketch;
+
+    addInteractions();
+
+    function addInteractions() {
+        var listener;
+        draw = new ol.interaction.Draw({
+            source: source,
+            type: 'LineString'
+        });
+        snap = new ol.interaction.Snap({source: source});
+        draw.on('drawstart', function (evt) {
+
+            sketch = evt.feature;
+            let tooltipCoord = evt.coordinate;
+            var geomS = evt.feature.getGeometry();
+            var coord = geomS.getCoordinates()[0];
+
+            removeAllPOI();
+
+            initStartPOI();
+            initEndPOI();
+
+            addStartPOI();
+            modifyStartPOI(coord);
+
+            listener = sketch.getGeometry().on('change', function (evt) {
+                const geom = evt.target;
+                let output;
+                if (geom instanceof ol.geom.Polygon) {
+                    output = formatArea(geom);
+                    tooltipCoord = geom.getInteriorPoint().getCoordinates();
+                } else if (geom instanceof ol.geom.LineString) {
+                    output = formatLength(geom);
+                    tooltipCoord = geom.getLastCoordinate();
+                }
+                measureTooltipElement.innerHTML = output;
+                measureTooltip.setPosition(tooltipCoord);
+            });
+        });
+
+        draw.on('drawend', function (evt) {
+            var geomS = evt.feature.getGeometry();
+            var coords = geomS.getCoordinates();
+            var coord = coords[coords.length - 1];
+
+            measureTooltipElement.className = 'ol-tooltip ol-tooltip-static';
+            measureTooltip.setOffset([0, -7]);
+            sketch = null;
+            measureTooltipElement = null;
+            createMeasureTooltip();
+            ol.Observable.unByKey(listener);
+
+            addEndPOI();
+            modifyEndPOI(coord);
+        });
+    }
+
+
+    const pointerMoveHandler = function (evt) {
+        if (evt.dragging) {
+            return;
+        }
+        /** @type {string} */
+        let helpMsg = '경로 지점을 클릭하세요';
+
+        if (sketch) {
+            const geom = sketch.getGeometry();
+            if (geom instanceof ol.geom.Polygon) {
+                helpMsg = "폴리곤 그리기 모드입니다";
+            } else if (geom instanceof ol.geom.LineString) {
+                helpMsg = "경로 지점을 클릭하세요";
+            }
+        }
+
+        helpTooltipElement.innerHTML = helpMsg;
+        helpTooltip.setPosition(evt.coordinate);
+        helpTooltipElement.classList.remove('hidden');
+    };
+
+    function createHelpTooltip() {
+        if (helpTooltipElement) {
+            if (helpTooltipElement.parentNode)
+                helpTooltipElement.parentNode.removeChild(helpTooltipElement);
+        }
+        helpTooltipElement = document.createElement('div');
+        helpTooltipElement.className = 'ol-tooltip hidden';
+        helpTooltip = new ol.Overlay({
+            element: helpTooltipElement,
+            offset: [15, 0],
+            positioning: 'center-left',
+        });
+        map.addOverlay(helpTooltip);
+    }
+
+    function createMeasureTooltip() {
+        if (measureTooltipElement) {
+            measureTooltipElement.parentNode.removeChild(measureTooltipElement);
+        }
+        measureTooltipElement = document.createElement('div');
+        measureTooltipElement.className = 'tooltip tooltip-measure';
+        measureTooltip = new ol.Overlay({
+            element: measureTooltipElement,
+            offset: [0, 15],
+            positioning: 'bottom-center'
+        });
+        map.addOverlay(measureTooltip);
+    }
+
+    const formatLength = function (line) {
+        const length = ol.Sphere.getLength(line);
+        let output;
+        if (length > 100) {
+            output = Math.round((length / 1000) * 100) / 100 + ' ' + 'km';
+        } else {
+            output = Math.round(length * 100) / 100 + ' ' + 'm';
+        }
+        return output;
+    };
+
+    const formatArea = function (polygon) {
+        const area = getArea(polygon);
+        let output;
+        if (area > 10000) {
+            output = Math.round((area / 1000000) * 100) / 100 + ' ' + 'km<sup>2</sup>';
+        } else {
+            output = Math.round(area * 100) / 100 + ' ' + 'm<sup>2</sup>';
+        }
+        return output;
+    };
+
+    function removeAllPOI() {
+        poisource.clear();
+    }
+
+    var startPOIFeature_ = undefined;
+    var endPOIFeature_ = undefined;
+
+    function initStartPOI(opt) {
+        if (defined(startPOIFeature_))
+            return;
+
+        opt = opt || {};
+        if (!defined(opt.imageurl))
+            opt.imageurl = './image/v.png';
+
+        startPOIFeature_ = new ol.Feature({
+            name: opt.name
+        });
+
+        var iconStyle = new ol.style.Style({
+            image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                anchor: [0.5, 24],
+                anchorXUnits: 'fraction',
+                anchorYUnits: 'pixels',
+                src: opt.imageurl
+            }))
+        });
+
+        startPOIFeature_.setStyle(iconStyle);
+    }
+
+    function initEndPOI(opt) {
+        if (defined(endPOIFeature_))
+            return;
+
+        opt = opt || {};
+        if (!defined(opt.imageurl))
+            opt.imageurl = './image/v.png';
+
+        endPOIFeature_ = new ol.Feature({
+            name: opt.name
+
+        });
+
+        var iconStyle = new ol.style.Style({
+            image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                anchor: [0.5, 24],
+                anchorXUnits: 'fraction',
+                anchorYUnits: 'pixels',
+                src: opt.imageurl
+            }))
+        });
+
+        endPOIFeature_.setStyle(iconStyle);
+    }
+
+    function addStartPOI() {
+        poisource.addFeature(startPOIFeature_);
+    }
+
+    function removeStartPOI() {
+        poisource.removeFeature(startPOIFeature_);
+    }
+
+    function modifyStartPOI(point) {
+        startPOIFeature_.setGeometry(new ol.geom.Point(point));
+    }
+
+
+    function addEndPOI() {
+        poisource.addFeature(endPOIFeature_);
+    }
+
+    function removeEndPOI() {
+        poisource.addFeature(endPOIFeature_);
+    }
+
+    function modifyEndPOI(point) {
+        endPOIFeature_.setGeometry(new ol.geom.Point(point));
+    }
+
+    function addPOI(opt) {
+        opt = opt || {};
+        if (!defined(opt.imageurl))
+            opt.imageurl = './image/v-port.png';
+
+        var iconFeature = new ol.Feature({
+            geometry: new ol.geom.Point(opt.point),
+            name: opt.name,
+        });
+
+        var iconStyle = new ol.style.Style({
+            image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                anchorXUnits: 'fraction',
+                anchorYUnits: 'pixels',
+                src: opt.imageurl
+            }))
+        });
+
+        iconFeature.setStyle(iconStyle);
+        poisource.addFeature(iconFeature);
+    }
+
+
+    var ptcount = 0;
+    map.on('singleclick', function (evt) {
+        if (ptcount === 0) {
+            lastfeature = undefined;
+            $(".ol-tooltip-static").remove();
+            source.clear();
+        } else {
+            if (defined(source.getFeatures())) {
+                source.clear();
+
+            }
+        }
+        ptcount++;
+    });
+
+    map.on('dblclick', function () {
+        var list = [];
+        source.forEachFeature(function (feature) {
+            list.push(feature);
+            lastfeature = feature;
+        })
+
+        list.forEach(function (feature) {
+            if (lastfeature !== feature)
+                source.removeFeature(feature);
+        });
+
+        ptcount = 0;
+    })
+
+</script>
+
+<script>
+    var dataServerUrl = 'https://dt-data.mappick.co.kr/ServiceData/';
+    var unionServerFor3D = 'http://www.theunionit.co.kr:7070/unionserver/';
+    var listPoi = {};
+    listPoi['청라'] = {x: 126.6224174, y: 37.5563786, z: 16};
+    listPoi['송도'] = {x: 126.6543563, y: 37.3813632, z: 16};
+    window.listPoi = listPoi;
+    const MODEL_INFO_1 = {
+        name: 'helicopter1',
+        baseurl: layerInfo.model.drone1url,
+        fileName: layerInfo.model.drone1name,
+        ext: layerInfo.model.drone1ext,
+        topviewdistance: 100
+    };
+    const MODEL_INFO_2 = {
+        name: 'helicopter2',
+        baseurl: layerInfo.model.drone2url,
+        fileName: layerInfo.model.drone2name,
+        ext: layerInfo.model.drone2ext,
+        topviewdistance: 100
+    };
+    const useModelInfo = MODEL_INFO_1;
+
+    function init3d() {
+        //+ 라이센스 인증
+        Union3D.ready(function () {
+            window.Union3D = Union3D;
+            const app = new Union3D.U3dAPP({
+                searchtype: 'sphere',//+ 타일검색 방법
+                containername: 'map3d',
+                ratiotilesize: 1  //타일 검색 비율, 값이 클수록 더많은 타일을 검색한다. 그러나 검색 완료 속도가 늦어진다.
+            });
+
+            app.on('change', updatePosData);
+
+            app.setStopRender(true);
+
+            app.createloadingBar('load');
+            app.loadingBar();
+
+            window.app = app;
+            app.setZoomSpeed(1);
+            app.setRotateSpeed(0.5);
+            app.setHomePosition(listPoi['송도'].x, listPoi['송도'].y, 450, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+            app.updateHomePosition();
+
+            //+ 이미지 레이어 생성 //////////////////////////////////////////////////////////////////////
+            const layer = new Union3D.image.U3dImageXYZLayer({
+                name: 'satellite',
+                baseurl: layerInfo.image.vworldsaturl,
+                reverseY: true
+            });
+            app.addLayer(layer);
+            app.showLayer('satellite', true);
+
+            //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+            app.setNameBaseLayer('satellite');
+
+            //+ 고도 레이어 생성 /////////////////////////////////////////////////////////////////////
+            const terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+                name: 'Korea Terrain',
+                baseurl: layerInfo.height.url,
+                ext: '.umf',
+                reverseY: true,
+                minlevel: 9,
+                maxlevel: 15,
+                useproxy: false,
+                maxprocess: 40,
+                interpolationheight: false,
+                rectangle: Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2)
+            });
+
+            app.addLayer(terrainLayer);
+            app.showLayer('Korea Terrain', true);
+
+            window.vectorLayer3d = new Union3D.vector.U3dVectorLayer({
+                name: 'vector'
+            });
+
+            app.addLayer(vectorLayer3d);
+            app.showLayer('vector', true);
+
+            let u3fGroupLayer = this.app.createModelGroupLayer({
+                maxlevel: 15,
+                minlevel: 15,
+                name: 'U3fGroupLayer'
+            });
+            $.ajax({
+                url: window.trdDimResUrl + 'v1/layers?type=u3f&category=u3f_2hd_15',
+                crossDomain: true,
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader('User-Authorization', 'liSYJPYJhPitIeP6UQznNyhy54iVE2eigdHZGQBgCxcBZng6MxvqMBe2cPbxu2ti');
+                    xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+                },
+                error: function (e) {
+                    console.error(e);
+                }
+            }).then(function (result) {
+                let infos = result.params.data;
+                for (let i = 0; i < infos.length; i++) {
+                    let baseName = infos[i].fileName;
+                    if (!baseName || baseName === '')
+                        baseName = infos[i].name;
+                    let options = {
+                        name: infos[i].name,
+                        basename: baseName,
+                        baseurl: infos[i].baseUrl,
+                        minlevel: infos[i].metaData.minLevel,
+                        maxlevel: infos[i].metaData.maxLevel
+                    };
+                    let layer = app.create3DFModelLayer(options);
+                    if (layer !== undefined) {
+                        u3fGroupLayer.addLayer(layer);
+                    }
+                }
+            });
+            app.showLayer(u3fGroupLayer.getName(), true);
+
+
+            // 경로 시작과 끝 지점에 원통 Geometry 생성
+            function createCylinder(opt, lonlat, limitHeight, color, imageview) {
+                if (!defined(imageview)) imageview = false;
+
+                if (imageview) {
+                    opt.type = 'topimage';
+                    opt.topimageurl = defined(opt.topimageurl) ? opt.topimageurl : './image/v.png';
+                }
+
+                //원통 Geometry 생성
+                const cylinder = new Union3D.geom.U3dCylinder(opt);
+                vectorLayer3d.addGeometry(cylinder);
+                cylinder.setRotation({x: Math.PI / 2, y: 0, z: 0});
+                cylinder.setPosition(lonlat.x, lonlat.y, lonlat.z + limitHeight);
+                // 레이어에 Geometry 추가
+
+                if (!imageview) {
+                    cylinder.setOpacity(0.5);
+                } else {
+                    cylinder.setTransparent(false);
+                }
+
+                //원통 Geometry 색상 지정
+                if (!defined(color)) color = 0xff0000;
+                cylinder.setColor(color);
+                return cylinder;
+            }
+
+            const layeroption = {
+                name: 'animation layer',
+                //rotation: {x: pitch, y:roll, z: yaw},
+                rotation: {x: 0, y: 0, z: 0},
+                scale: {x: 1, y: 1, z: 1},
+                color: 'rgb(255,255,255)',
+                needxml: false,
+                backgroudlight: false,
+                listmodel: [MODEL_INFO_1, MODEL_INFO_2],
+                type: "model",
+                drawpath: true,
+                typepath: 'cube',
+                collisiondistance: 1000,
+                setInstanced: false,
+                collisionFunction: collisionFunction
+            };
+
+            //+ 에니메이션 레이어 생성
+            window.componentLayer = app.createMultipleComponentLayer(layeroption);
+            componentLayer.then(()=>{
+                app.showLayer( componentLayer.getName(), true );
+                app.endloadingBar();
+            });
+
+            let startCylinder_ = undefined;
+            let endCylinder_ = undefined;
+            let startPortCylinder_ = undefined;
+            let endPortCylinder_ = undefined;
+
+            //+ 콤포넌트 생성
+            window.createComponent = function (componentName, geox, geoy, height, movegeolist, pitchyawrolllist, drawPath, createcylinder, truthpath) {
+                return new Promise((resolve, reject) => {
+                    if (!defined(truthpath)) truthpath = false;
+
+                    if (!defined(movegeolist)) {
+                        console.info('movegeolist is null!');
+                        return false;
+                    }
+
+                    if (!defined(createcylinder)) createcylinder = false;
+
+                    if (!defined(geox)) geox = listPoi['송도'].x;
+
+                    if (!defined(geoy)) geoy = listPoi['송도'].y;
+
+                    if (!defined(height)) height = 10;
+
+                    if (drawPath === undefined) drawPath = false;
+                    let drawRealPath = false;
+                    let pathColor = undefined;
+                    let pathOpacity = 1;
+                    if (componentName === 'plane1') {
+                        pathColor = $('.path-cube-color').find('input[name=plane1]').val();
+                        pathOpacity = Number($('.path-opacity').find('input[name=plane1]').val());
+                        drawPath = true;
+                        drawRealPath = true;
+                    } else if (componentName === 'plane2') {
+                        pathColor = $('.path-cube-color').find('input[name=plane2]').val();
+                        pathOpacity = Number($('.path-opacity').find('input[name=plane2]').val());
+                        drawPath = true;
+                        drawRealPath = true;
+                    }
+
+                    if (createcylinder) {
+                        let point;
+                        //+ startCylinder_  ////////////////////////////////////////////////////
+                        {
+                            if (defined(startCylinder_) && defined(vectorLayer3d))
+                                vectorLayer3d.removeGeometry(startCylinder_);
+
+                            point = movegeolist[0];
+                            startCylinder_ = createCylinder({
+                                    radiusTop: 200,
+                                    radiusBottom: 200,
+                                    height: 500
+                                },
+                                {x: point.x, y: point.y, z: point.z}, 0, 0xff7f00);
+                        }
+
+                        //+ startPortCylinder_ ////////////////////////////////////////////
+                        {
+                            if (defined(startPortCylinder_) && defined(vectorLayer3d))
+                                vectorLayer3d.removeGeometry(startPortCylinder_);
+
+                            point = movegeolist[0];
+                            startPortCylinder_ = createCylinder({
+                                    radiusTop: 200 / 3,
+                                    radiusBottom: 200 / 3,
+                                    height: 50
+                                },
+                                {x: point.x, y: point.y, z: point.z}, 0, 0xff7f00, true);
+                        }
+
+                        //+ endCylinder_ /////////////////////////////////////
+                        {
+                            if (defined(endCylinder_) && defined(vectorLayer3d))
+                                vectorLayer3d.removeGeometry(endCylinder_);
+
+                            point = movegeolist[movegeolist.length - 1];
+                            endCylinder_ = createCylinder({
+                                    radiusTop: 200,
+                                    radiusBottom: 200,
+                                    height: 500
+                                },
+                                {x: point.x, y: point.y, z: point.z}, 0, 0xff7f00);
+                        }
+
+                        //+ endPortCylinder_ ////////////////////////////////////////////
+                        {
+                            if (defined(endPortCylinder_) && defined(vectorLayer3d))
+                                vectorLayer3d.removeGeometry(endPortCylinder_);
+
+                            point = movegeolist[movegeolist.length - 1];
+                            endPortCylinder_ = createCylinder({
+                                    radiusTop: 200 / 3,
+                                    radiusBottom: 200 / 3,
+                                    height: 50
+                                },
+                                {x: point.x, y: point.y, z: point.z}, 0, 0xff7f00, true);
+                        }
+                    }
+
+                    // 드론 컴포넌트 생성
+                    try {
+                        const plane = componentLayer.addPosition({
+                            name: componentName,
+                            position: {x: geox, y: geoy, z: height},
+                            image: dataServerUrl + 'image/marker.png', //시작지점, 종료지점 이미지
+                            rotation: window.rotation, //모델 방향각
+                            scale: window.scale, //모델 크기
+                            speed: window.speed, //주행 속도
+                            drawpath: pathColor === undefined ? false : drawPath, //경로 출력여부
+                            drawRealPath: drawRealPath, //입력된 경로에 따른 실제 모델의 경로 출력여부, (입력경로와 실제 주행경로는 주행속도와 그에따른 주행관성으로 차이가 있을수 있습니다.)
+                            pathcolor: pathColor, //출력될 경로의 색상
+                            pathopacity: pathOpacity, // 출력될 경로의 투명도
+                            pathwidth: 185, //출력될 경로의 넓이
+                            pathHeight: 30, // 출력될 경로의 높이
+                            pathedge: false, //경로의 외각선 출력여부
+                            movepointlist: movegeolist,  //경로설정 옵션
+                            pitchyawrolllist: pitchyawrolllist, //+ 기체 방향각 옵션
+                            addstartend: true, //시작점 종료 지점 수직 이착륙 여부
+                            usetruthpath: truthpath,
+                            object: useModelInfo.name,
+                            repeat: true,
+                            // updateAnimationFunc
+                        });
+
+                        /*
+                         pos        : 현재 컴포넌트의 위치 (World Position)
+                         lookAt    : 현재 컴포넌트가 바라보는 위치
+                         rot        : 현재 컴포넌트의 회전 값
+                         perDist   : 한 프레임 동안 이동한 거리
+                         nowDist   : 현재까지 누적 이동 거리
+                         plane     : 이동 중인 컴포넌트 객체
+                         totalDist : 전체 이동 경로의 총 거리
+                        */
+                        function updateAnimationFunc (pos, lookAt, rot, perDist, nowDist, plane, totalDist) {
+                            const safeTotal = Math.max(1e-9, totalDist ?? 0);
+
+                            // 0 ~ 1
+                            const progress = Math.min(1, Math.max(0, nowDist / safeTotal));
+                            // 0 ~ 100
+                            const percent = progress * 100;
+
+                            // 소수점 첫째 자리 반올림
+                            const percentRound = Math.round(percent * 10) / 10;
+                            console.log(`percent : ${percentRound} %`)
+                        }
+
+                        window.planeInfo[componentName] = {
+                            distance: 0,
+                            timer: 0,
+                            prePosition: plane.getPosition()
+                        }
+                        resolve(plane);
+                    } catch (e) {
+                        reject(e)
+                    }
+
+                });
+            }
+
+            //+ poi 생성
+            initPOI();
+
+            function initPOI() {
+                var listPoi = {};
+                listPoi['청라'] = {x: 126.6224174, y: 37.5563786, z: 16};
+                listPoi['송도'] = {x: 126.6543563, y: 37.3813632, z: 16};
+                listPoi['인천공항'] = {x: 126.445, y: 37.456, z: 16};
+                listPoi['계양구'] = {x: 126.738, y: 37.537, z: 16};
+
+                //+ POI 레이어 ////////////////////////////////////////////////////////////
+                var keys = Object.keys(listPoi);
+                for (var i = 0; i < keys.length; i++) {
+                    var key = keys[i];
+                    addGeographicPOI(listPoi[key].x, listPoi[key].y, listPoi[key].z, key);
+                }
+
+                // 지정 좌표 위치메 POI를 추가하는 함수
+                function addGeographicPOI(geoX, geoY, inheight, labelname, labelsize, imageurl) {
+                    if (!defined(labelname)) labelname = 'POI';
+                    if (!defined(imageurl)) imageurl = dataServerUrl + 'poi_image/placemark64.png';
+                    if (!defined(labelsize)) labelsize = 15;
+
+                    var worldxyz = app.getGeographicToWorld(geoX, geoY, inheight);
+
+                    var poi = new Union3D.geom.U3dPOI({
+                        position: {x: worldxyz.x, y: worldxyz.y, z: worldxyz.z},
+                        image: imageurl,
+                        label: labelname
+                    });
+                    app.addPOI(poi);
+                    poi.setLabelSize(labelsize);
+                }
+            }
+        })//+ ready
+    }
+
+    function collisionFunction(mesh) {
+        console.log(mesh.name + ' 충돌!');
+    }
+
+    window.collisionFunction = collisionFunction;
+    init3d();
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>컴포넌트 커스텀 제어</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+</head>
+<body>
+    <div id="header" oncontextmenu='return false'>
+        <div>
+            <img src="image/solution_GeOnDT.png" >
+
+            <span> 컴포넌트 커스텀 제어 예제</span>
+        </div>
+        <div class="execute-popup">
+            <button class="btn btn-block btn-default">직접해보기</button>
+        </div>
+        <div class="info-box">
+            <img src="image/help_outline_black_24dp.svg" alt="">
+        </div>
+    </div>
+    <div class="ex-explanation" hidden>
+        <p class="lead" style="font-size: 16px">
+        </p>
+    </div>
+    <div id="map-wrapper">
+        <div>
+            <div id="map"></div>
+            <div class="btn-group" id='top-sbar'>
+                <div class='btn-group-vertical-block' id='right-toolbar'>
+                    <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                        <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                             src="./image/compass1.png"
+                             alt="나침반">
+                    </button>
+                    <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                            id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+                    <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                            id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+                    <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                            id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg"
+                                                                         alt="">
+                    </button>
+                </div>
+                <div class='btn-group' id='bt-bottom-bar'>
+                    <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                           value="위경도: ##.####  ###.#### ">
+                    <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                           value="고도:####">
+                    <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                           value="각도: ##">
+                </div>
+            </div>
+        </div>
+        <div id="load">
+            <img src="image/loading.svg" alt="loading">
+        </div>
+    </div>
+
+    
+    <script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+    <script id="execute-event">
+        const strings = document.location.href.split('/');
+        $('.execute-popup').click(function () {
+            window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+        })
+    </script>
+    <script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+    <script>
+        const imageBaseUrl = 'https://xdworld.vworld.kr/2d/Satellite/service/{z}/{x}/{-y}.jpeg';
+        const heightBaseUrl = 'https://dt-data.mappick.co.kr/ServiceData/dem/DEM_CS/Korean_peninsula/';
+        const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60};
+        const drone1Option = {
+            name: 'Drone_02',
+            baseurl: 'https://dt-data.mappick.co.kr/ServiceData/component/drone/Drone_01/',
+            type: 'component',
+            fileName: 'Drone_01.3ds',
+            ext: '3ds',
+        }
+        const drone2Option = {
+            name: 'Drone_02',
+            baseurl: 'https://dt-data.mappick.co.kr/ServiceData/component/drone/Drone_02/',
+            type: 'component',
+            fileName: 'Drone_02.3ds',
+            ext: '3ds',
+        }
+        const uam1Option =  {
+            name: 'uam_01',
+            baseurl: 'https://dt-data.mappick.co.kr/ServiceData/component/DroneShow/UAM/', //+ 모델 데이터의 기본경로, *필수 입력
+            fileName: 'UAM_A_Anim_WA_001',
+            ext: 'fbx',
+        }
+
+        let app = null;
+        let imageLayer = null;
+        let heightLayer = null;
+        let componentLayer = null;
+        let vectorLayer = null;
+        let analyComponent = null;
+        let mountedBullet = null;
+        let flightInputState = null;
+        let flightAniController = null;
+        let flightElapsedTimeMs = 0;
+    </script>
+    <script id="common">
+        function updatePosData() {
+            if (app === undefined) return;
+
+            const info = app.getCameraState();
+            const rad = info.azimuth;
+            app.setRotationOverviewMap(rad);
+            app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+            //나침반 설정
+            const value = 'rotate(' + -rad + 'rad)';
+            $('#compass-image-id').css({transform: value});
+
+            let deg = -rad * 180 / Math.PI;
+            if (deg < 0) {
+                deg += 360;
+            }
+            const angle = '각도: ' + deg.toFixed(0) + '°';
+            $('#bottom-tbar-btn-angle').val(angle);
+            const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+            $('#bottom-tbar-btn-pos').val(pos);
+            const height = '높이: ' + parseFloat(info.height).toFixed(1) + 'm';
+            $('#bottom-tbar-btn-height').val(height);
+        }
+
+        $(document).on('click', '#compass-image-id', function (event) {
+            event.preventDefault();
+            if (app === undefined) return;
+            app.alignNorth();
+        });
+
+        $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+            event.preventDefault();
+            if (app === undefined) return;
+            app.zoomIn();
+        });
+
+        $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+            event.preventDefault();
+            if (app === undefined) return;
+            app.zoomOut();
+        });
+
+        $(document).on('click', "#right-tbar-btn-flyto", function () {
+            app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+        });
+    </script>
+    <script type="module">
+        try{
+            await GeOnDT;
+
+            app = new GeOnDT.U3dAPP({
+                containername: 'map'
+            });
+            app.createloadingBar('load');
+            app.setVisibleLoading(true);
+            app.loadingBar();
+
+            app.on('change', updatePosData);
+            app.setHomePosition(homePositon.lat, homePositon.lon, homePositon.height, homePositon.left, homePositon.down); //경도, 위도, 높이, 방위각, 고도각
+            app.updateHomePosition();
+
+            imageLayer = new GeOnDT.image.U3dImageXYZLayer({
+                name: 'satellite',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+                baseurl: imageBaseUrl, //+ 이미지 데이터 URL, *필수 입력
+                reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            });
+            app.addLayer(imageLayer).then(()=>{
+                app.showLayer('satellite', true);
+            });
+
+            heightLayer = app.createHeightXYZLayer({
+                name: 'korea_terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+                baseurl: heightBaseUrl, //+ 고도 데이터 기본 URL, *필수 입력
+                ext: '.umf', //+ 파일 확장자, *필수 입력
+                reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+                minlevel: 9,  //+ 가시화 최소 레벨
+                maxlevel: 17, //+ 가시화 최대 레벨
+                useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+            });
+            heightLayer.then(()=>{
+                app.showLayer(heightLayer.getName(), true);
+            })
+
+            componentLayer = app.createMultipleComponentLayer({
+                name: 'ComponentLayer',
+                needxml: false, //준비된 xml이 없으면 false를 입력합니다!!!
+                drawline: false,
+                listmodel:[drone1Option],
+                setInstanced:false
+            });
+            await app.showLayer(componentLayer.getName(), true );
+            await componentLayer.loadModel(drone2Option);
+
+            analyComponent = app.getAnalysis('multipleComponent');
+            analyComponent.setLayer(componentLayer);
+            await analyComponent.loadModel(uam1Option);
+
+            componentLayer.addPosition({
+                name: 'drone1',
+                geoPosition: {x: homePositon.lat, y: homePositon.lon, z: 50},
+                object: drone1Option.name , //모델 이름을 입력!!!!!
+            });
+
+            componentLayer.addPosition({
+                name: 'drone2',
+                geoPosition: {x: homePositon.lat + 0.0002, y: homePositon.lon, z: 50},
+                object: drone2Option.name , //모델 이름을 입력!!!!!
+            });
+
+            componentLayer.addPosition({
+                name: 'uam1',
+                geoPosition: {x: homePositon.lat - 0.0002, y: homePositon.lon, z: 50},
+                object: uam1Option.name , //모델 이름을 입력!!!!!
+                rotation: {x: 90, y: 0, z: 0},
+                scale: {x: 0.03, y: 0.03, z: 0.03},
+            });
+
+            app.endloadingBar();
+
+            const flight = componentLayer.getComponentByName('uam1');
+            // bindKeydownEvent(flight); // bind Event
+            initFlightAni(flight);
+
+            vectorLayer = new GeOnDT.vector.U3dVectorLayer({
+                name: 'vector',
+            });
+            await app.addLayer(vectorLayer);
+            await app.showLayer(vectorLayer.getName(), true);
+
+            app.endloadingBar();
+
+            // 스페이스 바 이벤트
+            $(document).on('keydown', function (e) {
+                if (e.code === 'Space' || e.key === ' '){
+                    e.preventDefault();
+
+                    const bullet = addBullet(flight);
+                    fireBullet(flight, bullet);
+                }
+            });
+        } catch (e) {
+            console.log(e);
+            app.endloadingBar();
+        }
+    </script>
+    <script id="flightMove">
+
+
+        // 키보드 방향키로 객체를 앞/뒤로 이동시킬 때 한 번에 이동하는 거리입니다.
+        // 값이 커질수록 한 번 키를 눌렀을 때 더 멀리 이동합니다.
+        const KEYBOARD_MOVE_STEP = 10.0;
+
+        // PageUp / PageDown 키로 객체의 높이를 조절할 때 한 번에 이동하는 높이 값입니다.
+        const KEYBOARD_HEIGHT_STEP = 5;
+
+        // ArrowLeft / ArrowRight 키로 객체를 회전시킬 때 한 번에 회전하는 각도입니다.
+        // Math.PI / 18은 약 10도입니다.
+        const KEYBOARD_ROTATION_STEP = Math.PI / 18;
+
+        // 카메라가 대상 객체 뒤쪽으로 떨어질 거리입니다.
+        const FOLLOW_CAMERA_DISTANCE = 50;
+
+        // 카메라가 대상 객체보다 위쪽에 위치할 높이입니다.
+        const FOLLOW_CAMERA_HEIGHT = 25;
+
+        // 카메라가 바라볼 지점의 높이 보정값입니다.
+        // 객체의 중심보다 살짝 위를 바라보게 하면 화면이 더 자연스럽습니다.
+        const FOLLOW_CAMERA_LOOK_HEIGHT = 6;
+
+        // 카메라가 대상 객체의 바로 앞이 아니라,
+        // 진행 방향 앞쪽을 바라보게 하기 위한 거리입니다.
+        const FOLLOW_CAMERA_LOOK_AHEAD = 30;
+
+
+        /**
+         * 키보드 조작 이벤트와 추적 카메라를 대상 객체에 연결합니다.
+         *
+         * @param {Object} object 키보드로 이동/회전시킬 대상 객체
+         */
+        function bindKeydownEvent(object) {
+            // 대상 객체가 없거나 엔진에서 사용하는 컴포넌트 객체가 아니면 실행하지 않습니다.
+            if (!object || !object.isComponent) return;
+
+            // 키보드 입력으로 객체를 움직일 수 있도록 이벤트를 등록합니다.
+            setKeyboardMoveEvent(object);
+
+
+        }
+
+
+        /**
+         * 대상 객체를 따라가도록 카메라 위치와 바라보는 방향을 갱신합니다.
+         *
+         * 입문자 설명:
+         * - 카메라는 target 객체의 "뒤쪽 + 위쪽"에 위치합니다.
+         * - 그리고 target 객체가 바라보는 앞쪽을 같이 바라봅니다.
+         *
+         * 중요한 벡터 개념:
+         *
+         * const forward = new app._THREE.Vector3(0, 0, 1);
+         *
+         * 여기서 forward는 "모델의 기본 앞 방향"입니다.
+         * 즉, 모델 파일 또는 target 객체가 처음 만들어졌을 때
+         * 모델이 바라본다고 가정하는 로컬 방향입니다.
+         *
+         * 현재 target 모델은 X축 기준으로 90도 회전된 대상입니다.
+         * 따라서 (0, 0, 1)이라는 기본 앞 방향을 그대로 사용하면 안 되고,
+         * target의 현재 회전값을 적용해야 실제 월드 공간에서의 앞 방향을 알 수 있습니다.
+         *
+         * 그래서 아래 코드가 필요합니다.
+         *
+         * forward.applyEuler(target.getRotation());
+         *
+         * 이 처리를 하면:
+         * - 모델의 로컬 앞 방향인 (0, 0, 1)이
+         * - target의 X축 90도 회전값까지 반영된
+         * - 실제 월드 공간의 앞 방향으로 변환됩니다.
+         *
+         * @param {Object} target 카메라가 따라갈 대상 객체
+         */
+        function followCamera(target) {
+            // 따라갈 대상이 없으면 아무 작업도 하지 않습니다.
+            if (!target) return;
+
+            // target의 현재 위치를 가져옵니다.
+            const targetPosition = target.getVectorPosition?.();
+
+            // 위치 정보가 없으면 카메라 위치를 계산할 수 없으므로 종료합니다.
+            if (!targetPosition) return;
+
+            // 이동 계산과 카메라 추적이 같은 기준을 쓰도록
+            // 공통 forward 방향 계산 함수를 사용합니다.
+            const headingDirection = getHeadingDirection(target);
+
+            // 카메라 위치를 계산합니다.
+            //
+            // targetPosition에서 forward의 반대 방향으로 FOLLOW_CAMERA_DISTANCE만큼 이동합니다.
+            // 즉, 객체가 바라보는 방향의 뒤쪽에 카메라를 둡니다.
+            const backHeadingDirection = headingDirection.clone().negate() // 음수 곱하기
+            backHeadingDirection.multiplyScalar(FOLLOW_CAMERA_DISTANCE); //  상수 곱해서 크기 키우기
+            const cameraPosition = targetPosition
+                .clone().add(backHeadingDirection);
+
+
+            // 카메라를 target보다 위쪽으로 올립니다.
+            cameraPosition.z += FOLLOW_CAMERA_HEIGHT;
+
+            // 카메라가 바라볼 지점을 계산합니다.
+            //
+            // target의 현재 위치보다 조금 앞쪽을 바라보게 하면
+            // 객체가 이동하는 방향을 더 자연스럽게 볼 수 있습니다.
+            const lookAtPosition = headingDirection.multiplyScalar(FOLLOW_CAMERA_LOOK_AHEAD)
+            const lookTarget = targetPosition
+                .clone().add(lookAtPosition);
+
+            // 바라볼 지점을 살짝 위로 올립니다.
+            lookTarget.z += FOLLOW_CAMERA_LOOK_HEIGHT;
+
+            // 실제 카메라가 존재할 때만 위치와 방향을 갱신합니다.
+            if (app._camera) {
+                // 카메라를 계산된 위치로 이동합니다.
+                app._camera.position.copy(cameraPosition);
+
+                // 카메라가 lookTarget 지점을 바라보게 합니다.
+                app._camera.lookAt(lookTarget);
+            }
+        }
+
+
+        /**
+         * 키보드 입력으로 대상 객체를 이동하거나 회전시키는 이벤트를 등록합니다.
+         *
+         * 조작 키:
+         * - ArrowUp    : 객체가 바라보는 앞 방향으로 이동
+         * - ArrowDown  : 객체가 바라보는 뒤 방향으로 이동
+         * - ArrowLeft  : 왼쪽 회전
+         * - ArrowRight : 오른쪽 회전
+         * - PageUp     : 위로 이동
+         * - PageDown   : 아래로 이동
+         *
+         * @param {Object} moveTarget 키보드로 조작할 대상 객체
+         */
+        function setKeyboardMoveEvent(moveTarget) {
+            // 조작할 대상이 없으면 이벤트를 등록하지 않습니다.
+            if (!moveTarget) return;
+
+            // 기존에 등록된 키보드 이벤트가 있으면 제거합니다.
+            // 제거하지 않으면 같은 키 입력에 이벤트가 여러 번 실행될 수 있습니다.
+            if (window.keyboardMoveHandler) {
+                window.removeEventListener('keydown', window.keyboardMoveHandler);
+            }
+
+            // 새로운 키보드 이벤트 핸들러를 등록합니다.
+            window.keyboardMoveHandler = function (event) {
+                // 대상 객체가 없으면 아무 작업도 하지 않습니다.
+                if (!moveTarget) return;
+
+                // 현재 객체 위치를 가져옵니다.
+                const position = moveTarget.getVectorPosition?.();
+
+                // 위치 정보가 없으면 이동 계산을 할 수 없으므로 종료합니다.
+                if (!position) return;
+
+                // 입력된 키에 따라 이동 또는 회전을 처리합니다.
+                setKeyCase(event, moveTarget);
+
+                // 현재 위치 확인용 로그입니다.
+                console.log('move target position:', moveTarget.getVectorPosition());
+            };
+
+            // window에 keydown 이벤트를 등록합니다.
+            window.addEventListener('keydown', window.keyboardMoveHandler);
+
+            //followCamera(moveTarget);
+        }
+
+        function getHeadingDirection(moveTarget) {
+
+            // 현재 객체 회전값을 가져옵니다.
+            const rotation = moveTarget.getRotation?.() ?? moveTarget.rotation;
+
+            // 모델의 기본 앞 방향입니다.
+            //
+            // 이 모델은 X축 기준으로 90도 회전된 상태이므로,
+            // 단순히 월드 좌표의 특정 방향으로 이동시키면 안 됩니다.
+            //
+            // 먼저 모델이 원래 바라보는 방향인 (0, 0, 1)을 만들고,
+            // 그다음 moveTarget의 실제 회전값을 적용해서
+            // 현재 화면/월드에서의 진짜 앞 방향을 계산합니다.
+            const headingDirection = new GeOnDT.object.UGPoint(0, 0, 1);
+
+                // quaternion은 객체의 최종 회전 상태를 표현합니다.
+                //
+                // applyQuaternion()을 사용하면 현재 객체가
+                // X축 90도 회전, 좌우 회전 등 어떤 회전을 가지고 있든
+                // forward 벡터가 실제 월드 방향으로 변환됩니다.
+                if (moveTarget.quaternion) {
+                    headingDirection.applyQuaternion(moveTarget.quaternion);
+                } else if (rotation) {
+                    headingDirection.applyEuler(rotation);
+                }
+
+            // 카메라와 이동 모두 같은 "순수 방향"을 바라보도록
+            // 길이 1짜리 단위 벡터로 맞춰 반환합니다.
+            return headingDirection.normalize();
+        }
+
+
+        function applyMoveAndRotation(target, option = {}) {
+            const position = target.getVectorPosition?.();
+            const rotation = target.getRotation?.() ?? target.rotation;
+            if (!position || !rotation) {
+                return {
+                    positionChanged: false,
+                    rotationChanged: false,
+                };
+            }
+
+            const nextPosition = new GeOnDT.object.UGPoint(position.x, position.y, position.z);
+
+            let rotationChanged = false;
+            let positionChanged = false;
+
+            const side = option.side ?? 0;
+            if (side !== 0) {
+                target.setRotation({
+                    x: rotation.x,
+                    y: rotation.y + side,
+                    z: rotation.z
+                });
+                rotationChanged = true;
+            }
+
+            const frontBack = option.frontBack ?? 0;
+            const upDown = option.upDown ?? 0;
+
+            if (frontBack !== 0) {
+                const headingDirection = getHeadingDirection(target);
+                headingDirection.multiplyScalar(frontBack);
+                nextPosition.add(headingDirection);
+
+                positionChanged = true;
+            }
+
+            if (upDown !== 0) {
+                nextPosition.z += upDown;
+                positionChanged = true;
+            }
+
+            if (positionChanged) {
+                target.setPosition(nextPosition);
+            }
+
+            if (positionChanged || rotationChanged) {
+                followCamera(target);
+            }
+
+            return {
+                positionChanged,
+                rotationChanged,
+            };
+        }
+
+        function setKeyCase(event, moveTarget){
+            // 지원하는 키인지 확인하기 위한 값입니다.
+            let handled = true;
+            let result = null;
+
+
+            switch (event.key) {
+                case 'w':
+                    result = applyMoveAndRotation(moveTarget, {
+                        frontBack: KEYBOARD_MOVE_STEP
+                    });
+                    break;
+
+                case 's':
+                    result = applyMoveAndRotation(moveTarget, {
+                        frontBack: -KEYBOARD_MOVE_STEP
+                    });
+                    break;
+
+                case 'a':
+                    result = applyMoveAndRotation(moveTarget, {
+                        side: KEYBOARD_ROTATION_STEP
+                    });
+                    break;
+
+                case 'd':
+                    result = applyMoveAndRotation(moveTarget, {
+                        side: -KEYBOARD_ROTATION_STEP
+                    });
+                    break;
+
+                case 'PageUp':
+                    result = applyMoveAndRotation(moveTarget, {
+                        upDown: KEYBOARD_HEIGHT_STEP
+                    });
+                    break;
+
+                case 'PageDown':
+                    result = applyMoveAndRotation(moveTarget, {
+                        upDown: -KEYBOARD_HEIGHT_STEP
+                    });
+                    break;
+
+                default:
+                    // 지정한 조작 키가 아니면 아무 작업도 하지 않습니다.
+                    handled = false;
+                    break;
+            }
+
+            // 지원하지 않는 키는 브라우저 기본 동작을 그대로 둡니다.
+            if (!handled) return;
+
+            // 회전만 한 경우에는 회전값 로그만 남깁니다.
+            if (result?.rotationChanged && !result?.positionChanged) {
+                console.log('move target rotation:', moveTarget.rotation);
+                return;
+            }
+
+        }
+
+
+
+    </script>
+    <script id="flightAni">
+        const FLIGHT_MOVE_SPEED = 120;
+        const FLIGHT_VERTICAL_SPEED = 60;
+        const FLIGHT_YAW_SPEED = Math.PI / 2;
+
+        function createFlightInputState() {
+            return {
+                forward: false,
+                backward: false,
+                turnLeft: false,
+                turnRight: false,
+                rise: false,
+                fall: false,
+            };
+        }
+
+        function updateFlightInputState(event, isPressed) {
+            if (!flightInputState) return;
+
+            switch (event.key) {
+                case 'w':
+                    flightInputState.forward = isPressed;
+                    break;
+                case 's':
+                    flightInputState.backward = isPressed;
+                    break;
+                case 'a':
+                    flightInputState.turnLeft = isPressed;
+                    break;
+                case 'd':
+                    flightInputState.turnRight = isPressed;
+                    break;
+                case 'PageUp':
+                    flightInputState.rise = isPressed;
+                    break;
+                case 'PageDown':
+                    flightInputState.fall = isPressed;
+                    break;
+                default:
+                    return;
+            }
+        }
+
+        function bindFlightInputEvent() {
+            flightInputState = createFlightInputState();
+
+            if (window.flightInputKeydownHandler) {
+                window.removeEventListener('keydown', window.flightInputKeydownHandler);
+            }
+            if (window.flightInputKeyupHandler) {
+                window.removeEventListener('keyup', window.flightInputKeyupHandler);
+            }
+
+            window.flightInputKeydownHandler = function (event) {
+                updateFlightInputState(event, true);
+            };
+
+            window.flightInputKeyupHandler = function (event) {
+                updateFlightInputState(event, false);
+            };
+
+            window.addEventListener('keydown', window.flightInputKeydownHandler);
+            window.addEventListener('keyup', window.flightInputKeyupHandler);
+        }
+
+        function updateFlightAnimation_(target, deltaTime) {
+            if (!target || !flightInputState) return;
+
+            const dtSec = deltaTime / 1000; // 초 -> 미리초 변환
+            if (!Number.isFinite(dtSec) || dtSec <= 0) return; // 시간 변화 없으면 조기 종료
+
+            const frontBack = (flightInputState.forward ? 1 : 0) - (flightInputState.backward ? 1 : 0);
+            const upDown = (flightInputState.rise ? 1 : 0) - (flightInputState.fall ? 1 : 0);
+            const side = (flightInputState.turnLeft ? 1 : 0) - (flightInputState.turnRight ? 1 : 0);
+
+            applyMoveAndRotation(target, {
+                frontBack: frontBack * FLIGHT_MOVE_SPEED * dtSec,
+                upDown: upDown * FLIGHT_VERTICAL_SPEED * dtSec,
+                side: side * FLIGHT_YAW_SPEED * dtSec
+            });
+        }
+
+        function ensureFlightAniController(target) {
+            if (flightAniController && !flightAniController.disposed) {
+                return flightAniController;
+            }
+
+            flightAniController = app.makeAnimationController({
+                name: 'flightAction',
+                distance: 100000000,
+                speed: 1000,
+                easing: 'Linear', // 기본값 Linear
+                animation: function (deltaTime) {
+                    updateFlightAnimation_(target, deltaTime);
+                    const dtSec = deltaTime/ 1000;
+                    target._mixers.forEach(m => m.update(dtSec))
+                },
+                completeFunc: function (currentController) {
+                    currentController.restart();
+                }
+            });
+
+            return flightAniController;
+        }
+
+        function initFlightAni(target) {
+            if (!target || !target.isComponent) return;
+
+            bindFlightInputEvent();
+            flightElapsedTimeMs = 0;
+
+            const controller = ensureFlightAniController(target);
+            if (!controller) return;
+
+            controller.start();
+        }
+    </script>
+    <script id="bullet">
+        // step 1 ) 총알 추가
+        // 실전 : Sphere 말고 다양한 geom 객체로 추가해 보기
+        function addBullet(flight) {
+            // Sphere(구) 총알 객체 생성
+            const bullet = new GeOnDT.geom.U3dSphere({
+                color: '#ff943c',
+                heightSegments: 24,
+                widthSegments: 24,
+                opacity: 1,
+                radius: 1,
+            });
+            bullet.name = 'mountedBullet';
+            vectorLayer.addGeometry(bullet); // 벡터 레이어에 추가
+
+            // 비행기 위치에 총알 세팅
+            const initPoint = flight.getPosition?.();
+            bullet.setPosition(initPoint.x, initPoint.y, initPoint.z);
+
+            return bullet;
+        }
+
+        // step 2 ) 총알 발사 구동부 작성
+        async function fireBullet(flight, bullet) {
+            const distance = 300;
+            const speed = 300;
+
+            // 총알이 발사 되는 위치 = 비행기의 위치
+            const from = bullet.position.clone();
+            // 총알이 날아갈 방향
+            const direction = getDirection(flight, distance);
+
+            // 총알 쏘기 옵션  값
+            const bulletOpt = {
+                distance: distance,
+                speed: speed,
+                from: from,
+                direction: direction
+            }
+
+            const controller = ensureBulletController(bullet, bulletOpt);
+            if (!controller) {
+                console.error('Animation controller creation failed.');
+                return;
+            }
+            controller.start();
+        }
+
+        // step 3 ) 총알이 날아갈 방향 벡터 구하기
+        function getDirection (flight, distance) {
+            // 전방향 벡터
+            let forward = new app._THREE.Vector3(0, 0, 1);
+
+            // 비행기의 회전 값 추출
+            const flightRot = flight?.getRotation?.();
+            forward.applyEuler(flightRot).normalize();
+
+            return forward.multiplyScalar(distance);
+        }
+
+        // step 4 ) 총알 발사 애니메이션 컨트롤러 생성
+        function ensureBulletController(bullet, bulletOpt) {
+            const {distance, speed, from, direction} = bulletOpt;
+
+            return app.makeAnimationController({
+                name: 'bulletAction',
+                distance: distance,
+                speed: speed,
+                easing: 'EaseOutCubic',
+                animation: function (deltaTime, updateRate) {
+                    // 진행률 바탕으로 실제 구동할 animation function 작성
+                    // 1. 총알 위치 계산
+                    // 2. 총알 위치 갱신
+                    updateBulletAnimation(bullet, from, direction, updateRate);
+                },
+                // animation 완료 후 수행할 function 작성
+                // 1. 총알 제거
+                // 2. 컨트롤러 제거
+                completeFunc: function (controller) {
+                    clearBullet(bullet, controller)
+                }
+            });
+        }
+
+        // step 5 ) 총알 위치 갱신
+        function updateBulletAnimation(bullet, from, to, updateRate) {
+            // 애니메이션 진행롤에 따라 보간된 위치
+            const movePoint = from.addScaledVector(to, updateRate);
+            const geoPoint = app.vector3ToGeoGraphic(movePoint);
+
+            // 총알의 위치 업데이트
+            bullet.setPosition(geoPoint.x, geoPoint.y, geoPoint.z);
+        }
+
+        // step 6 ) 총알 제거
+        function clearBullet (bullet, controller) {
+            // ---- bullet 제거 ----
+            vectorLayer.removeGeometry(bullet);
+
+            // 1. 수동 삭제
+            if (bullet.material) {
+                if (Array.isArray(bullet.material)) {
+                    for (let material of bullet.material) {
+                        if (material.map) {
+                            material.map.dispose();
+                            material.map = undefined;
+                        }
+                        material.dispose();
+                    }
+                } else {
+                    if (bullet.material.map) {
+                        bullet.material.map.dispose();
+                        bullet.material.map = undefined;
+                    }
+                    bullet.material.dispose();
+                }
+                bullet.material = undefined;
+            }
+
+            if (bullet.geometry) {
+                bullet.geometry.dispose();
+                bullet.geometry = undefined;
+            }
+
+            //2. UDEF 메서드 사용
+            GeOnDT.UDEF.disposeObject3D(bullet);
+
+            // ----  애니메이션 컨트롤러 제거 ----
+            controller.dispose();
+        }
+    </script>
+</body>
+</html>

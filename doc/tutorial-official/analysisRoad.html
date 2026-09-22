@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>도로 편집 예제 </title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="css/tutorial.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        html, body {
+            height: 100%;
+        }
+
+        .execute-popup {
+            display: inline-block;
+            width: fit-content;
+        }
+
+        .infomation-area {
+            display: inline-block;
+            position: relative;
+            top: 8px;
+            padding: 0 15px;
+        }
+
+        #info {
+            margin-top: 5px;
+            font-size: 25px;
+            color: #5c91f2;
+        }
+
+        .info-box {
+            display: none;
+            position: absolute;
+            z-index: 2;
+            bottom: 1px;
+            left: 50px;
+            width: 900px;
+        }
+
+        .examples {
+            padding: 15px 30px 15px 30px;
+        }
+
+
+        #map {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        #map-wrapper {
+            position: relative;
+            height: 600px;
+        }
+
+        .h-300 {
+            height: 300px;
+        }
+
+        .scroll-auto {
+            overflow: auto;
+        }
+
+        .popup-capture > img {
+            width: 100%;
+        }
+
+        .d-flex {
+            display: flex;
+        }
+
+        .flex-1 {
+            flex-grow: 1
+        }
+
+    </style>
+</head>
+<body>
+<div id="map-wrapper">
+    <div id="map"></div>
+</div>
+<div class="execute-popup">
+    <button>직접해보기</button>
+</div>
+<div class="infomation-area">
+    <span class="glyphicon glyphicon-info-sign" id="info"></span>
+    <pre class="info-box">
+        * 도로 편집 : 지도 위에 도로를 그리고 편집하는 기능
+
+        1) 도로 선택
+            - 서버에서 받아오는 도로 유형을 선택하여 도로의 텍스처를 설정할 수 있다.
+        2) 도로 그리기
+            - 마우스 클릭으로 도로를 추가하는 기능
+            - 차선 수 와 너비를 조절하여 도로를 그릴 수 있다.
+            - 마우스 클릭으로 도로 구간 추가, 더블클릭시 종료한다.
+        3) 도로 편집
+            1. 도로 편집 버튼을 누르면 생성되는 도로 양 끝의 편집점을 클릭 후 마우스를 이동해 도로를 늘리거나 줄일 수 있다.
+            2. 도로 병합 버튼을 누르고 서로 다른 두개의 도로를 눌러 병합 시킬 수 있다.
+            3. 선택 제거를 눌러 도로를 클륵하여 삭제하거나 전체 제거를 눌러 전체 도로를 제거할 수 있다.
+    </pre>
+</div>
+<div class="examples row">
+    <div class="ex-explanation" hidden>
+        <p class="lead">
+            ...
+        </p>
+    </div>
+    <div class="col-sm-12">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <div class="d-flex">
+                    <div>도로 추가</div>
+                    <div class="flex-1 text-right">
+                    </div>
+                </div>
+            </div>
+            <div class="h-300 scroll-auto panel-body">
+                <div class="col-sm-6">
+                    <label class="col-sm-12">도로 선택</label>
+                    <div class="col-sm-12 form-group">
+                        <label style="float: right; margin-right: 10px">라벨<input type="checkbox" class="btn label-visible"></label>
+                        <select class="form-control input-sm select-component-road" style="width: 150px; margin-bottom:15px;"></select>
+                        <div class="form-group">
+                            <div class="input-group col-sm-4">
+                                <div class="input-group-addon">차선 수</div>
+                                <input class="form-control input-sm input-road-line road-setting" type="number" value="1" min="1" max="10">
+                                <div class="input-group-addon">너비</div>
+                                <input class="form-control input-sm input-road-width road-setting" type="number" value="10">
+                            </div>
+                        </div>
+                        <div class="btn-group">
+                            <div class="btn btn-default btn-sm btn-add-road toggle">도로 그리기(더블클릭종료)</div>
+                            <div class="btn btn-default btn-sm btn-revert-road">되돌리기</div>
+                        </div>
+                        <br><br>
+                        <div class="btn-group">
+                            <div class="btn btn-default btn-sm btn-edit-road toggle">도로 편집</div>
+                            <div class="btn btn-default btn-sm btn-combine-road toggle">도로 병합</div>
+                        </div>
+                        <br><br>
+                        <div class="btn-group">
+                            <div class="btn btn-default btn-sm btn-clear-selected-road toggle">선택 제거</div>
+                            <div class="btn btn-default btn-sm btn-clear-road">전체 제거</div>
+                            <div class="btn btn-default btn-sm btn-save-road">저장</div>
+                            <div class="btn btn-default btn-sm btn-load-road">불러오기</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6">
+                    <lable class="col-sm-12">JSON 데이터</lable>
+                    <textarea class="form-control road-json" readonly="readonly" rows="10"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    });
+</script>
+<script id="info-event">
+    $('#info').on('mouseover', function () {
+        $('.info-box').css('display', 'block');
+    }).on('mouseout', function () {
+        $('.info-box').css('display', 'none');
+    });
+</script>
+<script>
+    require(['app/Union3D'], function (Union3D) {
+        //라이센스 인증
+        Union3D.ready(function () {
+            //지도 기본 세팅///////////////////////////////////////
+            const app = new Union3D.U3dAPP({
+                containername: 'map',
+            });
+
+            window.app = app;
+
+            app.createloadingBar('load'); //+ loading 생성
+            app.loadingBar(); //+var load = '#' + self._idLoad;   //$(load).show();
+            //초기 지도 위치 설정 (여의도)
+            app.setHomePosition(129.06827815698367, 35.18526863025463, 450, 0, 60); //경도, 위도, 높이, 방위각, 고도각
+            app.updateHomePosition(); //+ home position 수정
+
+            //이미지 레이어 생성
+            const layer = new Union3D.image.U3dImageXYZLayer({
+                name: 'base', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+                baseurl: layerInfo.image.vworldsaturl,  //+ 이미지 데이터 URL, *필수 입력
+                reverseY: true,  //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            });
+            app.addLayer(layer);
+            app.setNameBaseLayer('base');
+            app.showLayer('base', true);
+
+            //+ U3F 건물
+            initU3fModelLayers();
+
+            //고도 레이어 생성
+            const terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+                name: 'Korea Terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+                baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+                ext: '.umf', //+ 파일 확장자,  *필수 입력
+                reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false), *필수 입력
+                minlevel: 9,  //+ 가시화 최소 레벨
+                maxlevel: 15, //+ 가시화 최대 레벨
+                useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+                maxprocess: 2, //+ process 최대값
+                interpolationheight: true,  //+ 고도보간 기능 사용 여부
+                rectangle: Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수
+            });
+            app.addLayer(terrainLayer);
+            app.showLayer('Korea Terrain', true);
+
+            //이미지 레이어 생성
+            function createEmapBaseLayer(name) {
+                const maxprocess_image = 5;
+                const key = 'emapsat';
+                const geoextent = [124.281252, 33.276145, 129.563837, 38.593601];
+                const opt = {
+                    name: name,  //+ layer 검색시 필요한 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+                    layername: key //+ layername, defaultValue(opt.layername, 'korean_map');
+                    , maxprocess: maxprocess_image  //+ 최대 process 값
+                    , useProxy: true //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+                    , geoextent: geoextent   //+ 영역, defaultValue(opt.geoextent, getEmapGeoExtent_());
+                }
+                return app.createEmapBaseLayer(opt);
+            }
+
+            //모델 레이어 생성
+            function initU3fModelLayers() {
+                try {
+                    let modelayers = app.createModelGroupLayer({
+                        maxlevel: 19,
+                        minlevel: 17,
+                        name: 'u3f'
+                    });
+
+                    $.ajax({
+                        url: modelU3fURL,
+                        crossDomain: true,
+                        beforeSend: function (xhr) {
+                            xhr.setRequestHeader('User-Authorization', trdDimAPIKey);
+                            xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+                        },
+                        error: function (e) {
+                            console.info(e);
+                        }
+                    }).then(function (result) {
+                        let maxprocess_model_ = 10;
+                        let sizeblock_model_ = 10;
+                        let updateimagedistance_ = 50;
+                        let wrapping =undefined;
+                        let infos = result.params.data;
+
+                        for (let i = 0; i < infos.length; i++) {
+                            let info = infos[i];
+                            /* 레이어 목록 중 발행중인 레이어만 요청 */
+                            if (info.state === "ACTIVE") {
+                                let metaData = info.metaData;
+                                let subLayerName = info.name;
+                                let buldLayerConstruct = {};
+                                Object.assign(buldLayerConstruct, {name: subLayerName});
+                                Object.assign(buldLayerConstruct, {basename: subLayerName});
+                                Object.assign(buldLayerConstruct, {baseurl: info.baseUrl});
+                                Object.assign(buldLayerConstruct, {minlevel: metaData.minLevel});
+                                Object.assign(buldLayerConstruct, {maxlevel: metaData.maxLevel});
+                                Object.assign(buldLayerConstruct, {srs: metaData.srs});
+                                Object.assign(buldLayerConstruct, {ext: '.' + metaData.ext});
+                                Object.assign(buldLayerConstruct, {maxprocess: maxprocess_model_});
+                                Object.assign(buldLayerConstruct, {sizeblock: sizeblock_model_});
+                                Object.assign(buldLayerConstruct, {updateimagedistance: updateimagedistance_});
+                                Object.assign(buldLayerConstruct, {grouplayer: modelayers});
+                                Object.assign(buldLayerConstruct, {wrapping: wrapping});
+                                Object.assign(buldLayerConstruct, {renderorder: 0});
+                                Object.assign(buldLayerConstruct, {useproxy: false});
+
+                                let subLayer = app.create3DFModelLayer(buldLayerConstruct);
+                                subLayer.then(function (layer) {
+                                    app.showLayer(layer.getName(), true);
+                                }).fail(function (layer) {
+
+                                });
+                            }
+                        }
+                    })
+                } catch (localBuldError) {
+                    console.log('Initialize Error Message : ' + localBuldError);
+                }
+            }
+
+            ////////////////////////////////////////////////////////////////////////////////////
+            const API_KEY = 'YKAFjxVvNJEA/S1xcEjprW49M6wQSAva3PC7u3KHJxrZ3ZaTVfN40QdiqzAYrFf5';
+            const serverURL = 'https://3d.geon.kr/';
+
+            //분석모듈 초기화
+            const analy = app.getAnalysis('Road');
+            analy.active();
+            window.analy = analy; //Debug
+
+            //서버에 등록된 도로 목록을 받아와 갱신
+            refreshComponentList();
+            function refreshComponentList() {
+                $(".select-component-road").empty();
+                const callback = function (infoList, selector) {
+                    for (let info of infoList) {
+                        let name = info.name;
+                        selector.append(
+                            '<option value="' + name + '">' + name + '</option>'
+                        );
+                    }
+                }
+
+                getRegisteredRoadList("jpg").then((infoList) => {
+                    callback(infoList, $(".select-component-road"));
+                });
+                getRegisteredRoadList("png").then((infoList) => {
+                    callback(infoList, $(".select-component-road"));
+                });
+
+            }
+
+            //서버에 등록된 도로 텍스처 리스트 가져오기
+            function getRegisteredRoadList(type) {
+                let promise = $.Deferred();
+                let params = 'type=' + type;
+                $.ajax({
+                    url: serverURL + 'v1/layers?' + params,
+                    beforeSend: function (xhr) {
+                        xhr.setRequestHeader('User-Authorization', API_KEY);
+                    }
+                }).then(function (e) {
+                    const infoList = e.params.data;
+                    infoList.sort(function (a, b) {
+                        if (a.name > b.name) {
+                            return 1;
+                        } else {
+                            return -1;
+                        }
+                    });
+                    let resultList = [];
+                    for (let info of infoList) {
+                        if (info.category === "component") {
+                            resultList.push(info);
+                        }
+                    }
+                    promise.resolve(resultList);
+                });
+                return promise;
+            }
+
+            //서버에 등록된 레이어의 정보를 가져옵니다.
+            function getRegisteredComponent(name) {
+                return $.ajax({
+                    url: serverURL + 'v1/layer/' + name,
+                    beforeSend: function (xhr) {
+                        xhr.setRequestHeader('User-Authorization', API_KEY);
+                    }
+                });
+            }
+
+            // 버튼토글, 클릭시 (활성화, 비활성화) 전환
+            $(document).on('click', '.btn', function () {
+                const $this = $(this);
+                if ($this.hasClass('toggle')) {
+                    let active = $this.hasClass('active');
+                    $('.btn').removeClass('active');
+                    if (!active) {
+                        $this.addClass('active');
+                    }
+                }
+            });
+
+            // 도로 텍스처 선택 (select box)
+            $(document).on('change', '.select-component-road', function (e) {
+                $('.btn.toggle').removeClass('active');
+                analy.deactive();
+            });
+
+            // 차선 / 너비 선택
+            $(document).on('change', '.road-setting', function (e) {
+                $('.btn.toggle').removeClass('active');
+                analy.deactive();
+            });
+
+            //도로 그리기
+            $(document).on('click', '.btn-add-road', function () {
+                if ($(this).hasClass('active')) {
+                    let name = $(".select-component-road").val();
+                    let roadLine = $(".input-road-line").val();
+                    let roadWidth = $(".input-road-width").val();
+                    let useDrawGrid = false; // 도로 생성 시 가이드 격자 사용 여부
+                    if (name !== "") {
+                        analy.addRoad(roadLine, roadWidth, useDrawGrid);
+                        setRoadUrl(name).then((roadImageURL) => {
+                            analy.setRoadImage(roadImageURL);
+                            analy.addRoad(roadLine, roadWidth);
+                        });
+                    }
+                } else {
+                    analy.deactive();
+                }
+            });
+
+            //도로 되돌리기 (실행취소)
+            $(document).on('click', '.btn-revert-road', function () {
+                if (analy.isDrawRoad()) {
+                    analy.revertRoad();
+                }
+            });
+
+            // 도로 이미지 설정
+            function setRoadUrl(name) {
+                let promise = $.Deferred();
+                getRegisteredComponent(name).then((result) => {
+                    const info = result.params.data;
+                    let joinList = [info.baseUrl, info.fileName];
+                    let roadImageURL = joinList.join('/');
+
+                    promise.resolve(roadImageURL);
+                    console.log(roadImageURL);
+                });
+                return promise;
+            }
+
+            //도로 편집
+            $(document).on('click', '.btn-edit-road', function () {
+                if ($(this).hasClass('active')) {
+                    analy.edtiRoad().catch(()=>{
+                        alert ("아직 종료되지 않은 도로가 있습니다.");
+                        $(this).removeClass('active');
+                    });
+                } else {
+                    analy.deactive();
+                }
+            });
+
+            //도로 병합
+            $(document).on('click', '.btn-combine-road', function () {
+                if ($(this).hasClass('active')) {
+                    analy.combineRoad().catch(()=>{
+                        alert ("아직 종료되지 않은 도로가 있습니다.");
+                        $(this).removeClass('active');
+                    });
+                } else {
+                    analy.deactive();
+                }
+            });
+
+            // 도로 선택 제거 (클릭제거)
+            $(document).on('click', '.btn-clear-selected-road', function () {
+                if ($(this).hasClass('active')) {
+                    analy.removeClickedRoad();
+                } else {
+                    analy.deactive();
+                }
+            });
+
+            // 도로 전체 제거
+            $(document).on('click', '.btn-clear-road', function () {
+                analy.clearRoad();
+                app.updateData();
+            });
+
+            // 도로 저장
+            $(document).on('click', '.btn-save-road', function () {
+                const data = JSON.stringify(analy.saveRoad(), undefined, 4);
+                $('.road-json').val(data);
+            });
+
+            // 도로 불러오기
+            $(document).on('click', '.btn-load-road', function () {
+                const data = JSON.parse($('.road-json').val());
+                if (data === undefined || data.length === 0) {
+                    return;
+                }
+                for (let i = 0; i < data.length; i++) {
+                    analy.setRoad(data[i]);
+                }
+                app.updateData();
+            });
+
+            //전체 라벨 show - hide
+            $(document).on('click', '.label-visible', function (e) {
+                let isShow = $(e.target).is(':checked');
+                if (isShow)
+                    analy.showLabel();
+                else
+                    analy.hideLabel();
+            });
+        });
+    });
+</script>
+</body>
+</html>

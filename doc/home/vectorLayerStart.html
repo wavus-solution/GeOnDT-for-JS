@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>벡터 레이어 (U3dVectorLayer)</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="벡터-레이어-u3dvectorlayer">벡터 레이어 (U3dVectorLayer)</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-%EB%B2%A1%ED%84%B0-%EB%A0%88%EC%9D%B4%EC%96%B4-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">벡터 레이어 생성하기</a></li>
+<li><a href="#2-%EB%8F%84%ED%98%95-%EB%93%B1%EB%A1%9D%ED%95%98%EA%B3%A0-%EC%A0%9C%EA%B1%B0%ED%95%98%EA%B8%B0">도형 등록하고 제거하기</a></li>
+<li><a href="#3-%EB%93%B1%EB%A1%9D%EB%90%9C-%EB%8F%84%ED%98%95-%EC%B0%BE%EA%B8%B0">등록된 도형 찾기</a></li>
+<li><a href="#4-%EC%A7%80%ED%98%95-%EB%86%92%EC%9D%B4%EC%97%90-%EB%A7%9E%EC%B6%B0-%EB%9D%84%EC%9A%B0%EA%B8%B0">지형 높이에 맞춰 띄우기</a></li>
+<li><a href="#5-%EC%9E%91%EC%97%85-%EC%A0%80%EC%9E%A5%ED%95%98%EA%B3%A0-%EB%B6%88%EB%9F%AC%EC%98%A4%EA%B8%B0">작업 저장하고 불러오기</a></li>
+<li><a href="#6-%EB%A0%88%EC%9D%B4%EC%96%B4-%EC%9D%B4%EB%B2%A4%ED%8A%B8-%EB%93%B1%EB%A1%9D%ED%95%98%EA%B3%A0-%ED%95%B4%EC%A0%9C%ED%95%98%EA%B8%B0">레이어 이벤트 등록하고 해제하기</a></li>
+<li><a href="#7-%EB%A0%88%EC%9D%B4%EC%96%B4-%ED%91%9C%EC%8B%9C%EC%99%80-%EC%A0%95%EB%A6%AC%ED%95%98%EA%B8%B0">레이어 표시와 정리하기</a></li>
+</ol>
+<div class="document-thumbnail" data-size="medium">
+<figure class="document-image">
+<img src="image/vectorLayerStart/thumbnail.png" alt="한 벡터 레이어에 함께 담은 3D 도형들" loading="eager">
+<figcaption>한 벡터 레이어에 함께 담은 3D 도형들</figcaption>
+</figure>
+</div>
+<p><code>U3dVectorLayer</code>는 점·선·육면체 같은 3D 도형을 담아 지도 위에 그리는 레이어입니다.<br>도형 객체는 스스로 화면에 나타나지 않습니다.<br><mark>벡터 레이어에 등록해야 화면에 표시됩니다.</mark></p>
+<p>한 레이어에 여러 종류의 도형을 함께 담을 수 있고, 가시화·축척·저장·삭제를 레이어 단위로 한 번에 처리합니다.<br>도형마다 다른 생성 옵션과 좌표 지정 방법은 각 도형의 시작하기 문서에서 설명합니다.</p>
+<p>벡터 레이어에 등록할 수 있는 도형은 다음과 같습니다.</p>
+<ul>
+<li><code>GeOnDT.geom.U3dPoint</code> : <a href="pointStart.html#1-%EC%A0%90-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">3D Geometry 시작하기 - 점 생성하기</a></li>
+<li><code>GeOnDT.geom.U3dLine</code> : <a href="lineStart.html#1-%EC%84%A0-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">3D Geometry 시작하기 - 선 생성하기</a></li>
+<li><code>GeOnDT.geom.U3dBox</code> : <a href="boxStart.html#1-box-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">3D Geometry 시작하기 - Box 생성하기</a></li>
+<li><code>GeOnDT.geom.U3dCircle</code> : <a href="circleStart.html#1-%EC%9B%90-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">3D Geometry 시작하기 - 원 생성하기</a></li>
+<li><code>GeOnDT.geom.U3dSphere</code> : <a href="sphereStart.html#1-%EA%B5%AC%EC%B2%B4-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">3D Geometry 시작하기 - 구체 생성하기</a></li>
+<li><code>GeOnDT.geom.U3dCylinder</code> : <a href="cylinderStart.html#1-%EC%9B%90%EA%B8%B0%EB%91%A5-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">3D Geometry 시작하기 - 원기둥 생성하기</a></li>
+<li><code>GeOnDT.geom.U3dPipe</code> : <a href="pipeStart.html#1-%ED%8C%8C%EC%9D%B4%ED%94%84-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">3D Geometry 시작하기 - 파이프 생성하기</a></li>
+<li><code>GeOnDT.geom.U3dFlowPipe</code> : <a href="flowPipeStart.html#1-%ED%9D%90%EB%A6%84-%EA%B0%9D%EC%B2%B4-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">3D Geometry 시작하기 - 흐름 객체 생성하기</a></li>
+<li><code>GeOnDT.geom.U3dUserGeometry</code> : <a href="userGeometryStart.html#1-%EC%82%AC%EC%9A%A9%EC%9E%90-%EB%8F%84%ED%98%95-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">3D Geometry 시작하기 - 사용자 도형 생성하기</a></li>
+<li><code>GeOnDT.geom.U3dPathGeometry</code> : <a href="pathGeometryStart.html#1-%EA%B2%BD%EB%A1%9C-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">3D Geometry 시작하기 - 경로 생성하기</a></li>
+</ul>
+<p>아래는 그중 네 가지 도형의 모양 예시입니다.</p>
+<div class="document-image-grid" data-columns="2">
+<figure class="document-image">
+<img src="image/vectorLayerStart/box.png" alt="육면체(U3dBox) 도형 예시" loading="eager">
+<figcaption>육면체(U3dBox) 도형 예시</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/vectorLayerStart/sphere.png" alt="구체(U3dSphere) 도형 예시" loading="eager">
+<figcaption>구체(U3dSphere) 도형 예시</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/vectorLayerStart/pipe.png" alt="파이프(U3dPipe) 도형 예시" loading="eager">
+<figcaption>파이프(U3dPipe) 도형 예시</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/vectorLayerStart/user.png" alt="사용자 도형(U3dUserGeometry) 예시" loading="eager">
+<figcaption>사용자 도형(U3dUserGeometry) 예시</figcaption>
+</figure>
+</div>
+<hr>
+<h2 id="1-벡터-레이어-생성하기">1. 벡터 레이어 생성하기</h2>
+<p><code>U3dVectorLayer</code> 생성자로 레이어를 만들고, <code>U3dApp.addLayer</code>로 등록한 뒤 <code>U3dApp.showLayer</code>로 화면에 표시합니다.<br>레이어를 등록하고 가시화한 뒤에 도형을 추가하면 바로 화면에 그려집니다.</p>
+<p><code>showLayer</code>는 표시가 끝난 시점에 완료되는 Promise를 돌려줍니다.<br>표시 직후에 이어서 처리할 일이 있으면 <code>await</code>로 기다립니다.</p>
+<p><code>name</code>은 지정하지 않으면 자동으로 만들어집니다.<br><code>app.showLayer</code>와 <code>app.removeLayer</code>가 이름으로 레이어를 찾으므로 <strong>직접 지정하는 것을 권장합니다.</strong></p>
+<h4 class="api-heading" id="api">API</h4>
+<p>U3dVectorLayer(<code>opt</code>) : 벡터 레이어를 생성하는 생성자</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opt</code> (<code>object</code>) : 레이어 생성 옵션</li>
+<li><code>opt.name</code> (<code>string</code>) : 레이어 이름. 지정하지 않으면 자동으로 생성됩니다</li>
+<li><code>opt.autoHeight</code> (<code>boolean</code>) : 등록한 도형을 지형 표고에 맞춰 올릴지 여부. 기본값: <code>false</code></li>
+<li><code>opt.defaultZoffset</code> (<code>number</code>) : 자동 높이를 적용할 때 지형 표고에 더할 높이(m). 기본값: <code>0</code></li>
+<li><code>opt.scaleRatio</code> (<code>number</code>) : 도형 높이 축척 비율. 값이 작을수록 높이가 과장됩니다. 기본값: <code>1</code></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>U3dApp.addLayer(<code>layer</code>) : 레이어를 앱에 등록하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>layer</code> (<code>U3dLayer</code>) : 등록할 레이어. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>U3dLayer | undefined</code>) : 등록한 레이어 객체. 넘긴 객체를 그대로 돌려주므로 성공 여부 판정에는 쓰지 않습니다</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-2">API</h4>
+<p>U3dApp.showLayer(<code>name</code>, <code>show</code>, <code>deleteCache</code>) : 이름으로 레이어를 찾아 표시하거나 숨기는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>name</code> (<code>string</code>) : 레이어 이름. <strong>필수</strong></li>
+<li><code>show</code> (<code>boolean</code>) : 표시 여부. <code>false</code>면 숨깁니다. 기본값: <code>true</code></li>
+<li><code>deleteCache</code> (<code>boolean</code>) : <code>true</code>면 레이어가 들고 있던 캐시를 비우고 다시 불러옵니다. 기본값: <code>false</code></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Promise&lt;{result: string, content: U3dLayer}&gt; | false</code>) : 표시(또는 숨김)가 끝난 시점에 완료되는 Promise. 이름이 없거나 지도가 아직 준비되지 않았으면 <code>false</code>를 반환하고, 그 이름의 레이어가 없으면 reject 됩니다</li>
+</ul>
+</details>
+<h3 id="1-레이어-생성-예제">1. 레이어 생성 예제</h3>
+<p>앱을 만든 뒤 벡터 레이어를 등록하고 화면에 표시합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> app <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>U3dAPP</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">containername</span><span class="token operator">:</span> <span class="token string">'map'</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> vectorLayer <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>vector<span class="token punctuation">.</span>U3dVectorLayer</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'vector'</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+app<span class="token punctuation">.</span><span class="token function">addLayer</span><span class="token punctuation">(</span>vectorLayer<span class="token punctuation">)</span><span class="token punctuation">;</span>      <span class="token comment">// 앱에 레이어 등록</span>
+app<span class="token punctuation">.</span><span class="token function">showLayer</span><span class="token punctuation">(</span><span class="token string">'vector'</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// 등록한 레이어 가시화</span>
+</code></pre>
+<hr>
+<h2 id="2-도형-등록하고-제거하기">2. 도형 등록하고 제거하기</h2>
+<p><code>addGeometry</code>로 도형을 등록하면 레이어가 도형을 관리하기 시작합니다.</p>
+<p><mark>도형을 먼저 등록하고 좌표를 지정합니다.</mark><br>위경도 좌표를 화면 좌표로 변환하는 일은 레이어가 담당하므로, <strong>등록하기 전에 좌표를 지정하면 도형이 원점(0, 0, 0)에 남습니다.</strong></p>
+<p>제거 함수는 세 가지이며 목적이 다릅니다.<br><code>removeGeometry</code>는 도형 하나를 레이어에서 뺍니다.<br><code>removeAllGeometries</code>는 전체를 빼지만 지오메트리와 재질을 해제하지 않으므로 뺀 도형을 다시 등록해 재사용할 수 있습니다.<br><code>clear</code>는 전체를 빼면서 자원까지 해제하므로 <strong><code>clear</code> 이후에는 그 도형을 다시 사용할 수 없습니다.</strong></p>
+<h4 class="api-heading" id="api-3">API</h4>
+<p>U3dVectorLayer.addGeometry(<code>geom</code>) : 도형을 레이어에 등록해 화면에 표시하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>geom</code> (<code>U3dGeometry</code>) : 등록할 도형. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-4">API</h4>
+<p>U3dVectorLayer.removeGeometry(<code>geom</code>) : 도형 하나를 레이어에서 제거하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>geom</code> (<code>U3dGeometry</code>) : 제거할 도형. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-5">API</h4>
+<p>U3dVectorLayer.removeAllGeometries() : 등록된 모든 도형을 제거하는 함수</p>
+<h4 class="api-heading" id="api-6">API</h4>
+<p>U3dVectorLayer.clear() : 등록된 모든 도형을 제거하고 지오메트리·재질 자원까지 해제하는 함수</p>
+<h3 id="1-도형-등록-예제">1. 도형 등록 예제</h3>
+<p>육면체를 등록한 뒤 위경도 좌표를 지정합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> box <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>geom<span class="token punctuation">.</span>U3dBox</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'box_01'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">width</span><span class="token operator">:</span> <span class="token number">20</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">height</span><span class="token operator">:</span> <span class="token number">20</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">depth</span><span class="token operator">:</span> <span class="token number">20</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#2ecc71'</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+vectorLayer<span class="token punctuation">.</span><span class="token function">addGeometry</span><span class="token punctuation">(</span>box<span class="token punctuation">)</span><span class="token punctuation">;</span>                  <span class="token comment">// 1) 레이어에 먼저 등록</span>
+box<span class="token punctuation">.</span><span class="token function">setPosition</span><span class="token punctuation">(</span><span class="token number">126.9393</span><span class="token punctuation">,</span> <span class="token number">37.5194</span><span class="token punctuation">,</span> <span class="token number">40</span><span class="token punctuation">)</span><span class="token punctuation">;</span>        <span class="token comment">// 2) 그 다음 좌표 지정</span>
+</code></pre>
+<h3 id="2-도형-제거-예제">2. 도형 제거 예제</h3>
+<p>이름으로 찾은 도형 하나를 빼거나, 레이어를 통째로 비웁니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> target <span class="token operator">=</span> vectorLayer<span class="token punctuation">.</span><span class="token function">getGeometryByName</span><span class="token punctuation">(</span><span class="token string">'box_01'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span>target<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    vectorLayer<span class="token punctuation">.</span><span class="token function">removeGeometry</span><span class="token punctuation">(</span>target<span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// 도형 하나만 제거</span>
+<span class="token punctuation">}</span>
+
+vectorLayer<span class="token punctuation">.</span><span class="token function">removeAllGeometries</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>        <span class="token comment">// 전체 제거 (도형 재사용 가능)</span>
+vectorLayer<span class="token punctuation">.</span><span class="token function">clear</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>                      <span class="token comment">// 전체 제거 + 자원 해제 (재사용 불가)</span>
+</code></pre>
+<hr>
+<h2 id="3-등록된-도형-찾기">3. 등록된 도형 찾기</h2>
+<p>등록한 도형은 이름으로 하나만 찾거나 전체 목록으로 받을 수 있습니다.</p>
+<p><code>getGeometries</code>는 순회용 반복자를 반환하므로 <code>for...of</code>에 바로 사용합니다.<br>배열 메서드를 쓰려면 <code>getGeometryArray</code>를 사용합니다.</p>
+<p><code>getBoundingBox</code>는 등록된 도형 전체를 감싸는 상자를 월드 좌표(EPSG:3857) 기준으로 반환합니다.<br>등록된 도형이 없으면 비어 있는 <code>Box3</code>를 반환하므로 <code>isEmpty()</code>로 확인한 뒤 사용합니다.</p>
+<h4 class="api-heading" id="api-7">API</h4>
+<p>U3dVectorLayer.getGeometryByName(<code>name</code>) : 이름으로 도형을 찾는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>name</code> (<code>string</code>) : 도형 생성 시 지정한 이름. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>U3dGeometry | undefined</code>) : 찾은 도형. 같은 이름이 여러 개면 먼저 찾은 하나만 반환하고, 없으면 <code>undefined</code></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-8">API</h4>
+<p>U3dVectorLayer.getGeometries() : 등록된 도형 목록을 반복자로 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>IterableIterator&lt;U3dGeometry&gt;</code>) : 등록된 도형 반복자</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-9">API</h4>
+<p>U3dVectorLayer.getGeometryArray() : 등록된 도형 목록을 배열로 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Array&lt;U3dGeometry&gt;</code>) : 등록된 도형 배열</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-10">API</h4>
+<p>U3dVectorLayer.getBoundingBox() : 등록된 도형 전체를 감싸는 바운딩박스를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Box3</code>) : 월드 좌표(EPSG:3857) 기준 바운딩박스. 등록된 도형이 없으면 비어 있는 <code>Box3</code></li>
+</ul>
+</details>
+<h3 id="1-도형-목록-다루기-예제">1. 도형 목록 다루기 예제</h3>
+<p>전체 도형을 순회해 색상을 한 번에 바꿉니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> geom <span class="token keyword">of</span> vectorLayer<span class="token punctuation">.</span><span class="token function">getGeometries</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    geom<span class="token punctuation">.</span><span class="token function">setColor</span><span class="token punctuation">(</span><span class="token string">'#ff9500'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">const</span> count <span class="token operator">=</span> vectorLayer<span class="token punctuation">.</span><span class="token function">getGeometryArray</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>length<span class="token punctuation">;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">등록된 도형 </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>count<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">개</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-전체-영역-확인-예제">2. 전체 영역 확인 예제</h3>
+<p>바운딩박스의 중심을 계산해 화면을 맞출 위치를 얻습니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> box <span class="token operator">=</span> vectorLayer<span class="token punctuation">.</span><span class="token function">getBoundingBox</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>box<span class="token punctuation">.</span><span class="token function">isEmpty</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> center <span class="token operator">=</span> box<span class="token punctuation">.</span><span class="token function">getCenter</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'중심 월드 좌표'</span><span class="token punctuation">,</span> center<span class="token punctuation">.</span>x<span class="token punctuation">,</span> center<span class="token punctuation">.</span>y<span class="token punctuation">,</span> center<span class="token punctuation">.</span>z<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<hr>
+<h2 id="4-지형-높이에-맞춰-띄우기">4. 지형 높이에 맞춰 띄우기</h2>
+<p>도형의 높이(z)는 지형과 무관한 절대 높이입니다.<br>지형이 높은 지역에서는 도형이 지면 아래로 묻힐 수 있습니다.</p>
+<p><code>setAutoHeight(true)</code>를 호출하면 등록된 도형이 그 지점의 지형 표고 위로 올라가고, 이후 지형 타일이 로드될 때마다 높이가 갱신됩니다.<br><code>setAutoHeight(false)</code>로 끄면 도형의 원래 높이로 되돌아갑니다.</p>
+<p><strong>도형의 좌표를 지정한 뒤에 <code>setAutoHeight(true)</code>를 호출합니다.</strong><br>좌표가 아직 원점인 도형은 지형을 조회할 위치가 정해지지 않아 자동 높이가 적용되지 않습니다.</p>
+<p>지형 위로 얼마나 띄울지는 생성자 옵션 <code>defaultZoffset</code>(m)으로 지정합니다.<br>이 값은 <strong>생성 시에만 적용되며</strong> <code>setAutoHeight</code>로는 바꿀 수 없습니다.</p>
+<h4 class="api-heading" id="api-11">API</h4>
+<p>U3dVectorLayer.setAutoHeight(<code>value</code>) : 자동 높이 사용 여부를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>value</code> (<code>boolean</code>) : 자동 높이 사용 여부. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-12">API</h4>
+<p>U3dVectorLayer.getAutoHeight() : 자동 높이 사용 여부를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>boolean</code>) : 자동 높이 사용 여부</li>
+</ul>
+</details>
+<h3 id="1-지형-위에-올리는-예제">1. 지형 위에 올리는 예제</h3>
+<p>지형 위 5m 높이로 도형을 띄우는 레이어입니다.<br>지형 레이어가 등록되어 있어야 지형 표고를 조회할 수 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> vectorLayer <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>vector<span class="token punctuation">.</span>U3dVectorLayer</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'vector'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">defaultZoffset</span><span class="token operator">:</span> <span class="token number">5</span>   <span class="token comment">// 지형 표고 + 5m</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+app<span class="token punctuation">.</span><span class="token function">addLayer</span><span class="token punctuation">(</span>vectorLayer<span class="token punctuation">)</span><span class="token punctuation">;</span>
+app<span class="token punctuation">.</span><span class="token function">showLayer</span><span class="token punctuation">(</span><span class="token string">'vector'</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> box <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>geom<span class="token punctuation">.</span>U3dBox</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'box_01'</span><span class="token punctuation">,</span> <span class="token literal-property property">width</span><span class="token operator">:</span> <span class="token number">20</span><span class="token punctuation">,</span> <span class="token literal-property property">height</span><span class="token operator">:</span> <span class="token number">20</span><span class="token punctuation">,</span> <span class="token literal-property property">depth</span><span class="token operator">:</span> <span class="token number">20</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+vectorLayer<span class="token punctuation">.</span><span class="token function">addGeometry</span><span class="token punctuation">(</span>box<span class="token punctuation">)</span><span class="token punctuation">;</span>
+box<span class="token punctuation">.</span><span class="token function">setPosition</span><span class="token punctuation">(</span><span class="token number">126.9882</span><span class="token punctuation">,</span> <span class="token number">37.5512</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// 좌표를 먼저 지정</span>
+
+vectorLayer<span class="token punctuation">.</span><span class="token function">setAutoHeight</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>         <span class="token comment">// 그 다음 자동 높이 적용</span>
+</code></pre>
+<p>지형 타일이 아직 로드되지 않은 위치에서는 높이를 조회할 수 없어 도형이 원래 높이에 남습니다.<br>해당 지역의 지형이 화면에 표시된 뒤 값이 반영됩니다.</p>
+<hr>
+<h2 id="5-작업-저장하고-불러오기">5. 작업 저장하고 불러오기</h2>
+<p><code>saveWork</code>는 등록된 도형의 생성 속성을 모아 반환합니다.<br>반환값을 JSON으로 보관했다가 <code>loadWork</code>로 다시 그릴 수 있습니다.</p>
+<p><code>saveWork</code>는 도형마다 <code>getParam</code>을 호출하므로 <code>getParam</code>이 없는 도형은 저장 대상에서 빠집니다.<br>저장할 도형이 하나도 없으면 <code>undefined</code>를 반환합니다.</p>
+<p><code>loadWork</code>는 저장 항목을 하나씩 콜백으로 넘깁니다.<br>도형을 실제로 만들어 레이어에 등록하는 일은 콜백이 담당합니다.<br>콜백은 <code>{type, param}</code> 형태의 항목 하나를 받고, <code>type</code>은 도형의 클래스 이름입니다.<br>이미 같은 이름(<code>param.name</code>)의 도형이 있으면 경고를 남기고 그 항목을 건너뜁니다.</p>
+<p><strong>대부분의 도형은 <code>getParam</code>에 이름을 담지 않습니다.</strong><br>저장 데이터에 이름이 없으면 위 중복 검사도 건너뛰므로, 복원한 도형을 이름으로 다시 찾으려면 콜백에서 이름을 직접 지정합니다.</p>
+<h4 class="api-heading" id="api-13">API</h4>
+<p>U3dVectorLayer.saveWork() : 등록된 도형의 속성을 모아 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>object | undefined</code>) : 저장 데이터. 저장할 도형이 없으면 <code>undefined</code></li>
+<li><code>return.geometries</code> (<code>Array&lt;object&gt;</code>) : 도형 목록. 항목마다 <code>type</code>(클래스 이름)과 <code>param</code>(생성 속성)을 가집니다</li>
+<li><code>return.name</code> (<code>string</code>) : 레이어 이름</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-14">API</h4>
+<p>U3dVectorLayer.loadWork(<code>savedData</code>, <code>callback</code>) : 저장 데이터로 도형을 다시 만드는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>savedData</code> (<code>object | Array&lt;object&gt;</code>) : <code>saveWork</code>가 반환한 <code>geometries</code> 항목 또는 그 배열. <strong>필수</strong></li>
+<li><code>callback</code> (<code>function</code>) : 항목 하나를 받아 도형을 만들고 레이어에 등록하는 함수. <strong>필수</strong></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Promise&lt;Array&lt;*&gt;&gt;</code>) : 모든 콜백 처리가 끝나면 완료되는 Promise</li>
+</ul>
+</details>
+<h3 id="1-저장하고-복원하는-예제">1. 저장하고 복원하는 예제</h3>
+<p>저장 데이터를 JSON 문자열로 보관했다가 그대로 복원합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> saved <span class="token operator">=</span> vectorLayer<span class="token punctuation">.</span><span class="token function">saveWork</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span>saved<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    localStorage<span class="token punctuation">.</span><span class="token function">setItem</span><span class="token punctuation">(</span><span class="token string">'vectorWork'</span><span class="token punctuation">,</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span>saved<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<p>복원할 때는 저장된 <code>type</code>에 맞는 도형을 만들어 레이어에 등록합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> raw <span class="token operator">=</span> localStorage<span class="token punctuation">.</span><span class="token function">getItem</span><span class="token punctuation">(</span><span class="token string">'vectorWork'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> saved <span class="token operator">=</span> raw <span class="token operator">?</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>raw<span class="token punctuation">)</span> <span class="token operator">:</span> <span class="token keyword">undefined</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span>saved<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">await</span> vectorLayer<span class="token punctuation">.</span><span class="token function">loadWork</span><span class="token punctuation">(</span>saved<span class="token punctuation">.</span>geometries<span class="token punctuation">,</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token parameter">data</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>data<span class="token punctuation">.</span>type <span class="token operator">!==</span> <span class="token string">'U3dBox'</span><span class="token punctuation">)</span> <span class="token keyword">return</span><span class="token punctuation">;</span>
+
+        <span class="token keyword">const</span> box <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>geom<span class="token punctuation">.</span>U3dBox</span><span class="token punctuation">(</span>data<span class="token punctuation">.</span>param<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        vectorLayer<span class="token punctuation">.</span><span class="token function">addGeometry</span><span class="token punctuation">(</span>box<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> box<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h3 id="2-저장과-복원-시점-확인하기">2. 저장과 복원 시점 확인하기</h3>
+<p><code>saveWork</code>를 호출하면 <code>save</code> 이벤트가, <code>loadWork</code>에서 도형이 하나 만들어질 때마다 <code>load</code> 이벤트가 발생합니다.<br><code>save</code> 이벤트의 <code>data</code>는 저장한 도형 목록이고, <code>load</code> 이벤트의 <code>data</code>는 <code>{object, save}</code> 형태로 새로 만든 도형과 그 저장 항목을 함께 전달합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">vectorLayer<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'save'</span><span class="token punctuation">,</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'저장한 도형 수'</span><span class="token punctuation">,</span> e<span class="token punctuation">.</span>data<span class="token punctuation">.</span>length<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+vectorLayer<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'load'</span><span class="token punctuation">,</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'복원한 도형'</span><span class="token punctuation">,</span> e<span class="token punctuation">.</span>data<span class="token punctuation">.</span>object<span class="token punctuation">.</span>name<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="6-레이어-이벤트-등록하고-해제하기">6. 레이어 이벤트 등록하고 해제하기</h2>
+<p>레이어에서 발생하는 이벤트는 <code>on</code>으로 등록하고 <code>off</code> 또는 <code>unkey</code>로 해제합니다.<br>한 번만 받으려면 <code>once</code>로 등록합니다.</p>
+<p>사용할 수 있는 이벤트 이름은 <code>GeOnDT.vector.U3dVectorLayer.EVENT</code>에서 확인합니다.<br>저장·복원 시점을 알리는 <code>save</code>와 <code>load</code>, 레이어 가시화 상태가 바뀔 때 발생하는 <code>layer-show</code>와 <code>layer-hide</code>를 주로 사용합니다.</p>
+<p><strong>해제하려면 등록할 때 쓴 함수나 이름이 필요합니다.</strong><br>이름 있는 함수로 등록하면 그 함수를 그대로 넘겨 해제할 수 있습니다.<br>익명 함수로 등록할 때는 네 번째 인자로 이름을 직접 지정합니다.<br>레이어의 <code>on</code>은 지정한 이름을 그대로 반환하므로, 이름을 넘기지 않으면 나중에 그 리스너만 골라 해제할 수 없습니다.</p>
+<h4 class="api-heading" id="api-15">API</h4>
+<p>U3dVectorLayer.on(<code>event</code>, <code>callback</code>, <code>once</code>, <code>name</code>) : 이벤트 리스너를 등록하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>event</code> (<code>string</code>) : 이벤트 이름. <strong>필수</strong></li>
+<li><code>callback</code> (<code>function</code>) : 이벤트 발생 시 실행할 함수. 이벤트 객체를 인자로 받습니다. <strong>필수</strong></li>
+<li><code>once</code> (<code>boolean</code>) : 한 번만 실행할지 여부. 기본값: <code>false</code></li>
+<li><code>name</code> (<code>string</code>) : 리스너 식별 이름. 익명 함수를 해제하려면 지정합니다</li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>string</code>) : 등록에 사용한 리스너 이름. 지정하지 않으면 빈 문자열</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-16">API</h4>
+<p>U3dVectorLayer.once(<code>event</code>, <code>callback</code>, <code>name</code>) : 한 번만 실행되는 이벤트 리스너를 등록하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>event</code> (<code>string</code>) : 이벤트 이름. <strong>필수</strong></li>
+<li><code>callback</code> (<code>function</code>) : 이벤트 발생 시 한 번 실행할 함수. <strong>필수</strong></li>
+<li><code>name</code> (<code>string</code>) : 리스너 식별 이름</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-17">API</h4>
+<p>U3dVectorLayer.off(<code>event</code>, <code>callback</code>) : 이벤트 리스너를 해제하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>event</code> (<code>string</code>) : 이벤트 이름. 생략하면 등록된 모든 이벤트를 해제합니다</li>
+<li><code>callback</code> (<code>function | string</code>) : 해제할 함수 또는 리스너 이름. 생략하면 해당 이벤트의 리스너를 모두 해제합니다</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-18">API</h4>
+<p>U3dVectorLayer.unkey(<code>event</code>, <code>key</code>) : 이름으로 이벤트 리스너를 해제하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>event</code> (<code>string</code>) : 이벤트 이름. <strong>필수</strong></li>
+<li><code>key</code> (<code>string</code>) : 해제할 리스너 이름. <strong>필수</strong></li>
+</ul>
+</details>
+<h3 id="1-이벤트-등록과-해제-예제">1. 이벤트 등록과 해제 예제</h3>
+<p>이름 있는 함수는 함수를 그대로 넘겨 해제합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">onLoad</span><span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'복원한 도형'</span><span class="token punctuation">,</span> e<span class="token punctuation">.</span>data<span class="token punctuation">.</span>object<span class="token punctuation">.</span>name<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+vectorLayer<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'load'</span><span class="token punctuation">,</span> onLoad<span class="token punctuation">)</span><span class="token punctuation">;</span>     <span class="token comment">// 등록</span>
+vectorLayer<span class="token punctuation">.</span><span class="token function">once</span><span class="token punctuation">(</span><span class="token string">'load'</span><span class="token punctuation">,</span> onLoad<span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// 한 번만 실행할 리스너로 등록</span>
+
+vectorLayer<span class="token punctuation">.</span><span class="token function">off</span><span class="token punctuation">(</span><span class="token string">'load'</span><span class="token punctuation">,</span> onLoad<span class="token punctuation">)</span><span class="token punctuation">;</span>    <span class="token comment">// 해제</span>
+</code></pre>
+<p>익명 함수는 이름을 지정해 등록하고 그 이름으로 해제합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">vectorLayer<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'layer-show'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'레이어 표시'</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">,</span> <span class="token string">'showLog'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+vectorLayer<span class="token punctuation">.</span><span class="token function">unkey</span><span class="token punctuation">(</span><span class="token string">'layer-show'</span><span class="token punctuation">,</span> <span class="token string">'showLog'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// 이름으로 해제</span>
+vectorLayer<span class="token punctuation">.</span><span class="token function">off</span><span class="token punctuation">(</span><span class="token string">'layer-show'</span><span class="token punctuation">,</span> <span class="token string">'showLog'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>     <span class="token comment">// off에 이름을 넘겨도 됩니다</span>
+</code></pre>
+<p>레이어를 제거하기 전에는 등록한 리스너를 정리합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">vectorLayer<span class="token punctuation">.</span><span class="token function">off</span><span class="token punctuation">(</span><span class="token string">'load'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// load 이벤트의 리스너 전체 해제</span>
+vectorLayer<span class="token punctuation">.</span><span class="token function">off</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>         <span class="token comment">// 이 레이어에 등록한 모든 이벤트 해제</span>
+</code></pre>
+<hr>
+<h2 id="7-레이어-표시와-정리하기">7. 레이어 표시와 정리하기</h2>
+<p>레이어를 숨기면 등록된 도형이 함께 사라지고, 다시 표시하면 그대로 되살아납니다.<br>도형은 유지되므로 숨기기와 표시를 반복해도 다시 만들 필요가 없습니다.</p>
+<p>레이어 객체를 들고 있으면 <code>show</code>로 바로 켜고 끕니다.<br>이름으로 찾아야 하거나 표시가 끝날 때까지 기다려야 하면 <a href="#1-%EB%B2%A1%ED%84%B0-%EB%A0%88%EC%9D%B4%EC%96%B4-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">1. 벡터 레이어 생성하기</a>의 <code>U3dApp.showLayer</code>를 사용합니다.</p>
+<p><code>setScaleRatio</code>는 등록된 모든 도형의 높이를 한 번에 조절합니다.<br>도형의 원래 높이를 지정한 값으로 나눈 위치에 배치하므로, <strong>값이 작을수록 높이가 과장됩니다.</strong><br>지하 단면이나 고도 차이를 강조할 때 사용합니다.</p>
+<p>레이어가 더 이상 필요 없으면 <code>clear</code>로 도형 자원을 해제한 뒤 <code>U3dApp.removeLayer</code>로 앱에서 제거합니다.</p>
+<h4 class="api-heading" id="api-19">API</h4>
+<p>U3dVectorLayer.show(<code>show</code>) : 레이어 가시화 여부를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>show</code> (<code>boolean</code>) : 가시화 여부. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-20">API</h4>
+<p>U3dVectorLayer.setScaleRatio(<code>val</code>) : 등록된 모든 도형의 높이 축척을 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>val</code> (<code>number</code>) : 축척 비율. <code>1</code>이면 원래 높이. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-21">API</h4>
+<p>U3dApp.removeLayer(<code>name</code>) : 레이어를 찾아 앱에서 제거하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>name</code> (<code>string | U3dLayer</code>) : 레이어 이름 또는 레이어 객체. <strong>필수</strong></li>
+</ul>
+</details>
+<h3 id="1-표시와-축척-예제">1. 표시와 축척 예제</h3>
+<pre class="language-javascript"><code class="language-javascript">vectorLayer<span class="token punctuation">.</span><span class="token function">show</span><span class="token punctuation">(</span><span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>          <span class="token comment">// 레이어 숨기기 (도형은 유지)</span>
+vectorLayer<span class="token punctuation">.</span><span class="token function">show</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>           <span class="token comment">// 다시 표시</span>
+
+vectorLayer<span class="token punctuation">.</span><span class="token function">setScaleRatio</span><span class="token punctuation">(</span><span class="token number">0.5</span><span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// 높이를 2배로 과장</span>
+vectorLayer<span class="token punctuation">.</span><span class="token function">setScaleRatio</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>     <span class="token comment">// 원래 높이로 복귀</span>
+</code></pre>
+<h3 id="2-레이어-정리-예제">2. 레이어 정리 예제</h3>
+<pre class="language-javascript"><code class="language-javascript">vectorLayer<span class="token punctuation">.</span><span class="token function">clear</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>              <span class="token comment">// 도형과 자원 해제</span>
+app<span class="token punctuation">.</span><span class="token function">removeLayer</span><span class="token punctuation">(</span><span class="token string">'vector'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>        <span class="token comment">// 앱에서 레이어 제거</span>
+</code></pre>
+</main>
+</body>
+</html>
+

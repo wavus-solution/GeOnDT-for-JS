@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeOnDT for JS 시작하기</title>
+    <!-- 한글 본문용 가변 서체입니다. 내려받지 못해도 css/index.css의 대체 서체로 그대로 표시됩니다. -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+    <script>
+        // 화면이 그려지기 전에 테마를 정해 화면이 한 번 번쩍이는 것을 막습니다.
+        // 예제 목록 페이지와 같은 저장 자리를 쓰므로 두 화면의 선택이 함께 따라갑니다.
+        (function () {
+            var stored = null;
+            try {
+                stored = localStorage.getItem('geondt-example-theme');
+            } catch (error) {
+                // 저장소를 막아 둔 환경에서는 이번 방문 동안만 운영체제 설정을 따릅니다.
+                stored = null;
+            }
+            var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            document.documentElement.dataset.theme = stored === 'dark' || stored === 'light'
+                ? stored
+                : (prefersDark ? 'dark' : 'light');
+        }());
+    </script>
+    <!-- 코드 색칠은 Prism 하나로 모읍니다. 자동 생성 문서 38개는 빌드 시점에 이미 Prism이
+         색을 입혀 두었으므로 그대로 쓰고, 손으로 쓴 조각의 코드만 이 스크립트가 화면에서
+         색을 입힙니다. 색은 css/index.css의 토큰으로 정의하므로 테마 전환에 별도 처리가
+         필요하지 않습니다. data-manual은 문서를 갈아 끼우기 전에 Prism이 혼자
+         화면 전체를 훑지 않게 막습니다. -->
+    <script src="../common/prism/prism.js" data-manual></script>
+</head>
+<body>
+<header class="gallery-header">
+    <a class="gallery-brand" href="./index.html"><img src="image/geondt-logo-header.png" alt="GeOnDT"><span>GeOnDT for JS</span></a>
+    <nav class="gallery-nav" aria-label="주요 메뉴">
+        <a class="active" href="./index.html">Home</a>
+        <a href="../api/index.html">API</a>
+        <a href="../tutorial-official/index.html">Examples</a>
+        <a href="../dataGuide/index.html">Guide</a>
+        <details class="more-menu">
+            <summary>더보기</summary>
+            <div>
+                <a class="mobile-nav-link" href="../api/index.html">API</a>
+                <a class="mobile-nav-link" href="../tutorial-official/index.html">Examples</a>
+                <a class="mobile-nav-link" href="../dataGuide/index.html">Guide</a>
+                <a href="../media/index.html">Media</a>
+                <a href="../integration/index.html" target="_blank" rel="noopener">Integration</a>
+                <a href="../service/index.html">Service Ex</a>
+            </div>
+        </details>
+        <button type="button" id="theme-toggle" class="theme-toggle" aria-label="화면 테마 전환" aria-pressed="false">
+            <svg class="theme-icon-light" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M13.2 9.6A5.6 5.6 0 0 1 6.4 2.8a5.6 5.6 0 1 0 6.8 6.8Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"></path>
+            </svg>
+            <svg class="theme-icon-dark" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <circle cx="8" cy="8" r="3.1" stroke="currentColor" stroke-width="1.4"></circle>
+                <path d="M8 1.2v1.6M8 13.2v1.6M1.2 8h1.6M13.2 8h1.6M3.2 3.2l1.1 1.1M11.7 11.7l1.1 1.1M12.8 3.2l-1.1 1.1M4.3 11.7l-1.1 1.1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"></path>
+            </svg>
+        </button>
+    </nav>
+</header>
+<div id="wrap" class="clearfix">
+    <div class="navigation">
+        <div class="search">
+            <label for="input-search">
+                <input id="input-search" type="text" class="form-control" placeholder="Search Example">
+            </label>
+        </div>
+        <ul class="navigation-list search-empty">
+            <li class="item item-class" data-longname="Union3D.analysis.UAnaly" data-name="union3d.analysis.uanaly">
+                <details open>
+                    <summary>
+                        <span class="glyphicon glyphicon-chevron-down"></span>
+                        <span>GeOnDT 시작하기</span><span class="badge"></span>
+                    </summary>
+                    <ul class="geon-dt list">
+                        <li data-name="active"><input type="button" class="link" value="+ GeOnDT 시작"
+                                                      target="geonDtStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ App 이벤트"
+                                                      target="appEvent.html">
+                        <li data-name="active"><input type="button" class="link" value="+ App 환경설정"
+                                                      target="appSetting.html">
+                        <li data-name="active"><input type="button" class="link" value="+ Development Tool View"
+                                                      target="appDevToolView.html">
+                    </ul>
+                </details>
+                <details open>
+                    <summary>
+                        <span class="glyphicon glyphicon-chevron-down"></span>
+                        <span>선택 객체 생성 및 시작하기</span><span class="badge"></span>
+                    </summary>
+                    <ul class="select list">
+                        <li data-name="active"><input type="button" class="link" value="+ 객체 선택"
+                                                      target="selectStart.html">
+
+                    </ul>
+                </details>
+                <details open>
+                    <summary>
+                        <span class="glyphicon glyphicon-chevron-down"></span>
+                        <span>지도 출력하기</span><span class="badge"></span>
+                    </summary>
+                    <ul class="layer list">
+                        <li data-name="active"><input type="button" class="link" value="+ 이미지 지도"
+                                                      target="imageLayersStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 지형 지도"
+                                                      target="terrainLayerStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 3D Tiles 모델 지도"
+                                                      target="modelTilesLayerStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ WFS 모델 지도"
+                                                      target="WFSModelLayerStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ BIM Object 지도"
+                                                      target="BIMObjectLayer.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 3D Shp 지도"
+                                                      target="shpLayerStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 2D Shp 지도"
+                                                      target="shpLayer2DStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 실내 (3ds) 모델 지도"
+                                                      target="modelTdsLayerStart.html">
+
+                    </ul>
+                </details>
+                <details open>
+                    <summary>
+                        <span class="glyphicon glyphicon-chevron-down"></span>
+                        <span>컴포넌트 시작하기</span><span class="badge"></span>
+                    </summary>
+                    <ul class="component list">
+                        <li data-name="active"><input type="button" class="link" value="+ 생성하기"
+                                                      target="createComponent.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 조회하기"
+                                                      target="searchComponent.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 이동, 회전, 크기 제어하기"
+                                                      target="controlComponent.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 스타일 수정하기"
+                                                      target="stylingComponent.html">
+                        <li data-name="active"><input type="button" class="link" value="+ LOD를 활하기"
+                                                      target="updateComponent.html">
+                    </ul>
+                </details>
+                <details open>
+                    <summary>
+                        <span class="glyphicon glyphicon-chevron-down"></span>
+                        <span>움직이는 비행기 만들기</span><span class="badge"></span>
+                    </summary>
+                    <ul class="animation list">
+                        <li data-name="active"><input type="button" class="link" value="+ 애니메이션 만들기"
+                                                      target="createAnimation.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 비행 경로 만들기"
+                                                      target="drawCumulativePath.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 촬영 영역 만들기"
+                                                      target="frustumHelper.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 방향 헬퍼 만들기"
+                                                      target="directionArrowStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 지면 헬퍼 만들기"
+                                                      target="landNormalDirectionHelperStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 충돌 검사 시작하기"
+                                                      target="collisionCheckStart.html">
+                    </ul>
+                </details>
+                <details open>
+                    <summary>
+                        <span class="glyphicon glyphicon-chevron-down"></span>
+                        <span>분석모드 시작하기</span><span class="badge"></span>
+                    </summary>
+                    <ul class="analy list">
+                        <li data-name="active"><input type="button" class="link" value="+ 모델 편집 (GIZMO)"
+                                                      target="modelEdit.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 거리/면적/고도 측정"
+                                                      target="measureStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ POI 생성"
+                                                      target="poiStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 가상 건물 생성"
+                                                      target="customModelStart.html">
+<!--                        <li data-name="active"><input type="button" class="link" value="+ 일조량 분석"-->
+<!--                                                      target="analySunAmount.html">-->
+                        <li data-name="active"><input type="button" class="link" value="+ 지표면 편집 (토공량 분석)"
+                                                      target="customLandStart.html">
+
+                        <li data-name="active"><input type="button" class="link" value="+ 카메라 뷰 시작하기"
+                                                      target="viewStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 광원 시작하기"
+                                                      target="spotLightStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 어댑터 시작하기"
+                                                      target="adapterGeom.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 고도 범례 시작하기"
+                                                      target="heightLegendStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 등고선 시작하기"
+                                                      target="contourStart.html">
+                    </ul>
+                </details>
+                <details open>
+                    <summary>
+                        <span class="glyphicon glyphicon-chevron-down"></span>
+                        <span>3D Geometry 시작하기</span><span class="badge"></span>
+                    </summary>
+                    <ul class="vector list">
+                        <li data-name="active"><input type="button" class="link" value="+ 벡터 레이어"
+                                                      target="vectorLayerStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 점 (Point)"
+                                                      target="pointStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 선 (Line)"
+                                                      target="lineStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 육면체 (Box)"
+                                                      target="boxStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 구체 (Sphere)"
+                                                      target="sphereStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 원 (Circle)"
+                                                      target="circleStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 원기둥 (Cylinder)"
+                                                      target="cylinderStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 파이프 (Pipe)"
+                                                      target="pipeStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 경로 (Path)"
+                                                      target="pathGeometryStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 사용자 도형"
+                                                      target="userGeometryStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 단층 (Fault)"
+                                                      target="faultStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 열원 객체"
+                                                      target="heatGeom.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 흐름 객체 (파이프)"
+                                                      target="flowPipeStart.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 폴리곤 Loft 객체"
+                                                      target="polygonLoftGeometry.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 깊이 보정"
+                                                      target="depthOffsetStart.html">
+                    </ul>
+                </details>
+                <details open>
+                    <summary>
+                        <span class="glyphicon glyphicon-chevron-down"></span>
+                        <span>도움 되는 유틸 함수</span><span class="badge"></span>
+                    </summary>
+                    <ul class="util list">
+                        <li data-name="active"><input type="button" class="link" value="+ 점 스냅"
+                                                      target="snapPointToMeshUtil.html">
+                    </ul>
+                </details>
+                <details open>
+                    <summary>
+                        <span class="glyphicon glyphicon-chevron-down"></span>
+                        <span>Addon 시작하기</span><span class="badge"></span>
+                    </summary>
+                    <ul class="addon list">
+                        <li data-name="active"><input type="button" class="link" value="+ 오염확산"
+                                                      target="addonSpreadObject.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 오염확산의 격자 데이터 3D 가시화"
+                                                      target="addonSpreadObject_Extension.html">
+                    </ul>
+                </details>
+                <details open>
+                    <summary>
+                        <span class="glyphicon glyphicon-chevron-down"></span>
+                        <span>용어 설명</span><span class="badge"></span>
+                    </summary>
+                    <ul class="glossary list">
+                        <li data-name="active"><input type="button" class="link" value="+ Mesh"
+                                                      target="meshDoc.html">
+                        <li data-name="active"><input type="button" class="link" value="+ Camera와 Frustum"
+                                                      target="cameraDoc.html">
+                        <li data-name="active"><input type="button" class="link" value="+ Position"
+                                                      target="positionDoc.html">
+                        <li data-name="active"><input type="button" class="link" value="+ 컴포넌트"
+                                                      target="componentDoc.html">
+                    </ul>
+                </details>
+
+<!--                <details open>-->
+<!--                    <summary>-->
+<!--                        <span class="glyphicon glyphicon-chevron-down"></span>-->
+<!--                        <span>UMesh 시작하기</span><span class="badge"></span>-->
+<!--                    </summary>-->
+<!--                    <ul class="umesh list">-->
+<!--                        <li data-name="active"><input type="button" class="link" value="+ umesh 파일 쓰기"-->
+<!--                                                      target="UMeshWriteStart.html">-->
+<!--                        <li data-name="active"><input type="button" class="link" value="+ umesh 파일 읽기"-->
+<!--                                                      target="UMeshReadStart.html">-->
+<!--                    </ul>-->
+<!--                </details>-->
+            </li>
+        </ul>
+    </div>
+    <div class="main">
+        <div class="doc-heading">
+            <p id="title-eyebrow" class="doc-eyebrow" hidden></p>
+            <h1 id="title"></h1>
+        </div>
+        <div id="explanation"></div>
+    </div>
+    <div id="top-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-up"><polyline points="18 15 12 9 6 15"/></svg>
+    </div >
+
+</div>
+</body>
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script>
+    const dataServerUrl = 'https://dt-data.mappick.co.kr/ServiceData/';
+    // 지금 보고 있는 문서를 주소에 담는 이름입니다. 이 값으로 링크를 건네주고 새로고침해도 같은 문서가 열립니다.
+    const DOCUMENT_QUERY_KEY = 'doc';
+    // 복사 결과를 단추에 보여 주는 시간(ms)입니다.
+    const COPY_FEEDBACK_MS = 1600;
+    // 이만큼은 있어야 목차가 의미를 갖습니다.
+    const TOC_MIN_HEADINGS = 3;
+    // 소제목이 고정 머리말 바로 아래에 막 들어온 시점부터 그 대목을 읽고 있다고 봅니다.
+    const TOC_ENTER_MARGIN = 24;
+    // 눌러서 옮겨 가는 동안 지금 자리 표시를 붙들어 두는 시간(ms)입니다.
+    // 부드럽게 옮기는 동안에는 위치 계산이 아직 이전 대목을 가리킵니다.
+    const TOC_CLICK_HOLD_MS = 800;
+    // 목차 위치 계산을 프레임당 한 번으로 묶어 두는 자리입니다.
+    let tocFrame = 0;
+    // 눌러서 옮겨 가는 중인 대목입니다. 비어 있으면 스크롤 위치로 판단합니다.
+    let tocClickTarget = '';
+    let tocClickTimer = 0;
+    // 화면에 그려 둔 코드 블록입니다. 테마를 바꿀 때 한꺼번에 갈아입히려고 모아 둡니다.
+    $(document).ready(function () {
+        const $navigationList = $(".navigation").children('ul');
+
+        // 주소에 문서가 담겨 있으면 그 문서를, 없으면 첫 항목을 연다.
+        // 처음 연 문서도 주소에 남겨 두어야 뒤로가기로 돌아올 자리가 생긴다.
+        const requested = new URLSearchParams(window.location.search).get(DOCUMENT_QUERY_KEY);
+        const fileName = findNavigationLink(requested)
+            ? requested
+            : $navigationList.find('.link:first').attr('target');
+        loadDocument(fileName, {hash: window.location.hash.substring(1), push: false, replace: true});
+
+        updateCategoryBadges($navigationList);
+
+
+        $(window).scroll(function(){
+            // fadeIn/fadeOut은 inline display를 심어 버튼의 grid 정렬을 덮으므로 클래스로 다룬다.
+            $('#top-btn').toggleClass('is-visible', $(this).scrollTop() > 100);
+            // 스크롤마다 소제목 위치를 재는 대신 프레임당 한 번만 계산한다.
+            if (tocFrame) {
+                return;
+            }
+            tocFrame = window.requestAnimationFrame(function () {
+                tocFrame = 0;
+                updateTocPosition();
+            });
+        });
+
+        // 창 크기가 바뀌면 화면 높이도 달라지므로 아래에 남겨 둘 자리를 다시 잰다.
+        $(window).on('resize', function () {
+            reserveTocScrollRoom();
+            updateTocPosition();
+        });
+
+        // Top 버튼 클릭시 페이지 상단으로 이동
+        $('#top-btn').click(function(){
+            $('html, body').animate({scrollTop : 0}, 800);
+            return false;
+        });
+    });
+
+    $(document).on('click', 'summary', function () {
+        let $summary = $(this);
+        let $details = $summary.closest('details');
+        let $maker = $summary.find('.glyphicon');
+        if ($details.attr('open') === 'open') {
+            $maker.removeClass("glyphicon-chevron-down");
+            $maker.addClass("glyphicon-chevron-right");
+        } else {
+            $maker.removeClass("glyphicon-chevron-right");
+            $maker.addClass("glyphicon-chevron-down");
+        }
+    });
+
+    $(document).on('click', '.link', function () {
+        loadDocument($(this).attr('target'));
+    });
+
+    // 목차에서 고른 대목으로 옮긴다. 주소에는 남기지 않는다. 문서 안 이동까지 이력에 쌓이면
+    // 뒤로가기를 여러 번 눌러야 이전 문서로 돌아가게 된다.
+    $(document).on('click', '.doc-toc-link', function () {
+        const headingId = this.dataset.tocTarget;
+        document.getElementById(headingId)?.scrollIntoView({behavior: 'smooth', block: 'start'});
+
+        // 옮겨 가는 동안에는 누른 대목을 지금 자리로 붙들어 둔다.
+        // 끝쪽 짧은 대목은 화면이 조금밖에 움직이지 않아, 이 표시가 없으면 눌리지 않은 것처럼 보인다.
+        tocClickTarget = headingId;
+        highlightToc(Array.from(document.querySelectorAll('.doc-toc-link')), headingId);
+        window.clearTimeout(tocClickTimer);
+        tocClickTimer = window.setTimeout(function () {
+            tocClickTarget = '';
+            updateTocPosition();
+        }, TOC_CLICK_HOLD_MS);
+    });
+
+    // 본문에 있는 Home 문서 링크도 현재 템플릿 안에서 불러온다.
+    $(document).on('click', '#explanation a[href]', function (event) {
+        if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) {
+            return;
+        }
+
+        const href = this.getAttribute('href');
+        if (!href || href.startsWith('#') || this.target === '_blank' || this.hasAttribute('download')) {
+            return;
+        }
+
+        const url = new URL(href, window.location.href);
+        const homeUrl = new URL('./', window.location.href);
+        const isHomeDocument = url.origin === window.location.origin
+            && url.pathname.startsWith(homeUrl.pathname)
+            && url.pathname.toLowerCase().endsWith('.html');
+
+        if (!isHomeDocument) {
+            return;
+        }
+
+        event.preventDefault();
+
+        const documentName = url.pathname.substring(url.pathname.lastIndexOf('/') + 1);
+        loadDocument(documentName, {hash: url.hash.substring(1)});
+    });
+
+    // 뒤로가기와 앞으로가기로 문서 이동을 되짚는다. 주소만 바뀌고 본문이 그대로 남지 않도록 다시 불러온다.
+    window.addEventListener('popstate', function () {
+        const requested = new URLSearchParams(window.location.search).get(DOCUMENT_QUERY_KEY);
+        const fileName = findNavigationLink(requested)
+            ? requested
+            : $('.navigation .link:first').attr('target');
+        loadDocument(fileName, {hash: window.location.hash.substring(1), push: false});
+    });
+
+    $(document).on('keyup', '#input-search', function () {
+        applyNavigationSearch(this.value);
+    });
+
+    /**
+     * 검색어로 좌측 목록을 거른다.
+     *
+     * 카테고리마다 따로 센다. 예전에는 목록 전체를 한 덩어리로 보아, 어느 한 곳만 걸려도
+     * 모든 카테고리가 남고 걸린 문서가 없는 카테고리는 제목만 덩그러니 남아 있었다.
+     *
+     * @param {string} value 검색어
+     */
+    function applyNavigationSearch(value) {
+        const keywords = String(value || '')
+            .toLowerCase()
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
+        const searching = keywords.length > 0;
+        const $navigationList = $('.navigation').children('ul');
+
+        $navigationList.find('details').each(function () {
+            const details = this;
+            const $details = $(details);
+            // 문서 항목만 거른다. 지금 보고 있는 문서의 소제목 목록이 항목 안에 들어 있어,
+            // 그냥 li를 모두 훑으면 소제목까지 검색 결과로 세어져 목차가 잘려 보인다.
+            const $items = $details.children('ul.list').children('li');
+            let matchedCount = 0;
+
+            $items.each(function () {
+                const $child = $(this).children();
+                // val()이 없는 요소일 수도 있으므로 text()도 fallback 처리
+                const label = String($child.val() ?? $child.text() ?? '')
+                    .replace('+ ', '')
+                    .toLowerCase();
+                const matched = !searching || keywords.some(function (keyword) {
+                    return label.includes(keyword);
+                });
+
+                $(this).toggleClass('hide', !matched);
+
+                if (matched) {
+                    matchedCount += 1;
+                }
+            });
+
+            // 걸린 문서가 없는 카테고리는 제목까지 감춘다. 제목만 남으면 빈 칸으로 보인다.
+            $details.toggleClass('hide', searching && matchedCount === 0);
+            applyCategoryOpenState(details, searching, matchedCount > 0);
+        });
+
+        updateCategoryBadges($navigationList, searching);
+    }
+
+    /**
+     * 검색 중에는 걸린 카테고리를 펼쳐 두고, 검색을 지우면 원래 상태로 되돌린다.
+     *
+     * 접어 둔 카테고리에 결과가 있어도 접힌 채로 남으면 숫자만 보이고 문서는 보이지 않는다.
+     *
+     * @param {HTMLDetailsElement} details 카테고리 요소
+     * @param {boolean} searching 검색 중인지 여부
+     * @param {boolean} hasMatch 걸린 문서가 있는지 여부
+     */
+    function applyCategoryOpenState(details, searching, hasMatch) {
+        if (searching) {
+            // 검색 때문에 펼친 것과 사용자가 펼쳐 둔 것을 구분해 두었다가 검색을 지울 때 되돌린다.
+            if (details.dataset.userOpen === undefined) {
+                details.dataset.userOpen = details.open ? '1' : '0';
+            }
+
+            details.open = hasMatch;
+        } else if (details.dataset.userOpen !== undefined) {
+            details.open = details.dataset.userOpen === '1';
+            delete details.dataset.userOpen;
+        }
+
+        syncCategoryMarker(details);
+    }
+
+    /**
+     * 카테고리 화살표를 펼침 상태에 맞춘다.
+     * 화살표는 클릭할 때 클래스를 갈아 끼우는 방식이라, 검색이 대신 펼치면 모양이 어긋난 채 남는다.
+     * @param {HTMLDetailsElement} details 카테고리 요소
+     */
+    function syncCategoryMarker(details) {
+        const $marker = $(details).children('summary').find('.glyphicon');
+        $marker.toggleClass('glyphicon-chevron-down', details.open);
+        $marker.toggleClass('glyphicon-chevron-right', !details.open);
+    }
+
+
+    /**
+     * 좌측 목록에서 해당 문서를 가리키는 항목을 찾는다.
+     * 주소로 들어온 이름을 그대로 불러오면 목록에 없는 파일까지 열리므로, 목록에 있는 것만 쓴다.
+     * @param {string} [fileName] 문서 파일 이름
+     * @returns {HTMLElement|null} 목록 항목. 없으면 null
+     */
+    function findNavigationLink(fileName) {
+        if (!fileName) {
+            return null;
+        }
+
+        return document.querySelector(`.navigation .link[target="${CSS.escape(fileName)}"]`);
+    }
+
+    /**
+     * 지금 보고 있는 문서를 주소에 남긴다.
+     * 주소가 그대로면 문서를 링크로 건네줄 수 없고, 새로고침하면 첫 문서로 돌아가며,
+     * 뒤로가기가 문서 이동이 아니라 사이트 밖으로 나가 버린다.
+     * @param {string} fileName 문서 파일 이름
+     * @param {{hash?: string, push?: boolean, replace?: boolean}} options 주소 반영 방식
+     */
+    function syncDocumentUrl(fileName, options) {
+        const {hash = '', push = true, replace = false} = options;
+
+        if (!push && !replace) {
+            return;
+        }
+
+        const url = new URL(window.location.href);
+        url.searchParams.set(DOCUMENT_QUERY_KEY, fileName);
+        url.hash = hash ? `#${hash}` : '';
+        window.history[replace ? 'replaceState' : 'pushState']({doc: fileName}, '', url);
+    }
+
+    /**
+     * 문서를 연 뒤 읽을 자리로 옮긴다.
+     * @param {string} [hash] 문서 안 앵커 이름
+     */
+    function moveToAnchor(hash) {
+        if (hash) {
+            document.getElementById(decodeURIComponent(hash))?.scrollIntoView();
+            return;
+        }
+
+        window.scrollTo({top: 0});
+    }
+
+    /**
+     * 문서를 받아 본문에 끼우고 목록 선택과 주소를 함께 맞춘다.
+     * @param {string} fileName 문서 파일 이름
+     * @param {{hash?: string, push?: boolean, replace?: boolean}} [options] 주소 반영 방식
+     */
+    function loadDocument(fileName, options = {}) {
+        const link = findNavigationLink(fileName);
+
+        if (!link) {
+            return;
+        }
+
+        $('.navigation .list li').removeClass('is-active');
+        $(link).closest('li').addClass('is-active');
+
+        $.ajax({
+            url: fileName,
+            method: 'GET'
+        }).done(function (json) {
+            findTileAndPre(json, fileName);
+            syncDocumentUrl(fileName, options);
+            moveToAnchor(options.hash);
+        }).fail(function (xhr, status, errorThrown) {
+            console.log(errorThrown + ',' + status);
+        });
+    }
+
+    /**
+     * 받아 온 문서를 본문에 끼우고 제목과 구획 라벨을 채운다.
+     * @param {string} json 문서 HTML 원문
+     * @param {string} [url] 문서 주소. 구획 라벨을 찾는 데 쓴다.
+     */
+    function findTileAndPre(json, url) {
+        const parser = new DOMParser();
+        const dom = parser.parseFromString(json, 'text/html');
+        const title = dom.querySelector('title');
+        const explanation = document.getElementById('explanation');
+
+        $('#title').text(title ? title.textContent : '시작하기');
+        renderDocumentEyebrow(url);
+        explanation.replaceChildren(...Array.from(dom.body.childNodes));
+        renderApiDisclosures();
+        renderCodeBlocks();
+        renderCopyButtons();
+        renderDocumentToc(url);
+    }
+
+    /**
+     * 코드 블록마다 복사 단추를 붙인다.
+     *
+     * 시작하기 문서는 코드를 그대로 옮겨 쓰는 곳인데 지금까지는 끌어서 골라야 했다.
+     * 자동 생성 문서는 빌드 때 색을 입혀 둔 pre가, 손으로 쓴 조각은 renderCodeBlocks가 만든 pre가 대상이다.
+     */
+    function renderCopyButtons() {
+        document.querySelectorAll('#explanation pre').forEach(function (pre) {
+            if (pre.dataset.copyReady === 'true') {
+                return;
+            }
+
+            pre.dataset.copyReady = 'true';
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'code-copy';
+            button.textContent = '복사';
+            button.title = '코드 복사';
+            button.addEventListener('click', function () {
+                copyCode(pre, button);
+            });
+
+            // 코드 블록 자체가 가로 스크롤 상자라 그 안에 단추를 두면 코드를 밀 때 함께 밀려난다.
+            const wrapper = document.createElement('div');
+            wrapper.className = 'code-block';
+            pre.replaceWith(wrapper);
+            wrapper.append(pre, button);
+        });
+    }
+
+    /**
+     * 코드 블록의 글을 클립보드로 옮기고 결과를 잠시 알린다.
+     * @param {HTMLElement} pre 코드 블록
+     * @param {HTMLButtonElement} button 누른 단추
+     */
+    function copyCode(pre, button) {
+        const text = (pre.querySelector('code') || pre).textContent;
+
+        writeToClipboard(text).then(function (copied) {
+            button.textContent = copied ? '복사됨' : '복사 실패';
+            button.classList.toggle('is-copied', copied);
+            window.setTimeout(function () {
+                button.textContent = '복사';
+                button.classList.remove('is-copied');
+            }, COPY_FEEDBACK_MS);
+        });
+    }
+
+    /**
+     * 클립보드에 글을 적는다.
+     *
+     * navigator.clipboard는 보안 연결에서만 동작하므로, 사내망 http로 여는 경우를 위해
+     * 예전 방식인 임시 입력칸 복사를 남겨 둔다.
+     *
+     * @param {string} text 복사할 글
+     * @returns {Promise<boolean>} 성공 여부
+     */
+    function writeToClipboard(text) {
+        if (navigator.clipboard?.writeText) {
+            return navigator.clipboard.writeText(text).then(() => true, () => legacyCopy(text));
+        }
+
+        return Promise.resolve(legacyCopy(text));
+    }
+
+    /**
+     * 화면 밖 입력칸을 거쳐 복사한다.
+     * @param {string} text 복사할 글
+     * @returns {boolean} 성공 여부
+     */
+    function legacyCopy(text) {
+        const holder = document.createElement('textarea');
+        holder.value = text;
+        holder.setAttribute('readonly', '');
+        holder.style.cssText = 'position:fixed;top:-1000px;opacity:0;';
+        document.body.append(holder);
+        holder.select();
+
+        let copied = false;
+        try {
+            copied = document.execCommand('copy');
+        } catch (error) {
+            // 브라우저가 막아 둔 경우다. 실패를 알리고 사용자가 직접 고르게 둔다.
+            copied = false;
+        }
+
+        holder.remove();
+        return copied;
+    }
+
+    /**
+     * 제목 위에 지금 보고 있는 문서가 속한 구획 이름을 올린다.
+     * 좌측 목록에서 같은 파일을 가리키는 항목을 찾아 그 항목이 든 구획의 이름을 읽는다.
+     * @param {string} [url] 문서 주소
+     */
+    function renderDocumentEyebrow(url) {
+        const eyebrow = document.getElementById('title-eyebrow');
+
+        if (!eyebrow) {
+            return;
+        }
+
+        const fileName = url ? String(url).split('/').pop().split('?')[0] : '';
+        const link = fileName
+            ? document.querySelector(`.navigation .link[target="${fileName}"]`)
+            : null;
+        const summary = link ? link.closest('details')?.querySelector('summary') : null;
+        // summary에는 항목 수를 보여 주는 badge가 함께 들어 있어 그 글자는 걷어낸다.
+        const label = summary
+            ? Array.from(summary.childNodes)
+                .filter((node) => !(node.nodeType === Node.ELEMENT_NODE && node.classList.contains('badge')))
+                .map((node) => node.textContent)
+                .join('')
+                .trim()
+            : '';
+
+        eyebrow.textContent = label;
+        eyebrow.hidden = !label;
+    }
+
+    /**
+     * 지금 보고 있는 문서의 소제목 목록을 좌측 목록의 그 항목 아래에 펼친다.
+     *
+     * 문서 절반 이상이 소제목을 다섯 개 넘게 들고 있고 긴 것은 76KB에 이르러,
+     * 원하는 대목을 찾으려면 본문을 끝까지 훑어야 했다.
+     * 본문 옆에 열을 새로 두면 코드 블록이 들어가는 본문이 좁아지므로 목록 쪽에 붙인다.
+     *
+     * @param {string} [url] 문서 주소
+     */
+    function renderDocumentToc(url) {
+        document.querySelectorAll('.doc-toc').forEach((toc) => toc.remove());
+
+        const fileName = url ? String(url).split('/').pop().split('?')[0] : '';
+        const link = findNavigationLink(fileName);
+        const headings = Array.from(document.querySelectorAll('#explanation h2'));
+
+        // 소제목이 두엇뿐이면 목록만 길어지고 도움이 되지 않는다.
+        if (!link || headings.length < TOC_MIN_HEADINGS) {
+            return;
+        }
+
+        const list = document.createElement('ul');
+        list.className = 'doc-toc';
+
+        headings.forEach(function (heading, index) {
+            // 자동 생성 문서에는 id가 있지만 손으로 쓴 조각에는 없어, 없을 때만 자리 이름을 붙인다.
+            if (!heading.id) {
+                heading.id = `doc-section-${index + 1}`;
+            }
+
+            const item = document.createElement('li');
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'doc-toc-link';
+            button.dataset.tocTarget = heading.id;
+            button.textContent = heading.textContent.trim();
+            item.append(button);
+            list.append(item);
+        });
+
+        link.closest('li').append(list);
+        reserveTocScrollRoom();
+        refreshTocScrollRoomLater();
+        updateTocPosition();
+    }
+
+    /**
+     * 글꼴과 그림이 늦게 도착해 문서 높이가 달라지면 아래에 남길 자리를 다시 잰다.
+     * 처음 잰 값 그대로 두면 마지막 소제목이 기준선까지 몇 픽셀 못 올라온다.
+     */
+    function refreshTocScrollRoomLater() {
+        const settle = function () {
+            reserveTocScrollRoom();
+            updateTocPosition();
+        };
+
+        document.fonts?.ready.then(settle);
+        document.querySelectorAll('#explanation img').forEach(function (image) {
+            if (image.complete) {
+                return;
+            }
+
+            image.addEventListener('load', settle, {once: true});
+            image.addEventListener('error', settle, {once: true});
+        });
+    }
+
+    /**
+     * 지금 읽고 있는 대목을 목차에 표시한다.
+     * 고정 머리말에 가려지는 높이를 지난 마지막 소제목을 현재 위치로 본다.
+     */
+    function updateTocPosition() {
+        const links = Array.from(document.querySelectorAll('.doc-toc-link'));
+
+        if (links.length === 0) {
+            return;
+        }
+
+        // 눌러서 옮겨 가는 중에는 위치 계산이 아직 이전 대목을 가리킨다.
+        // 그동안은 누른 대목을 그대로 보여 주어야 눌린 것이 바로 보인다.
+        if (tocClickTarget) {
+            highlightToc(links, tocClickTarget);
+            return;
+        }
+
+        const boundary = (document.querySelector('.gallery-header')?.offsetHeight || 0) + TOC_ENTER_MARGIN;
+        // 문서 끝에 닿으면 더 내려갈 곳이 없다. 그때는 화면에 들어온 마지막 소제목을 지금 자리로 본다.
+        // 아래 자리를 남겨 두어도 그림이 늦게 도착해 높이가 달라지면 기준선까지 못 올라오는 대목이 남는다.
+        const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+        let current = links[0];
+
+        links.forEach(function (link) {
+            const heading = document.getElementById(link.dataset.tocTarget);
+            if (!heading) {
+                return;
+            }
+
+            const top = heading.getBoundingClientRect().top;
+            if (top <= boundary || (atBottom && top < window.innerHeight)) {
+                current = link;
+            }
+        });
+
+        highlightToc(links, current.dataset.tocTarget);
+    }
+
+    /**
+     * 목차에서 한 대목만 지금 자리로 표시한다.
+     * @param {Array<HTMLElement>} links 목차 항목
+     * @param {string} headingId 표시할 소제목 id
+     */
+    function highlightToc(links, headingId) {
+        links.forEach(function (link) {
+            link.classList.toggle('is-current', link.dataset.tocTarget === headingId);
+        });
+    }
+
+    /**
+     * 마지막 소제목도 화면 맨 위까지 올라올 수 있도록 본문 아래에 모자란 만큼 자리를 둔다.
+     *
+     * 끝쪽 대목이 짧으면 문서 끝에 걸려 더 이상 스크롤되지 않는다.
+     * 그러면 눌러도 화면이 거의 그대로라 목차가 먹지 않은 것처럼 보이고,
+     * 소제목이 판정 기준선까지 올라오지 못해 앞 대목이 계속 지금 자리로 남는다.
+     */
+    function reserveTocScrollRoom() {
+        const explanation = document.getElementById('explanation');
+        const links = Array.from(document.querySelectorAll('.doc-toc-link'));
+
+        // 창을 최소화하면 화면 높이가 0으로 잡힌다. 그 값으로 재면 자리가 필요 없다는 결론이 나와
+        // 남겨 둔 자리를 지워 버리므로, 잴 수 있을 때까지 지금 값을 그대로 둔다.
+        if (!explanation || !window.innerHeight) {
+            return;
+        }
+
+        // 남겨 둔 자리를 포함한 채로 재면 잴 때마다 값이 불어나므로 먼저 되돌린다.
+        explanation.style.paddingBottom = '';
+
+        const last = links.length > 0
+            ? document.getElementById(links[links.length - 1].dataset.tocTarget)
+            : null;
+
+        if (!last) {
+            return;
+        }
+
+        const anchorOffset = Number.parseFloat(getComputedStyle(last).scrollMarginTop) || 0;
+        const lastTop = last.getBoundingClientRect().top + window.scrollY;
+        // 마지막 소제목을 기준선에 올리려면 이만큼은 스크롤할 수 있어야 한다.
+        const needed = lastTop - anchorOffset + window.innerHeight - document.documentElement.scrollHeight;
+
+        if (needed > 0) {
+            explanation.style.paddingBottom = `${Math.ceil(needed)}px`;
+        }
+    }
+
+    /**
+     * Markdown API 설명의 매개변수와 반환값 목록을 접고 펼칠 수 있게 표시한다.
+     */
+    function renderApiDisclosures() {
+        const disclosureLabels = new Set(['매개변수', '반환값']);
+
+        $('#explanation .markdown-document p > strong').each(function () {
+            const label = this.textContent.trim();
+            if (!disclosureLabels.has(label)) {
+                return;
+            }
+
+            const labelParagraph = this.parentElement;
+            const list = labelParagraph.nextElementSibling;
+            if (!list || (list.tagName !== 'UL' && list.tagName !== 'OL')) {
+                return;
+            }
+
+            const details = document.createElement('details');
+            const summary = document.createElement('summary');
+            details.className = 'api-disclosure';
+            summary.textContent = label;
+            summary.title = '펼치기';
+
+            details.addEventListener('toggle', function () {
+                summary.title = details.open ? '접기' : '펼치기';
+            });
+
+            labelParagraph.replaceWith(details);
+            details.append(summary, list);
+        });
+    }
+
+    /**
+     * 코드 블록을 표시한다.
+     * 자동 생성 문서는 빌드 시점에 Prism이 이미 색을 입혀 두었으므로 그대로 두고,
+     * 손으로 쓴 조각의 숨은 .code-text만 표준 pre > code로 옮겨 Prism에 넘긴다.
+     */
+    function renderCodeBlocks() {
+        $('#explanation .code-text').each(function () {
+            const target = document.getElementById(this.id + '-code');
+
+            if (!target || target.dataset.highlighted === 'true') {
+                return;
+            }
+
+            const value = dedentCode(this.textContent);
+            // 조각에는 언어 표시가 없다. HTML 예시도 섞여 있어 여는 꺾쇠로 시작하면 markup으로 본다.
+            const language = value.startsWith('<') ? 'markup' : 'javascript';
+            const pre = document.createElement('pre');
+            const code = document.createElement('code');
+
+            pre.className = `language-${language}`;
+            code.className = `language-${language}`;
+            code.textContent = value;
+            pre.append(code);
+            target.replaceChildren(pre);
+            target.dataset.highlighted = 'true';
+
+            Prism.highlightElement(code);
+        });
+    }
+
+    /**
+     * 여러 줄 코드에서 모든 줄이 공통으로 가진 앞쪽 공백을 걷어낸다.
+     * 조각의 .code-text는 HTML 들여쓰기를 그대로 품고 있어, 첫 줄만 다듬으면
+     * 둘째 줄부터 열두 칸씩 밀려 보인다.
+     * @param {string} value 코드 원문
+     * @returns {string} 공통 들여쓰기를 걷어낸 코드
+     */
+    function dedentCode(value) {
+        const lines = value.replace(/\t/g, '    ').replace(/^\n+|\s+$/g, '').split('\n');
+        const indents = lines
+            .filter((line) => line.trim())
+            .map((line) => line.match(/^ */)[0].length);
+        const common = indents.length ? Math.min(...indents) : 0;
+
+        return lines.map((line) => line.slice(common)).join('\n');
+    }
+
+    /**
+     * 각 카테고리의 목록 항목 수를 같은 details의 badge에 표시한다.
+     * 카테고리별 class와 badge id를 매핑하지 않으므로 동일한 HTML 구조만 지키면 자동 집계된다.
+     */
+    function updateCategoryBadges($navigationList, searching) {
+        $navigationList.find('details').each(function () {
+            const $details = $(this);
+            const $badge = $details.children('summary').find('.badge').first();
+            const $list = $details.children('ul.list').first();
+
+            if (!$badge.length || !$list.length) {
+                return;
+            }
+
+            const $items = $list.children('li');
+            const total = $items.length;
+            const shown = $items.not('.hide').length;
+            const narrowed = Boolean(searching) && shown < total;
+
+            // 단위는 적지 않는다. 꼬리표 모양이 이미 수량표로 읽히고, 좁은 목록에서 글자만 길어진다.
+            // 검색 중에는 걸린 수를 앞에 붙인다. 전체 수만 두면 화면에 한 개가 보이는데
+            // 숫자는 여덟이라, 무엇을 세는 수인지 오히려 알기 어려워진다.
+            $badge.text(narrowed ? `${shown}/${total}` : String(total));
+            // 숫자만으로는 개수인지 순번인지 알 수 없어 읽기 도구와 커서 안내에 말로 남긴다.
+            $badge.attr('title', narrowed ? `문서 ${total}개 중 ${shown}개` : `문서 ${total}개`);
+            $badge.toggleClass('is-filtered', narrowed);
+        });
+    }
+
+    /**
+     * 상단 테마 전환 버튼을 연결한다.
+     *
+     * 저장 자리는 예제 목록 페이지와 같으므로, 한쪽에서 고른 테마가 다른 쪽에도 그대로 이어진다.
+     * 직접 고른 적이 없는 사용자는 운영체제 설정을 계속 따라간다.
+     */
+    function setupThemeToggle() {
+        const THEME_STORAGE_KEY = 'geondt-example-theme';
+        const toggle = document.getElementById('theme-toggle');
+        if (!toggle) {
+            return;
+        }
+
+        const readStoredTheme = () => {
+            try {
+                const stored = localStorage.getItem(THEME_STORAGE_KEY);
+                return stored === 'dark' || stored === 'light' ? stored : '';
+            } catch (error) {
+                // 사생활 보호 모드처럼 저장소를 막아 둔 환경에서는 고른 적이 없는 것으로 본다.
+                return '';
+            }
+        };
+
+        const applyTheme = (theme) => {
+            document.documentElement.dataset.theme = theme;
+            toggle.setAttribute('aria-pressed', String(theme === 'dark'));
+            toggle.title = theme === 'dark' ? '밝은 화면으로 전환' : '어두운 화면으로 전환';
+        };
+
+        toggle.addEventListener('click', function () {
+            const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+            try {
+                localStorage.setItem(THEME_STORAGE_KEY, next);
+            } catch (error) {
+                // 저장하지 못해도 이번 방문 동안은 고른 테마를 그대로 쓴다.
+            }
+            applyTheme(next);
+        });
+
+        window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener('change', function (event) {
+            if (readStoredTheme()) {
+                return;
+            }
+            applyTheme(event.matches ? 'dark' : 'light');
+        });
+
+        // 머리 Script가 정해 둔 테마에 버튼 상태를 맞춘다.
+        applyTheme(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
+    }
+
+    setupThemeToggle();
+</script>
+</body>
+</html>

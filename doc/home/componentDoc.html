@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Component 용어 설명</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="component-용어-설명">Component 용어 설명</h1>
+<div class="document-thumbnail" data-size="medium">
+<figure class="document-image">
+<img src="image/componentDoc/compoenetDoc.png" alt="다양한 컴포넌트" loading="eager">
+<figcaption>다양한 컴포넌트</figcaption>
+</figure>
+</div>
+<p>GeOnDT의 Component는 하나 이상의 Mesh와 속성 및 동작을 하나의 기능 단위로 관리하는 객체입니다. 건물, 나무, 자동차, 드론, 센서와 같은 시설물을 3D 공간에 배치하고 개별적으로 제어할 때 사용합니다.</p>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-3d-%EC%97%90%EC%85%8B">3D 에셋</a></li>
+<li><a href="#2-%EC%BB%B4%ED%8F%AC%EB%84%8C%ED%8A%B8">컴포넌트</a></li>
+<li><a href="#3-%EC%9D%B8%EC%8A%A4%ED%84%B4%EC%8A%A4-%EC%BB%B4%ED%8F%AC%EB%84%8C%ED%8A%B8">인스턴스 컴포넌트</a></li>
+<li><a href="#4-%EC%BB%B4%ED%8F%AC%EB%84%8C%ED%8A%B8-%EB%A0%88%EC%9D%B4%EC%96%B4">컴포넌트 레이어</a></li>
+<li><a href="#5-%EC%9A%A9%EC%96%B4-%EA%B4%80%EA%B3%84%EC%99%80-%EC%83%9D%EC%84%B1-%EB%B0%A9%EC%8B%9D-%EC%84%A0%ED%83%9D">용어 관계와 생성 방식 선택</a></li>
+</ol>
+<hr>
+<h2 id="1-3d-에셋">1. 3D 에셋</h2>
+<p><strong>3D 에셋(3D Asset):</strong> 건물, 나무, 자동차 등의 형태와 재질을 표현하는 원본 3D 파일입니다. GeOnDT의 컴포넌트 레이어는 <code>3ds</code>, <code>obj</code>, <code>glb</code>, <code>fbx</code> 등의 파일 형식을 사용할 수 있습니다.</p>
+<p>에셋은 아직 지도 위에 배치된 사물이 아닙니다. 위치, 회전, 크기와 같은 배치 정보가 없으며, 컴포넌트를 생성할 때 공유하는 원본 리소스입니다.</p>
+<p>컴포넌트 레이어에 에셋을 등록할 때는 다음 정보를 가진 <code>ModelDataInfo</code>를 사용합니다.</p>
+<ul>
+<li><code>name</code> (<code>string</code>) : 레이어 안에서 3D 에셋을 구분하는 이름</li>
+<li><code>baseurl</code> (<code>string</code>) : 3D 에셋 파일을 불러올 기본 URL</li>
+<li><code>fileName</code> (<code>string</code>) : 확장자를 포함한 원본 파일명</li>
+<li><code>ext</code> (<code>string</code>) : <code>3ds</code>, <code>obj</code>, <code>glb</code>, <code>fbx</code> 등의 파일 형식</li>
+</ul>
+<p>하나의 3D 에셋을 등록한 뒤 서로 다른 위치, 회전, 크기를 가진 여러 컴포넌트를 생성할 수 있습니다. 에셋 등록 방법은 <a href="createComponent.html#2-%EB%8D%B0%EC%9D%B4%ED%84%B0-%EB%93%B1%EB%A1%9D%ED%95%98%EA%B8%B0">3D 공간에 사물 출력 - 데이터 등록하기</a>를, 컴포넌트 생성 방법은 <a href="createComponent.html#3-%EC%BB%B4%ED%8F%AC%EB%84%8C%ED%8A%B8-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">3D 공간에 사물 출력 - 컴포넌트 생성하기</a>를 참고하세요.</p>
+<hr>
+<h2 id="2-컴포넌트">2. 컴포넌트</h2>
+<p><strong>컴포넌트(Component):</strong> 등록된 3D 에셋을 이용해 GeOnDT의 3D 공간에 배치한 사물입니다. 일반 방식으로 생성된 컴포넌트의 타입은 <code>U3dComponentPosition</code>입니다.</p>
+<p>컴포넌트는 원본 에셋에 다음과 같은 개별 상태와 동작을 결합합니다.</p>
+<ul>
+<li>위치, 회전, 크기와 같은 Transform 정보</li>
+<li>표시 여부, 색상과 투명도 등의 스타일</li>
+<li>사용자가 저장한 속성 정보</li>
+<li>선택, 충돌 등 객체 단위 이벤트</li>
+<li>모델 애니메이션과 경로 이동 같은 동작</li>
+</ul>
+<p>같은 에셋으로 만든 컴포넌트라도 각각 다른 이름, 위치와 속성을 가질 수 있습니다. 예를 들어 나무 에셋 하나를 등록하고 <code>tree-1</code>, <code>tree-2</code>처럼 여러 컴포넌트를 서로 다른 위치에 만들 수 있습니다.</p>
+<p>일반 컴포넌트는 각 사물의 위치나 스타일을 자주 변경하거나 개별 애니메이션과 이벤트를 제어해야 할 때 적합합니다.</p>
+<hr>
+<h2 id="3-인스턴스-컴포넌트">3. 인스턴스 컴포넌트</h2>
+<p><strong>인스턴스 컴포넌트(Instanced Component):</strong> 동일한 3D 에셋의 Mesh와 Material을 공유하는 인스턴스 렌더링 방식으로 생성한 컴포넌트입니다. 공개 타입은 <code>U3dComponentInstancedPosition</code>이며 <code>U3dComponentPosition</code>의 기능을 확장합니다.</p>
+<p>각 인스턴스 컴포넌트는 원본 렌더링 리소스를 공유하지만 위치, 회전, 크기와 표시 여부 같은 인스턴스별 상태를 가집니다. 따라서 동일한 나무, 가로등, 의자처럼 같은 에셋을 많이 배치할 때 메모리와 렌더링 효율을 높일 수 있습니다.</p>
+<p>인스턴스 컴포넌트는 다음 상황에 적합합니다.</p>
+<ul>
+<li>같은 3D 에셋을 수천 개 이상 반복 배치하는 경우</li>
+<li>각 사물이 대부분 정적이고 개별 제어 빈도가 낮은 경우</li>
+<li>숲의 나무, 도로의 가로등처럼 대규모 시설물을 출력하는 경우</li>
+</ul>
+<p>서로 다른 에셋을 사용하거나 사물마다 복잡한 애니메이션과 스타일 변경이 잦다면 일반 컴포넌트가 더 적합합니다.</p>
+<hr>
+<h2 id="4-컴포넌트-레이어">4. 컴포넌트 레이어</h2>
+<p><strong>컴포넌트 레이어(Component Layer):</strong> 3D 에셋을 등록하고, 등록된 에셋으로 컴포넌트를 생성하며, 생성된 컴포넌트를 출력·조회·제어·제거하는 관리자 객체입니다. 대표적인 공개 타입은 <code>U3dMultipleComponentLayer</code>입니다.</p>
+<p>컴포넌트 레이어는 다음 역할을 담당합니다.</p>
+<ul>
+<li><code>listmodel</code> 또는 <code>loadModel()</code>을 이용한 3D 에셋 등록</li>
+<li><code>addPosition()</code>을 이용한 일반 또는 인스턴스 컴포넌트 생성</li>
+<li>이름이나 ID를 이용한 컴포넌트 조회</li>
+<li>컴포넌트의 표시, 갱신과 제거 관리</li>
+<li>레이어에 속한 컴포넌트 리소스 정리</li>
+</ul>
+<p>레이어의 <code>setInstanced</code> 생성 옵션 또는 <code>setInstanced()</code>를 사용해 이후 <code>addPosition()</code>으로 만들 컴포넌트의 방식을 선택합니다.</p>
+<ul>
+<li><code>false</code> : <code>U3dComponentPosition</code> 일반 컴포넌트 생성</li>
+<li><code>true</code> : <code>U3dComponentInstancedPosition</code> 인스턴스 컴포넌트 생성</li>
+</ul>
+<p>이 설정은 <strong>이미 생성된 컴포넌트의 타입을 변환하지 않고, 설정 이후 생성하는 컴포넌트에만 적용</strong>됩니다.<br>실제 생성 코드와 옵션은 <a href="createComponent.html#1-%EB%A0%88%EC%9D%B4%EC%96%B4-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">3D 공간에 사물 출력 - 레이어 생성하기</a>를 참고하세요.</p>
+<hr>
+<h2 id="5-용어-관계와-생성-방식-선택">5. 용어 관계와 생성 방식 선택</h2>
+<p>각 용어는 다음 순서로 연결됩니다.</p>
+<pre class="language-text"><code class="language-text">3D 에셋 파일
+    ↓ ModelDataInfo로 등록
+U3dMultipleComponentLayer
+    ↓ addPosition()으로 배치
+U3dComponentPosition 또는 U3dComponentInstancedPosition
+</code></pre>
+<p>핵심 관계는 다음과 같습니다.</p>
+<ul>
+<li><strong>3D 에셋</strong>은 여러 컴포넌트가 공유할 수 있는 <mark>원본 파일</mark>입니다.</li>
+<li><strong>컴포넌트</strong>는 에셋에 위치와 동작을 부여해 장면에 배치한 <mark>개별 사물</mark>입니다.</li>
+<li><strong>인스턴스 컴포넌트</strong>는 동일한 에셋을 <mark>대량 배치</mark>하기 위한 컴포넌트 구현 방식입니다.</li>
+<li><strong>컴포넌트 레이어</strong>는 에셋과 두 종류의 컴포넌트를 <mark>등록하고 관리</mark>합니다.</li>
+</ul>
+<p>개별 제어와 애니메이션이 중요하면 일반 컴포넌트를, 동일한 에셋의 대량 배치가 중요하면 인스턴스 컴포넌트를 선택하세요. 컴포넌트 레이어 생성부터 시작하려면 <a href="createComponent.html#1-%EB%A0%88%EC%9D%B4%EC%96%B4-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">3D 공간에 사물 출력 - 레이어 생성하기</a>를 참고하세요.</p>
+</main>
+</body>
+</html>
+

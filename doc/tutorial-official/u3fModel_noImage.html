@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>U3F 모델 레이어 예제</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/tutorial.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        .examples {
+            padding: 15px 30px 15px 30px;
+        }
+    </style>
+</head>
+<body>
+<div id="map-wrapper">
+    <div id="map"></div>
+</div>
+<div class="execute-popup"><button>직접해보기</button></div>
+<div class="examples row">
+    <div class="ex-explanation" hidden>
+        <p class="lead">
+            3D 모델 레이어 중, <strong>U3F 모델 레이어를 화면에 출력</strong>하는 예제입니다.<br>
+        </p>
+    </div>
+    <div class="form-group">
+        <div class="checkbox">
+            <label>
+                <input type="checkbox" target="u3f">
+                모델
+            </label>
+        </div>
+        <div>
+        <label for="stroke" class=" control-label">건물 색상</label>
+            <input id="stroke"  type="color" name="stroke" value="#ffffff">
+        <button class="btn btn-default btn-sm apply" id="apply">적용</button>
+        </div>
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function() {
+        window.open('./runner.html?url=' + strings[strings.length-1] + '&title=' + document.title);
+    })
+</script>
+<script>
+    require(['app/Union3D'], function (Union3D) {
+        //라이센스 인증
+        Union3D.ready(function () {
+            //지도 기본 세팅///////////////////////////////////////
+            var app = new Union3D.U3dAPP({
+                containername: 'map'
+            });
+
+            //+ 디버깅용
+            window.app = app;
+            app.setHomePosition(126.81807921832662,33.53418768754279, 5061.436418848295, 450, 2, 60)
+            //app.setHomePosition( 129.16471230274732, 35.16831448753321, 450, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+            app.updateHomePosition();
+
+            //+ 이미지 레이어 생성
+            createEmapSatLayer('base');
+
+            //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+            app.setNameBaseLayer('base');
+            app.showImageLayer('base', true);
+
+
+            // // 하이브리드 지도
+            // var hybridLayer = new Union3D.image.U3dImageXYZLayer({
+            //     name       : 'hybrid',
+            //     baseurl    : 'https://xdworld.vworld.kr/2d/Hybrid/service/{z}/{x}/{-y}.png',
+            //     reverseY   : true,
+            //     transparent: true,
+            //     animation  : true
+            // });
+            // app.addLayer(hybridLayer);
+            // app.showLayer('hybrid', true);
+
+            //+ 고도레이어
+            var terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+                name: 'Korea Terrain', //+ 레이어 이름,  defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+                baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+                ext: '.umf', //+ 파일 확장자
+                reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+                minlevel: 9,  //+ 가시화 최소 레벨
+                maxlevel: 15, //+ 가시화 최대 레벨
+                useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+                maxprocess: 2, //+ process 최대값
+                interpolationheight: true,  //+ 고도보간 기능 사용 여부
+                rectangle: Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수
+            });
+
+            app.addLayer(terrainLayer);
+            app.showLayer('Korea Terrain', true);
+            /////////////////////////////////////////////////////
+
+            $(document).on('click', 'input[type=checkbox]', checked);
+
+            $('#apply').on('click', function (e) {
+                if(modelLayer){
+                    modelLayer.setMeshColor($('#stroke').val());
+                }
+            })
+
+
+            function checked(e) {
+                var $checkbox = $(e.target);
+                if ($checkbox[0].checked) {
+                    createLayer();
+                } else {
+                    removeLayer();
+                }
+            }
+
+            window.modelayers = undefined;
+            function createLayer() {
+                if (modelayers !== undefined) {
+                    return;
+                }
+                initModelLayers();
+            }
+
+            function removeLayer() {
+                if (modelLayer === undefined) {
+                    return;
+                }
+                app.removeLayer(modelLayer.getName());
+                modelLayer = undefined;
+            }
+
+            let modelLayer;
+            function initModelLayers() {
+
+                try {
+                    /* request U3f layers list */
+                        modelLayer = app.create3DFModelLayer({
+                            // name: 'busan-part-bskim-image-output',
+                            // basename: 'busan-part-bskim-image-output',
+                            // baseurl: dataServerUrl+'/test/3dsample/model/busan-part-bskim-image-output',
+                            name: 'LOD1_3DS',
+                            basename: 'LOD1_3DS',
+                            baseurl: dataServerUrl+'/test/u3f/LOD1_3DS',
+                            // name: 'busan-part-bskim-output',
+                            // basename: 'busan-part-bskim-output',
+                            // baseurl: dataServerUrl+'/test/3dsample/model/busan-part-bskim-output',
+                            minlevel: 17,
+                            maxlevel: 17,
+                            srs:'epsg:3857',
+                            ext: '.u3f' ,
+                            maxprocess: 10,
+                            sizeblock: 10,
+                            updateimagedistance: 50,
+                            compressmodel: true,
+                            usesplitmodel: true,
+                            immediateupdateimage: true,
+                            useproxy:true,
+                            //meshColor: '#a899ee'
+                        });
+                        app.showLayer(modelLayer.getName(), true).then(function(){
+                            var bbox = modelLayer.getBoundingBox();
+                            if (bbox.max.x == Infinity || bbox.max.x == -Infinity || bbox.min.x == Infinity || bbox.min.x == -Infinity) {
+                                //alert("[" + modelLayer.getName() + "]" + "에 영역정보가 잘못되었습니다!");
+                                return;
+                            }
+                            //+ Layer의 중간 좌표를 받아 그 좌푯값으로 이동합니다.
+                            var center = bbox.getCenter();
+                            app.setCameraWorldPosition({x: center.x, y: center.y, z: bbox.max.z+400 , rotateX: 2, rotateY: 30});
+                    })
+                } catch (localBuldError) {
+                    console.log('Initialize Error Message : ' + localBuldError);
+                }
+            }
+
+            function createEmapBaseLayer(name) {
+                var opt = {
+                    name: name
+                    , useProxy: true
+                }
+
+                opt = Object.assign(opt, {
+                    reverseY: true
+                    , useproxy: true
+                    , url: layerInfo.image.emapbaseurl
+                    , xyorder: "xy"
+                });
+                var layer = app.createEmapBaseLayer(opt);
+                return layer;
+            }
+
+            function createEmapSatLayer(name) {
+                var opt = {
+                    name: name
+                    , useProxy: true
+                }
+
+                opt = Object.assign(opt, {
+                    reverseY: true
+                    , useproxy: true
+                    , url: layerInfo.image.emapsaturl
+                    , xyorder: "xy"
+                });
+
+                var layer = app.createEmapSatLayer(opt);
+                return layer;
+            }
+        });
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,252 @@
+<nav data-example-rail aria-label="3D 객체 그리기 도구">
+    <button class="rail-button" type="button" data-panel-target="vector-layer-panel" aria-controls="vector-layer-panel" aria-expanded="false">
+        <span class="rail-icon" aria-hidden="true">▦</span><span>객체 그리기</span>
+    </button>
+</nav>
+
+<aside class="glass-panel example-panel vector-panel" id="vector-layer-panel" aria-hidden="true">
+    <header class="panel-header">
+        <div>
+            <span class="eyebrow">VECTOR GEOMETRY</span>
+            <h2>3D 객체 그리기</h2>
+        </div>
+        <button class="panel-close" type="button" data-panel-close="vector-layer-panel" aria-label="객체 그리기 패널 닫기">×</button>
+    </header>
+
+    <div class="panel-content vector-content">
+        <p class="panel-description">도형 종류를 고른 뒤 지도를 클릭하면 기본 설정으로 도형이 생성됩니다. 만든 도형의 설정은 레이어별 도형 목록에서 골라 바꿉니다.</p>
+
+        <section class="vector-section" aria-labelledby="vector-type-heading" data-api-help="geometry.create">
+            <h3 id="vector-type-heading">도형 종류</h3>
+            <div class="vector-type-grid">
+                <label><input type="radio" name="type" value="Point" checked><span>포인트</span></label>
+                <label><input type="radio" name="type" value="Line"><span>라인</span></label>
+                <label><input type="radio" name="type" value="Cylinder"><span>실린더</span></label>
+                <label><input type="radio" name="type" value="Box"><span>박스</span></label>
+                <label><input type="radio" name="type" value="Circle"><span>원</span></label>
+                <label><input type="radio" name="type" value="Sphere"><span>구</span></label>
+                <label><input type="radio" name="type" value="Pipe"><span>파이프</span></label>
+                <label><input type="radio" name="type" value="UserGeometry"><span>사용자도형</span></label>
+                <label><input type="radio" name="type" value="PolygonLoftGeometry"><span>Loft도형</span></label>
+                <label><input type="radio" name="type" value="PathGeometry"><span>경로 도형</span></label>
+                <label><input type="radio" name="type" value="Fault"><span>단층 도형</span></label>
+                <label><input type="radio" name="type" value="GIZMO"><span>GIZMO</span></label>
+            </div>
+            <p class="vector-hint" id="vector-type-hint">지도를 한 번 클릭하면 도형이 완성됩니다.</p>
+
+            <div class="param" data-param-target="PathGeometry" data-api-help="geometry.path">
+                <button id="apply-path" class="vector-primary" type="button">그리기</button>
+            </div>
+
+            <div class="param vector-gizmo" data-param-target="GIZMO" data-api-help="geometry.gizmo">
+                <button id="gizmo-edit" class="toggle" type="button">편집</button>
+                <button id="gizmo-move" class="edit" type="button" disabled>이동</button>
+                <button id="gizmo-rotation" class="edit" type="button" disabled>회전</button>
+                <button id="gizmo-scale" class="edit" type="button" disabled>크기</button>
+            </div>
+        </section>
+
+        <section class="vector-section" aria-labelledby="geometry-list-heading">
+            <h3 id="geometry-list-heading">레이어별 도형 <b id="geometry-count">0</b>개</h3>
+            <div class="vector-list-box">
+                <div class="vector-layer-list" id="geometry-layer-list"></div>
+            </div>
+            <p class="vector-hint" id="geometry-selection-status">목록에서 도형을 누르면 왼쪽에 선택 도형 설정 창이 열립니다.</p>
+        </section>
+
+        <!-- 도형 종류별 설정 입력 틀입니다. 화면에 표시하지 않으며, 새 도형의 기본 설정을 읽거나 선택 도형 설정 창의 입력을 만들 때 복제합니다. -->
+        <template id="geometry-param-template">
+            <div class="vector-form-grid" id="color-div">
+                <label>색상<input id="color" type="color" name="color" value="#2b448b"></label>
+                <label class="vector-check"><input type="checkbox" name="shadow"><span>그림자</span></label>
+            </div>
+            <div class="vector-form-grid" id="depth-offset-div">
+                <label title="카메라 쪽으로 당겨 그릴 거리입니다. 미터 단위이며 0이면 보정하지 않습니다.">깊이 보정 (m)<input type="number" min="0" step="1" name="depthOffset" value="0"></label>
+                <p class="vector-hint">0이면 보정 없음</p>
+            </div>
+
+            <div class="param vector-form-grid" data-param-target="Point">
+                <label>점 크기<input type="number" min="1" step="1" name="size" value="30"></label>
+                <label class="wide-field">이미지<input type="text" name="img" value="image/marker.png"></label>
+            </div>
+
+            <div class="param vector-form-grid" data-param-target="Line">
+                <label>선두께<input id="lineWidth" type="number" name="lineWidth" value="5"></label>
+            </div>
+
+            <div class="param vector-form-grid" data-param-target="Box">
+                <label>좌우폭<input type="number" name="width" value="10"></label>
+                <label>상하폭<input type="number" name="height" value="10"></label>
+                <label>높이<input type="number" name="depth" value="10"></label>
+                <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="1"></label>
+                <label class="vector-check"><input type="checkbox" name="outline"><span>외곽선 여부</span></label>
+            </div>
+
+            <div class="param vector-form-grid" data-param-target="Circle">
+                <label>지름<input type="number" name="radius" value="10"></label>
+                <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="1"></label>
+            </div>
+
+            <div class="param vector-form-grid" data-param-target="Sphere">
+                <label>지름<input type="number" name="radius" value="10"></label>
+                <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="1"></label>
+                <label class="vector-check"><input type="checkbox" name="outline"><span>외곽선 여부</span></label>
+            </div>
+
+            <div class="param vector-form-grid" data-param-target="Cylinder">
+                <label>반지름(상)<input type="number" name="radiusTop" value="5"></label>
+                <label>반지름(하)<input type="number" name="radiusBottom" value="5"></label>
+                <label>길이<input type="number" name="height" value="20"></label>
+                <label>radialSegments<input type="number" min="3" step="1" name="radialSegments" value="32"></label>
+                <label>heightSegments<input type="number" min="1" step="1" name="heightSegments"></label>
+                <label>thetaStart (×π)<input type="number" step="0.25" name="thetaStart" placeholder="0.5 = π/2"></label>
+                <label>thetaLength (×π)<input type="number" step="0.25" name="thetaLength" placeholder="2 = 한 바퀴"></label>
+                <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="1"></label>
+                <label class="vector-check"><input type="checkbox" name="openEnded"><span>openEnded</span></label>
+                <label class="vector-check"><input type="checkbox" name="outline" checked><span>외곽선 여부</span></label>
+            </div>
+
+            <div class="param vector-form-grid" data-param-target="Pipe">
+                <label>파이프 반지름<input type="number" min="0" step="0.1" name="piperadius" value="2"></label>
+                <label>경로 세분화 정도<input type="number" min="3" step="1" name="pathsegments" value="64"></label>
+                <label>반지름 세분화 정도<input type="number" min="3" step="1" name="radiussegments" value="16"></label>
+                <label>곡선 정도<input type="number" min="0" step="0.1" max="1" name="tension" value="0.5"></label>
+                <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="1"></label>
+                <label class="vector-check"><input type="checkbox" name="closed"><span>닫기 여부</span></label>
+            </div>
+
+            <div class="param vector-form-grid" data-param-target="UserGeometry">
+                <label>높이<input type="number" name="height" value="100"></label>
+                <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="0.7"></label>
+                <label class="vector-check"><input type="checkbox" name="outline"><span>외곽선 여부</span></label>
+                <label class="vector-check"><input type="checkbox" name="usecurve"><span>곡선 보간</span></label>
+            </div>
+
+            <div class="param vector-form-grid" data-param-target="PolygonLoftGeometry">
+                <label>높이<input type="number" name="height" value="100"></label>
+                <label>topScale<input type="number" min="0" step="0.1" name="topScale" value="0.7"></label>
+                <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="0.7"></label>
+                <label class="vector-check"><input type="checkbox" name="outline" checked><span>외곽선 여부</span></label>
+            </div>
+
+            <div class="param vector-form-grid" data-param-target="PathGeometry">
+                <label>지면 높이<input type="number" name="height" value="100"></label>
+                <label>경로 너비<input type="number" name="width" value="20"></label>
+                <label>경로 높이<input type="number" name="pathheight" value="10"></label>
+                <label>경로 텐션<input type="number" min="0" step="0.1" max="1" name="tension" value="0.5"></label>
+                <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="0.4"></label>
+                <label class="vector-check"><input type="checkbox" name="outline" checked><span>외곽선 여부</span></label>
+            </div>
+
+            <div class="param vector-form-grid" data-param-target="Fault">
+                <div class="vector-legend wide-field">
+                    <b>[범례]</b>
+                    <ul class="vector-legend-list">
+                        <li><input type="color" class="legend-input" name="colors" value="#300591"><span>1</span></li>
+                        <li><input type="color" class="legend-input" name="colors" value="#7706A1"><span>0.75</span></li>
+                        <li><input type="color" class="legend-input" name="colors" value="#B9377F"><span>0.5</span></li>
+                        <li><input type="color" class="legend-input" name="colors" value="#ff7f00"><span>0.25</span></li>
+                        <li><input type="color" class="legend-input" name="colors" value="#EDE721"><span>0</span></li>
+                    </ul>
+                </div>
+                <label>너비<input type="number" name="width" value="100"></label>
+                <label>길이<input type="number" name="length" value="100"></label>
+                <label>경사향 각도<input type="number" name="dip" value="60"></label>
+                <label>단층 상단부 깊이<input type="number" name="dtop" value="0"></label>
+                <label>주향 방향<input type="number" name="strike" value="0"></label>
+                <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="0.7"></label>
+                <label class="vector-check"><input type="checkbox" name="outline"><span>외곽선 여부</span></label>
+            </div>
+        </template>
+        <section class="vector-section vector-actions" aria-label="도형 작업">
+            <button id="export-json" type="button" data-api-help="geometry.export">저장하기</button>
+            <button id="import-json" type="button" data-api-help="geometry.json">불러오기</button>
+            <button id="clear" class="danger" type="button" data-api-help="geometry.clear">전체 지우기</button>
+        </section>
+    </div>
+</aside>
+
+<!-- 왼쪽 선택 도형 설정 창과 JSON으로 설정 창: 목록에서 도형을 고르면 선택 도형 설정 창이 열리고, [JSON으로 설정]을 켜 두면 JSON 창도 함께 열립니다.
+     Runtime 패널은 오른쪽에 하나만 열리므로 드론 통합 모니터링 예제처럼 예제가 직접 표시·숨김을 관리합니다. -->
+<div class="vector-side-panels">
+    <aside class="glass-panel vector-side-panel" id="geometry-detail-panel" aria-labelledby="geometry-detail-heading" aria-hidden="true" hidden>
+        <header class="panel-header">
+            <div>
+                <span class="eyebrow">SELECTED GEOMETRY</span>
+                <h2 id="geometry-detail-heading">선택 도형 설정 <span class="vector-detail-name" id="geometry-detail-name">-</span></h2>
+            </div>
+            <button class="panel-close" id="geometry-detail-close" type="button" aria-label="선택 도형 설정 닫기">×</button>
+        </header>
+
+        <div class="panel-content vector-side-content">
+            <p class="panel-description">목록에서 선택한 도형의 설정입니다. 값을 바꾸면 선택한 도형에만 즉시 적용되며, [JSON으로 설정]을 켜면 같은 설정을 텍스트로도 바꿀 수 있습니다.</p>
+
+            <dl class="vector-info-list">
+                <div><dt>레이어</dt><dd id="geometry-detail-layer">-</dd></div>
+                <div><dt>종류</dt><dd id="geometry-detail-type">-</dd></div>
+            </dl>
+
+            <div class="vector-side-heading-row">
+                <h3 class="vector-side-heading">설정</h3>
+                <button class="vector-json-toggle" id="geometry-json-toggle" type="button" aria-pressed="false" aria-controls="geometry-json-panel">JSON으로 설정</button>
+            </div>
+            <div class="vector-detail-form" id="geometry-detail-form"></div>
+            <!-- TEMP: setWireframe/getWireframe 확인용 -->
+            <label><input type="checkbox" id="geometry-wireframe-toggle"> 와이어프레임 (setWireframe)</label>
+            <button id="delete-selected" class="vector-side-action danger" type="button" data-api-help="geometry.remove">선택 도형 삭제</button>
+        </div>
+    </aside>
+
+    <aside class="glass-panel vector-side-panel" id="geometry-json-panel" aria-labelledby="geometry-json-heading" aria-hidden="true" hidden>
+        <header class="panel-header">
+            <div>
+                <span class="eyebrow">JSON STYLE</span>
+                <h2 id="geometry-json-heading">JSON으로 설정</h2>
+            </div>
+            <button class="panel-close" id="geometry-json-close" type="button" aria-label="JSON으로 설정 닫기">×</button>
+        </header>
+
+        <div class="panel-content vector-side-content" data-api-help="geometry.style">
+            <p class="panel-description">선택한 도형의 현재 설정입니다. 값을 고치고 [선택 도형에 적용]을 누르면 선택 도형 설정 창과 같은 방식으로 도형에 반영됩니다. 값은 도형에 그대로 전달되므로 각도는 라디안 단위입니다.</p>
+            <textarea id="geometry-json-input" class="vector-side-json" spellcheck="false" aria-label="선택한 도형에 적용할 설정 JSON"></textarea>
+            <div id="geometry-json-desc" class="vector-desc" hidden></div>
+            <p class="vector-json-summary vector-json-result" id="geometry-json-result" role="status" hidden></p>
+            <div class="vector-side-actions">
+                <button id="geometry-json-reset" class="vector-side-action" type="button">현재 설정 다시 채우기</button>
+                <button id="geometry-json-apply" class="vector-side-action primary" type="button">선택 도형에 적용</button>
+            </div>
+        </div>
+    </aside>
+</div>
+
+<div class="vector-json-dialog" id="export-json-dialog" hidden>
+    <div class="vector-json-backdrop" data-json-dismiss></div>
+    <div class="vector-json-card" role="dialog" aria-modal="true" aria-labelledby="export-json-title">
+        <header class="vector-json-header">
+            <h3 id="export-json-title">저장한 도형 JSON</h3>
+            <button class="vector-json-close" type="button" data-json-dismiss aria-label="닫기">×</button>
+        </header>
+        <p class="vector-json-summary" id="export-json-summary"></p>
+        <pre class="vector-json-body" id="export-json-body" tabindex="0"></pre>
+        <div class="vector-json-actions">
+            <button id="export-json-copy" class="vector-primary" type="button">전체 복사</button>
+        </div>
+    </div>
+</div>
+
+<div class="vector-json-dialog" id="import-json-dialog" hidden>
+    <div class="vector-json-backdrop" data-json-dismiss></div>
+    <div class="vector-json-card" role="dialog" aria-modal="true" aria-labelledby="import-json-title">
+        <header class="vector-json-header">
+            <h3 id="import-json-title">도형 JSON 불러오기</h3>
+            <button class="vector-json-close" type="button" data-json-dismiss aria-label="닫기">×</button>
+        </header>
+        <p class="vector-json-summary">[저장하기]로 얻은 JSON 데이터를 붙여 넣으면 저장된 도형을 vector 레이어에 불러옵니다.
+            subVectorLayer의 공전 도형은 저장·불러오기 대상이 아니며 [지우기]로만 지워집니다.</p>
+        <textarea id="coord-input" class="vector-json-body" spellcheck="false" aria-label="불러올 도형 JSON" placeholder='{"type": "Point", "coord": [126.9395, 37.52], ...}'></textarea>
+        <p class="vector-json-summary vector-json-result" id="coord-create-result" role="status" hidden></p>
+        <div class="vector-json-actions">
+            <button id="coord-create" class="vector-primary" type="button">확인</button>
+        </div>
+    </div>
+</div>

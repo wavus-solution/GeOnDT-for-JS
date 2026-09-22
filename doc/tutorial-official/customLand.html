@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>지표면 편집 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+
+        .div-popup {
+            width: 900px;
+            height: 400px;
+            top: 55vh;
+            display: inline;
+            overflow-y: auto;
+        }
+
+        .div-popup-control {
+            text-align: right;
+            font-size: 16px;
+            background-color: #2b2b2b;
+            padding: 5px;
+            height: 40px
+        }
+
+
+        .box {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 15px;
+            height: 15px;
+            background: red;
+            z-index: 999;
+            pointer-events: none;
+            display: none;
+        }
+
+        .u3-popup {
+            color: #fff;
+            background-color: rgba(20, 20, 20, 0.6);
+            padding: 5px;
+            /*border-radius: 10px;*/
+            height: fit-content;
+            border: 1px solid #00000033;
+        }
+
+        .input-sm {
+            color: #fff;
+            background-color: rgba(40, 40, 40, 0.6);
+            border-color: #333;
+        }
+
+        .btn-default {
+            color: #fff;
+            background-color: rgba(10, 10, 10, 0.6);
+            border-color: #333;
+        }
+
+        .form-inline {
+            margin-left: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 8px;
+        }
+
+        .div-popup-content {
+            margin-top: 10px;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> 지표면 편집 모델 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        사용자가 그린 밑 도형을 따라 지도 상의 <strong>지형을 편집</strong>하는 예제입니다.<br>
+        지상 높이는 0m가 기준이며 사용자는 변경하고자 하는 높이를 입력하여 지형을 편집합니다.<br>
+        경사면 추가 분석을 선택하면 기울기를 입력받아 해당 기울기 만큼의 경사면을 추가로 생성합니다.<br>
+        동적 편집 기능을 통해 마우스 드래그로 지형을 편집할 수도 있습니다.</p>
+</div>
+<div class="box"></div>
+<div id="map-wrapper">
+    <div id="map"></div>
+    <div id="div-left-menu">
+        <div id="left-menu-list-panel">
+            <div class="form-group div-layer">
+                <div class="div-category">
+                    <label class="label-layerType">
+                        레이어
+                    </label>
+                </div>
+                <div id="layer-list">
+                    <div class="div-sub-category">
+                        <div class="sub-category-tile">
+                            <label class="label-layerType">
+                                이미지 레이어
+                            </label>
+                            <div class="category-btn-group">
+                                <label class="expand-btn layer">
+                                    <img src="image/btn_expand.svg" alt="">
+                                </label>
+                            </div>
+                        </div>
+                        <div class="sub-category-content">
+                            <div class="checkbox">
+                                <label>
+                                    <input class="input-showLayer" type="checkbox" target="satellite">
+                                    VWorld Satellite
+                                </label>
+                            </div>
+                            <div class="checkbox">
+                                <label>
+                                    <input class="input-showLayer" type="checkbox" target="hybrid">
+                                    VWorld Hybrid
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="div-sub-category">
+                        <div class="sub-category-tile">
+                            <label class="label-layerType">
+                                지형 레이어
+                            </label>
+                            <div class="category-btn-group">
+                                <label class="expand-btn layer">
+                                    <img src="image/btn_expand.svg" alt="">
+                                </label>
+                            </div>
+                        </div>
+                        <div class="sub-category-content">
+                            <div class="checkbox">
+                                <label>
+                                    <input class="input-showLayer" type="checkbox" target="korea_terrain">
+                                    전체 지형
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div>
+            <div style="display: inline-flex; position: relative">
+                <button id="left-menu-bnt" class="btn btn-xs menu-btn">
+                    <img src="image/left_panel_open_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+                <div class="div-btn-info" hidden>
+                    레이어 탭 열기
+                </div>
+            </div>
+            <div style="display: inline-flex; position: relative">
+                <button id="analy-bnt" class="btn btn-xs menu-btn">
+                    <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+                <div class="div-btn-info" hidden>
+                    분석 팝업 열기
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="btn-group" id='top-sbar'>
+        <div class='btn-group-vertical-block' id='right-toolbar'>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                     src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                     alt="나침반">
+            </button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                    id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                    id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                    id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+            </button>
+        </div>
+        <div class='btn-group' id='bt-bottom-bar'>
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                   value="위경도: ##.####  ###.#### ">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                   value="고도:####">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                   value="각도: ##">
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu='return false'>
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content">
+                <div class="col-sm-1" style="width: 400px;">
+                    <div class="radio">
+                        <label>
+                            <input type="radio" name="mode" value="edit">
+                            지형편집 모드
+                        </label>
+                    </div>
+                    <div class="radio">
+                        <label>
+                            <input type="radio" name="mode" value="pan" checked>
+                            기본 모드
+                        </label>
+                    </div>
+                    <div class="radio">
+                        <label>
+                            <input type="radio" name="mode" value="dynamicEdit">
+                            동적 편집
+                        </label>
+                    </div>
+                    <div class="radio" style="height: 20px;">
+                        <label class="col-sm-6 control-label">편집 크기
+                            <input type="number" name="editDynamic" class="input-axis-value" id="editSize"
+                                   style="margin-left: 5px;" value="4" min="1" max="10" step="1">
+                        </label>
+
+                        <label class="col-sm-6 control-label">편집 높이
+                            <input type="number" name="editDynamic" class="input-axis-value" id="editHeight"
+                                   style="margin-left: 5px;" value="30" min="1" max="40" step="2">
+                        </label>
+                    </div>
+
+                    <div class="radio">
+                        <label>
+                            <input type="radio" class="mode" name="mode" value="reset">
+                            초기화
+                        </label>
+                    </div>
+
+                    <div class="radio">
+                        <label>
+                            <input type="radio" class="basic" name="mode" value="Distance">
+                            거리 측정
+                        </label>
+                    </div>
+                    <div>
+                        파일선택
+                        <input type="file" name="dxf" accept=".dxf">
+                    </div>
+                </div>
+
+
+                <div class="col-sm-6">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <div class="d-flex">
+                                <div>지형편집 목록</div>
+                                <div class="flex-1 text-right">
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-xs btn-save-editLand">저장</div>
+                                        <div class="btn btn-default btn-xs btn-load-editLand">불러오기</div>
+                                    </div>
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-xs btn-remove-all">전체지우기</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="remove-target-list h-300 scroll-auto panel-body">
+                            <pre>지형편집 내용이 없습니다.</pre>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    let strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script id="set-imagelayer">
+    let ImageLayer = function (Union3D, app, opt) {
+        this._type = "ImageLayer";
+        this.layer = undefined;
+        this._union3d = Union3D;
+        this._app = app;
+        this._name = opt.name;
+        this.options = opt;
+        this.ready = $.Deferred();
+    }
+    ImageLayer.prototype.create = function () {
+        let self = this;
+        if (self._name === 'emapbase') {
+            self.layer = self._app.createEmapBaseLayer(this.options);
+        } else if (self._name === 'emapsat') {
+            self.layer = self._app.createEmapSatLayer(this.options);
+        } else {
+            self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
+            self._app.addLayer(this.layer);
+        }
+        this.layer.then(() => {
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+    ImageLayer.prototype.show = function (isShow) {
+        let promies = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow ? "시작" : "종료"));
+        this._app.showLayer(this.options.name, isShow).then(() => {
+            promies.resolve();
+        })
+        this.isShow = isShow;
+        return promies;
+    }
+</script>
+<script id="set-terrain">
+    let HeightLayer = function (Union3D, app, opt) {
+        this._type = "HeightLayer";
+        this.layer = undefined;
+        this._app = app;
+        this.options = opt;
+        this._name = opt.name;
+        this.ready = $.Deferred();
+    }
+    HeightLayer.prototype.create = function () {
+        let self = this;
+        self.layer = this._app.createHeightXYZLayer(self.options);
+        self.layer.then(() => {
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+    HeightLayer.prototype.show = function (isShow) {
+        let promies = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow ? "시작" : "종료"));
+        this._app.showLayer(this.options.name, isShow).then(() => {
+            promies.resolve();
+        })
+        this.isShow = isShow;
+        return promies;
+    }
+</script>
+<script id="layer-setting">
+    const LAYER_OPT = {
+        satellite: {
+            name: 'satellite',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldsaturl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+        },
+        hybrid: {
+            name: 'hybrid', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldhybirdurl,  //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            transparent: true //+ layer 투명화 여부
+        },
+        korea_terrain: {
+            name: 'korea_terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            ext: '.umf', //+ 파일 확장자, *필수 입력
+            reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+            minlevel: 9,  //+ 가시화 최소 레벨
+            maxlevel: 17, //+ 가시화 최대 레벨
+            useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+        }
+    };
+
+    let LayerList = function (Union3D, app) {
+        return {
+            //이미지레이어
+            satellite: new ImageLayer(Union3D, app, LAYER_OPT.satellite),
+            hybrid: new ImageLayer(Union3D, app, LAYER_OPT.hybrid),
+            //고도레이어
+            korea_terrain: new HeightLayer(Union3D, app, LAYER_OPT.korea_terrain)
+        }
+    }
+</script>
+<script>
+    let editLandParamString = '[{"id":"b9b3c9c0-1777-425a-99b1-e33b3c027574","name":"100","height":100,"geoVertex":[{"x":126.93809414030167,"y":37.5212890883087,"z":0},{"x":126.93756413428399,"y":37.51906612324678,"z":0},{"x":126.93876787676486,"y":37.518510371633276,"z":0},{"x":126.9399177203287,"y":37.51926562281637,"z":0},{"x":126.9399177203287,"y":37.51926562281637,"z":0}]}]';
+    GeOnDT.ready(function () {
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// 지도 기본세팅 /////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        window.app = new GeOnDT.U3dAPP({
+            containername: 'map', //+ U3dApp(지도영역)의 div ID, *필수 입력
+            methodheight:'1_0'
+        });
+        app.setHomePosition(126.9395, 37.52, 450, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+        app.updateHomePosition(); //+ home position 수정
+
+        if(window.location.hostname === 'localhost')
+            app.createDebugCanvas();
+
+        app.on('change', updatePosData);
+
+        app.createloadingBar('load');
+        app.loadingBar();
+        //이미지 레이어 생성
+        //이미지 레이어 생성
+        let layers = new LayerList(GeOnDT, app);
+        let initLayerList = ['satellite', 'korea_terrain']
+        initLayar(initLayerList);
+
+        let modelayers = undefined;
+        // createU3fModelLayers();
+
+        $(document).on('click', '.input-showLayer:input[type=checkbox]', function (e) {
+            const $checkbox = $(e.target);
+            const name = $checkbox.attr('target');
+            checkLayer(name, $checkbox[0].checked);
+        });
+
+        function checkLayer(name, checked) {
+            if (checked) {
+                if (layers[name].layer === undefined) {
+                    layers[name].create();
+                }
+                layers[name].show(true);
+            } else {
+                layers[name].show(false);
+            }
+        }
+
+        function initLayar(list) {
+            const basename = list[0];
+            GeOnDT.UDEF.createPromise((resolve) => {
+                list.forEach((name) => {
+                    if (layers[name].layer === undefined) {
+                        layers[name].create();
+                        layers[name].ready.then(() => {
+                            if (name === basename)
+                                app.setNameBaseLayer(name);
+
+                            app.showLayer(name, true);
+                            $('.input-showLayer:input[target=' + name + ']').prop("checked", true);
+                        });
+                    }
+                });
+                resolve(true);
+            }).then((resolve) => {
+                if (resolve)
+                    app.endloadingBar();
+            });
+        }
+
+
+        window.metalayers = {};
+        function createU3fModelLayers() {
+            let modelList = ['dobonggu', 'dongdaemungu', 'dongjakgu', 'eunpyeonggu',
+                'gangbukgu', 'gangdonggu', 'gangnamgu', 'gangseogu', 'geumcheongu',
+                'gurogu', 'gwanakgu', 'gwangjingu', 'jungnanggu', 'mapogu', 'nowongu',
+                'seochogu', 'seodaemungu', 'seongbukgu', 'seongdonggu', 'songpagu',
+                'yangcheongu', 'yeongdeungpogu', 'yeouido'
+            ]
+            try {
+                modelayers = app.createModelGroupLayer({
+                    maxlevel: 17,
+                    minlevel: 13,
+                    name: 'u3f'
+                });
+
+                for(let i =0; i< modelList.length; i++) {
+                    let model = modelList[i];
+                    let subUrl =  'model-2.5/' + 'seoul/' + model;
+                    let options = {
+                        name:  model + "_T2",
+                        basename: model + '.u3g',
+                        baseurl: 'https://dt-data.mappick.co.kr/ServiceData/' + subUrl,
+                        useproxy: false,
+                        minlevel: 13,
+                        maxlevel:  17,
+                        compressmodel: true,
+                        isShareMaterial: false,
+                        makeU3FPackage:1,
+                        useJson: false,
+                        isTextureUpdate:true,
+                        textureDistance:300
+                    }
+                    let subLayer = app.create3DFModelLayer(options);
+                    if(subLayer !== false){
+                        subLayer.then(function (layer) {
+                            modelayers.addLayer(subLayer);
+                            if(i < modelList.length-1) {
+                                app.showLayer(modelayers.getName(),true);
+                            }
+                        }).fail(function (layer) {
+
+                        });
+                    }
+                }
+
+                /* request U3f layers list */
+
+            } catch (localBuldError) {
+                console.log('Initialize Error Message : ' + localBuldError);
+            }
+        }
+
+        let analy = app.getAnalysis('CustomLand');
+        window.analy = analy;
+        let vertexList = [];
+
+
+        // 동적 고도편집 테스트
+        window.THREE = app._THREE;
+        window.editTest = false;
+
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// event 등록 ///////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        //+ 마우스 버튼 누르고 있는 상태
+        app.on('mousedown', function (e) {
+            if ($('input[value=dynamicEdit]:checked').val()) {
+                //+ radio 버튼이 동적 편집 일 경우
+                app.disableCameraMove(true); //+ 카메라 이동 잠금
+                editTest = true;
+            }
+        });
+        //+ 마우스 버튼 mousedown에서 뗀 상태
+        app.on('mouseup', function (e) {
+            if ($('input[value=dynamicEdit]:checked').val()) {
+                //+ radio 버튼이 동적 편집 일 경우
+                editTest = false;
+                app.disableCameraMove(false); //+ 카메라 이동 잠금 해제
+            }
+        })
+        //+ 마우스 이동 event 등록
+        app.on('mousemove', function (e) {
+            //+ 동적편집과 mousedown 상태 일때 동작
+            if (!editTest)
+                return;
+            //+ 이동 중인 마우스 위치 좌표 지도좌표로 변환
+            let coord = app.pixelToGeographic(e, true);
+            if(!coord) return;
+            let boxSize = $('#editSize').val() / 10000 / 2;
+            let options = {
+                geoVertex: [
+                    {x: coord.x - boxSize, y: coord.y - boxSize, z: 0},
+                    {x: coord.x + boxSize, y: coord.y - boxSize, z: 0},
+                    {x: coord.x + boxSize, y: coord.y + boxSize, z: 0},
+                    {x: coord.x - boxSize, y: coord.y + boxSize, z: 0}
+                ],
+                // name: 'test',
+                height: Number($('#editHeight').val()), //+ 높이
+                dynamicEdit: true
+            };
+            //+ 편집 된 지형 추가
+            analy.addCustomLand(options);
+        });
+        $("#map").mousemove(function (e) {
+            //+ 동적 편집 시 마우스 따라다니는 box점
+            $('.box').css("top", e.pageY - 7.5);
+            $('.box').css("left", e.pageX - 7.5);
+        })
+        // 동적 고도편집 테스트 end
+
+        app.on('click', clickEvent);
+
+        function clickEvent(e){
+            if(overlay !== undefined){
+                removeOverlay();
+                analy.clear(false);
+                analy.deactive();
+                analy.active(); // 이벤트 등록
+            }
+            // '지형편집 모드' 라디오 버튼이 선택된 경우
+            if ($('input[value=edit]:checked').val()) {
+                //+ 마우스 클릭한 지점에 해당하는 지형 픽셀 찾기
+                const intersects = app.intersectAtPixel(e, true);
+                if(!intersects || intersects.length === 0) return;
+                const vertex = intersects[0].point; //+ 해당하는 점중에 가장 가까운 점
+                const lonlat = app.vector3ToGeoGraphic(vertex); //+ 해당 점 위경도 죄표로 변환
+                vertexList.push(lonlat); //+ vertexList 추가
+            }
+        }
+
+
+        //+ 마우스 더블 클릭시 동작하는  function
+        app.on('dblclick',dblClickEvent);
+        function dblClickEvent(e){
+            if (overlay !== undefined) {
+                //+ 기존에 overlay가 있다면 제거
+                app.removeOverlay(overlay);
+                overlay = undefined;
+            }
+
+            // 사용자가 클릭한 지점(vertex)가 3개 이상이여야 함
+            if (vertexList.length > 2) {
+                //더블클릭일때 오버레이 생성
+                createOverlay(app.pixelToGeographic(e));
+            }else{
+                vertexList = [];
+            }
+        }
+
+
+        //+ radio 버튼 클릭 event 등록
+        //+ 지형편집 모드 - 'edit'
+        //+ 동적 편집 - 'dynamicEdit'
+        //+ 초기화 - 'reset'
+        //+ 거리측정 - 'Distance',  app.activeAnalysis("Distance");
+        $(document).on('click', 'input[type="radio"]', function (e) {
+            let target = e.target.value;
+            //+ 동적편집 모드가 아닐 경우 mousemove event에 필요한 box visible:false
+            $('.box').css("display", "none");
+            //+ 그리기 정지
+            analy.stopDraw();
+            //+ 분석 모드 정지
+            analy.deactive();
+            //+ 거리측정 분석 모드 정지
+            app.deactiveAnalysis("Distance");
+            if (target === 'edit') {
+                //+ 지형편진 모드 선택
+                analy.active()
+            } else if (target === 'dynamicEdit') {
+                //+ 동적 편집 선택
+                $('.box').css("display", "block"); //+ box visible:true
+            } else if (target === 'Distance') {
+                //+ 거리측정 모드 선택
+                // analy.clear();
+                app.activeAnalysis("Distance"); //+ 거리측정 모드 활성화
+            } else if (target === 'reset') {
+                //+ 초기화 선택
+                analy.clear();//+ 전체 지우기
+                app.clearAnalysis("Distance"); //+ 거리측정 내용 지우기
+            }
+        });
+
+        // 저장하기 버튼
+        $('.btn-save-editLand').on('click', function () {
+            const params = JSON.stringify(analy.getParam());
+            editLandParamString = params; //+ 해당 변수에 저장
+            confirm('고도편집 내용이 저장되었습니다.');
+        });
+
+        // 불러오기 버튼
+        $('.btn-load-editLand').on('click', function () {
+            analy.removeEditLandAll(); //불러오기전에 전체 삭제
+
+            const params = JSON.parse(editLandParamString);
+            const workPromise = analy.addCustomLand(params);
+            workPromise?.then(()=>{
+                printLandEdit(); //+ 지형편집 목록 갱신
+            });
+        });
+
+        // 모두 지우기 버튼
+        $('.btn-remove-all').on('click', function () {
+            analy.removeEditLandAll(); //+ 지형 편집 전체 삭제
+            printLandEdit(); //+ 지형편집 목록 갱신
+            analy.deactive(); // 분석 종료
+            analy.active(); // 분석 시작
+        });
+
+
+        // 지형편집 수정
+        $(document).on('click', '.btn-land-update', function () {
+            let uid = $(this).closest('.edit-item').attr('target');
+            let customLand = analy.getCustomLand(uid); //+ id로 customeLand 얻기
+            let update_height = $(this).closest('.edit-item').children('.flex-1').children().children('.update-height').val(); //+ 수정된 높이
+            let update_incline = $(this).closest('.edit-item').children('.flex-1').children().children('.update-incline').val();//+ 수정된 기울기
+            let opt = {
+                id: customLand.id,
+                height: Number(update_height),
+                geoVertex: customLand.getVertex(),
+                inclineEdit: customLand.getInclineEdit(),
+                insideIncline: customLand.isInsideIncline(),
+                inclineRate: update_incline,
+                useTexture : true, //생성영역에 텍스쳐를 덮어쓸건지의 여부, 기본값 true
+                //textureUrl : 'texture.jpg'  //텍스쳐 url, 입력하지 않을 시, 기본 텍스쳐 적용
+            };
+            analy.editCustomLand(uid, opt);
+            //+ 수정된 customLand 부피 정보 출력
+            analy.getVolume(customLand.id).then(function (land) {
+                console.log(customLand.id, '원본부피 :', land.beforeVolume);
+                console.log(customLand.id, '편집부피 :', land.volume);
+                let diff = land.getDifference();
+                console.log(customLand.id, '토공량(' + (diff > 0 ? '절토' : '성토') + '):', diff);
+
+                if (customLand.getInclineEdit()) {
+                    console.log(customLand.id, '경사면 원본부피 :', land.inclineBeforeVolume);
+                    console.log(customLand.id, '경사면 편집부피 :', land.inclineVolume);
+                    let diff = land.getInclineDifference();
+                    console.log(customLand.id, '경사면 토공량(' + (diff > 0 ? '절토' : '성토') + '):', diff);
+                }
+            });
+
+            printLandEdit(); //+ 지형편집 목록 갱신
+        });
+
+        // 지형편집 단일 삭제
+        $(document).on('click', '.btn-land-remove', function () {
+            const uid = $(this).closest('.edit-item').attr('target');
+            analy.removeEditLandById(uid);
+            printLandEdit(); //+ 지형편집 목록 갱신
+        });
+
+
+        //DXF 예제 파일 Input 태그로 파일 읽기
+        $(document).on('change', 'input[name="dxf"]', function (e) {
+            let CRS = 'EPSG:5179'; //DXF의 좌표계 정보 (사용자 입력).
+            let HEIGHT = 50; //지표면 편집 높이 (사용자 입력).
+
+            let file = this.files[0];
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                let parser = new GeOnDT.parser.UDxfParser();
+                //Ajax로 dxf파일 가져올 경우 텍스트로 읽어서 parser.parse()에 전달하여 수행
+                let dxfInfo = parser.parse(e.target.result); //DXF 파일내용 String
+                let entities = dxfInfo.entities;
+                for (let i = 0; i < entities.length; i++) {
+                    let id = file.name + '_' + i;
+                    dxfEntityToCustomLand(id, entities[i], CRS, HEIGHT)
+                }
+                let center = getDxfCenter(dxfInfo, CRS); //+ center 받아오기
+                app.flyTo({
+                    x: center[0],
+                    y: center[1]
+                }); //+ center로 이동
+            };
+
+            reader.readAsText(file);
+        })
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// fucntion 선언 ////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        // 오버레이 예제 Start //////////////////////////////////////////////////////////////////////////////////
+        let overlay;
+
+        //+ 지형 편집 모드 선택 후 생성되는 overlay UI
+        function createOverlay(latlon) {
+
+            let html = `
+                    <div class="u3-popup">
+                        <div class="form-group form-inline form-group-sm" style="margin-top: 10px">
+                            <label>이름</label>
+                            <input class="form-control input-sm input-name" type="text">
+                        </div>
+                        <div class="form-group form-inline form-group-sm">
+                            <label>높이</label>
+                            <input class="form-control input-sm input-height" type="number">
+                        </div>
+                        <div class="form-group form-inline form-group-sm">
+                            <label>경사면 추가 분석</label>
+                            <input class="form-control input-sm input-inclineEdit" type="checkbox">
+                        </div>
+                        <div class="form-group form-inline form-group-sm div-incline" hidden>
+                            <label>기울기</label>
+                            <input class="form-control input-sm input-incline" type="number" value=1>
+                        </div>
+                        <div class="form-group form-inline form-group-sm div-incline" hidden>
+                            <label>경사면 내부 생성</label>
+                            <input class="form-control input-sm input-inside" type="checkbox">
+                        </div>
+                        <div class="form-group form-inline form-group-sm div-inside" hidden>
+                            <label>내부생성 정확도</label>
+                            <input class="form-control input-sm input-insidePrecision" type="number" value=10>
+                        </div>
+                        <div class="btn btn-default btn-xs btn-submit">확인</div>
+                        <div class="btn btn-default btn-xs btn-cancel">취소</div>
+                    </div>`;
+
+            overlay = new GeOnDT.overlay.U3dOverlay({
+                name: 'inputOverlay',
+                element: html, //html
+                position: latlon, //위경도 좌표
+                autoAnchor: true //클릭지점에따라 앵커 자동변경
+            });
+            initOverlayEvent(overlay); //+ 오버레이 이벤트 등록
+            app.addOverlay(overlay); //+ 지도에 오버레이 추가
+            overlay.show(); //오버레이 display block
+        }
+
+
+        //오버레이 이벤트 등록
+        function initOverlayEvent(overlay) {
+            const element = overlay.getElement?.();
+            const $element = $(element);
+            $element.on('click', '.input-inclineEdit', function (e) {
+                //+ 경사면 추가 분석 체크 여부 판단
+                if ($(this).is(":checked")) {
+                    //+ 체크시 기울기 입력란 Show
+                    $(".div-incline").show();
+                } else {
+                    //+ 아닐시 기울기 입력란 hide
+                    $(".div-incline").hide();
+                }
+            });
+
+            $element.on('click', '.input-inside', function (e) {
+                //+ 경사면 추가 분석 체크 여부 판단
+                if ($(this).is(":checked")) {
+                    //+ 체크시 기울기 입력란 Show
+                    $(".div-inside").show();
+                } else {
+                    //+ 아닐시 기울기 입력란 hide
+                    $(".div-inside").hide();
+                }
+            });
+
+            //+ overlay 확인 버튼 클릭시 동작하는 function
+            $element.on('click', '.btn-submit', function (e) {
+                let $root = $(e.target).closest('.u3-popup');
+                let id = $root.find('.input-name').val();   //+ 이름
+                let height = Number($root.find('.input-height').val()); //+ 높이
+                let inclineEdit = $(".input-inclineEdit").is(":checked"); //+ 경사면 추가 분석 여부
+                let inclineRate = Number($root.find('.input-incline').val()); //+ 기울기
+                let insideIncline = $root.find('.input-inside').is(":checked"); //+ 경사면 내부 생성 / 외부 생성
+                let insidePrecision = Number($root.find('.input-insidePrecision').val()); //+ 경사면 생성 정확도
+                // 경사면 생성 정확도 -> 기본값은 10 , 값이 클수록 경사면 생성 정확도가 증가하지만 분석 소요 시간 증가 (20 아하의 값 권장!!)
+                let option = {
+                    id: id, //편집지형 ID, 중복입역 불가
+                    height: height, //편집 높이 (해발고도)
+                    inclineEdit: inclineEdit, //경사면 생성 여부 ( true:false )
+                    insideIncline: insideIncline, //경사면 생성시 내부/외부 생성 여부 ( true:false )
+                    insidePrecision: insidePrecision, //경사면 내부 생성시 생성 정확도 (10)
+                    inclineRate: inclineRate, //경사면의 경사 기울기 (1)
+                    geoVertex: vertexList, //+ 편집 영역,
+                    useTexture : true, //생성영역에 텍스쳐를 덮어쓸건지의 여부, 기본값 true
+                    //textureUrl : 'texture.jpg'  //텍스쳐 url, 입력하지 않을 시, 기본 텍스쳐 적용
+                };
+
+                const workPromise = analy.addCustomLand(option);
+                if(workPromise){
+                    workPromise?.then(()=>{
+                        //부피 계산 수행 원본 데이터를 비동기로 호출해 계산
+                        analy.getVolume(id).then(function (land) {
+                            console.log(id, '원본부피 :', land.beforeVolume);
+                            console.log(id, '편집부피 :', land.volume);
+                            let diff = land.getDifference();
+                            console.log(id, '토공량(' + (diff > 0 ? '절토' : '성토') + '):', diff);
+
+                            if (land.getInclineEdit()) {
+                                //+ 기울기가 존재할 경우
+                                console.log(id, '경사면 원본부피 :', land.inclineBeforeVolume);
+                                console.log(id, '경사면 편집부피 :', land.inclineVolume);
+                                let diff = land.getInclineDifference();
+                                console.log(id, '경사면 토공량(' + (diff > 0 ? '절토' : '성토') + '):', diff);
+                            }
+                        });
+                    }).catch(function () {
+                        console.log("addCustomLand error");
+                    });
+                }
+
+                removeOverlay();//+ overlay 제거
+                printLandEdit();//+ 지형 편집 목록 갱신
+            });
+            //+ overlay [취소] 버튼 클릭시 overlay 제거
+            $element.on('click', '.btn-cancel', function (e) {
+                removeOverlay();//+ overlay 제거
+            });
+        }
+
+        //오버레이 제거
+        function removeOverlay() {
+            if (overlay !== undefined) {
+                app.removeOverlay(overlay);
+                overlay = undefined;
+                vertexList = []; //+ 마우스 클릭 점들 저장한 좌표 배열 비우기
+                analy.cancelDrawFeature();
+                analy.areaPoiClear();
+            }
+        }
+
+        // 오버레이 예제 END //////////////////////////////////////////////////////////////////////////////////
+
+        function printLandEdit() {
+            let list = analy.getCustomLandList();
+            let str = '';
+
+            list.forEach(function (landEdit) {
+                str += '<div class="d-flex edit-item" target="' + landEdit.getId() + '">';
+                str += '<div class="flex-1"><label>이름: ' + landEdit.getName() + '</label>&nbsp&nbsp&nbsp';
+                str += '<label>높이 :<input class="d-flex update-height" type="number" value="' + landEdit.getHeight() + '"></label>';
+                if (landEdit.getInclineEdit()) {
+                    str += '<label>기울기 :<input class="d-flex update-incline" type="number" value="' + landEdit.getInclineRate() + '"></label></div>';
+                }
+                str += '<div class="text-right">';
+                str += '<div class="btn-group">';
+                str += '<div class="btn btn-xs btn-primary btn-land-update">수정</div>';
+                str += '<div class="btn btn-xs btn-danger btn-land-remove">삭제</div>';
+                str += '</div>';
+                str += '</div>';
+                str += '</div>';
+            });
+            str = str === '' ? '<pre>지형편집 내용이 없습니다.</pre>' : str;
+            $('.remove-target-list').html(str);
+        }
+
+        function dxfEntityToCustomLand(id, entity, crs, height) {
+            let coords = [];
+            let vertices = entity.vertices;
+            for (let i = 0; i < vertices.length; i++) {
+                let coord = vertices[i];
+                if(!coord.x ||!coord.y) continue;
+                coord = __GEONDT__.ol.proj.transform([coord.x, coord.y], crs, 'EPSG:4326');
+                coords.push({
+                    x: coord[0],
+                    y: coord[1]
+                });
+            }
+            //+ EditLand 추가
+            analy.addCustomLand({
+                id: id,
+                height: height,
+                geoVertex: coords
+            });
+            //+ 부피정보 출력
+            analy.getVolume(id).then(function (land) {
+                console.log(id, '원본부피 :', land.beforeVolume);
+                console.log(id, '편집부피 :', land.volume);
+                let diff = land.getDifference();
+                console.log(id, '토공량(' + (diff > 0 ? '절토' : '성토') + '):', diff);
+            })
+        }
+
+        //+ 중앙 좌표값 얻기
+        function getDxfCenter(dxfInfo, crs) {
+            let extent = [
+                dxfInfo.header.$EXTMIN.x,
+                dxfInfo.header.$EXTMIN.y,
+                dxfInfo.header.$EXTMAX.x,
+                dxfInfo.header.$EXTMAX.y
+            ];
+            extent = __GEONDT__.ol.proj.transformExtent(extent, crs, 'EPSG:4326');
+            return [(extent[0] + extent[2]) / 2, (extent[1] + extent[3]) / 2]
+        }
+    });
+</script>
+</body>
+</html>

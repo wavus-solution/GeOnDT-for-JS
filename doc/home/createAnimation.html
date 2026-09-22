@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>애니메이션 생성</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="애니메이션-생성">애니메이션 생성</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-%EC%9C%84%EC%B9%98%EB%A5%BC-%EC%A7%81%EC%A0%91-%EA%B0%B1%EC%8B%A0%ED%95%98%EA%B8%B0">위치를 직접 갱신하기</a></li>
+<li><a href="#2-%EB%B6%80%EB%93%9C%EB%9F%BD%EA%B2%8C-%EC%9D%B4%EB%8F%99%EC%8B%9C%ED%82%A4%EA%B8%B0">부드럽게 이동시키기</a></li>
+<li><a href="#3-%EC%9D%B4%EB%8F%99%EC%97%90-%EB%A7%9E%EC%B6%B0-%ED%9B%84%EC%86%8D-%EC%9E%91%EC%97%85-%EC%8B%A4%ED%96%89%ED%95%98%EA%B8%B0">이동에 맞춰 후속 작업 실행하기</a></li>
+<li><a href="#4-%EC%95%A0%EB%8B%88%EB%A9%94%EC%9D%B4%EC%85%98-%EC%A0%9C%EC%96%B4%ED%95%98%EA%B8%B0">애니메이션 제어하기</a></li>
+</ol>
+<div class="document-thumbnail" data-size="medium">
+<figure class="document-image">
+<img src="image/createAnimation/thumbnail.gif" alt="애니메이션이 적용되서 날아 가는 비행기" loading="eager">
+<figcaption>애니메이션이 적용되서 날아 가는 비행기</figcaption>
+</figure>
+</div>
+<p>컴포넌트 레이어에 컴포넌트를 생성한 뒤, 컴포넌트의 위치를 계속 이동시키면 주행 또는 비행 애니메이션을 만들 수 있습니다.<br>이 문서에서는 컴포넌트를 이동시키는 기본적인 방법과, 엔진에서 제공하는 주행 애니메이션 생성 방법에 대해 설명합니다.</p>
+<p>컴포넌트 레이어 생성 방법은 <a href="createComponent.html#1-%EB%A0%88%EC%9D%B4%EC%96%B4-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">3D 공간에 사물 출력 - 레이어 생성하기</a>를 참고합니다.<br>컴포넌트 생성 방법은 <a href="createComponent.html#3-%EC%BB%B4%ED%8F%AC%EB%84%8C%ED%8A%B8-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">3D 공간에 사물 출력 - 컴포넌트 생성하기</a>를 참고합니다.</p>
+<p>아래 예제는 <code>app</code>, <code>animationLayer</code>, <code>drone</code>이 생성되어 있고 레이어의 모델 로딩이 완료된 상태를 전제로 합니다.</p>
+<ul>
+<li><code>app</code> (<code>U3dApp</code>) : 좌표 변환과 지도 제어에 사용하는 앱 객체</li>
+<li><code>animationLayer</code> (<code>U3dMultipleComponentLayer</code>) : 모델과 컴포넌트를 관리하는 레이어</li>
+<li><code>drone</code> (<code>U3dComponentPosition</code>) : <code>animationLayer.addPosition()</code>으로 생성한 이동 대상</li>
+</ul>
+<h2 id="1-위치를-직접-갱신하기">1. 위치를 직접 갱신하기</h2>
+<p><code>U3dComponentPosition.setPosition()</code>은 별도 위치 보간 없이 컴포넌트를 지정한 월드 좌표로 즉시 이동시킵니다.<br>별도의 timeInterval 이나 reqestAnimationFramed을 생성하여 setPosition을 호출하면 연속적으로 컴포넌트가 이동하면서 주행 애니메이션이 생성됩니다.<br>컴포넌트가 이동 방향을 바라보게 하려면 두 번째 매개변수에 <code>lookAt</code> 좌표를 함께 전달합니다.</p>
+<h4 class="api-heading" id="api">API</h4>
+<p>U3dComponentPosition.setPosition(<code>position</code>, <code>lookAt</code>) : 컴포넌트의 월드 좌표를 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>position</code> (<code>WorldPositionVector3</code>) : 이동할 월드 좌표(EPSG:3857). <strong>필수</strong></li>
+<li><code>lookAt</code> (<code>WorldPositionVector3</code>) : 컴포넌트가 바라볼 월드 좌표</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>U3dComponentPosition.getWorldPosition() : 컴포넌트의 현재 월드 좌표를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>WorldPositionVector3</code>) : 컴포넌트의 현재 월드 좌표(EPSG:3857)</li>
+</ul>
+</details>
+<p><code>setPosition()</code>은 전달한 좌표를 즉시 반영하는 가볍고 간단한 API이며, 이동 경로를 보간하는 기능은 포함하지 않습니다.<br>자연스러운 연속 이동이 필요하다면 호출하는 쪽에서 중간 좌표와 호출 주기를 관리하고, 진행 방향을 위한 <code>lookAt</code> 계산이나 프레임 변화에 대한 보정, 일시정지와 재개 같은 이동 제어를 구현해야 합니다.<br>또한 호출할 때마다 새로운 위치가 바로 적용되므로, 여러 이동 좌표를 순서대로 보존해 처리해야 하는 경우에는 별도의 관리가 필요합니다.</p>
+<h3 id="1-위치와-진행-방향을-함께-갱신하는-예제">1. 위치와 진행 방향을 함께 갱신하는 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">moveImmediately</span><span class="token punctuation">(</span><span class="token parameter">component<span class="token punctuation">,</span> nextGeoPosition</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> currentWorldPosition <span class="token operator">=</span> component<span class="token punctuation">.</span><span class="token function">getWorldPosition</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">clone</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">const</span> nextWorldPosition <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">geographicToVector3</span><span class="token punctuation">(</span>nextGeoPosition<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 위경도를 월드좌표로 변환</span>
+    <span class="token keyword">const</span> direction <span class="token operator">=</span> nextWorldPosition<span class="token punctuation">.</span><span class="token function">clone</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">sub</span><span class="token punctuation">(</span>currentWorldPosition<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">const</span> lookAt <span class="token operator">=</span> direction<span class="token punctuation">.</span><span class="token function">lengthSq</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">></span> <span class="token number">0</span>
+        <span class="token operator">?</span> nextWorldPosition<span class="token punctuation">.</span><span class="token function">clone</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span>direction<span class="token punctuation">)</span>
+        <span class="token operator">:</span> <span class="token keyword">undefined</span><span class="token punctuation">;</span>
+
+    component<span class="token punctuation">.</span><span class="token function">setPosition</span><span class="token punctuation">(</span>nextWorldPosition<span class="token punctuation">,</span> lookAt<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token function">moveImmediately</span><span class="token punctuation">(</span>drone<span class="token punctuation">,</span> <span class="token punctuation">{</span>
+    <span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">127.55520</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">36.70340</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">z</span><span class="token operator">:</span> <span class="token number">1050</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p><code>getWorldPosition()</code>이 반환한 좌표는 컴포넌트 내부에서 사용하는 객체이므로, 예제처럼 <code>clone()</code>한 뒤 벡터 연산을 수행합니다.<br><code>setPosition()</code>은 보간하지 않으므로 부드러운 움직임이 필요하면 충분히 짧고 일정한 주기로 호출해야 합니다.</p>
+<h2 id="2-부드럽게-이동시키기">2. 부드럽게 이동시키기</h2>
+<p><code>U3dComponentPosition.moveSmoothly()</code>는 목표 위·경도 좌표와 이동 시간만 전달하면 현재 위치부터 목표점까지의 부드러운 애니메이션을 엔진이 생성합니다.<br>경과 시간에 맞춰 위치를 보간하고 진행 방향도 자동으로 계산하므로, 호출하는 쪽에서 타이머와 프레임별 좌표, <code>lookAt</code>을 직접 관리할 필요가 없습니다.</p>
+<p>이동 중에 다시 호출한 목표점은 현재 이동을 덮어쓰지 않고 다음 경유지로 추가되어 목표점 이동이 보장됩니다.<br>각 목표점에 도착하면 <code>complete</code> 콜백으로 도착 순번, 누적 이동 거리, 경과 시간과 속도를 받을 수 있으며, 생성된 애니메이션은 컨트롤러를 통해 중지하거나 정리할 수 있습니다.</p>
+<div class="document-table">
+<table>
+<thead><tr><th>비교 항목</th><th><code>setPosition()</code></th><th><code>moveSmoothly()</code></th></tr></thead>
+<tbody><tr><td>이동 방식</td><td>전달한 위치로 즉시 이동</td><td>지정한 시간 동안 목표점까지 보간 이동</td></tr>
+<tr><td>연속 이동</td><td>호출 측에서 타이머와 중간 좌표 관리</td><td>엔진이 프레임별 위치 계산</td></tr>
+<tr><td>진행 방향</td><td><code>lookAt</code>을 직접 계산해 전달</td><td>이동 방향을 자동 계산하거나 <code>rotation</code> 적용</td></tr>
+<tr><td>여러 목표점</td><td>호출 시점의 좌표를 즉시 반영</td><td>이동 중 전달한 목표점을 순서대로 처리</td></tr>
+<tr><td>도착 처리</td><td>호출 측에서 도착 여부 판단</td><td><code>complete</code> 콜백으로 목표점 도착 확인</td></tr>
+<tr><td>이동 제어</td><td>호출 측에서 별도 구현</td><td>애니메이션 컨트롤러로 중지 및 정리</td></tr></tbody>
+</table>
+</div>
+<p>따라서 서버나 센서에서 받은 현재 위치를 그대로 표시할 때는 <code>setPosition()</code>을, 경로를 따라 자연스럽고 끊김 없이 이동시키고 싶을 때는 <code>moveSmoothly()</code>를 사용합니다.</p>
+<p>목표 좌표를 일정 주기로 생성할 때는 호출 주기와 <code>durationMs</code>를 같은 값으로 맞추면 이동이 끊기지 않고 이어집니다.</p>
+<h4 class="api-heading" id="api-2">API</h4>
+<p>U3dComponentPosition.moveSmoothly(<code>opt</code>, <code>complete</code>) : 목표 위·경도 좌표까지 컴포넌트를 부드럽게 이동시키는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opt</code> (<code>object</code>) : 이동 옵션</li>
+<li><code>opt.position</code> (<code>GeoPosition</code>) : 이동할 위·경도·고도 좌표. <strong>필수</strong></li>
+<li><code>opt.rotation</code> (<code>DegreeEulerLike</code>) : 이동 중 적용할 회전값(도)</li>
+<li><code>opt.axis</code> (<code>&#39;absolute&#39; | &#39;relative&#39;</code>) : 회전값의 적용 기준</li>
+<li><code>opt.durationMs</code> (<code>number</code>) : 목표 위치까지 이동하는 데 걸리는 시간(ms). 기본값: <code>500</code></li>
+<li><code>complete</code> (<code>PassCallback</code>) : 저장된 목표 지점에 도착할 때 호출할 함수</li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Promise&lt;void&gt;</code>) : 목표점 등록 처리가 끝나면 완료되는 Promise</li>
+</ul>
+</details>
+<p><code>moveSmoothly()</code>가 반환하는 Promise는 목표 위치 도착을 기다리지 않습니다. <strong>도착 시점에 다음 작업을 실행하려면 <code>complete</code> 콜백을 사용합니다.</strong><br>현재 위치와 목표 위치가 같으면 이동이 등록되지 않으며 <code>complete</code> 콜백도 호출되지 않습니다.<br>경로의 첫 번째 좌표를 컴포넌트의 초기 위치로 사용했다면 두 번째 좌표부터 전달해야 합니다.</p>
+<p><code>complete</code> 콜백은 다음 속성을 가진 객체를 받습니다.</p>
+<ul>
+<li><code>name</code> (<code>string</code>) : 컴포넌트 이름</li>
+<li><code>key</code> (<code>number</code>) : 통과한 목표점의 순번</li>
+<li><code>distance</code> (<code>number</code>) : 누적 이동 거리(m)</li>
+<li><code>time</code> (<code>number</code>) : 경과 시간(ms)</li>
+<li><code>speed</code> (<code>number</code>) : 현재 이동 속도(km/h)</li>
+</ul>
+<h3 id="1-하나의-목표-좌표로-이동하는-예제">1. 하나의 목표 좌표로 이동하는 예제</h3>
+<pre class="language-javascript"><code class="language-javascript">drone<span class="token punctuation">.</span><span class="token function">moveSmoothly</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">position</span><span class="token operator">:</span> <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">127.55520</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">36.70340</span><span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> <span class="token number">1050</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">durationMs</span><span class="token operator">:</span> <span class="token number">1000</span>
+<span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token parameter"><span class="token punctuation">{</span>name<span class="token punctuation">,</span> key<span class="token punctuation">,</span> distance<span class="token punctuation">,</span> time<span class="token punctuation">,</span> speed<span class="token punctuation">}</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token punctuation">{</span>name<span class="token punctuation">,</span> key<span class="token punctuation">,</span> distance<span class="token punctuation">,</span> time<span class="token punctuation">,</span> speed<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-목표-좌표를-연속으로-전달하는-예제">2. 목표 좌표를 연속으로 전달하는 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> route <span class="token operator">=</span> <span class="token punctuation">[</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">127.55436</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">36.70298</span><span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> <span class="token number">1000</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">127.55520</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">36.70340</span><span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> <span class="token number">1050</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">127.55610</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">36.70280</span><span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> <span class="token number">1100</span><span class="token punctuation">}</span>
+<span class="token punctuation">]</span><span class="token punctuation">;</span>
+
+<span class="token comment">// drone은 route[0] 위치에 생성되어 있다고 가정합니다.</span>
+<span class="token keyword">let</span> routeIndex <span class="token operator">=</span> <span class="token number">1</span><span class="token punctuation">;</span>
+
+<span class="token keyword">function</span> <span class="token function">moveToNextPosition</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>routeIndex <span class="token operator">>=</span> route<span class="token punctuation">.</span>length<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token keyword">const</span> nextPosition <span class="token operator">=</span> route<span class="token punctuation">[</span>routeIndex<span class="token punctuation">]</span><span class="token punctuation">;</span>
+    routeIndex <span class="token operator">+=</span> <span class="token number">1</span><span class="token punctuation">;</span>
+
+    drone<span class="token punctuation">.</span><span class="token function">moveSmoothly</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+        <span class="token literal-property property">position</span><span class="token operator">:</span> nextPosition<span class="token punctuation">,</span>
+        <span class="token literal-property property">durationMs</span><span class="token operator">:</span> <span class="token number">1000</span>
+    <span class="token punctuation">}</span><span class="token punctuation">,</span> moveToNextPosition<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token function">moveToNextPosition</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<div class="document-image-grid">
+<figure class="document-image">
+<img src="image/createAnimation/moveSmoothly.gif" alt="moveSmoothly 사용" loading="eager">
+<figcaption>moveSmoothly 사용</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/createAnimation/setPosition.gif" alt="setPosition 사용" loading="eager">
+<figcaption>setPosition 사용</figcaption>
+</figure>
+</div>
+<p><mark><code>moveSmoothly()</code>의 <code>position</code>에는 월드 좌표가 아니라 위·경도 좌표(EPSG:4326)를 전달합니다.</mark></p>
+<p>입력되는 목표점(wayPoint)으로 이동하는 것을 보장하기 위해 목표점을 큐에 쌓아 순차적으로 이동합니다.<br>만약 목표점으로 이동하는 시간(duration) 보다 짧은 주기로 계속 목표점이 쌓이면 도착 지연이 발생합니다.</p>
+<h2 id="3-이동에-맞춰-후속-작업-실행하기">3. 이동에 맞춰 후속 작업 실행하기</h2>
+<p><code>setUpdateAnimationFunc()</code>는 애니메이션의 진행에 맞춰 사용자 로직을 실행할 수 있는 함수입니다.<br>등록한 함수는 컴포넌트가 이동하는 매 프레임마다 호출되며, 현재 위치와 방향, 이번 프레임의 이동 거리, 전체 누적 이동 거리 등을 전달받습니다.</p>
+<p>전달받은 상태를 확인하는 것뿐 아니라 다음과 같은 후속 작업을 애니메이션과 동기화할 수 있습니다.</p>
+<ul>
+<li><strong>현재 위치에서 충돌 여부 확인</strong></li>
+<li><strong>이동체를 따라가는 카메라, 프러스텀 또는 헬퍼의 위치 갱신</strong></li>
+<li><strong>이동 거리나 진입 구간에 따라 POI와 헬퍼 추가 또는 제거</strong></li>
+<li><strong>현재 위치, 속도와 이동 거리를 화면에 실시간 표시</strong></li>
+</ul>
+<p>따라서 별도의 애니메이션 루프를 만들지 않아도 컴포넌트의 실제 이동 시점에 맞춰 필요한 작업을 함께 실행할 수 있습니다.<br>누적 비행 경로를 생성하거나 설정하는 방법은 <a href="drawCumulativePath.html">비행 경로 그리기</a>를 참고합니다.</p>
+<h4 class="api-heading" id="api-3">API</h4>
+<p>U3dComponentPosition.setUpdateAnimationFunc(<code>func</code>) : 컴포넌트 이동에 맞춰 매 프레임 실행할 사용자 함수를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>func</code> (<code>function</code>) : 이동 상태를 전달받아 후속 작업을 실행할 함수. <strong>필수</strong></li>
+</ul>
+</details>
+<p>콜백의 매개변수는 다음 순서로 전달됩니다.</p>
+<ul>
+<li><code>position</code> (<code>WorldPositionVector3</code>) : 현재 월드 좌표</li>
+<li><code>lookAt</code> (<code>Vector3 | undefined</code>) : 현재 바라보는 월드 좌표</li>
+<li><code>rotation</code> (<code>Euler | undefined</code>) : 현재 회전값</li>
+<li><code>moveDistance</code> (<code>number</code>) : 이번 프레임에 이동한 거리(m)</li>
+<li><code>totalDistance</code> (<code>number</code>) : 현재 애니메이션의 누적 이동 거리(m)</li>
+<li><code>component</code> (<code>U3dComponentPosition</code>) : 갱신된 컴포넌트</li>
+<li><code>distance</code> (<code>number</code>) : 현재 이동 구간의 전체 거리(m)</li>
+</ul>
+<h3 id="1-애니메이션에-맞춰-사용자-로직-실행-예제">1. 애니메이션에 맞춰 사용자 로직 실행 예제</h3>
+<p>아래의 <code>checkCollision</code>, <code>updateTrackingHelper</code>, <code>updateSectionPois</code>는 프로젝트에서 목적에 맞게 구현하는 사용자 함수입니다.</p>
+<pre class="language-javascript"><code class="language-javascript">drone<span class="token punctuation">.</span><span class="token function">setUpdateAnimationFunc</span><span class="token punctuation">(</span><span class="token keyword">function</span> <span class="token punctuation">(</span>
+    <span class="token parameter">position<span class="token punctuation">,</span>
+    lookAt<span class="token punctuation">,</span>
+    rotation<span class="token punctuation">,</span>
+    moveDistance<span class="token punctuation">,</span>
+    totalDistance<span class="token punctuation">,</span>
+    component<span class="token punctuation">,</span>
+    distance</span>
+<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token comment">// 현재 위치를 기준으로 충돌을 검사합니다.</span>
+    <span class="token function">checkCollision</span><span class="token punctuation">(</span>component<span class="token punctuation">,</span> position<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token comment">// 이동체를 따라가는 헬퍼의 위치와 방향을 맞춥니다.</span>
+    <span class="token function">updateTrackingHelper</span><span class="token punctuation">(</span>component<span class="token punctuation">,</span> position<span class="token punctuation">,</span> lookAt<span class="token punctuation">,</span> rotation<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token comment">// 진입하거나 벗어난 구간에 맞춰 POI와 헬퍼를 추가하거나 제거합니다.</span>
+    <span class="token function">updateSectionPois</span><span class="token punctuation">(</span>component<span class="token punctuation">,</span> position<span class="token punctuation">,</span> totalDistance<span class="token punctuation">,</span> distance<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>이 함수는 매 프레임 호출되므로 헬퍼나 POI를 매번 새로 만들기보다 한 번 생성한 객체를 갱신해 재사용합니다.<br>충돌 검사처럼 연산량이 큰 작업은 필요한 주기로 나누어 실행하고, POI나 헬퍼의 생성과 제거는 구간이 바뀌는 시점에만 처리하는 것이 좋습니다.<br>이동체를 따라가는 프러스텀을 갱신하는 구체적인 방법은 <a href="frustumHelper.html#3-%EC%9D%B4%EB%8F%99%EC%B2%B4%EC%9D%98-%EC%9C%84%EC%B9%98%EC%99%80-%EB%B0%A9%ED%96%A5-%EB%94%B0%EB%9D%BC%EA%B0%80%EA%B8%B0">카메라 프러스텀 헬퍼</a>를 참고합니다.</p>
+<h2 id="4-애니메이션-제어하기">4. 애니메이션 제어하기</h2>
+<p>실행 중인 애니메이션은 일시정지하거나 다시 재생할 수 있으며, 처음부터 재시작하거나 완전히 중지할 수도 있습니다.<br>컴포넌트의 애니메이션을 제어하려면 <code>movePause()</code>, <code>moveResume()</code>, <code>moveStop()</code>, <code>restart()</code>를 사용합니다.</p>
+<p><code>getAnimationNow()</code>는 현재 동작 중인 애니메이션이 없으면 <code>undefined</code>를 반환하므로 반환값을 확인한 뒤 호출합니다.</p>
+<h4 class="api-heading" id="api-4">API</h4>
+<p>U3dComponentPosition.movePause() : 현재 이동과 모델 애니메이션을 일시정지하는 함수</p>
+<h4 class="api-heading" id="api-5">API</h4>
+<p>U3dComponentPosition.moveResume() : 일시정지한 이동과 모델 애니메이션을 이어서 재생하는 함수</p>
+<h4 class="api-heading" id="api-6">API</h4>
+<p>U3dComponentPosition.moveStop(<code>isInit</code>) : 현재 이동과 모델 애니메이션을 중지하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>isInit</code> (<code>boolean</code>) : <code>true</code>면 중지한 뒤 등록된 이동 정보와 상태도 초기화. 기본값: <code>false</code></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-7">API</h4>
+<p>U3dComponentPosition.moveStart() : 컴포넌트에 등록된 시작 애니메이션을 처음부터 실행하는 함수</p>
+<h4 class="api-heading" id="api-8">API</h4>
+<p>U3dComponentPosition.restart() : 등록된 애니메이션 상태를 초기화하고 시작 애니메이션을 다시 실행하는 함수</p>
+<h4 class="api-heading" id="api-9">API</h4>
+<p>U3dComponentPosition.getAnimationNow() : 현재 애니메이션 컨트롤러를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>UAnimationController | undefined</code>) : 현재 애니메이션 컨트롤러. 등록된 애니메이션이 없으면 <code>undefined</code></li>
+</ul>
+</details>
+<h3 id="1-애니메이션-일시정지와-재개-예제">1. 애니메이션 일시정지와 재개 예제</h3>
+<p>컴포넌트 제어 함수를 사용하면 이동과 3D 모델에 포함된 애니메이션이 함께 일시정지되고 재개됩니다.<br>다만 <code>movePause()</code>는 현재 실행 중인 애니메이션만 일시정지합니다.<br>일시정지 중 <code>moveSmoothly()</code>에 새 목표점을 전달하면 목표점이 추가되고 애니메이션이 자동으로 재개됩니다.</p>
+<p>외부에서 목표점이 계속 들어오는 구조라면 다음 예제처럼 일시정지 상태에서는 새 목표점을 전달하지 않도록 입력도 함께 제어합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">let</span> movementPaused <span class="token operator">=</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+
+<span class="token keyword">function</span> <span class="token function">moveDrone</span><span class="token punctuation">(</span><span class="token parameter">nextPosition</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>movementPaused<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    drone<span class="token punctuation">.</span><span class="token function">moveSmoothly</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+        <span class="token literal-property property">position</span><span class="token operator">:</span> nextPosition<span class="token punctuation">,</span>
+        <span class="token literal-property property">durationMs</span><span class="token operator">:</span> <span class="token number">1000</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+pauseButton<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    movementPaused <span class="token operator">=</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+    drone<span class="token punctuation">.</span><span class="token function">movePause</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+resumeButton<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    movementPaused <span class="token operator">=</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+    drone<span class="token punctuation">.</span><span class="token function">moveResume</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+restartButton<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    drone<span class="token punctuation">.</span><span class="token function">restart</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+stopButton<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    drone<span class="token punctuation">.</span><span class="token function">moveStop</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p><code>movePause()</code>로 일시정지한 이동은 <code>moveResume()</code>으로 중단된 위치부터 계속할 수 있습니다.<br><code>restart()</code>는 등록된 이동을 처음부터 다시 시작하며, <code>moveStop(true)</code>는 이동을 중지하고 등록된 상태까지 초기화합니다.<br>중지한 뒤에도 <code>moveSmoothly()</code>에 새 목표점을 전달하면 새로운 이동이 시작되므로, 이동을 유지해서 중지하려면 moveSmoothly 호출도 함께 중단합니다.</p>
+</main>
+</body>
+</html>
+

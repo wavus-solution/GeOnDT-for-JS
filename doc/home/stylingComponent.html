@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>컴포넌트 스타일 설정하기</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="컴포넌트-스타일-설정하기">컴포넌트 스타일 설정하기</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-%EC%83%89%EC%83%81-%EB%B3%80%EA%B2%BD">색상 변경</a></li>
+<li><a href="#2-%ED%88%AC%EB%AA%85%EB%8F%84-%EB%B3%80%EA%B2%BD">투명도 변경</a></li>
+<li><a href="#3-%ED%85%8D%EC%8A%A4%EC%B2%98-%EC%B6%9C%EB%A0%A5-%EC%84%A4%EC%A0%95">텍스처 출력 설정</a></li>
+</ol>
+<p><code>U3dComponentPosition</code>과 <code>U3dComponentInstancedPosition</code>의 스타일 API를 사용하면 컴포넌트의 색상과 투명도를 변경할 수 있습니다. 텍스처 출력 설정은 일반 방식으로 생성된 <code>U3dComponentPosition</code>에서만 지원합니다.</p>
+<p>컴포넌트의 개념과 일반·인스턴스 방식의 차이는 <a href="componentDoc.html#2-%EC%BB%B4%ED%8F%AC%EB%84%8C%ED%8A%B8">용어 설명 - 컴포넌트</a>와 <a href="componentDoc.html#3-%EC%9D%B8%EC%8A%A4%ED%84%B4%EC%8A%A4-%EC%BB%B4%ED%8F%AC%EB%84%8C%ED%8A%B8">용어 설명 - 인스턴스 컴포넌트</a>를 참고하세요.</p>
+<h2 id="1-색상-변경">1. 색상 변경</h2>
+<p><code>setColor()</code>를 사용하면 컴포넌트에 적용된 재질의 색상을 변경할 수 있습니다. CSS 색상 문자열, 16진수 또는 <code>THREE.Color</code> 객체 등 Three.js에서 지원하는 색상 표현을 사용할 수 있습니다.</p>
+<p>색상 설정과 조회는 일반 방식과 인스턴스 방식에서 모두 사용할 수 있습니다.</p>
+<h4 class="api-heading" id="api">API</h4>
+<p>U3dComponentPosition.setColor(<code>color</code>) : 컴포넌트의 색상을 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>color</code> (<code>ColorRepresentation</code>) : 설정할 색상. 기본값: <code>&#39;#ffffff&#39;</code></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>boolean</code>) : 색상 적용 성공 여부</li>
+</ul>
+</details>
+<h3 id="1-색상-설정">1. 색상 설정</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> component <span class="token operator">=</span> componentLayer<span class="token punctuation">.</span><span class="token function">getComponentByName</span><span class="token punctuation">(</span><span class="token string">'건물1'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>component<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'컴포넌트를 찾을 수 없습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">const</span> result <span class="token operator">=</span> component<span class="token punctuation">.</span><span class="token function">setColor</span><span class="token punctuation">(</span><span class="token string">'#ff0000'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span>result<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'색상 변경 성공'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'색상 변경 실패'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<p>다음과 같이 다른 형식의 색상값도 사용할 수 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript">component<span class="token punctuation">.</span><span class="token function">setColor</span><span class="token punctuation">(</span><span class="token string">'rgb(255, 0, 0)'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+component<span class="token punctuation">.</span><span class="token function">setColor</span><span class="token punctuation">(</span><span class="token number">0xff0000</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-현재-색상-조회">2. 현재 색상 조회</h3>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>U3dComponentPosition.getColor() : 컴포넌트에 현재 적용된 색상을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>ColorRepresentation</code>) : 현재 적용된 색상. 색상을 확인할 수 없으면 빈 문자열</li>
+</ul>
+</details>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> color <span class="token operator">=</span> component<span class="token punctuation">.</span><span class="token function">getColor</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>color<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="3-색상-변경-결과">3. 색상 변경 결과</h3>
+<div class="document-image-grid" data-columns="2">
+<figure class="document-image">
+<img src="image/stylingComponent/색상수정전.png" alt="색상 변경 전의 컴포넌트" loading="eager">
+<figcaption>색상 변경 전의 컴포넌트</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/stylingComponent/색상수정후.png" alt="빨간색으로 변경한 컴포넌트" loading="eager">
+<figcaption>빨간색으로 변경한 컴포넌트</figcaption>
+</figure>
+</div>
+<h2 id="2-투명도-변경">2. 투명도 변경</h2>
+<p><code>setOpacity()</code>를 사용하면 컴포넌트의 투명도를 변경할 수 있습니다. 투명도는 불투명한 <code>1</code>부터 완전히 투명한 <code>0</code> 사이의 숫자로 설정합니다.</p>
+<p>투명도 설정과 조회는 일반 방식과 인스턴스 방식에서 모두 사용할 수 있습니다.</p>
+<h4 class="api-heading" id="api-2">API</h4>
+<p>U3dComponentPosition.setOpacity(<code>opacity</code>) : 컴포넌트의 투명도를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opacity</code> (<code>number</code>) : 설정할 투명도. <code>0</code>은 완전 투명, <code>1</code>은 완전 불투명. 기본값: <code>1</code></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>boolean</code>) : 투명도 적용 성공 여부</li>
+</ul>
+</details>
+<h3 id="1-투명도-설정">1. 투명도 설정</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> component <span class="token operator">=</span> componentLayer<span class="token punctuation">.</span><span class="token function">getComponentByName</span><span class="token punctuation">(</span><span class="token string">'건물1'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>component<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'컴포넌트를 찾을 수 없습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">const</span> result <span class="token operator">=</span> component<span class="token punctuation">.</span><span class="token function">setOpacity</span><span class="token punctuation">(</span><span class="token number">0.5</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span>result<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'투명도 변경 성공'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'투명도 변경 실패'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h3 id="2-현재-투명도-조회">2. 현재 투명도 조회</h3>
+<h4 class="api-heading" id="api-3">API</h4>
+<p>U3dComponentPosition.getOpacity() : 컴포넌트에 현재 적용된 투명도를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>number</code>) : 현재 투명도. 값을 확인할 수 없으면 <code>NaN</code></li>
+</ul>
+</details>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> opacity <span class="token operator">=</span> component<span class="token punctuation">.</span><span class="token function">getOpacity</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>opacity<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="3-투명도-변경-결과">3. 투명도 변경 결과</h3>
+<div class="document-image-grid" data-columns="2">
+<figure class="document-image">
+<img src="image/stylingComponent/색상수정전.png" alt="투명도 변경 전의 컴포넌트" loading="eager">
+<figcaption>투명도 변경 전의 컴포넌트</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/stylingComponent/투명도변경후.png" alt="투명도를 0.5로 변경한 컴포넌트" loading="eager">
+<figcaption>투명도를 0.5로 변경한 컴포넌트</figcaption>
+</figure>
+</div>
+<h2 id="3-텍스처-출력-설정">3. 텍스처 출력 설정</h2>
+<p><code>exceptTexture()</code>를 사용하면 일반 방식으로 생성된 컴포넌트의 텍스처 출력을 끄거나 다시 켤 수 있습니다.</p>
+<h4 class="api-heading" id="api-4">API</h4>
+<p>U3dComponentPosition.exceptTexture(<code>isExcept</code>) : 컴포넌트의 텍스처 출력 여부를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>isExcept</code> (<code>boolean</code>) : <code>true</code>이면 텍스처를 출력하지 않고, <code>false</code>이면 텍스처를 출력합니다. 기본값: <code>false</code></li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>boolean</code>) : 텍스처 출력 설정 성공 여부</li>
+</ul>
+</details>
+<h3 id="1-텍스처-출력-제외">1. 텍스처 출력 제외</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> component <span class="token operator">=</span> componentLayer<span class="token punctuation">.</span><span class="token function">getComponentByName</span><span class="token punctuation">(</span><span class="token string">'건물1'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>component<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'컴포넌트를 찾을 수 없습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">const</span> result <span class="token operator">=</span> component<span class="token punctuation">.</span><span class="token function">exceptTexture</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span>result<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'텍스처 출력 설정 성공'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'텍스처 출력 설정 실패'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<p>텍스처를 다시 출력하려면 <code>false</code>를 전달합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">component<span class="token punctuation">.</span><span class="token function">exceptTexture</span><span class="token punctuation">(</span><span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<div class="document-image-grid" data-columns="2">
+<figure class="document-image">
+<img src="image/stylingComponent/텍스쳐출력.png" alt="텍스처를 출력한 컴포넌트" loading="eager">
+<figcaption>텍스처를 출력한 컴포넌트</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/stylingComponent/텍스쳐출력제외.png" alt="텍스처 출력을 제외한 컴포넌트" loading="eager">
+<figcaption>텍스처 출력을 제외한 컴포넌트</figcaption>
+</figure>
+</div>
+<h3 id="2-인스턴스-방식-사용-시-주의사항">2. 인스턴스 방식 사용 시 주의사항</h3>
+<p><strong>인스턴스 방식으로 생성된 <code>U3dComponentInstancedPosition</code>은 텍스처 출력 제외 기능을 지원하지 않습니다.</strong> <code>exceptTexture(true)</code>를 호출하면 지원하지 않는 기능이라는 안내 로그가 출력되고 <code>false</code>를 반환합니다.</p>
+<p><code>isInstanced()</code>를 사용하면 레이어에서 이후 생성할 컴포넌트의 기본 생성 방식이 인스턴스 방식인지 확인할 수 있습니다. 이미 생성된 특정 컴포넌트의 생성 방식을 반환하는 함수는 아닙니다.</p>
+<h4 class="api-heading" id="api-5">API</h4>
+<p>U3dMultipleComponentLayer.isInstanced() : 레이어의 현재 기본 생성 방식이 인스턴스 방식인지 확인하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>boolean</code>) : 이후 생성할 컴포넌트가 인스턴스 방식이면 <code>true</code>, 일반 방식이면 <code>false</code></li>
+</ul>
+</details>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">if</span> <span class="token punctuation">(</span>componentLayer<span class="token punctuation">.</span><span class="token function">isInstanced</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'새 컴포넌트를 인스턴스 방식으로 생성합니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'새 컴포넌트를 일반 방식으로 생성합니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<p>텍스처 출력 여부를 제어해야 한다면 컴포넌트를 생성하기 전에 레이어의 <code>setInstanced</code> 옵션을 <code>false</code>로 지정하거나 <code>setInstanced(false)</code>를 호출하여 일반 생성 방식을 사용합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">componentLayer<span class="token punctuation">.</span><span class="token function">setInstanced</span><span class="token punctuation">(</span><span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 이후 addPosition()으로 생성하는 컴포넌트는 일반 방식으로 생성됩니다.</span>
+</code></pre>
+<p><strong><code>setInstanced()</code>는 이후 생성할 컴포넌트의 방식을 설정하며, 이미 생성된 컴포넌트의 방식을 변환하지 않습니다.</strong></p>
+<figure class="document-image">
+<img src="image/stylingComponent/텍스쳐제외예외.png" alt="인스턴스 방식에서 텍스처 출력 제외를 요청했을 때 표시되는 안내 로그" loading="eager">
+<figcaption>인스턴스 방식에서 텍스처 출력 제외를 요청했을 때 표시되는 안내 로그</figcaption>
+</figure>
+</main>
+</body>
+</html>
+

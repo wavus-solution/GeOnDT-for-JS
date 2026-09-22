@@ -1,0 +1,2957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>화면 이동 예제(애니메이션)</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+
+        #analy-popup .div-popup {
+            width: 1000px;
+            height: 700px;
+            top: 10vh;
+            overflow-y: scroll;
+        }
+
+        .param {
+            display: none;
+        }
+
+        .param.active {
+            display: block;
+        }
+
+        .param-child {
+            display: none;
+        }
+
+        .param-child.active {
+            display: contents;
+        }
+
+        .toggle-btn {
+            appearance: none;
+            position: relative;
+            border: max(2px, 0.1em) solid gray;
+            border-radius: 1.25em;
+            width: 2.25em;
+            height: 1.25em;
+        }
+
+        .toggle-btn::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            width: 1em;
+            height: 1em;
+            border-radius: 50%;
+            transform: scale(0.8);
+            background-color: gray;
+            transition: left 250ms linear;
+        }
+
+        .toggle-btn:checked {
+            background-color: tomato;
+            border-color: tomato;
+        }
+
+        .toggle-btn:checked::before {
+            background-color: white;
+            left: 1em;
+        }
+
+        .toggle-btn:disabled {
+            border-color: lightgray;
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .toggle-btn:disabled:before {
+            background-color: lightgray;
+        }
+
+        .toggle-btn:disabled + span {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .toggle-btn:focus-visible {
+            outline-offset: max(2px, 0.1em);
+            outline: max(2px, 0.1em) solid tomato;
+        }
+
+        .toggle-btn:enabled:hover {
+            box-shadow: 0 0 0 max(4px, 0.2em) lightgray;
+        }
+
+        .tg {
+            border-collapse: collapse;
+            border-spacing: 0;
+            width: 95%;
+            margin: 0 auto;
+            font-family: Arial, sans-serif;
+            background-color: #222222;
+            color: #dc9f44;
+            float: left;
+        }
+        .tg .parameter-text{
+            color: #ffffff;
+        }
+
+        .tg td, .tg th {
+            border: 1px solid #444444;
+            padding: 12px 10px;
+            font-size: 14px;
+            text-align: left;
+            vertical-align: middle;
+            line-height: 1.5;
+        }
+
+        .tg th {
+            background-color: #555555;
+            color: #ffffff;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .tg .header {
+            background-color: #333333;
+            color: #ffffff;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .tg .alt-row {
+            background-color: #2a2a2a;
+        }
+
+        .tg .light-row {
+            background-color: #3a3a3a;
+        }
+
+        .tg .summary-content {
+            font-weight: bold;
+            color: #afdbef;
+            width:610px;
+        }
+
+        .tg .summary-param {
+            margin-bottom: 10px;
+            font-style: italic;
+            color: #cccccc;
+        }
+
+        .tg .btn {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #ffffff;
+            background-color: #4a76a8;
+            cursor: pointer;
+            text-align: center;
+            transition: background-color 0.3s ease;
+        }
+
+        .tg .btn:hover {
+            background-color: #356293;
+        }
+
+        .tg input[type="number"] {
+            width: 100%;
+            padding: 6px;
+            font-size: 12px;
+            border: 1px solid #555555;
+            border-radius: 4px;
+            background-color: #2a2a2a;
+            color: #ffffff;
+            box-shadow: inset 0px 1px 3px rgba(0, 0, 0, 0.5);
+        }
+
+        .tg .form-group label {
+            font-weight: bold;
+            font-size: 13px;
+            margin-right: 10px;
+            color: #ffffff;
+        }
+
+        .tg .form-group .return-text {
+            margin-right: 10px;
+            padding-left: 15px;
+            color: #ffe85a;
+        }
+
+
+
+        .toggle-container {
+            margin: 10px;
+            width: 50px;
+        }
+
+        .toggle-button {
+            background-color: #222222;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 15px;
+            height: 15px;
+            float: right;
+        }
+
+        .toggle-button:hover {
+            background-color: #0056b3;
+        }
+
+        .arrow {
+            font-size: 18px;
+            transition: transform 0.3s ease; /* Smooth arrow rotation */
+        }
+
+        .table-search-container {
+            margin-bottom: 10px;
+            text-align: left;
+            margin-left: 43%;
+        }
+        #table-search {
+            width: 100%;
+            max-width: 300px;
+            padding: 8px;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu="return false;">
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+        <span> 화면 이동 예제(애니메이션)</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        버튼을 클릭해 지정 위치로 <strong>화면을 이동</strong>하거나 <strong>카메라와 관련</strong>된 API를 소개하는 예제입니다.<br>
+        마우스로 화면을 클릭하여 클릭 지점으로 이동하는 기능도 포함하며, 이동 시 비행하는 느낌의 애니메이션 효과를 줘서 부드러운 화면 이동을 지원합니다.
+        또한 카메라와 관련된 기능들의 목록들에서 원하는 기능을 선택하여 실행해 볼수 있습니다.
+</p></div>
+<div id="map-wrapper">
+    <div>
+        <div id="map"></div>
+        <div id="div-left-menu">
+            <div id="left-menu-list-panel">
+                <div class="form-group div-layer">
+                    <div class="div-category">
+                        <label class="label-layerType">
+                            레이어
+                        </label>
+                    </div>
+                    <div id="layer-list">
+                        <div class="div-sub-category">
+                            <div class="sub-category-tile">
+                                <label class="label-layerType">
+                                    이미지 레이어
+                                </label>
+                                <div class="category-btn-group">
+                                    <label class="expand-btn layer">
+                                        <img src="image/btn_expand.svg" alt="">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sub-category-content" style="margin-top:1%">
+                                <div class="checkbox" style="margin-top:1%">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="satellite">
+                                        VWorld Satellite
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="hybrid">
+                                        VWorld Hybrid
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="div-sub-category">
+                            <div class="sub-category-tile">
+                                <label class="label-layerType">
+                                    지형 레이어
+                                </label>
+                                <div class="category-btn-group">
+                                    <label class="expand-btn layer">
+                                        <img src="image/btn_expand.svg" alt="">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sub-category-content">
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="korea_terrain">
+                                        전체 지형
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div style="display: inline-flex; position: relative">
+                    <button id="left-menu-bnt" class="btn btn-xs menu-btn">
+                        <img src="image/left_panel_open_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                    </button>
+                    <div class="div-btn-info" hidden>
+                        레이어 탭 열기
+                    </div>
+                </div>
+                <div style="display: inline-flex; position: relative">
+                    <button id="analy-bnt" class="btn btn-xs menu-btn">
+                        <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                    </button>
+                    <div class="div-btn-info" hidden>
+                        분석 팝업 열기
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="btn-group" id='top-sbar'>
+            <div class='btn-group-vertical-block' id='right-toolbar'>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                    <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                         src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                         alt="나침반">
+                </button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                        id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                        id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                        id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg"
+                                                                     alt="">
+                </button>
+            </div>
+            <div class='btn-group' id='bt-bottom-bar'>
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                       value="위경도: ##.####  ###.#### ">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                       value="고도:####">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                       value="각도: ##">
+            </div>
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu="return false;">
+        <div class="div-popup" style="display: block;">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content" style="margin-bottom: 2%; margin-left: 3%">
+                <div>
+                    <label>카메라 사용 제한 선택</label>
+                </div>
+                <div style="display: flex">
+                    <div class="checkbox">
+                        <label>
+                            <input type="checkbox" name="control" id="control-normal" value="normal" checked>
+                            전체 사용
+                        </label>
+                        <label>
+                            <input type="checkbox" name="control" id="control-zoom" value="zoom">
+                            Zoom 제한
+                        </label>
+                        <label>
+                            <input type="checkbox" name="control" id="control-pan" value="pan">
+                            Pan 제한
+                        </label>
+                        <label>
+                            <input type="checkbox" name="control" id="control-rotate" value="rotate">
+                            회전 제한
+                        </label>
+                        <label>
+                            <input type="checkbox" name="control" id="control-move" value="move">
+                            전체 제한
+                        </label>
+                    </div>
+                </div>
+                <div>
+                    <label>카메라 API 목록</label>
+                </div>
+
+                <div style="display: flex">
+                    <select class="form-control input-sm select-camera-category" style="width:300px;">
+                        <option value="none">분류 선택</option>
+                        <option value="getInfo">관련 정보 확인</option>
+                        <option value="setInfo">관련 속성 설정</option>
+                        <option value="fly">이동 및 회전</option>
+                    </select>
+                    <div class="table-search-container" style="float: right">
+                        <input type="text" id="table-search" placeholder="Search..." >
+                    </div>
+                </div>
+                <table class="tg" id="apiTable">
+                    <thead>
+                    <tr>
+                        <th class="header" colspan="7">API Name</th>
+                        <th class="header" colspan="8">Summary</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+
+                    <tr class="light-row" data-category="none">
+                        <td colspan="7"> 분류 선택 없음 </td>
+                        <td colspan="8"> 분류를 선택하여 관련 API를 참고하세요.</td>
+                    </tr>
+
+                    <tr class="alt-row" data-category="getInfo">
+                        <td colspan="7" href="#getCameraFov" >getCameraFov()</td>
+                        <td colspan="8" class="summary-content" name ="getCameraFov">카메라의 화각(Field Of View)을 반환하는 함수  <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="getCameraFov" target="getCameraFov">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        <label class="return-text">return [Number] : 화각의 정도</label>
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-sm-4 control-label">return Value</label>
+                                    <div class="col-sm-4">
+                                        <input class="form-control input-sm input-fov-value" type="text"
+                                               value="" readonly>
+                                    </div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="getCameraFov" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="right-row" data-category="getInfo">
+                        <td colspan="7" href="#getCameraState" >getCameraState()</td>
+                        <td colspan="8" class="summary-content">카메라 상태를 반환하는 함수 (위경도 좌표)  <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="getCameraState" target="getCameraState">
+                                <div class="form-group" style="margin-top: 3%">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        <label class="return-text">
+                                            return [Object] : 카메라의 상태 정보를 담고 있는 객체 </label>
+                                            <br>
+                                            <label class="col-sm-12 control-label " style="margin-bottom:5px">&emsp; camera {x,y,z} : 카메라의 위경도 좌표 </label>
+                                            <label class="col-sm-12 control-label " style="margin-bottom:5px">&emsp; center {x,y,z} : 카메라의 기준 중심점(map control target) 위경도 좌표 </label>
+                                            <label class="col-sm-12 control-label " style="margin-bottom:5px">&emsp; distance [Number] : 카메라의 기준 중심점(map control target)으로부터 카메라까지의 거리 </label>
+                                            <label class="col-sm-12 control-label " style="margin-bottom:5px">&emsp; azimuth [Number] : 카메라의 방위각</label>
+                                            <label class="col-sm-12 control-label " style="margin-bottom:5px">&emsp; polar [Number] : 카메라 극선</label>
+                                            <label class="col-sm-12 control-label " >&emsp; homePosition [Array]: 카메라 초기 세팅 위치 및 회전 각도 정보 리스트
+                                        </label>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="display: inline; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">State Value</label>
+                                    <br>
+                                    <div class="col-sm-12">
+                                        <textarea name="camera-state-textarae"  rows="7" style="width: 80%;height: 100%" readonly></textarea>
+                                    </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="getCameraState" style="margin-left: 5px">실행</div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="alt-row" data-category="getInfo">
+                        <td colspan="7" href="#getCameraStateFromWorld" >getCameraStateFromWorld()</td>
+                        <td colspan="8" class="summary-content">카메라 상태를 반환하는 함수 (3D world 좌표)  <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="getCameraStateFromWorld" target="getCameraStateFromWorld">
+                                <div class="form-group" style="margin-top: 3%">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        <label class="return-text">
+                                             return [Object] : 카메라의 상태 정보를 담고 있는 객체 </label>
+                                            <br>
+                                            <label class="col-sm-12 control-label" style="margin-bottom:5px">&emsp; camera {x,y,z} : 카메라의 3D world 좌표 </label>
+                                            <label class="col-sm-12 control-label" style="margin-bottom:5px">&emsp; center {x,y,z} : 카메라의 기준 중심점(map control target) 3D world 좌표 </label>
+                                            <label class="col-sm-12 control-label" style="margin-bottom:5px">&emsp; distance [Number] : 카메라의 기준 중심점(map control target)으로부터 카메라까지의 거리 </label>
+                                            <label class="col-sm-12 control-label" style="margin-bottom:5px">&emsp; azimuth [Number] : 카메라의 방위각</label>
+                                            <label class="col-sm-12 control-label" style="margin-bottom:5px">&emsp; polar [Number] : 카메라 극선</label>
+                                            <label class="col-sm-12 control-label" >&emsp; homePosition [Array]: 카메라 초기 세팅 위치 및 회전 각도 정보 리스트</label>
+                                        </label>
+                                    
+                                </div>
+                                <div class="form-group" style="display: inline; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">State Value</label>
+                                    <br>
+                                    <div class="col-sm-12">
+                                        <textarea name="camera-state-textarae-world"  rows="7" style="width: 80%;height: 100%" readonly></textarea>
+                                    </div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="getCameraStateFromWorld" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <tr class="alt-row" data-category="getInfo">
+                        <td colspan="7" href="#getSavedCameraState" >getSavedCameraState()</td>
+                        <td colspan="8" class="summary-content">이전에 저장한 카메라 상태를 반환하는 함수  <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="getSavedCameraState" target="getSavedCameraState">
+                                <div class="form-group" style="margin-top: 3%">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        <label class="return-text">
+                                            return [Object] : 이전에 저장된 카메라의 상태 정보를 담고 있는 객체 </label>
+                                        <br>
+
+                                        <label class="col-sm-12 control-label" style="margin-bottom:5px">&emsp; geographic.position {x,y,z} : 카메라의 3D 위경도 좌표 </label>
+                                        <label class="col-sm-12 control-label" style="margin-bottom:5px">&emsp; geographic.target {x,y,z} : 카메라의 기준 중심점(map control target) 3D 위경도 좌표 </label>
+                                        <label class="col-sm-12 control-label" style="margin-bottom:5px">&emsp; world.position {x,y,z} : 카메라의 3D world 좌표 </label>
+                                        <label class="col-sm-12 control-label" style="margin-bottom:5px">&emsp; world.target {x,y,z} : 카메라의 기준 중심점(map control target) 3D world 좌표 </label>
+                                        <label class="col-sm-12 control-label" style="margin-bottom:5px">&emsp; distance [Number] : 카메라의 기준 중심점(map control target)으로부터 카메라까지의 거리 </label>
+                                        <label class="col-sm-12 control-label" style="margin-bottom:5px">&emsp; azimuth [Number] : 카메라의 방위각</label>
+                                        <label class="col-sm-12 control-label" style="margin-bottom:5px">&emsp; polar [Number] : 카메라 극선</label>
+
+                                    </label>
+                                    
+                                </div>
+                                <div class="form-group" style="display: inline; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">State Value</label>
+                                    <br>
+                                    <div class="col-sm-12">
+                                        <textarea name="camera-state-textarae-world"  rows="7" style="width: 80%;height: 100%" readonly></textarea>
+                                    </div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="getSavedCameraState" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <tr class="right-row" data-category="getInfo">
+                        <td colspan="7" href="#getCameraGeographicPosition" >getCameraGeographicPosition()</td>
+                        <td colspan="8" class="summary-content" >카메라의 위치를 위경도 좌표로 반환하는 함수  <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="getCameraGeographicPosition" target="getCameraGeographicPosition">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        <label class="return-text">return [Vector3] : 위경도 좌표(x, y, z)</label>
+                                        </label>
+                                </div>
+                                <div class="form-group" style="display: ruby; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">Longitude (x)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="longitude-geo-position" value="" readonly>
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Latitude (y)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="latitude-geo-position" value="" readonly>
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Height (z)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="height-geo-position" value="" readonly>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="getCameraGeographicPosition" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="right-row" data-category="getInfo">
+                        <td colspan="7" href="#getCameraPosition" >getCameraPosition()</td>
+                        <td colspan="8" class="summary-content">카메라의 위치를 3D World 좌표로 반환하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="getCameraPosition" target="getCameraPosition">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        <label class="return-text">
+                                           return [Vector3] : 3D World 좌표(x, y, z) </label>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="display: ruby; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">X</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="world-x" value="" readonly>
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Y</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="world-y" value="" readonly>
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Z</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="world-z" value="" readonly>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="getCameraPosition" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <tr class="alt-row" data-category="getInfo">
+                        <td colspan="7" href="#getCameraGeographicTargetPoint" >getCameraGeographicTargetPoint()</td>
+                        <td colspan="8" class="summary-content">카메라의 기준 중심점(mapControl target)의 위경도 좌표를 반환하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="getCameraGeographicTargetPoint" target="getCameraGeographicTargetPoint">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        <label class="return-text">
+                                            return [Vector3] : 위경도 좌표 (x, y, z)</label>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="display: ruby; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">Longitude (x)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="longitude-target-point" value="" readonly>
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Latitude (y)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="latitude-target-point" value="" readonly>
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Height (z)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="height-target-point" value="" readonly>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="getCameraGeographicTargetPoint" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <tr class="right-row" data-category="getInfo">
+                        <td colspan="7" href="#getCameraTargetPoint" >getCameraTargetPoint()</td>
+                        <td colspan="8" class="summary-content">카메라의 기준 중심점(mapControl target) 위치를 3D World 좌표로 반환하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="getCameraTargetPoint" target="getCameraTargetPoint">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        <label class="return-text">
+                                            return [Vector3] : 3D World 좌표(x, y, z)
+                                        </label>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="display: ruby; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">X</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="world-target-point-x" value="" readonly>
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Y</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="world-target-point-y" value="" readonly>
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Z</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="world-target-point-z" value="" readonly>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="getCameraTargetPoint" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="alt-row" data-category="getInfo">
+                        <td colspan="7" href="#getCameraRelativeHeight" >getCameraRelativeHeight()</td>
+                        <td colspan="8" class="summary-content">높이를 반영하여 카메라의 z값을 반환하는 함수 ( 현재 카메라 위치 높이에서의 고도값을 차감하여 반환 ) <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="getCameraRelativeHeight" target="getCameraRelativeHeight">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        <label class="return-text">
+                                            return [Number] : 카메라 높이 값 - 현재 위치의 고도값
+                                        </label>
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-sm-4 control-label">Height</label>
+                                    <div class="col-sm-4">
+                                        <input class="form-control input-sm input-height-value" type="text"
+                                               value="" readonly>
+                                    </div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="getCameraRelativeHeight" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="right-row" data-category="getInfo">
+                        <td colspan="7" href="#getCameraFocalDistance" >getCameraFocalDistance()</td>
+                        <td colspan="8" class="summary-content">카메라 위치에서 카메라 기준 중심점(mapControl target) 까지의 거리(초점거리) 반환 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="getCameraFocalDistance" target="getCameraFocalDistance">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        <label class="return-text">return [Number] : 초점거리
+                                        </label>
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-sm-4 control-label">Focal Distance</label>
+                                    <div class="col-sm-4">
+                                        <input class="form-control input-sm input-focal-value" type="text" value="" readonly>
+                                    </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="getCameraFocalDistance" style="margin-left: 5px">실행</div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="alt-row" data-category="getInfo">
+                        <td colspan="7" href="#getRotation" >getRotation(<label class="parameter-text">bAngle</label>)</td>
+                        <td colspan="8" class="summary-content">카메라 방위각을 (라디안/각도)로 반환 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="getRotation" target="getRotation">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        <label class="return-text">
+                                            return [Number] : 라디안(false) / 각도(true) 방위각
+                                        </label>
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label style="margin-top: 3%;margin-left: 3%; width: 350px;display: grid;"> 결과 타입
+                                        <label style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-top: 2%">
+                                            <span style="padding-top: 4px;">라디안 / 각도</span>
+                                            <input class="toggle-btn" role="switch" type="checkbox" id="getAngle" style="margin-left: 40%;" name="getAngle">
+                                        </label>
+                                    </label>
+                                    <label class="col-sm-4 control-label">Rotation</label>
+                                    <div class="col-sm-4">
+                                        <input class="form-control input-sm input-rotation-value" type="text" value="" readonly>
+                                    </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="getRotation" style="margin-left: 5px">실행</div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="right-row" data-category="getInfo">
+                        <td colspan="7" href="#getRotationPolar" >getRotationPolar(<label class="parameter-text">bAngle</label>)</td>
+                        <td colspan="8" class="summary-content">카메라 극선을 (라디안/각도)로 반환 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="getRotationPolar" target="getRotationPolar">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        <label class="return-text">
+                                            return [Number] : 라디안(false) / 각도(true) 극선
+                                        </label>
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label style="margin-top: 3%;margin-left: 3%; width: 350px;display: grid;"> 결과 타입
+                                        <label style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-top: 2%">
+                                            <span style="padding-top: 4px;">라디안 / 각도</span>
+                                            <input class="toggle-btn" role="switch" type="checkbox" id="getAnglePolar" style="margin-left: 40%;" name="getAngle">
+                                        </label>
+                                    </label>
+                                    <label class="col-sm-4 control-label">Rotation</label>
+                                    <div class="col-sm-4">
+                                        <input class="form-control input-sm input-polar-rotation-value" type="text" value="" readonly>
+                                    </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="getRotationPolar" style="margin-left: 5px">실행</div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+
+
+                    <tr class="alt-row" data-category="setInfo">
+                        <td colspan="7" href="#setCameraFov" >setCameraFov(<label class="parameter-text">value</label>)</td>
+                        <td colspan="8" class="summary-content">카메라의 화각(Field Of View)을 설정하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="setCameraFov" target="setCameraFov">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        value [Number] : 화각의 정도
+                                        <br>
+                                    <label class="return-text">return : undefined</label>
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-sm-4 control-label">Fov Value</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" placeholder="초기값 50" name="fov" value="50">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="setCameraFov" style="margin-left: 5px">실행</div>
+                                <div class="btn btn-default btn-sm btn-reset" name="setCameraFov" style="margin-left: 5px">초기화</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="right-row" data-category="setInfo">
+                        <td colspan="7" href="#setPanSpeed" >setPanSpeed(<label class="parameter-text">value</label>)</td>
+                        <td colspan="8" class="summary-content">카메라의 Pan 속도(스케일)를 설정하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="setPanSpeed" target="setPanSpeed">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        value [Number] : 속도(스케일) 수치
+                                        <br>
+                                    <label class="return-text">return [Boolean] : 정상동작 여부</label>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="display: ruby; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">Speed Value</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" placeholder="초기값 1" name="panSpeed" value="1">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="setPanSpeed" style="margin-left: 5px">실행</div>
+                                <div class="btn btn-default btn-sm btn-reset" name="setPanSpeed" style="margin-left: 5px">초기화</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="alt-row" data-category="setInfo">
+                        <td colspan="7" href="#setZoomSpeed" >setZoomSpeed(<label class="parameter-text">value</label>)</td>
+                        <td colspan="8" class="summary-content">카메라의 Zoom 속도(스케일)를 설정하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="setZoomSpeed" target="setZoomSpeed">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        value [Number] : 속도(스케일) 수치
+                                        <br>
+                                        <label class="return-text">return [Boolean] : 정상동작 여부</label>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="display: ruby; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">Speed Value</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number"  placeholder="초기값 0" name="zoomSpeed" value="0">
+                                        </div>
+                                    </div>
+                                    <div class="btn btn-default btn-sm btn-activate" name="setZoomSpeed" style="margin-left: 5px">실행</div>
+                                    <div class="btn btn-default btn-sm btn-reset" name="setZoomSpeed" style="margin-left: 5px">초기화</div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="right-row" data-category="setInfo">
+                        <td colspan="7" href="#setRotateSpeed" >setRotateSpeed(<label class="parameter-text">value</label>)</td>
+                        <td colspan="8" class="summary-content">카메라의 회전 속도(스케일)를 설정하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="setRotateSpeed" target="setRotateSpeed">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        value [Number] : 속도(스케일) 수치
+                                        <br>
+                                        <label class="return-text">return [Boolean] : 정상동작 여부</label>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="display: ruby; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">Speed Value</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number"  placeholder="초기값 0"  name="rotateSpeed" value="0">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="setRotateSpeed" style="margin-left: 5px">실행</div>
+                                <div class="btn btn-default btn-sm btn-reset" name="setRotateSpeed" style="margin-left: 5px">초기화</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="alt-row" data-category="setInfo">
+                        <td colspan="7" href="#setCameraLimitDistance" >setCameraLimitDistance(<label class="parameter-text">min</label>, <label class="parameter-text">max</label>)</td>
+                        <td colspan="8" class="summary-content">맵 중앙(mapControl의 target)으로 부터 카메라의 줌 거리의 최소 최대 값을 설정하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="setCameraLimitDistance" target="setCameraLimitDistance">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        min [Number] : 중앙까지 최소 거리
+                                        <br>
+                                        max [Number] : 중앙까지 최대 거리
+                                        <br>
+                                        <label class="return-text">return : undefined</label>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="display: ruby;">
+                                    <label class="col-sm-4 control-label">Min Value</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="min" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Max Value</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="max" value="1000">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="setCameraLimitDistance" style="margin-left: 5px">실행</div>
+                                <div class="btn btn-default btn-sm btn-reset" name="setCameraLimitDistance" style="margin-left: 5px">초기화</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="right-row" data-category="setInfo">
+                        <td colspan="7" href="#set2DMode" >set2DMode()</td>
+                        <td colspan="8" class="summary-content">카메라를 2D 지도 모드로 전환하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="set2DMode" target="set2DMode">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        <label class="return-text">return [Object] : promise 객체</label>
+                                    </label>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="set2DMode" style="margin-left: 5px">실행</div>
+                                <div class="btn btn-default btn-sm btn-reset" name="set2DMode" style="margin-left: 5px">초기화</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="alt-row" data-category="setInfo">
+                        <td colspan="7" href="#set3DMode" >set3DMode()</td>
+                        <td colspan="8" class="summary-content">카메라를 3D 지도 모드도 전환하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="set3DMode" target="set3DMode">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        <label class="return-text">return [Object] : promise 객체</label>
+                                    </label>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="set3DMode" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="right-row" data-category="setInfo">
+                        <td colspan="7" href="#setPanMode" >setPanMode()</td>
+                        <td colspan="8" class="summary-content">카메라를 Pan 모드도 전환하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="setPanMode" target="setPanMode">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        <label class="return-text">return : undefined</label>
+                                    </label>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="setPanMode" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="alt-row" data-category="setInfo">
+                        <td colspan="7" href="#setWalkMode" >setWalkMode(<label class="parameter-text">position</label>, <label class="parameter-text">target</label>, <label class="parameter-text">minHeight</label>)</td>
+                        <td colspan="8" class="summary-content">카메라를 걷기 모드로 전환하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="setWalkMode" target="setWalkMode">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        position [Vector3] : 시작 위치
+                                        <br>
+                                        target [Vector3] : 시작시 카메라가 바라 볼 방향
+                                        <br>
+                                        minHeight [Number] : 최소 높이
+                                        <br>
+                                        <label class="return-text">return : undefined</label>
+                                        <br>
+                                        * 실행 버튼 클릭시 마우스 이벤트가 추가되며, 클릭 한 지점에서 걷기모드를 시작합니다.
+                                    </label>
+                                </div>
+                                <div class="form-group" style="display: ruby; margin-top: 3%">
+                                        <div class="param-child active" target="world" >
+                                            <label class="col-sm-4 control-label">Target X Value</label>
+                                            <div class="col-sm-4">
+                                                <div class="form-inline">
+                                                    <input class="form-control" type="number" name="targetX" value="0">
+                                                </div>
+                                            </div>
+                                            <label class="col-sm-4 control-label">Target Y Value</label>
+                                            <div class="col-sm-4">
+                                                <div class="form-inline">
+                                                    <input class="form-control" type="number" name="targetY" value="0">
+                                                </div>
+                                            </div>
+                                            <label class="col-sm-4 control-label">Target Z Value</label>
+                                            <div class="col-sm-4">
+                                                <div class="form-inline">
+                                                    <input class="form-control" type="number" name="targetZ" value="0">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <label class="col-sm-4 control-label">MinHeight Value</label>
+                                        <div class="col-sm-4">
+                                            <div class="form-inline">
+                                                <input class="form-control" type="number" name="minHeight" value="10">
+                                            </div>
+                                        </div>
+                                    </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="setWalkMode" style="margin-left: 5px">실행</div>
+                                <div class="btn btn-default btn-sm btn-reset" name="setWalkMode" style="margin-left: 5px">초기화</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="right-row" data-category="setInfo">
+                        <td colspan="7" href="#setUnderGroundMode" >setUnderGroundMode(<label class="parameter-text">value</label>)</td>
+                        <td colspan="8" class="summary-content">카메라의 지하 모드를 활성화하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="setUnderGroundMode" target="setUnderGroundMode">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        value [Boolean] : 활성화 여부 (기본 - true)
+                                        <br>
+                                        <label class="return-text">return : undefined</label>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="display: ruby; margin-top: 3%">
+                                    <label style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                        <input class="toggle-btn" role="switch" type="checkbox" id="undergroud-mode" name="underground">
+                                        <span style="margin-top: 3%">비활성화 / 활성화</span>
+                                    </label>
+                                <div class="btn btn-default btn-sm btn-activate" name="setUnderGroundMode" style="margin-left: 5px">실행</div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="alt-row" data-category="setInfo">
+                        <td colspan="7" href="#setCameraTargetZeroZ" >setCameraTargetZeroZ()</td>
+                        <td colspan="8" class="summary-content">카메라의 기준 중심점 높이를 0으로 설정하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="setCameraTargetZeroZ" target="setCameraTargetZeroZ">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        <label class="return-text">return : undefined</label>
+                                    </label>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="setCameraTargetZeroZ" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="right-row" data-category="setInfo">
+                        <td colspan="7" href="#setCameraTargetZ" >setCameraTargetZ()</td>
+                        <td colspan="8" class="summary-content">카메라 기준 중심점(mapControl target)의 높이를 현재 카메라의 높이 값과 동일하게 조정하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="setCameraTargetZ" target="setCameraTargetZ">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        <label class="return-text">return : undefined</label>
+                                    </label>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="setCameraTargetZ" style="margin-left: 5px">실행</div>
+                                <div class="btn btn-default btn-sm btn-reset" name="setCameraTargetZ" style="margin-left: 5px">초기화</div>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <tr class="right-row" data-category="setInfo">
+                        <td colspan="7" href="#saveCameraState" >saveCameraState()</td>
+                        <td colspan="8" class="summary-content">현재 카메라 상태를 저장하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="saveCameraState" target="saveCameraState">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        <label class="return-text">return : object[현재 카메라의 상태 정보]</label>
+                                        <br>
+                                        * 실행 버튼 클릭시 현재의 카메라 상태가 저장, 반환 됩니다.
+                                    </label>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="saveCameraState" style="margin-left: 5px">실행</div>
+                             </div>
+                        </td>
+                    </tr>
+
+                    <tr class="alt-row" data-category="fly">
+                        <td colspan="7" style="width: 210px;" href="#setCameraGeographicPosition" >setCameraGeographicPosition<br>
+                            (<label class="parameter-text">geoX</label>, <label class="parameter-text">geoY</label>, <label class="parameter-text">Z</label>, <label class="parameter-text">leftRotate</label>, <label class="parameter-text">downRotate</label>, <label class="parameter-text">targetZ</label>, <label class="parameter-text">durationTime</label>)</td>
+                        <td colspan="8" class="summary-content">카메라의 위치를 위경도좌표와 회전값, 애니메이션 실행시간의 값들을 입력받아 이동 하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="setCameraGeographicPosition" target="setCameraGeographicPosition">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        geoX [Number] : 경도
+                                        <br>
+                                        geoY [Number] : 위도
+                                        <br>
+                                        Z [Number] : 높이
+                                        <br>
+                                        leftRotate [Number] : 방위각
+                                        <br>
+                                        downRotate [Number] : 고도각
+                                        <br>
+                                        targetZ [Number] : 카메라 기준 중심점( mapControl target)의 높이
+                                        <br>
+                                        durationTime [Number] : 지도 애니매이션 시간(ms)
+                                        <br>
+                                        <label class="return-text">
+                                            return [object] : promise 객체 반환
+                                        </label>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="display: ruby; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">Longitude (geoX)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="longitude" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Latitude (geoY)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="latitude" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Height (z)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="z" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">LeftRotate (leftRotate)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="leftRotate" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">DownRotate (downRotate)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="downRotate" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">TargetZ (targetZ)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="targetZ" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Duration (durationTime)</label>
+
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="duration" value="3000">
+                                        </div>
+                                    </div>
+                                    <div class="btn btn-default btn-sm random-geographic" style="width: 100px; margin-left: 5px">무작위 좌표</div>
+                                </div>
+
+                                <div class="btn btn-default btn-sm btn-activate" name="setCameraGeographicPosition" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="right-row" data-category="fly">
+                        <td colspan="7" style="width: 210px;" href="#setCameraPosition" >setCameraPosition<br>
+                            (<label class="parameter-text">x</label>, <label class="parameter-text">y</label>, <label class="parameter-text">z</label>, <label class="parameter-text">leftRotate</label>, <label class="parameter-text">downRotate</label>, <label class="parameter-text">targetZ</label>, <label class="parameter-text">durationTime</label>)</td>
+                        <td colspan="8" class="summary-content">카메라의 위치를 3D World 좌표와 회전값, 애니메이션 실행시간의 값들을 입력받아 이동 하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="setCameraPosition" target="setCameraPosition">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        x [Number] : 3D World 좌표 X 값
+                                        <br>
+                                        y [Number] : 3D World 좌표 Y 값
+                                        <br>
+                                        z [Number] : 3D World 좌표 Z 값
+                                        <br>
+                                        leftRotate [Number] : 방위각
+                                        <br>
+                                        downRotate [Number] : 고도각
+                                        <br>
+                                        targetZ [Number] : 카메라 기준 중심점( mapControl target)의 높이
+                                        <br>
+                                        durationTime [Number] : 지도 애니매이션 시간(ms)
+                                        <br>
+                                        <label class="return-text">
+                                            return [object] : promise 객체 반환
+                                        </label>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="display: ruby; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">World X (x)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="x" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">World Y (y)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="y" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Height (z)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="z" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">LeftRotate (leftRotate)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="leftRotate" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">DownRotate (downRotate)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="downRotate" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">TargetZ (targetZ)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="targetZ" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Duration (durationTime)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="duration" value="3000">
+                                        </div>
+                                    </div>
+                                    <div class="btn btn-default btn-sm random-vector" style="width: 100px; margin-left: 5px">무작위 좌표</div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="setCameraPosition" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="alt-row" data-category="fly">
+                        <td colspan="7" style="width: 210px;" href="#setCameraPositionDirect" >setCameraPositionDirect<br>
+                            (<label class="parameter-text">x</label>, <label class="parameter-text">y</label>, <label class="parameter-text">z</label>, <label class="parameter-text">leftRotate</label>, <label class="parameter-text">downRotate</label>)</td>
+                        <td colspan="8" class="summary-content">카메라의 위치를 위경도 좌표와 회전값을 입력받아 애니메이션 없이 즉시 이동하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="setCameraPositionDirect" target="setCameraPositionDirect">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        x [Number] : 경도
+                                        <br>
+                                        y [Number] : 위도
+                                        <br>
+                                        z [Number] : 높이
+                                        <br>
+                                        leftRotate [Number] : 방위각
+                                        <br>
+                                        downRotate [Number] : 고도각
+                                        <br>
+                                        <label class="return-text">
+                                            return [Boolean] : 위치 이동 성공시 false
+                                        </label>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="display: ruby; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">Longitude (x)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="longitudeDirect" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Latitude (y)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="latitudeDirect" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Height (z)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="zDirect" value="1000">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">LeftRotate (LeftRotate)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="leftRotateDirect" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">DownRotate (DownRotate)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="downRotateDirect" value="0">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="btn btn-default btn-sm random-geographic-direct" style="width: 100px; margin-left: 5px">무작위 좌표</div>
+                                <div class="btn btn-default btn-sm btn-activate" name="setCameraPositionDirect" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="right-row" data-category="fly">
+                        <td colspan="7" style="width: 210px;" href="#setCameraTarget" >setCameraTarget<br>
+                            (<label class="parameter-text">position</label>, <label class="parameter-text">positionType</label>, <label class="parameter-text">distance</label>)</td>
+                        <td colspan="8" class="summary-content">카메라가 입력된 좌표를 바라보도록 하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="setCameraTarget" target="setCameraTarget">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        position {x, y, z} : 3D World / 위경도 좌표
+                                        <br>
+                                        positionType [String] : 입력 좌표의 타입 [ "geographic": 위경도 / "world" : 3D World ]
+                                        <br>
+                                        distance [Number] : 입력된 좌표로 부터의 카메라 거리
+                                        <br>
+                                        <label class="return-text">
+                                            return [object] : promise 객체 반환
+                                        </label>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="display: ruby; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">Position Type (positionType)</label>
+                                    <select class="form-control input-sm select-position-type" name="type" style="width:200px; margin-left: 2%">
+                                        <option value="world" selected>WORLD</option>
+                                        <option value="geographic">GEOGRAPHIC</option>
+                                    </select>
+
+                                    <div class="param-child active" target="world" >
+                                        <label class="col-sm-4 control-label">World X (x)</label>
+                                        <div class="col-sm-4">
+                                            <div class="form-inline">
+                                                <input class="form-control" type="number" name="xTarget" value="0">
+                                            </div>
+                                        </div>
+                                        <label class="col-sm-4 control-label">World Y (y)</label>
+                                        <div class="col-sm-4">
+                                            <div class="form-inline">
+                                                <input class="form-control" type="number" name="yTarget" value="0">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="param-child" target="geographic">
+                                        <label class="col-sm-4 control-label">Longitude (x)</label>
+                                        <div class="col-sm-4">
+                                            <div class="form-inline">
+                                                <input class="form-control" type="number" name="longitudeTarget" value="0">
+                                            </div>
+                                        </div>
+                                        <label class="col-sm-4 control-label">Latitude (y)</label>
+                                        <div class="col-sm-4">
+                                            <div class="form-inline">
+                                                <input class="form-control" type="number" name="latitudeTarget" value="0">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">height (z)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="zTarget" value="1000">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Distance (distance)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="distanceTarget" value="1000">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="param-child active" target="world">
+                                    <div class="btn btn-default btn-sm random-vector-target" style="width: 100px; margin-left: 5px">무작위 좌표</div>
+                                </div>
+                                <div class="param-child" target="geographic">
+                                    <div class="btn btn-default btn-sm random-geographic-target" style="width: 100px; margin-left: 5px">무작위 좌표</div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="setCameraTarget" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="alt-row" data-category="fly">
+                        <td colspan="7" style="width: 210px;" href="#setResolution" >setResolution(<label class="parameter-text">distance</label>)</td>
+                        <td colspan="8" class="summary-content">거리에 따른 화면 해상도(Resolution)를 설정하는 함수 (입력받은 거리만큼 카메라의 위치를 카메라 기준 중심점까지의 거리만큼 이동) <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="setResolution" target="setResolution">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        distance [Number] : 카메라의 기준 중심점(mapControl target)부터의 카메라 거리
+                                        <br>
+                                        <label class="return-text">
+                                            return : undefined
+                                        </label>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="display: ruby; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">Distance (distance)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="distance" value="1000">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="setResolution" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="right-row" data-category="fly">
+                        <td colspan="7" style="width: 210px;" href="#flyTo" >flyTo(<label class="parameter-text">position</label>, <label class="parameter-text">duration</label>)</td>
+                        <td colspan="8" class="summary-content">입력받은 위경도 좌표로 카메라를 이동시키는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="flyTo" target="flyTo">
+                                    <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        position {x, y} : 위경도 좌표
+                                        <br>
+                                        duration [Number] : 애니메이션 시간 밀리세컨드 단위, (기본값 : 3000)
+                                        <br>
+                                        <label class="return-text">
+                                            return [TWEEN] : 현재 작업중인 TWEEN 객체 ( app._currentTWeen )
+                                        </label>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="display: ruby; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">longitude (x)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="longitudeFlyTo" value="">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">latitude (y)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="latitudeFlyTo" value="">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">duration (duration)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="duration" value="3000">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="btn btn-default btn-sm random-geographic-flyTo" style="width: 100px; margin-left: 5px">무작위 좌표</div>
+                                <div class="btn btn-default btn-sm btn-activate" name="flyTo" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="alt-row" data-category="fly">
+                        <td colspan="7" style="width: 210px;" href="#flyToClick" >flyToClick(<label class="parameter-text">event</label>, <label class="parameter-text">offset</label>)</td>
+                        <td colspan="8" class="summary-content">입력받은 클릭 이벤트로 카메라를 이동시키는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="flyToClick" target="flyToClick">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        event [object] : 클릭 이벤트 객체
+                                        <br>
+                                        offset [Number] : 추가 이동 오프셋
+                                        <br>
+                                        <label class="return-text">
+                                            return [TWEEN] : 현재 작업중인 TWEEN 객체 ( app._currentTWeen )
+                                        </label>
+                                        <br>
+                                        *실행 버튼 클릭시 마우스 이벤트가 추가되며, 클릭한 지점으로 이동합니다.
+                                    </label>
+                                </div>
+                                <div class="form-group" style="display: ruby; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">offset (offset)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="flyToClick-offset" value="100">
+                                        </div>
+                                    </div>
+
+                                    <label class="col-sm-4 control-label">클릭지점 X </label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control click-x" type="number" name="click-x" value="" readonly>
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">클릭지점 Y </label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control click-y" type="number" name="click-y" value="" readonly>
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">클릭지점 Z </label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control click-z" type="number" name="click-z" value="" readonly>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="flyToClick" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="right-row" data-category="fly">
+                        <td colspan="7" style="width: 210px;" href="#flyToTarget" >flyToTarget(<label class="parameter-text">offset</label>, <label class="parameter-text">duration</label>)</td>
+                        <td colspan="8" class="summary-content">카메라가 향해있는 타겟(기준 중심점)으로 이동하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="flyToTarget" target="flyToTarget">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        offset [Number] : 추가 이동 오프셋
+                                        <br>
+                                        duration [Number] : 애니메이션 시간 밀리세컨드 단위
+                                        <br>
+                                        <label class="return-text">
+                                            return [TWEEN] : 현재 작업중인 TWEEN 객체 ( app._currentTWeen )
+                                        </label>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="display: ruby; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">offset Value</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="offset" value="100" >
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">duration Value</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="duration" value="3000" >
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="flyToTarget" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="alt-row" data-category="fly">
+                        <td colspan="7" style="width: 210px;" href="#flyToPosition" >flyToPosition(<label class="parameter-text">position</label>, <label class="parameter-text">target</label>)</td>
+                        <td colspan="8" class="summary-content">카메라 타겟(기준 중심점) 위치로 이동(flyTo)하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="flyToPosition" target="flyToPosition">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        position {x, y, z} : 이동 후 카메라 위치
+                                        <br>
+                                        target {x, y, z} : 카메라 타겟 위치(기준 중심점)
+                                        <br>
+                                        <label class="return-text">
+                                            return [object] : promise 객체
+                                        </label>
+                                    </label>
+                                </div>
+
+                                <div class="form-group" style="display: ruby; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">X Value</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="x" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Y Value</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="y" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Z Value</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="z" value="200">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Target X Value</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="positionTargetx" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Target Y Value</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="positionTargety" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Target Z Value</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="positionTargetz" value="0">
+                                        </div>
+                                    </div>
+                                    <div class="btn btn-default btn-sm random-vector-positionTarget" style="width: 100px; margin-left: 5px">무작위 좌표</div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="flyToPosition" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="right-row" data-category="fly">
+                        <td colspan="7" style="width: 210px;" href="#fitExtentToBoundingBox" >fitExtentToBoundingBox<br>
+                            (<label class="parameter-text">boundingBox</label>, <label class="parameter-text">useFly</label>, <label class="parameter-text">offsetZ</label>)</td>
+                        <td colspan="8" class="summary-content">특정 영역(BoundingBox) 으로 카메라를 조정하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="fitExtentToBoundingBox" target="fitExtentToBoundingBox">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        boundingBox [Object] : boundingBox 영역(BoundingBox) 정보
+                                        <br>
+                                        useFly [Boolean] : 이동 시 애니메이션 사용 유무
+                                        <br>
+                                        offsetZ [Number] : 이동 시 지도 화면과 지면과의 거리(높이) 추가 보정값
+                                        <label class="return-text">
+                                            return [object] : promise 객체
+                                        </label>
+                                    </label>
+                                </div>
+
+                                <div class="form-group" style="display: ruby; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">Min X (boundingBox.min.x)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="minX" value="">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Min Y (boundingBox.min.y)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="minY" value="">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Min Z (boundingBox.min.z)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="minZ" value="">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Max X (boundingBox.max.x)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="maxX" value="">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Max Y (boundingBox.max.y)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="maxY" value="">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">Max Z (boundingBox.max.z)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="maxZ" value="">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">LeftRotate (leftRotate)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="leftRotate" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">DownRotate (downRotate)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="downRotate" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-12" style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                        <span style="padding-top: 4px;">이동 애니메이션 비활성 / 활성 (useFly)</span>
+                                        <input class="toggle-btn" role="switch" type="checkbox" id="useFly" name="useFly">
+                                    </label>
+                                    
+                                    <label class="col-sm-4 control-label">OffsetZ (offsetZ)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="offsetZ" value="1000">
+                                        </div>
+                                    </div>
+                                    <div class="btn btn-default btn-sm random-box" style="width: 100px; margin-left: 5px">무작위 좌표</div>
+                                </div>
+
+                                <div class="btn btn-default btn-sm btn-activate" name="fitExtentToBoundingBox" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="alt-row" data-category="fly">
+                        <td colspan="7" style="width: 210px;" href="#fitExtentToObject" >fitExtentToObject(<label class="parameter-text">object</label>)</td>
+                        <td colspan="8" class="summary-content">특정 대상(object)으로 카메라를 조정하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="fitExtentToObject" target="fitExtentToObject">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        object [Object] : 이동하려는 대상 객체
+                                        <br>
+                                        <label class="return-text">
+                                            return [object] : promise 객체
+                                        </label>
+                                        <br>
+                                        *대상 선택을 on으로 전환 후 마우스에 객체 선택 이벤트가 추가 되며, 객체 선택 후 실행 버큰 클릭시 해당 대상으로 카메라가 이동합니다.
+                                    </label>
+                                </div>
+
+                                <div class="form-group" style="display: ruby; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">OffsetZ (offsetZ)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="offsetZ" value="100">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">LeftRotate (leftRotate)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="leftRotate" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">DownRotate (downRotate)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="downRotate" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-12" style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                        <span style="padding-top: 4px;">이동 애니메이션 비활성 / 활성 (useFly)</span>
+                                        <input class="toggle-btn" role="switch" type="checkbox" id="useFly-object" name="useFly">
+                                    </label>
+                                    <label class="col-sm-12" style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                        <span style="padding-top: 4px;">객체 선택모드 비활성화 / 활성화 </span>
+                                        <input class="toggle-btn" role="switch" type="checkbox" id="select-mode">
+                                    </label>
+                                </div>
+
+                                <div class="btn btn-default btn-sm btn-activate" name="fitExtentToObject" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="right-row" data-category="fly">
+                        <td colspan="7" style="width: 210px;" href="#fitLayerExtent" >fitLayerExtent<br>
+                            (<label class="parameter-text">layerName</label>, <label class="parameter-text">useFly</label>, <label class="parameter-text">offsetZ</label>)</td>
+                        <td colspan="8" class="summary-content">해당 레이어 범위로 지도 화면을 위치시키는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="fitLayerExtent" target="fitLayerExtent">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        layerName [String] : 레이어 이름
+                                        <br>
+                                        useFly [Boolean] : 이동 시 애니메이션 사용 유무
+                                        <br>
+                                        offsetZ [Number] : 이동 시 지도 화면과 지면과의 거리(높이) 추가 보정값
+                                        <br>
+                                        <label class="return-text">
+                                            return [object] : promise 객체
+                                        </label>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="display: ruby; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">Layer Name List (layerName)</label>
+                                    <select class="form-control input-sm select-layer-list" name="layerName" style="width:200px; margin-left: 2%">
+                                    </select>
+                                    <label class="col-sm-4 control-label">LeftRotate (leftRotate)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="leftRotate" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-4 control-label">DownRotate (downRotate)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="downRotate" value="0">
+                                        </div>
+                                    </div>
+                                    <label class="col-sm-12" style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                        <span style="padding-top: 4px;">이동 애니메이션 비활성 / 활성 (useFly)</span>
+                                        <input class="toggle-btn" role="switch" type="checkbox" id="useFly-layer" name="useFly" checked>
+                                    </label>
+                                    <label class="col-sm-4 control-label">offsetZ (offsetZ)</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="offsetZ" value="2000">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="fitLayerExtent" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="alt-row" data-category="fly">
+                        <td colspan="7" style="width: 210px;" href="#goToHome" >goToHome(<label class="parameter-text">duration</label>)</td>
+                        <td colspan="8" class="summary-content">설정된 홈 위치로 이동하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="goToHome" target="goToHome">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        duration [Number] : 애니메이션 시간 밀리세컨드 단위
+                                        <br>
+                                        <label class="return-text">
+                                            return : homePosition 미지정시 console.error
+                                        </label>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="display: ruby; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">Duration Value</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="duration" value="2000">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="goToHome" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="right-row" data-category="fly">
+                        <td colspan="7" style="width: 210px;" href="#alignNorth" >alignNorth(<label class="parameter-text">duration</label>)</td>
+                        <td colspan="8" class="summary-content">지도화면 도북정렬 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="alignNorth" target="alignNorth">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        duration [Number] : 애니메이션 시간 밀리세컨드 단위
+                                        <br>
+                                        <label class="return-text">
+                                            return [TWeen] : 현재 진행중인 Tween 객체
+                                        </label>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="display: ruby; margin-top: 3%">
+                                    <label class="col-sm-4 control-label">Duration Value</label>
+                                    <div class="col-sm-4">
+                                        <div class="form-inline">
+                                            <input class="form-control" type="number" name="duration" value="2000">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="alignNorth" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="alt-row" data-category="fly">
+                        <td colspan="7" style="width: 210px;" href="#setCameraDownRotate" >setCameraDownRotate<br>
+                            (<label class="parameter-text">value</label>, <label class="parameter-text">isDegree</label>)</td>
+                        <td colspan="8" class="summary-content">카메라의 위아래 회전각도를 기준 중심점(mapControl target)을 중심으로 전달 받은 값만큼 더하여 조절하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="setCameraDownRotate" target="setCameraDownRotate">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        value [Number] : degree 또는 radians
+                                        <br>
+                                        isDegree [Boolean] : degree 타입 여부 (기본 : true)
+                                        <br>
+                                        <label class="return-text">
+                                            return : undefined
+                                        </label>
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label style="margin-top: 3%;margin-left: 5%; width: 350px;display: grid;"> 입력 타입
+                                        <label style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-top: 2%">
+                                            <span style="padding-top: 4px;">라디안 / 각도</span>
+                                            <input class="toggle-btn" role="switch" type="checkbox" id="isDegree" name="isDegree" style="margin-left: 38%;" checked>
+                                        </label>
+                                    </label>
+                                    <label class="col-sm-4 control-label">Rotation Value</label>
+                                    <div class="col-sm-6">
+                                        <input class="form-control input-sm" type="text" name="rotation" id="speed-pan"
+                                               style="width: 220px;" value="0">
+                                    </div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="setCameraDownRotate" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="right-row" data-category="fly">
+                        <td colspan="7" style="width: 210px;" href="#setCameraLeftRotate" >setCameraLeftRotate<br>
+                            (<label class="parameter-text">value</label>, <label class="parameter-text">isDegree</label>)</td>
+                        <td colspan="8" class="summary-content">카메라의 좌우 회전각도를 기준 중심점(mapControl target)을 중심으로 전달 받은 값만큼 더하여 조절하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="setCameraLeftRotate" target="setCameraLeftRotate">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        value [Number] : degree 또는 radians
+                                        <br>
+                                        isDegree [Boolean] : degree 타입 여부 (기본 : true)
+                                        <br>
+                                        <label class="return-text">
+                                            return : undefined
+                                        </label>
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label style="margin-top: 3%;margin-left: 5%; width: 350px;display: grid;"> 입력 타입
+                                        <label style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-top: 2%">
+                                            <span style="padding-top: 4px;">라디안 / 각도</span>
+                                            <input class="toggle-btn" role="switch" type="checkbox" id="isDegree-left" name="isDegree" style="margin-left: 38%;" checked>
+                                        </label>
+                                    </label>
+                                    <label class="col-sm-4 control-label">Rotation Value</label>
+                                    <div class="col-sm-6">
+                                        <input class="form-control input-sm" type="text" name="rotation" id="speed-rotate"
+                                               style="width: 220px;" value="0">
+                                    </div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="setCameraLeftRotate" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <tr class="right-row" data-category="fly">
+                        <td colspan="7" style="width: 210px;" href="#loadCameraState" >loadCameraState<br>
+                            (<label class="parameter-text">cameraStateInfo</label>, <label class="parameter-text">duration</label>)</td>
+                        <td colspan="8" class="summary-content">이전에 저장한 카메라 상태를 불러와 카메라의 위치와 회전을 설정하는 함수 <button class="toggle-button"><span class="arrow">▼</span></button>
+                            <div class="param collapse" id="loadCameraState" target="loadCameraState">
+                                <div class="form-group">
+                                    <label class="col-sm-12 control-label summary-param">
+                                        cameraStateInfo [Object] : saveCameraState 로 이전에 저장된 카메라 상태 정보
+                                        <br>
+                                        duration [Number] : 애니메이션 소요 시간
+                                        <br>
+                                        <label class="return-text">
+                                            return : [promise] Tween 객체
+                                        </label>
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <div class="form-group" style="display: inline; margin-top: 3%">
+                                        <label class="col-sm-4 control-label">State Value</label>
+                                        <br>
+                                        <div class="col-sm-12">
+                                            <textarea id="camera-state-textarea" name="stateInfo"  rows="7" style="width: 80%;height: 100%" ></textarea>
+                                        </div>
+
+                                        <label class="col-sm-4 control-label">Duration Value</label>
+                                        <div class="col-sm-4">
+                                            <div class="form-inline">
+                                                <input class="form-control" type="number" name="duration" value="2000">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="btn btn-default btn-sm btn-activate" name="loadCameraState" style="margin-left: 5px">실행</div>
+                            </div>
+                        </td>
+                    </tr>
+
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script id="set-imagelayer">
+    let ImageLayer = function (GeOnDT, app, opt) {
+        this._type = "ImageLayer";
+        this.layer = undefined;
+        this._geondt = GeOnDT;
+        this._app = app;
+        this._name = opt.name;
+        this.options = opt;
+        this.ready = $.Deferred();
+    }
+    ImageLayer.prototype.create = function () {
+        let self = this;
+        if (self._name === 'emapbase') {
+            self.layer = self._app.createEmapBaseLayer(this.options);
+        } else if (self._name === 'emapsat') {
+            self.layer = self._app.createEmapSatLayer(this.options);
+        } else {
+            self.layer = new self._geondt.image.U3dImageXYZLayer(this.options);
+            self._app.addLayer(this.layer);
+        }
+        this.layer.then(() => {
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+    ImageLayer.prototype.show = function (isShow) {
+        let promies = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow ? "시작" : "종료"));
+        this._app.showLayer(this.options.name, isShow).then(() => {
+            promies.resolve();
+        })
+        this.isShow = isShow;
+        return promies;
+    }
+</script>
+<script id="set-terrain">
+    let HeightLayer = function (GeOnDT, app, opt) {
+        this._type = "HeightLayer";
+        this.layer = undefined;
+        this._app = app;
+        if (opt.rectangle === undefined)
+            opt.rectangle = GeOnDT.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수
+        this.options = opt;
+        this._name = opt.name;
+        this.ready = $.Deferred();
+    }
+    HeightLayer.prototype.create = function () {
+        let self = this;
+        self.layer = this._app.createHeightXYZLayer(self.options);
+        self.layer.then(() => {
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+    HeightLayer.prototype.show = function (isShow) {
+        let promies = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow ? "시작" : "종료"));
+        this._app.showLayer(this.options.name, isShow).then(() => {
+            promies.resolve();
+        })
+        this.isShow = isShow;
+        return promies;
+    }
+</script>
+<script id="layer-setting">
+    const LAYER_OPT = {
+        satellite: {
+            name: 'satellite',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldsaturl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+        },
+        hybrid: {
+            name: 'hybrid', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldhybirdurl,  //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            transparent: true //+ layer 투명화 여부
+        },
+        korea_terrain: {
+            name: 'korea_terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            ext: '.umf', //+ 파일 확장자, *필수 입력
+            reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+            minlevel: 9,  //+ 가시화 최소 레벨
+            maxlevel: 17, //+ 가시화 최대 레벨
+            useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+        }
+    };
+
+    let LayerList = function (GeOnDT, app) {
+        return {
+            //이미지레이어
+            satellite: new ImageLayer(GeOnDT, app, LAYER_OPT.satellite),
+            hybrid: new ImageLayer(GeOnDT, app, LAYER_OPT.hybrid),
+            //고도레이어
+            korea_terrain: new HeightLayer(GeOnDT, app, LAYER_OPT.korea_terrain)
+        }
+    }
+</script>
+<script>
+    //라이센스 인증
+    GeOnDT.ready(function () {
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// 지도 기본세팅 /////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+         const cameraMethod = {setCameraFov, getCameraFov, setCameraLimitDistance, flyTo, flyToClick, flyToTarget, flyToPosition, getLandTargetPosition, setCameraGeographicPosition,setCameraPosition, setCameraPositionDirect,setCameraTargetZeroZ, setCameraTargetZ, saveCameraState, setCameraTarget,setResolution,getCameraState,getCameraStateFromWorld,getSavedCameraState, getCameraPosition,getCameraTargetPosition,getCameraTargetPoint,getCameraGeographicPosition, getCameraGeographicTargetPoint,getCameraRelativeHeight,fitExtentToBoundingBox,fitExtentToObject, fitLayerExtent,goToHome, getCameraFocalDistance,set2DMode,set3DMode, setPanMode,setUnderGroundMode, setWalkMode,setFlyMode,getRotation,getRotationPolar, alignNorth,setZoomSpeed, setPanSpeed,setRotateSpeed,setCameraDownRotate,loadCameraState,setCameraLeftRotate}
+
+        const moveMaxX = 129.3;
+        const moveMinX = 126.5;
+        const moveMaxY = 37.9;
+        const moveMinY =  34.9;
+
+        window.app = new GeOnDT.U3dAPP({
+            containername: 'map'
+        });
+        app.setHomePosition(126.9395, 37.52, 450, 0, 60); //경도, 위도, 높이, 방위각, 고도각
+        app.updateHomePosition();
+
+        app.on('change', updatePosData);
+        app.createloadingBar('load');
+        app.loadingBar();
+
+        //이미지 레이어 생성
+        let layers = new LayerList(GeOnDT, app);
+        let initLayerList = ['satellite','korea_terrain']
+        initLayar(initLayerList);
+        initModelLayer();
+
+        //////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// event 등록 /////////////////////////////////////////////////
+        /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        $(document).on('click', '.input-showLayer:input[type=checkbox]', function (e) {
+            const $checkbox = $(e.target);
+            const name = $checkbox.attr('target');
+            checkLayer(name, $checkbox[0].checked);
+        });
+
+
+        //+ [클릭한지점으로] 버튼 클릭시, 마우스 event 등록
+        $(document).on("click", "#click", function () {
+            var $this = $(this);
+            if ($this.hasClass('active')) {
+                $this.removeClass('active');
+                app.off('click', click);
+                app.setPanMode(); //종료시 PanMode 설정
+            } else {
+                $this.addClass('active');
+                app.on('click', click);
+            }
+        });
+
+
+        $(document).on("change",".select-camera-category",function(){
+            const selectedCategory = this.value;
+            const rows = document.querySelectorAll('#apiTable tbody tr');
+            rows.forEach(row => {
+                const rowCategory = row.getAttribute('data-category');
+                if (selectedCategory === 'all' || rowCategory === selectedCategory) {
+                    row.classList.remove('hidden');
+                } else {
+                    row.classList.add('hidden');
+                }
+            });
+
+            if(selectedCategory === "fly"){
+                $('.select-layer-list').empty();
+                let layers = app.getLayers();
+                layers.forEach(layer => {
+                    const name = layer.getName();
+                    if(name && layer.getType() ==='model'){
+                        $('.select-layer-list').append(
+                            '<option value="' + name + '">' + name + '</option>'
+                        );
+                    }
+                })
+            }
+            $("#table-search").val('');
+        })
+        $(".select-camera-category").trigger('change')
+
+        $(document).on('click', "input[name=control]", function (e) {
+            const $checkbox = $(e.target);
+            const target = e.target.value;
+            if (target === 'normal') {
+                app.disableCameraMove(!$checkbox[0].checked); //제한없이 카메라 사용
+                $('#control-zoom').prop('checked', false);
+                $('#control-pan').prop('checked', false);
+                $('#control-rotate').prop('checked', false);
+                $('#control-move').prop('checked', false);
+            } else if (target === 'zoom') {
+                $('#control-normal').prop('checked', false);
+                app.disableCameraZoom($checkbox[0].checked); // zoom 사용 제어
+            } else if (target === 'pan') {
+                $('#control-normal').prop('checked', false);
+                app.disableCameraPan($checkbox[0].checked); // pan 사용 제어
+            }  else if (target === 'rotate') {
+                $('#control-normal').prop('checked', false);
+                app.disableCameraRotate($checkbox[0].checked); // 회전 사용 제어
+            } else if (target === 'move') {
+                app.disableCameraMove($checkbox[0].checked); // 전체 사용 제어 (zoom, pan, 회전)
+                $('#control-normal').prop('checked', false);
+                $('#control-zoom').prop('checked', true);
+                $('#control-pan').prop('checked', true);
+                $('#control-rotate').prop('checked', true);
+            }
+            else{
+                app.disableCameraMove(!$checkbox[0].checked);
+            }
+        });
+
+        $('.select-position-type').on('change', function () {
+            const selectedValue = $(this).val();
+            $('.param-child').removeClass('active');
+            $('.param-child[target="' + selectedValue + '"]').addClass('active'); //+ 해당 type에 맞게 parameter 입력란 활성화
+        });
+
+
+        $(document).on("click", ".btn-activate", function () {
+            const selectedValue = this.getAttribute("name") ;
+            const param = getParam(selectedValue);
+
+            // If "none" is selected, do nothing
+            if (selectedValue === "none") {
+                console.log("No function selected.");
+                return;
+            }
+            if (typeof app[selectedValue] === 'function') {
+                console.log(`Executing function: ${selectedValue}`);
+
+            } else {
+                console.error(`Function "${selectedValue}" does not exist in camera function.`);
+                return
+            }
+
+            if(app[selectedValue] && cameraMethod[selectedValue]){
+                cameraMethod[selectedValue](param);
+                toast(`Executing [ ${selectedValue} ] function`)
+            }
+
+        });
+        const resetTargetZ = app.getCameraTargetPosition().z;
+        $(document).on("click", ".btn-reset", function (){
+            toast('Reset Camera Setting');
+            const name = this.getAttribute("name");
+
+            if(name ==="setCameraFov"){
+                const defaultCameraFov = 50;
+                if(app.getCameraFov() !== defaultCameraFov )
+                    app.setCameraFov(defaultCameraFov)
+                $('input[name=fov]').val(defaultCameraFov);
+            } else  if(name ==="setPanSpeed"){
+                const defaultPanSpeed = 1;
+                app.setPanSpeed(defaultPanSpeed);
+                $('input[name=panSpeed]').val(defaultPanSpeed);
+            } else  if(name ==="setZoomSpeed"){
+                const defaultZoomSpeed = 0;
+                app.setZoomSpeed(defaultZoomSpeed);
+                $('input[name=zoomSpeed]').val(defaultZoomSpeed);
+
+            } else  if(name ==="setRotateSpeed"){
+                const defaultRotateSpeed = 0
+                app.setRotateSpeed(defaultRotateSpeed);
+                $('input[name=rotateSpeed]').val(defaultRotateSpeed);
+
+            } else  if(name === "setCameraLimitDistance"){
+                app.resetCameraLimitDistance();
+                const control = app._mapControl;
+                const min = control.minDistance;
+                const max = control.maxDistance;
+
+                $('input[name=min]').val(min);
+                $('input[name=max]').val(max);
+            }
+            else  if(name === "set2DMode"){
+                app.set3DMode();
+            }
+            else  if(name === "setWalkMode"){
+                //pan 모드 재설정
+                if(app.getMode() !== GeOnDT.UDEF.APP_MODE._PAN){
+                    app.setPanMode();
+                }
+            } else  if(name === "setCameraTargetZ"){
+                app._mapControl.target.z = resetTargetZ;
+            }
+        })
+
+        $(document).on("click", ".random-geographic", function(){
+            let rangeX =  (moveMaxX - moveMinX) *10;
+            let x = rand(0,rangeX) /10 + moveMinX;
+            let rangeY =  (moveMaxY - moveMinY) *10;
+            let y = rand(0,rangeY) /10 + moveMinY;
+            $('input[name=longitude]').val(x);
+            $('input[name=latitude]').val(y);
+        })
+        $(document).on("click", ".random-geographic-direct", function(){
+            let rangeX =  (moveMaxX - moveMinX) *10;
+            let x = rand(0,rangeX) /10 + moveMinX;
+            let rangeY =  (moveMaxY - moveMinY) *10;
+            let y = rand(0,rangeY) /10 + moveMinY;
+            $('input[name=longitudeDirect]').val(x);
+            $('input[name=latitudeDirect]').val(y);
+        })
+        $(document).on("click", ".random-geographic-target", function(){
+            let rangeX =  (moveMaxX - moveMinX) *10;
+            let x = rand(0,rangeX) /10 + moveMinX;
+            let rangeY =  (moveMaxY - moveMinY) *10;
+            let y = rand(0,rangeY) /10 + moveMinY;
+            $('input[name=longitudeTarget]').val(x);
+            $('input[name=latitudeTarget]').val(y);
+        })
+        $(document).on("click", ".random-geographic-flyTo", function(){
+            let rangeX =  (moveMaxX - moveMinX) *10;
+            let x = rand(0,rangeX) /10 + moveMinX;
+            let rangeY =  (moveMaxY - moveMinY) *10;
+            let y = rand(0,rangeY) /10 + moveMinY;
+            $('input[name=longitudeFlyTo]').val(x);
+            $('input[name=latitudeFlyTo]').val(y);
+        })
+
+        $(document).on("click", ".random-google", function(){
+            let rangeX =  (moveMaxX - moveMinX) *10;
+            let x = rand(0,rangeX) /10 + moveMinX;
+            let rangeY =  (moveMaxY - moveMinY) *10;
+            let y = rand(0,rangeY) /10 + moveMinY;
+            let google = app.getGeographicToGoogle(x,y);
+            $('input[name=googleX]').val(google.x);
+            $('input[name=googleY]').val(google.y);
+        })
+
+        $(document).on("click", ".random-vector", function() {
+            let rangeX =  (moveMaxX - moveMinX) *10;
+            let x = rand(0,rangeX) /10 + moveMinX;
+            let rangeY =  (moveMaxY - moveMinY) *10;
+            let y = rand(0,rangeY) /10 + moveMinY;
+            let vec = app.getGeographicToWorld(x,y);
+            $('input[name=x]').val(vec.x);
+            $('input[name=y]').val(vec.y);
+        })
+        $(document).on("click", ".random-vector-target", function() {
+            let rangeX =  (moveMaxX - moveMinX) *10;
+            let x = rand(0,rangeX) /10 + moveMinX;
+            let rangeY =  (moveMaxY - moveMinY) *10;
+            let y = rand(0,rangeY) /10 + moveMinY;
+            let vec = app.getGeographicToWorld(x,y);
+            $('input[name=xTarget]').val(vec.x);
+            $('input[name=yTarget]').val(vec.y);
+        })
+
+        $(document).on("click", ".random-vector-positionTarget", function() {
+            let rangeX =  (moveMaxX - moveMinX) *10;
+            let x = rand(0,rangeX) /10 + moveMinX;
+            let rangeY =  (moveMaxY - moveMinY) *10;
+            let y = rand(0,rangeY) /10 + moveMinY;
+            let vec = app.getGeographicToWorld(x,y);
+            $('input[name=x]').val(vec.x);
+            $('input[name=y]').val(vec.y);
+            let rangeXtarget =  (moveMaxX - moveMinX) *10;
+            let xTarget = rand(0,rangeXtarget) /10 + moveMinX;
+            let rangeYTarget =  (moveMaxY - moveMinY) *10;
+            let yTarget = rand(0,rangeYTarget) /10 + moveMinY;
+            let vecTarget = app.getGeographicToWorld(xTarget,yTarget);
+
+            $('input[name=positionTargetx]').val(vecTarget.x);
+            $('input[name=positionTargety]').val(vecTarget.y);
+        })
+        $(document).on("click", ".random-box", function() {
+            const offset = new app._THREE.Vector3(1,1,1).multiplyScalar(1000);
+            let rangeX =  (moveMaxX - moveMinX) * 10;
+            let x = rand(0,rangeX) /10 + moveMinX;
+            let rangeY =  (moveMaxY - moveMinY) * 10;
+            let y = rand(0,rangeY) /10 + moveMinY;
+            let vec = app.getGeographicToWorld(x,y);
+            let maxVec = vec.clone().add(offset);
+
+            $('input[name=minX]').val(Number(vec.x));
+            $('input[name=minY]').val(Number(vec.y));
+            $('input[name=minZ]').val(Number(vec.z));
+            $('input[name=maxX]').val(Number(maxVec.x));
+            $('input[name=maxY]').val(Number(maxVec.y));
+            $('input[name=maxZ]').val(Number(maxVec.z));
+        })
+
+        const selector = new GeOnDT.select.U3dSelect({mode: 'point'});
+        app.addSelect(selector);
+        selector.setSelectedColor(0x00aa00, 0.4); //선택 객체 색 변경, 투명도 변경 resetSelectedColor() -> 기본설정으로 초기화
+
+        $(document).on('change',"#select-mode", function(){
+            let active = this.checked;
+            if (active && !selector.isActive()){
+                selector.active();
+                toast('After selecting the model, click the Run button.')
+            }
+            else if(!active){
+                selector.clear();
+                selector.deactive();
+            }
+        })
+        $(document).on('click', ".btn-reset-zoom-speed",function(){
+            const resetValue = 0;
+            app.setZoomSpeed(resetValue);
+            $('#speed-zoom').val(resetValue);
+            toast('Reset setZoomSpeed');
+        })
+        $(document).on('click', ".btn-reset-pan-speed",function(){
+            const resetValue = 1;
+            $('#speed-pan').val(resetValue);
+            app.setPanSpeed(resetValue);
+            toast('Reset setPanSpeed');
+        })
+        $(document).on('click', ".btn-reset-rotate-speed",function(){
+            const resetValue = 0;
+            app.setRotateSpeed(resetValue);
+            $('#speed-rotate').val(resetValue);
+            toast('Reset setRotateSpeed');
+        })
+
+
+        $(document).on('click','.toggle-button', function () {
+                const name = this.nextElementSibling.getAttribute("id")
+                const paramDiv = $('#'+name);
+                const arrow = this.querySelector('.arrow');
+                const isHidden = !paramDiv[0].classList.contains('in')
+
+                if (isHidden) {
+                    paramDiv.addClass('in')
+                    arrow.style.transform = 'rotate(180deg)'; // Point arrow up
+                } else {
+                    paramDiv.removeClass('in')
+                    arrow.style.transform = 'rotate(0deg)'; // Point arrow down
+                }
+        });
+
+
+        $(document).on('input','#table-search', function () {
+            const searchValue = this.value.toLowerCase(); // Get the search value in lowercase
+            const rows = document.querySelectorAll('#apiTable tbody tr');
+
+            rows.forEach(row => {
+                const rowText = row.textContent.toLowerCase(); // Get the row's text in lowercase
+                if (rowText.includes(searchValue)) {
+                    row.classList.remove('hidden');
+
+                } else {
+                    row.classList.add('hidden');
+                }
+            });
+        });
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////// function 선언 ///////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+        // 클릭한 지점으로 이동
+        function click(e) {
+            // 마우스 이벤트, 거리오프셋
+            const offset = Number($('input[name=flyToClick-offset]').val()) || 100;
+            app.flyToClick(e, offset);
+        }
+
+        function checkLayer(name, checked) {
+            if (checked) {
+                if (layers[name].layer === undefined) {
+                    layers[name].create();
+                }
+                layers[name].show(true);
+            } else {
+                layers[name].show(false);
+            }
+        }
+
+        function initLayar(list) {
+            const basename = list[0];
+            GeOnDT.UDEF.createPromise((resolve) => {
+                list.forEach((name) => {
+                    if (layers[name].layer === undefined) {
+                        layers[name].create();
+                        layers[name].ready.then(() => {
+                            if (name === basename)
+                                app.setNameBaseLayer(name);
+
+                            app.showLayer(name, true);
+                            $('.input-showLayer:input[target=' + name + ']').prop("checked", true);
+                        });
+                    }
+                });
+                resolve(true);
+            }).then((resolve) => {
+                if (resolve)
+                    app.endloadingBar();
+            });
+        }
+
+
+        function initModelLayer() {
+            let u3fGroupLayer = this.app.createModelGroupLayer({
+                maxlevel: 19,
+                minlevel: 17,
+                name: 'U3fGroupLayer'
+            });
+            $.ajax({
+                url: window.trdDimResUrl + '/v1/layers?type=u3f&category=korea',
+                crossDomain: true,
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader('User-Authorization', 'liSYJPYJhPitIeP6UQznNyhy54iVE2eigdHZGQBgCxcBZng6MxvqMBe2cPbxu2ti');
+                    xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+                },
+                error: function (e) {
+                    console.error(e);
+                }
+            }).then(function (result) {
+                let infos = result.params.data;
+                for (let i = 0; i < infos.length; i++) {
+                    let baseName = infos[i].fileName;
+                    if (!baseName || baseName === '')
+                        baseName = infos[i].name;
+                    let options = {
+                        name: infos[i].name,
+                        basename: baseName,
+                        baseurl: infos[i].baseUrl,
+                        minlevel: infos[i].metaData.minLevel,
+                        maxlevel: infos[i].metaData.maxLevel,
+                        compressmodel: true,
+                        makeU3FPackage: 1
+                    };
+                    let layer = app.create3DFModelLayer(options);
+                    if (layer !== undefined) {
+                        u3fGroupLayer.addLayer(layer);
+                    }
+                }
+            });
+            app.showLayer(u3fGroupLayer.getName(), true);
+        }
+
+        function getParam(selectedName = '.param.in') {
+            if(selectedName) selectedName = '#' + selectedName;
+            else selectedName = '.param.in';
+
+            const param = {};
+            $(selectedName + ' input').each(function (i, v) {
+                if (v.value === undefined || v.value === '') return;
+                let value;
+                if (v.type === 'number') {
+                    value = Number(v.value);
+                } else if (v.type === 'checkbox') {
+                    value = v.checked;
+                } else {
+                    value = v.value;
+                }
+                param[v.name] = value;
+            });
+            $(selectedName + ' select').each(function (i, v) {
+                param[v.name] = v.value;
+            })
+            $(selectedName + ' textarea').each(function (i, v) {
+                param[v.name] = v.value;
+            })
+
+            return param;
+        }
+
+        function rand(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        /// API FUNCTION
+        function setCameraFov(param){
+            const value = param.fov
+            app.setFov(value);
+            return app.setCameraFov(value);
+        }
+
+        function getCameraFov(){
+            const value = app.getCameraFov();
+            $(".input-fov-value").val(value);
+        }
+
+        function setCameraLimitDistance(param){
+            const min = param.min;
+            const max = param.max;
+            app.setCameraLimitDistance(min, max);
+        }
+        function flyTo(param){
+            const x = param.longitudeFlyTo;
+            const y = param.latitudeFlyTo;
+            let geographic = {x:x, y:y};
+            const duration = param.duration || 3000;
+            app.flyTo(geographic, duration);
+        }
+
+        function flyToClick(){
+            console.log('Click to Fly Point');
+            app.on('click', function(e){
+                const point = this.closestPointAtPixel(e);
+                $(".click-x").val(point.x);
+                $(".click-y").val(point.y);
+                $(".click-z").val(point.z);
+                click(e);
+            }, true);
+        }
+        function flyToTarget(param){
+            const offset = param.offset;
+            const duration = param.duration;
+
+            app.flyToTarget(offset, duration);
+        }
+        function flyToPosition(param){
+            const x = param.x;
+            const y = param.y;
+            const z = param.z;
+            const targetX = param.positionTargetx;
+            const targetY = param.positionTargety;
+            const targetZ = param.positionTargetz;
+
+            const position = {x,y,z}
+            const targetPosition = {x:targetX,y:targetY,z:targetZ}
+
+            app.flyToPosition(position, targetPosition);
+        }
+        function getLandTargetPosition(){
+            let geo = app.getLandTargetPosition();
+            $("input[name=longitude-land-target]").val(geo.x);
+            $("input[name=latitude-land-target]").val(geo.y);
+            $("input[name=height-land-target]").val(geo.z);
+        }
+
+        function setCameraGeographicPosition(param){
+            const x = param.longitude;
+            const y = param.latitude;
+            const z = param.z;
+            const leftRotate = param.leftRotate;
+            const downRotate = param.downRotate;
+            const targetZ = param.targetZ;
+            const duration = param.duration || 3000;
+
+            app.setCameraGeographicPosition(x,y,z,leftRotate, downRotate, targetZ, duration);
+        }
+
+        function setCameraPosition(param){
+            const x = param.x;
+            const y = param.y;
+            const z = param.z;
+            const leftRotate = param.leftRotate;
+            const downRotate = param.downRotate;
+            const targetZ = param.targetZ;
+            const duration = param.duration || 3000;
+
+            app.setCameraPosition(x,y,z,leftRotate, downRotate, targetZ, duration);
+        }
+
+        function setCameraPositionDirect(param){
+            const x = param.longitudeDirect;
+            const y = param.latitudeDirect;
+            const z = param.zDirect;
+            const leftRotate = param.leftRotateDirect;
+            const downRotate = param.downRotateDirect;
+
+            app.setCameraPositionDirect(x,y,z,leftRotate, downRotate);
+        }
+        function setCameraTargetZeroZ(){
+            app.setCameraTargetZeroZ();
+        }
+        function setCameraTargetZ(){
+            app.setCameraTargetZ();
+        }
+        function saveCameraState(){
+            const info = app.saveCameraState();
+            console.log('저장된 상태 정보 : ',info);
+        }
+
+        function setCameraTarget(param){
+            const type = param.type;
+            const x = type==="world"? param.xTarget : param.longitudeTarget;
+            const y = type==="world"? param.yTarget : param.latitudeTarget;
+            const z = param.zTarget;
+            const distance = param.distanceTarget;
+
+            const position = {x:x, y:y, z:z}
+            app.setCameraTarget(position, type, distance);
+        }
+        function setResolution(param){
+            const distance = param.distance;
+            app.setResolution(distance);
+        }
+
+        function getCameraState(){
+            let state = app.getCameraState();
+            state = JSON.stringify(state);
+            $("textarea[name=camera-state-textarae]").val(state);
+        }
+        function getCameraStateFromWorld(){
+            let state = app.getCameraStateFromWorld();
+            state = JSON.stringify(state);
+            $("textarea[name=camera-state-textarae-world]").val(state);
+        }
+
+        function getSavedCameraState(){
+            let state = app.getSavedCameraState();
+            if(state){
+                console.log('저장된 상태 정보 : ',state.toJSON());
+                state = JSON.stringify(state);
+                $("textarea[name=camera-state-textarae-world]").val(state);
+            }
+        }
+
+        function getCameraPosition(){
+            let position = app.getCameraPosition();
+            $("input[name=world-x]").val(position.x);
+            $("input[name=world-y]").val(position.y);
+            $("input[name=world-z]").val(position.z);
+        }
+
+        function getCameraTargetPosition(){
+            let position = app.getCameraTargetPosition();
+            $("input[name=world-target-x]").val(position.x);
+            $("input[name=world-target-y]").val(position.y);
+            $("input[name=world-target-z]").val(position.z);
+        }
+        function getCameraTargetPoint(){
+            let position = app.getCameraTargetPoint();
+            $("input[name=world-target-point-x]").val(position.x);
+            $("input[name=world-target-point-y]").val(position.y);
+            $("input[name=world-target-point-z]").val(position.z);
+        }
+
+        function getCameraGeographicPosition(){
+            let geoPosition = app.getCameraGeographicPosition();
+            $("input[name=longitude-geo-position]").val(geoPosition.x);
+            $("input[name=latitude-geo-position]").val(geoPosition.y);
+            $("input[name=height-geo-position]").val(geoPosition.z);
+        }
+        function getCameraGeographicTargetPoint(){
+            let geoPosition = app.getCameraGeographicTargetPoint();
+            $("input[name=longitude-target-point]").val(geoPosition.x);
+            $("input[name=latitude-target-point]").val(geoPosition.y);
+            $("input[name=height-target-point]").val(geoPosition.z);
+        }
+        function getCameraRelativeHeight(){
+            const value = app.getCameraRelativeHeight();
+            $(".input-height-value").val(value);
+        }
+        let boxHelper;
+        function fitExtentToBoundingBox(param){
+            const minX = Number(param.minX) || 0;
+            const minY = Number(param.minY) || 0;
+            const minZ = Number(param.minZ) || 0;
+            const maxX = Number(param.maxX) || 0;
+            const maxY = Number(param.maxY) || 0;
+            const maxZ = Number(param.maxZ) || 0;
+            const useFly = param.useFly;
+            const offsetZ = Number(param.offsetZ);
+            const leftRotate = param.leftRotate;
+            const downRotate = param.downRotate;
+
+            const boundingBox = {
+                min:{x: Math.min(minX, maxX), y: Math.min(minY, maxY), z: Math.min(minZ, maxZ)},
+                max:{x: Math.max(minX, maxX), y: Math.max(minY, maxY), z: Math.max(minZ, maxZ)},
+            }
+            createBox:{
+                const boxOpt = {
+                    width: Math.abs( maxX - minX ),
+                    height: Math.abs( maxY - minY ),
+                    depth: Math.abs( maxZ - minZ ),
+                    color: 0x00f0f0
+                }
+                if(boxHelper){
+                    GeOnDT.UDEF.disposeObject3D(boxHelper);
+                    app.getScene().remove(boxHelper);
+                }
+                boxHelper = new GeonDT.geom.U3dBox(boxOpt);
+
+                const position = {
+                    x: (minX + maxX) / 2,
+                    y: (minY + maxY) / 2,
+                    z: (minZ + maxZ) / 2
+                }
+                let lonlat = app.vector3ToGeoGraphic(position);
+                boxHelper.setPosition(lonlat.x,lonlat.y, lonlat.z);
+                boxHelper.position.set(position.x, position.y, position.z)
+
+                boxHelper.visible = true;
+                app.getScene().add(boxHelper);
+            }
+
+            app.fitExtentToBoundingBox(boundingBox, useFly, offsetZ, leftRotate, downRotate);
+        }
+
+        function fitExtentToObject(param){
+            if(selector.isActive()){
+                const useFly = param.useFly;
+                const offsetZ = Number(param.offsetZ);
+                const leftRotate = param.leftRotate;
+                const downRotate = param.downRotate;
+
+                let object = selector.getSelected();
+                if(object && object[0]){
+                    app.fitExtentToObject(object[0], useFly, offsetZ, leftRotate, downRotate);
+                    selector.clear();
+                }
+            }
+        }
+        function fitLayerExtent(param){
+            const layerName = param.layerName;
+            const useFly = param.useFly;
+            const offsetZ = Number(param.offsetZ);
+            const leftRotate = param.leftRotate;
+            const downRotate = param.downRotate;
+
+            app.fitLayerExtent(layerName, useFly, offsetZ, leftRotate, downRotate);
+        }
+        function goToHome(param){
+            const duration = Number(param.duration);
+            app.goToHome(duration);
+        }
+
+        function getCameraFocalDistance(){
+            const value = app.getCameraFocalDistance();
+            $('.input-focal-value').val(value);
+        }
+
+        function set2DMode(){
+            console.log('2D 모드로 전환 되었습니다.');
+            app.set2DMode();
+        }
+        function set3DMode(){
+            console.log('3D 모드로 전환 되었습니다.');
+            app.set3DMode();
+        }
+
+        function setPanMode(){
+            console.log('Pan 모드로 전환 되었습니다.');
+            app.setPanMode();
+        }
+
+        function setWalkMode(param){
+            console.log('클릭 지점에서 걷기 모드를 시작합니다.');
+            app.on('click', function(e) {
+                const point = this.closestPointAtPixel(e);
+                let targetX = Number(param.targetX) || 0;
+                let targetY = Number(param.targetY) || 0;
+                let targetZ = Number(param.targetZ) || 0;
+                const target = {x:targetX, y:targetY, z:targetZ};
+                const minHeight = Number(param.minHeight) || 0;
+
+                app.setWalkMode(point, target, minHeight);
+            },true);
+        }
+
+        function setFlyMode(){
+            console.log('Fly 모드로 전환 되었습니다.');
+            app.setFlyMode();
+            // 조작키 설명
+        }
+        function setUnderGroundMode(param){
+            const value = param.underground;
+            app.setUnderGroundMode(value);
+        }
+
+        function getRotation(param){
+            const getAngle = param.getAngle;
+            let value = app.getRotation(getAngle);
+            $('.input-rotation-value').val(value);
+        }
+
+        function getRotationPolar(param){
+            const getAngle = param.getAngle;
+            let value = app.getRotationPolar(getAngle);
+            $('.input-polar-rotation-value').val(value);
+        }
+
+        function alignNorth(param){
+            const duration = Number(param.duration) || 3000;
+            app.alignNorth(duration);
+        }
+
+        function setPanSpeed(param){
+            const speed = Number(param.panSpeed) || 1;
+            app.setPanSpeed(speed);
+        }
+
+        function setZoomSpeed(param){
+            const speed = Number(param.zoomSpeed) || 0;
+            app.setZoomSpeed(speed);
+        }
+
+        function setRotateSpeed(param){
+            const speed = Number(param.rotateSpeed) || 0;
+            app.setRotateSpeed(speed);
+        }
+
+        function setCameraDownRotate(param){
+            const rotate = Number(param.rotation) || 0;
+            const isDegree = param.isDegree;
+            app.setCameraDownRotate(rotate,isDegree);
+        }
+        function loadCameraState(param){
+            let info = param.stateInfo; // app.getSavedCameraState();
+            if(!info){
+                info = app.getSavedCameraState();
+                $('#camera-state-textarea').val(JSON.stringify(info));
+            }else{
+                info = JSON.parse(info);
+            }
+            const duration = Number(param.duration) || 3000;
+            app.loadCameraState(info, duration);
+        }
+
+        function setCameraLeftRotate(param){
+            const rotate = Number(param.rotation);
+            const isDegree = param.isDegree;
+            app.setCameraLeftRotate(rotate,isDegree);
+        }
+
+    });
+</script>
+</body>
+</html>

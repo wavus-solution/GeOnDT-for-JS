@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="../">
+    <title>화면 이미지 저장</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <link rel="stylesheet" href="css/pastel-glass-map-theme.css" type="text/css">
+    <link rel="stylesheet" href="css/example-editor.css" type="text/css">
+    <link rel="stylesheet" href="edition/assets/monaco/monaco-editor.css?v=ebbbdcf5172a" type="text/css">
+    <style id="example-viewer-style">
+
+    </style>
+</head>
+<body>
+<!-- 자동 생성 파일입니다. 원본 tutorial-official/examples\saveImage\saveImage.md을(를) 수정하세요. -->
+<main id="example-viewer" class="example-app">
+    <div id="map-wrapper"><div id="map"></div></div>
+
+    <!-- 지도 화면에서 예제 목록으로 돌아가는 유일한 통로입니다.
+         브라우저 뒤로가기만 두면 새 탭이나 공유받은 주소로 들어온 사람은 목록을 찾을 수 없습니다. -->
+    <a class="example-brand" href="edition/index.html" title="예제 목록" aria-label="예제 목록으로 이동"><img src="image/geondt-loading-color-logo.png" alt=""></a>
+    <h1 class="example-title">화면 이미지 저장</h1>
+
+    <nav class="example-rail" aria-label="예제 도구">
+        <button class="rail-button" type="button" data-panel-target="example-explanation" aria-expanded="false">
+            <span class="rail-icon">?</span><span>도움말</span>
+        </button>
+        <div data-common-ui-rail></div>
+        <div id="viewer-example-rail" class="viewer-example-rail">
+
+        </div>
+    </nav>
+
+    <button class="editor-mode-toggle" type="button" data-open-editor aria-pressed="false">
+        <span class="code-toggle-icon">&lt;/&gt;</span><span data-editor-toggle-label>코드 편집</span>
+    </button>
+
+    <aside class="glass-panel explanation-panel" id="example-explanation" aria-hidden="true">
+        <header class="panel-header">
+            <div><span class="eyebrow">EXAMPLE GUIDE</span><h2>화면 이미지 저장</h2></div>
+            <button class="panel-close" type="button" data-panel-close="example-explanation" aria-label="도움말 닫기">×</button>
+        </header>
+        <div class="panel-content markdown-document">
+<h1>화면 이미지 저장</h1>
+<p>현재 지도 화면을 그대로 PNG 이미지로 내려받는 예제입니다.</p>
+<h2>다루는 기능</h2>
+<ul>
+<li><code>app.capture()</code>로 지도 화면을 이미지로 만들어 파일로 내려받고, WebGL 화면 위에 얹힌 POI와 Overlay가 함께 담기는지 확인합니다.</li>
+</ul>
+<h2>사전 조건</h2>
+<ul>
+<li>예제 데이터 서버에 접근할 수 있는 네트워크 환경이 필요합니다.</li>
+<li>브라우저의 파일 내려받기가 차단되어 있지 않아야 저장 결과를 확인할 수 있습니다.</li>
+</ul>
+<h2>주요 기능</h2>
+<ul>
+<li>여의도 주변에 <code>U3dPOI</code> 5개와 <code>U3dOverlay</code> 3개를 무작위 위치에 배치해 촬영 대상 화면을 구성합니다.</li>
+<li><code>저장</code> 버튼을 누르면 현재 화면을 <code>from_canvas.png</code> 파일로 내려받습니다.</li>
+<li>배경지도를 바꿔 가며 같은 방식으로 저장할 수 있습니다.</li>
+</ul>
+<h2>조작 및 예상 결과</h2>
+<table>
+<thead>
+<tr>
+<th>조작</th>
+<th>예상 결과</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>오른쪽 <code>분석</code> 버튼을 누릅니다.</td>
+<td>저장 패널이 열리고 닫힙니다. 패널은 끌어서 옮길 수 있습니다.</td>
+</tr>
+<tr>
+<td>지도를 움직여 담고 싶은 화면을 만듭니다.</td>
+<td>저장 결과는 버튼을 누른 시점의 화면을 그대로 따릅니다.</td>
+</tr>
+<tr>
+<td><code>화면 이미지 저장 (Screenshots)</code>를 누릅니다.</td>
+<td>현재 화면이 <code>from_canvas.png</code>로 내려받아집니다. 지도 위의 POI와 Overlay도 함께 담깁니다.</td>
+</tr>
+<tr>
+<td>배경지도를 바꾼 뒤 다시 저장합니다.</td>
+<td>바뀐 배경지도가 반영된 이미지가 저장됩니다.</td>
+</tr>
+</tbody></table>
+<h2>관련 API</h2>
+<ul>
+<li><code>U3dAPP.capture()</code>: 현재 화면을 이미지 dataURL로 만듭니다. 기본값은 WebGL 화면과 지도 위 DOM을 합성하며, WebGL 화면만 필요하면 <code>capture({dom: false})</code>를 사용합니다.</li>
+<li><code>U3dAPP.captureToBlob()</code>: 같은 화면을 <code>Blob</code>으로 받습니다. 서버 업로드처럼 파일 객체가 필요할 때 사용합니다.</li>
+<li><code>U3dPOI</code>, <code>U3dOverlay</code>: 저장 결과에 함께 담기는 지도 위 표시 객체입니다.</li>
+<li><code>U3dAPP.setNameBaseLayer()</code>, <code>U3dAPP.showLayer()</code>: 저장할 화면의 배경지도를 바꿉니다.</li>
+</ul>
+<h2>화면 저장</h2>
+<p><code>capture()</code>가 돌려준 dataURL을 링크의 <code>download</code> 속성으로 내려받습니다.</p>
+<pre><code class="language-javascript">$(&#39;#save&#39;).on(&#39;click&#39;, function () {
+    app.capture().then((image) =&gt; {
+        var aTag = document.createElement(&#39;a&#39;);
+        aTag.download = &#39;from_canvas.png&#39;;
+        aTag.href = image;
+        aTag.click();
+    });
+});
+</code></pre>
+        </div>
+    </aside>
+
+
+
+    <div data-common-ui-panels></div>
+    <div data-common-ui-tools></div>
+    <div data-common-ui-status></div>
+
+    <div id="load" class="loading-indicator" hidden><img src="image/loading.svg" alt="불러오는 중"></div>
+
+    <aside id="example-api-help" class="example-api-help" role="tooltip" hidden>
+        <header class="example-api-help-header">
+            <strong data-api-help-title></strong>
+            <button type="button" data-api-help-close aria-label="API 도움말 닫기">×</button>
+        </header>
+        <p data-api-help-description></p>
+        <section data-api-help-dynamic-section>
+            <b>현재 설정</b>
+            <pre><code data-api-help-code></code></pre>
+        </section>
+        <section data-api-help-source-section hidden>
+            <b>실제 구현</b>
+            <small data-api-help-source-location></small>
+            <pre><code data-api-help-source-code></code></pre>
+            <button type="button" data-api-help-open-source>코드에서 보기</button>
+        </section>
+        <p data-api-help-source-error hidden></p>
+    </aside>
+</main>
+
+<section id="example-editor" class="editor-workspace" hidden aria-label="예제 코드 편집기">
+    <header class="editor-toolbar">
+        <strong class="editor-title">화면 이미지 저장</strong>
+        <div class="editor-toolbar-actions">
+            <button class="editor-search-toggle" type="button" data-editor-action="search" aria-expanded="false" aria-controls="editor-search" title="모든 탭에서 검색 (Ctrl+Shift+F)" aria-label="모든 탭에서 검색">
+                <img src="image/search_white_24dp.svg" alt=""><span>검색</span>
+            </button>
+            <button type="button" data-editor-action="reset">초기화</button>
+            <button type="button" data-editor-action="console" aria-expanded="false">Console</button>
+            <button class="editor-close-button" type="button" data-editor-action="viewer" title="코드 편집 닫기" aria-label="코드 편집 닫기">
+                <span class="editor-close-icon" aria-hidden="true">×</span><span>닫기</span>
+            </button>
+        </div>
+    </header>
+    <div class="editor-layout" id="editor-layout">
+        <section class="editor-pane" id="editor-pane" aria-label="코드 편집">
+            <div class="editor-tabs" role="tablist" aria-label="코드 종류">
+                <button type="button" role="tab" data-code-tab="javascript" aria-selected="true">JavaScript</button>
+                <button type="button" role="tab" data-code-tab="html" aria-selected="false">HTML</button>
+                <button type="button" role="tab" data-code-tab="css" aria-selected="false">CSS</button>
+                <button class="editor-run-button" type="button" data-editor-action="run"><span>▶</span> 실행</button>
+            </div>
+            <div id="monaco-editor" class="monaco-host"></div>
+            <div class="editor-search" id="editor-search" hidden>
+                <div class="editor-search-bar">
+                    <img class="editor-search-bar-icon" src="image/search_white_24dp.svg" alt="">
+                    <input class="editor-search-input" id="editor-search-input" type="search" placeholder="모든 탭에서 검색" autocomplete="off" spellcheck="false" aria-label="모든 탭에서 검색">
+                    <button class="editor-search-option" type="button" data-search-option="matchCase" aria-pressed="false" title="대소문자 구분">Aa</button>
+                    <button class="editor-search-option" type="button" data-search-option="regex" aria-pressed="false" title="정규식 사용">.*</button>
+                    <button class="editor-search-close" type="button" data-search-close aria-label="검색 닫기">×</button>
+                </div>
+                <p class="editor-search-summary" id="editor-search-summary" aria-live="polite">검색어를 입력하세요.</p>
+                <div class="editor-search-results" id="editor-search-results" role="listbox" aria-label="검색 결과"></div>
+            </div>
+            <!--+ 실행 콘솔은 편집 패널 안에 둔다. 미리보기 안에 두면 실행 뒤 `position: fixed`인 미리보기가
+                 쌓임 맥락을 만들어 편집 패널에 가려지고, 실행 전과 위치도 달라진다. -->
+            <section id="preview-console" class="preview-console" aria-label="실행 콘솔" aria-hidden="true">
+                <header><strong>Console</strong><span class="console-count" id="preview-console-count">0</span><button class="console-clear" type="button" data-console-clear>Clear</button><button type="button" data-console-close aria-label="콘솔 닫기">×</button></header>
+                <div id="preview-console-output" class="preview-console-output" aria-live="polite"><p class="console-empty">실행 로그가 여기에 표시됩니다.</p></div>
+            </section>
+        </section>
+        <div class="editor-splitter" id="editor-splitter" role="separator" aria-label="편집기와 미리보기 너비 조절" aria-orientation="vertical" tabindex="0"></div>
+        <section class="preview-pane" aria-label="실행 미리보기">
+            <div id="preview-frame-container" class="preview-frame-container"></div>
+        </section>
+    </div>
+    <div class="editor-mobile-notice" id="editor-mobile-notice" hidden>
+        <strong>코드 편집은 데스크톱 환경에서 지원합니다.</strong>
+        <p>더 넓은 화면에서 Editor를 열거나 지도 Viewer로 돌아가세요.</p>
+        <button type="button" data-editor-action="viewer">지도로 보기</button>
+    </div>
+    <div class="editor-hint-stack">
+        <div class="editor-hint" id="editor-hint" role="status" hidden>
+            <p>실행 전에는 <b>× 닫기</b>와 가장자리 <b>◀</b> 버튼으로 지도로 돌아갑니다.<br>실행한 뒤에는 같은 버튼이 편집 패널만 접고, 실행한 화면은 그대로 남습니다. 접으면 왼쪽 가장자리 <b>▶</b>로 다시 펼칩니다.</p>
+        </div>
+        <div class="editor-hint editor-shortcut-hint" id="editor-shortcut-hint" role="status" hidden>
+            <dl>
+                <dt><kbd>Ctrl</kbd><kbd>F</kbd></dt>
+                <dd>현재 파일에서 찾기</dd>
+                <dt><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>F</kbd></dt>
+                <dd>열린 파일 전체에서 찾기</dd>
+                <dt><kbd>Ctrl</kbd><kbd>Space</kbd></dt>
+                <dd>자동완성 보기</dd>
+                <dt><kbd>Esc</kbd></dt>
+                <dd>찾기 닫기</dd>
+            </dl>
+            <p class="editor-shortcut-note">macOS에서는 <kbd>Ctrl</kbd> 대신 <kbd>Cmd</kbd>를 사용합니다.</p>
+        </div>
+    </div>
+    <div class="editor-panel-resizer" id="editor-panel-resizer" role="separator" aria-label="코드 편집 패널 너비 조절" aria-orientation="vertical" tabindex="0" title="드래그하거나 방향키로 너비 조절"></div>
+</section>
+
+<button class="editor-edge-toggle" type="button" data-editor-edge-toggle aria-pressed="false" title="코드 편집 열기" aria-label="코드 편집 열기">
+    <span class="editor-edge-icon" data-editor-edge-icon aria-hidden="true">▶</span>
+</button>
+
+<script id="example-source" type="application/json">{"format":"manifest","helpHtml":"\u003ch1\u003e화면 이미지 저장\u003c/h1\u003e\n\u003cp\u003e현재 지도 화면을 그대로 PNG 이미지로 내려받는 예제입니다.\u003c/p\u003e\n\u003ch2\u003e다루는 기능\u003c/h2\u003e\n\u003cul\u003e\n\u003cli\u003e\u003ccode\u003eapp.capture()\u003c/code\u003e로 지도 화면을 이미지로 만들어 파일로 내려받고, WebGL 화면 위에 얹힌 POI와 Overlay가 함께 담기는지 확인합니다.\u003c/li\u003e\n\u003c/ul\u003e\n\u003ch2\u003e사전 조건\u003c/h2\u003e\n\u003cul\u003e\n\u003cli\u003e예제 데이터 서버에 접근할 수 있는 네트워크 환경이 필요합니다.\u003c/li\u003e\n\u003cli\u003e브라우저의 파일 내려받기가 차단되어 있지 않아야 저장 결과를 확인할 수 있습니다.\u003c/li\u003e\n\u003c/ul\u003e\n\u003ch2\u003e주요 기능\u003c/h2\u003e\n\u003cul\u003e\n\u003cli\u003e여의도 주변에 \u003ccode\u003eU3dPOI\u003c/code\u003e 5개와 \u003ccode\u003eU3dOverlay\u003c/code\u003e 3개를 무작위 위치에 배치해 촬영 대상 화면을 구성합니다.\u003c/li\u003e\n\u003cli\u003e\u003ccode\u003e저장\u003c/code\u003e 버튼을 누르면 현재 화면을 \u003ccode\u003efrom_canvas.png\u003c/code\u003e 파일로 내려받습니다.\u003c/li\u003e\n\u003cli\u003e배경지도를 바꿔 가며 같은 방식으로 저장할 수 있습니다.\u003c/li\u003e\n\u003c/ul\u003e\n\u003ch2\u003e조작 및 예상 결과\u003c/h2\u003e\n\u003ctable\u003e\n\u003cthead\u003e\n\u003ctr\u003e\n\u003cth\u003e조작\u003c/th\u003e\n\u003cth\u003e예상 결과\u003c/th\u003e\n\u003c/tr\u003e\n\u003c/thead\u003e\n\u003ctbody\u003e\u003ctr\u003e\n\u003ctd\u003e오른쪽 \u003ccode\u003e분석\u003c/code\u003e 버튼을 누릅니다.\u003c/td\u003e\n\u003ctd\u003e저장 패널이 열리고 닫힙니다. 패널은 끌어서 옮길 수 있습니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e지도를 움직여 담고 싶은 화면을 만듭니다.\u003c/td\u003e\n\u003ctd\u003e저장 결과는 버튼을 누른 시점의 화면을 그대로 따릅니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e\u003ccode\u003e화면 이미지 저장 (Screenshots)\u003c/code\u003e를 누릅니다.\u003c/td\u003e\n\u003ctd\u003e현재 화면이 \u003ccode\u003efrom_canvas.png\u003c/code\u003e로 내려받아집니다. 지도 위의 POI와 Overlay도 함께 담깁니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e배경지도를 바꾼 뒤 다시 저장합니다.\u003c/td\u003e\n\u003ctd\u003e바뀐 배경지도가 반영된 이미지가 저장됩니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003c/tbody\u003e\u003c/table\u003e\n\u003ch2\u003e관련 API\u003c/h2\u003e\n\u003cul\u003e\n\u003cli\u003e\u003ccode\u003eU3dAPP.capture()\u003c/code\u003e: 현재 화면을 이미지 dataURL로 만듭니다. 기본값은 WebGL 화면과 지도 위 DOM을 합성하며, WebGL 화면만 필요하면 \u003ccode\u003ecapture({dom: false})\u003c/code\u003e를 사용합니다.\u003c/li\u003e\n\u003cli\u003e\u003ccode\u003eU3dAPP.captureToBlob()\u003c/code\u003e: 같은 화면을 \u003ccode\u003eBlob\u003c/code\u003e으로 받습니다. 서버 업로드처럼 파일 객체가 필요할 때 사용합니다.\u003c/li\u003e\n\u003cli\u003e\u003ccode\u003eU3dPOI\u003c/code\u003e, \u003ccode\u003eU3dOverlay\u003c/code\u003e: 저장 결과에 함께 담기는 지도 위 표시 객체입니다.\u003c/li\u003e\n\u003cli\u003e\u003ccode\u003eU3dAPP.setNameBaseLayer()\u003c/code\u003e, \u003ccode\u003eU3dAPP.showLayer()\u003c/code\u003e: 저장할 화면의 배경지도를 바꿉니다.\u003c/li\u003e\n\u003c/ul\u003e\n\u003ch2\u003e화면 저장\u003c/h2\u003e\n\u003cp\u003e\u003ccode\u003ecapture()\u003c/code\u003e가 돌려준 dataURL을 링크의 \u003ccode\u003edownload\u003c/code\u003e 속성으로 내려받습니다.\u003c/p\u003e\n\u003cpre\u003e\u003ccode class=\"language-javascript\"\u003e$(\u0026#39;#save\u0026#39;).on(\u0026#39;click\u0026#39;, function () {\n    app.capture().then((image) =\u0026gt; {\n        var aTag = document.createElement(\u0026#39;a\u0026#39;);\n        aTag.download = \u0026#39;from_canvas.png\u0026#39;;\n        aTag.href = image;\n        aTag.click();\n    });\n});\n\u003c/code\u003e\u003c/pre\u003e","assetBaseUrl":"edition/examples/saveImage/","runtime":{"home":{"longitude":126.9395,"latitude":37.52,"height":450,"duration":2,"pitch":60},"baseLayers":[],"terrain":{"enabled":false},"mapTools":["home","north","zoom-in","zoom-out"],"cameraStatus":true,"help":true,"loading":true},"imports":[],"dependencies":[],"commonUi":{"imageLayerPanel":true,"terrainLayerPanel":true},"sourceTokens":{},"sources":[{"id":"main","label":"main.js","path":"./saveImage.main.js","language":"javascript","editable":true,"url":"edition/examples/saveImage/saveImage.main.js","content":"/**\r\n * 자동 이관된 기존 예제 기능을 Common Runtime에서 실행합니다.\r\n * @param {Readonly\u003cRecord\u003cstring, unknown\u003e\u003e} context 공통 런타임 컨텍스트\r\n * @returns {Promise\u003cRecord\u003cstring, unknown\u003e\u003e} 예제 상태\r\n */\r\nexport async function initialize(context) {\r\n    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}\r\n    \r\n        $(document).on('mouseover', '.info-box', function (e) {\r\n            $('.ex-explanation').show();\r\n        });\r\n\r\n    function openLeftMenu(isOpen) {\r\n            if (isOpen) {\r\n                $('#div-left-menu').css('width', '350px');\r\n                $('.left-menu-bnt-img').css('rotate', '180deg');\r\n                $('#analy-popup').show();\r\n            } else {\r\n                $('#div-left-menu').css('width', '0');\r\n                $('.left-menu-bnt-img').css('rotate', '0deg');\r\n                $('#analy-popup').hide();\r\n            }\r\n        }\r\n\r\n    function updatePosData() {\r\n            if (app === undefined) return;\r\n    \r\n            const info = app.getCameraState();\r\n            const rad = info.azimuth;\r\n            app.setRotationOverviewMap(rad);\r\n            app.setGeoCenterToOverviewMap(info.center.x, info.center.y);\r\n    \r\n            //나침반 설정\r\n            const value = 'rotate(' + -rad + 'rad)';\r\n            $('#compass-image-id').css({transform: value});\r\n    \r\n            let deg = -rad * 180 / Math.PI;\r\n            if (deg \u003c 0) {\r\n                deg += 360;\r\n            }\r\n            const angle = '각도: ' + deg.toFixed(0) + '°';\r\n            $('#bottom-tbar-btn-angle').val(angle);\r\n    \r\n            const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';\r\n            $('#bottom-tbar-btn-pos').val(pos);\r\n    \r\n            const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';\r\n            $('#bottom-tbar-btn-height').val(height);\r\n        }\r\n\r\n    let ImageLayer = function (Union3D, app, opt) {\r\n            this._type = \"ImageLayer\";\r\n            this.layer = undefined;\r\n            this._union3d = Union3D;\r\n            this._app = app;\r\n            this._name = opt.name;\r\n            this.options = opt;\r\n            this.ready = $.Deferred();\r\n        }\r\n        ImageLayer.prototype.create = function () {\r\n            const existingLegacyLayer = this._app.getLayerByName?.(this._name);\r\n            if (existingLegacyLayer) {\r\n                this.layer = existingLegacyLayer;\r\n                this.ready.resolve(existingLegacyLayer);\r\n                return;\r\n            }\r\n            let self = this;\r\n            if (self._name === 'emapbase') {\r\n                self.layer = self._app.createEmapBaseLayer(this.options);\r\n            } else if (self._name === 'emapsat') {\r\n                self.layer = self._app.createEmapSatLayer(this.options);\r\n            } else {\r\n                self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);\r\n                self._app.addLayer(this.layer);\r\n            }\r\n            this.layer.then(() =\u003e {\r\n                self.ready.resolve();\r\n            }).catch(function () {\r\n                self.ready.reject();\r\n            });\r\n        }\r\n        ImageLayer.prototype.show = function (isShow) {\r\n            let promies = $.Deferred();\r\n            console.log(this.options.name + \" 레이어 가시화 \" + (isShow ? \"시작\" : \"종료\"));\r\n            this._app.showLayer(this.options.name, isShow).then(() =\u003e {\r\n                promies.resolve();\r\n            })\r\n            this.isShow = isShow;\r\n            return promies;\r\n        }\r\n\r\n    let HeightLayer = function (Union3D, app, opt) {\r\n            this._type = \"HeightLayer\";\r\n            this.layer = undefined;\r\n            this._app = app;\r\n            if (opt.rectangle === undefined)\r\n                opt.rectangle = Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수\r\n            this.options = opt;\r\n            this._name = opt.name;\r\n            this.ready = $.Deferred();\r\n        }\r\n        HeightLayer.prototype.create = function () {\r\n            const existingLegacyLayer = this._app.getLayerByName?.(this._name);\r\n            if (existingLegacyLayer) {\r\n                this.layer = existingLegacyLayer;\r\n                this.ready.resolve(existingLegacyLayer);\r\n                return;\r\n            }\r\n            let self = this;\r\n            self.layer = this._app.createHeightXYZLayer(self.options);\r\n            self.layer.then(() =\u003e {\r\n                self.ready.resolve();\r\n            }).catch(function () {\r\n                self.ready.reject();\r\n            });\r\n        }\r\n        HeightLayer.prototype.show = function (isShow) {\r\n            let promies = $.Deferred();\r\n            console.log(this.options.name + \" 레이어 가시화 \" + (isShow ? \"시작\" : \"종료\"));\r\n            this._app.showLayer(this.options.name, isShow).then(() =\u003e {\r\n                promies.resolve();\r\n            })\r\n            this.isShow = isShow;\r\n            return promies;\r\n        }\r\n\r\n    const LAYER_OPT = {\r\n            satellite: {\r\n                name: 'satellite',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}\r\n                baseurl: \"https://xdworld.vworld.kr/2d/Satellite/service/{z}/{x}/{-y}.jpeg\", //+ 이미지 데이터 URL, *필수 입력\r\n                reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)\r\n            },\r\n            hybrid: {\r\n                name: 'hybrid', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}\r\n                baseurl: \"https://xdworld.vworld.kr/2d/Hybrid/service/{z}/{x}/{-y}.png\",  //+ 이미지 데이터 URL, *필수 입력\r\n                reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)\r\n                transparent: true //+ layer 투명화 여부\r\n            },\r\n            korea_terrain: {\r\n                name: 'korea_terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력\r\n                baseurl: \"https://dt-data.mappick.co.kr/ServiceData/dem/DEM_4/Korean_peninsula/\", //+ 고도 데이터 기본 URL, *필수 입력\r\n                ext: '.umf', //+ 파일 확장자, *필수 입력\r\n                reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)\r\n                minlevel: 9,  //+ 가시화 최소 레벨\r\n                maxlevel: 15, //+ 가시화 최대 레벨\r\n                useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)\r\n                maxprocess: 2, //+ process 최대값\r\n                interpolationheight: true,  //+ 고도보간 기능 사용 여부\r\n            }\r\n        };\r\n    \r\n        let LayerList = function (Union3D, app) {\r\n            return {\r\n                //이미지레이어\r\n                satellite: new ImageLayer(Union3D, app, LAYER_OPT.satellite),\r\n                hybrid: new ImageLayer(Union3D, app, LAYER_OPT.hybrid),\r\n                //고도레이어\r\n                korea_terrain: new HeightLayer(Union3D, app, LAYER_OPT.korea_terrain)\r\n            }\r\n        }\r\n\r\n    //라이센스 인증\r\n        const __runLegacyReadyCallback = function () {\r\n            //지도 기본 세팅///////////////////////////////////////\r\n            window.app = context.app;\r\n            app.setHomePosition(126.9395, 37.52, 450, 2, 60); //경도, 위도, 높이, 방위각, 고도각\r\n            app.updateHomePosition();\r\n            app.on('change', updatePosData);\r\n            app.createloadingBar('load');\r\n            app.loadingBar();\r\n    \r\n            //이미지 레이어 생성\r\n            let layers = new LayerList(GeOnDT, app);\r\n            let initLayerList = ['satellite']\r\n            initLayer(initLayerList);\r\n            createRandomSampleObjects();\r\n    \r\n            function createRandomSampleObjects() {\r\n                const yeouidoCenter = {x: 126.9395, y: 37.52};\r\n                const poiMarkerImage = 'image/marker.png';\r\n                const colors = ['#ff5c5c', '#ffb84d', '#47c266', '#4d94ff', '#ad70ff'];\r\n    \r\n                // U3dPOI 5개 랜덤 생성\r\n                for (let i = 0; i \u003c 5; i += 1) {\r\n                    const position = randomPositionAround(yeouidoCenter, 500);\r\n                    const poi = new GeOnDT.geom.U3dPOI({\r\n                        name: 'save-image-poi-' + (i + 1),\r\n                        position: app.geographicToVector3(position),\r\n                        image: poiMarkerImage,\r\n                        imageSize: 32,\r\n                        label: 'U3dPOI ' + (i + 1),\r\n                        size: 15,\r\n                        color: colors[i]\r\n                    });\r\n    \r\n                    app.addPOI(poi);\r\n                }\r\n    \r\n                // U3dOverlay 5개 랜덤 생성\r\n                for (let i = 0; i \u003c 3; i += 1) {\r\n                    const position = randomPositionAround(yeouidoCenter, 400);\r\n                    const element = document.createElement('div');\r\n                    const content = document.createElement('div');\r\n                    element.className = 'u3-popup save-image-sample-overlay';\r\n                    element.style.cssText = [\r\n                        'position: absolute',\r\n                        'display: block',\r\n                        'bottom: auto',\r\n                        'height: auto',\r\n                        'min-width: 0',\r\n                        'padding: 7px 12px',\r\n                        'border: 2px solid ' + colors[i],\r\n                        'border-radius: 6px',\r\n                        'background: rgba(255, 255, 255, 0.92)',\r\n                        'box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25)',\r\n                        'color: #222',\r\n                        'font-weight: 700',\r\n                        'white-space: nowrap',\r\n                        'z-index: 10'\r\n                    ].join(';');\r\n                    content.className = 'u3-popup-content';\r\n                    content.textContent = 'U3dOverlay ' + (i + 1);\r\n                    element.appendChild(content);\r\n    \r\n                    const overlay = new GeOnDT.overlay.U3dOverlay({\r\n                        name: 'save-image-overlay-' + (i + 1),\r\n                        id: 'save-image-overlay-' + (i + 1),\r\n                        element: element,\r\n                        position: position,\r\n                        anchor: [0.5, 1],\r\n                        useAnchor: true\r\n                    });\r\n    \r\n                    app.addOverlay(overlay);\r\n                    overlay.show();\r\n                }\r\n            }\r\n    \r\n            // 여의도 주변 랜던한 포지션 좌표 추출\r\n            function randomPositionAround(center, radiusInMeters) {\r\n                const angle = Math.random() * Math.PI * 2;\r\n                const distance = Math.sqrt(Math.random()) * radiusInMeters;\r\n                const metersPerDegree = 111320;\r\n                const latitudeRadians = center.y * Math.PI / 180;\r\n    \r\n                return {\r\n                    x: center.x + Math.cos(angle) * distance /\r\n                        (metersPerDegree * Math.cos(latitudeRadians)),\r\n                    y: center.y + Math.sin(angle) * distance / metersPerDegree,\r\n                    z: 30 + Math.random() * 10\r\n                };\r\n            }\r\n    \r\n            $(document).on('click', '.input-showLayer:input[type=checkbox]', function (e) {\r\n                const $checkbox = $(e.target);\r\n                const name = $checkbox.attr('target');\r\n                checkLayer(name, $checkbox[0].checked);\r\n            });\r\n    \r\n            function checkLayer(name, checked) {\r\n                if (checked) {\r\n                    if (layers[name].layer === undefined) {\r\n                        layers[name].create();\r\n                    }\r\n                    layers[name].show(true);\r\n                } else {\r\n                    layers[name].show(false);\r\n                }\r\n            }\r\n    \r\n            function initLayer(list) {\r\n                const basename = list[0];\r\n                GeOnDT.UDEF.createPromise((resolve) =\u003e {\r\n                    list.forEach((name) =\u003e {\r\n                        if (layers[name].layer === undefined) {\r\n                            layers[name].create();\r\n                            layers[name].ready.then(() =\u003e {\r\n                                if (name === basename)\r\n                                    app.setNameBaseLayer(name);\r\n    \r\n                                app.showLayer(name, true);\r\n                                $('.input-showLayer:input[target=' + name + ']').prop(\"checked\", true);\r\n                            });\r\n                        }\r\n                    });\r\n                    resolve(true);\r\n                }).then((resolve) =\u003e {\r\n                    if (resolve)\r\n                        app.endloadingBar();\r\n                });\r\n            }\r\n    \r\n            /////////////////////////////////////////////////////\r\n    \r\n            //+ [저장] 버튼 클릭, 현재 지도화면을 이미지로 저장\r\n            //+ app.capture()가 WebGL 화면과 지도 위 DOM(U3dPOI·U3dOverlay)을 합성한 dataURL을 반환한다.\r\n            //+ DOM 합성 없이 WebGL 화면만 필요하면 app.capture({dom: false})를 사용한다.\r\n            $('#save').on('click', function () {\r\n                app.capture().then((image)=\u003e{\r\n                    var aTag = document.createElement('a');\r\n                    aTag.download = 'from_canvas.png';\r\n                    aTag.href = image;\r\n                    aTag.click();\r\n                });\r\n    \r\n                //blob 형식으로 받기\r\n                app.captureToBlob().then((blob)=\u003e{\r\n    \r\n                });\r\n            });\r\n        };\r\n\r\n    await __runLegacyReadyCallback();\r\n    return {app: context.app};\r\n}\r\n\r\n/**\r\n * 자동 이관 예제의 Lifecycle 정리 함수를 호출합니다.\r\n * @param {Readonly\u003cRecord\u003cstring, unknown\u003e\u003e} context 공통 런타임 컨텍스트\r\n * @param {Record\u003cstring, unknown\u003e} example 예제 상태\r\n */\r\nexport async function dispose(context, example) {\r\n    if (example \u0026\u0026 typeof example.dispose === 'function') example.dispose();\r\n}\r\n"},{"id":"ui","label":"ui.js","path":"./saveImage.ui.js","language":"javascript","editable":true,"url":"edition/examples/saveImage/saveImage.ui.js","content":"/**\r\n * 자동 이관된 기존 예제의 대표 패널 상태를 연결합니다.\r\n * @param {Readonly\u003cRecord\u003cstring, unknown\u003e\u003e} context 공통 런타임 컨텍스트\r\n * @param {Record\u003cstring, unknown\u003e} example 예제 상태\r\n * @returns {function(): void} UI 정리 함수\r\n */\r\nexport function initializeUI(context, example) {\r\n    const root = context.elements.root;\r\n    const rail = context.elements.rail || document;\r\n    const app = context.app;\r\n    const toggle = rail.querySelector('[data-legacy-toggle-state]');\r\n    const panel = root.querySelector('.legacy-main-feature-panel');\r\n    const legacyUiListeners = [];\r\n\r\n    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}\r\n    \r\n        $(document).on('mouseover.geondtExampleUi', '.info-box', function (e) {\r\n            $('.ex-explanation').show();\r\n        });\r\n    \r\n        $(document).on('mouseout.geondtExampleUi', '.info-box', function (e) {\r\n            $('.ex-explanation').hide();\r\n        });\r\n    \r\n        $(document).on('click.geondtExampleUi', '#left-menu-bnt', function (e) {\r\n            $(this).toggleClass('active');\r\n            if ($(this).hasClass('active'))\r\n                openLeftMenu(true);\r\n            else\r\n                openLeftMenu(false);\r\n        });\r\n    \r\n        function openLeftMenu(isOpen) {\r\n            if (isOpen) {\r\n                $('#div-left-menu').css('width', '350px');\r\n                $('.left-menu-bnt-img').css('rotate', '180deg');\r\n                $('#analy-popup').show();\r\n            } else {\r\n                $('#div-left-menu').css('width', '0');\r\n                $('.left-menu-bnt-img').css('rotate', '0deg');\r\n                $('#analy-popup').hide();\r\n            }\r\n        }\r\n    \r\n        $(document).on('click.geondtExampleUi', '#analy-bnt', function (e) {\r\n            $(this).toggleClass('active');\r\n            if ($(this).hasClass('active'))\r\n                $('#analy-popup').show();\r\n            else\r\n                $('#analy-popup').hide();\r\n        });\r\n    \r\n        $(document).on('click.geondtExampleUi', '#compass-image-id', function (event) {\r\n            event.preventDefault();\r\n            if (app === undefined) return;\r\n            app.alignNorth();\r\n        });\r\n    \r\n        $(document).on('click.geondtExampleUi', '.sub-category-tile', function (event) {\r\n            if ($(this).hasClass('anlay')) return;\r\n    \r\n            event.preventDefault();\r\n            if (app === undefined) return;\r\n            let content = $(this).next();\r\n            let btn = $(this).children()[1].children;\r\n            $(this).toggleClass(\"active\")\r\n            if ($(this).hasClass(\"active\")) {\r\n                content.css(\"height\", \"100px\");\r\n                content.css(\"overflow\", \"auto\");\r\n                $(btn).children().css('rotate', '180deg');\r\n            } else {\r\n                content.css(\"height\", \"0\");\r\n                content.css(\"overflow\", \"hidden\");\r\n                $(btn).children().css('rotate', '0deg');\r\n            }\r\n        });\r\n    \r\n        $(document).on('click.geondtExampleUi', '#right-tbar-btn-zoomin', function (event) {\r\n            event.preventDefault();\r\n            if (app === undefined) return;\r\n            app.zoomIn();\r\n        });\r\n    \r\n        $(document).on('click.geondtExampleUi', '#right-tbar-btn-zoomout', function (event) {\r\n            event.preventDefault();\r\n            if (app === undefined) return;\r\n            app.zoomOut();\r\n        });\r\n        $(document).on('click.geondtExampleUi', \"#right-tbar-btn-flyto\", function () {\r\n            app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);\r\n        });\r\n    \r\n        function updatePosData() {\r\n            if (app === undefined) return;\r\n    \r\n            const info = app.getCameraState();\r\n            const rad = info.azimuth;\r\n            app.setRotationOverviewMap(rad);\r\n            app.setGeoCenterToOverviewMap(info.center.x, info.center.y);\r\n    \r\n            //나침반 설정\r\n            const value = 'rotate(' + -rad + 'rad)';\r\n            $('#compass-image-id').css({transform: value});\r\n    \r\n            let deg = -rad * 180 / Math.PI;\r\n            if (deg \u003c 0) {\r\n                deg += 360;\r\n            }\r\n            const angle = '각도: ' + deg.toFixed(0) + '°';\r\n            $('#bottom-tbar-btn-angle').val(angle);\r\n    \r\n            const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';\r\n            $('#bottom-tbar-btn-pos').val(pos);\r\n    \r\n            const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';\r\n            $('#bottom-tbar-btn-height').val(height);\r\n        }\r\n    \r\n        $(function () {\r\n            $('#analy-popup').draggable();\r\n            $('.popup-exit').on('click.geondtExampleUi', function () {\r\n                if ($('#analy-bnt').hasClass('active')) {\r\n                    $('#analy-popup').hide();\r\n                    $('#analy-bnt').removeClass('active');\r\n                } else {\r\n                    $('#analy-popup').show();\r\n                    $('#analy-bnt').addClass('active');\r\n                }\r\n    \r\n            });\r\n        });\r\n    \r\n        $(document).on('mouseover.geondtExampleUi', \".menu-btn\", function (e) {\r\n            e.preventDefault()\r\n            $(this).next().show();\r\n        });\r\n    \r\n        $(document).on('mouseout.geondtExampleUi', \".menu-btn\", function (e) {\r\n            e.preventDefault()\r\n            $(this).next().hide();\r\n        });\r\n\r\n    if (window.jQuery) {\r\n        legacyUiListeners.push(() =\u003e window.jQuery(document).off('.geondtExampleUi'));\r\n        legacyUiListeners.push(() =\u003e window.jQuery(root).find('*').addBack().off('.geondtExampleUi'));\r\n    }\r\n\r\n    if (toggle \u0026\u0026 panel) {\r\n        setLegacyPanelOpen(toggle, panel, panel.style.display !== 'none');\r\n\r\n    }\r\n\r\n    return function cleanupExampleUI() {\r\n        for (const removeListener of legacyUiListeners.reverse()) removeListener();\r\n    };\r\n}\r\n\r\n/**\r\n * 무거운 레거시 Main 초기화 전에 패널 이벤트를 연결합니다.\r\n * @param {Readonly\u003cRecord\u003cstring, unknown\u003e\u003e} context 공통 런타임 컨텍스트\r\n * @returns {function(): void} UI 정리 함수\r\n */\r\nexport function initializeUIBeforeMain(context) {\r\n    return initializeUI(context, {});\r\n}\r\n\r\n/**\r\n * 기존 대표 패널과 도구 버튼의 열림 상태를 맞춥니다.\r\n * @param {HTMLElement} toggle 패널 도구 버튼\r\n * @param {HTMLElement} panel 대표 기능 패널\r\n * @param {boolean} open 열림 여부\r\n */\r\nfunction setLegacyPanelOpen(toggle, panel, open) {\r\n    panel.style.display = open ? '' : 'none';\r\n    panel.setAttribute('aria-hidden', String(!open));\r\n    toggle.classList.toggle('active', open);\r\n    toggle.setAttribute('aria-pressed', String(open));\r\n}\r\n"},{"id":"html","label":"HTML","path":"./saveImage.html","language":"html","editable":true,"url":"edition/examples/saveImage/saveImage.html","content":"\u003cnav class=\"saveImage-rail\" data-example-rail aria-label=\"saveImage 도구\"\u003e\r\n    \u003cbutton id=\"analy-bnt\" class=\"rail-button\" type=\"button\" data-legacy-toggle-state aria-pressed=\"false\"\u003e\r\n        \u003cspan class=\"rail-icon\"\u003e▦\u003c/span\u003e\u003cspan\u003e분석\u003c/span\u003e\r\n    \u003c/button\u003e\r\n\u003c/nav\u003e\r\n\r\n\u003cdiv id=\"analy-popup\" oncontextmenu=\"return false\" class=\"legacy-floating-panel legacy-main-feature-panel legacy-migration-panel\" style=\"display:none;\"\u003e\r\n        \u003cdiv class=\"div-popup\"\u003e\r\n            \u003cdiv class=\"div-popup-control\"\u003e\r\n                \u003clabel class=\"label-popup-control btn btn-default btn-sm popup-exit\"\u003e닫기\u003c/label\u003e\r\n            \u003c/div\u003e\r\n            \u003cdiv class=\"div-popup-content\" style=\"margin:10px\"\u003e\r\n                \u003cbutton class=\"btn btn-default\" type=\"button\" id=\"save\"\u003e화면 이미지 저장 (Screenshots)\u003c/button\u003e\r\n            \u003c/div\u003e\r\n        \u003c/div\u003e\r\n    \u003c/div\u003e\r\n"},{"id":"css","label":"CSS","path":"./saveImage.css","language":"css","editable":true,"url":"edition/examples/saveImage/saveImage.css","content":".ex-explanation {\r\n            width: 450px;\r\n        }\r\n\r\n        #analy-popup .div-popup {\r\n            width: 200px;\r\n            height: 100px;\r\n            top: 66vh;\r\n        }"}]}</script>
+<script id="example-metadata" type="application/json">{"title":"화면 이미지 저장","url":"saveImage.html","category":"etc","categoryLabel":"기타","summary":"현재 지도 화면을 PNG 이미지로 내려받습니다. 지도 위의 POI와 Overlay도 함께 담깁니다.","tags":[],"apis":["addOverlay","addPOI","capture","captureToBlob","createloadingBar","createPromise","endloadingBar","geographicToVector3","getCameraState","getGoogleRectangleDefine","loadingBar","on","setGeoCenterToOverviewMap","setHomePosition","setNameBaseLayer","setRotationOverviewMap","showLayer","U3dAPP","U3dOverlay","U3dPOI","updateHomePosition"],"editor":true,"apiHelp":false,"imageLayerPanel":true,"terrainLayerPanel":true,"featured":false,"thumbnail":"https://dt-data.mappick.co.kr/ServiceData/thumbnails/edition/saveImage.png","thumbnailMotion":"https://dt-data.mappick.co.kr/ServiceData/thumbnails/edition/saveImage.webm","legacy":false,"manifest":true,"sourceFile":"examples\\saveImage\\saveImage.md"}</script>
+<script>
+window.__EXAMPLE_BUILD_CONFIG__ = {
+    targetPrefix: 'edition/',
+    runnerUrl: 'edition/runner.html',
+    monacoModuleUrl: 'edition/assets/monaco/monaco-editor.js?v=ebbbdcf5172a',
+    // GeOnDT 타입 선언 번들입니다. 값이 없으면 코드 편집기는 자동완성 없이 동작합니다.
+    monacoTypesUrl: 'edition/assets/monaco/geondt-types.json?v=dbfb352606d5'
+};
+// 예제는 코드 편집 패널을 연 상태로 시작하며, 닫으면 editor=0이 남아 선택이 유지됩니다.
+// 패널 너비는 지도 Engine 생성 전에 확정되므로 초기 화면이 다시 배치되지 않습니다.
+// 좁은 화면에서는 편집기가 화면 전체를 덮으므로 기본 열기를 적용하지 않습니다.
+(function () {
+    var editorParameter = new URLSearchParams(window.location.search).get('editor');
+    window.__EXAMPLE_EDITOR_MODE__ = editorParameter === '1'
+        || (editorParameter !== '0' && window.innerWidth > 760);
+})();
+</script>
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/filesaver/FileSaver.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script src="js/example-theme.js"></script>
+<script type="module">
+import(/* @vite-ignore */ new URL('js/example-page.js', document.baseURI).href);
+</script>
+</body>
+</html>
+

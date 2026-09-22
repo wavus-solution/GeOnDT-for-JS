@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>거리·면적·고도 측정</title>
+</head>
+<body style="padding-top: 0">
+<div class="index">
+    <a href="#jump1">1. 시작하기 </a><br>
+    <a href="#jump2">2. 좌표로 측정하기 </a><br>
+    <a href="#jump3">3. 측정 스타일 설정 </a><br>
+</div>
+<hr>
+<div class="content">
+    <h2 class="lead" id="jump1"> 1. 시작하기 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            거리·면적·고도 측정을 사용하려면 먼저 app에 등록된 해당 모드를 활성화해야 합니다.<br>
+            <strong>app.getAnalysis(mode)</strong> API로 등록된 모드를 가져온 뒤 <strong>active()</strong>를 호출하여 활성화할 수 있습니다.<br>
+            또는 <strong>app.activeAnalysis(mode)</strong> API를 사용하면 모드를 바로 활성화할 수 있습니다.<br>
+            측정 모드는 활성화된 상태에서 <accent>화면을 클릭하여 수행하고, 더블 클릭해 완료</accent>합니다.<br><br>
+
+            <accent>Distance</accent> : 거리 측정 모드 이름.&emsp;
+            <accent>Area</accent>     : 면적 측정 모드 이름.&emsp;
+            <accent>Height</accent>   : 고도 측정 모드 이름.
+        </div>
+        <label class="code-label">거리 측정 모드 활성화</label>
+        <div class="code" id="text1-code"></div>
+        <div class="code-text" id="text1" hidden="hidden">
+            const analysis = app.getAnalysis('Distance');
+            if(analysis) analysis.active(); // 모드 활성
+            if(analysis) analysis.deactive(); // 모드 비활성
+
+            // 또는
+            app.activeAnalysis('Distance');
+        </div>
+        <label class="code-label">면적 측정 모드 활성화</label>
+        <div class="code" id="text2-code"></div>
+        <div class="code-text" id="text2" hidden="hidden">
+            const analysis = app.getAnalysis('Area');
+            if(analysis) gizmo.active(); // 모드 활성
+            if(analysis) gizmo.deactive(); // 모드 비활성
+
+            // 또는
+            app.activeAnalysis('Area');
+        </div>
+        <label class="code-label">고도 측정 모드 활성화</label>
+        <div class="code" id="text3-code"></div>
+        <div class="code-text" id="text3" hidden="hidden">
+            const analysis = app.getAnalysis('Height');
+            if(analysis) analysis.active(); // 모드 활성
+            if(analysis) analysis.deactive(); // 모드 비활성
+
+            // 또는
+            app.activeAnalysis('Height');
+        </div>
+        <label class="code-label">거리 측정<br>
+            <img src="./image/measureStart/dist.png" alt="거리 측정" data-size="small">
+        </label>
+        <label class="code-label">면적 측정 <br>
+            <img src="./image/measureStart/area.png" alt="면적 측정" data-size="small">
+        </label>
+        <label class="code-label">높이 측정 <br>
+            <img src="./image/measureStart/height.png" alt="높이 측정" data-size="small">
+        </label>
+    </div>
+
+    <h2 class="lead" id="jump2"> 2. 좌표로 측정하기 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            거리·면적 측정 모드는 기본적으로 화면 클릭 인터랙션을 통해 수행되지만, 측정할 위·경도 좌표 정보가 있는 경우 좌표를 직접 입력하여 측정할 수도 있습니다.<br>
+            좌표를 이용해 거리를 측정하는 API는 <accent>drawDistance(points)</accent>, 면적을 측정하는 API는 <accent>drawArea(points)</accent>입니다.
+        </div>
+        <div class="explane_api">
+            UAnalyDistance.<span class="api_name">drawDistance(<span class="param_name">points</span>)</span> : 좌표로 거리를 측정하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">points</span><span class="param_type">GeoPosition[]</span> : 위경도 좌표 리스트
+            </div>
+        </div>
+        <label class="code-label">좌표로 거리 측정</label>
+        <div class="code" id="text4-code"></div>
+        <div class="code-text" id="text4" hidden="hidden">
+            const analysis = app.getAnalysis('Distance');
+            points = [{x: 126.9395, y: 37.52, z: 8.145}, {x: 126.939, y: 37.519, z: 15}, {x: 126.94, y: 37.519, z: 15}];
+
+            // 좌표 거리 측정
+            analysis.drawDistance(points);
+        </div>
+
+        <div class="explane_api">
+            UAnalyArea.<span class="api_name">drawArea(<span class="param_name">points</span>)</span> : 좌표로 면적을 측정하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">points</span><span class="param_type">GeoPosition[]</span> :  위경도 좌표 리스트
+            </div>
+        </div>
+        <label class="code-label">좌표로 면적 측정</label>
+        <div class="code" id="text5-code"></div>
+        <div class="code-text" id="text5" hidden="hidden">
+            const analysis = app.getAnalysis('Area');
+            points = [{x: 126.9395, y: 37.52, z: 8.145}, {x: 126.939, y: 37.519, z: 15}, {x: 126.94, y: 37.519, z: 15}];
+
+            // 좌표 면적 측정
+            analysis.drawArea(points);
+        </div>
+    </div>
+
+    <h2 class="lead" id="jump3"> 3. 측정 스타일 설정</h2>
+    <div class="doc">
+        <div class="explane1" >
+            측정 모드는 U3dShaderMeasureLayer 위에 측정 영역을 그려 표시합니다. <br>
+            측정 스타일을 변경하려면 U3dShaderMeasureLayer의 <accent>setStyle(opt)</accent> API를 사용하여 설정할 수 있습니다.<br>
+            측정 스타일은 모든 측정 영역에 <strong>일괄 적용</strong>됩니다.
+        </div>
+        <div class="explane_api">
+            U3dShaderMeasureLayer.<span class="api_name">setStyle(<span class="param_name">opt</span>)</span> : 좌표로 면적을 측정하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">opt</span><span class="param_type">object</span> : 측정 스타일 옵션
+                <span class="param_name">opt.fillColor</span><span class="param_type">object</span> : 측정 영역 색상
+                <span class="param_name">opt.opacity</span><span class="param_type">object</span> : 측정 영역 투명도
+                <span class="param_name">opt.strokeColor</span><span class="param_type">object</span> : 측정 영역 테두리 색상
+                <span class="param_name">opt.strokeWidth</span><span class="param_type">object</span> : 측정 영역 테두리 두께
+            </div>
+        </div>
+        <label class="code-label">좌표로 면적 측정</label>
+        <div class="code" id="text6-code"></div>
+        <div class="code-text" id="text6" hidden="hidden">
+            const measureLayer = app.getMeasureLayer();
+            // 측정 스타일 정보 생성
+            const styleOpt = {
+                fillColor : 'rgb(255,170,0)',
+                opacity: 0.5,
+                strokeColor : '#fff000',
+                strokeWidth : 5
+            }
+            // 측정 스타일 설정
+            measureLayer.setStyle(styleOpt);
+        </div>
+    </div>
+</div>
+</body>
+</html>

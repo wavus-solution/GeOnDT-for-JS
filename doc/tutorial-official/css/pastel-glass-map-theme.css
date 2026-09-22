@@ -1,0 +1,1934 @@
+:root {
+    --theme-text: #f1f8fb;
+    --theme-muted: #c9dfe8;
+    --theme-panel: rgba(47, 91, 116, .9);
+    --theme-panel-strong: rgba(38, 78, 103, .94);
+    --theme-line: rgba(225, 243, 250, .29);
+    --theme-accent: #acdff0;
+    --theme-accent-strong: #67b9d9;
+    --theme-surface: rgba(232, 247, 252, .11);
+    --theme-surface-hover: rgba(232, 247, 252, .19);
+    --theme-shadow: 0 12px 30px rgba(8, 29, 43, .18);
+    --theme-scroll-track: rgba(17, 51, 70, .26);
+    --theme-scroll-thumb: rgba(172, 223, 240, .72);
+    --theme-scroll-thumb-hover: rgba(205, 239, 250, .92);
+    --theme-right-panel-offset: 76px;
+    --theme-side-panel-width: 384px;
+    --theme-right-panel-width: clamp(280px, 27vw, 350px);
+    --theme-right-selection-height: min(25dvh, 180px);
+    --theme-right-detail-top: calc(64px + var(--theme-right-selection-height) + 10px);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+}
+
+body,
+button,
+input,
+select,
+textarea {
+    font-family: Pretendard, "Noto Sans KR", "Segoe UI", sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+    outline: 2px solid #a9e3f7;
+    outline-offset: 2px;
+}
+
+select option {
+    color: var(--theme-text);
+    background-color: #2f5b74;
+}
+
+.example-app,
+#map-wrapper,
+#map {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.example-app {
+    isolation: isolate;
+    color: var(--theme-text);
+    background: linear-gradient(145deg, #a5d1e5, #6f9fbd);
+}
+
+.example-app * {
+    scrollbar-color: var(--theme-scroll-thumb) var(--theme-scroll-track);
+    scrollbar-width: thin;
+}
+
+.example-app *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.example-app *::-webkit-scrollbar-track {
+    background: var(--theme-scroll-track);
+    border-radius: 999px;
+}
+
+.example-app *::-webkit-scrollbar-thumb {
+    background: var(--theme-scroll-thumb);
+    background-clip: padding-box;
+    border: 2px solid transparent;
+    border-radius: 999px;
+}
+
+.example-app *::-webkit-scrollbar-thumb:hover {
+    background: var(--theme-scroll-thumb-hover);
+    background-clip: padding-box;
+}
+
+.example-app *::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+.example-title {
+    position: absolute;
+    top: 20px;
+    left: 92px;
+    z-index: 12;
+    max-width: calc(100% - 512px);
+    margin: 0;
+    overflow: hidden;
+    color: #f8fcff;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    text-overflow: ellipsis;
+    text-shadow: 0 2px 5px rgba(23, 58, 82, .75);
+    white-space: nowrap;
+}
+
+.glass-panel {
+    background: var(--theme-panel);
+    border: 1px solid var(--theme-line);
+    box-shadow: var(--theme-shadow);
+    -webkit-backdrop-filter: blur(12px) saturate(112%);
+    backdrop-filter: blur(12px) saturate(112%);
+}
+
+.example-rail {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    bottom: 16px;
+    left: auto;
+    z-index: 14;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 52px;
+    pointer-events: none;
+}
+
+.example-rail > * {
+    pointer-events: auto;
+}
+
+.example-rail > [data-common-ui-rail] {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.viewer-example-rail,
+.runner-example-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.example-brand {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    z-index: 12;
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 26px;
+    overflow: hidden;
+}
+
+.example-brand img {
+    display: block;
+    width: 64px;
+    max-width: none;
+    height: auto;
+    filter: drop-shadow(0 1px 1px rgba(14, 48, 72, .9)) drop-shadow(0 0 4px rgba(14, 48, 72, .75));
+    transform: translate(-.5px, -8px);
+    transition: filter .18s ease;
+}
+
+/* 로고는 예제 목록으로 돌아가는 통로입니다. 지도 위에는 나가는 길이 이것뿐이라,
+   마우스를 올리면 테두리 빛을 넓혀 누를 수 있다는 것을 알립니다. */
+.example-brand:hover img,
+.example-brand:focus-visible img {
+    filter: drop-shadow(0 1px 1px rgba(14, 48, 72, .9)) drop-shadow(0 0 7px rgba(150, 226, 250, .9));
+}
+
+.example-brand:focus-visible {
+    outline: 2px solid rgba(210, 238, 248, .82);
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+
+.rail-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    width: 44px;
+    height: 46px;
+    padding: 0;
+    color: #eff9fd;
+    background: rgba(47, 91, 116, .86);
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    box-shadow: 0 6px 16px rgba(8, 29, 43, .18);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    cursor: pointer;
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.rail-button:hover,
+.rail-button:focus-visible {
+    background: rgba(71, 125, 153, .94);
+    border-color: rgba(210, 238, 248, .52);
+}
+
+.rail-button.active {
+    color: #f7fcff;
+    background: #337b9f;
+    border-color: rgba(201, 236, 249, .78);
+    box-shadow: 0 0 0 1px rgba(129, 201, 230, .34), 0 8px 20px rgba(8, 34, 51, .28);
+}
+
+.rail-button.active .rail-icon {
+    color: #ffffff;
+    filter: drop-shadow(0 1px 3px rgba(7, 35, 55, .5));
+}
+
+/* .rail-button의 display가 [hidden] 기본 동작을 덮으므로 숨김을 명시한다.
+   Runner 페이지는 [hidden]을 !important로 정의한 example-editor.css를 읽지 않아,
+   help: false 예제에서 Runtime이 숨긴 도움말 버튼이 그대로 보였다. */
+.rail-button[hidden] {
+    display: none;
+}
+
+.editor-mode-toggle {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    z-index: 110;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 34px;
+    padding: 0 11px;
+    color: #edf9fd;
+    background: rgba(47, 91, 116, .88);
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    box-shadow: 0 6px 16px rgba(8, 29, 43, .2);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 800;
+    transition: left .2s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+
+.example-editor-open .editor-mode-toggle {
+    left: calc(var(--editor-pane-width, min(40vw, 600px)) + 16px);
+}
+
+@media (min-width: 761px) {
+    /* 레일과 패널은 우측에 고정되어 좌측 편집기와 겹치지 않으므로 위치를 옮기지 않는다.
+       제목만 편집기에 가려지므로 안전 영역으로 밀어낸다. */
+    .example-editor-open .example-brand {
+        left: calc(var(--editor-pane-width, min(40vw, 600px)) + 16px);
+    }
+
+    .example-editor-open .example-title {
+        left: calc(var(--editor-pane-width, min(40vw, 600px)) + 92px);
+        max-width: calc(100vw - var(--editor-pane-width, min(40vw, 600px)) - 422px);
+    }
+
+    /* 패널 위치는 고정하지 않는다. 좌표를 강제하면 편집기가 열린 동안 드래그가 막힌다.
+       편집기 아래로 놓치는 것은 Runtime이 드래그 이동 범위로 제한한다. */
+    .example-editor-open .example-app #analy-popup.legacy-main-feature-panel {
+        max-width: calc(100vw - var(--editor-pane-width, min(40vw, 600px)) - 108px);
+    }
+}
+
+/* 단독으로 연 Runner에는 메시지를 받을 편집기가 없어 이 버튼이 하는 일이 없다.
+   편집기 안에 끼워졌을 때만 드러내, 분할 화면에서도 지도 위 `코드 편집` 버튼이 그대로 보이게 한다. */
+.example-runner-page .editor-mode-toggle {
+    display: none;
+}
+
+.example-runner-page.is-embedded-runner .editor-mode-toggle {
+    display: inline-flex;
+}
+
+.editor-mode-toggle:hover,
+.editor-mode-toggle:focus-visible {
+    background: rgba(71, 125, 153, .96);
+    border-color: rgba(210, 238, 248, .58);
+}
+
+.editor-mode-toggle.active,
+.editor-mode-toggle[aria-pressed="true"] {
+    color: #f7fcff;
+    background: #337b9f;
+    border-color: rgba(201, 236, 249, .82);
+    box-shadow: 0 0 0 1px rgba(129, 201, 230, .38), 0 8px 20px rgba(8, 34, 51, .3);
+}
+
+.editor-mode-toggle.active::after,
+.editor-mode-toggle[aria-pressed="true"]::after {
+    width: 2px;
+    height: 14px;
+    margin-left: 1px;
+    background: #bcecff;
+    border-radius: 2px;
+    content: '';
+}
+
+.code-toggle-icon {
+    color: #d9f4ff;
+    font: 800 10px/1 Consolas, monospace;
+    letter-spacing: -.12em;
+}
+
+.rail-icon {
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.common-image-layer-icon {
+    position: relative;
+    display: block;
+    width: 18px;
+    height: 14px;
+    border: 1.5px solid currentColor;
+    border-radius: 3px;
+}
+
+.common-image-layer-icon::before,
+.common-image-layer-icon::after {
+    position: absolute;
+    width: 12px;
+    height: 8px;
+    border: 1px solid currentColor;
+    border-radius: 2px;
+    content: '';
+}
+
+.common-image-layer-icon::before {
+    top: -4px;
+    left: 2px;
+    opacity: .72;
+}
+
+.common-image-layer-icon::after {
+    right: 2px;
+    bottom: -4px;
+    opacity: .5;
+}
+
+.common-terrain-layer-icon {
+    display: grid;
+    place-items: center;
+}
+
+.common-terrain-layer-icon img {
+    width: 20px;
+    height: 20px;
+    /* 아이콘이 이미 테마 색으로 그려져 있어 흰색으로 덮지 않는다.
+       단색으로 칠하면 산의 음영과 등고선이 뭉개진다. */
+    filter: drop-shadow(0 1px 2px rgba(8, 29, 43, .45));
+}
+
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 56px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--theme-line);
+}
+
+.panel-header h2 {
+    margin: 2px 0 0;
+    color: var(--theme-text);
+    font-size: 15px;
+}
+
+.eyebrow {
+    color: #b9d7e6;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: .14em;
+}
+
+.panel-close {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    color: #d7e8f0;
+    background: var(--theme-surface);
+    border: 1px solid var(--theme-line);
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 19px;
+}
+
+.panel-close:hover,
+.panel-close:focus-visible {
+    color: #ffffff;
+    background: var(--theme-surface-hover);
+}
+
+.panel-content {
+    min-height: 0;
+    padding: 12px;
+    overflow-y: auto;
+}
+
+/* 기능 패널과 공통 패널은 헤더를 잡아 옮길 수 있습니다. */
+.example-panel .panel-header,
+.explanation-panel .panel-header {
+    cursor: move;
+    user-select: none;
+}
+
+.example-panel .panel-close,
+.explanation-panel .panel-close {
+    cursor: pointer;
+}
+
+.explanation-panel,
+.example-panel {
+    position: absolute;
+    top: 64px;
+    right: 88px;
+    bottom: auto;
+    left: auto;
+    z-index: 13;
+    display: none;
+    width: var(--theme-side-panel-width);
+    max-height: calc(100dvh - 120px);
+    overflow: hidden;
+    border-radius: 12px;
+}
+
+.explanation-panel.open,
+.example-panel.open {
+    display: flex;
+    flex-direction: column;
+}
+
+.common-layer-description {
+    margin: 0 0 12px;
+    color: var(--theme-muted);
+    font-size: 10.5px;
+    line-height: 1.5;
+}
+
+.common-layer-option {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    min-height: 48px;
+    margin: 0 0 7px;
+    padding: 8px 9px;
+    color: var(--theme-text);
+    background: var(--theme-surface);
+    border: 1px solid var(--theme-line);
+    border-radius: 7px;
+    cursor: pointer;
+    transition: background .16s ease, border-color .16s ease;
+}
+
+.common-layer-option:hover {
+    background: var(--theme-surface-hover);
+    border-color: rgba(225, 243, 250, .4);
+}
+
+.common-layer-option input {
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    accent-color: var(--theme-accent-strong);
+}
+
+.common-layer-option strong,
+.common-layer-option small {
+    display: block;
+}
+
+.common-layer-option strong {
+    color: var(--theme-text);
+    font-size: 10.5px;
+}
+
+.common-layer-option small {
+    margin-top: 3px;
+    color: var(--theme-muted);
+    font-size: 9px;
+    line-height: 1.35;
+}
+
+.common-layer-option b {
+    padding: 3px 6px;
+    color: #d9f4ff;
+    background: rgba(103, 185, 217, .2);
+    border: 1px solid rgba(189, 231, 247, .3);
+    border-radius: 5px;
+    font-size: 8px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.common-layer-option[data-layer-state="hidden"] b,
+.common-layer-option[data-layer-state="missing"] b {
+    color: var(--theme-muted);
+    background: rgba(232, 247, 252, .06);
+}
+
+.common-layer-option[data-layer-state="loading"] {
+    cursor: wait;
+    opacity: .78;
+}
+
+.common-layer-option[data-layer-state="error"] {
+    border-color: rgba(255, 196, 199, .52);
+}
+
+.common-layer-option[data-layer-state="error"] b,
+.common-layer-option[data-layer-state="unavailable"] b {
+    color: #ffe3e4;
+    background: rgba(184, 91, 95, .22);
+    border-color: rgba(255, 214, 216, .32);
+}
+
+.legacy-migration-panel .legacy-control-content {
+    min-width: 0;
+    color: var(--theme-text);
+}
+
+.legacy-migration-panel .legacy-control-content + .legacy-control-content {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--theme-line);
+}
+
+.example-app .legacy-main-feature-panel .div-popup,
+.example-app .legacy-floating-panel.div-popup,
+.example-app .legacy-work-panel,
+.example-app .legacy-sub-map-panel #sub-popup .div-popup {
+    color: var(--theme-text);
+    background: var(--theme-panel) !important;
+    border: 1px solid var(--theme-line) !important;
+    border-radius: 10px;
+    box-shadow: var(--theme-shadow);
+    -webkit-backdrop-filter: blur(12px) saturate(112%);
+    backdrop-filter: blur(12px) saturate(112%);
+}
+
+.example-app .legacy-main-feature-panel {
+    position: absolute;
+    top: 64px;
+    right: 88px;
+    left: auto;
+    z-index: 13;
+    /* 좌우를 동시에 고정하면 폭이 늘어나므로 내용 크기를 유지한다. */
+    width: max-content;
+    max-width: calc(100vw - 108px);
+    /* 래퍼는 배경이 없는 투명 영역이라 지도 조작을 가로채면 안 된다.
+       패널을 드래그로 옮기면 래퍼는 원래 자리에 남으므로, 통과시키지 않으면
+       빈 자리에서 지도 이벤트가 계속 막힌다. */
+    pointer-events: none;
+}
+
+.example-app .legacy-main-feature-panel > * {
+    pointer-events: auto;
+}
+
+.example-app .legacy-main-feature-panel .div-popup-control {
+    cursor: move;
+    user-select: none;
+}
+
+.example-app .legacy-main-feature-panel .div-popup {
+    position: static;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 120px);
+    overflow: hidden;
+}
+
+.example-app .legacy-main-feature-panel .div-popup-content {
+    min-height: 0;
+    max-height: none !important;
+    overflow-y: auto;
+}
+
+.example-app .legacy-selection-panel.div-popup,
+.example-app .legacy-detail-panel.div-popup {
+    position: absolute;
+}
+
+/* 공통·기능 패널이 열리면 같은 우측 영역을 쓰므로 Legacy 팝업을 왼쪽으로 비킨다. */
+.example-app:has(.example-panel.open, .explanation-panel.open, [data-legacy-toggle-state][aria-pressed="true"]) #selectInfo-popup.legacy-selection-panel,
+.example-app:has(.example-panel.open, .explanation-panel.open, [data-legacy-toggle-state][aria-pressed="true"]) #detailInfo-popup.legacy-detail-panel {
+    right: calc(var(--theme-right-panel-offset) + var(--theme-side-panel-width) + 20px);
+}
+
+.example-app #selectInfo-popup.legacy-selection-panel,
+.example-app #detailInfo-popup.legacy-detail-panel {
+    right: var(--theme-right-panel-offset);
+    left: auto;
+    width: var(--theme-right-panel-width);
+    overflow: hidden;
+}
+
+.example-app #selectInfo-popup.legacy-selection-panel {
+    top: 64px;
+    height: var(--theme-right-selection-height);
+}
+
+.example-app #detailInfo-popup.legacy-detail-panel {
+    top: var(--theme-right-detail-top);
+    height: calc(100dvh - var(--theme-right-detail-top) - 16px);
+}
+
+.example-app .legacy-selection-panel > .div-popup-content,
+.example-app .legacy-detail-panel > .div-popup-content {
+    max-height: calc(100% - 34px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.example-app .legacy-main-feature-panel .div-popup-control,
+.example-app .legacy-floating-panel .div-popup-control,
+.example-app .legacy-work-panel .work-save-header {
+    color: var(--theme-text);
+    background: var(--theme-panel-strong) !important;
+    border-color: var(--theme-line) !important;
+}
+
+.example-app .legacy-floating-panel .div-popup-control {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 34px;
+    padding: 3px 6px;
+}
+
+.example-app .legacy-floating-panel .div-popup-control > .label-popup-control.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 28px;
+    margin: 0;
+    margin-left: auto;
+    padding: 0 9px;
+    border-radius: 7px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+/* 툴바 래퍼는 버튼 주변이 비어 있는 투명 영역이라 그대로 두면 지도 클릭과 드래그를 가로챈다.
+   래퍼는 이벤트를 통과시키고 실제 조작 요소만 받도록 한다. */
+.example-app .legacy-toolbar-panel {
+    pointer-events: none;
+}
+
+/* 실제 조작 요소만 이벤트를 받는다. 툴바 배경과 여백은 지도로 넘긴다. */
+.example-app .legacy-toolbar-panel button,
+.example-app .legacy-toolbar-panel input,
+.example-app .legacy-toolbar-panel select,
+.example-app .legacy-toolbar-panel textarea,
+.example-app .legacy-toolbar-panel label,
+.example-app .legacy-toolbar-panel a {
+    pointer-events: auto;
+}
+
+.example-app .legacy-toolbar-panel #gizmo-toolbar,
+.example-app .legacy-toolbar-panel .u3-popup-content {
+    color: var(--theme-text);
+    background: var(--theme-panel) !important;
+    border-color: var(--theme-line) !important;
+    box-shadow: var(--theme-shadow);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+.example-app .legacy-selection-panel,
+.example-app .legacy-detail-panel,
+.example-app .legacy-work-panel {
+    z-index: 20;
+}
+
+.example-app .legacy-map-notice,
+.example-app .legacy-selection-toast {
+    z-index: 40;
+    max-width: calc(100vw - 32px);
+    pointer-events: none;
+}
+
+@media (min-width: 761px) {
+    /* 우측으로 옮긴 알림은 편집기와 겹치지 않으므로 위치를 옮기지 않는다. */
+    .example-editor-open .legacy-selection-toast {
+        left: calc(var(--editor-pane-width, min(40vw, 600px)) + 16px);
+    }
+}
+
+.example-app .legacy-sub-map-panel {
+    border-color: rgba(225, 243, 250, .5) !important;
+    box-shadow: 0 14px 34px rgba(8, 29, 43, .28) !important;
+}
+
+.legacy-migration-panel .panel {
+    margin: 0 0 10px;
+    color: var(--theme-text);
+    background: rgba(232, 247, 252, .07);
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    box-shadow: none;
+}
+
+.legacy-migration-panel .panel-heading {
+    min-height: 32px;
+    padding: 8px 10px;
+    color: var(--theme-text);
+    background: rgba(232, 247, 252, .1);
+    border-color: var(--theme-line);
+    border-radius: 7px 7px 0 0;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.legacy-migration-panel .panel-body {
+    min-width: 0;
+    padding: 10px;
+    color: var(--theme-text);
+    background: transparent;
+}
+
+.legacy-migration-panel .panel-body::before,
+.legacy-migration-panel .panel-body::after {
+    display: none;
+}
+
+.legacy-migration-panel .panel > .panel-body:only-child {
+    border-radius: 7px;
+}
+
+.legacy-migration-panel .legacy-control-content > br,
+.legacy-migration-panel .panel + br {
+    display: none;
+}
+
+.legacy-migration-panel .form-group {
+    min-width: 0;
+    margin-bottom: 10px;
+}
+
+.legacy-migration-panel label,
+.legacy-migration-panel legend,
+.legacy-migration-panel p,
+.legacy-migration-panel strong {
+    color: var(--theme-text);
+}
+
+.legacy-migration-panel .form-control {
+    min-width: 0;
+    height: 30px;
+    padding: 5px 8px;
+    color: #f1f8fb;
+    background: rgba(15, 48, 67, .52);
+    border: 1px solid rgba(225, 243, 250, .32);
+    border-radius: 6px;
+    box-shadow: none;
+    font-size: 10.5px;
+}
+
+.legacy-migration-panel textarea.form-control {
+    height: auto;
+    min-height: 72px;
+    resize: vertical;
+}
+
+.legacy-migration-panel .form-control:focus {
+    background: rgba(15, 48, 67, .68);
+    border-color: var(--theme-accent);
+    box-shadow: 0 0 0 2px rgba(103, 185, 217, .2);
+}
+
+.legacy-migration-panel .form-control[disabled],
+.legacy-migration-panel .form-control[readonly] {
+    color: var(--theme-muted);
+    background: rgba(15, 48, 67, .34);
+    opacity: .82;
+}
+
+.legacy-migration-panel input[type="checkbox"],
+.legacy-migration-panel input[type="radio"] {
+    accent-color: var(--theme-accent-strong);
+}
+
+.example-app input[type="range"] {
+    width: 100%;
+    min-width: 80px;
+    height: 24px;
+    padding: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    color: var(--theme-accent-strong);
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+}
+
+.example-app input[type="range"]::-webkit-slider-runnable-track {
+    height: 5px;
+    background: rgba(226, 244, 251, .3);
+    border: 1px solid rgba(225, 243, 250, .24);
+    border-radius: 999px;
+    box-shadow: inset 0 1px 2px rgba(8, 29, 43, .16);
+}
+
+.example-app input[type="range"]::-webkit-slider-thumb {
+    width: 15px;
+    height: 15px;
+    margin-top: -6px;
+    appearance: none;
+    -webkit-appearance: none;
+    background: #bcecff;
+    border: 2px solid #397fa2;
+    border-radius: 50%;
+    box-shadow: 0 2px 7px rgba(8, 34, 51, .28);
+}
+
+.example-app input[type="range"]::-moz-range-track {
+    height: 5px;
+    background: rgba(226, 244, 251, .3);
+    border: 1px solid rgba(225, 243, 250, .24);
+    border-radius: 999px;
+    box-shadow: inset 0 1px 2px rgba(8, 29, 43, .16);
+}
+
+.example-app input[type="range"]::-moz-range-progress {
+    height: 5px;
+    background: var(--theme-accent-strong);
+    border-radius: 999px;
+}
+
+.example-app input[type="range"]::-moz-range-thumb {
+    width: 13px;
+    height: 13px;
+    background: #bcecff;
+    border: 2px solid #397fa2;
+    border-radius: 50%;
+    box-shadow: 0 2px 7px rgba(8, 34, 51, .28);
+}
+
+.example-app input[type="range"]:focus-visible::-webkit-slider-thumb {
+    box-shadow: 0 0 0 3px rgba(172, 223, 240, .3), 0 2px 7px rgba(8, 34, 51, .28);
+}
+
+.example-app input[type="range"]:disabled {
+    cursor: not-allowed;
+    opacity: .5;
+}
+
+.legacy-migration-panel input[type="range"].form-control {
+    height: 26px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+}
+
+.legacy-migration-panel .input-group {
+    display: flex;
+    width: 100%;
+}
+
+.legacy-migration-panel .input-group .form-control {
+    position: static;
+    flex: 1 1 0;
+    width: auto;
+    float: none;
+    border-radius: 0;
+}
+
+.legacy-migration-panel .input-group-addon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    min-width: 28px;
+    padding: 5px 7px;
+    color: var(--theme-muted);
+    background: rgba(232, 247, 252, .1);
+    border-color: rgba(225, 243, 250, .28);
+    font-size: 10px;
+}
+
+.legacy-migration-panel .input-group-btn {
+    display: flex;
+    flex: 0 0 auto;
+    width: auto;
+}
+
+.legacy-migration-panel .btn {
+    min-height: 28px;
+    padding: 5px 9px;
+    color: #eff9fd;
+    background: rgba(232, 247, 252, .11);
+    border: 1px solid rgba(225, 243, 250, .28);
+    border-radius: 6px;
+    box-shadow: none;
+    text-shadow: none;
+    font-size: 10.5px;
+    font-weight: 700;
+}
+
+.legacy-migration-panel .btn:hover,
+.legacy-migration-panel .btn:focus,
+.legacy-migration-panel .btn.active {
+    color: #ffffff;
+    background: rgba(232, 247, 252, .2);
+    border-color: rgba(225, 243, 250, .48);
+}
+
+.legacy-migration-panel .btn-primary,
+.legacy-migration-panel .btn-info {
+    color: #f7fcff;
+    background: rgba(70, 145, 178, .9);
+    border-color: rgba(190, 232, 248, .52);
+}
+
+.legacy-migration-panel .btn-danger {
+    color: #fff8f8;
+    background: rgba(184, 91, 95, .88) !important;
+    border-color: rgba(255, 214, 216, .42);
+}
+
+.legacy-migration-panel .nav-tabs {
+    display: flex;
+    gap: 4px;
+    margin: 0 0 12px;
+    border-bottom: 1px solid var(--theme-line);
+}
+
+.legacy-migration-panel .nav-tabs > li {
+    margin: 0 0 -1px;
+    float: none;
+}
+
+.legacy-migration-panel .nav-tabs > li > a {
+    margin: 0;
+    padding: 7px 9px;
+    color: var(--theme-muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px 6px 0 0;
+    font-size: 10px;
+}
+
+.legacy-migration-panel .nav-tabs > li > a:hover,
+.legacy-migration-panel .nav-tabs > li.active > a,
+.legacy-migration-panel .nav-tabs > li.active > a:hover,
+.legacy-migration-panel .nav-tabs > li.active > a:focus {
+    color: #ffffff;
+    background: rgba(232, 247, 252, .14);
+    border-color: var(--theme-line) var(--theme-line) transparent;
+}
+
+.legacy-migration-panel .list-group-item {
+    color: var(--theme-text);
+    background: rgba(232, 247, 252, .08);
+    border-color: var(--theme-line);
+}
+
+.legacy-migration-panel fieldset {
+    min-width: 0;
+    border-color: var(--theme-line);
+}
+
+.legacy-migration-panel mark {
+    color: #f7fcff;
+    background: rgba(103, 185, 217, .3);
+}
+
+.legacy-migration-panel .d-flex {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.legacy-migration-panel .flex-1 {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.legacy-migration-panel .text-right {
+    text-align: right;
+}
+
+.markdown-document > h1:first-child {
+    display: none;
+}
+
+.markdown-document h2,
+.markdown-document h3,
+.markdown-document h4 {
+    margin: 20px 0 9px;
+    color: #f4fbff;
+}
+
+.markdown-document h2 {
+    font-size: 14px;
+}
+
+.markdown-document h3 {
+    font-size: 12px;
+}
+
+.markdown-document p,
+.markdown-document li {
+    color: #d7e8f0;
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+.markdown-document ul,
+.markdown-document ol {
+    padding-left: 20px;
+}
+
+.markdown-document code:not([class]) {
+    padding: 2px 4px;
+    color: #e9f8ff;
+    background: rgba(18, 52, 75, .55);
+    border-radius: 4px;
+}
+
+.markdown-document pre {
+    padding: 10px;
+    overflow: auto;
+    color: #dceef6;
+    background: rgba(16, 46, 68, .72);
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    font-size: 9px;
+}
+
+.markdown-document table {
+    width: 100%;
+    margin: 6px 0 2px;
+    border-collapse: collapse;
+    color: #d7e8f0;
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+/* 패널 폭이 좁아 2열을 나란히 두면 열마다 글자가 몇 자씩 끊긴다.
+   머리글은 두 열의 관계만 한 줄로 알리고, 각 행은 조작과 결과를 위아래로 쌓아 전체 폭을 쓴다. */
+.markdown-document thead tr {
+    display: block;
+    margin-bottom: 2px;
+    color: var(--theme-accent);
+    font-size: 10px;
+    letter-spacing: .04em;
+}
+
+.markdown-document thead th {
+    display: inline;
+    padding: 0;
+    font-weight: 600;
+    text-align: left;
+}
+
+.markdown-document thead th + th::before {
+    content: ' → ';
+    opacity: .7;
+}
+
+.markdown-document tbody tr {
+    display: block;
+    padding: 7px 0;
+    border-top: 1px solid var(--theme-line);
+}
+
+.markdown-document tbody td {
+    display: block;
+    padding: 0;
+}
+
+.markdown-document tbody td:first-child {
+    color: #eaf6fc;
+    font-weight: 600;
+}
+
+/* 굵은 조작 문장 안에서는 코드 배경 상자가 글줄을 끊어 보이게 하므로 색으로만 구분한다. */
+.markdown-document tbody td:first-child code:not([class]) {
+    padding: 0;
+    color: var(--theme-accent);
+    background: none;
+    font-weight: inherit;
+}
+
+.markdown-document tbody td + td {
+    margin-top: 3px;
+    padding-left: 9px;
+    border-left: 2px solid var(--theme-line);
+}
+
+.map-tools {
+    position: absolute;
+    top: 18px;
+    /* 우측 레일(16px + 52px)과 겹치지 않도록 비켜 놓는다. */
+    right: 76px;
+    z-index: 14;
+    display: flex;
+    gap: 7px;
+}
+
+.map-button {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    color: #f5fbff;
+    background: rgba(47, 91, 116, .88);
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    box-shadow: 0 6px 16px rgba(8, 29, 43, .2);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    cursor: pointer;
+}
+
+.map-button:hover,
+.map-button:focus-visible {
+    background: rgba(71, 125, 153, .96);
+    border-color: rgba(210, 238, 248, .58);
+}
+
+.map-button img {
+    width: 18px;
+    height: 18px;
+}
+
+/* API 도움말 스위치는 지도 도구 줄 가장 왼쪽에 놓여 홈 버튼과 같은 높이를 유지한다.
+   지도 버튼과 같은 배경을 쓰면 맞닿은 경계가 사라지므로 상태 색을 옅게 깔아 구분한다. */
+.map-switch {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 9px;
+    color: #f5fbff;
+    background: rgba(88, 44, 48, .92);
+    border: 1px solid rgba(226, 150, 152, .5);
+    border-radius: 8px;
+    box-shadow: 0 6px 16px rgba(8, 29, 43, .2);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    cursor: pointer;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    transition: background .18s ease, border-color .18s ease;
+}
+
+/* .map-switch의 display가 [hidden] 기본 동작을 덮으므로 숨김을 명시한다. */
+.map-switch[hidden] {
+    display: none;
+}
+
+/* .map-button도 같은 이유로 숨김을 명시한다. */
+.map-button[hidden] {
+    display: none;
+}
+
+/* 즐겨찾기 별입니다. 담아 두면 예제 목록 화면과 같은 금색으로 속을 채워, 어느 화면에서 보아도 같은 표시로 읽힙니다. */
+.map-favorite svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+}
+
+.map-favorite.is-active {
+    color: #f7b73a;
+}
+
+.map-favorite.is-active svg {
+    fill: currentColor;
+}
+
+.map-switch[aria-checked="true"] {
+    background: rgba(31, 84, 66, .92);
+    border-color: rgba(150, 222, 182, .5);
+}
+
+.map-switch:hover,
+.map-switch:focus-visible {
+    background: rgba(112, 58, 62, .96);
+    border-color: rgba(240, 176, 178, .62);
+}
+
+.map-switch[aria-checked="true"]:hover,
+.map-switch[aria-checked="true"]:focus-visible {
+    background: rgba(41, 107, 84, .96);
+    border-color: rgba(174, 234, 200, .62);
+}
+
+/* 손잡이가 트랙을 거의 채우면 여백이 2px뿐이라 미세한 반올림도 치우침으로 읽힌다.
+   여백을 3px로 넓혀 손잡이가 위로 붙어 보이지 않게 한다. */
+/* 다른 레일 버튼의 파란 강조는 패널이 열렸다는 뜻이므로, 켜짐과 꺼짐은
+   초록과 붉은색으로 구분해 상태를 색만으로 읽을 수 있게 한다. */
+.map-switch-track {
+    position: relative;
+    width: 28px;
+    height: 16px;
+    background: rgba(178, 82, 86, .95);
+    border: 1px solid rgba(255, 200, 202, .5);
+    border-radius: 999px;
+    transition: background .18s ease, border-color .18s ease;
+}
+
+/* 위 모서리에서 1px 띄우면 배율 150%처럼 소수점이 생기는 화면에서 반올림 오차가
+   아래쪽에만 쌓여 손잡이가 위로 붙는다. 중앙 기준으로 놓아 오차를 위아래로 나눈다. */
+.map-switch-track::after {
+    position: absolute;
+    top: 50%;
+    left: 2px;
+    width: 10px;
+    height: 10px;
+    background: #cfe8f4;
+    border-radius: 50%;
+    content: '';
+    transform: translateY(-50%);
+    transition: transform .18s ease, background .18s ease;
+}
+
+.map-switch[aria-checked="true"] .map-switch-track {
+    background: #3f9c68;
+    border-color: rgba(186, 240, 208, .55);
+}
+
+.map-switch[aria-checked="true"] .map-switch-track::after {
+    background: #ffffff;
+    /* Track 내부 26px에서 손잡이 10px과 좌우 여백 2px씩을 뺀 이동 거리입니다. */
+    transform: translate(12px, -50%);
+}
+
+/* 줄 상자를 글자 높이에 맞춘다. 기본 line-height는 상승부가 하강부보다 커서
+   상자를 가운데 두어도 글자만 위로 올라가 트랙과 어긋나 보인다. */
+.map-switch-label {
+    line-height: 1;
+}
+
+/* 손잡이 위치만으로는 켜짐과 꺼짐을 헷갈릴 수 있어 상태를 글자로도 보여 줍니다.
+   ON과 OFF의 글자 수가 달라 너비를 고정해야 스위치가 흔들리지 않습니다. */
+.map-switch-state {
+    width: 20px;
+    color: #ffd9da;
+    line-height: 1;
+    text-align: left;
+}
+
+.map-switch[aria-checked="true"] .map-switch-state {
+    color: #bdf0d5;
+}
+
+.map-switch[aria-checked="false"] .map-switch-label {
+    color: rgba(255, 245, 245, .72);
+}
+
+/* 스위치 바로 아래에 붙는 첫 사용 안내입니다. 코드 편집 닫기 안내와 같은 형태와 색을 써서
+   두 안내가 같은 성격임을 드러냅니다.
+   Runner는 example-editor.css를 읽지 않으므로 이 스타일은 테마가 제공합니다. */
+.map-switch-hint {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    width: max-content;
+    max-width: 320px;
+    padding: 10px 12px;
+    color: #fff5f5;
+    background: rgba(184, 91, 95, .94);
+    border: 1px solid rgba(255, 214, 216, .5);
+    border-radius: 8px;
+    box-shadow: 0 10px 24px rgba(7, 28, 41, .42);
+    font-size: 11px;
+    line-height: 1.55;
+    pointer-events: none;
+    /* 기본값은 한글을 글자 단위로 끊어 낱말 중간에서 줄이 바뀐다. 띄어쓰기에서만 끊는다. */
+    word-break: keep-all;
+}
+
+.map-switch-hint[hidden] {
+    display: none;
+}
+
+/* 객체 선택 토글입니다. 켜고 끄는 것만 알리면 되므로 다른 지도 버튼과 같은 모양을 쓰고
+   불투명도와 명암으로만 상태를 나타냅니다. */
+.map-select {
+    opacity: .5;
+    transition: opacity 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.map-select:hover,
+.map-select:focus-visible { opacity: .8; }
+
+.map-select[aria-pressed="true"] {
+    opacity: 1;
+    background: rgba(88, 152, 184, .96);
+    border-color: rgba(210, 238, 248, .62);
+}
+
+/* SVG 기본 fill은 검정이라 비워 둔다. 박스 모드의 점선 사각형이 검은 덩어리로 보였다. */
+.map-select svg { width: 18px; height: 18px; fill: none; }
+
+/* 선택 도구 안내입니다. 도움말 스위치 안내와 같은 자리·같은 규격으로 두되,
+   경고가 아니라 사용법이므로 지도 버튼과 같은 계열 색을 씁니다. */
+.map-select-hint {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: max-content;
+    max-width: 320px;
+    padding: 10px 12px;
+    color: #f5fbff;
+    background: rgba(47, 91, 116, .94);
+    border: 1px solid var(--theme-line);
+    border-radius: 8px;
+    box-shadow: 0 10px 24px rgba(7, 28, 41, .42);
+    font-size: 11px;
+    line-height: 1.55;
+    pointer-events: none;
+    word-break: keep-all;
+}
+
+.map-select-hint[hidden] { display: none; }
+.map-select-hint small { opacity: .78; }
+
+/* 짧은 알림입니다. 카메라 상태 줄 위에 쌓습니다.
+   우하단에 후처리 설정 같은 공통 버튼이 들어오므로 그 자리를 비켜 둔다.
+   우측 레일과 같은 치수(화면 끝 16px + 버튼 44px)에 레일 간격 8px을 더해 세운다. */
+.example-toast-stack {
+    position: absolute;
+    right: calc(16px + 44px + 8px);
+    /* 두 개가 쌓여도(26px + 4px + 26px = 56px) 그 위에 열리는 후처리 목록의
+       아래 끝(버튼 위 102px)에 닿기만 하고 가리지 않는 높이다.
+       아래로는 카메라 상태 줄(위 끝 44px)과 2px 띄운다. */
+    bottom: 46px;
+    z-index: 15;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    pointer-events: none;
+}
+
+/* 밝은 위성영상 위에 뜨는 알림입니다. 패널과 같은 반투명 남색으로 두었더니 지도와
+   섞여 잘 안 보였습니다. 바탕을 한 단계 더 짙고 불투명하게 깔고 가장자리에 밝은 선을
+   둘러 지도와 경계를 만듭니다. 앞의 점은 눈이 걸리는 자리를 만들어 주는 표식입니다.
+   대신 위아래는 줄여 여러 개가 쌓여도 화면을 덜 가리게 합니다. */
+.example-toast {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 11px 4px;
+    color: var(--theme-text);
+    background: rgba(9, 30, 44, .96);
+    border: 1px solid rgba(172, 223, 240, .55);
+    border-radius: 999px;
+    box-shadow: 0 6px 18px rgba(4, 16, 26, .45);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.5;
+    letter-spacing: -.01em;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 220ms ease, transform 220ms ease;
+}
+
+.example-toast::before {
+    content: '';
+    flex: 0 0 auto;
+    width: 5px;
+    height: 5px;
+    background: var(--theme-accent-strong);
+    border-radius: 50%;
+}
+
+.example-toast b { font-weight: 600; }
+
+/* 보조 설명입니다. 무엇이 바뀌었는지 뒤에 "그래서 어디를 보면 되는지"를 덧붙입니다. */
+.example-toast-detail {
+    color: var(--theme-muted);
+    font-weight: 500;
+}
+
+.example-toast-detail::before {
+    content: '·';
+    margin: 0 5px;
+    opacity: .6;
+}
+
+.example-toast.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* 위로 밀려난 이전 알림입니다. 방금 뜬 것이 어느 것인지 한눈에 갈리도록 옅게 둡니다.
+   목록의 마지막이 가장 최근이라 그 앞의 것만 낮춥니다. */
+.example-toast.is-visible:not(:last-child) {
+    opacity: .5;
+}
+
+/* 후처리 도구입니다. 카메라 상태 줄(bottom:14px, 높이 약 26px) 바로 위에서 위로 쌓습니다.
+   우측 레일과 같은 폭(44px)이라 좌측으로 비켜 둔 알림과 겹치지 않습니다. */
+.post-tools {
+    position: absolute;
+    right: 16px;
+    bottom: 48px;
+    z-index: 14;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 8px;
+}
+
+/* 여는 버튼입니다. 하나라도 켜져 있으면 눌린 것으로 보여, 목록을 닫아 두어도
+   지금 무엇이 걸려 있는지 알 수 있게 합니다. */
+.post-tool-trigger {
+    opacity: .62;
+    transition: opacity 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.post-tool-trigger:hover,
+.post-tool-trigger:focus-visible { opacity: .85; }
+
+.post-tool-trigger[aria-pressed="true"],
+.post-tool-trigger[aria-expanded="true"] {
+    opacity: 1;
+    background: rgba(88, 152, 184, .96);
+    border-color: rgba(210, 238, 248, .62);
+}
+
+/* 겹친 렌즈 세 개는 21px에서 윤곽이 한 덩어리로 뭉개져 구분이 안 됩니다.
+   버튼이 44px이라 자리는 넓넓합니다. */
+.post-tool-trigger svg { width: 24px; height: 24px; }
+
+/* 여는 버튼 바로 위에 붙는 목록입니다. */
+.post-menu {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 8px);
+    width: max-content;
+    min-width: 210px;
+    padding: 6px;
+    background: rgba(9, 30, 44, .96);
+    border: 1px solid rgba(172, 223, 240, .55);
+    border-radius: 10px;
+    box-shadow: 0 10px 26px rgba(4, 16, 26, .45);
+}
+
+.post-menu[hidden] { display: none; }
+
+.post-menu-title {
+    margin: 2px 8px 6px;
+    color: var(--theme-muted);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.post-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    padding: 6px 8px;
+    color: var(--theme-text);
+    background: transparent;
+    border: 0;
+    border-radius: 7px;
+    cursor: pointer;
+    text-align: left;
+}
+
+.post-menu-item:hover,
+.post-menu-item:focus-visible { background: rgba(232, 247, 252, .12); }
+
+.post-menu-icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    color: var(--theme-muted);
+    border: 1px solid var(--theme-line);
+    border-radius: 7px;
+}
+
+/* SVG 기본 fill은 검정이라, 선으로 그린 아이콘이 면까지 칠해져 덩어리로 보였습니다. */
+.post-menu-icon svg { width: 15px; height: 15px; fill: none; }
+.post-menu-item[aria-pressed="true"] .post-menu-icon {
+    color: #09202c;
+    background: var(--theme-accent);
+    border-color: var(--theme-accent);
+}
+
+.post-menu-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.post-menu-text b { font-size: 12px; font-weight: 600; }
+.post-menu-text small { color: var(--theme-muted); font-size: 10.5px; word-break: keep-all; }
+
+/* 켜짐·꺼짐을 글자로도 적어 색만으로 판단하지 않아도 되게 합니다. */
+.post-menu-state {
+    flex: 0 0 auto;
+    margin-left: auto;
+    padding: 2px 7px;
+    color: var(--theme-muted);
+    background: rgba(232, 247, 252, .1);
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.post-menu-item[aria-pressed="true"] .post-menu-state {
+    color: #09202c;
+    background: var(--theme-accent);
+}
+
+.map-switch-hint::before {
+    position: absolute;
+    top: -6px;
+    left: 28px;
+    width: 10px;
+    height: 10px;
+    background: inherit;
+    border-top: 1px solid rgba(255, 214, 216, .5);
+    border-left: 1px solid rgba(255, 214, 216, .5);
+    content: '';
+    transform: rotate(45deg);
+}
+
+.map-switch-hint p {
+    margin: 0;
+}
+
+.map-switch-hint.is-leaving {
+    opacity: 0;
+    transition: opacity .25s ease;
+}
+
+.map-switch.is-hinted {
+    animation: map-switch-hint-pulse 1.5s ease-out infinite;
+}
+
+/* 코드 편집 닫기 안내의 editor-hint-pulse와 같은 붉은 파동을 씁니다. */
+@keyframes map-switch-hint-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 110, 116, .9);
+    }
+
+    70% {
+        box-shadow: 0 0 0 16px rgba(255, 110, 116, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 110, 116, 0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .map-switch.is-hinted {
+        animation: none;
+        outline: 2px solid rgba(255, 110, 116, .9);
+        outline-offset: 2px;
+    }
+
+    .map-switch-hint.is-leaving {
+        transition: none;
+    }
+}
+
+
+.compass-icon {
+    position: relative;
+    display: block;
+    width: 24px;
+    height: 24px;
+    border: 1px solid rgba(229, 246, 253, .65);
+    border-radius: 50%;
+    transition: transform .2s ease;
+}
+
+.compass-icon b {
+    position: absolute;
+    top: 1px;
+    left: 50%;
+    font-size: 6px;
+    line-height: 1;
+    transform: translateX(-50%);
+}
+
+.compass-icon::before {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    border-right: 4px solid transparent;
+    border-bottom: 8px solid #f2aaa3;
+    border-left: 4px solid transparent;
+    content: "";
+    transform: translateX(-50%);
+}
+
+.compass-icon::after {
+    position: absolute;
+    bottom: 3px;
+    left: 50%;
+    border-top: 7px solid #c8eaf8;
+    border-right: 4px solid transparent;
+    border-left: 4px solid transparent;
+    content: "";
+    transform: translateX(-50%);
+}
+
+.camera-status {
+    position: absolute;
+    /* 우측 레일은 버튼이 위에서부터 쌓여 하단이 비어 있으므로 화면 끝에 붙인다. */
+    right: 18px;
+    bottom: 14px;
+    z-index: 12;
+    display: flex;
+    gap: 10px;
+    width: max-content;
+    padding: 7px 10px;
+    color: rgba(247, 251, 255, .92);
+    background: rgba(38, 78, 103, .84);
+    border: 1px solid rgba(235, 247, 252, .24);
+    border-radius: 7px;
+    box-shadow: 0 6px 14px rgba(8, 29, 43, .17);
+    -webkit-backdrop-filter: blur(9px);
+    backdrop-filter: blur(9px);
+    font-size: 9.5px;
+    pointer-events: none;
+}
+
+.rail-button:active,
+.map-button:active,
+.map-switch:active,
+.editor-mode-toggle:active,
+.panel-close:active {
+    transform: translateY(1px);
+}
+
+.rail-button:disabled,
+.map-button:disabled,
+.map-switch:disabled,
+.editor-mode-toggle:disabled,
+.panel-close:disabled {
+    cursor: not-allowed;
+    opacity: .48;
+}
+
+.camera-status span {
+    white-space: nowrap;
+}
+
+/* 박스 선택 표시는 three.js SelectionHelper가 만드는 div.selectBox에 CSS로만 그려진다.
+   Legacy 페이지는 main.css에서 받았지만 Edition 페이지는 그 파일을 읽지 않으므로 테마가 제공한다. */
+.selectBox {
+    position: fixed;
+    border: 1px solid #53ff81;
+    background-color: rgba(13, 239, 29, .12);
+}
+
+.loading-indicator {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    display: grid;
+    place-items: center;
+    background: rgba(37, 78, 103, .28);
+    pointer-events: none;
+}
+
+.loading-indicator[hidden] {
+    display: none;
+}
+
+.loading-indicator img {
+    width: 96px;
+}
+
+/* 코드 편집 패널(z-index 100)이 로딩 오버레이(z-index 30) 위에 겹치므로
+   패널이 열려 있는 동안에는 보이는 지도 영역을 기준으로 로딩 표시를 중앙에 맞춘다. */
+.example-editor-open .loading-indicator {
+    left: var(--editor-pane-width, min(40vw, 600px));
+}
+
+@media (max-width: 760px) {
+    .example-app {
+        --theme-right-panel-offset: 10px;
+        --theme-right-panel-width: min(350px, calc(100vw - 108px));
+    }
+
+    .example-editor-open .editor-mode-toggle {
+        left: 16px;
+    }
+
+    /* 좁은 화면에서는 편집 패널이 전체를 덮으므로 로딩 표시를 다시 화면 중앙에 둔다. */
+    .example-editor-open .loading-indicator {
+        left: 0;
+    }
+
+    .example-title {
+        max-width: calc(100% - 290px);
+        font-size: 12px;
+    }
+
+    .explanation-panel,
+    .example-panel {
+        top: auto;
+        right: 10px;
+        bottom: 10px;
+        left: 10px;
+        width: auto;
+        max-height: min(62dvh, 520px);
+        border-radius: 12px;
+    }
+
+    .camera-status {
+        gap: 5px;
+        max-width: calc(100% - 110px);
+        font-size: 8px;
+    }
+
+    .example-app:has(.explanation-panel.open, .example-panel.open) .camera-status {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+    .glass-panel,
+    .rail-button,
+    .map-button,
+    .map-switch,
+    .editor-mode-toggle,
+    .camera-status {
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+    }
+
+    .glass-panel {
+        background: var(--theme-panel-strong);
+    }
+
+    .example-app * {
+        scrollbar-color: var(--theme-accent) rgba(38, 78, 103, .92);
+    }
+}
+/* API 의미와 현재 Example State 코드를 모든 예제에서 같은 방식으로 표시한다. */
+.example-api-help {
+    position: fixed;
+    z-index: 12000;
+    width: min(420px, calc(100vw - 16px));
+    min-width: min(360px, calc(100vw - 16px));
+    box-sizing: border-box;
+    padding: 12px;
+    color: #eef8fc;
+    pointer-events: none;
+    background: rgba(13, 31, 43, 0.97);
+    border: 1px solid rgba(129, 211, 238, 0.75);
+    border-radius: 10px;
+    box-shadow: 0 12px 34px rgba(7, 25, 35, 0.42);
+}
+
+.example-api-help.is-interactive {
+    pointer-events: auto;
+}
+
+.example-api-help[hidden] {
+    display: none;
+}
+
+.example-api-help::before {
+    position: absolute;
+    top: var(--example-api-help-arrow-top, 50%);
+    left: -8px;
+    width: 14px;
+    height: 14px;
+    content: '';
+    background: rgba(13, 31, 43, 0.97);
+    border-bottom: 1px solid rgba(129, 211, 238, 0.75);
+    border-left: 1px solid rgba(129, 211, 238, 0.75);
+    transform: translateY(-50%) rotate(45deg);
+}
+
+.example-api-help.is-left::before {
+    right: -8px;
+    left: auto;
+    border: 0;
+    border-top: 1px solid rgba(129, 211, 238, 0.75);
+    border-right: 1px solid rgba(129, 211, 238, 0.75);
+}
+
+.example-api-help-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 5px;
+}
+
+.example-api-help-header [data-api-help-title] {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-bottom: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.example-api-help [data-api-help-close] {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    color: #d3e6ed;
+    pointer-events: auto;
+    background: transparent;
+    border: 0;
+    border-radius: 5px;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.example-api-help [data-api-help-close]:hover,
+.example-api-help [data-api-help-close]:focus-visible {
+    color: #fff;
+    background: rgba(255, 255, 255, .12);
+    outline: none;
+}
+
+.example-api-help strong {
+    display: block;
+    margin-bottom: 5px;
+    color: #a9e7f7;
+    font-size: 13px;
+}
+
+.example-api-help p {
+    margin: 0 0 9px;
+    color: #d3e6ed;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.example-api-help section + section {
+    margin-top: 10px;
+}
+
+.example-api-help section > b,
+.example-api-help section > small {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.example-api-help section > b {
+    color: #a9e7f7;
+    font-size: 11px;
+}
+
+.example-api-help section > small {
+    color: #a9bdc7;
+    font-size: 10px;
+}
+
+.example-api-help pre {
+    margin: 0;
+    padding: 10px;
+    overflow: auto;
+    color: #f3fbff;
+    background: #0a1821;
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    border-radius: 6px;
+    font-size: 11px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.example-api-help [data-api-help-source-code] {
+    display: block;
+    max-height: 210px;
+    overflow: auto;
+}
+
+.example-api-help [data-api-help-open-source] {
+    min-height: 28px;
+    margin-top: 8px;
+    padding: 5px 9px;
+    color: #f4fbfe;
+    background: rgba(70, 145, 178, .9);
+    border: 1px solid rgba(190, 232, 248, .52);
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.example-api-help [data-api-help-source-error] {
+    margin: 9px 0 0;
+    color: #ffd4d4;
+}

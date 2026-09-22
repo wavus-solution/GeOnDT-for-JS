@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>평균높이 측정 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        #analy-popup .div-popup {
+            width: 800px;
+            height: 280px;
+            top: 60vh;
+            padding-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> 평균높이 측정 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        사용자가 선택한 객체(건물 모델)들의 <strong>평균 높이를 측정</strong>하는 예제입니다.<br>
+        클릭 또는 영역을 드래그하여 객체를 선택할 수 있으며 선택된 객체는 빨간색으로 표기됩니다.
+    </p>
+</div>
+<div id="map-wrapper">
+    <div id="map"></div>
+    <div id="div-left-menu">
+        <div>
+            <div style="display: inline-flex; position: relative">
+                <button id="analy-bnt" class="btn btn-xs menu-btn">
+                    <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+                <div class="div-btn-info" hidden>
+                    분석 팝업 열기
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="btn-group" id='top-sbar'>
+        <div class='btn-group-vertical-block' id='right-toolbar'>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                     src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                     alt="나침반">
+            </button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                    id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                    id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                    id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+            </button>
+        </div>
+        <div class='btn-group' id='bt-bottom-bar'>
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                   value="위경도: ##.####  ###.#### ">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                   value="고도:####">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                   value="각도: ##">
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu='return false'>
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content" style="margin:0 10px;">
+                <div class="col-sm-4">
+                    <div class="form-group form-inline">
+                        <div class="radio" style="margin-right: 5px;">
+                            <label>
+                                <input type="radio" name="analy" value="UAnalyAverageHeight" checked>분석 시작
+                            </label>
+                        </div>
+                        <div class="radio" style="margin-right: 5px;">
+                            <label>
+                                <input type="radio" name="analy" value="close">분석 종료
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group form-inline">
+                        <label>평균높이: </label>
+                        <input type="input" name="select" id="average" value="0m" readonly>
+                        <button class="btn btn-default" id="calc" style="margin-top: 8px; ">평균높이 계산</button>
+                    </div>
+                </div>
+                <div class="col-sm-8">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <div class="d-flex">
+                                <div>선택된 건물 목록</div>
+                                <div class="flex-1 text-right">
+                                    <div class="btn-group">
+                                        <select name="mode" class="form-control input-sm">
+                                            <option value="point">클릭으로 선택</option>
+                                            <option value="polygon">영역으로 선택</option>
+                                        </select>
+                                    </div>
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-sm btn-select-clear">선택 초기화</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="select-target-list h-300 scroll-auto panel-body"
+                             style="height: 100px; overflow-y: scroll">
+                            <ol class="selected-list"></ol>
+                            <pre class="list-info">선택한 건물이 없습니다.</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script>
+    Union3D.ready(function () {
+        //지도 기본 세팅///////////////////////////////////////
+        window.app = new Union3D.U3dAPP({
+            containername: 'map',
+            maxprocess: 20
+        });
+        window.app = app;
+        app.setHomePosition(126.9395, 37.52, 450, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+        app.updateHomePosition();
+        app.createloadingBar('load');
+        app.on('change', updatePosData);
+
+        //이미지 레이어 생성 //////////////////////////////////////////////////////
+        let layer = new Union3D.image.U3dImageXYZLayer({
+            name: 'satellite',
+            baseurl: layerInfo.image.vworldsaturl,
+            reverseY: true
+        });
+        app.addLayer(layer);
+        //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+        app.setNameBaseLayer('satellite');
+        app.showLayer('satellite', true);
+        app.endloadingBar();
+
+        //+ U3f 모델 건물 ///////////////////////////////////////////////////////
+        createU3fModelLayers();
+
+        //고도 레이어 생성 /////////////////////////////////////////////////////
+        var terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+            name: 'Korea Terrain',  //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            ext: '.umf',  //+ 파일 확장자, *필수 입력
+            reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+            minlevel: 9, //+ 가시화 최소 레벨
+            maxlevel: 15, //+ 가시화 최대 레벨
+            useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+            maxprocess: 2, //+ process 최대값
+            interpolationheight: true,  //+ 고도보간 기능 사용 여부
+            rectangle: Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수
+        });
+        app.addLayer(terrainLayer);
+        app.showLayer('Korea Terrain', true);
+
+        //평균높이 분석모드 설정 //////////////////////////////////////////////////////
+        let analy = app.getAnalysis("AverageHeight");
+        analy.active();
+        window.analy = analy;
+        ////////////////////////////////////////////////////////////////////
+        // 화면 클릭/더블클릭 이벤트
+        app.on('click', addSelectedList);
+
+        function addSelectedList() {
+            // 분석모드 활성시
+            if (analy.isActive()) {
+                let $list = $('.selected-list');
+                $list.empty();
+
+                let selector = analy.getSelector();
+                let keys = selector.getSelectedKey();
+
+                if (keys.length !== 0)
+                    $('.list-info').css('display', 'none');
+
+                const uidList = [];
+                for (let i = 0; i < keys.length; i++) {
+                    let key = keys[i];
+                    const infos = analy.getSelectedModelHeight(key);
+                    if(!infos || infos.length ===0) continue;
+                    infos.forEach( info => {
+                        if(!uidList.includes(info.id)){
+                            $list.append(`<li><span> ${key} : ${info.height.toFixed(3)}m </span> </li>`);
+                            uidList.push(info.id);
+                        }
+                    })
+                }
+            }
+        }
+
+        //선택모드 설정 (클릭으로 선택 / 영역으로 선택)
+        $(document).on('change', 'select[name="mode"]', function () {
+            analy.setSelectType(this.value); //선택 방식을 설정하는 함수
+        });
+
+        // 선택 초기화 버튼
+        $(document).on('click', '.btn-select-clear', function () {
+            analy.clear();
+            let $list = $('.selected-list');
+            $list.empty();
+            $('.list-info').css('display', 'block');
+        });
+
+        // 평균 높이 분석 / 분석 종료 선택
+        $(document).on('change', 'input[name="analy"]', function () {
+            if (this.value !== 'close') {
+                $('#calc').attr('disabled', false);
+                analy.active();
+            } else {
+                $('#calc').attr('disabled', true);
+                analy.deactive();
+            }
+        });
+
+        //평균높이 계산
+        $(document).on('click', '#calc', function () {
+            const result = analy.getAverageHeight();
+            console.log(analy.getCalcResult());
+            $('#average').val(result + 'm');
+        });
+
+    });
+
+    function createU3fModelLayers() {
+        try {
+            /* request U3f layers list */
+            $.ajax({
+                url: modelU3fURL,
+                crossDomain: true,
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader('User-Authorization', trdDimAPIKey);
+                    xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+                },
+                error: function (e) {
+                    console.info(e);
+                }
+            }).then(function (result) {
+                let layers = result.params.data;
+
+                for (let i = 0; i < layers.length; i++) {
+                    let layer = layers[i];
+
+                    /* 레이어 목록 중 발행중인 레이어만 요청 */
+                    if (layer.state === "ACTIVE") {
+                        if (layer.name.indexOf('kopss') !== -1) {
+                            createModelLayer(layer, null, 1000)
+                        } else {
+                            createModelLayer(layer, null)
+                        }
+                    }
+                    window.metalayers[layer.name] = layer;
+                }
+                //   UnionObj.showLayer(groupLayer.getName(), true);
+            })
+        } catch (localBuldError) {
+            console.log('Initialize Error Message : ' + localBuldError);
+        }
+    }
+
+    var modelayers = undefined;
+    let maxprocess_model_ = 10;
+    let sizeblock_model_ = 10;
+    let updateimagedistance_ = 50;
+    var count = 0;
+    window.metalayers = {};
+    window.modelayers = modelayers;
+    var createModelLayer = function (info, groupLayer, wrapping) {
+        var deferInitialized = $.Deferred();
+        let metaData = info.metaData;
+        let subLayerName = info.name;
+        let buldLayerConstruct = {};
+        Object.assign(buldLayerConstruct, {name: subLayerName}); //+ U3F 3D 모델 레이어 이름, *필수 입력
+        Object.assign(buldLayerConstruct, {basename: subLayerName}); //+ U3F 데이터dml 정보가 있는 U3G 파일 이름, *필수 입력
+        Object.assign(buldLayerConstruct, {baseurl: info.baseUrl}); //+ U3F 데이터 경로의 기본 URL, *필수 입력
+        Object.assign(buldLayerConstruct, {minlevel: metaData.minLevel}); //+ 가시화 최소레벨
+        Object.assign(buldLayerConstruct, {maxlevel: metaData.maxLevel}); //+ 가시화 최대레벨
+        Object.assign(buldLayerConstruct, {srs: metaData.srs});
+        Object.assign(buldLayerConstruct, {ext: '.' + metaData.ext}); //+ 건물 이미지 포맷, defaultValue(opt.ext, '.u3f');
+        Object.assign(buldLayerConstruct, {maxprocess: maxprocess_model_}); //+ 최대 process 값
+        Object.assign(buldLayerConstruct, {sizeblock: sizeblock_model_}); //+ one per block model size, defaultValue(opt.sizeblockmodel, 1);
+        Object.assign(buldLayerConstruct, {updateimagedistance: updateimagedistance_}); //+ 건물 이미지 갱신 거리
+        Object.assign(buldLayerConstruct, {grouplayer: groupLayer}); //+ 그룹레이어
+        Object.assign(buldLayerConstruct, {wrapping: wrapping}); //+ 텍스처가 래핑되는 방식 defaultValue(opt.wrapping, THREE.ClampToEdgeWrapping);
+        Object.assign(buldLayerConstruct, {renderorder: 0}); //+ 렌더링 순서, 숫자가 클수록 앞에 나온다
+        Object.assign(buldLayerConstruct, {useproxy: false}); //+ 프록시 사용 여부, defaultValue(opt.useproxy, false);
+        let subLayer = app.create3DFModelLayer(buldLayerConstruct);
+        subLayer.then(function (layer) {
+            app.showLayer(layer.getName(), true);
+            count++;
+        }).fail(function (layer) {
+
+        });
+        modelayers = modelayers || [];
+        modelayers.push(subLayer);
+        return subLayer;
+    }
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+

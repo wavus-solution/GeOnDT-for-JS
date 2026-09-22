@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>일조량 분석</title>
+</head>
+<body style="padding-top: 0">
+<div class="index">
+    <a href="#jump1">1. 일조권 분석 모드 시작하기</a><br>
+    <a href="#jump2">2. 일조량 분석 모드 시작하기</a><br>
+    <a href="#jump3">3. 일조량 분석 결과 3D 가시화</a><br>
+    <a href="#jump4">4. 일조량 분석 가시화 종료하기</a><br>
+</div>
+<hr>
+<div class="content">
+    <h2 class="lead" id="jump1"> 1. 일조권 분석 모드 시작하기 </h2>
+    <div class="doc">
+        <div class="explane1">
+            * 일조량 분석을 위해선 우선 3D 환경에서 태양 빛, 그림자를 사용하기 위해
+            <mark>일조권 모드를 활성</mark>
+            해야 합니다.<br>
+            <div class="explane_api">
+                U3dApp.<span class="api_name">setSunShineMode()</span> : 일조권 모드를 활성 API
+            </div>
+        </div>
+        <label class="code-label">일조권 모들를 켜고 시간 세팅</label>
+        <div class="code" id="text1-code"></div>
+        <div class="code-text" id="text1" hidden="hidden">
+            app.setSunShineMode(true); //일조권 모드 Set
+            app.setTimeSun(now); // 현재 시간으로 세팅
+        </div>
+    </div>
+    <h2 class="lead" id="jump2"> 2. 일조량 분석 모드 시작하기 </h2>
+    <div class="doc">
+        <div class="explane1">
+            <div class="explane_api">
+                U3dApp.<span class="api_name">analySunAmount(<span class="param_name">startTime, endTime, position, timeStep, drawOpt, distance</span>)</span>
+                : 일조량 분석을 수행하는 API<br>
+                <div class="explane_api_param">
+                    <span class="param_name">startTime</span><span class="param_type">Date</span> : 일조량 분석 시작 시간 <span class="important_tg">*필수 입력</span>
+                    <br>
+                    <span class="param_name">endTime</span><span class="param_type">Date</span> : 일조량 분석 종료 시간 <span class="important_tg">*필수 입력</span>
+                    <br>
+                    <span class="param_name">position</span><span class="param_type">vector</span> : 일조량 분석 지점. 위경도 좌표 <span class="important_tg">*필수 입력</span> <br>
+                    <span class="param_name">timeStep</span><span class="param_type">number</span> : 일조량 분석 수행 간격(분) 기본 값 1 <br>
+                    <span class="param_name">drawOpt</span><span class="param_type">object</span> : 일조량 분석 3D 가시화 옵션
+                    <br>
+                    <span class="param_name">distance</span><span class="param_type">number</span> : 일조량 분석 수행 반경(m) 기본 값 5km
+                </div>
+            </div>
+            * drawOpt(일조량 분석 3D 가시화 옵션)의 자세한 내용은
+            <mark><strong><a href="#jump3">3. 일조량 분석 결과 3D 가시화</a></strong></mark>
+            항목을 참고해 주세요 <br>
+        </div>
+        <label class="code-label">1. 일조량 분석 수행 </label>
+        <div class="code" id="text2-code"></div>
+        <div class="code-text" id="text2" hidden="hidden">
+            // 일조량 분석 필수 파라미터
+            const startTime = new Date(2024, 11, 8, 6, 0); // 2024-11-08 6:00
+            const endTime = new Date(2024, 11, 8, 18, 0); // 2024-11-08 18:00
+            const position = {x: 126.92, y: 37.51, z: 116};
+
+            // 일조량 분석 옵션 파라미터 (필요에 따라 사용)
+            const timeStep = 1; // 1분 간격으로 분석 수행
+            const drawOpt = {isDraw : false} // 분석 결과 가시화 옵션
+            const distance = 5000; // 분석 수행 거리 (5km)
+
+                const result = app.analySunAmount(startTime, endTime, position, timeStep, drawOpt, distance);
+            </div>
+            <div class="explane1" >
+                * 일조량 분석 API는 return 값으로 각각의 <mark>분석 결과가 담긴 배열</mark>을 반환합니다.<br>
+                * start : 일조 시작 시간 (해가 드는 시간)<br>
+                * end : 일조 종료 시간 (그림자가 드는 시간)<br>
+                * amount : 일조 시작 시간 부터 일조 종류 시간 까지의 일조량(분)<br>
+            </div>
+            <label class="code-label">2. 일조량 분석 결과 확인 </label>
+            <div class="code" id="text3-code"></div>
+            <div class="code-text" id="text3" hidden="hidden">
+                const result = app.analySunAmount(startTime, endTime, position, timeStep, drawOpt, distance);
+                for(let data of result)  {
+                    const start = data.start;
+                    const end = data.end;
+                    const amount = data.amount;
+                    console.log (`시작 시간 : ${start}, 종료 시간 : ${end}, 일조량 : ${amount});
+                }
+            </div>
+            <label class="code-label">일조량 분석 결과 예시</label>
+            <img src="./image/anlaySunAmount/일조량분석결과.png" alt="일조량분석결과" data-size="large">
+        </div>
+        <h2 class="lead" id="jump3"> 3. 일조량 분석 결과 3D 가시화</h2>
+        <div class="doc">
+            <div class="explane1" >
+                * 일조량 분석 API 호출 시, 분석 가시화 옵션을 파라미터로 넣어 <mark>일조량 분석 결과를 사용자 범례에 따라 3D 화면 상에 가시화</mark> 할 수 있습니다.<br>
+                * 3D 화면 상에 일조량을 가시화 할 때, <mark><strong>N*N 큐브 형식</strong></mark>으로 표출됩니다.<br>
+                * 분석 가시화 옵션 값으로 isDraw(boolean), name(string), boxWidth(number), boxNum(number), styleFun(function)이 있습니다.<br>
+                <div class="explane_api">
+                    <div class="explane_api_param">
+                        <span class="param_name">isDraw</span><span class="param_type">boolean</span> : 분석 결과를 3D상에 가시화 할 것인지 여부. <br>
+                        <span class="param_name">name</span><span class="param_type">string</span> : 3D 가시화 객체의 이름. 객체를 식별하는 데 사용된다. 미 기입 시 "분석지점 (객체 개수)번"이 기본 값으로 들어간다.<br>
+                        <span class="param_name">boxWidth</span><span class="param_type">number</span> : 3D 가시화 객체(큐브)의 한 정육면체의 너비. 기본 값은 1 <br>
+                        <span class="param_name">boxNum</span><span class="param_type">number</span> : 3D 가시화 객체(큐브)의 정육면체 갯수. 기본 값은 6이고 6*6 큐브가 생성된다. <br>
+                        <span class="param_name">styleFun</span><span class="param_type">function</span> : 사용자 범례를 지정 하는 함수
+                    </div>
+                </div>
+            </div>
+            <label class="code-label">1. 사용자 범례 지정 함수(styleFun) 생성 </label>
+            <div class="code" id="text4-code"></div>
+            <div class="code-text" id="text4" hidden="hidden">
+                function userStyleFun ( cubeMesh, sunAmount) {
+                    if(sunAmount > 600) {
+                        return '#ff0000';
+                    } else if (sunAmount <= 600 && sunAmount > 400) {
+                        return '#ff8000';
+                    } else if (sunAmount <= 400 && sunAmount > 200) {
+                        return '#ffbf00';
+                    } else {
+                        return '#fff700';
+                    }
+                }
+            </div>
+            <label class="code-label">2. 일조량 분석 가시화 옵션 생성 후 일조량 분석 </label>
+            <div class="code" id="text5-code"></div>
+            <div class="code-text" id="text5" hidden="hidden">
+                const userDrawOption = {
+                    isDraw : true,
+                    name : "일조량 분석 1번"
+                    boxWidth : 1,
+                    boxNum : 10,
+                    styleFun : userStyleFun
+                }
+                const result = app.analySunAmount(startTime, endTime, position, timeStep, userDrawOption, distance);
+            </div>
+            <label class="code-label">일조량 분석 가시화 결과 : 전체 건물 분석 / 층별 분석</label>
+            <br>
+            <img src="./image/anlaySunAmount/일조량분석_가시화.png" alt="일조량 분석 가시화" data-size="small">
+            <img src="./image/anlaySunAmount/일조량분석_가시화_층별.png" alt="일조량 분석 층별 가시화" data-size="small">
+        </div>
+        <h2 class="lead" id="jump4"> 4. 일조량 분석 가시화 종료하기</h2>
+        <div class="doc">
+            <div class="explane1" >
+                * 일조량 분석 가시화를 종료하는 API는 <mark><strong>app.endAnalySunAmount</strong></mark>와  <mark><strong>app.removeAnalySunAmount</strong></mark> 두 가지가 있습니다.<br>
+                <div class="explane_api">
+                    <span class="api_name">U3dApp.endAnalySunAmount()</span> : 그려진 가시화 객체(큐브)를 <mark>전체 제거</mark>하는 API<br>
+                </div>
+                <div class="explane_api">
+                    <span class="api_name">U3dApp.removeAnalySunAmount</span>(<span class="param_name">meshName</span>) : 파라미터로 가시화 객체(큐브)의 이름을 입력해 해당하는 이름의 큐브 <mark>하나만 제거</mark>하는 API<br>
+                    <div class="explane_api_param">
+                        <span class="param_name">meshName</span><span class="param_type">string</span> : 제거할 가시화 객체(큐브)의 이름. 분석 가시화 옵션의 <mark>"name" 값과 동일한 값</mark>
+                    </div>
+                </div>
+            </div>
+            <label class="code-label">일조량 분석 종료 </label>
+            <div class="code" id="text6-code"></div>
+            <div class="code-text" id="text6" hidden="hidden">
+                app.removeAnalySunAmount("일조량 분석 1번"); // 단일 제거
+                app.endAnalySunAmount(); // 전체 제거
+            </div>
+        </div>
+    </div>
+</body>
+</html>

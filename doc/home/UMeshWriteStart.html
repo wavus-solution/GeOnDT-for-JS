@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>UMesh 파일 쓰기</title>
+</head>
+<body style="padding-top: 0">
+<div class="index">
+    <a href="#jump1">1. UMeshWriter 생성하기</a><br>
+    <a href="#jump2">2. UMeshWriter 준비하기 </a><br>
+    <a href="#jump3">3. UMesh 파일 쓰기 </a><br>
+</div>
+<div class="content">
+    <h2 class="lead" id="jump1"> 1. UMeshWriter 생성하기 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            * UMesh 파일을 쓰기 위해선 일단 UMeshWriter를 생성해야합니다. <br>
+            <div class="explane_api">
+                GeonDT.writer.<span class="api_name">UMeshWriter</span>({<span class="param_name">opt</span>});
+                <div class="explane_api_param">
+                    <span class="param_name">opt.app </span>
+                    <span class="param_type">U3dApp</span> : 사용할 app
+                    <br>
+                </div>
+            </div>
+        </div>
+        <label class="code-label">UMeshWriter 생성</label>
+        <div class="code" id="text1-code">
+        </div>
+        <div class="code-text" id="text1" hidden="hidden">
+            const writer = new GeonDT.writer.UMeshWriter({
+                app: u3dApp
+            });
+        </div>
+    </div>
+    <h2 class="lead" id="jump2"> 2. UMeshWriter 준비하기  </h2>
+    <div class="doc">
+        <div class="explane1" >
+            * 파일로 내보길 원하는 UMesh 객체 정보를 UMeshWriter가 인식할 수 있도록 writer 데이터를 생성해야합니다. (<mark>예제코드 확인</mark>) <br>
+            * UMeshWriter는 데이터 객체를 배열로 받아 umesh 포멧 파일로 생성합니다.
+        </div>
+        <label class="code-label">writer 데이터 생성</label>
+        <div class="code" id="text2-code">
+        </div>
+        <div class="code-text" id="text2" hidden="hidden">
+            const meshes = [];
+            modelList.forEach((model)=>{
+                const meshMap = {};
+                const items = [];
+                meshMap.type = "mesh" //일반 umesh 추가
+                // meshMap.type = "instanceMesh" //instance mesh 추가
+                meshMap.name = "UMesh_" + idx;
+                model.traverse((child)=>{
+                    if(child.isMesh)
+                        items.push(child)
+                });
+                meshMap.items = items;
+                meshes.push(meshMap);
+            });
+        </div>
+        <div class="explane1" >
+            * 추가적으로 imageFlipY 등 <mark>파일 생성에 관한 옵션</mark>을 필요에 따라 설정할 수 있습니다.
+        </div>
+        <label class="code-label">writer 옵션 생성</label>
+        <div class="code" id="text3-code">
+        </div>
+        <div class="code-text" id="text3" hidden="hidden">
+            let writeInfo = {
+                imageFlipY : imageFlipY
+            }
+        </div>
+        <div class="explane1" >
+            * 만약 일반 UMesh가 아닌 Instance Mesh를 쓰려고 한다면, <mark>Instance Mesh 정보</mark>를 담은 파라미터를 추가로 넣어야 합니다.
+        </div>
+        <label class="code-label">Instance Mesh 정보 생성</label>
+        <div class="code" id="text4-code">
+        </div>
+        <div class="code-text" id="text4" hidden="hidden">
+            // Instance Mesh 정보 리스트
+            instanceInfo = [
+            {
+                name : "instance_1",
+                resourceName : "UMesh_0",
+                position : {x:  127.132, y: 37.380, z: 84},
+                rotation : {x: 0, y: 0, z: 0},
+                scale : {x: 1, y: 1, z: 1}
+                },
+                {
+                name : "instance_2",
+                resourceName : "UMesh_0",
+                position : {x:  127.133, y: 37.381, z: 84},
+                rotation : {x: 0, y: 0, z: 0},
+                scale : {x: 1, y: 1, z: 1}
+                }
+            ]
+        </div>
+    </div>
+    <h2 class="lead" id="jump3"> 3. UMesh 파일 쓰기 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            * UMesh 파일을 쓰기 위해선 일단 UMeshWriter를 생성해야합니다. <br>
+            <div class="explane_api">
+                GeonDT.writer.<span class="api_name">UMeshWriter</span>({<span class="param_name">opt</span>});
+                <div class="explane_api_param">
+                    <span class="param_name">opt.app </span>
+                    <span class="param_type">U3dApp</span> : 사용할 app
+                    <br>
+                </div>
+            </div>
+        </div>
+        <label class="code-label">UMesh 파일 쓰기</label>
+        <div class="code" id="text5-code">
+        </div>
+        <div class="code-text" id="text5" hidden="hidden">
+            const writer = new GeonDT.writer.UMeshWriter({
+                app: u3dApp
+            });
+            writer.write(meshes, writeInfo, instanceInfo).then((data) =>{
+                const umeshBlob = data.umesh;
+                const fileName = 'GeOnDT_file.umesh';
+                const umeshBlobUrl = URL.createObjectURL(umeshBlob);
+                downLoadBlob(fileName, umeshBlobUrl);
+
+                const resourceList = data.resource;
+                for(let resource of resourceList) {
+                    fileName = item.name;
+                    resourceBlobUrl = URL.createObjectURL(item.blob);
+                    downLoadBlob(fileName, resourceBlobUrl);
+                }
+            });
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+    "name": "@types/webxr",
+    "version": "0.5.24",
+    "private": true,
+    "geondtVendoredTypesOnly": true,
+    "description": "TypeScript definitions for webxr",
+    "license": "MIT",
+    "types": "index.d.ts"
+}

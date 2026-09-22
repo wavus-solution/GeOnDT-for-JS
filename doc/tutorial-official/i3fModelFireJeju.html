@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>I3F 모델 레이어 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/tutorial.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        .examples {
+            padding: 15px 30px 15px 30px;
+        }
+
+        .btn-xs {
+            border: solid 0.1px rgb(128, 128, 128);
+            font-size: 8px;
+            line-height: 1;
+        }
+
+        .u3-popup {
+            position: absolute;
+            background-color: white;
+            -webkit-filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.2));
+            filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.2));
+            padding: 5px;
+            /*border-radius: 10px;*/
+            height: fit-content;
+            border: 1px solid #00000033;
+            bottom: 12px;
+            left: -50px;
+            min-width: 280px;
+            max-height: 280px;
+            display: none;
+            overflow-y: auto;
+        }
+
+        .u3-popup:after, .u3-popup:before {
+            top: 100%;
+            border: solid transparent;
+            content: " ";
+            height: 0;
+            width: 0;
+            position: absolute;
+            pointer-events: none;
+        }
+
+        .u3-popup:after {
+            border-top-color: white;
+            border-width: 10px;
+            left: 48px;
+            margin-left: -10px;
+        }
+
+        .u3-popup:before {
+            border-top-color: #cccccc;
+            border-width: 11px;
+            left: 48px;
+            margin-left: -11px;
+        }
+
+        .modal-header {
+            border-bottom: none;
+            height: 20px;
+            padding: 0 5px 0 5px;
+            line-height: 20px;
+        }
+
+        .panel-body {
+            padding-top: 0;
+        }
+
+        .move {
+            margin-left: 5px;
+        }
+
+    </style>
+</head>
+<body>
+<div id="map-wrapper">
+    <div id="map"></div>
+</div>
+<div class="execute-popup">
+    <button>직접해보기</button>
+</div>
+<div class="examples row">
+    <div class="ex-explanation" hidden>
+        <p class="lead">
+            3D 모델 레이어 중, <strong>I3F Tiles 모델 레이어를 화면에 출력</strong>하는 예제입니다.<br>
+            부산, 일산 건물 모델을 기본으로 제공하고 있으며, 서버에 등록된 건물 모델을 받아와 사용할 수 도 있습니다.
+        </p>
+    </div>
+    <div class="form-group">
+        <div class="checkbox" style="margin-left: 20px">
+            <label style="font-weight: bold;">
+                <input type="checkbox" id="selectObject">
+                객체 선택 모드
+            </label>
+        </div>
+        <div class="checkbox" style="margin-left: 20px">
+            <label style="font-weight: bold;">
+                <input type="checkbox" id="showTerrain">
+                고도 레이어 가시화
+            </label>
+        </div>
+
+        <div class="col-sm-4 ">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <label> 제주시설물 </label>
+                </div>
+                <div class="panel-body">
+                    <div class="checkbox">
+                        <label>
+                            <input type="checkbox" target="LOD1">
+                            LOD1
+                            <button class="btn btn-xs btn-primary move">이동</button>
+                            <button class="btn btn-xs btn-danger delete">삭제</button>
+                        </label>
+                    </div>
+                    <div class="checkbox">
+                        <label>
+                            <input type="checkbox" target="LOD2">
+                            LOD2
+                            <button class="btn btn-xs btn-primary move">이동</button>
+                            <button class="btn btn-xs btn-danger delete">삭제</button>
+                        </label>
+                    </div>
+                    <div class="checkbox">
+                        <label>
+                            <input type="checkbox" target="LOD3">
+                            LOD3
+                            <button class="btn btn-xs btn-primary move">이동</button>
+                            <button class="btn btn-xs btn-danger delete">삭제</button>
+                    </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script>
+    var sampleHeight = 200;
+    var positions = {
+        '세운상가': {x: 126.995168, y: 37.569604, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '국회의사당': {x: 126.91415231094318, y: 37.53189615862187, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '63빌딩': {x: 126.9395, y: 37.52, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '대전': {x: 127.3846, y: 36.3506, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '광명역': {x: 126.8853, y: 37.4163, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '아시아문화전당': {x: 126.9206, y: 35.1471, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '강남사거리': {x: 127.0278, y: 37.498, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '목포': {x: 126.381862, y: 34.802357, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '송도': {x: 126.66, y: 37.38, z: 250, rotateX: 2, rotateY: 60},
+        '한반도': {x: 127.77, y: 36.73, z: 561000, rotateX: 0, rotateY: 0},
+        '아시아': {x: 126.66, y: 37.38, z: 4007500, rotateX: 0, rotateY: 0},
+        '시청': {x: 126.9760, y: 37.5575, z: 350, rotateX: 2, rotateY: 60},
+        '부산': {x: 129.173, y: 35.176142, z: 350, rotateX: 0, rotateY: 60},
+        '안양': {x: 126.962, y: 37.396, z: 220, rotateX: 2, rotateY: 60},
+        '덕촌': {x: 127.359, y: 36.660, z: 1240, rotateX: 0, rotateY: 0},
+        '부산순복음': {x: 129.168, y: 35.167, z: 400, rotateX: 0, rotateY: 40},
+        '제주': {x: 126.48, y: 33.48506, z: 350, rotateX: 2, rotateY: 60},
+        '독도': {x: 131.870694, y: 37.240680, z: 150, rotateX: 2, rotateY: 60},
+        '마곡': {x: 126.825, y: 37.569, z: 800, rotateX: 2, rotateY: 30},
+        '고양시청': {x: 126.832, y: 37.658, z: 800, rotateX: 2, rotateY: 30}
+    };
+
+    var rootUrl =  'https://dt-data.mappick.co.kr/ServiceData/i3f/jeju/';
+   // rootUrl = 'http://192.168.200.10:20000/model/fire/';
+
+    var LAYER_OPT = {
+        LOD1: {
+            name: 'LOD1',
+           // url: 'http://192.168.10.72:20000/model/LOD1/tilemap.json',
+             url: rootUrl + 'lod1/tilemap.json',
+            apikey: '',
+            desc: 'LOD1',
+            position: {x: 126.774, y: 37.660, z: 600, rotateX: 2, rotateY: 60}
+        },
+        LOD2: {
+            name: 'LOD2',
+           // url: 'http://192.168.10.72:20000/model/LOD2/tilemap.json',
+             url: rootUrl + 'lod2/tilemap.json',
+            apikey: '',
+            desc: 'LOD2',
+            position: {x: 126.774, y: 37.660, z: 600, rotateX: 2, rotateY: 60}
+        },
+        LOD3: {
+            name: 'LOD3',
+            //url: 'http://192.168.10.72:20000/model/LOD3/tilemap.json',
+             url: rootUrl + 'lod3/tilemap.json',
+            apikey: '',
+            desc: 'LOD3',
+            position: {x: 126.774, y: 37.660, z: 600, rotateX: 2, rotateY: 60}
+        },
+        server_model: {
+            name: 'server_model'
+        }
+
+    }
+
+    var layers = {};
+    require(['app/Union3D'], function (Union3D) {
+        //라이센스 인증
+        Union3D.ready(function () {
+            //지도 기본 세팅///////////////////////////////////////
+            window.app = new Union3D.U3dAPP({
+                containername: 'map',
+                methodheight: '1_0', //+ 지형처리방법
+                searchtype: 'sphere' //+ 타일검색 방법
+            });
+
+            var info = positions['고양시청'];
+            app.setHomePosition(info.x, info.y, info.z, info.rotateX, info.rotateY); //경도, 위도, 높이, 방위각, 고도각
+            app.updateHomePosition().then(function () {
+                app.setUnderGroundMode();
+                app.forceUpdate();
+            })
+
+            //이미지 레이어 생성
+            var layer = new Union3D.image.U3dImageXYZLayer({
+                name: 'satellite',
+                baseurl: layerInfo.image.vworldsaturl,
+                reverseY: true
+            });
+            app.addLayer(layer);
+            app.showLayer('satellite', true);
+            //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+            app.setNameBaseLayer('satellite');
+
+            var layerHybrid = new Union3D.image.U3dImageXYZLayer({
+                name: 'hybrid',
+                baseurl: layerInfo.image.vworldhybirdurl,
+                reverseY: true
+            });
+            app.addLayer(layerHybrid);
+            app.showLayer('hybrid', true);
+
+            var terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+                name: 'Korea Terrain',
+                baseurl: layerInfo.height.url,
+                ext: '.umf',
+                reverseY: true,
+                minlevel: 9,
+                maxlevel: 15,
+                useproxy: false,
+                maxprocess: 2,
+                rectangle: Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2)
+            });
+            app.addLayer(terrainLayer);
+            app.showLayer('Korea Terrain', false);
+
+            // 모델 정보 보기 모드 활성
+            var analy = app.getAnalysis('ObjectInfo');
+            window.analy = analy;
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////
+            ///////////////////////////////////////// event 등록 ///////////////////////////////////////////////////
+            ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+            //+ 마우스 클릭 event 등록
+            app.on('click', async function (e) {
+                if (!analy.isActive())
+                    return;
+
+                var obj = analy.intersectModel(e); //+ 마우스 클릭시 해당하는 model 찾기
+                if (obj === undefined || obj.length === 0) {
+                    //+ 해당하는 model이 없을 경우
+                    return;
+                }
+
+                var latlon = app.vector3ToGeoGraphic(obj[0].point); //+ vector 좌표 위경도 좌표로 변환
+                var overlay = await createOverlay('overlay', obj[0], latlon); //+ 위경도 좌표에 overlay 생성
+                overlay.show(); //+ overlay 가시화
+            });
+
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////
+            ///////////////////////////////////////// function 선언 ////////////////////////////////////////////////
+            ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+            //+ overlay 생성 function
+            async function createOverlay(name, obj, position) {
+                var html = await printOverlayHtml(obj);//+ overlay UI
+                var overlay = new Union3D.overlay.U3dOverlay({
+                    name: name, //+ 오버레이 이름, * 필수 입력,  defaultValue(opt.name, undefined);
+                    id: obj.uuid, //+ 오버레이 ID, defaultValue(opt.id, Guid());
+                    element: html, //+ 오버레이 html의 문자열 또는 JQuery 객체, *필수 입력
+                    position: position, //+ 오버레이 위치(위경도), defaultValue(opt.position, undefined);, *필수 입력
+                    useanchor: false, //+ 클릭 지점에 따라 앵커 자동 변경,  defaultValue(opt.useanchor, true);
+                    balloon: {x: -50, y: 10} //+ balloon 위치,  defaultValue(opt.balloon, {x: 0, y: 0});
+                });
+                app.removeAllOverlay(); //+ 다른 overlay 전체 삭제
+                app.addOverlay(overlay); //+ 새로 만든 overlay 추가
+                var element = overlay.getElement();
+                //+ overlay에 닫기 event 추가
+                $(element).on('click', '.close', popUpCloseClick.bind(overlay));
+                return overlay;
+            }
+
+            //+ overlay UI
+            async function printOverlayHtml(obj) {
+                var item = obj.object;
+                var str = '';
+                str += '<div class="u3-popup" id=' + obj.uuid + '>';
+                str += '<div class="u3-popup-content">';
+                str += '<div class="modal-header">';
+                str += '<button type="button" class="close"><span aria-hidden="true">&times;</span>';
+                str += '</button>';
+                str += '</div>';
+
+                str += '<div class="item-sub-title"><span class="text-icon">레이어 명: </span>' + item._ulayername + '</div>';  //+ model layer Name
+                str += '<div class="item-sub-title"><span class="text-icon">번호: </span>' + item.uuid + '</div>'; //+ model UUID
+                str += '<hr>'
+                if (item.userData.metaurl)
+                    str += '<div class="item-sub-title"><span class="text-icon">META_URL: </span>' + item.userData.metaurl + '</div>'; //+ model UUID
+
+                //   if (item.userData.filename)
+                //       str += '<div class="item-sub-title"><span class="text-icon">정보: </span>' + item.userData.filename + '</div>'; //+ model UUID
+
+                if (item.userData) {
+                    str += printProperties(item.userData);
+                }
+                str += '</div>';
+                str += '</div>';
+                return str;
+            }
+
+            function printProperties(properties) {
+                var str = "";
+                var keys = Object.keys(properties);
+                for (var i = 0; i < keys.length; i++) {
+                    var key = keys[i];
+                    str += '<div class="item-sub-title"><span class="text-icon">' + key + ' : </span>' + properties[keys[i]] + '</div>';
+                }
+
+                return str;
+            }
+
+            //+ overlay 닫기 event function
+            function popUpCloseClick() {
+                $(this.element).off('click', '.close', popUpCloseClick);
+                app.removeOverlay(this); //+ overlay 제거
+                analy.clear(); //+ 분석 내용 비우기
+            }
+
+            /////////////////////////////////////////////////////
+            function createTilesLayer(name) {
+                if (layers[name] === name)
+                    return;
+
+                //+ 서버 등록건물
+                if (name === LAYER_OPT['server_model'].name) {
+                    $.ajax({
+                        url: LAYER_OPT['server_model'].url,
+                        crossDomain: true,
+                        beforeSend: function (xhr) {
+                            xhr.setRequestHeader('User-Authorization', trdDimAPIKey);
+                            xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+                        },
+                        error: function (e) {
+                            console.info(e);
+                        }
+                    }).then(function (res) {
+                        Union3D.UDEF.assert(res.params);
+                        Union3D.UDEF.assert(res.params.data);
+
+                        var data = res.params.data;
+                        Union3D.UDEF.assert(data.type);
+                        Union3D.UDEF.assert(data.baseUrl);
+                        Union3D.UDEF.assert(data.metaData);
+                        Union3D.UDEF.assert(data.metaData.srs);
+                        Union3D.UDEF.assert(data.metaData.geometricError);
+                        Union3D.UDEF.assert(data.metaData.boundingVolume);
+                        Union3D.UDEF.assert(data.metaPath);
+
+                        Union3D.UDEF.assert(data.type == "3dtiles");
+                        Union3D.UDEF.assert(data.metaData.srs == "EPSG:4978");
+                        Union3D.UDEF.assert(Array.isArray(data.metaData.boundingVolume));
+                        Union3D.UDEF.assert(data.metaData.boundingVolume.length == 4);
+
+                        var spath = data.metaPath.split('/');
+                        var filename = spath[spath.length - 1];
+                        var url = data.baseUrl + '/' + filename;
+                        console.info(url);
+
+                        var modellayer = new Union3D.model.U3dModelI3FLayer({
+                            name: name,
+                            useproxy: false,
+                            baseurl: url,
+                            ext: '.b3dm',
+                            minlevel: Union3D.UDEF.isIE() ? 17 : 17,
+                            maxlevel: Union3D.UDEF.isIE() ? 17 : 17,
+                            apikey: LAYER_OPT[name].apikey,
+                            autoHeight: false
+                        });
+                        app.addLayer(modellayer);
+                        //layer.ready.then 이나 layer.then 을 사용하여
+                        //레이어 로딩 후 기능을 구현합니다.
+                        modellayer.ready.then(function (res) {
+                            console.log(modellayer.getBoundingBox());
+                            //fitLayerExtent 함수는 app.addLayer 후 ready.then이나 then을 사용하여 이용합니다.
+                            var position = modellayer.getCenterGeographic();
+                            console.info(position);
+                            LAYER_OPT[name].position.x = position.x;
+                            LAYER_OPT[name].position.y = position.y;
+                            LAYER_OPT[name].position.z = 800;
+                            LAYER_OPT[name].position.rotateX = 2;
+                            LAYER_OPT[name].position.rotateY = 30;
+                            app.fitLayerExtent(name, false, 700).then(function () {
+                                console.log(name + "이동 완료");
+                            }).catch(function () {
+                                console.log(name + "이동 오류");
+                            });
+
+                            app.showLayer(name, true);
+                        });
+                        window.layer = modellayer;
+                        layers[name] = name;
+
+                    });
+                }
+                else {
+                    var modellayer = new Union3D.model.U3dModelI3FLayer({
+                        name: name,
+                        useproxy: false,
+                        baseurl: LAYER_OPT[name].url,
+                        minlevel: Union3D.UDEF.isIE() ? 17 : 17,
+                        maxlevel: Union3D.UDEF.isIE() ? 19 : 19,
+                        apikey: LAYER_OPT[name].apikey,
+                        // autoHeight: true, // true시 고도에 맞춰서 지하시설물이 지상으로 표출
+                        useloadimage: true,
+                        metaDataFunction: metaDataFunction
+                    });
+                    app.addLayer(modellayer);
+
+                    modellayer.then(function () {
+                        app.fitLayerExtent(name, false, 700).then(function () {
+                            console.log(name + "이동 완료");
+                        }).catch(function () {
+                            console.log(name + "이동 오류");
+                        });
+
+                        app.showLayer(name, true);
+                    });
+                    window.layer = modellayer;
+                    layers[name] = name;
+                }
+            }
+
+            function metaDataFunction(meta) {
+                // console.log(meta)
+            }
+
+            function removeLayer(name) {
+                if (layers[name] !== name)
+                    return;
+
+                app.removeLayer(name);
+                layers[name] = undefined;
+            }
+
+            $(document).on('click', 'input[type=checkbox]', checked);
+
+            function checked(e) {
+                var $checkbox = $(e.target);
+                var name = $checkbox.attr('target');
+                createTilesLayer(name);
+
+                if ($checkbox[0].checked) {
+                    app.showLayer(name, true)
+                } else {
+                    app.showLayer(name, false)
+                }
+
+            }
+
+            $(document).on('click', '.move', move);
+
+            function move(e) {
+                e.preventDefault();
+                var name = $($(this).siblings()[0]).attr('target');
+                var pos = LAYER_OPT[name].position;
+
+                var delayTime = 4000;
+                app.setCameraGeographicPosition(pos.x, pos.y, pos.z, pos.rotateX, pos.rotateY, delayTime);
+            }
+
+            $(document).on('click', '.delete', deleteFunc);
+
+            function deleteFunc(e) {
+                e.preventDefault();
+                var name = $($(this).siblings()[0]).attr('target');
+
+                removeLayer(name);
+
+                $($(this).siblings()[0]).prop('checked', false);
+            }
+
+            $(document).on('click', '#selectObject', selectObject);
+
+            function selectObject(e) {
+
+                if (e.target.checked) {
+                    analy.active();
+                } else
+                    analy.deactive();
+            }
+
+            $(document).on('click', '#showTerrain', showTerrain);
+
+            function showTerrain(e) {
+                if (e.target.checked)
+                    app.showLayer('Korea Terrain', true);
+                else
+                    app.showLayer('Korea Terrain', false);
+            }
+
+        });
+    });
+</script>
+</body>
+</html>

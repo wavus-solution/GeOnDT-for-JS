@@ -1,0 +1,202 @@
+/*@import url("css-develope/common.scss");*/
+@import url(https://fonts.googleapis.com/css?family=Quattrocento+Sans:400,400italic,700);
+
+:root{
+    --main-backgroud: #4166ce;
+    --main-color: #e5f6ff;
+}
+
+.navbar-inverse {
+    border: 0;
+}
+.navbar-inverse .navbar-inner {
+    background:  var(--main-backgroud);;
+    height: 50px;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.25);
+}
+.navbar-inverse .brand {
+    color: #fff;
+    font-size: 160%;
+    font-weight: bold;
+    position: absolute;
+    top: 6px;
+    left: 16px;
+}
+.navbar-inverse .brand:hover,
+.navbar-inverse .brand:focus {
+    color: #aae1e9;
+    text-decoration: none;
+}
+.navbar-inverse .brand img {
+    width: 35px;
+    height: 35px;
+    vertical-align: middle;
+    margin-right: 5px;
+    border:0;
+}
+.navbar-inverse .container {
+    padding: 0;
+}
+.navbar-inverse .navbar-nav>li>a {
+    color: #fff;
+}
+.navbar-inverse .navbar-nav>li>a:hover,
+.navbar-inverse .navbar-nav>li>a:focus,
+.navbar-inverse .navbar-nav>li>a.active
+{
+    outline:0;
+    color: #fff;
+    background-color:  var(--main-backgroud);
+}
+
+nav {
+    width: 100%;
+}
+
+.navbar-union-logo {
+    background-image: url(../solution_GeOnDT.png);
+    background-size: 30px 30px;
+    background-repeat: no-repeat;
+    background-position: 10px;
+    padding-left: 45px;
+    color: white !important;
+}
+
+.examples {
+    width: 100%;
+    padding-left: 10px;
+    padding-right: 10px;
+
+}
+
+.execute-popup {
+   text-align: left;
+    padding-top: 10px;
+    padding-left: 10px;
+    padding-right: 10px;
+    /*padding: 4px 0px 0px 40px;*/
+}
+
+#title{
+    position: absolute;
+}
+
+.panel {
+    box-shadow: 0 2px 9px rgba(0, 0, 0, 0.57);
+    cursor: pointer;
+}
+
+.panel-body {
+    height: 120px;
+    overflow: auto;
+}
+
+.search {
+    float: right;
+    margin: 10px;
+}
+
+#map-wrapper {
+    width: 100%;
+    height: 600px;
+}
+
+#map {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    float: left;
+    overflow: hidden;
+}
+
+.panel-primary {
+    border-color: #1F6B75;
+}
+.panel-primary>.panel-heading {
+    color: #fff;
+    background-color:  var(--main-backgroud);
+    border-color: #1F6B75;
+}
+
+.modal-header {
+    border-bottom: none;
+    height: 20px;
+    padding: 0 5px 0 5px;
+    line-height: 20px;
+}
+
+.u3-plane-popup {
+    position: absolute;
+    background-color: black;
+    color: whitesmoke;
+    -webkit-filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.2));
+    filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.2));
+    padding: 5px;
+    /*border-radius: 10px;*/
+    border: 3px solid #00000033;
+    border-color: #e47617;
+    bottom: 12px;
+    left: -50px;
+    min-width: 280px;
+    display: none;
+}
+
+.popup-plane-closer {
+    text-decoration: none;
+    position: absolute;
+    top: 2px;
+    right: 8px;
+}
+
+.popup-plane-closer:after {
+    content: "\2716";
+}
+
+.u3-popup {
+    position: absolute;
+    background-color: white;
+    -webkit-filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.2));
+    filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.2));
+    padding: 5px;
+    /*border-radius: 10px;*/
+    border: 1px solid #00000033;
+    bottom: 12px;
+    left: -50px;
+    min-width: 280px;
+    display: none;
+}
+
+.u3-popup:after, .u3-popup:before {
+    top: 100%;
+    border: solid transparent;
+    content: " ";
+    height: 0;
+    width: 0;
+    position: absolute;
+    pointer-events: none;
+}
+
+.u3-popup:after {
+    border-top-color: white;
+    border-width: 10px;
+    left: 48px;
+    margin-left: -10px;
+}
+
+.u3-popup:before {
+    border-top-color: #cccccc;
+    border-width: 11px;
+    left: 48px;
+    margin-left: -11px;
+}
+
+.popup-closer {
+    text-decoration: none;
+    position: absolute;
+    top: 2px;
+    right: 8px;
+}
+
+.popup-closer:after {
+    content: "\2716";
+}

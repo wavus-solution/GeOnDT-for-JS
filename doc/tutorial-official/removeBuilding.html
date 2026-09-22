@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>건물지우기 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        html, body {
+            height: 100%;
+        }
+
+        .examples {
+            padding: 15px 30px 15px 30px;
+        }
+
+        #map-wrapper {
+            position: relative;
+            height: 800px;
+            width: 100%;
+            float: left;
+        }
+
+        #map {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            float: left;
+        }
+
+    </style>
+</head>
+<body>
+<div id="map-wrapper">
+    <div id="map"></div>
+</div>
+<div class="execute-popup"><button>직접해보기</button></div>
+<div class="examples row">
+    <div class="col-sm-6">
+     <pre>건물 지우기
+
+         #건물 선택 방식
+         1. 클릭으로 선택 : 건물을 클릭해 선택하는 방식으로, Shift 키를 누른상태로 클릭할 경우 다중 선택을 지원합니다.
+         2. 영역으로 선택 : 지표면에 마우스 클릭으로 영역을 그려 해당 영역안에 포함되는 건물을 선택하는 방식입니다.
+
+         #건물 선택
+         건물 선택 방식을 선택한 뒤, 지도상에서 마우스 클릭을 통해 건물을 선택합니다.
+         선택된 건물정보는 '선택된 건물 목록' 에서 확인 할 수있습니다.
+
+         #선택된 건물 지우기
+         '선택된 건물 지우기' 버튼을 클릭하게 되면 선택된 건물이 지도상에서 제거 됩니다.
+         삭제된 건물은 '삭제건물 목록'에서 확인 할 수 있습니다.
+
+         #건물 지우기 취소
+         '삭제건물 목록'에서 항목마다 '건물 지우기 취소' 버튼을 통해 건물 지우기를 취소 할 수있습니다.
+         해당 버튼을 클릭하면 삭제되었던 건물이 다시 가시화 됩니다.
+
+         #전체 지우기 취소
+         '전체 지우기 취소' 버튼을 클릭해 모든 지우기 작업을 취소 할 수 있습니다.
+
+         #저장
+         '저장' 버튼을 클릭해 현재 작업 내용을 저장 할 수 있습니다.
+         저장 포멧은 JSON 형태로 저장됩니다.
+         예제 페이지에서는 javascript에 SAVE_REMOVED_INFO 변수로 저장합니다. 콘솔에서 확인 할 수 있습니다.
+
+         #불러오기
+         '불러오기' 버튼을 클릭해 저장되었던 지우기 작업 내역을 로딩할 수 있습니다.
+         예제 페이지에서는 javascript에 SAVE_REMOVED_INFO 변수로 저장된 내역을 사용합니다.
+
+         #API Document
+
+
+     </pre>
+    </div>
+    <div class="col-sm-6">
+
+        <div class="col-sm-12">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <div class="d-flex">
+                        <div>선택된 건물 목록</div>
+                        <div class="flex-1 text-right">
+                            <div class="btn-group form-inline">
+                                <div class="radio">
+                                    <label>
+                                        <input type="radio" name="select" value="on" checked>
+                                        ON
+                                    </label>
+                                </div>
+                                <div class="radio">
+                                    <label>
+                                        <input type="radio" name="select" value="off">
+                                        OFF
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="btn-group">
+                                <select name="mode" class="form-control input-sm">
+                                    <option value="point">클릭으로 선택 (Shift + click 시 다중선택 지원)</option>
+                                    <option value="area">영역으로 선택</option>
+                                </select>
+                            </div>
+                            <div class="btn-group">
+                                <div class="btn btn-default btn-sm btn-remove">선택된 건물 지우기</div>
+                            </div>
+                            <div class="btn-group">
+                                <div class="btn btn-default btn-sm btn-select-clear">선택 초기화</div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="select-target-list h-300 scroll-auto panel-body">
+                    <pre>선택된 건물이 없습니다.</pre>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-12">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <div class="d-flex">
+                        <div>삭제건물 목록</div>
+                        <div class="flex-1 text-right">
+                            <div class="btn-group">
+                                <div class="btn btn-default btn-sm btn-save-remove">저장</div>
+                                <div class="btn btn-default btn-sm btn-load-remove">불러오기</div>
+                            </div>
+                            <div class="btn-group">
+                                <div class="btn btn-default btn-sm btn-cancel-all">전체 지우기 취소</div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="remove-target-list h-300 scroll-auto panel-body">
+                    <pre>삭제된 건물이 없습니다.</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function() {
+        window.open('./runner.html?url=' + strings[strings.length-1] + '&title=' + document.title);
+    })
+</script>
+<script>
+    require(['app/Union3D'], function (Union3D) {
+        window.SAVE_REMOVED_INFO = '';
+        Union3D.ready(function () {
+
+            //지도 기본 세팅///////////////////////////////////////
+            var app    = new Union3D.U3dAPP({
+                containername: 'map',
+                maxprocess   : 20
+            });
+            window.app = app;
+            app.setHomePosition(126.9395, 37.52, 450, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+            app.updateHomePosition();
+
+            //이미지 레이어 생성
+            var imageLayer = new Union3D.image.U3dImageXYZLayer({
+                name    : 'satellite',
+                baseurl : layerInfo.image.vworldsaturl,
+                reverseY: true
+            });
+            app.addLayer(imageLayer);
+            //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+            app.setNameBaseLayer('satellite');
+            app.showLayer('satellite', true);
+
+            //+ WFS 모델 ///////////////////////////////////////////////////////////////////
+            var wfsModel = new Union3D.model.U3dModelWFSLayer({
+                name       : 'WFS Model',
+                layername: layerInfo.wfs_korea.layername, //+ 레이어 이름, *필수 입력
+                // sldurl:  layerInfo.wfs_unionit.sldurl,
+                baseurl:  layerInfo.wfs_korea.baseurl, //+ baseurl 지도 서비스 기본 URL, *필수 입력
+                //층수필드나 높이필드를 선택하여 사용
+                //fieldheight: layerInfo.wfs_korea.fieldheight, //+ 높이 필드 (속성테이블 칼럼명), defaultValue(opt.fieldheight, undefined)
+                fieldfloor: layerInfo.wfs_korea.fieldfloor, //+ 층수 필드 (속성테이블 칼럼명), defaultValue(opt.fieldheight, undefined)
+                fieldheightfloor:layerInfo.wfs_korea.fieldheightfloor,
+                floorheight:layerInfo.wfs_korea.floorheight, //+ 층수 높이 필드
+                fieldKind: layerInfo.wfs_korea.fieldKind,  //+ 종류 필드 (속성테이블 칼럼명), defaultValue(opt.fieldKind, undefined)
+                transperent: true, //+ 투명화 여부
+                minlevel: 17, //+ 가시화 최소레벨,defaultValue(opt.minlevel, 17)
+                drawline: false, //+ WFS 모델에 테투리 추가 여부
+                opacity: 0.8, //+ 투명화 여부 true 일 경우, 투명도 설정값으로 적용
+                textureurl: './image/buld/buld_texture_1.jpg',  //+ 텍스처 url, defaultValue(opt.textureurl, undefined)
+                useproxy:true
+            });
+
+            app.addLayer(wfsModel);
+            app.showLayer('WFS Model', true);
+
+            var terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+                name      : 'Korea Terrain',
+                baseurl   : layerInfo.height.url,
+                ext       : '.umf',
+                reverseY  : true,
+                minlevel  : 9,
+                maxlevel  : 15,
+                maxprocess: 2,
+                rectangle : Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2)
+            });
+            app.addLayer(terrainLayer);
+            app.showLayer('Korea Terrain', true);
+
+            //선택 모듈 기본 설정
+            var select;
+            selectOn();
+
+            //선택 모듈 활성화
+            function selectOn() {
+                if (select !== undefined) {
+                    return;
+                }
+                select = new Union3D.select.U3dSelect();
+                app.addSelect(select);
+                select.active();
+                //건물선택시 발생되는 이벤트
+                select.on('change', printSelectedList);
+            }
+
+            //선택 모듈 비활성화
+            function selectOff() {
+                if (select === undefined) {
+                    return;
+                }
+                select.deactive();
+                app.removeSelect(select);
+                select.off('change', printSelectedList);
+                select = undefined;
+            }
+
+            //선택모드 라디오버튼
+            $(document).on('click', 'input[name="select"]', function () {
+                if (this.value === 'on') {
+                    selectOn();
+                } else {
+                    selectOff();
+                }
+            });
+
+            //선택모드 설정
+            $(document).on('change', 'select[name="mode"]', function () {
+                select.setMode(this.value); //선택 방식을 설정하는 함수
+            });
+
+            // 선택된 건물 지우기
+            $(document).on('click', '.btn-remove', function () {
+                var mapMode = $('input[value=map-mode]:checked').val();
+                if (mapMode) {
+                    return;
+                }
+                var list = select.getSelected();
+                //건물 지우기 함수 (파라미터) Array || Object {layer:레이어이름,uid:유니크아이디}
+                app.removeModel(list);
+                select.clear();
+                printRemovedtList();
+            });
+
+            // 선택 초기화
+            $(document).on('click', '.btn-select-clear', function () {
+                select.clear();
+            });
+
+            // 건물지우기 작업 취소
+            $(document).on('click', '.btn-cancel-remove', function () {
+                var layer = $(this).closest('.remove-item').attr('layer');
+                var uid   = $(this).closest('.remove-item').attr('uid');
+                app.cancelRemoveModel(layer, uid);
+                printRemovedtList();
+            });
+
+            // 저장하기
+            $(document).on('click', '.btn-save-remove', function () {
+                SAVE_REMOVED_INFO = JSON.stringify(app.getRemovedModelList());
+                confirm('건물지우기 작업이 저장되었습니다.')
+            });
+
+            // 불러오기
+            $(document).on('click', '.btn-load-remove', function () {
+                app.cancelAllRemoveModel();
+                var removedUid = JSON.parse(SAVE_REMOVED_INFO);
+                removedUid.forEach(function (info) {
+                    app.removeModel(info);
+                    printRemovedtList();
+                });
+            });
+
+            // 건물삭제 전체 취소
+            $(document).on('click', '.btn-cancel-all', function () {
+                app.cancelAllRemoveModel();
+                printRemovedtList();
+            });
+
+
+            //예제페이지 UI 출력 함수///////////////////////////////////////
+            function printSelectedList(e) {
+                var selected = e.data.selected;
+                var str      = '';
+                if(selected==undefined || selected == null)
+                    return;
+
+                selected.forEach(function (obj) {
+                    str += '<div class="d-flex select-item" layer="' + obj.getLayerName() + '"uid="' + obj.getUid() + '" >';
+                    str += '<div class="flex-1">'
+                    str += '<span class="badge">레이어 이름</span>' + obj.getLayerName() + '&nbsp';
+                    str += '<span class="badge">ID</span>' + obj.getUid() + '</div>';
+                    str += '<div class="text-right">';
+                    str += '</div>';
+                    str += '</div>';
+                });
+                str = str === '' ? '<pre>선택된 건물이 없습니다</pre>' : str;
+                $('.select-target-list').html(str);
+            }
+
+            function printRemovedtList() {
+                var list = app.getRemovedModelList();
+                var str  = '';
+                list.forEach(function (info) {
+                    str += '<div class="d-flex remove-item" layer="' + info.layer + '" uid="' + info.uid + '">';
+                    str += '<div class="flex-1">';
+                    str += '<span class="badge">레이어 이름</span>' + info.layer + '&nbsp';
+                    str += '<span class="badge">ID</span>' + info.uid + '</div>';
+                    str += '<div class="text-right">';
+                    str += '<div class="btn-group">';
+                    str += '<div class="btn btn-xs btn-danger btn-cancel-remove">건물 지우기 취소</div>';
+                    str += '</div>';
+                    str += '</div>';
+                    str += '</div>';
+                });
+                str = str === '' ? '<pre>삭제된 건물이 없습니다</pre>' : str;
+                $('.remove-target-list').html(str);
+            }
+
+            /////////////////////////////////////////////////////
+
+        });
+    });
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+

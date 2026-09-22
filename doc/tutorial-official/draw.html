@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>도형 그리기 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="css/tutorial.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        .examples {
+            padding: 15px 30px 15px 30px;
+        }
+
+
+    </style>
+</head>
+<body>
+<div id="map-wrapper">
+    <div id="map"></div>
+    <div id="slope-dialog"></div>
+</div>
+<div id="dialog" title="그리기 모듈"></div>
+<div class="execute-popup"><button>직접해보기</button></div>
+<div class="examples row">
+    <div class="btn btn-default btn-sm btn-geom-type active">Point</div>
+    <div class="btn btn-default btn-sm btn-geom-type">LineString</div>
+    <div class="btn btn-default btn-sm btn-geom-type">Polygon</div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function() {
+        window.open('./runner.html?url=' + strings[strings.length-1] + '&title=' + document.title);
+    })
+</script>
+<script>
+    require(['app/Union3D'], function (Union3D) {
+        //라이센스 인증
+        Union3D.ready(function () {
+            //지도 기본 세팅///////////////////////////////////////
+            var app = new Union3D.U3dAPP({
+                containername: 'map'
+            });
+            app.setHomePosition(126.952, 37.578, 1500, 0, 45); //경도, 위도, 높이, 방위각, 고도각
+            app.updateHomePosition();
+
+            //이미지 레이어 생성
+            var layer = new Union3D.image.U3dImageXYZLayer({
+                name    : 'satellite',
+                baseurl :  layerInfo.image.vworldsaturl,
+                reverseY: true
+            });
+            app.addLayer(layer);
+            //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+            app.setNameBaseLayer('satellite');
+            app.showLayer('satellite', true);
+
+            var terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+                name               : 'Korea Terrain',
+                baseurl            : layerInfo.height.url,
+                ext                : '.umf',
+                reverseY           : true,
+                minlevel           : 9,
+                maxlevel           : 15,
+                useproxy           : false,
+                maxprocess         : 2,
+                interpolationheight: true,
+                rectangle          : Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2)
+            });
+            app.addLayer(terrainLayer);
+            app.showLayer('Korea Terrain', true);
+
+            // WFS 모델
+            //+ WFS 모델 ///////////////////////////////////////////////////////////////////
+            var wfsModel = undefined;
+            wfsModel = new Union3D.model.U3dModelWFSLayer({
+                name: 'WFS Model',
+                layername: layerInfo.wfs_unionit.layername,
+                sldurl:  layerInfo.wfs_unionit.sldurl,
+                baseurl:  layerInfo.wfs_unionit.baseurl,
+                fieldheight: layerInfo.wfs_unionit.fieldheight,
+                fieldKind: layerInfo.wfs_unionit.fieldKind,
+                transperent: true,
+                minlevel: 17,
+                drawline: false,
+                opacity: 0.8,
+                textureurl: './image/buld/buld_texture_1.jpg',
+                //   usetexture: true
+            });
+
+            app.addLayer(wfsModel);
+            app.showLayer('WFS Model', true);
+
+            /////////////////////////////////////////////////////
+            let draw = new Union3D.UDraw();
+            draw.setApp(app);
+            draw.active();
+
+            draw.on('start', function (e) {
+                //그리기 시작 이벤트
+                console.log(e);
+            });
+
+            draw.on('change', function (e) {
+                //도형 변경 이벤트
+                console.log(e);
+            });
+            draw.on('end', function (e) {
+                //그리기 종료 이벤트
+                console.log(e);
+            });
+
+            draw.label     = function (feature) {
+                //도형 중앙에 표시되는 3d 라벨의 텍스트 리턴
+                // undefined || null || nullString 일 경우 표시되지않음.
+                let geom = feature.getGeometry();
+                if (geom instanceof ol.geom.Polygon) {
+                    return ol.Sphere.getArea(geom, {projection: ol.proj.get('EPSG:4326')}).toFixed(2)
+                }
+                return 'Center';
+            }
+
+            draw.nodeLabel = function (feature) {
+                //도형 노드마다 표시되는 3d 라벨 텍스트 리턴
+                // undefined || null || nullString 일 경우 표시되지않음.
+                let geom = feature.getGeometry();
+                if (geom instanceof ol.geom.Point) {
+                    return '';
+                }
+                if (geom instanceof ol.geom.LineString) {
+                    draw.removeNodeLabel(feature);
+                    return ol.Sphere.getLength(geom, {projection: ol.proj.get('EPSG:4326')}).toFixed(2)
+                }
+
+                return 'Node';
+            }
+            //디버깅용
+            window.app     = app;
+            window.draw    = draw;
+        });
+
+        $('.btn-geom-type').on('click', function () {
+            $('.btn-geom-type').removeClass('active');
+            $(this).addClass('active');
+            draw.setGeometryType(this.innerHTML);
+        })
+    });
+</script>
+</body>
+</html>

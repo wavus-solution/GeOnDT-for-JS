@@ -1,0 +1,1441 @@
+<!DOCTYPE html>
+<html lang="kr">
+<head>
+    <meta charset="UTF-8">
+    <title>오염 확산 예제</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        #analy-popup .div-popup {
+            display: flow;
+            width: 450px;
+            height: 550px;
+            top: 25vh;
+            padding-bottom: 10px;
+            overflow-y: scroll;
+        }
+
+        .form-group {
+            margin-bottom: 5px;
+        }
+
+        .legend-input::-webkit-color-swatch {
+            border: none;
+        }
+
+        .my-legend .legend-title {
+            text-align: left;
+            margin-bottom: 8px;
+            font-weight: bold;
+            font-size: 90%;
+        }
+
+        .my-legend .legend-scale ul {
+            margin: 0;
+            padding: 0;
+            float: left;
+            list-style: none;
+        }
+
+        .my-legend .legend-scale ul li {
+            display: block;
+            float: left;
+            width: 50px;
+            margin-bottom: 6px;
+            text-align: center;
+            font-size: 80%;
+            list-style: none;
+        }
+
+        .my-legend ul.legend-labels li span {
+            display: block;
+            float: left;
+            height: 15px;
+            width: 50px;
+        }
+
+        .my-legend .legend-source {
+            font-size: 70%;
+            color: #999;
+            clear: both;
+        }
+
+        .my-legend a {
+            color: #777;
+        }
+
+        .slider-wrapper {
+            --list-length: 170px;
+            width: var(--list-length);
+            margin-left: 10px;
+            margin-right: 60px;
+        }
+
+        #custom-handle {
+
+            height: 23px;
+            width: 50px;
+            text-align: center;
+            top: -5px;
+            background-color: black;
+            color: white;
+        }
+
+
+        .u3-popup {
+            color: #fff;
+            background-color: rgba(20, 20, 20, 0.6);
+            padding: 5px;
+            border: 1px solid #00000033;
+        }
+
+        .u3-popup:after, .u3-popup:before {
+            border-top-color: rgba(20, 20, 20, 0.3);
+        }
+
+        .u3-popup:after {
+            border-width: 10px;
+            left: 48px;
+            margin-left: -10px;
+        }
+
+        .u3-popup:before {
+            border-width: 11px;
+            left: 48px;
+            margin-left: -11px;
+        }
+
+        .u3-popup .u3-popup-content .modal-header {
+            border-bottom: none;
+            height: 20px;
+            padding: 0 5px 0 5px;
+            line-height: 20px;
+            background-color: rgb(43, 69, 140);
+        }
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: button;
+            opacity: 1;
+        }
+
+        #opacity {
+            width: 250px;
+        }
+        #opacity-handle {
+            height: 20px;
+            width: 30px;
+            text-align: center;
+            background-color: black;
+            color: white;
+            top: -5px;
+        }
+
+
+        .ui-slider-range{
+            background: #2b448b;
+            height: 20px;
+            position: absolute;
+            border-top: 1px solid #5d99c8;
+            border-bottom: 1px solid #5d99c8;
+            transform: translateY(-1px);
+
+            &:after{
+                content: '';
+                width: 100%;
+                height: 1px;
+                background: #fff;
+                position: absolute;
+                top: 0;
+                left: 0;
+                opacity: 0.3;
+            }
+        }
+
+        #setLegend{
+            background: #555;
+            position: absolute;
+            width: 250px;
+            height: 10px;
+            /*top: 50%;*/
+            display: block;
+            /*transform: translate(-50%, -50%);*/
+            border-radius: 100px;
+            z-index: 10;
+            background: linear-gradient(#555, #454545);
+            cursor: move; /* fallback if grab cursor is unsupported */
+            cursor: grab;
+
+            box-shadow: inset -2px -2px 6px 2px rgba(0,0,0, 0.1);
+            transition: width 0.1s;
+
+            &:focus{
+                outline: none;
+            }
+
+            &:active{
+                cursor: grabbing;
+
+            }
+        }
+        #min-legend-handle, #max-legend-handle {
+            height: 20px;
+            width: 30px;
+            text-align: center;
+            background-color: black;
+            color: white;
+            top: -5px;
+        }
+
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span>오염 확산 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        객체 확산 모델을 활용하여 오염 수치 정보로 <strong>오염 확산 객체가 생성</strong>되는 예제입니다.<br>
+        오염도에 따라 범례를 지정하거나. 투명도를 설정 할수 있습니다.
+        시작 / 정지 버튼을 클릭하여 실행 중인 확산의 동작을 제어 할수있습니다.
+    </p>
+</div>
+<div id="map-wrapper">
+    <div id="map"></div>
+    <div id="div-left-menu">
+        <div>
+            <div style="display: inline-flex; position: relative">
+                <button id="analy-bnt" class="btn btn-xs menu-btn">
+                    <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+                <div class="div-btn-info" hidden>
+                    분석 팝업 열기
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="btn-group" id='top-sbar'>
+        <div class='btn-group-vertical-block' id='right-toolbar'>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                     src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                     alt="나침반">
+            </button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                    id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                    id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                    id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+            </button>
+        </div>
+        <div class='btn-group' id='bt-bottom-bar'>
+            <div class="grid-mesh-legend hidden">
+                <div style="margin: 20px; padding: 10px; background: #f5f5f5; border-radius: 5px;">
+                    <div style="font-weight: bold; margin-bottom: 10px;color:#333">수치별 색상 범례</div>
+                    <div style="height: 40px; width: 100%; border-radius: 4px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); background: linear-gradient(to right,
+                                #4474A0 0%,
+                                #449da0 12.5%,
+                                #68AD3D 25%,
+                                #84ad3d 37.5%,
+                                #BCAB3C 50%,
+                                #C1712C 62.5%,
+                                #B24924 75%,
+                                #b10026 100%);">
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-top: 5px; font-size: 12px; color: #666;">
+                        <span>0m</span>
+                        <span>250m</span>
+                        <span>500m</span>
+                        <span>750m</span>
+                        <span>1000m ~ </span>
+                    </div>
+                </div>
+            </div>
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                   value="위경도: ##.####  ###.#### ">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                   value="고도:####">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                   value="각도: ##">
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu='return false'>
+        <div class="div-popup" >
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content" style="margin:0 5px;">
+                <div class="form-group" style="margin:5px 5px; height: 100%;">
+                    <div style="padding-left: 15px;">
+                        <div style="margin-bottom: 5px">
+                            <label>동작 제어 : </label>
+                            <button class="btn btn-default control" id="setStart" style="width: 150px">시작</button>
+                            <button class="btn btn-default control " id="setStop" style="width: 150px">정지</button>
+                        </div>
+
+                        <div class='my-legend'>
+                            <div class='legend-title'>[범례]</div>
+                            <div class='legend-scale'>
+                                <ul class='legend-labels'>
+                                    <li><input type="color" class="legend-input" name ="0" value="#ffffcc" style='background:#ffffcc;'>0.001</li>
+                                    <li><input type="color" class="legend-input" name ="1" value="#ffeda0" style='background:#ffeda0;'>0.005</li>
+                                    <li><input type="color" class="legend-input" name ="2" value="#fed976" style='background:#fed976;'>0.015</li>
+                                    <li><input type="color" class="legend-input" name ="3" value="#feb24c" style='background:#feb24c;'>0.02</li>
+                                    <li><input type="color" class="legend-input" name ="4" value="#fd8d3c" style='background:#fd8d3c;'>0.035</li>
+                                    <li><input type="color" class="legend-input" name ="5" value="#fc4e2a" style='background:#fc4e2a;'>0.07</li>
+                                    <li><input type="color" class="legend-input" name ="6" value="#e31a1c" style='background:#e31a1c;'>0.09</li>
+                                    <li><input type="color" class="legend-input" name ="7" value="#b10026" style='background:#b10026;'>0.1</li>
+                                </ul>
+                            </div>
+                            <div class='legend-source' ></div>
+                        </div>
+
+                        <div style="display: flex">
+                            <button class="btn btn-default control " id="createGrid">그리드 타입 생성</button>
+                            <div class="radio-group" style="margin-left: 10px">
+                                <div class="radio">
+                                    <label>
+                                        <input type="radio" name="grid-mode" value="spread" checked>
+                                        확산 모드
+                                    </label>
+                                </div>
+                                <div class="radio">
+                                    <label>
+                                        <input type="radio" name="grid-mode" value="grid">
+                                        격자 모드
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="form-group" style="margin-top:5%">
+                        <div class="form-group slider-wrapper" hidden>
+                            <label>시간대 설정 </label>
+                            <div id="time-slider" >
+                                <div id="custom-handle" class="ui-slider-handle"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="">
+                        <div class="checkbox">
+                            <label>
+                                <input class="show-grid-helper" type="checkbox">
+                                격자 가시화
+                            </label>
+                        </div>
+                        <div class="checkbox">
+                            <label style="display: flex">
+                                <input class="show-arrow-helper" type="checkbox" >
+                                데이터 방향 가시화
+                                <select class="form-control input-sm select-arrow-helper-group" style="width:150px; margin-left: 10%">
+                                    <option value="" selected="">가시화 대상 선택</option>
+                                </select>
+                            </label>
+                        </div>
+                        <div class="checkbox">
+                            <label style="display: flex">
+                                <input class="show-grid-box" type="checkbox" >
+                                격자 박스 가시화
+                            </label>
+                        </div>
+                        <div class="checkbox">
+                            <label style="display: flex">
+                                <input class="show-grid-mesh" type="checkbox" >
+                                매쉬 객체 가시화
+                            </label>
+                            <div class="form-group slider-wrapper grid-mesh-opacity hidden" style="width: 150px;margin-top: 5px;  display: -webkit-inline-flex;">
+                                <ul style="list-style:none; display:inline-block;">
+                                    <li style="padding-right: 5px;">
+                                        <div style="width:150px">
+                                            애니메이션 제어 :
+                                        </div>
+                                    </li>
+                                    <li style="margin-bottom: 10px">
+                                        <button class="btn btn-default control " id="startMorph">시작</button>
+                                        <button class="btn btn-default control " id="stopMorph">정지</button>
+                                        <button class="btn btn-default control " id="resetMorph" >초기화</button>
+                                    </li>
+
+                                    <li style="padding-right: 5px;">
+                                        <div style="width:250px">
+                                            현재 진행 값 : <label id="progress"> </label><br>
+                                            최소 / 최대 범례 조정 : <label id="amount"> </label>
+                                        </div>
+                                    </li>
+                                    <li style="padding-right: 20px; margin-bottom: 10px">
+                                        <div style="padding: 4px">
+                                            <div id="setLegend">
+                                                <div id="min-legend-handle" class="ui-slider-handle"></div>
+                                                <div id="max-legend-handle" class="ui-slider-handle"></div>
+                                            </div>
+                                        </div>
+                                    </li>
+
+                                    <li style="padding-right: 5px;">
+                                        <div style="width:250px">
+                                            투명도
+                                        </div>
+                                    </li>
+                                    <li style="padding-right: 20px;">
+                                        <div style="padding: 4px">
+                                            <div id="opacity">
+                                                <div id="opacity-handle" class="ui-slider-handle"></div>
+                                            </div>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+
+                        </div>
+
+
+                        <div class="col-sm-12">
+                            <label class="col-sm-10">GRID Json 데이터</label>
+                            <textarea class="form-control grid-data"  rows="10"></textarea>
+                            <div style="display: flex; margin-top: 1%">
+                                <button class="btn btn-default control " id="createGrid-json" style="width: 100px;">생성</button>
+                                <div class="radio-group" style="margin-left: 10px">
+                                    <div class="radio">
+                                        <label>
+                                            <input type="radio" name="grid-mode-json" value="spread" checked>
+                                            확산 모드
+                                        </label>
+                                    </div>
+                                    <div class="radio">
+                                        <label>
+                                            <input type="radio" name="grid-mode-json" value="grid">
+                                            격자 모드
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script src="../../dist/extension/GESpreadObject/GESpreadObject.min.js" type="module"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script>
+    //라이센스 인증
+    GeOnDT.ready(function () {
+        GeOnDT.addon(GESpreadObject); //addon 설정
+        let dataUrl = dataServerUrl + '/poi_image/';
+        const name = "GRID_PARTICLE_SAMPLE"; // grid particle name;
+        let opt = {
+            name: name, // 확산객체 여러개일 경우 검색시에 필요
+            position: {x:0, y: 0,z: 0}, // type - 'grid' 일 경우  data의 originX, originY 기준으로 생성 / 불필요
+            positionSpread: {x:0, y: 0,z: 0}, // type - 'grid' 일 경우 widthSize or heightSize 기준 / 불필요
+            velocityBase: {x:0, y: 0,z: 0}, // type - 'grid' 일 경우 미동작 / 불필요
+            velocitySpread: {x:0, y: 0,z: 0}, // type - 'grid' 일 경우 미동작 / 불필요
+            acceleration: {x:0, y: 0,z: 0},// type - 'grid' 일 경우 미동작 / 불필요
+
+            angleBase: 0, // 객체 회전 초기값 ( 다른 이미지 사용시 회전 초기설정 필요)
+            angleSpread: 180, // 회전각도 범위 ( angleBase + 0 ~ angleSpread) 값으로 초기 설정 (설정값까지의 무작위 값)
+            angleVelocityBase: 0, // 이동시 초기 회전 속도 값
+            angleVelocitySpread: 15, //이동시 초기 회전 속도 범위 값 ( 회전 속도 값에 설정한 값까지의 무작위 값 )
+
+            particleImage: dataUrl + 'cloud1.png', //객체 텍스쳐 이미지 원하는 이미지로 변경하여 사용 가능
+            opacityTween: [[0, 5, 20], [0.1, 0.9, 0.0]], // [[timeArray] [opacityArray]] 범례 지정시 opacityArray[1]의 값이 범례값 우선적으로 적용
+            colorTween: [[0, 20], [0xd73027, 0xffffbf]], // [[timeArray] [colorArray]] 범례 지정시 colorArray[1]의 값이 범례값 우선적으로 적용
+            sizeTween: [[0, 5, 20], [50, 180, 550]], //[[timeArray] [sizeArray]]
+
+            /**
+             * sizeTween과 opacityTween의 timeArray와 sizeArray는 시간이 흐름에 따라 크기와 불투명도가 어떻게 변화하는지를 제어하는 역할을 합니다.
+             * sizeTween의 예를 살펴보면:
+             *
+             * timeArray는 특정 시간 지점을 나타내고, sizeArray는 해당 시간에 도달했을 때 객체의 크기를 나타냅니다.
+             * 예를 들어, timeArray[0] = 0초이고 sizeArray[0] = 10이라면, 0초부터 크기가 10이 됩니다.
+             * 현재 사용 중인 grid type에서는 0(sizeTween[0][0]의 값)초에서 5(sizeTween[0][1]의 값)초 사이에 크기가 10(sizeTween[1][0])값에서 80(sizeTween[1][1])으로 등비에 따라 증가합니다. ( 10 ~ 80의 크기로 0 ~ 5초까지의 크기변화를 나타냅니다. )
+             * 그 다음 sizeTween[0][2] = 20초이고 sizeTween[1][2] = 250이라면, 5(sizeTween[0][1]의 값)초에서 20(sizeTween[0][2]의 값)초 사이에 크기가 80에서 250으로 증가합니다.
+             * 이 경우 15초 동안 170의 크기 차이가 나며, 이는 초당 11.33...(170/15)씩 증가하게 됩니다.
+             *         즉, timeArray와 sizeArray는 시간별로 크기가 어떻게 변하는지를 정의하고, 각 구간의 크기 변화 속도는 두 지점 사이의 크기 차이를 두 시간 간격으로 나누어 계산됩니다.
+             *         particleDeathAge의 값이 timeArray의 최대값이고 해당 값까지 크기가 등비로 조정됩니다.
+             *         particleDeathAge 10일경우 해당 수치들은 10초일때의 해당하는 값까지만 적용이 됩니다. ( timeArray의 값이 10보다 큰 경우 무시됨 )
+             */
+
+            particlesPerSecond: 200,
+            particleDeathAge: 50.0,
+            emitterDeathAge: 10000,
+            type : 'grid', // type 으로 생성 방식을 구분 [ analy.GRID_TYPE : 'grid' ]
+            gridMode: document.querySelector('input[name = "grid-mode"]:checked').value, //  확산 모드('spread'), 격자 모드 ('grid') 선택  - default value = spread
+            // GridBox 독립 생성 옵션 (analy.createGridBox(opt))
+            gridBoxMaxHeight: 1000, // 격자 박스 최대 높이 (default : 1000)
+            gridBoxColor: 0x4474A0, // legend 미사용 시 기본 Box 색상
+            gridBoxOpacity: 0.6, // legend 미사용 시 기본 Box 투명도
+            gridBoxLineColor: 0x000000, // Box 외곽선 색상
+
+            // GridMesh 독립 생성 옵션 (analy.createGridMesh(opt))
+            gridMeshMaxHeight: GeOnDT.UDefaultSource.POLLUTION_DEGREE_MAX_DATA, // 오염도 수치의 출력 최댓값 ( default value : 1000 )
+            gridMeshOpacity: 1.0, // gridMesh 투명도 ( default value : 1 )
+            gridMeshRatio: 1, //  (1 : gridMeshRatio) 축척 ( default value : 1 )
+            gridMeshLogConstant: 1000,
+
+            // Grid ArrowHelper 독립 생성 옵션 (analy.createGridArrowHelper(opt))
+            arrowHelperColor: '#ffffff', // ArrowHelper 색상
+            arrowHelperOpacity: 1, // ArrowHelper 투명도
+            arrowLength: 10, // ArrowHelper 길이
+
+            data:[GeonDT.UDefaultSource.POLLUTION_DEGREE_DATA] // Grid 시각화 및 오염확산에 사용하는 데이터
+        }
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// 지도 기본세팅 /////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        const app = new GeOnDT.U3dAPP({
+            containername: 'map' //+ U3dApp(지도영역)의 div ID, *필수 입력
+        });
+        window.app = app;
+        app.setHomePosition(129.3396951369653, 35.49690302682818, 2000, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+        app.updateHomePosition();
+        app.createloadingBar('load');
+        app.on('change', updatePosData);
+        let poi, overlay,currentFaceObject,currentResult, clickPoint, poiList = new Map();
+        let currentKey = '';
+
+        // createGridArrowHelper/createGridBox는 Particle과 독립적으로 생성되며
+        // data index별 THREE.Group 배열을 반환한다.
+        let gridArrowHelperGroups = [];
+        let gridBoxGroups = [];
+
+
+        //이미지 레이어 생성
+        const layer = new GeOnDT.image.U3dImageXYZLayer({
+            name: 'satellite',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.image.vworldsaturl,  //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+        });
+        app.addLayer(layer);
+        //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+        app.setNameBaseLayer('satellite');
+        app.showLayer('satellite', true);
+        app.endloadingBar();
+
+        const terrainLayer = new GeOnDT.terrain.U3dHeightXYZLayer({
+            name: 'Korea Terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            ext: '.umf', //+ 파일 확장자,  *필수 입력
+            reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false), *필수 입력
+            minlevel: 9,  //+ 가시화 최소 레벨
+            maxlevel: 15, //+ 가시화 최대 레벨
+            useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+        });
+        app.addLayer(terrainLayer);
+        app.showLayer('Korea Terrain', true);
+
+        const tilesOpt = {
+            name:'ulsanTilesV5_left',
+            baseurl: 'https://dt-data.mappick.co.kr/ServiceData/3dtiles/ulsan_tiles_v5/left/tileset.json',
+            viewSizeOffset: 1,
+            cacheSize: 1000
+        }
+        const tilesLayer = new GeOnDT.model.U3dModelTilesLayer(tilesOpt);
+        app.addLayer( tilesLayer );
+        tilesLayer.then(()=>{
+             app.showLayer(tilesLayer.getName(),true);
+        });
+        const analy = app.getAnalysis('Particle');
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////// event 등록 //////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+        $(document).on('click', '#createGrid', function () {
+            app.loadingBar();
+            let dataList = [];
+            let sampleData = GeonDT.UDefaultSource.POLLUTION_DEGREE_DATA
+            dataList.push(sampleData);
+
+            app.setCameraGeographicPosition( 129.3396951369653, 35.49690302682818, 2000);
+
+            opt.data = dataList;
+            opt.gridMode = document.querySelector('input[name = "grid-mode"]:checked').value //  확산 모드('spread'), 격자 모드 ('grid') 선택  - default value = spread
+
+            console.log(opt);
+            opt.legend = getLegend();
+
+            let text = ''
+            $('.select-arrow-helper-group').empty();
+            $('.select-arrow-helper-group').append('<option value="">가시화 대상 선택</option>');
+            text += `[`
+            dataList.forEach((data,idx) => {
+                text += JSON.stringify(data)
+                if(idx < dataList.length-1)
+                    text +=','
+                $('.select-arrow-helper-group').append(
+                    '<option value="' + idx + '">' + idx + '</option>'
+                );
+            })
+            text +='] '
+            $('.select-arrow-helper-group').select(0);
+            $('.grid-data').val(text);
+
+            //이전 파티클 객체 전체 삭제
+            setTimeout(() => {
+                analy.removeAllParticle();
+                analy.initialize(opt); // opt 값으로 초기 설정
+                analy.active(); // 실행
+
+                // GridHelper는 기존 분석 상태를 사용하고,
+                // GridArrowHelper/GridBox는 opt.data만으로 Particle과 독립 생성한다.
+                applyGridHelperState();
+                applyArrowHelperState();
+                applyGridBoxState();
+
+                app.endloadingBar();
+            }, 500);
+
+            let handle = $("#custom-handle");
+            $('.slider-wrapper').show()
+            $('#time-slider').slider({
+                value: 0,
+                min: 0, // min value
+                max: dataList[dataList.length-1].time, // max value
+                step: 1, // 10초 단위
+                create: function () {
+                    const val = $(this).slider("value");
+                    const time = minuteToString(val);
+                    handle.text(time);
+                },
+                slide: function (event, ui) {
+                    const val = ui.value;
+                    const time = minuteToString(val);
+                    handle.text(time);
+                    $('#current-time').html(time);
+                    analy.setTime(val, name)
+                    // 시간대 기능 동작
+
+                }
+            });
+            //  $('.show-grid-mesh').trigger('click');
+        })
+        $(document).on('click', '#setStart', function(){
+            analy.setStart(name); //애니메이션 시작
+        })
+        $(document).on('click', '#setStop', function(){
+            analy.setStop(name); //애니메이션 정지
+        })
+        /**
+         * GridHelper 체크 상태 적용
+         * GridHelper 역시 미생성 상태에서 필요할 때 생성한다.
+         */
+        function applyGridHelperState() {
+            if (!analy) return;
+
+            const visible = $('.show-grid-helper').prop('checked');
+            if (visible && !analy.getGridHelper()) {
+                analy.createGridHelper(opt);
+            }
+
+            analy.showGridHelper(visible);
+            if (visible) {
+                analy.setGridHelperColor('#00ff00'); //기본값 '#00ff00'
+                analy.setGridHelperOpacity(1); //기본값 1
+            }
+        }
+
+        /**
+         * createGridArrowHelper(options) / createGridBox(options)가 반환한
+         * data index별 Group 배열의 가시화를 설정한다.
+         *
+         * idx가 없으면 전체 data index를 동일하게 설정하고,
+         * idx가 있으면 해당 index만 보이도록 처리한다.
+         *
+         * 이 함수는 Particle의 showArrowHelper/showGridBox API를 호출하지 않는다.
+         */
+        function setStandaloneGridVisualVisibility(groups, visible, idx) {
+            if (!Array.isArray(groups)) return;
+
+            const targetIndex = idx === undefined || idx === null || idx === ''
+                ? undefined
+                : Number(idx);
+
+            groups.forEach((group, groupIndex) => {
+                if (!group) return;
+
+                if (targetIndex === undefined) {
+                    group.visible = visible;
+                } else {
+                    group.visible = visible && groupIndex === targetIndex;
+                }
+            });
+        }
+
+        /**
+         * ArrowHelper 체크 상태 적용
+         *
+         * analy.createGridArrowHelper(opt)
+         *  - Particle initialize 여부와 관계없이 opt.data를 직접 사용
+         *  - opt.data[].grid -> gridValue -> directionValue를 내부에서 계산
+         *  - data index별 ArrowHelper Group 배열 반환
+         *
+         * analy.removeGridArrowHelper(name)
+         *  - createGridArrowHelper(opt)로 생성된 독립 ArrowHelper 제거/dispose
+         */
+        function applyArrowHelperState() {
+            if (!analy) return;
+
+            const visible = $('.show-arrow-helper').prop('checked');
+
+            if (!visible) {
+                analy.removeGridArrowHelper(name);
+                gridArrowHelperGroups = [];
+                return;
+            }
+
+            // createGridArrowHelper()에 필요한 값은 options로 직접 전달한다.
+            // setArrowHelper* API를 호출하지 않아 Particle 기반 helper에 영향을 주지 않는다.
+            opt.arrowHelperColor = '#ffffff';
+            opt.arrowHelperOpacity = 1;
+            opt.arrowLength = 10;
+            opt.visible = true;
+
+            gridArrowHelperGroups = analy.createGridArrowHelper(opt) || [];
+
+            const selectedValue = $('.select-arrow-helper-group').val();
+            setStandaloneGridVisualVisibility(
+                gridArrowHelperGroups,
+                true,
+                selectedValue
+            );
+        }
+
+        /**
+         * GridBox 체크 상태 적용
+         *
+         * analy.createGridBox(opt)
+         *  - Particle initialize 여부와 관계없이 opt.data를 직접 사용
+         *  - opt.data[].grid를 내부에서 gridValue로 변환
+         *  - data index별 GridBox Group 배열 반환
+         *
+         * analy.removeGridBox(name)
+         *  - createGridBox(opt)로 생성된 독립 GridBox 제거/dispose
+         */
+        function applyGridBoxState() {
+            if (!analy) return;
+
+            const visible = $('.show-grid-box').prop('checked');
+
+            if (!visible) {
+                analy.removeGridBox(name);
+                gridBoxGroups = [];
+                return;
+            }
+
+            opt.legend = getLegend(); // Box 범례 갱신
+            opt.gridBoxMaxHeight = 1000;
+            opt.gridBoxColor = 0x4474A0;
+            opt.gridBoxOpacity = 0.6;
+            opt.gridBoxLineColor = 0x000000;
+            opt.visible = true;
+
+            gridBoxGroups = analy.createGridBox(opt) || [];
+
+            const selectedValue = $('.select-arrow-helper-group').val();
+            setStandaloneGridVisualVisibility(
+                gridBoxGroups,
+                true,
+                selectedValue
+            );
+        }
+
+        $(document).on('click', '.show-grid-helper', function () {
+            applyGridHelperState();
+        })
+
+        $(document).on('click', '.show-arrow-helper', function () {
+            applyArrowHelperState();
+        })
+
+        $(document).on('click', '.show-grid-box', function () {
+            applyGridBoxState();
+        })
+        $(document).on('click', '.show-grid-mesh', function () {
+            let val = this.checked;
+
+            if(val){
+                opt.legend = getLegend();
+                /*
+                 * opt = {
+                 *     gridMeshMaxHeight : 데이터 수치에 대한 가시화되어 보여지는 최대값, 이 값보다 큰 데이터는 수치가 조절되어 표출됨
+                 *     gridMeshOpacity : createGridMesh(opt)로 생성된 객체의 투명도,
+                 *     gridMeshRatio : 데이터 수치에 대한 축척 적용 1 : gridMeshRatio, 클 수록 각 데이터의 형상 출력 높이가 낮아짐
+                 *     data : 오염도 수치 데이터 리스트
+                 *     legend: 색상 범례 지정, 미지정시 기본 색상으로 적용
+                 * }
+                 * analy.createGridMesh(opt);
+                 * 1차원 데이터 배열을 2차원 배열로 변환하여 해당 위치에 있는 데이터 수치를 3D 형상으로 생성하여 출력하는 함수
+                 */
+
+                const meshes = analy.createGridMesh(opt);
+                console.log(meshes);
+                $('.grid-mesh-legend').removeClass('hidden');
+                $('.grid-mesh-opacity').removeClass('hidden');
+
+            }else{
+                analy.removeGridMesh(opt.name); // createGridMesh(opt)로 생성된 객체 제거
+                $('.grid-mesh-legend').addClass('hidden');
+                $('.grid-mesh-opacity').addClass('hidden');
+            }
+
+            if (analy){
+                analy.showGridMesh(val, name); // 오염도 수치를 Mesh 형태로 출력한 대상에 대한 가시화 설정 (analy.createGridMesh(opt)로 생성된 객체에 대한 가시화 설정
+                analy.setVisibleHighlightedFaces(val); // 좌표 정보 조회 대상 객체 가시화 설정 (analy.getGridMeshDataAtPosition(x,y,'true')로 생성된 객체에 대한 가시화 설정
+                analy.setVisibleRangeHelper(val); //좌표 정보 조회로 생긴 영역 객체그룹 가시화 설정 (analy.createRangeHelper(mesh)로 생성된 객체에 대한 가시화 설정
+            }
+            if(overlay){
+                if(val)
+                    overlay.show()
+                else
+                    overlay.hide()
+            }
+
+            if(poi){
+                poi.visible = val;
+            }
+            if(clickPoint){
+                clickPoint.visible = val;
+            }
+
+            if(poiList.size > 0){
+                poiList.forEach(poiList_ => {
+                    poiList_.forEach(poi =>{
+                        poi.visible = val;
+                    });
+                })
+            }
+
+        })
+        $(document).on('change', '.select-arrow-helper-group', function (){
+            const selectIdx = this.value;
+            const arrowCheck = $('.show-arrow-helper').prop('checked');
+            const boxCheck = $('.show-grid-box').prop('checked');
+
+            // 빈 값이면 생성된 모든 data index 객체를 표시한다.
+            const index = selectIdx === '' ? undefined : Number(selectIdx);
+
+            if (arrowCheck) {
+                setStandaloneGridVisualVisibility(gridArrowHelperGroups, true, index);
+            }
+
+            if (boxCheck) {
+                setStandaloneGridVisualVisibility(gridBoxGroups, true, index);
+            }
+        })
+        $(document).on('click', '#createGrid-json', function(){
+            let stringText = $('.grid-data').val();
+            if(!stringText) return;
+            let json = JSON.parse(stringText);
+            console.log(json);
+            opt.data = json;
+            opt.legend = getLegend();
+            opt.gridMode = document.querySelector('input[name = "grid-mode-json"]:checked').value //  확산 모드('spread'), 격자 모드 ('grid') 선택  - default value = spread
+            analy.removeAllParticle();
+            analy.initialize(opt);
+            analy.active();
+
+            // JSON 데이터 변경 후 독립 Grid 시각화 객체도 새 opt.data 기준으로 다시 생성
+            applyGridHelperState();
+            applyArrowHelperState();
+            applyGridBoxState();
+        })
+        let legend = {};
+        $(document).on('change', '.legend-input', function () {
+            this.style.background = this.value;
+            let name = this.name;
+            if(legend[name]) legend[name] = this.value;
+        });
+        let startInfluence = 18, endInfluence = 48,intervalId ;
+        $(document).on('click', '#startMorph', function () {
+            if (analy){
+                const duration = 3;
+                analy.setStartMorph( name, duration,  startInfluence , endInfluence);
+                clearInterval(intervalId);
+
+                let cnt = 0;
+                let minHandle = $("#min-legend-handle");
+                let maxHandle = $("#max-legend-handle");
+                const max = maxHandle.text()
+                const min = minHandle.text()
+                const distance  = max - min;
+                const step =  distance / (duration * 10);
+                const label =  $("#progress");
+                //(label).show();
+                label.text(min);
+                intervalId = setInterval(() => {
+                    let value = Number(label.text());
+
+                    if (value < max) {
+                        const val = (value + step);
+                        label.text( val);   // 슬라이더 이동
+
+                    } else {
+                        //   label.hide();
+                        label.text(max);
+                        clearInterval(intervalId);
+                        intervalId = null;
+                    }
+                    cnt ++;
+                }, 100); // 100ms마다 이동
+
+            }
+        })
+        $(document).on('click', '#stopMorph', function () {
+            if (analy){
+                analy.setStopMorph();
+            }
+            if(intervalId)
+                clearInterval(intervalId);
+        })
+        $(document).on('click', '#resetMorph', function () {
+            if (analy){
+                analy.setResetMorph(name);
+            }
+            if(intervalId)
+                clearInterval(intervalId);
+        })
+
+        initSlider();
+        $('#opacity-handle').text(1.0);
+
+        // analy.showGridHelper(true); // grid type으로 생성시 격자 가시화 함수
+        // analy.createGridArrowHelper(opt); // Particle 없이 opt.data만으로 방향 객체 생성
+        // analy.createGridBox(opt); // Particle 없이 opt.data만으로 격자 Box 생성
+        // analy.setGridMeshMaxHeight(1000); // grid mesh max height 설정 함수, 초기값 1000
+        // analy.setGridMeshRatio(1.0); // grid mesh ratio (축척) 설정 함수, 초기값 1.0
+        function initSlider() {
+            let handle = $("#opacity-handle");
+            $('#opacity').show()
+            const analy = app.getAnalysis('Particle');
+
+            $('#opacity').slider({
+                value: 1.0,
+                min: 0, // min value
+                max: 1, // max value
+                step: 0.1, //0.1
+                create: function () {
+                    var val = $(this).slider("value");
+                    handle.text(val.toFixed(1));
+                },
+                slide: function (event, ui) {
+                    handle.text(ui.value.toFixed(1));
+
+                    analy.setGridMeshOpacity(ui.value); // analy.createGridMesh(opt)로 생성된 객체에 대한 투명도 설정
+                }
+            });
+            let minHandle = $("#min-legend-handle");
+            let maxHandle = $("#max-legend-handle");
+            $('#setLegend').show()
+
+            let minValue =  opt.data[0].minGridHeight
+            let maxValue =  opt.data[0].maxGridHeight
+            $( "#amount" ).text ( minValue+' - '+maxValue );
+
+            $('#setLegend').slider({
+                range:true,
+                value: minValue,
+                min: minValue, // min value
+                max: maxValue, // max value
+                step: 1.0, //0.1
+                values: [ minValue, maxValue ],
+                create: function () {
+                    let values = $(this).slider("values");
+                    const min = values[ 0 ];
+                    const max= values[ 1 ];
+                    minHandle.text(min);
+                    maxHandle.text(max);
+                },
+                start: function (event, ui) {
+                    if(analy)
+                        analy.setStopMorph()
+                    if(intervalId)
+                        clearInterval(intervalId);
+                },
+                slide: function (event, ui) {
+                    startInfluence = ui.values[ 0 ];
+                    endInfluence = ui.values[ 1 ];
+                    minHandle.text(  startInfluence  );
+                    maxHandle.text(   endInfluence  );
+                    $( "#amount" ).text( "" + startInfluence + " - " + endInfluence );
+
+                    startInfluence = ui.values[ 0 ];
+                    endInfluence = ui.values[ 1 ];
+                    analy.setMorphRange(name, startInfluence, endInfluence);
+                    console.log(startInfluence+' - '+endInfluence,' 범위의 데이터를 가시화');
+                }
+
+            });
+            $( "#amount" ).val( "$" + $( "#setLegend" ).slider( "values", 0 ) +
+                " - $" + $( "#setLegend" ).slider( "values", 1 ) );
+
+
+        }
+
+        function getLegend(){
+            let colors = $('.legend-input');
+            for (let i = 0; i< colors.length; i++) {
+                legend[i] = colors[i].value;
+            }
+            function setLegendFunc(info){
+                /*
+                 * info = {allocation, value, type}
+                 * allocation : 데이터 수치에 대한 정규화가 적용된 수치 (mesh 타입의 경우 allocation = undefined)
+                 * value : 데이터 수치
+                 * type : 범례 타입 (PARTICLE: 'particle', BOX: 'box', MESH: 'mesh')
+                 */
+                if(info.allocation) {
+                    let value = info.allocation;
+                    if (value > 0.1) {
+                        return {color: legend[7], opacity: 0.6};
+                    } else if (value > 0.09) {
+                        return {color: legend[6], opacity: 0.4};
+                    } else if (value > 0.07) {
+                        return {color: legend[5], opacity: 0.3};
+                    } else if (value > 0.035) {
+                        return {color: legend[4], opacity: 0.3};
+                    } else if (value > 0.02) {
+                        return {color: legend[2], opacity: 0.3};
+                    } else if (value > 0.015) {
+                        return {color: legend[2], opacity: 0.1};
+                    } else if (value > 0.005) {
+                        return {color: legend[1], opacity: 0.05};
+                    } else  {
+                        return {color: legend[0], opacity: 0.01};
+                    }
+                }
+                else if(info.value){
+                    let value = info.value;
+                    if (value > 1000) {
+                        return {color: legend[7], opacity: 0.7};
+                    } else if (value > 150) {
+                        return {color: legend[6], opacity: 0.6};
+                    } else if (value > 50) {
+                        return {color: legend[5], opacity: 0.5};
+                    } else if (value > 40) {
+                        return {color: legend[4], opacity: 0.4};
+                    } else if (value > 30) {
+                        return {color: legend[3], opacity: 0.3};
+                    } else if (value > 20) {
+                        return {color: legend[2], opacity: 0.2};
+                    } else if (value > 15) {
+                        return {color: legend[1], opacity: 0.2};
+                    } else if (value > 5) {
+                        return {color: legend[0], opacity: 0.1};
+                    } else{
+                        return {color: 0x000000, opacity: 0.1};
+                    }
+                }
+                else if(info.type === 'mesh'){
+                    return {
+                        // analy.createGridMesh(opt)로 생성된 객체에 대한 범례 설정
+                        // [ 수치 값 : 색상 ]
+                        0:    "#4474A0",
+                        100:  "#449da0",
+                        250:  "#68AD3D",
+                        400:  "#84ad3d",
+                        550:  "#BCAB3C",
+                        700:  "#C1712C",
+                        850:  "#B24924",
+                        1000: "#b10026" // grid Mesh data Max Height = 1000
+                    };
+
+                }
+            }
+            return setLegendFunc;
+        }
+        //+ minute String으로 변환
+        function minuteToString(ms) {
+            var h = Math.floor(ms / 60);
+            var m = ms - (h * 60);
+            return pad(h, 2) + ':' + pad(m, 2);
+        }
+
+        //+ 시간형식 hh:mm 변경
+        function pad(n, width) {
+            n = n + '';
+            return n.length >= width ? n : new Array(width - n.length + 1).join('0') + n;
+        }
+        app.on('click', function (data) {
+            const analy = app.getAnalysis('Particle');
+            const scene = analy.getScene();
+            //analy.setVisibleRangeHelper(false); // range helper 객체 가시화 설정 (analy.createRangeHelper로 생성된 객체가 있을 경우 사용)
+            let objects = app.intersectAtPixel(data, false, true, scene);
+            if(!objects || objects.length === 0) return;
+
+            let preFaceObject = objects.find((obj)=>{
+                return obj.object.userData.isHighlightFace // isHighlightFace : analy.getGridMeshDataAtPosition()로 생성된 Highlight 객체의 지정된 속성값
+            })
+            let isChangeFace = false;
+            objects = objects.filter(function (obj) {
+                return !obj.object.userData.isHelper //isHelper : analy.createRangeHelper로 생성된 객체의 지정된 속성값
+            });
+            if(preFaceObject && preFaceObject.object === currentFaceObject){
+                if(objects[0]&& !objects[0].object.userData.isHighlightFace) // isHighlightFace :  analy.getGridMeshDataAtPosition()로 생성된 Highlight 객체의 지정된 속성값
+                    isChangeFace = true;
+            }
+
+            if(objects && objects.length > 0){
+                const info = objects[0];
+                const gridMesh = info.object;
+                if(!isChangeFace){ // 다른 좌표 조회시 새로운 highlight 객체, range helper 객체 생성
+                    analy.removeAllGridMeshHighlight(); // 하이라이트 매쉬 전체 제거
+                    //analy.removeGridMeshHighlight(idx); 해당 data idx에 해당하는 highlight 제거
+
+                    let isCreateMesh = true; // 좌표로 조회된 영역을 나타내는 Mesh 객체 ( Highlight 객체 ) 생성 여부
+                    const results = analy.getGridMeshDataAtPosition(info.point.x, info.point.y, isCreateMesh); // (x,y : 3D world 좌표) 입력 받은 좌표에 해당 Grid Mesh 데이터 조회, isCreateMesh true시 HighLight 객체 생성됨
+                    // highlight 객세 생성 후 analy.getHighlightedFacesAtIndex, analy.getHighlightedFaces 사용 가능
+                    // analy.createGridMesh(opt)로 생성시 opt.data의 수만큼 검사하여 해당 좌표에 데이터 조회 ( 최대 : opt.data.length, 최소 : 0)
+                    if(results && results.length > 0){
+                        const result = results[0];
+                        // result { faces, gridKeyMap, nearestPoint } 해당 위치 값에 대한 정보 배열 반환
+                        // result : {
+                        //     faces : [0,1,2,3,4..], // 조회한 좌표에서 가장 가까운 면의 index 번호 createRangeHelper()에서 사용하여 영역 가시화 ( 조회 범위를 가시화 )
+                        //          * isCreateMesh : true시에 생성된 highlight 객체의 구성된 면의 index 배열
+                        //     gridKeyMap : Map ( key : grid data index name , value : grid data value), 1차 배열의 데이터의 수치 값을 2차원 배열로 변환하여 key, value로 저장된 값 중에 현재 좌표로 조회된 값들을 Map 형태로 반환
+                        //
+                        //     예시 : key : value
+                        //           ("59_87" : 0.1, "59_88" : 20.2, "59_89" : 50.3, "59_90" : 10.4, "59_91" : 100.5)
+                        //     nearestPoint : 조회하는 좌표와 가장 가까운 데이터에 해당 하는 점에 대한 정보를 반환
+                        //     nearestPoint :{
+                        //            "gridX": Grid Key X 값,
+                        //            "gridY": Grid Key Y 값,
+                        //            "key": "gridX_gridY"를 합친 string 값,
+                        //            "worldX": Grid Key 좌표의 world X 좌표,
+                        //            "worldY": Grid Key 좌표의 world Y 좌표,
+                        //            "value": 해당 grid Key 값에 대한 실제 데이터 value 값
+                        //            "resultValue": 화면상에 표출된 수치 값, 해당 grid Key 값에 대한 value 값( gridMeshMaxHeight 보다 클 경우 gridMeshMaxHeight의 값으로 반환 ),
+                        //            }
+                        // }
+
+                        const nearestPoint = result.nearestPoint;
+                        const key = nearestPoint.key;
+                        if(key !== currentKey){
+                            const list = poiList.get(currentKey);
+                            if(list && list.length > 0){
+                                list.forEach(function (poi) {
+                                    GeonDT.UDEF.disposeObject3D(poi);
+                                    app._sceneComment.remove(poi);
+                                })
+                            }
+                        }
+                        currentKey = key;
+                        currentFaceObject = analy.getHighlightedFacesAtIndex(0); // analy.getGridMeshDataAtPosition()를 호출 하여 생성 된 highLight 객체를 담고 있는 대상을 반환 / grid data index ( 한개일 경우 : 0 )
+                        currentResult = result;
+                        console.log('가장 가까운 그리드 점:', result.nearestPoint);
+                        //console.log('공유하는 면들:', result_.faces); // 조회한 좌표에 대한 데이터 정보를 공유하는 면들의 index 값
+
+                        const gridMeshPos = gridMesh.position;
+                        const pos = {x: result.nearestPoint.worldX, y: result.nearestPoint.worldY, z: result.nearestPoint.resultValue};
+                        pos.x += gridMeshPos.x; // pos의 값은 좌표 조회시에 제일 가까운 데이터의 수치를 나타내는 점에 대한 위치, 상대 좌표 반환, grid Mesh의 position을 더해서 grid Mesh 좌표로 이동
+                        pos.y += gridMeshPos.y;
+                        pos.z += gridMeshPos.z;
+                        if(!poi){
+                            poi = new GeonDT.geom.U3dBilboard.makePoint({position: pos})
+                            app._sceneComment.add(poi);
+                        }else{
+                            poi.setPosition(pos);
+                        }
+                        createRangeHelper(gridMesh, result, info.point, key);
+                    }
+                }
+                else{
+                    createRangeHelper(gridMesh, currentResult, info.point, currentKey);
+                }
+            }
+            //analy.setVisibleRangeHelper(true); //range helper 객체 가시화 설정 (analy.createRangeHelper로 생성된 객체가 있을 경우 사용)
+        })
+
+        function createRangeHelper(mesh, result, clickPosition, key){
+            const analy = app.getAnalysis('Particle');
+            const opt = {
+                color : 0x4474A0, // 영역을 나타내는 기둥 객체에 대한 색상
+                opacity: 0.3, //  영역을 나타내는 기둥 객체에 대한 투명도
+                sphereColor : 0xff0000, // clickPosition에 생성 되는 위치 형상을 나타내는 구체 객체에 대한 색상
+                sphereRadius: 20,  // clickPosition에 생성 되는 위치 형상을 나타내는 구체 객체에 대한 반지름
+                sphereOpacity: 0.8,  //clickPosition에 생성 되는 위치 형상을 나타내는 sphere 객체에 대한 투명도
+            }
+
+            // analy.createRangeHelper : 해당 좌표 조회시에 결과로 나온 결과 정보의 영역을 가시화 하는 3D 객체 생성 함수
+            const group = analy.createRangeHelper(mesh, result, clickPosition, opt);
+            // mesh : grid Mesh (analy.createGridMesh로 생성된 객체)
+            // result : analy.getGridMeshDataAtPosition(info.point.x, info.point.y)를 사용하여 좌표 정보를 조회한 값
+            // clickPosition : 위치 좌표값 (world 좌표값)
+
+            const rangeInfo = group.userData;
+            const pos = rangeInfo.maxPoint;
+            const lonlat = app._drawArg.getWorldToGeographic(pos.x, pos.y);
+            lonlat.z = pos.z ;
+            if(overlay){
+                app.removeOverlay(overlay);
+            }
+
+            const clickValue = (clickPosition.z - mesh.position.z).toFixed(2)
+            overlay = createOverlay(mesh.name, mesh.name, lonlat, result, clickValue);
+            overlay.show();
+
+            clickPoint = new GeonDT.geom.U3dBilboard.makePoint({
+                position: clickPosition,
+            })
+
+            app._sceneComment.add(clickPoint);
+
+            console.log(`마우스 클릭 지점 수치 값 : ${clickValue}`);
+            if(poiList.has(key)){
+                const list = poiList.get(key);
+                list.push(clickPoint);
+            }else{
+                const list = [];
+                list.push(clickPoint);
+                poiList.set(key, list);
+            }
+        }
+
+        function createOverlay(name, id, position, info, clickValue) {
+            const html = printOverlayHtml(id, position, info, clickValue);
+            const overlay = new GeOnDT.overlay.U3dOverlay({
+                name: name,
+                id: id,
+                element: $(html),
+                position: position,
+                endposition: position,
+                anchor: [0.1, 0.8],//+ 클릭 지점에 고정될 오버레이 위치를 비율로 표현하여 입력
+                useline: true,
+                linecolor: '#ff654d'
+            });
+            app.addOverlay(overlay);
+            const element = overlay.getElement();
+            const $element = $(element);
+            $element.on('click', '.close', popUpCloseClick.bind(overlay, $element));
+            overlay.setDraggable(true);
+
+            return overlay;
+        }
+
+        //오버레이 html 설정
+        function printOverlayHtml(id, lonlat, info, clickValue) {
+            const nearPoint = info.nearestPoint;
+            let max = 0;
+            let min = Infinity;
+            info.gridKeyMap.forEach(value => {
+                if(max < value) {
+                    max = value;
+                }
+                if(min > value) {
+                    min = value;
+                }
+            })
+            let str = '';
+            str += '<div class="u3-popup" oncontextmenu="return false;" id=' + nearPoint.key + '>';
+            str += '<div class="u3-popup-content">';
+            str += '<div class="modal-header">';
+            str += '<label>해당 좌표 정보</label>';
+            str += '<button type="button" class="close"><span aria-hidden="true">&times;</span>';
+            str += '</button>';
+            str += '</div>';
+            str += '<div class="item-sub-title"><span class="text-icon">key : </span> ' + nearPoint.key + '</div>';
+            str += '<div class="item-sub-title"><span class="text-icon">범위내 최대 값 : </span> ' + max + '</div>';
+            str += '<div class="item-sub-title"><span class="text-icon">범위내 최소 값 : </span> ' + min + '</div>';
+            str += '<div class="item-sub-title"><span class="text-icon">클릭 지점 수치 값 : </span> ' + clickValue + '</div>';
+
+            str += '<div class="item-sub-title"><span class="text-icon">좌표 : X | </span>' + lonlat.x + '' +
+                '<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Y | ' + lonlat.y + '' +
+                '<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Z | ' + lonlat.z + '</div>';
+            str += '</div>';
+            str += '</div>';
+            return str;
+        }
+
+        function popUpCloseClick($element) {
+            $element.off('click', '.close', popUpCloseClick);
+            app.removeOverlay(this);
+            const analy = app.getAnalysis('Particle');
+            analy.removeGridMeshHighlight();
+            analy.removeRangeHelper();
+            GeonDT.UDEF.disposeObject3D(poi);
+            app._sceneComment.remove(poi);
+
+            if(clickPoint){
+                GeonDT.UDEF.disposeObject3D(clickPoint);
+                app._sceneComment.remove(clickPoint);
+            }
+            if(poiList.size > 0){
+                poiList.forEach((value, key) => {
+                    value.forEach(item => {
+                        GeonDT.UDEF.disposeObject3D(item);
+                        app._sceneComment.remove(item);
+                    })
+                })
+            }
+            poi.visible = false;
+            poi = undefined
+        }
+
+    });
+</script>
+</body>
+</html>

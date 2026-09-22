@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>아시아문화전당 인도어(indoor) 모델</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/tutorial.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        .examples {
+            padding: 15px 30px 15px 30px;
+        }
+
+        #load {
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            position: fixed;
+            display: block;
+            opacity: 1;
+            /*background: white;*/
+            z-index: 5000;
+            text-align: center;
+        }
+
+        #load > img {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            z-index: 5001;
+        }
+    </style>
+</head>
+<body>
+<div id="map-wrapper">
+    <div id="map"></div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+<div class="execute-popup">
+    <button>직접해보기</button>
+</div>
+<div class="examples row">
+    <pre>내부 인테리어가 된 인도어(indoor) 모델 예제
+
+        1. [1인칭 모드]의 버튼을 클릭하면 해당 위치로 이동하며, 보행모드가 활성화 됩니다.
+        2. 보행모드에서는 '방향키' 또는 'WASD' 버튼으로 이동할 수 있습니다.
+        3. 보행모드에서는 'F' 버튼으로 점프 할 수 있습니다.
+        4. 보행모드에서는 'Shift' 버튼으로 달리기/걷기 모드를 전환 할 수 있습니다.
+        5. 사용자 지정 키설정으로 조작키를 바꿀수 있습니다.
+        6. 'ESC' 버튼으로 보행모드를 해제 할수 있습니다.
+        7. [3인칭 모드] 버튼을 클릭하면, 보행모드가 해제 되며 3인칭 조작이 가능한 모드로 전환됩니다.</pre>
+
+    <label>[1인칭 모드]</label>
+
+    <div class="ex-explanation" hidden>
+        <p class="lead">
+            입력한 좌표로 이동하여 <strong>사용자의 조작에 따라 도보이동 시뮬레이션</strong>하는 예제입니다.<br>
+            [1인칭 모드]의 버튼을 누르고 마우스 이동 및 키보드 조작으로 해당 보행 모델을 이동 할수 있습니다.
+        </p>
+    </div>
+    <div class="form-group">
+        <button class="btn btn-default walkmode" id="exhibit1">Room1</button>
+        <button class="btn btn-default walkmode" id="exhibit2">Room2</button>
+        <button class="btn btn-default walkmode" id="exhibit3">Room3</button>
+    </div>
+
+    <label>[3인칭 모드]</label>
+    <div class="form-group">
+        <button class="btn btn-default" id="third">3인칭 전환</button>
+    </div>
+</div>
+
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script>
+    require(['app/Union3D'], function (Union3D) {
+        //라이센스 인증
+        Union3D.ready(function () {
+            //지도 초기화
+            var appName = 'app1';
+            var indoorLayer = undefined;
+            var MIN_HEIGHT = 0;
+            var exhibitPosition = {
+                'Room1': {
+                    x: 8.929527544679843,
+                    y: -126.12636449225792,
+                    z: 25.852703604570486,
+                    rotateX: -1.030483796052712,
+                    rotateY: -0.33004580839019215
+                },
+                'Room2': {
+                    x: 196.78646294835798,
+                    y: 243.31241172453767,
+                    z: 20.66192619212297,
+                    rotateX: -0.9915740397599448,
+                    rotateY: 0.12437169847993751
+                },
+                'Room3': {
+                    x: 202.48059877608156,
+                    y: -119.58129808144336,
+                    z:  12.082729385875377,
+                    rotateX: 1.520594317095296,
+                    rotateY: 0.0897025412070739
+                }
+            };
+            var exhibitDirection = {
+                'Room1': {x: 126.9206, y: 35.1471, z: 14},
+                'Room2': {x: 126.9206, y: 35.1471, z: 14},
+                'Room3': {x: 126.9206, y: 35.1471, z: 14}
+            };
+
+            const serverURL = 'https://3d.geon.kr/';
+            const API_KEY = 'YKAFjxVvNJEA/S1xcEjprW49M6wQSAva3PC7u3KHJxrZ3ZaTVfN40QdiqzAYrFf5';
+
+            window.app = new Union3D.U3dAPP({
+                containername: 'map'
+            });
+            app.createloadingBar('load');
+
+            //이미지 레이어 생성
+            // var layer = new Union3D.image.U3dImageXYZLayer({
+            //     name    : 'satellite',
+            //     baseurl : layerInfo.image.vworldsaturl,
+            //     reverseY: true
+            // });
+            // app.addLayer(layer);
+            // //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+            // app.setNameBaseLayer('satellite');
+            // app.showLayer('satellite', true);
+            //
+            // var terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+            //     name: 'Korea Terrain', //+ 레이어 이름,  defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            //     baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            //     ext: '.umf', //+ 파일 확장자
+            //     reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+            //     minlevel: 9,  //+ 가시화 최소 레벨
+            //     maxlevel: 15, //+ 가시화 최대 레벨
+            //     useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+            //     maxprocess: 2, //+ process 최대값
+            //     interpolationheight: true,  //+ 고도보간 기능 사용 여부
+            //     rectangle: Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수
+            // });
+
+            // app.addLayer(terrainLayer);
+            // app.showLayer('Korea Terrain', true);
+
+
+            function defined(value) {
+                return value !== undefined && value !== null;
+            }
+
+            function getOption(containerName) {
+                var option = {};
+                // 맵 공통 옵션
+                option.name = appName;
+                option.containername = containerName;
+                // option.idoverview = 'overview-map';
+
+                option.backgroundcolor = '#2d77a2';
+                option.updateratiofrustum = 10;    // 업데이트 거리 비율
+                option.startlevel = 0;
+                option.level = 0;
+
+                if (Union3D.UDEF.isIE()) {
+                    option.maxprocess = 14;
+                    option.ratiotilesize = 0.9;
+                    option.maxlevel = 19;
+                    option.fov = 43;
+                    option.renderinginterval = 1;
+                    option.skirt = true;
+                    option.vertexlevel = 1;
+                } else {
+                    option.maxprocess = 20;
+                    option.ratiotilesize = 1.5;
+                    option.maxlevel = 19;
+                    option.fov = 43;
+                    option.renderinginterval = 1;
+                    option.skirt = true;
+                    option.vertexlevel = 1;
+                    option.speedprocess = 1;
+                }
+
+                option.far = option.size;
+                return option;
+            }
+
+            function setIndoorUrl(name) {
+                var promise = $.Deferred();
+                getRegisteredIndoor(name).then((result) => {
+                    const info = result.params.data;
+                    //  let joinList=[info.baseUrl,info.fileName];
+                    let metaPath = info.metaPath;
+                    let xmlUrl = dataServerUrl +"/"+ metaPath;
+                    //  let roadImageURL = joinList.join('/');
+                    let baseUrl = info.baseUrl;
+
+                    app._mapControl.minDistance = 0;
+                    var opt = {
+                        baseurl: baseUrl,
+                        name: info.name,
+                        xmlurl: xmlUrl,
+                        type: "model",
+                        ext: "3ds",
+                        drawline: false,
+                        needtexture: true,
+                        needxml: true,
+                        listmodel: [],
+                        scale: info.metaData.scale,
+                        rotation: info.metaData.rotation,
+                        location: info.metaData.location,
+                        boundingBox: info.metaData.boundingBox,
+                        side: Union3D.UDEF.DoubleSide,
+
+                        containMetaData: false, //metaData JSON 파일 포함 여부
+                        useWalkMode: true
+                    };
+
+                    promise.resolve(opt);
+                    console.log(opt);
+                });
+                return promise;
+            }
+
+            //서버에 등록된 레이어의 정보를 가져옵니다.
+            function getRegisteredIndoor(name) {
+                return $.ajax({
+                    url: serverURL + 'v1/layer/' + name,
+
+                    beforeSend: function (xhr) {
+                        xhr.setRequestHeader('User-Authorization', API_KEY);
+                    }
+                });
+            }
+
+            var indoorName = 'asia_mun_indoor' // 서버 등록시 작성한 name
+            var layer
+            setIndoorUrl(indoorName).then((opt) => {
+                layer = app.createTdsModelLayer(opt);
+                window.layerObject = layer;
+                layer.ready.then(function (TDSLayer) {
+                    app.endloadingBar(100);
+                    app.fitLayerExtent(indoorName);
+                    app.showLayer(indoorName, true);
+                    addLight();
+                    //addCamera();
+                });
+            });
+
+
+            $('#exhibit1').on('click', function () {
+                if(defined(controls) &&controls.isTrace)
+                    controls.unlock();
+                startWalkMode.call(this);
+            });
+            $('#exhibit2').on('click', function () {
+                if(defined(controls) &&controls.isTrace)
+                    controls.unlock();
+                startWalkMode.call(this);
+            });
+            $('#exhibit3').on('click', function () {
+                if(defined(controls) &&controls.isTrace)
+                    controls.unlock();
+                startWalkMode.call(this);
+            });
+            $('#third').on('click', function () {
+                if (defined(controls)) {
+                    controls.unlock();
+                }
+                $('.walkmode').attr('disabled', false);
+                app.setPanMode();
+                app.fitLayerExtent(indoorName, true);
+
+                // 태양 플레어, 그림자맵 설정 - 도보모드 시작시 해제 하였을 경우 다시 설정하여 가시화
+                app.setSunFlare(true); // sun Flare 설정 - 해당 기능을 사용 할 경우 건물 재질에 속성값 변경, 태양 플레어 가시화 적용
+                app.enableShadowMap(true); // 그림자 생성 여부 설정 - 설정된 태양 광원에 위치에서 건물과 지형에 그림자에 대한 계산과 가시화가 적용
+
+                if(lightList.length > 0) {
+                    lightList.forEach(light => {
+                        light.visible = true;
+                    })
+                }
+                //app.setIntensityLight(0.5);
+                if(cameraList.length > 0) {
+                    cameraList.forEach(camera => {
+                        camera.show();
+                        camera.showLabel();
+                    })
+                }
+
+            });
+
+            let controls;
+            let JUMP = 'jump';
+            let JUMP_RUNNING = 'jump_running';
+            let SPRINT = 'sprint';
+            let RUN = 'run';
+            let IDLE = 'idle';
+            let play = '';
+            // app.enableShadowMap(false); // 그림자 생성 여부 설정 - 설정된 태양 광원에 위치에서 건물과 지형에 그림자에 대한 계산과 가시화가 적용
+            // app.setSunFlare(false);
+            function startWalkMode() {
+                var self = this;
+                $('.walkmode').attr('disabled', false);
+                $(self).attr('disabled', true);
+
+                if(lightList.length > 0) {
+                    lightList.forEach(light => {
+                        light.visible = false;
+                    })
+                }
+
+                if(cameraList.length > 0) {
+                    for(let i = 0; i < cameraList.length; i++) {
+                        let camera = cameraList[i];
+                        if (defined(camera.element)){
+                            $(camera.element).hide();
+                            camera.hideLabel();
+                        }
+                        cameraPositionList[i].visible = false;
+                        camera.meshendpoint.visible = false;
+                    }
+                }
+
+                controls = app.createCharacterControls({
+                    camera : app._camera,
+                    domElement : app._renderer.domElement,
+                    pos : exhibitPosition[self.textContent],
+                    dir : exhibitDirection[self.textContent],
+                    minHeight : MIN_HEIGHT
+                });
+
+                // 도보모드 시작 시 sunFlare, ShadowMap 설정 해제
+                // 실내 도보모드 사용시 내부에서 외부의 이미지 또는 배경에 대한 가시성 품질 향상이 요구되지 않는 경우에는 하위에 해당 옵션을 해제하여 사용 권장 드립니다.
+                // (도보 모드시 성능 영향)
+                app.enableShadowMap(false); // 그림자 생성 여부 설정 - 설정된 태양 광원에 위치에서 건물과 지형에 그림자에 대한 계산과 가시화가 적용
+                app.setSunFlare(false); // sun Flare 설정 - 해당 기능을 사용 할 경우 건물 재질에 속성값 변경, 태양 플레어 가시화 적용
+
+                app.setIntensityLight(1.1);
+
+                let walkModelUrl = layerInfo.model.walkmodelurl;
+                //let fileName = layerInfo.model.walkmodelname;
+                let fileName = 'business_man';
+                let ext = layerInfo.model.walkmodelext;
+                let loadFile = walkModelUrl + fileName + ext;
+
+                controls._baseUrl = walkModelUrl;
+                controls._fileName = fileName;
+                controls._ext = ext;
+
+                controls.setModelFile(loadFile).then(function () {
+                    // let a = controls.getAnimationList();
+                    initSettings();
+                    controls.setStatusFunc(setStatus);
+
+                    //   controls.on('change', intersectCamera);
+
+                });
+                //   controls.setModelRotate({x:Math.PI/2, y:0, z: 0, order:'ZYX'});
+                controls.setWalkSpeed(1);
+                controls.setJumpScale(0.7);
+                controls.active();
+            }
+
+            function initSettings() {
+                controls.setAction(JUMP, 'Rig|jump', 1.0);
+                controls.setAction(JUMP_RUNNING, 'Rig|jump', 1.5);
+                controls.setAction(SPRINT, 'Rig|run',1.0);
+                controls.setAction(RUN, 'Rig|walk', 1.8);
+                controls.setAction(IDLE, 'Rig|idle');
+
+                controls.setKeyboard('w', 'moveUp');
+                controls.setKeyboard('a', 'moveLeft');
+                controls.setKeyboard('d', 'moveRight');
+                controls.setKeyboard('s', 'moveDown');
+                controls.setKeyboard('f', 'jump');
+                controls.setKeyboard('shift', 'toggleRun');
+            }
+
+            function setStatus(directionPressed, keysPressed, toggleRun) {
+                let actionList = {
+                    JUMP,
+                    JUMP_RUNNING,
+                    SPRINT,
+                    RUN,
+                    IDLE
+                };
+
+                if (directionPressed && toggleRun) {
+                    play = SPRINT;
+                } else if (directionPressed && !keysPressed.space) {
+                    play = RUN;
+                } else if (directionPressed && keysPressed.space) {
+                    play = JUMP_RUNNING;
+                } else if (!directionPressed && keysPressed.space) {
+                    play = JUMP;
+                } else {
+                    play = IDLE;
+                }
+                return {actionList,play};
+            }
+            //////// 광원 추가
+            let lightPositions = [
+                {x: 129.3530441020892, y: 36.57951827286622, z: 23.5},
+                {x: 129.3534213945086, y: 36.57863819080839, z: 33},
+                {x: 129.35506531147874, y: 36.58005930193888, z: 20},
+                {x: 129.35506531147874, y: 36.582187312840055, z: 28},
+                {x: 129.35318783253467, y: 36.58139382410798, z: 25}
+            ]
+
+            let lightList = [];
+            function addLight() {
+                for(let i = 0; i < lightPositions.length; i++){
+                    let pos = lightPositions[i];
+
+                    const light = new Union3D.view.USpotLight({
+                        drawarg: app._drawArg,
+                        position: pos,
+                        color: 0xffffff,
+                        visibleLabel: false,
+                        objRadius : 0.1
+                    });
+
+                    app.addLight(light);
+                    light.setRotationUp(0);
+                    light.setAngle(Number(170));
+                    light.setIntensity(Number(0.8));
+                    lightList.push(light);
+                }
+            }
+
+            let cameraPositionList = [
+                //    {x: 129.35484073265766, y: 36.57943170786275, z: 20.110758703671408, left: 55, up:-30, visible : true},
+                //    {x: 129.3550563283259, y: 36.58263454834966, z: 29.968349791585798, left: 60, up: -30, visible : true},
+                //    {x: 129.3548497158105, y: 36.58164629868013, z: 23, left: 50, up:-30, visible : true},
+                //    {x: 129.35375377116375, y: 36.578602121657596, z: 33.46404372485137, left: 45, up:-30, visible : true},
+
+                //    {x: 129.35333156298015, y: 36.57961926524759, z: 24.770038617578432, left: 59, up:-30, visible : true},
+                {x: 129.35456225491956, y: 36.58214403184679, z: 18,  left: 31, up: -30, visible : true}
+
+            ]
+
+
+            let cameraList = [];
+
+            function addCamera() {
+                let cnt = 1;
+                for (let i = 0; i < cameraPositionList.length; i++) {
+                    let pos = cameraPositionList[i];
+                    let name = cnt + '번_CCTV';
+                    let cameraView = createViewLight(pos, name,pos.left, pos.up);
+                    cnt++;
+                    if (cameraView !== undefined && pos.visible) {
+                        cameraView.show();
+                        cameraList.push(cameraView);
+                    }
+                }
+            }
+
+            function createViewLight(pos, name, left, up) {
+                const html = printViewLightOverlayHtml(name)
+                let viewLight = new Union3D.view.U3dView({
+                    name: name,
+                    id: name,
+                    left : left, // 광원 좌우회전각 설정
+                    up : up, // 광원 상하회전각 설정
+                    element: $(html),
+                    position: pos, // 광원 위치 설정
+                    endposition: pos,
+                    useanchor: false,
+                    useline: true,
+                    autoAnchor: true,
+                    balloon: {x: -50, y: 10},
+                    useHelperObj : false //+ 광원에서 이미 HelperObj를 사용하고 있어서 뷰에서는 생성 X
+                });
+
+                // app에 광원뷰 등록
+                app.addView(viewLight).then((resolve)=>{
+                    if(resolve){
+                        let element = viewLight.getElement();
+                        $(element).on('click', '.close', popUpCloseClick.bind(viewLight));
+                    }else {
+                        viewLight = undefined;
+                    }
+                });
+
+                return viewLight;
+            }
+
+            //광원뷰 element 생성
+            function printViewLightOverlayHtml(name) {
+                let str = '';
+                str += '<div class="u3-popup" id=' + name + '>';
+                str +=      '<div class="u3-popup-content">';
+                str +=          '<div class="modal-header">';
+                str +=              '<label style="margin-right: 5px;">' + name + '</label>';
+                str +=              '<button type="button" class="close"><span aria-hidden="true">&times;</span></button>';
+                str +=          '</div>';
+                str +=      '</div>';
+                str += '</div>';
+                return str;
+            }
+
+            //광원뷰 오버레이 닫힘 버튼 동작함수
+            function popUpCloseClick() {
+                let viewLight = this;
+                $(this.element).off('click', '.close', popUpCloseClick); //popup 이벤트 삭제
+                viewLight.sprite.visible = false;
+                $(this.element).hide();
+            }
+
+
+            function intersectCamera(result){
+                let infos = result.data;
+                const MAX_DISTANCE = 35;
+                for(let i = 0; i < infos.length; i++){
+                    let info = infos[i];
+                    if(info.distance < MAX_DISTANCE){
+                        if(!cameraPositionList[i].visible){
+                            cameraPositionList[i].visible = true;
+                            cameraPositionList.z = controls.getWalkModel().position.z;
+                            info.object.updatePosition(cameraPositionList[i]);
+                            info.object.show();
+                            app._sceneComment.remove(info.object.meshline);
+                        }
+                    }else if(info.distance >= MAX_DISTANCE){
+                        if(cameraPositionList[i].visible) {
+                            cameraPositionList[i].visible = false;
+                            if (defined(info.object.element)){
+                                $(info.object.element).hide();
+                                app._sceneComment.remove(info.object.meshline);
+
+                            }
+                        }
+                        else{
+                            if(!info.object.meshendpoint.visible) {
+                                info.object.meshendpoint.visible = true;
+                                info.object.showLabel();
+                            }
+                        }
+                    }
+                }
+            }
+
+        });
+    });
+</script>
+</body>
+</html>

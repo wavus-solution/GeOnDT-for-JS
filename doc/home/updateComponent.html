@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LOD를 활용한 컴포넌트 출력</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="lod를-활용한-컴포넌트-출력">LOD를 활용한 컴포넌트 출력</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-%EC%97%85%EB%8D%B0%EC%9D%B4%ED%8A%B8-%ED%95%A8%EC%88%98-%EB%93%B1%EB%A1%9D">업데이트 함수 등록</a></li>
+<li><a href="#2-lod-%EB%AA%A8%EB%93%9C-%EC%84%A4%EC%A0%95">LOD 모드 설정</a></li>
+</ol>
+<p>컴포넌트와 컴포넌트 레이어의 개념은 <a href="componentDoc.html#2-%EC%BB%B4%ED%8F%AC%EB%84%8C%ED%8A%B8">용어 설명 - 컴포넌트</a>와 <a href="componentDoc.html#4-%EC%BB%B4%ED%8F%AC%EB%84%8C%ED%8A%B8-%EB%A0%88%EC%9D%B4%EC%96%B4">용어 설명 - 컴포넌트 레이어</a>를 참고하세요.</p>
+<p><code>U3dComponentPosition</code>의 LOD 기능을 사용하면 카메라와 컴포넌트 사이의 거리에 따라 표시 여부와 스타일을 자동으로 갱신할 수 있습니다. 기본 가시 거리만 사용하는 자동 방식과 사용자 콜백으로 상태를 결정하는 사용자 정의 방식을 지원합니다.</p>
+<h2 id="1-업데이트-함수-등록">1. 업데이트 함수 등록</h2>
+<p>사용자 정의 업데이트 함수는 카메라가 이동할 때 컴포넌트의 표시 여부, 색상, 투명도 등을 결정합니다. 콜백은 <code>LODMode</code>가 <code>custom</code>인 경우에만 실행됩니다.</p>
+<h4 class="api-heading" id="api">API</h4>
+<p>U3dComponentPosition.setUpdateFunc(<code>func</code>) : 사용자 정의 LOD 업데이트 함수를 등록하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>func</code> (<code>function</code>) : 사용자 정의 업데이트 함수. <strong>필수</strong></li>
+</ul>
+</details>
+<p>업데이트 함수에는 다음 인수가 전달됩니다.</p>
+<ul>
+<li><code>component</code> (<code>U3dComponentPosition</code>) : 업데이트할 컴포넌트</li>
+<li><code>properties</code> (<code>Record&lt;string, unknown&gt;</code>) : 컴포넌트에 저장된 속성 정보</li>
+<li><code>distance</code> (<code>number</code>) : 카메라와 컴포넌트 사이의 거리</li>
+<li><code>distanceSquared</code> (<code>number</code>) : 카메라와 컴포넌트 사이 거리의 제곱값</li>
+</ul>
+<p>업데이트 함수는 다음 속성 중 필요한 값을 포함한 객체를 반환합니다.</p>
+<ul>
+<li><code>visible</code> (<code>boolean</code>) : 컴포넌트 표시 여부</li>
+<li><code>color</code> (<code>ColorRepresentation</code>) : 적용할 색상</li>
+<li><code>opacity</code> (<code>number</code>) : 적용할 투명도</li>
+<li><code>exceptTexture</code> (<code>boolean</code>) : 텍스처 출력 제외 여부</li>
+<li><code>depthWrite</code> (<code>boolean</code>) : 깊이 버퍼 기록 여부</li>
+</ul>
+<h3 id="1-컴포넌트에-직접-등록">1. 컴포넌트에 직접 등록</h3>
+<p>다음 예제는 카메라와의 거리가 500 미만일 때만 컴포넌트를 표시합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">updateFunc</span><span class="token punctuation">(</span><span class="token parameter">component<span class="token punctuation">,</span> properties<span class="token punctuation">,</span> distance<span class="token punctuation">,</span> distanceSquared</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">return</span> <span class="token punctuation">{</span>
+        <span class="token literal-property property">visible</span><span class="token operator">:</span> distance <span class="token operator">&lt;</span> <span class="token number">500</span>
+    <span class="token punctuation">}</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+component<span class="token punctuation">.</span><span class="token function">setUpdateFunc</span><span class="token punctuation">(</span>updateFunc<span class="token punctuation">)</span><span class="token punctuation">;</span>
+component<span class="token punctuation">.</span><span class="token function">setLODMode</span><span class="token punctuation">(</span><span class="token string">'custom'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>레이어의 기존 컴포넌트에 같은 업데이트 함수를 일괄 적용할 수도 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> component <span class="token keyword">of</span> componentLayer<span class="token punctuation">.</span><span class="token function">getComponents</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    component<span class="token punctuation">.</span><span class="token function">setUpdateFunc</span><span class="token punctuation">(</span>updateFunc<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    component<span class="token punctuation">.</span><span class="token function">setLODMode</span><span class="token punctuation">(</span><span class="token string">'custom'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h3 id="2-생성-옵션으로-등록">2. 생성 옵션으로 등록</h3>
+<p><code>addPosition()</code>의 생성 옵션에 <code>updateFunc</code>와 <code>LODMode</code>를 전달하면 컴포넌트를 생성할 때 사용자 정의 업데이트 기능을 함께 설정할 수 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> component <span class="token operator">=</span> componentLayer<span class="token punctuation">.</span><span class="token function">addPosition</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'building2_1'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">setInstanced</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+    updateFunc<span class="token punctuation">,</span>
+    <span class="token literal-property property">LODMode</span><span class="token operator">:</span> <span class="token string">'custom'</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="3-분석-기능의-생성-옵션으로-등록">3. 분석 기능의 생성 옵션으로 등록</h3>
+<p><code>UAnalyMultipleComponent.setAdditionalOpt()</code>를 사용하면 분석 기능을 통해 이후 생성하는 컴포넌트에 공통 생성 옵션을 적용할 수 있습니다.</p>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>UAnalyMultipleComponent.setAdditionalOpt(<code>opt</code>) : 분석 기능으로 생성할 컴포넌트의 추가 옵션을 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opt</code> (<code>object</code>) : <code>addPosition()</code>에 전달할 추가 생성 옵션. <strong>필수</strong></li>
+</ul>
+</details>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> componentAnaly <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">getAnalysis</span><span class="token punctuation">(</span><span class="token string">'multipleComponent'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+componentAnaly<span class="token punctuation">.</span><span class="token function">setAdditionalOpt</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    updateFunc<span class="token punctuation">,</span>
+    <span class="token literal-property property">LODMode</span><span class="token operator">:</span> <span class="token string">'custom'</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p><code>create</code> 이벤트에서 생성된 컴포넌트를 받아 직접 설정하는 방법도 사용할 수 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> createEventKey <span class="token operator">=</span> <span class="token string">'createSingle'</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> componentAnaly <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">getAnalysis</span><span class="token punctuation">(</span><span class="token string">'multipleComponent'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+componentAnaly<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'create'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">event</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> component <span class="token operator">=</span> event<span class="token punctuation">.</span>data<span class="token punctuation">;</span>
+
+    component<span class="token punctuation">.</span><span class="token function">setUpdateFunc</span><span class="token punctuation">(</span>updateFunc<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    component<span class="token punctuation">.</span><span class="token function">setLODMode</span><span class="token punctuation">(</span><span class="token string">'custom'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">,</span> createEventKey<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h2 id="2-lod-모드-설정">2. LOD 모드 설정</h2>
+<p>LOD는 카메라와 컴포넌트 사이의 거리에 따라 컴포넌트의 출력 상태를 조절하는 기능입니다. 다음 세 가지 모드를 지원합니다.</p>
+<ul>
+<li><code>none</code> : LOD를 적용하지 않고 <code>show()</code>와 <code>hide()</code>로 표시 여부를 제어합니다. 기본값</li>
+<li><code>auto</code> : <code>maxVisibleDistance</code>를 기준으로 표시 여부를 자동 조절합니다.</li>
+<li><code>custom</code> : <code>setUpdateFunc()</code>로 등록한 사용자 정의 함수의 반환값에 따라 상태를 변경합니다.</li>
+</ul>
+<h3 id="1-lod-모드-조회-및-변경">1. LOD 모드 조회 및 변경</h3>
+<h4 class="api-heading" id="api-2">API</h4>
+<p>U3dComponentPosition.setLODMode(<code>mode</code>) : 컴포넌트의 LOD 모드를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>mode</code> (<code>&#39;none&#39; | &#39;auto&#39; | &#39;custom&#39;</code>) : 설정할 LOD 모드. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-3">API</h4>
+<p>U3dComponentPosition.getLODMode() : 현재 적용된 LOD 모드를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>&#39;none&#39; | &#39;auto&#39; | &#39;custom&#39;</code>) : 현재 LOD 모드</li>
+</ul>
+</details>
+<pre class="language-javascript"><code class="language-javascript">component<span class="token punctuation">.</span><span class="token function">setLODMode</span><span class="token punctuation">(</span><span class="token string">'auto'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> mode <span class="token operator">=</span> component<span class="token punctuation">.</span><span class="token function">getLODMode</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>mode<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 'auto'</span>
+</code></pre>
+<p>레이어의 기존 컴포넌트에 같은 모드를 일괄 적용할 수도 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> component <span class="token keyword">of</span> componentLayer<span class="token punctuation">.</span><span class="token function">getComponents</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    component<span class="token punctuation">.</span><span class="token function">setLODMode</span><span class="token punctuation">(</span><span class="token string">'auto'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<p>새 컴포넌트를 생성할 때 <code>LODMode</code>를 지정하려면 생성 옵션에 포함합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">componentLayer<span class="token punctuation">.</span><span class="token function">addPosition</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'building2_1'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">setInstanced</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+    updateFunc<span class="token punctuation">,</span>
+    <span class="token literal-property property">LODMode</span><span class="token operator">:</span> <span class="token string">'custom'</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-최대-가시-거리-설정">2. 최대 가시 거리 설정</h3>
+<p><code>auto</code> 모드에서는 <code>maxVisibleDistance</code>를 기준으로 컴포넌트의 표시 여부를 결정합니다. 카메라와 컴포넌트 사이의 거리가 최대 가시 거리 이내일 때 컴포넌트가 표시됩니다.</p>
+<h4 class="api-heading" id="api-4">API</h4>
+<p>U3dComponentPosition.setMaxVisibleDistance(<code>dist</code>) : 컴포넌트의 최대 가시 거리를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>dist</code> (<code>number</code>) : 설정할 최대 가시 거리. 기본값: <code>1000</code>. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-5">API</h4>
+<p>U3dComponentPosition.getMaxVisibleDistance() : 현재 설정된 최대 가시 거리를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>number</code>) : 현재 최대 가시 거리</li>
+</ul>
+</details>
+<pre class="language-javascript"><code class="language-javascript">component<span class="token punctuation">.</span><span class="token function">setLODMode</span><span class="token punctuation">(</span><span class="token string">'auto'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+component<span class="token punctuation">.</span><span class="token function">setMaxVisibleDistance</span><span class="token punctuation">(</span><span class="token number">1000</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> maxDistance <span class="token operator">=</span> component<span class="token punctuation">.</span><span class="token function">getMaxVisibleDistance</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>maxDistance<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 1000</span>
+</code></pre>
+<div class="document-image-grid" data-columns="3">
+<figure class="document-image">
+<img src="image/updateConponent/maxdistance_300.png" alt="최대 가시 거리를 300으로 설정한 결과" loading="eager">
+<figcaption>최대 가시 거리를 300으로 설정한 결과</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/updateConponent/maxdistance_500.png" alt="최대 가시 거리를 500으로 설정한 결과" loading="eager">
+<figcaption>최대 가시 거리를 500으로 설정한 결과</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/updateConponent/maxdistance_1000.png" alt="최대 가시 거리를 1000으로 설정한 결과" loading="eager">
+<figcaption>최대 가시 거리를 1000으로 설정한 결과</figcaption>
+</figure>
+</div>
+<h3 id="3-거리와-속성에-따른-사용자-정의-스타일">3. 거리와 속성에 따른 사용자 정의 스타일</h3>
+<p><code>custom</code> 모드에서는 거리와 컴포넌트의 속성을 함께 검사하여 표시 여부와 스타일을 결정할 수 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">updateFunc</span><span class="token punctuation">(</span><span class="token parameter">component<span class="token punctuation">,</span> properties<span class="token punctuation">,</span> distance</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> isImportant <span class="token operator">=</span> properties<span class="token punctuation">[</span><span class="token string">'중요시설'</span><span class="token punctuation">]</span> <span class="token operator">===</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>distance <span class="token operator">>=</span> <span class="token number">1000</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> <span class="token punctuation">{</span>
+            <span class="token literal-property property">visible</span><span class="token operator">:</span> <span class="token boolean">false</span>
+        <span class="token punctuation">}</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token keyword">return</span> <span class="token punctuation">{</span>
+        <span class="token literal-property property">visible</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">color</span><span class="token operator">:</span> isImportant <span class="token operator">?</span> <span class="token string">'#ff0000'</span> <span class="token operator">:</span> <span class="token string">'#ffffff'</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">opacity</span><span class="token operator">:</span> distance <span class="token operator">&lt;</span> <span class="token number">500</span> <span class="token operator">?</span> <span class="token number">1</span> <span class="token operator">:</span> <span class="token number">0.5</span>
+    <span class="token punctuation">}</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+component<span class="token punctuation">.</span><span class="token function">setUpdateFunc</span><span class="token punctuation">(</span>updateFunc<span class="token punctuation">)</span><span class="token punctuation">;</span>
+component<span class="token punctuation">.</span><span class="token function">setLODMode</span><span class="token punctuation">(</span><span class="token string">'custom'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+</main>
+</body>
+</html>
+

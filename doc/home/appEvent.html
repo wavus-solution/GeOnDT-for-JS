@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title> App 이벤트</title>
+<body style="padding-top: 0">
+<div class="index">
+    <a href="#jump1">1. 이벤트 추가 및 제거</a><br>
+    <a href="#jump2">2. APP LOAD & LOADED 이벤트 </a><br>
+    <a href="#jump3">3. APP SEARCHED 이벤트 </a><br>
+    <a href="#jump4">4. APP MEMORY CLEAR 이벤트 </a><br>
+    <a href="#jump5">5. UI 관련 이벤트 </a><br>
+</div>
+<hr>
+<div class="content">
+    <h2 class="lead" id="jump1"> 1. 이벤트 추가 및 제거 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            <mark><strong>이벤트를 추가</strong></mark> 할 때는  U3dApp 클래스 <mark><strong>on 함수</strong></mark>를 사용합니다. <br>
+            <mark><strong>이벤트를 제거</strong></mark> 할 때는 U3dApp 클래스 <mark><strong>unkey 함수</strong></mark>를 쓰는 방법과 <mark><strong>off 함수</strong></mark>를 쓰는 방법 두 가지가 있습니다.<br><br>
+            <i>unkey 함수는 이벤트 고유 ID를 통해 <mark>명시적으로 이벤트를 제거합니다.</mark></i> <br>
+            off 함수를 통해 이벤트를 제거할 경우 익명 함수나 bind 함수인 경우 제대로 제거되지 않을 수 있으므로, <mark><strong>unkey 함수를 통해 제거하는 것을 권장</strong></mark>합니다.
+            <div class="explane_api">
+                U3dApp.<span class="api_name">on(<span class="param_name">eventName, eventCallback</span>)</span>
+                : 이벤트 추가 API <br>
+                <div class="explane_api_param">
+                    <span class="param_name">eventName</span><span class="param_type">string</span> : 이벤트 이름<br>
+                    <span class="param_name">eventCallback</span><span class="param_type">vector</span> : 이벤트 콜백 함수
+                </div>
+            </div>
+            <div class="explane_api">
+                U3dApp.<span class="api_name">off(<span class="param_name">eventName, eventCallback</span>)</span>
+                : 이벤트 제거 API <br>
+                <div class="explane_api_param">
+                    <span class="param_name">eventName</span><span class="param_type">string</span> : 이벤트 이름<br>
+                    <span class="param_name">eventCallback</span><span class="param_type">string</span> : 이벤트 콜백 함수
+                </div>
+            </div>
+            <div class="explane_api">
+                U3dApp.<span class="api_name">unkey(<span class="param_name">eventName, eventID</span>)</span>
+                : 이벤트 명시적 제거 API <br>
+                <div class="explane_api_param">
+                    <span class="param_name">eventName</span><span class="param_type">string</span> : 이벤트 이름<br>
+                    <span class="param_name">eventID</span><span class="param_type">string</span> : 이벤트 고유 ID<br>
+                </div>
+            </div>
+        </div>
+        <label class="code-label">예시 코드</label>
+        <div class="code" id="text4-code"></div>
+        <div class="code-text" id="text4" hidden="hidden">
+            // 이벤트 추가 밑 ID 저장
+            const eventID = app.on('click', eventCallBack);
+            app.unkey('app-load', eventID);
+            //또는
+            app.off('app-load', eventCallBack);
+        </div>
+    </div>
+    <h2 class="lead" id="jump2"> 2. APP LOAD & LOADED 이벤트 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            <mark><strong>'app-load'</strong></mark> 이벤트는 화면상에 모든 레이어 <mark><strong>표출이 시작될 때</strong></mark> 발생합니다. <br>
+            <mark><strong>'app-loaded'</strong></mark> 이벤트는 화면상에 모든 레이어 <mark><strong>표출이 종료될 때</strong></mark> 발생합니다.
+        </div>
+        <label class="code-label">예시 코드</label>
+        <div class="code" id="text1-code"></div>
+        <div class="code-text" id="text1" hidden="hidden">
+            // 화면상에 모든 레이어 표출이 시작될 때 발생
+            const loadEventID = app.on('app-load', startEventCallBack);
+            app.unkey('app-load', loadEventID);
+
+            // 화면상에 모든 레이어 표출이 종료될 때 발생
+            const loadedEventID =  app.on('app-loaded', endEventCallBack);
+            app.unkey('app-loaded', loadedEventID);
+        </div>
+    </div>
+
+    <h2 class="lead" id="jump3"> 3. APP SEARCHED 이벤트 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            <mark><strong>'app-searched'</strong></mark>
+            이벤트는 카메라 프러스텀(가시범위)에 포함되는 <mark><strong>타일을 검색 완료 했을 때</strong></mark> 호출되는 이벤트 입니다.
+        </div>
+        <label class="code-label">예시 코드</label>
+        <div class="code" id="text2-code">
+        </div>
+        <div class="code-text" id="text2" hidden="hidden">
+            const searchedEventID = app.on('app-searched', searchedEvent);
+            app.unkey('app-searched', searchedEventID);
+        </div>
+    </div>
+    <h2 class="lead" id="jump4"> 4. APP MEMORY CLEAR 이벤트 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            <mark><strong>'app-memory-clear'</strong></mark>
+            이벤트는 불필요한 자원(가시화가 해제된 타일이나 사용하지 않는 캐시 등...)을 <mark><strong>메모리를 정리할 때</strong></mark> 호출되는 이벤트 입니다.
+        </div>
+        <label class="code-label">예시 코드</label>
+        <div class="code" id="text3-code">
+        </div>
+        <div class="code-text" id="text3" hidden="hidden">
+            const clearEventID = app.on('app-memory-clear', clearEvent);
+            app.unkey('app-memory-clear', clearEventID);
+        </div>
+    </div>
+    <h2 class="lead" id="jump5"> 5. UI 관련 이벤트 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            화면 이동이나 클릭같은 UI 이벤트를 app에 등록하여 사용할 수 있습니다.
+        </div>
+        <label class="code-label">예시 코드</label>
+        <div class="code" id="text10-code">
+        </div>
+        <div class="code-text" id="text10" hidden="hidden">
+            app.on('change', changeEvent);          ** 화면 이동 시 발생
+            app.on('click', clickEvent);            ** 클릭 시 발생
+            app.on('dblclick', dblclickEvent);      ** 더블클릭 시 발생
+            app.on('mousewheel', mousewheelEvent);  ** 마우스 휠 조작 시 발생
+            app.on('mousemove', mousemoveEvent);    ** 마우스 이동 시 발생
+            app.on('mousedown', mousedownEvent);    ** 마우스를 누를 때 발생
+            app.on('mouseup', mouseupEvent);        ** 마우스를 뗄 때 발생
+            app.on('mouseout', mouseoutEvent);      ** 화면 밖으로 마우스 이동 발생
+            app.on('resize', resizeEvent);          ** 화면 크기 변경시 발생
+        </div>
+    </div>
+</div>
+</body>
+</html>

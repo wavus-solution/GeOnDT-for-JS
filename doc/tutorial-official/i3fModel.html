@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>지하시설물 I3F 레이어 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+
+        #analy-popup .div-popup {
+            width: 330px;
+            height: 750px;
+            top: 6vh;
+        }
+
+        .div-popup-content {
+            padding-bottom: 10px;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        /*.btn-xs {*/
+        /*    border: solid 0.1px gray;*/
+        /*    font-size: 8px;*/
+        /*    line-height: 1;*/
+        /*}*/
+
+        .u3-popup {
+            position: absolute;
+            color: #fff;
+            background-color: rgba(20, 20, 20, 0.6);
+            -webkit-filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.2));
+            filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.2));
+            padding: 5px;
+            /*border-radius: 10px;*/
+            height: fit-content;
+            border: 1px solid #00000033;
+            bottom: 12px;
+            left: -50px;
+            min-width: 400px;
+            max-height: 280px;
+            display: none;
+            overflow-y: auto;
+        }
+
+        .u3-popup:after, .u3-popup:before {
+            top: 100%;
+            border: solid transparent;
+            content: " ";
+            height: 0;
+            width: 0;
+            position: absolute;
+            pointer-events: none;
+        }
+
+        .u3-popup:after {
+            border-top-color: white;
+            border-width: 10px;
+            left: 48px;
+            margin-left: -10px;
+        }
+
+        .u3-popup:before {
+            border-top-color: #cccccc;
+            border-width: 11px;
+            left: 48px;
+            margin-left: -11px;
+        }
+
+        .u3-popup .u3-popup-content .modal-header {
+            border-bottom: none;
+            height: 20px;
+            padding: 0 5px 0 5px;
+            line-height: 20px;
+            background-color: rgb(43, 69, 140);
+        }
+
+        .modal-header {
+            border-bottom: none;
+            height: 20px;
+            padding: 0 5px 0 5px;
+            line-height: 20px;
+        }
+
+        .panel-body {
+            padding-top: 0;
+            padding-bottom: 5px;
+            height: 215px;
+        }
+
+        .move {
+            margin-left: 5px;
+        }
+
+        .slider-root-wrapper {
+            display: grid;
+            padding-left: 10px;
+        }
+
+        .slider-wrapper {
+            width: 300px;
+            margin-left: 10px;
+            margin-right: 60px;
+            display: -webkit-inline-flex;
+            margin-bottom: 0px;
+        }
+
+        .ui-slider .ui-slider-range {
+            position: absolute;
+            font-size: .7em;
+            display: block;
+            border: 0;
+            background-position: 0 0;
+            background-color: rgba(23, 36, 75, 0.65);
+        }
+
+        #opacity-handle, #m-opacity-handle, #x-axis-handle, #y-axis-handle, #z-axis-handle {
+            height: 22px;
+            width: 35px;
+            text-align: center;
+            top: -5px;
+            background-color: rgb(43, 69, 140);
+            color: white;
+
+        }
+
+        #opacity, #m-opacity, #x-axis, #y-axis, #z-axis {
+            width: 153px;
+        }
+
+        ol, ul {
+            list-style: none;
+            padding-left: 0px;
+            display: -webkit-inline-flex;
+        }
+
+        li {
+            padding-right: 2px;
+            list-style: none;
+            padding-left: 0px;
+            height: 20px;
+        }
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu="return false;">
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> 지하 시설물 I3F 레이어 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        3D 모델 레이어 중, <strong>I3F 모델 레이어를 화면에 출력</strong>하는 예제입니다.<br>
+        서버에 등록된 건물 모델을 받아와 사용할 수 도 있습니다.
+    </p>
+</div>
+<div id="map-wrapper">
+    <div>
+        <div id="map"></div>
+        <div id="div-left-menu">
+            <div id="left-menu-list-panel">
+                <div class="form-group div-layer">
+                    <div class="div-category">
+                        <label class="label-layerType">
+                            레이어
+                        </label>
+                    </div>
+                    <div id="layer-list">
+                        <div class="div-sub-category">
+                            <div class="sub-category-tile">
+                                <label class="label-layerType">
+                                    이미지 레이어
+                                </label>
+                                <div class="category-btn-group">
+                                    <label class="expand-btn layer">
+                                        <img src="image/btn_expand.svg" alt="">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sub-category-content">
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="satellite">
+                                        VWorld Satellite
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="hybrid">
+                                        VWorld Hybrid
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="div-sub-category">
+                            <div class="sub-category-tile">
+                                <label class="label-layerType">
+                                    지형 레이어
+                                </label>
+                                <div class="category-btn-group">
+                                    <label class="expand-btn layer">
+                                        <img src="image/btn_expand.svg" alt="">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sub-category-content">
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="korea_terrain">
+                                        전체 지형
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div style="display: inline-flex; position: relative">
+                    <button id="left-menu-bnt" class="btn btn-xs menu-btn">
+                        <img src="image/left_panel_open_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                    </button>
+                    <div class="div-btn-info" hidden>
+                        레이어 탭 열기
+                    </div>
+                </div>
+                <div style="display: inline-flex; position: relative">
+                    <button id="analy-bnt" class="btn btn-xs menu-btn">
+                        <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                    </button>
+                    <div class="div-btn-info" hidden>
+                        분석 팝업 열기
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="btn-group" id='top-sbar'>
+            <div class='btn-group-vertical-block' id='right-toolbar'>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                    <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                         src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                         alt="나침반">
+                </button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                        id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                        id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                        id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg"
+                                                                     alt="">
+                </button>
+            </div>
+            <div class='btn-group' id='bt-bottom-bar'>
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                       value="위경도: ##.####  ###.#### ">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                       value="고도:####">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                       value="각도: ##">
+            </div>
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu="return false;">
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content">
+                <div class="form-group" style="margin-left: 20px;margin-bottom: 0px;">
+                    <label style="font-weight: bold;">
+                        <input type="checkbox" id="selectObject" checked>
+                        객체 선택 모드
+                    </label>
+                    <label style="font-weight: bold;">
+                        <input type="checkbox" id="showUndergroudGrid" checked>
+                        지하 격자 가시화
+                    </label>
+                </div>
+                <div class="form-group slider-root-wrapper" style="margin-top: 4px">
+                    <div class="form-group slider-wrapper">
+                        <ul>
+                            <li>
+                                <input type="checkbox" target="opacity_yn" checked>
+                            </li>
+                            <li>
+                                <div style="width:80px">
+                                    영상 투명도
+                                </div>
+                            </li>
+                            <li>
+                                <div style="padding: 4px">
+                                    <div id="opacity">
+                                        <div id="opacity-handle" class="ui-slider-handle"></div>
+                                    </div>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="form-group slider-wrapper">
+                        <ul>
+                            <li>
+                                <input type="checkbox" target="m_opacity_yn" checked>
+                            </li>
+                            <li>
+                                <div style="width:80px">
+                                    모델 투명도
+                                </div>
+                            </li>
+                            <li>
+                                <div style="padding: 4px">
+                                    <div id="m-opacity">
+                                        <div id="m-opacity-handle" class="ui-slider-handle"></div>
+                                    </div>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-12" style="margin-bottom: 10px">
+                        <div class="panel panel-default">
+                            <div class="panel-heading">
+                                <label> 울산 지하 시설물 </label>
+                            </div>
+                            <div class="panel-body" style="height: 50px;">
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" target="ULSAN_UNDER_PIPE">
+                                        지하배관
+                                        <button class="btn btn-xs btn-primary move">이동</button>
+                                        <button class="btn btn-xs btn-danger delete">삭제</button>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-12" style="margin-bottom: 10px">
+                        <div class="panel panel-default">
+                            <div class="panel-heading">
+                                <label> 고양 지하 구조물 </label>
+                            </div>
+                            <div class="panel-body" style="height:140px; overflow: auto">
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" target="goyang_subway_station">
+                                        지하철역사
+                                        <button class="btn btn-xs btn-primary move">이동</button>
+                                        <button class="btn btn-xs btn-danger delete">삭제</button>
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" target="goyang_subway_track">
+                                        지하철선로
+                                        <button class="btn btn-xs btn-primary move">이동</button>
+                                        <button class="btn btn-xs btn-danger delete">삭제</button>
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" target="goyang_underpass">
+                                        지하차도
+                                        <button class="btn btn-xs btn-primary move">이동</button>
+                                        <button class="btn btn-xs btn-danger delete">삭제</button>
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" target="goyang_under_walkway">
+                                        지하보도
+                                        <button class="btn btn-xs btn-primary move">이동</button>
+                                        <button class="btn btn-xs btn-danger delete">삭제</button>
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" target="goyang_under_parkinglot">
+                                        지하주차장
+                                        <button class="btn btn-xs btn-primary move">이동</button>
+                                        <button class="btn btn-xs btn-danger delete">삭제</button>
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" target="goyang_common_area">
+                                        공동구
+                                        <button class="btn btn-xs btn-primary move">이동</button>
+                                        <button class="btn btn-xs btn-danger delete">삭제</button>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-12" style="margin-bottom: 10px">
+                        <div class="panel panel-default">
+                            <div class="panel-heading">
+                                <label> 고양 지하 시설물 </label>
+                            </div>
+                            <div class="panel-body" style="overflow: auto; height: 230px;">
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" target="UFL_KMAN_PS">
+                                        통신맨홀
+                                        <button class="btn btn-xs btn-primary move">이동</button>
+                                        <button class="btn btn-xs btn-danger delete">삭제</button>
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" target="UFL_KPIP_LS">
+                                        통신선로
+                                        <button class="btn btn-xs btn-primary move">이동</button>
+                                        <button class="btn btn-xs btn-danger delete">삭제</button>
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" target="UFL_GVAL_PS">
+                                        가스밸브
+                                        <button class="btn btn-xs btn-primary move">이동</button>
+                                        <button class="btn btn-xs btn-danger delete">삭제</button>
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" target="UFL_GPIP_LM">
+                                        천연가스배관
+                                        <button class="btn btn-xs btn-primary move">이동</button>
+                                        <button class="btn btn-xs btn-danger delete">삭제</button>
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" target="WTL_VALV_PS">
+                                        변류시설
+                                        <button class="btn btn-xs btn-primary move">이동</button>
+                                        <button class="btn btn-xs btn-danger delete">삭제</button>
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" target="WTL_PIPE_LM">
+                                        상수관로
+                                        <button class="btn btn-xs btn-primary move">이동</button>
+                                        <button class="btn btn-xs btn-danger delete">삭제</button>
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" target="UFL_PIPE_LM">
+                                        광역상수관
+                                        <button class="btn btn-xs btn-primary move">이동</button>
+                                        <button class="btn btn-xs btn-danger delete">삭제</button>
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" target="UFL_OPIP_LM">
+                                        송유관로
+                                        <button class="btn btn-xs btn-primary move">이동</button>
+                                        <button class="btn btn-xs btn-danger delete">삭제</button>
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" target="UFL_BMAN_PS">
+                                        전기맨홀
+                                        <button class="btn btn-xs btn-primary move">이동</button>
+                                        <button class="btn btn-xs btn-danger delete">삭제</button>
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" target="UFL_BPIP_LM">
+                                        전력지중관로
+                                        <button class="btn btn-xs btn-primary move">이동</button>
+                                        <button class="btn btn-xs btn-danger delete">삭제</button>
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" target="UFL_HMAN_PS">
+                                        난방맨홀
+                                        <button class="btn btn-xs btn-primary move">이동</button>
+                                        <button class="btn btn-xs btn-danger delete">삭제</button>
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" target="UFL_HPIP_LM">
+                                        열배관
+                                        <button class="btn btn-xs btn-primary move">이동</button>
+                                        <button class="btn btn-xs btn-danger delete">삭제</button>
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" target="SWL_MANH_PS">
+                                        하수맨홀
+                                        <button class="btn btn-xs btn-primary move">이동</button>
+                                        <button class="btn btn-xs btn-danger delete">삭제</button>
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" target="SWL_PIPE_LM">
+                                        하수관로
+                                        <button class="btn btn-xs btn-primary move">이동</button>
+                                        <button class="btn btn-xs btn-danger delete">삭제</button>
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" target="UGG_BORTH_PS">
+                                        시추공
+                                        <button class="btn btn-xs btn-primary move">이동</button>
+                                        <button class="btn btn-xs btn-danger delete">삭제</button>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePosition = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePosition.lat, y: homePosition.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script id="set-imagelayer">
+    let ImageLayer = function (GeOnDT, app, opt) {
+        this._type = "ImageLayer";
+        this.layer = undefined;
+        this._union3d = GeOnDT;
+        this._app = app;
+        this._name = opt.name;
+        this.options = opt;
+        this.ready = $.Deferred();
+    }
+
+    ImageLayer.prototype.create = function () {
+        let self = this;
+        if (self._name === 'emapbase') {
+            self.layer = self._app.createEmapBaseLayer(this.options);
+        } else if (self._name === 'emapsat') {
+            self.layer = self._app.createEmapSatLayer(this.options);
+        } else {
+            self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
+            self._app.addLayer(this.layer);
+        }
+        this.layer.then(() => {
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+
+    ImageLayer.prototype.show = function (isShow) {
+        let promise = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow ? "시작" : "종료"));
+        this._app.showLayer(this.options.name, isShow).then(() => {
+            promise.resolve();
+        })
+        this.isShow = isShow;
+        return promise;
+    }
+</script>
+<script id="set-terrain">
+    let HeightLayer = function (GeOnDT, app, opt) {
+        this._type = "HeightLayer";
+        this.layer = undefined;
+        this._app = app;
+        if (opt.rectangle === undefined)
+            opt.rectangle = GeOnDT.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수
+        this.options = opt;
+        this._name = opt.name;
+        this.ready = $.Deferred();
+    }
+
+    HeightLayer.prototype.create = function () {
+        let self = this;
+        self.layer = this._app.createHeightXYZLayer(self.options);
+        self.layer.then(() => {
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+
+    HeightLayer.prototype.show = function (isShow) {
+        let promise = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow ? "시작" : "종료"));
+        this._app.showLayer(this.options.name, isShow).then(() => {
+            promise.resolve();
+        })
+        this.isShow = isShow;
+        return promise;
+    }
+</script>
+<script id="layer-setting">
+    const LAYER_OPT = {
+        satellite: {
+            name: 'satellite',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldsaturl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+        },
+        hybrid: {
+            name: 'hybrid', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldhybirdurl,  //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            transparent: true //+ layer 투명화 여부
+        },
+        korea_terrain: {
+            name: 'korea_terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            ext: '.umf', //+ 파일 확장자, *필수 입력
+            reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+            minlevel: 9,  //+ 가시화 최소 레벨
+            maxlevel: 15, //+ 가시화 최대 레벨
+            useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+            maxprocess: 2, //+ process 최대값
+            interpolationheight: true,  //+ 고도보간 기능 사용 여부
+        }
+    };
+
+    let LayerList = function (GeOnDT, app) {
+        return {
+            //이미지레이어
+            satellite: new ImageLayer(GeOnDT, app, LAYER_OPT.satellite),
+            hybrid: new ImageLayer(GeOnDT, app, LAYER_OPT.hybrid),
+            //고도레이어
+            korea_terrain: new HeightLayer(GeOnDT, app, LAYER_OPT.korea_terrain)
+        }
+    }
+</script>
+<script>
+    sampleHeight = 200;
+    const positions = {
+        '세운상가': {x: 126.995168, y: 37.569604, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '국회의사당': {x: 126.91415231094318, y: 37.53189615862187, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '63빌딩': {x: 126.9395, y: 37.52, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '대전': {x: 127.3846, y: 36.3506, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '광명역': {x: 126.8853, y: 37.4163, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '아시아문화전당': {x: 126.9206, y: 35.1471, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '강남사거리': {x: 127.0278, y: 37.498, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '목포': {x: 126.381862, y: 34.802357, z: sampleHeight, rotateX: 2, rotateY: 60},
+        '송도': {x: 126.66, y: 37.38, z: 250, rotateX: 2, rotateY: 60},
+        '한반도': {x: 127.77, y: 36.73, z: 561000, rotateX: 0, rotateY: 0},
+        '아시아': {x: 126.66, y: 37.38, z: 4007500, rotateX: 0, rotateY: 0},
+        '시청': {x: 126.9760, y: 37.5575, z: 350, rotateX: 2, rotateY: 60},
+        '부산': {x: 129.173, y: 35.176142, z: 350, rotateX: 0, rotateY: 60},
+        '안양': {x: 126.962, y: 37.396, z: 220, rotateX: 2, rotateY: 60},
+        '덕촌': {x: 127.359, y: 36.660, z: 1240, rotateX: 0, rotateY: 0},
+        '부산순복음': {x: 129.168, y: 35.167, z: 400, rotateX: 0, rotateY: 40},
+        '제주': {x: 126.48, y: 33.48506, z: 350, rotateX: 2, rotateY: 60},
+        '독도': {x: 131.870694, y: 37.240680, z: 150, rotateX: 2, rotateY: 60},
+        '마곡': {x: 126.825, y: 37.569, z: 800, rotateX: 2, rotateY: 30},
+        '고양시청': {x: 126.832, y: 37.658, z: 800, rotateX: 2, rotateY: 30},
+        '고양시가지': {x: 126.7875, y: 37.659, z: 180, rotateX: -174, rotateY: 67}
+    };
+
+    const ROOT_GOYANG_URL = 'https://dt-data.mappick.co.kr/ServiceData/i3f/base/';
+    const ROOT_ULSAN_URL = 'https://dt-data.mappick.co.kr/ServiceData/i3f/ulsan/';
+    //서버에 등록된 레이어 사용시 data.baseUrl + data.fileName 이 url이됩니다.
+    const LAYER_OPT_ = {
+        ///////// 울산 지하 시설물  ///////////////////////////////////////////////////////////////
+        ULSAN_UNDER_PIPE:{
+            name: 'ULSAN_UNDER_PIPE',
+            desc: '지하배관',
+            position: {x: 129.332, y: 35.500, z: 300, rotateX: 2, rotateY: 85},
+            layers:[
+                {
+                    name: 'I3F_CHL_PIPE_LM_SOO',
+                    url : ROOT_ULSAN_URL+'CHL_PIPE_LM_SOO/tilemap.json'
+                },
+                {
+                    name: 'I3F_COL_PIPE_LM_PR',
+                    url : ROOT_ULSAN_URL+'COL_PIPE_LM_PR/tilemap.json'
+                },
+                {
+                    name: 'I3F_ECL1_PIPE_LM_PR',
+                    url : ROOT_ULSAN_URL+'ECL1_PIPE_LM_PR/tilemap.json'
+                },
+                {
+                    name: 'I3F_ECL_PIPE2_LM_PR',
+                    url : ROOT_ULSAN_URL+'ECL_PIPE2_LM_PR/tilemap.json'
+                },
+                {
+                    name: 'I3F_GSL_PIPE_LM_PR',
+                    url : ROOT_ULSAN_URL+'GSL_PIPE_LM_PR/tilemap.json'
+                },
+                {
+                    name: 'I3F_GSL_PIPE_LM_SOO_PR',
+                    url : ROOT_ULSAN_URL+'GSL_PIPE_LM_SOO_PR/tilemap.json'
+                },
+                {
+                    name: 'I3F_OIL_PIPE_LM_PR',
+                    url : ROOT_ULSAN_URL+'OIL_PIPE_LM_PR/tilemap.json'
+                },
+                {
+                    name: 'I3F_STM_PIPE_LM_PR',
+                    url : ROOT_ULSAN_URL+'STM_PIPE_LM_PR/tilemap.json'
+                },
+                {
+                    name: 'I3F_CHL_PIPE_LM_PR',
+                    url : ROOT_ULSAN_URL+'CHL_PIPE_LM_PR/tilemap.json'
+                },
+                {
+                    name: 'I3F_SWL_PIPE_LM_PR',
+                    url : ROOT_ULSAN_URL+'SWL_PIPE_LM_PR/tilemap.json'
+                },
+                {
+                    name: 'I3F_WTL_PIPE_LM_PR',
+                    url : ROOT_ULSAN_URL+'WTL_PIPE_LM_PR/tilemap.json'
+                },
+                {
+                    name: 'I3F_WTL_PIPE_LM_SOO_PR',
+                    url : ROOT_ULSAN_URL+'WTL_PIPE_LM_SOO_PR/tilemap.json'
+                }
+            ]
+        },
+        ///////// 고양 지하 시설물  ///////////////////////////////////////////////////////////////
+        UFL_KMAN_PS: {
+            name: 'UFL_KMAN_PS',
+            url: ROOT_GOYANG_URL + 'UFL_KMAN_PS/tilemap.json',
+            desc: '통신맨홀',
+            position: {x: 126.774, y: 37.660, z: 600, rotateX: 2, rotateY: 60}
+        },
+        UFL_KPIP_LS: {
+            name: 'UFL_KPIP_LS',
+            url: ROOT_GOYANG_URL + 'UFL_KPIP_LS/tilemap.json',
+            desc: '통신선로',
+            position: {x: 126.774, y: 37.660, z: 600, rotateX: 2, rotateY: 60}
+        },
+        UFL_GVAL_PS: {
+            name: 'UFL_GVAL_PS',
+            url: ROOT_GOYANG_URL + 'UFL_GVAL_PS/tilemap.json',
+            desc: '가스밸브',
+            position: {x: 126.774, y: 37.660, z: 600, rotateX: 2, rotateY: 60}
+        },
+        UFL_GPIP_LM: {
+            name: 'UFL_GPIP_LM',
+            url: ROOT_GOYANG_URL + 'UFL_GPIP_LM/tilemap.json',
+            desc: '천연가스배관',
+            position: {x: 126.774, y: 37.660, z: 600, rotateX: 2, rotateY: 60}
+        },
+        WTL_VALV_PS: {
+            name: 'WTL_VALV_PS',
+            url: ROOT_GOYANG_URL + 'WTL_VALV_PS/tilemap.json',
+            desc: '변류시설',
+            position: {x: 126.774, y: 37.660, z: 600, rotateX: 2, rotateY: 60}
+        },
+        WTL_PIPE_LM: {
+            name: 'WTL_PIPE_LM',
+            url: ROOT_GOYANG_URL + 'WTL_PIPE_LM/tilemap.json',
+            desc: '상수관로',
+            position: {x: 126.774, y: 37.660, z: 600, rotateX: 2, rotateY: 60}
+        },
+        UFL_PIPE_LM: {
+            name: 'UFL_PIPE_LM',
+            url: ROOT_GOYANG_URL + 'UFL_PIPE_LM/tilemap.json',
+            desc: '광역상수관',
+            position: {x: 126.774, y: 37.660, z: 600, rotateX: 2, rotateY: 60}
+        },
+        UFL_OPIP_LM: {
+            name: 'UFL_OPIP_LM',
+            url: ROOT_GOYANG_URL + 'UFL_OPIP_LM/tilemap.json',
+            desc: '송유관로',
+            position: {x: 126.774, y: 37.660, z: 600, rotateX: 2, rotateY: 60}
+        },
+
+        UFL_BMAN_PS: {
+            name: 'UFL_BMAN_PS',
+            url: ROOT_GOYANG_URL + 'UFL_BMAN_PS/tilemap.json',
+            desc: '전기맨홀',
+            position: {x: 126.774, y: 37.660, z: 600, rotateX: 2, rotateY: 60}
+        },
+        UFL_BPIP_LM: {
+            name: 'UFL_BPIP_LM',
+            url: ROOT_GOYANG_URL + 'UFL_BPIP_LM/tilemap.json',
+            desc: '전력지중관로',
+            position: {x: 126.774, y: 37.660, z: 600, rotateX: 2, rotateY: 60}
+        },
+        UFL_HMAN_PS: {
+            name: 'UFL_HMAN_PS',
+            url: ROOT_GOYANG_URL + 'UFL_HMAN_PS/tilemap.json',
+            desc: '난방맨홀',
+            position: {x: 126.774, y: 37.660, z: 600, rotateX: 2, rotateY: 60}
+        },
+        UFL_HPIP_LM: {
+            name: 'UFL_HPIP_LM',
+            url: ROOT_GOYANG_URL + 'UFL_HPIP_LM/tilemap.json',
+            desc: '열배관',
+            position: {x: 126.774, y: 37.660, z: 600, rotateX: 2, rotateY: 60}
+        },
+
+        SWL_MANH_PS: {
+            name: 'SWL_MANH_PS',
+            url: ROOT_GOYANG_URL + 'SWL_MANH_PS/tilemap.json',
+            desc: '하수맨홀',
+            position: {x: 126.774, y: 37.660, z: 600, rotateX: 2, rotateY: 60}
+        },
+        SWL_PIPE_LM: {
+            name: 'SWL_PIPE_LM',
+            url: ROOT_GOYANG_URL + 'SWL_PIPE_LM/tilemap.json',
+            desc: '하수관로',
+            position: {x: 126.774, y: 37.660, z: 600, rotateX: 2, rotateY: 60}
+        },
+        UGG_BORTH_PS: {
+            name: 'UGG_BORTH_PS',
+            url: ROOT_GOYANG_URL + 'UGG_BORTH_PS/tilemap.json',
+            desc: '시추공',
+            position: {x: 126.774, y: 37.660, z: 600, rotateX: 2, rotateY: 60}
+        },
+
+        ///////// 고양 지하 구조물  ///////////////////////////////////////////////////////////////
+        goyang_subway_station: {
+            name: 'goyang_subway_station',
+            url: ROOT_GOYANG_URL + 'UDG_STAT_AS/tilemap.json',
+            desc: '지하철역사',
+            position: {x: 126.774, y: 37.660, z: 600, rotateX: 2, rotateY: 60}
+        },
+        goyang_subway_track: {
+            name: 'goyang_subway_track',
+            url: ROOT_GOYANG_URL + 'UDG_SUBW_AS/tilemap.json',
+            desc: '지하철선로',
+            position: {x: 126.774, y: 37.660, z: 600, rotateX: 2, rotateY: 60}
+        },
+        goyang_underpass: {
+            name: 'goyang_underpass',
+            url: ROOT_GOYANG_URL + 'UDG_RODW_AS/tilemap.json',
+            desc: '지하차도',
+            position: {x: 126.762, y: 37.688, z: 600, rotateX: 2, rotateY: 60}
+        },
+        goyang_under_walkway: {
+            name: 'goyang_under_walkway',
+            url: ROOT_GOYANG_URL + 'UDG_SDWY_AS/tilemap.json',
+            desc: '지하보도',
+            position: {x: 126.771, y: 37.654, z: 600, rotateX: 2, rotateY: 60}
+        },
+        goyang_under_parkinglot: {
+            name: 'goyang_under_parkinglot',
+            url: ROOT_GOYANG_URL + 'UDG_PARK_AS/tilemap.json',
+            desc: '지하주차장',
+            position: {x: 126.780, y: 37.693, z: 600, rotateX: 2, rotateY: 60}
+        },
+        goyang_common_area: {
+            name: 'goyang_common_area',
+            url: ROOT_GOYANG_URL + 'UDG_FACI_AS/tilemap.json',
+            desc: '공동구',
+            position: {x: 126.732, y: 37.671, z: 600, rotateX: 2, rotateY: 60}
+        }
+    }
+    const layers = {};
+    //라이센스 인증
+    GeOnDT.ready(function () {
+        //지도 기본 세팅///////////////////////////////////////
+        window.app = new GeOnDT.U3dAPP({
+            containername: 'map',
+            methodheight: '1_0', //+ 지형 처리 방법
+            searchtype: 'sphere', //+ 타일 검색 방법
+            undergroundGrid: false
+        });
+        app.setUnderGroundMode(true);
+        app.on('change', updatePosData);
+        app.createloadingBar('load');
+        app.loadingBar();
+        const info = positions['고양시가지'];
+        app.setHomePosition(info.x, info.y, info.z, info.rotateX, info.rotateY); //경도, 위도, 높이, 방위각, 고도각
+        app.updateHomePosition();
+        initSlider('opacity');
+        initSlider('m-opacity');
+
+        app.setEnableOpacityImageLayers(true);
+        app.setOpacityImageLayers(0.2);
+        $('#opacity').slider("value", 0.2);
+        $('#opacity-handle').text(0.2);
+
+        //이미지 & 지형 레이어 생성
+        let layers = new LayerList(GeOnDT, app);
+        let initLayerList = ['satellite', 'korea_terrain']
+        initLayer(initLayerList);
+
+        // u3f 모델 레이어 생성
+        window.u3fGroupLayer = this.app.createModelGroupLayer({
+            maxlevel: 15,
+            minlevel: 15,
+            name: 'U3fGroupLayer'
+        });
+        $.ajax({
+            url: window.trdDimResUrl + 'v1/layers?type=u3f&category=u3f_2hd_15',
+            crossDomain: true,
+            beforeSend: function (xhr) {
+                xhr.setRequestHeader('User-Authorization', 'liSYJPYJhPitIeP6UQznNyhy54iVE2eigdHZGQBgCxcBZng6MxvqMBe2cPbxu2ti');
+                xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+            },
+            error: function (e) {
+                console.error(e);
+            }
+        }).then(function (result) {
+            let infos = result.params.data;
+            for (let i = 0; i < infos.length; i++) {
+                let baseName = infos[i].fileName;
+                if (!baseName || baseName === '')
+                    baseName = infos[i].name;
+                let options = {
+                    name: infos[i].name,
+                    basename: baseName,
+                    baseurl: infos[i].baseUrl,
+                    minlevel: infos[i].metaData.minLevel,
+                    maxlevel: infos[i].metaData.maxLevel,
+                    opacity: 0.3
+                };
+                let layer = app.create3DFModelLayer(options);
+                if (layer !== undefined) {
+                    window.u3fGroupLayer.addLayer(layer);
+                }
+            }
+        });
+        app.showLayer( window.u3fGroupLayer.getName(), true);
+        $(document).on('click', '.input-showLayer:input[type=checkbox]', function (e) {
+            const $checkbox = $(e.target);
+            const name = $checkbox.attr('target');
+            checkLayer(name, $checkbox[0].checked);
+        });
+
+        $('#m-opacity').slider("value", 0.3);
+        $('#m-opacity-handle').text(0.3);
+
+        function checkLayer(name, checked) {
+            if (checked) {
+                if (layers[name].layer === undefined) {
+                    layers[name].create();
+                }
+                layers[name].show(true);
+            } else {
+                layers[name].show(false);
+            }
+        }
+
+        function initLayer(list) {
+            const basename = list[0];
+            GeOnDT.UDEF.createPromise((resolve) => {
+                list.forEach((name) => {
+                    if (layers[name].layer === undefined) {
+                        layers[name].create();
+                        layers[name].ready.then(() => {
+                            if (name === basename)
+                                app.setNameBaseLayer(name);
+
+                            app.showLayer(name, true);
+                            $('.input-showLayer:input[target=' + name + ']').prop("checked", true);
+                        });
+                    }
+                });
+                resolve(true);
+            }).then((resolve) => {
+                if (resolve)
+                    app.endloadingBar();
+            });
+        }
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// function 선언 ////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        //+ overlay 생성 function
+        async function createOverlay(name, obj, position) {
+            const html = await printOverlayHtml(obj);//+ overlay UI
+            const overlay = new GeOnDT.overlay.U3dOverlay({
+                name: name, //+ 오버레이 이름, * 필수 입력,  defaultValue(opt.name, undefined);
+                id: obj.uuid, //+ 오버레이 ID, defaultValue(opt.id, Guid());
+                element: html, //+ 오버레이 html의 문자열 또는 JQuery 객체, *필수 입력
+                position: position, //+ 오버레이 위치(위경도), defaultValue(opt.position, undefined);, *필수 입력
+                useanchor: false, //+ 클릭 지점에 따라 앵커 자동 변경,  defaultValue(opt.useanchor, true);
+                balloon: {x: -50, y: 10} //+ balloon 위치,  defaultValue(opt.balloon, {x: 0, y: 0});
+            });
+            app.removeAllOverlay(); //+ 다른 overlay 전체 삭제
+            app.addOverlay(overlay); //+ 새로 만든 overlay 추가
+            const element = overlay.getElement();
+            //+ overlay에 닫기 event 추가
+            $(element).on('click', '.close', popUpCloseClick.bind(overlay));
+            return overlay;
+        }
+
+        //+ overlay UI
+        async function printOverlayHtml(obj) {
+            const item = obj;
+            let str = '';
+            str += '<div class="u3-popup" id=' + obj.uuid + '>';
+            str += '<div class="u3-popup-content">';
+            str += '<div class="modal-header">';
+            str += '<label>선택 객체 정보</label>';
+            str += '<button type="button" class="close"><span aria-hidden="true">&times;</span>';
+            str += '</button>';
+            str += '</div>';
+
+            str += '<div class="item-sub-title"><span class="text-icon">레이어 명: </span>' + item._ulayername + '</div>';  //+ model layer Name
+            str += '<div class="item-sub-title"><span class="text-icon">번호: </span>' + item.uuid + '</div>'; //+ model UUID
+            str += '<hr>'
+            if (item.userData.metaurl)
+                str += '<div class="item-sub-title"><span class="text-icon">META_URL: </span>' + item.userData.metaurl + '</div>'; //+ model UUID
+            if (item.userData) {
+                str += printProperties(item.userData);
+            }
+            str += '</div>';
+            str += '</div>';
+            return str;
+        }
+
+        function printProperties(properties) {
+            let str = "";
+            const keys = Object.keys(properties);
+            for (let i = 0; i < keys.length; i++) {
+                const key = keys[i];
+                str += '<div class="item-sub-title"><span class="text-icon">' + key + ' : </span>' + properties[keys[i]] + '</div>';
+            }
+
+            return str;
+        }
+
+        //+ overlay 닫기 event function
+        function popUpCloseClick() {
+            $(this.element).off('click', '.close', popUpCloseClick);
+            app.removeOverlay(this); //+ overlay 제거
+            selector.clear(); //+ 분석 내용 비우기
+        }
+
+        /////////////////////////////////////////////////////
+        function createTilesLayer(name) {
+            if(!LAYER_OPT_[name])
+                return;
+
+            if (layers[name] === name)
+                return;
+
+            //+ 지하철 역사, 지하철 선로, 공동구 색상 설정
+            let fixColor = undefined;
+            if (name === 'goyang_subway_track' ||
+                name === 'goyang_subway_station' ||
+                name === 'goyang_common_area') {
+                fixColor = '#FFBD51';
+            }
+            let modelLayer = undefined;
+            if(LAYER_OPT_[name].layers){
+                modelLayer = app.createModelGroupLayer({
+                    name: name,
+                    maxlevel: 17,
+                    minlevel: 17,
+                });
+                for(let info of LAYER_OPT_[name].layers){
+                    const layer = new GeOnDT.model.U3dModelI3FLayer({
+                        name: info.name,
+                        fixcolor: fixColor,
+                        useproxy: false,
+                        baseurl: info.url,
+                        limitdistance: 220, //출력 반경, 기본값 220
+                        modeldetail: 'high', //출력 모델 화질 high 또는 low 입력 , 기본값 high
+                        metaDataFunction: metaDataFunction
+                    });
+                    app.addLayer(layer);
+                    modelLayer.addLayer(layer);
+                }
+            }else{
+                modelLayer = new GeOnDT.model.U3dModelI3FLayer({
+                    name: name,
+                    fixcolor: fixColor,
+                    useproxy: false,
+                    baseurl: LAYER_OPT_[name].url,
+                    limitdistance: 220, //출력 반경, 기본값 220
+                    modeldetail: 'high', //출력 모델 화질 high 또는 low 입력 , 기본값 high
+                    metaDataFunction: metaDataFunction
+                });
+                app.addLayer(modelLayer);
+            }
+
+            modelLayer.then(function () {
+                app.showLayer(name, true);
+            });
+
+            window.layer = modelLayer;
+            layers[name] = name;
+        }
+
+        function metaDataFunction(meta) {
+            // console.log(meta)
+        }
+
+        function removeLayer(name) {
+            if (layers[name] !== name)
+                return;
+
+            app.removeLayer(name);
+            layers[name] = undefined;
+        }
+
+        $(document).on('click', 'input[type=checkbox]', checked);
+
+        function checked(e) {
+            const $checkbox = $(e.target);
+            const name = $checkbox.attr('target');
+
+            if (name === undefined || app === undefined)
+                return;
+
+            //+ 영상 투명화 여부
+            if (name === 'opacity_yn') {
+                if ($checkbox[0].checked) {
+                    app.setEnableOpacityImageLayers(true)
+                } else {
+                    app.setEnableOpacityImageLayers(false)
+                }
+                return;
+            }
+
+            if (name === 'm_opacity_yn') {
+                if ($checkbox[0].checked) {
+                    window.u3fGroupLayer.setOpacity( $('#m-opacity').slider("value") );
+                } else {
+                    window.u3fGroupLayer.setOpacity(1);
+                }
+                return;
+            }
+
+            createTilesLayer(name);
+
+            if ($checkbox[0].checked) {
+                app.showLayer(name, true);
+            } else {
+                app.showLayer(name, false);
+            }
+        }
+
+        $(document).on('click', '.move', move);
+
+        function move(e) {
+            e.preventDefault();
+            const name = $($(this).siblings()[0]).attr('target');
+            const pos = LAYER_OPT_[name].position;
+
+            const delayTime = 4000;
+            app.setCameraGeographicPosition(pos.x, pos.y, pos.z, pos.rotateX, pos.rotateY, delayTime)
+                .then(function () {
+                    app.once('app-loaded', function () {
+                        console.log('app-loaded');
+                    })
+                });
+        }
+
+        $(document).on('click', '.delete', deleteFunc);
+
+        function deleteFunc(e) {
+            e.preventDefault();
+            var name = $($(this).siblings()[0]).attr('target');
+
+            removeLayer(name);
+
+            $($(this).siblings()[0]).prop('checked', false);
+        }
+
+        $(document).on('click', '#selectObject', selectObject);
+
+        // selector 생성
+        window.selector = new GeOnDT.select.U3dSelect({
+            mode: 'point',
+            auto: false // 사용자가 직접 select할 객체를 지정 하는 모드
+        });
+        app.addSelect(selector);
+
+        function selectObject(e) {
+            if (e.target.checked) {
+                selectArea.on();
+            } else
+                selectArea.off();
+        }
+
+        $(document).on('click', '#showUndergroudGrid', showUnderGroundGrid);
+
+        function showUnderGroundGrid(e) {
+            app.showUnderGroundGrid(e.target.checked);
+        }
+
+        //selector 이벤트 설정
+        let selectArea = {
+            check: function (checked, name) {
+                if (checked) {
+                    $('.selectCheck[target!="' + name + '"]').prop("checked", false);
+                    this.on(name);
+                } else {
+                    this.off();
+                }
+            },
+            on: function () {
+                app.removeAllOverlay(); //+ 다른 overlay 전체 삭제
+                if (!selector.isActive()) {
+                    selector.active();
+                    selector.on('change', this.change);
+                    selector.on('end', this.end);
+                }
+            },
+            off: function () {
+                app.removeAllOverlay(); //+ 다른 overlay 전체 삭제
+                selector.clear();
+                selector.deactive();
+                selector.off('change', this.change);
+                selector.off('end', this.end);
+            },
+            change: function (e) {
+                console.log('Change Event');
+                app.removeAllOverlay(); //+ 다른 overlay 전체 삭제
+            },
+            end: async function (e) {
+                console.log('End Event');
+                let selects = e.data;
+
+                selects.forEach((select) => {
+                    let name = select.getLayerName();
+                    // 고도 & wfs 모델 레이어 선택 제외
+                    if (name !== undefined && name !== "gyeonggido_2hd_15") {
+                        selector.addSelected(select);
+                    }
+                })
+
+                let objects = selector.getSelected();
+                let obj;
+                for (let i = 0; i < objects.length; i++) {
+                    let x = objects[i].position.x;
+                    let y = objects[i].position.y;
+                    let z = objects[i].position.z;
+                    console.log(`[${i}] x: ${x} , y: ${y} , z: ${z}`);
+                    if (!obj) {
+                        obj = objects[i];
+                    }
+                }
+                if (obj) {
+                    let htmlStr = printOverlayHtml(obj);
+                    let latlon = e.work.points[0];
+                    let overlay = await createOverlay('overlay', obj, latlon, htmlStr); //+ 위경도 좌표에 overlay 생성
+                    overlay.show(); //+ overlay 가시화
+
+                    let lastWork = e.work; // == e.work;
+                    if (lastWork) {
+                        console.info(lastWork.type + " : ")
+                        console.info(lastWork.points)
+                    }
+                }
+            }
+
+        }
+        selectArea.on();
+
+        // 투명도 slider 설정
+        function initSlider(type) {
+            let id = '';
+            let idhandle = '';
+            let step = 0.01;
+            switch (type) {
+                case  'opacity': {
+                    id = '#opacity';
+                    idhandle = '#opacity-handle';
+                }
+                    break;
+                case  'm-opacity': {
+                    id = '#m-opacity';
+                    idhandle = '#m-opacity-handle';
+                }
+                    break;
+                case 'x-axis': {
+                    id = '#x-axis';
+                    idhandle = '#x-axis-handle';
+                    step = 0.000001;
+                }
+                    break;
+                case 'y-axis': {
+                    id = '#y-axis';
+                    idhandle = '#y-axis-handle';
+                    step = 0.000001;
+                }
+                    break;
+                case 'z-axis': {
+                    id = '#z-axis';
+                    idhandle = '#z-axis-handle';
+                    step = 0.000001;
+                }
+                    break;
+            }
+
+            const handle = $(idhandle);
+            $(id).slider({
+                orientation: "horizontal",
+                range: "min",
+                value: 1,
+                min: 0, // min value
+                max: 1,
+                step: step,
+                create: function () {
+                    const val = $(this).slider("value");
+                    handle.text(val.toFixed(2));
+                },
+                slide: function (event, ui) {
+                    handle.text(ui.value.toFixed(2));
+                    switch (id) {
+                        case  '#opacity': {
+                            app.setOpacityImageLayers(ui.value);
+                        }
+                            break;
+                        case  '#m-opacity': {
+                            window.u3fGroupLayer.setOpacity(ui.value);
+                        }
+                            break;
+                        case '#x-axis': {
+                            app.setClippingAxisXByRatio(ui.value);
+                        }
+                            break;
+                        case '#y-axis': {
+                            app.setClippingAxisYByRatio(ui.value);
+                        }
+                            break;
+                        case '#z-axis': {
+                            app.setClippingAxisHeightByRatio(ui.value);
+                        }
+                    }
+                }
+            });
+        }
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>서울 샘플 데이터</name>
+
+    <!-- 1. Point: 단일 지점 마커 -->
+    <Placemark>
+      <name>서울시청</name>
+      <description>서울특별시 중구</description>
+      <Point>
+        <coordinates>126.9780,37.5665, 30 </coordinates>
+      </Point>
+    </Placemark>
+
+    <Placemark>
+      <name>남산타워</name>
+      <description>N서울타워</description>
+      <Point>
+        <coordinates>126.9882,37.5512, 270</coordinates>
+      </Point>
+    </Placemark>
+
+    <!-- 2. LineString: 경로 -->
+    <Placemark>
+      <name>시청-남산 이동경로</name>
+      <LineString>
+        <altitudeMode>clampToGround</altitudeMode>
+        <coordinates>
+          126.9780,37.5665,10
+          126.9820,37.5600,20
+          126.9882,37.5512,30
+        </coordinates>
+      </LineString>
+    </Placemark>
+
+    <!-- 3. Polygon: 영역 (예: 건물 부지) -->
+    <Placemark>
+      <name>샘플 건물 부지</name>
+      <Polygon>
+        <extrude>1</extrude>
+        <altitudeMode>relativeToGround</altitudeMode>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>
+              126.9770,37.5670,30
+              126.9790,37.5670,30
+              126.9790,37.5660,30
+              126.9770,37.5660,30
+              126.9770,37.5670,30
+            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+
+    <!-- 4. Model: 3D 모델 배치 정보 (실제 .dae 파일은 KMZ로 압축시 함께 포함되어야 함) -->
+    <Placemark>
+      <name>샘플 3D 건물 모델</name>
+      <Model>
+        <altitudeMode>relativeToGround</altitudeMode>
+        <Location>
+          <longitude>126.9780</longitude>
+          <latitude>37.5665</latitude>
+          <altitude>0</altitude>
+        </Location>
+        <Orientation>
+          <heading>45</heading>
+          <tilt>0</tilt>
+          <roll>0</roll>
+        </Orientation>
+        <Scale>
+          <x>1</x>
+          <y>1</y>
+          <z>1</z>
+        </Scale>
+        <Link>
+          <href>models/building.dae</href>
+        </Link>
+      </Model>
+    </Placemark>
+
+  </Document>
+</kml>

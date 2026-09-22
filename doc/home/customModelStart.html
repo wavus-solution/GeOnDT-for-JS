@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>가상 건물 생성</title>
+</head>
+<body style="padding-top: 0">
+<div class="index">
+    <a href="#jump1">1. 시작하기</a><br>
+    <a href="#jump2">2. 가상 건물 생성하기</a><br>
+    <a href="#jump3">3. 가상 건물 조회하기</a><br>
+    <a href="#jump4">4. 가상 건물 편집하기</a><br>
+    <a href="#jump5">5. 가상 건물 스타일 설정하기</a><br>
+    <a href="#jump4">6. 가상 건물 병합하기</a><br>
+    <a href="#jump6">7. 가상 건물 삭제하기 </a><br>
+</div>
+<hr>
+<div class="content">
+    <h2 class="lead" id="jump1"> 1. 시작하기 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            가상 건물 생성을 위해서는 먼저 app에 등록된 모드를 활성화해야 합니다.<br>
+            <strong>app.getAnalysis(mode) api를 통해 등록된 모드를 가져온 후, active()를 호출하여 활성화합니다.</strong><br>
+            또는 <strong>app.activeAnalysis(mode)</strong>를 통해 바로 활성할수 있습니다. <br> <br>
+
+            모델 편집 모드의 이름은 <accent>CustomModel</accent> 입니다.
+        </div>
+        <div class="explane_api">
+            U3dApp.<span class="api_name">getAnalysis(<span class="param_name">analysisName</span>)</span> : app에 등록되 분석모드를 가져오는 함수
+            <div class="explane_api_param">
+                <span class="param_name">available</span><span class="param_type">string</span> : 분석모드 이름
+            </div>
+        </div>
+        <div class="explane_api">
+            UAnalyGizmoModel.<span class="api_name">active()</span> : 모델 편집 모드 활성 함수
+        </div>
+        <div class="explane_api">
+            UAnalyGizmoModel.<span class="api_name">deactive()</span> : 모델 편집 모드 비활성 함수
+        </div>
+        <label class="code-label">모델 편집 모드 활성화</label>
+        <div class="code" id="text1-code"></div>
+        <div class="code-text" id="text1" hidden="hidden">
+            const customModel = app.getAnalysis('CustomModel');
+
+            customModel.active();    // 모드 활성
+            customModel.deactive();  // 모드 비활성
+
+            // 또는
+            app.activeAnalysis('CustomModel');   // 모드 활성
+            app.deactiveAnalysis('CustomModel'); // 모드 비활성
+        </div>
+    </div>
+
+    <h2 class="lead" id="jump2"> 2. 가상 건물 생성하기 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            가상 건물은 <accent>addCustomModel(opt)</accent> API를 통해 생성할 수 있습니다. <br>
+            옵션 중 <strong>핵심 파라미터는 vertex와 extrudeheight</strong>입니다.<br>
+            <accent>vertex</accent>에는 건물 바닥면을 구성하는 좌표 배열을 지정하고, <accent>extrudeheight</accent>에는 건물의 높이를 설정합니다.
+        </div>
+        <div class="explane_api">
+            UAnalyCustomModel.<span class="api_name">addCustomModel(<span class="param_name">opt</span>)</span> : 가상 건물을 생성하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">opt.name</span><span class="param_type">string</span> : 건물 이름 (*필수)<br>
+                <span class="param_name">opt.labeltext</span><span class="param_type">string</span> : 건물 라벨 텍스트<br>
+                <span class="param_name">opt.extrudeheight</span><span class="param_type">number</span> : 건물 높이 (*필수)<br>
+                <span class="param_name">opt.vertex</span><span class="param_type">WorldPosition[]</span> : 건물 바닥 면이 될 3D 월드 좌표 배열 (*필수)<br>
+                <span class="param_name">opt.zoffset</span><span class="param_type">number</span> : 건물과 바닥 사이 간격<br>
+                <span class="param_name">opt.color</span><span class="param_type">Color</span> : 건물 색상<br>
+                <span class="param_name">opt.opacity</span><span class="param_type">number</span> : 건물 투명도
+            </div>
+        </div>
+        <label class="code-label">가상 건물 생성하기</label>
+        <div class="code" id="text2-code"></div>
+        <div class="code-text" id="text2" hidden="hidden">
+            // 가상 건물 모드 설정
+            const customModel = app.getAnalysis('CustomModel');
+
+            // 가상 건물 생성 옵션 설정
+            const opt = {
+                name: '건물1',
+                labeltext: '건물1',
+                extrudeheight: 100,
+                vertex: [
+                    {x: -212107.8622, y: 103363.1515, z: 15},
+                    {x: -212000.5441, y: 103244.7933, z: 15},
+                    {x: -211887.8881, y: 103321.0438, z: 15},
+                    {x: -211906.0493, y: 103510.4620, z: 15},
+                    {x: -211906.0493, y: 103510.4620, z: 15}
+                ],
+                zoffset: 0,
+                color: 0xffff00,
+                opacity: 1
+            };
+
+            // 가상 건물 생성
+            customModel.addCustomModel(opt);
+        </div>
+
+    </div>
+
+    <h2 class="lead" id="jump3"> 3. 가상 건물 조회하기 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            생성된 가상 건물은 <accent>getCustomModels()</accent> API로 전체 조회하거나, 가상 건물의 고유한 <accent>UID 값 또는 이름으로 조회</accent>할 수 있습니다.
+        </div>
+        <div class="explane_api">
+            UAnalyCustomModel.<span class="api_name">getCustomModels()</span> : 전체 가상 건물 목록을 조회하는 함수
+            <div class="explane_api_return">
+                <span class="return_name">return </span><span class="param_type"> U3dCustomModel[] </span> : 가상 건물 목록 <br>
+            </div>
+        </div>
+        <div class="explane_api">
+            UAnalyCustomModel.<span class="api_name">getModelByUid(<span class="param_name">uid</span>)</span> : 건물 고유 ID(Uid)로 조회하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">uid</span><span class="param_type">number</span> : 조회할 가상 건물의 Uid (model.getUid() 값)
+            </div>
+            <div class="explane_api_return">
+                <span class="return_name">return </span><span class="param_type"> U3dCustomModel </span> : 해당하는 가상 건물  <br>
+            </div>
+        </div>
+        <div class="explane_api">
+            UAnalyCustomModel.<span class="api_name">getModelByName(<span class="param_name">name</span>)</span> : 건물의 이름으로 조회하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">name</span><span class="param_type">string</span> : 조회할 가상 건물의 이름 (model._name 값)
+            </div>
+            <div class="explane_api_return">
+                <span class="return_name">return </span><span class="param_type"> U3dCustomModel </span> : 해당하는 가상 건물  <br>
+            </div>
+        </div>
+        <label class="code-label">건물 조회하기</label>
+        <div class="code" id="text3-code"></div>
+        <div class="code-text" id="text3" hidden="hidden">
+            const customModel = app.getAnalysis('CustomModel');
+
+            // 전체 가상 건물 목록 조회
+            const allList = customModel.getCustomModels();
+
+            // Uid로 조회
+            const modelByID = customModel.getModelByUid(745); // model.getUid() 값
+
+            // 이름으로 조회
+            const modelByName = customModel.getModelByName('건물1'); // model._name 값
+
+        </div>
+        <div class="explane1" >
+            생성된 가상 건물의 <accent>건축면적, 대지면적</accent> <strong>등 영역 정보를 U3dCustomModel.</strong><accent>getAreaValue()</accent> API를 통해 조회 가능합니다.<br>
+            가상 건물의 용적률과 건폐율은 대지 면적(landArea)이 사전에 설정되어 있어야 계산할 수 있으며, 설정되지 않은 경우 기본값은 0으로 출력됩니다.<br><br>
+
+            <strong>[용어 설명]</strong><br>
+            <strong>- 건축 면적</strong> : 건물의 밑면 넓이, 제곱미터 m2<br>
+            <strong>- 층 수</strong> : (건물의 높이/3m), 3m는 통상 한 층의 높이<br>
+            <strong>- 연면적</strong> : 건물의 모든 층의 바닥면적을 합친 값<br>
+            <strong>- 대지면적</strong> : 건물을 지을 수 있도록 허가된 땅의 넓이<br>
+            <strong>- 용적률</strong> : (연면적/대지면적 X 100)<br>
+            <strong>- 건폐율</strong> : (건축면적/대지면적 X 100)<br>
+        </div>
+        <div class="explane_api">
+            U3dCustomModel.<span class="api_name">getAreaValue()</span> : 가상 건물의 영역 정보를 조회하는 함수
+            <div class="explane_api_return">
+                <span class="return_name">return </span><span class="param_type"> object </span> : 건물 영역 정보  <br>
+                <span class="return_name">return </span><span class="param_type"> object.floor </span> : 건물 층수  <br>
+                <span class="return_name">return </span><span class="param_type"> object.buildingArea </span> : 건축 면적 <br>
+                <span class="return_name">return </span><span class="param_type"> object.totalArea </span> : 연 면적 <br>
+                <span class="return_name">return </span><span class="param_type"> object.landArea </span> : 대지 면적  <br>
+                <span class="return_name">return </span><span class="param_type"> object.floorAreaRatio </span> : 건물 용적률  <br>
+                <span class="return_name">return </span><span class="param_type"> object.buildingCoverageRatio </span> : 건물 건폐율
+            </div>
+        </div>
+
+        <label class="code-label">건물 높이/지면 높이/라벨 설정</label>
+        <div class="code" id="text14-code"></div>
+        <div class="code-text" id="text14" hidden="hidden">
+            const customModel = app.getAnalysis('CustomModel');
+            const model = customModel.getModelByName('건물1');
+
+            // 건물 영역 정보 추출
+            const info = model.getAreaValue();
+            console.log(info);
+        </div>
+        <label class="code-label">영역 정보 예시 <br>
+            <img src="./image/customModelStart/영역정보.png" alt="영역정보" data-size="large">
+        </label>
+    </div>
+
+    <h2 class="lead" id="jump4"> 4. 가상 건물 편집하기 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            생성된 가상 건물은 제공되는 U3dCustomModel API를 통해 <accent>건물의 이름, 높이, 지면과의 거리, 라벨 텍스트를 편집</accent>할 수 있습니다. <br>
+            이때, 라벨 텍스트를 변경하더라도 실제 <strong>가상 건물의 이름(_name)을 변경되지 않습니다. </strong>
+        </div>
+        <div class="explane_api">
+            U3dCustomModel.<span class="api_name">setName(<span class="param_name">name</span>)</span> : 가상 건물 이름을 편집하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">name</span><span class="param_type">string</span> : 가상 건물 이름
+            </div>
+        </div>
+        <div class="explane_api">
+            U3dCustomModel.<span class="api_name">setHeight(<span class="param_name">height</span>)</span> : 가상 건물 높이를 편집하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">height</span><span class="param_type">number</span> : 가상 건물 높이
+            </div>
+        </div>
+        <div class="explane_api">
+            U3dCustomModel.<span class="api_name">setLandHeight(<span class="param_name">landHeight</span>)</span> : 가상 건물 지면 높이를 편집하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">landHeight</span><span class="param_type">number</span> : 건물과 지면 사이의 높이 (Z-Offset)
+            </div>
+        </div>
+        <div class="explane_api">
+            U3dCustomModel.<span class="api_name">setLabelText(<span class="param_name">text</span>)</span> : 가상 건물 라벨 텍스트를 편집하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">text</span><span class="param_type">string</span> : 라벨 텍스트
+            </div>
+        </div>
+        <label class="code-label">건물 높이/지면 높이/라벨 설정</label>
+        <div class="code" id="text4-code"></div>
+        <div class="code-text" id="text4" hidden="hidden">
+            const customModel = app.getAnalysis('CustomModel');
+            const model = customModel.getModelByName('건물1');
+
+            // 건물의 이름 변경 ('건물1' -> '관공서1')
+            model.setHeight('관공서1');
+
+            // 건물의 높이 변경
+            model.setHeight(200);
+
+            // 건물과 지면과의 높이 변경
+            model.setLandHeight(10);
+
+            // 건물 라벨 변경
+            model.setLabelText('관공서1');
+        </div>
+    </div>
+    <h2 class="lead" id="jump5"> 5. 가상 건물 스타일 설정하기 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            가상 건물은 <accent>색상, 투명도, 텍스처</accent> 등 <strong>스타일 속성을 편집</strong>하여 실제 건물과 유사한 시각적 효과를 표현할 수 있습니다.
+        </div>
+        <div class="explane_api">
+            U3dCustomModel.<span class="api_name">setColor(<span class="param_name">color</span>)</span> : 가상 건물에 색상을 설정하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">color</span><span class="param_type">Color</span> : 색상
+            </div>
+        </div>
+        <div class="explane_api">
+            U3dCustomModel.<span class="api_name">setOpacity(<span class="param_name">opacity</span>)</span> : 가상 건물에 투명도를 설정하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">opacity</span><span class="param_type">number</span> : 투명도 (0~1)
+            </div>
+        </div>
+        <div class="explane_api">
+            U3dCustomModel.<span class="api_name">setTexture(<span class="param_name">textureUrl</span>)</span> : 가상 건물에 이미지 텍스처를 설정하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">textureUrl</span><span class="param_type">string</span> : 텍스처 위치 (URL)
+            </div>
+        </div>
+
+        <label class="code-label">건물 스타일 설정</label>
+        <div class="code" id="text5-code"></div>
+        <div class="code-text" id="text5" hidden="hidden">
+            const customModel = app.getAnalysis('CustomModel');
+            const model = customModel.getModelByName('관공서1');
+
+            // 건물 색상 변경
+            model.setColor("fff000");
+
+            // 건물 투명도 변경
+            model.setOpacity(0.7);
+
+            // 이미지 텍스처 설정
+            const textureUrl =  './image/buld/buld_texture_1.jpg';
+            model.setTexture(textureUrl);
+        </div>
+        <label class="code-label">색상/투명도 설정 <br>
+            <img src="./image/customModelStart/색투명도적용.png" alt="style1" data-size="medium">
+        </label>
+        <label class="code-label">텍스처 설정<br>
+            <img src="./image/customModelStart/텍스처적용.png" alt="style2" data-size="medium">
+        </label>
+
+    </div>
+
+    <h2 class="lead" id="jump6"> 6. 가상 건물 병합하기 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            두 개 이상의 가상 건물은 하나의 가상 건물 객체로 병합할 수 있습니다. <br>
+            UAnalyCustomModel.<accent>merge</accent> API를 통해 병합된 건물의 생성 파라미터를 생성한 뒤, 해당 파라미터를 사용해 하나의 병합된 가상 건물을 생성합니다.
+        </div>
+        <div class="explane_api">
+            UAnalyCustomModel.<span class="api_name">merge(<span class="param_name">name, meshBase, meshes, useDelete</span>)</span> : 가상 건물을 하나의 건물로 병합하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">name</span><span class="param_type">string</span> : 병합 건물 이름<br>
+                <span class="param_name">meshBase</span><span class="param_type">U3dCustomModel</span> : 병합 기준이 될 건물<br>
+                <span class="param_name">meshes</span><span class="param_type">U3dCustomModel[]</span> : 기준이 될 건물과 병합 할 건물 목록<br>
+                <span class="param_name">useDelete</span><span class="param_type">boolean</span> :기존 건물 삭제 여부
+            </div>
+        </div>
+        <label class="code-label">가상 건물 병합</label>
+        <div class="code" id="text6-code"></div>
+        <div class="code-text" id="text6" hidden="hidden">
+            const customModel = app.getAnalysis('CustomModel');
+            const models = customModel.getCustomModels();
+
+            const baseModel = models[0];
+
+            // 병합된 가상 건물 생성 파라미터 가져오기
+            const param = customModel.merge('병합1', baseModel, models, true);
+
+            // 병합 객체 생성
+            customModel.addCustomModel(param);
+        </div>
+        <label class="code-label"> 병합 전 (개별 건물) <br>
+            <img src="./image/customModelStart/개별건물.png" alt="style1" data-size="medium">
+        </label>
+        <label class="code-label">병합 후 (하나의 객체) <br>
+            <img src="./image/customModelStart/병합건물.png" alt="style2" data-size="medium">
+        </label>
+
+    </div>
+
+    <h2 class="lead" id="jump7"> 7. 가상 건물 삭제하기 </h2>
+    <div class="doc">
+        <div class="explane1" >
+            생성한 가상 건물은 UAnalyCustomModel 클래스에서 제공하는 <strong>제거 관련 API를 사용해 삭제</strong>할 수 있습니다. <br>
+            전체 건물을 한 번에 제거하거나, 파라미터를 지정해 특정 건물만 선택적으로 제거할 수 있습니다.
+        </div>
+        <div class="explane_api">
+            UAnalyCustomModel.<span class="api_name">removeAll()</span> : 생성된 전체 가상 건물을 제거하는 함수
+        </div>
+        <div class="explane_api">
+            UAnalyCustomModel.<span class="api_name">removeModel(<span class="param_name">model</span>)</span> : 파라미터로 입력된 가상 건물을 제거하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">model</span><span class="param_type">U3dCustomModel</span> : 가상 건물 객체
+            </div>
+        </div>
+        <div class="explane_api">
+            UAnalyCustomModel.<span class="api_name">removeModelByUid(<span class="param_name">uid</span>)</span> : Uid를 통해 해당하는 가상 건물을 제거하는 함수
+            <div class="explane_api_param">
+                <span class="param_name">uid</span><span class="param_type">number</span> : 가상 건물 Uid
+            </div>
+        </div>
+        <label class="code-label">분석 모드로 제거</label>
+        <div class="code" id="text7-code"></div>
+        <div class="code-text" id="text7" hidden="hidden">
+            const customModel = app.getAnalysis('CustomModel');
+            const model = customModel.getModelByName('관공서1');
+
+            // uid가 745인 가상 건물만 제거
+            customModel.removeModelByUid(745);
+
+            // 파라미터로 model 객체를 넣어 제거
+            customModel.removeModel(model);
+
+            // 전체 제거
+            customModel.removeAll();
+        </div>
+
+        <div class="explane1" >
+            또는 직접 가상 건물 객체에 접근해서 U3dCustomModel.<accent>dispose()</accent> API로 제거할 수 있습니다.
+        </div>
+        <div class="explane_api">
+            U3dCustomModel.<span class="api_name">dispose()</span> : 가상 건물 제거 함수
+        </div>
+        <label class="code-label">직접 참조 제거</label>
+        <div class="code" id="text8-code"></div>
+        <div class="code-text" id="text8" hidden="hidden">
+            const customModel = app.getAnalysis('CustomModel');
+            const model = customModel.getModelByName('관공서1');
+
+            // 객체를 직접 참조해 제거
+            model.dispose();
+        </div>
+    </div>
+
+</div>
+</body>
+</html>

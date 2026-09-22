@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>비행 경로 그리기</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="비행-경로-그리기">비행 경로 그리기</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-%EC%BB%B4%ED%8F%AC%EB%84%8C%ED%8A%B8%EC%9D%98-%EB%B9%84%ED%96%89-%EA%B2%BD%EB%A1%9C-%EC%8B%9C%EC%9E%91%ED%95%98%EA%B8%B0">컴포넌트의 비행 경로 시작하기</a></li>
+<li><a href="#2-u3dcumulativepath-%EC%A7%81%EC%A0%91-%EC%82%AC%EC%9A%A9%ED%95%98%EA%B8%B0">U3dCumulativePath 직접 사용하기</a></li>
+<li><a href="#3-%EA%B2%BD%EB%A1%9C-%EC%8A%A4%ED%83%80%EC%9D%BC-%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0">경로 스타일 설정하기</a></li>
+<li><a href="#4-%EA%B2%BD%EB%A1%9C-%EB%8B%A8%EC%88%9C%ED%99%94-%EB%B0%8F-%EC%B6%9C%EB%A0%A5-%EC%A0%95%EC%B1%85-%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0">경로 단순화 및 출력 정책 설정하기</a></li>
+<li><a href="#5-%EA%B2%BD%EB%A1%9C-%ED%91%9C%EC%8B%9C-%EC%83%81%ED%83%9C-%EC%A0%9C%EC%96%B4%ED%95%98%EA%B8%B0">경로 표시 상태 제어하기</a></li>
+<li><a href="#6-%EA%B8%B0%EC%A1%B4-%EB%B9%84%ED%96%89-%EC%9D%B4%EB%A0%A5-%EA%B7%B8%EB%A6%AC%EA%B8%B0">기존 비행 이력 그리기</a></li>
+<li><a href="#7-%EB%B9%84%ED%96%89-%EA%B2%BD%EB%A1%9C-%EC%A0%95%EB%A6%AC%ED%95%98%EA%B8%B0">비행 경로 정리하기</a></li>
+</ol>
+<div class="document-thumbnail" data-size="medium">
+<figure class="document-image">
+<img src="image/drawCumulativePath/thumbnail.gif" alt="비행 경로 그리기" loading="eager">
+<figcaption>비행 경로 그리기</figcaption>
+</figure>
+</div>
+<p>누적 비행 경로(궤적)는 이동체가 지나온 위치를 계속 연결해 3D로 표현하는 기능입니다.<br><code>U3dComponentPosition</code>에 경로 생성을 맡기거나 <code>U3dCumulativePath</code>를 직접 생성해 사용할 수 있습니다.</p>
+<p><code>U3dCumulativePath</code>는 경로의 생성, 스타일과 표시 상태를 관리합니다.<br>경로 좌표를 단순화하는 방법과 화면에 출력할 범위는 <code>pathStyle.tailPolicy</code>로 설정합니다.</p>
+<blockquote>
+<ul>
+<li><strong>월드 좌표</strong>: GeOnDT가 화면 렌더링에 사용하는 좌표입니다. <code>app.geographicToVector3()</code>로 위경도 좌표를 변환할 수 있습니다.</li>
+<li><strong>누적 거리</strong>: 비행 시작점부터 현재 위치까지 이동한 전체 거리(m)입니다. 새 지점을 추가할 때 이전 값보다 같거나 큰 값을 전달합니다.</li>
+<li><strong>경로 단순화</strong>: 오래 누적된 경로의 일부 좌표를 줄여 메모리와 렌더링 부하를 낮추는 기능입니다.</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="1-컴포넌트의-비행-경로-시작하기">1. 컴포넌트의 비행 경로 시작하기</h2>
+<p><code>U3dMultipleComponentLayer.addPosition</code>으로 이동체를 만들 때 <code>drawCumulativePath</code>를 <code>true</code>로 지정하면 컴포넌트가 이동할 때 경로를 자동으로 생성하고 갱신합니다.<br><code>setPosition</code>, <code>moveSmoothly</code> 등 컴포넌트의 위치 변경 API를 사용하면 별도로 <code>updatePath</code>를 호출할 필요가 없습니다.</p>
+<div class="document-sized-image" data-size="medium">
+<figure class="document-image">
+<img src="image/drawCumulativePath/manyPath.png" alt="수많은 비행 경로 출력 화면" loading="eager">
+<figcaption>수많은 비행 경로 출력 화면</figcaption>
+</figure>
+</div>
+<h4 class="api-heading" id="api">API</h4>
+<p>U3dMultipleComponentLayer.addPosition(<code>opt</code>) : 레이어에 이동 컴포넌트를 추가하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opt</code> (<code>object</code>) : 컴포넌트 생성 옵션. <strong>필수</strong></li>
+<li><code>opt.name</code> (<code>string</code>) : 레이어 안에서 사용할 고유 이름. <strong>필수</strong></li>
+<li><code>opt.position</code> (<code>Vector3</code>) : 초기 월드 좌표. <code>geoPosition</code>과 둘 중 하나를 사용</li>
+<li><code>opt.geoPosition</code> (<code>GeoPositionVector3</code>) : 초기 위경도 좌표. <code>position</code>과 둘 중 하나를 사용</li>
+<li><code>opt.object</code> (<code>string</code>) : 레이어에 등록된 3D 모델 이름. <strong>필수</strong></li>
+<li><code>opt.drawCumulativePath</code> (<code>boolean</code>) : <mark>누적 비행 경로(궤적) 생성 여부.</mark> true면 생성, false면 생성하지 않는다 </li>
+<li><code>opt.pathwidth</code> (<code>number</code>) : 초기 경로 너비</li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>U3dComponentPosition</code>) : 생성된 이동 컴포넌트</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>U3dComponentPosition.setCumulativePathStyle(<code>opt</code>) : 컴포넌트가 관리하는 누적 비행 경로(궤적)의 스타일을 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opt</code> (<code>U3dCumulativePath_StyleOpt</code>) : 변경할 경로 스타일. 자세한 항목은 <a href="#3-%EA%B2%BD%EB%A1%9C-%EC%8A%A4%ED%83%80%EC%9D%BC-%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0">3. 경로 스타일 설정하기</a> 참고. <strong>필수</strong></li>
+</ul>
+</details>
+<h3 id="1-드론-비행-경로-생성-예제">1. 드론 비행 경로 생성 예제</h3>
+<p>경로 시작 위치의 오프셋을 모델 크기로 자동 계산하려면 스타일을 설정하기 전에 <code>getBoundingBox()</code>를 호출합니다.<br><code>drawOffset</code>을 직접 지정하면 bounding box를 이용한 기본값 대신 지정한 값이 사용됩니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> geoPosition <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">126.924</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">37.521</span><span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> <span class="token number">300</span><span class="token punctuation">}</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> worldPosition <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">geographicToVector3</span><span class="token punctuation">(</span>geoPosition<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> drone <span class="token operator">=</span> animationLayer<span class="token punctuation">.</span><span class="token function">addPosition</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'drone_01'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">position</span><span class="token operator">:</span> worldPosition<span class="token punctuation">,</span>
+    <span class="token literal-property property">object</span><span class="token operator">:</span> <span class="token string">'drone_model'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">speed</span><span class="token operator">:</span> <span class="token number">160</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">drawCumulativePath</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">pathwidth</span><span class="token operator">:</span> <span class="token number">5</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+drone<span class="token punctuation">.</span><span class="token function">getBoundingBox</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+drone<span class="token punctuation">.</span><span class="token function">setCumulativePathStyle</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#00ffff'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.8</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">width</span><span class="token operator">:</span> <span class="token number">5</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">colorGradation</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">drawOffset</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">smooth</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">tailPolicy</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+        <span class="token literal-property property">simplify</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">maxDistance</span><span class="token operator">:</span> <span class="token number">5000</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 이후 컴포넌트 이동 API가 누적 비행 경로(궤적)를 자동으로 갱신합니다.</span>
+drone<span class="token punctuation">.</span><span class="token function">setPosition</span><span class="token punctuation">(</span>app<span class="token punctuation">.</span><span class="token function">geographicToVector3</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">126.925</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">37.522</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">z</span><span class="token operator">:</span> <span class="token number">320</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="2-u3dcumulativepath-직접-사용하기">2. U3dCumulativePath 직접 사용하기</h2>
+<p>컴포넌트 이동 API를 사용하지 않거나 외부에서 수신한 위치를 직접 그릴 때는 <code>U3dCumulativePath</code>를 생성하고 매 위치 갱신마다 <code>updatePath</code>를 호출합니다.</p>
+<p><code>updatePath</code>의 위치는 <strong>월드 좌표</strong>이고 거리는 <strong>누적 거리(m)</strong> 입니다.<br><code>dist</code>에 매번 이동한 거리만 전달하면 안 됩니다.<br>비행을 시작한 뒤 현재까지 이동한 전체 거리를 전달해야 경로 표시와 오래된 경로를 흐리게 만드는 기능이 올바르게 동작합니다.</p>
+<h4 class="api-heading" id="api-2">API</h4>
+<p>new GeOnDT.object.U3dCumulativePath(<code>opt</code>) : 누적 비행 경로(궤적)를 생성하는 생성자</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opt.app</code> (<code>U3dApp</code>) : 좌표 변환과 렌더링에 사용할 앱. <strong>필수</strong></li>
+<li><code>opt.scene</code> (<code>Scene</code>) : 경로를 추가할 Three.js 3D 화면 객체. <strong>필수</strong></li>
+<li><code>opt.targetName</code> (<code>string</code>) : 경로가 속한 이동체 이름.</li>
+<li><code>opt.pathStyle</code> (<code>U3dCumulativePath_StyleOpt</code>) : 경로 스타일</li>
+<li><code>opt.initTime</code> (<code>number</code>) : 초기 시간</li>
+<li><code>opt.initDist</code> (<code>number</code>) : 초기 누적 거리(m)</li>
+<li><code>opt.initPositions</code> (<code>U3dCumulativePathPositionData[]</code>) : 최초에 그릴 경로 이력 (경로 초기값). 이력이 없으면 입력하지 않으면 된다. </li>
+<li><code>opt.drawOffset</code> (<code>number</code>) : 진행 방향 기준 경로 오프셋(m). 양수는 앞쪽, 음수는 뒤쪽</li>
+<li><code>opt.precision</code> (<code>number</code>) : 경로 지점을 추가할 최소 누적 거리 차이(m)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-3">API</h4>
+<p>U3dCumulativePath.updatePath(<code>pos</code>, <code>dist</code>, <code>time</code>) : 추적 중인 이동체의 위치를 반영해 비행 경로를 연장(갱신)하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>pos</code> (<code>WorldPosition</code>) : 경로를 연장해서 그릴 월드 좌표. <strong>필수</strong></li>
+<li><code>dist</code> (<code>number</code>) : 현재까지의 누적 이동 거리(m). <strong>필수</strong></li>
+<li><code>time</code> (<code>number</code>) : 현재 경로 시간. 단위는 호출 측에서 일관되게 유지. <strong>필수</strong></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-4">API</h4>
+<p>U3dCumulativePath.cumulativeDist : 마지막으로 기록된 누적 거리(m)를 반환하는 읽기 전용 속성</p>
+<h3 id="1-위치가-바뀔-때마다-경로-갱신-예제">1. 위치가 바뀔 때마다 경로 갱신 예제</h3>
+<p>경로를 화면에 그릴 준비는 내부에서 비동기로 진행됩니다.<br>생성 직후 <code>show()</code>와 <code>updatePath()</code>를 호출해도 문제없습니다.<br>아직 준비되지 않았다면 입력한 좌표를 임시로 저장했다가 준비가 끝난 뒤 경로에 반영합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> path <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>object<span class="token punctuation">.</span>U3dCumulativePath</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    app<span class="token punctuation">,</span>
+    <span class="token literal-property property">scene</span><span class="token operator">:</span> animationLayer<span class="token punctuation">.</span><span class="token function">getScene</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">targetName</span><span class="token operator">:</span> <span class="token string">'drone_01'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">precision</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">pathStyle</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+        <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#00ffff'</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.8</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">width</span><span class="token operator">:</span> <span class="token number">5</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+path<span class="token punctuation">.</span><span class="token function">show</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">let</span> cumulativeDistance <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+<span class="token keyword">let</span> previousWorld<span class="token punctuation">;</span>
+
+<span class="token keyword">function</span> <span class="token function">appendFlightPosition</span><span class="token punctuation">(</span><span class="token parameter">geoPosition<span class="token punctuation">,</span> timeMs</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> world <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">geographicToVector3</span><span class="token punctuation">(</span>geoPosition<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>previousWorld<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        cumulativeDistance <span class="token operator">+=</span> previousWorld<span class="token punctuation">.</span><span class="token function">distanceTo</span><span class="token punctuation">(</span>world<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    path<span class="token punctuation">.</span><span class="token function">updatePath</span><span class="token punctuation">(</span>world<span class="token punctuation">,</span> cumulativeDistance<span class="token punctuation">,</span> timeMs<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    previousWorld <span class="token operator">=</span> world<span class="token punctuation">.</span><span class="token function">clone</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<hr>
+<h2 id="3-경로-스타일-설정하기">3. 경로 스타일 설정하기</h2>
+<p>경로 색상, 투명도, 너비와 위치 보정은 생성할 때 지정하거나 <code>setPathStyle</code>로 변경할 수 있습니다.<br><code>smooth</code>는 이전 위치와 새 위치의 중간값을 계산해 경로가 급격하게 꺾이는 것을 줄입니다.<br>이 과정에서 원래 위치가 조금 달라질 수 있으므로, 최신 위치를 정확히 따라야 하는 실시간 비행 경로에서는 <code>false</code>가 적합합니다.</p>
+<h4 class="api-heading" id="api-5">API</h4>
+<p>U3dCumulativePath.setPathStyle(<code>opt</code>) : 여러 경로 스타일을 한 번에 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opt.color</code> (<code>ColorRepresentation</code>) : 경로 색상. 기본값: <code>&#39;rgb(255,0,0)&#39;</code></li>
+<li><code>opt.opacity</code> (<code>number</code>) : 경로 투명도(0~1). 기본값: <code>1</code></li>
+<li><code>opt.width</code> (<code>number</code>) : 경로 너비. 기본값: <code>3</code></li>
+<li><code>opt.colorGradation</code> (<code>boolean</code>) : 그라데이션 사용 여부. 기본값: <code>false</code></li>
+<li><code>opt.styleFunc</code> (<code>function</code>) : <code>(pos, dist, time)</code>을 받아 두 색상 사이에서 사용할 값(0~1)을 반환하는 함수</li>
+<li><code>opt.drawOffset</code> (<code>number</code>) : 진행 방향 기준 경로 오프셋(m). 기본값: <code>0</code></li>
+<li><code>opt.smooth</code> (<code>boolean</code>) : 경로 스무딩 사용 여부. 기본값: <code>false</code></li>
+<li><code>opt.smoothFactor</code> (<code>number</code>) : 이전 위치와 새 위치 사이에서 경로 위치를 정할 비율(0~1). 기본값: <code>0.35</code></li>
+<li><code>opt.smoothMaxDistance</code> (<code>number</code>) : 스무딩을 적용할 최대 지점 간 거리(m). 기본값: <code>5</code></li>
+<li><code>opt.tailPolicy</code> (<code>object</code>) : 경로 단순화 및 출력 정책. 자세한 설명은 <a href="#4-%EA%B2%BD%EB%A1%9C-%EB%8B%A8%EC%88%9C%ED%99%94-%EB%B0%8F-%EC%B6%9C%EB%A0%A5-%EC%A0%95%EC%B1%85-%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0">경로 단순화 및 출력 정책 설정하기</a> 참고</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-6">API</h4>
+<p>U3dCumulativePath.setColor(<code>color</code>) : 경로 색상을 변경하는 함수</p>
+<p>U3dCumulativePath.setOpacity(<code>opacity</code>) : 경로 투명도를 0~1 범위로 변경하는 함수</p>
+<p>U3dCumulativePath.setWidth(<code>width</code>) : 경로 너비를 변경하는 함수</p>
+<p>U3dCumulativePath.setGradation(<code>colorGradation</code>) : 색상 그라데이션 사용 여부를 변경하는 함수</p>
+<p>U3dCumulativePath.setSmooth(<code>enable</code>, <code>factor</code>, <code>maxDistance</code>) : 경로 스무딩을 변경하는 함수</p>
+<h3 id="1-비행-고도에-따라-색상-바꾸기">1. 비행 고도에 따라 색상 바꾸기</h3>
+<p><code>colorGradation</code>을 켜고 <code>styleFunc</code>를 지정하면 위치, 누적 거리, 시간에 따라 경로 색상을 바꿀 수 있습니다.<br>반환값은 0~1 범위로 제한하는 것이 안전합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">path<span class="token punctuation">.</span><span class="token function">setPathStyle</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#ff3300'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">colorGradation</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+    <span class="token function-variable function">styleFunc</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token parameter">pos<span class="token punctuation">,</span> dist<span class="token punctuation">,</span> time</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+        <span class="token keyword">const</span> minHeight <span class="token operator">=</span> <span class="token number">100</span><span class="token punctuation">;</span>
+        <span class="token keyword">const</span> maxHeight <span class="token operator">=</span> <span class="token number">1000</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> Math<span class="token punctuation">.</span><span class="token function">max</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">,</span> Math<span class="token punctuation">.</span><span class="token function">min</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">,</span>
+            <span class="token punctuation">(</span>pos<span class="token punctuation">.</span>z <span class="token operator">-</span> minHeight<span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token punctuation">(</span>maxHeight <span class="token operator">-</span> minHeight<span class="token punctuation">)</span>
+        <span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-실행-중-개별-스타일-변경-예제">2. 실행 중 개별 스타일 변경 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> path <span class="token operator">=</span> drone<span class="token punctuation">.</span><span class="token function">getCumulativePath</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span>path<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    path<span class="token punctuation">.</span><span class="token function">setColor</span><span class="token punctuation">(</span><span class="token string">'#ffff00'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    path<span class="token punctuation">.</span><span class="token function">setOpacity</span><span class="token punctuation">(</span><span class="token number">0.6</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    path<span class="token punctuation">.</span><span class="token function">setWidth</span><span class="token punctuation">(</span><span class="token number">8</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    path<span class="token punctuation">.</span><span class="token function">setGradation</span><span class="token punctuation">(</span><span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<hr>
+<h2 id="4-경로-단순화-및-출력-정책-설정하기">4. 경로 단순화 및 출력 정책 설정하기</h2>
+<p><code>tailPolicy</code>는 오래된 경로 좌표를 얼마나 단순화할지와 경로를 화면에 어떤 범위와 모습으로 출력할지를 정하는 옵션입니다.<br>처음 준비할 경로 공간의 크기도 같은 옵션에서 설정할 수 있습니다.</p>
+<p><code>simplify: true</code>는 모양에 영향을 적게 주는 오래된 위치를 줄여 메모리 사용량을 낮춥니다.<br><code>false</code>는 모든 위치를 유지하므로 비행 시간이 길어질수록 메모리 사용량이 늘어납니다.<br>장시간 실시간 비행에는 단순화를 켜서 저장 위치를 줄이고, 필요하면 <code>maxDistance</code>로 화면에 보이는 범위도 제한하는 방식을 권장합니다.<br><code>maxDistance</code>는 표시 범위만 제한하므로 이 값만으로 저장 데이터가 계속 늘어나는 것을 막지는 않습니다.</p>
+<h4 class="api-heading" id="api-7">API</h4>
+<p>U3dCumulativePath.setTailPolicy(<code>opt</code>) : 경로 단순화 및 출력 정책을 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><strong>단순화 정책</strong><ul>
+<li><code>opt.simplify</code> (<code>boolean</code>) : 경로 단순화 여부. 기본값: <code>true</code></li>
+<li><code>opt.perMaxNode</code> (<code>number</code>) : 단순화 전 1km당 유지할 최대 노드 개수</li>
+<li><code>opt.simplifyEpsilon</code> (<code>number</code>) : 단순화 강도. 값이 클수록 더 많이 단순화. 기본값: <code>10</code></li>
+<li><code>opt.protectedTailNodes</code> (<code>number</code>) : 최신 경로는 정밀도를 보호하기 위해 지정한 값만큼 최신 점은 단순화 제외. 기본값: <code>64</code></li>
+</ul>
+</details>
+</li>
+<li><strong>출력 정책</strong><ul>
+<li><code>opt.maxDistance</code> (<code>number</code>) : 최신 위치부터 화면에 출력할 최대 경로 거리(m). 기본값: <code>Infinity</code></li>
+<li><code>opt.widthFade</code> (<code>number</code>) : 오래된 경로가 점점 가늘어지는 구간의 비율(0~1). 기본값: <code>0.7</code>, <code>0</code>이면 사용하지 않음</li>
+<li><code>opt.alphaFade</code> (<code>number</code>) : 오래된 경로가 점점 투명해지는 구간의 비율(0~1). 기본값: <code>0.3</code>, <code>0</code>이면 사용하지 않음</li>
+<li><code>opt.onFadeOut</code> (<code>function</code>) : 오래된 경로가 표시 범위에서 완전히 사라질 때 호출할 함수</li>
+<li><code>opt.initLength</code> (<code>number</code>) : 처음에 준비할 경로 노드 개수. 경로가 가질수 있는 최대 버퍼 메모리. 장치 성능에 따라 기본값이 달라짐. </li>
+<li><code>opt.precision</code> (<code>number</code>) : 경로 노드를 늘릴 때 사용할 배율. 한 번에 늘어나는 크기는 <code>initLength * precision</code></li>
+</ul>
+</li>
+</ul>
+<p><code>initLength</code>를 실행 중 변경할 때는 현재 저장 공간보다 큰 값만 반영됩니다.<br>저장 공간을 줄이려면 경로를 제거한 뒤 새 설정으로 다시 생성해야 합니다.</p>
+<h3 id="1-최근-5km-경로만-표시하는-예제">1. 최근 5km 경로만 표시하는 예제</h3>
+<pre class="language-javascript"><code class="language-javascript">path<span class="token punctuation">.</span><span class="token function">setTailPolicy</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">simplify</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">initLength</span><span class="token operator">:</span> <span class="token number">3000</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">precision</span><span class="token operator">:</span> <span class="token number">2</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">simplifyEpsilon</span><span class="token operator">:</span> <span class="token number">10</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">protectedTailNodes</span><span class="token operator">:</span> <span class="token number">64</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">protectCorners</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">maxDistance</span><span class="token operator">:</span> <span class="token number">5000</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">widthFade</span><span class="token operator">:</span> <span class="token number">0.5</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">alphaFade</span><span class="token operator">:</span> <span class="token number">0.4</span><span class="token punctuation">,</span>
+    <span class="token function-variable function">onFadeOut</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token parameter">event</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+        console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'표시 경계 누적 거리:'</span><span class="token punctuation">,</span> event<span class="token punctuation">.</span>boundaryDistance<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<div class="document-image-grid" data-columns="2">
+<figure class="document-image">
+<img src="image/drawCumulativePath/maxDistance1.png" alt="maxDistance가 적용된 경로 1" loading="eager">
+<figcaption>maxDistance가 적용된 경로 1</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/drawCumulativePath/maxDistance2.png" alt="maxDistance가 적용된 경로 2" loading="eager">
+<figcaption>maxDistance가 적용된 경로 2</figcaption>
+</figure>
+</div>
+<p><code>onFadeOut</code>의 <code>event</code>에는 사라진 경로의 위치를 확인할 수 있는 <code>boundaryDistance</code> 등이 들어 있습니다.<br>경로 위에 별도의 표식이나 helper를 추가했다면 <code>boundaryDistance</code>보다 오래된 객체를 이 함수에서 제거할 수 있습니다.</p>
+<hr>
+<h2 id="5-경로-표시-상태-제어하기">5. 경로 표시 상태 제어하기</h2>
+<p>컴포넌트가 관리하는 경로는 <code>showCumulativeRoute</code>와 <code>hideCumulativeRoute</code>로 제어합니다.<br>직접 만든 경로는 <code>show</code>와 <code>hide</code>를 사용합니다.</p>
+<p><code>hide()</code>는 3D 화면에서 경로를 숨기지만 저장된 경로 위치는 지우지 않습니다.<br>숨긴 동안 <code>updatePath()</code>로 받은 위치는 임시로 저장되고 <code>show()</code>를 호출하면 경로에 반영됩니다.<br>잠시 숨긴 뒤 같은 경로를 다시 표시할 목적이라면 <code>dispose()</code> 대신 <code>hide()</code>를 사용합니다.</p>
+<h4 class="api-heading" id="api-8">API</h4>
+<p>U3dComponentPosition.showCumulativeRoute() : 컴포넌트의 누적 비행 경로(궤적)를 표시하는 함수</p>
+<p>U3dComponentPosition.hideCumulativeRoute() : 컴포넌트의 누적 비행 경로(궤적)를 숨기는 함수</p>
+<p>U3dCumulativePath.show() : 직접 생성한 경로를 표시하는 함수</p>
+<p>U3dCumulativePath.hide() : 직접 생성한 경로를 숨기는 함수</p>
+<h3 id="1-여러-드론의-경로-표시-상태-변경-예제">1. 여러 드론의 경로 표시 상태 변경 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">setFlightPathsVisible</span><span class="token punctuation">(</span><span class="token parameter">components<span class="token punctuation">,</span> visible</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> component <span class="token keyword">of</span> components<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        component<span class="token punctuation">.</span>drawCumulativePath <span class="token operator">=</span> visible<span class="token punctuation">;</span>
+
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>visible<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            component<span class="token punctuation">.</span><span class="token function">showCumulativeRoute</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+            component<span class="token punctuation">.</span><span class="token function">hideCumulativeRoute</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<p>아직 경로가 한 번도 생성되지 않은 컴포넌트에서는 <code>showCumulativeRoute()</code>만 호출해도 표시할 객체가 없습니다.<br>이후 이동 시 경로를 생성하려면 예제처럼 <code>drawCumulativePath</code>도 <code>true</code>로 설정합니다.</p>
+<hr>
+<h2 id="6-기존-비행-이력-그리기">6. 기존 비행 이력 그리기</h2>
+<p>저장된 비행 이력을 한 번에 그릴 때는 생성자의 <code>initPositions</code>를 사용합니다.<br>각 항목의 <code>position</code>은 실시간 <code>updatePath</code>와 달리 <strong>위경도 좌표</strong>이며, <code>dist</code>는 해당 지점까지의 누적 거리(m)입니다.</p>
+<h4 class="api-heading" id="api-9">API</h4>
+<p>U3dCumulativePath.createTrailFromPositions(<code>positions</code>) : 위경도 위치 이력으로 전체 경로를 생성하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>positions</code> (<code>U3dCumulativePathPositionData[]</code>) : 경로 위치 데이터 배열. <strong>필수</strong></li>
+<li><code>positions[].position</code> (<code>GeoPositionVector3</code>) : <code>{x: 경도, y: 위도, z: 고도}</code> 형식의 위경도 좌표. <strong>필수</strong></li>
+<li><code>positions[].dist</code> (<code>number</code>) : 해당 위치까지의 누적 거리(m). <strong>필수</strong></li>
+<li><code>positions[].time</code> (<code>number</code>) : 해당 위치의 시간. <strong>필수</strong></li>
+</ul>
+</details>
+<p>위치가 30,000개를 초과하면 전체 경로에서 위치를 고르게 골라 최대 30,000개로 줄입니다.</p>
+<h3 id="1-저장된-비행-이력-생성-예제">1. 저장된 비행 이력 생성 예제</h3>
+<p>초기 이력은 경로 렌더링 준비가 끝난 뒤 자동으로 추가되므로 생성 직후 별도의 대기가 필요하지 않습니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> history <span class="token operator">=</span> <span class="token punctuation">[</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">position</span><span class="token operator">:</span> <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">126.9240</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">37.5210</span><span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> <span class="token number">300</span><span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token literal-property property">dist</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token literal-property property">time</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">position</span><span class="token operator">:</span> <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">126.9250</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">37.5220</span><span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> <span class="token number">320</span><span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token literal-property property">dist</span><span class="token operator">:</span> <span class="token number">142</span><span class="token punctuation">,</span> <span class="token literal-property property">time</span><span class="token operator">:</span> <span class="token number">3000</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token punctuation">{</span><span class="token literal-property property">position</span><span class="token operator">:</span> <span class="token punctuation">{</span><span class="token literal-property property">x</span><span class="token operator">:</span> <span class="token number">126.9260</span><span class="token punctuation">,</span> <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token number">37.5230</span><span class="token punctuation">,</span> <span class="token literal-property property">z</span><span class="token operator">:</span> <span class="token number">350</span><span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token literal-property property">dist</span><span class="token operator">:</span> <span class="token number">287</span><span class="token punctuation">,</span> <span class="token literal-property property">time</span><span class="token operator">:</span> <span class="token number">6000</span><span class="token punctuation">}</span>
+<span class="token punctuation">]</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> historyPath <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>object<span class="token punctuation">.</span>U3dCumulativePath</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    app<span class="token punctuation">,</span>
+    <span class="token literal-property property">scene</span><span class="token operator">:</span> animationLayer<span class="token punctuation">.</span><span class="token function">getScene</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">targetName</span><span class="token operator">:</span> <span class="token string">'drone_history_01'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">initPositions</span><span class="token operator">:</span> history<span class="token punctuation">,</span>
+    <span class="token literal-property property">pathStyle</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+        <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'#00ffff'</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">width</span><span class="token operator">:</span> <span class="token number">5</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0.8</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+historyPath<span class="token punctuation">.</span><span class="token function">show</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="7-비행-경로-정리하기">7. 비행 경로 정리하기</h2>
+<p>경로를 더 이상 사용하지 않으면 3D 화면 객체와 경로를 그릴 때 사용한 메모리를 정리해야 합니다.<br>컴포넌트가 관리하는 경로는 <code>removeCumulativeRoute</code>로 제거하고, 직접 만든 경로는 <code>dispose</code>를 호출합니다.</p>
+<h4 class="api-heading" id="api-10">API</h4>
+<p>U3dComponentPosition.removeCumulativeRoute() : 컴포넌트의 누적 비행 경로(궤적)와 사용한 메모리를 정리하는 함수</p>
+<p>U3dCumulativePath.dispose() : 직접 생성한 경로와 사용한 메모리를 완전히 정리하는 함수</p>
+<h3 id="1-경로-정리-예제">1. 경로 정리 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> pathMap <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Map</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">function</span> <span class="token function">disposeFlightPaths</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> path <span class="token keyword">of</span> pathMap<span class="token punctuation">.</span><span class="token function">values</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        path<span class="token punctuation">.</span><span class="token function">dispose</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    pathMap<span class="token punctuation">.</span><span class="token function">clear</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+window<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'beforeunload'</span><span class="token punctuation">,</span> disposeFlightPaths<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>레이어에서 컴포넌트를 제거하면 컴포넌트가 소유한 경로도 함께 정리됩니다.<br>반면 <code>new GeOnDT.object.U3dCumulativePath()</code>로 직접 생성한 객체는 레이어가 소유하지 않으므로 직접 <code>dispose()</code>해야 합니다.</p>
+</main>
+</body>
+</html>
+

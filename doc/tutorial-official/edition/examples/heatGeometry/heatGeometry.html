@@ -1,0 +1,83 @@
+<template data-example-rail>
+    <button class="rail-button" type="button" data-panel-target="heatGeometry-option-panel" aria-expanded="false">
+        <span class="rail-icon" aria-hidden="true">♨</span><span>열원</span>
+    </button>
+</template>
+
+<aside class="glass-panel example-panel heatGeometry-option-panel" id="heatGeometry-option-panel" aria-hidden="true">
+    <header class="panel-header">
+        <div>
+            <span class="eyebrow">HEAT GEOMETRY</span>
+            <h2>열원 관리</h2>
+        </div>
+        <button class="panel-close" type="button" data-panel-close="heatGeometry-option-panel" aria-label="열원 관리 닫기">×</button>
+    </header>
+
+    <div class="panel-content">
+        <p class="panel-description">
+            열원 추가 버튼을 누르고 지도에서 위치를 한 번 선택하세요.
+            대상 연결은 열원 설정 창의 대상 선택 버튼으로 시작합니다.
+        </p>
+
+        <button class="heatGeometry-add" type="button" data-add-heat aria-pressed="false">열원 추가</button>
+
+        <p class="heatGeometry-message" data-heat-message role="status">예제를 준비하고 있습니다.</p>
+
+        <section class="heatGeometry-section" aria-labelledby="heatGeometry-list-heading">
+            <div class="heatGeometry-section-heading">
+                <h3 id="heatGeometry-list-heading">생성된 열원</h3>
+                <span class="heatGeometry-count"><b data-heat-count>0</b>개</span>
+            </div>
+            <p class="heatGeometry-empty" data-heat-empty>아직 생성된 열원이 없습니다.</p>
+            <div class="heatGeometry-heat-list" data-heat-list></div>
+        </section>
+
+        <section class="heatGeometry-guide" aria-label="조작 안내">
+            <strong>조작 순서</strong>
+            <ol>
+                <li>열원 추가 버튼을 누른 뒤 지도에서 위치를 클릭합니다.</li>
+                <li>열원 설정의 대상 선택 버튼을 누른 뒤 대상 하나를 클릭합니다.</li>
+                <li>추가·연결할 때마다 버튼을 다시 눌러 한 사이클을 시작합니다.</li>
+            </ol>
+        </section>
+
+    </div>
+</aside>
+
+<aside class="glass-panel heatGeometry-settings-panel" id="heatGeometry-settings-panel" data-heat-dialog hidden>
+    <header class="panel-header">
+        <div>
+            <span class="eyebrow">HEAT SETTINGS</span>
+            <h2 data-heat-dialog-title>열원 설정</h2>
+        </div>
+        <button type="button" class="panel-close" data-dialog-close aria-label="열원 설정 닫기">×</button>
+    </header>
+
+    <div class="panel-content">
+        <form class="heatGeometry-form" data-heat-form>
+            <label>
+                <span>온도 (℃)</span>
+                <input type="number" name="temperature" min="-50" max="200" step="1" required>
+            </label>
+            <label>
+                <span>기본 범위 (m)</span>
+                <input type="number" name="buffer" min="0.1" max="500" step="0.1" required>
+            </label>
+            <label>
+                <span>감쇠 범위 배율</span>
+                <input type="number" name="outerFactor" min="1" max="20" step="0.1" required>
+            </label>
+            <button class="heatGeometry-apply" type="submit">설정 적용</button>
+        </form>
+
+        <div class="heatGeometry-targets">
+            <div class="heatGeometry-target-heading">
+                <h3>연결된 대상 객체</h3>
+                <button class="heatGeometry-select-target" type="button" data-select-target aria-pressed="false">대상 선택</button>
+            </div>
+            <ul data-target-list></ul>
+        </div>
+
+        <button class="heatGeometry-remove" type="button" data-remove-heat>이 열원 제거</button>
+    </div>
+</aside>

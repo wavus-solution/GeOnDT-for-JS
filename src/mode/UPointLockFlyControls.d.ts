@@ -1,0 +1,83 @@
+// 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
+import * as three from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, ShaderMaterial, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
+import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
+import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
+import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
+import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
+import type { UClock } from "../core/UClock.js";
+
+declare class UPointLockFlyControls {
+    constructor(opt?: {});
+    _app: any;
+    _moveState: {
+        up: number;
+        down: number;
+        left: number;
+        right: number;
+        forward: number;
+        back: number;
+        pitchUp: number;
+        pitchDown: number;
+        yawLeft: number;
+        yawRight: number;
+        rollLeft: number;
+        rollRight: number;
+    };
+    _zone: number;
+    _isKeyInput: boolean;
+    _component: any;
+    _pointerElement: any;
+    _horizonElement: any;
+    _speedElement: any;
+    _heightElement: any;
+    _maxSpeed: any;
+    _minSpeed: any;
+    _accSpeed: any;
+    _rollSpeed: any;
+    _flyShift: any;
+    _flyRotation: any;
+    _personView: any;
+    _acceleration: number;
+    _lastTimestamp: any;
+    _moveVector: three.Vector3;
+    _rotationVector: three.Vector3;
+    _velocity: three.Vector3;
+    _tmpQuaternion: three.Quaternion;
+    _updateDistance: number;
+    _prePosition: three.Vector3;
+    _setIntersect: any;
+    _clock: UClock;
+    _effectGroups: any[];
+    _setEffect: boolean;
+    _preCamDir: number;
+    isStart: boolean;
+    drawCount: number;
+    setEvent(): void;
+    _onCursorMove: any;
+    _isUsePad: number;
+    connect(): void;
+    _onMouseMove: any;
+    _onGamepadConneted: any;
+    disconnect(): void;
+    update(timestamp: any): void;
+    update_(timestamp: any): void;
+    _preCamDirZ: any;
+    updateMovementVector(): void;
+    updateRotationVector(): void;
+    mousemove(event: any): void;
+    keydown(event: any): void;
+    keyup(event: any): void;
+    getContainerDimensions(): {
+        size: any[];
+        offset: any[];
+    };
+    dispose(): void;
+    setAcceleration(value: any): void;
+    getObjectMesh(): any;
+    setPersonView(view: any): void;
+    getPersonView(): any;
+}
+
+export type { UPointLockFlyControls };

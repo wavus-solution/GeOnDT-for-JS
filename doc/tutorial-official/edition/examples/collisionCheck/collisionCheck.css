@@ -1,0 +1,16 @@
+.collisionCheck-section + .collisionCheck-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--theme-line); }
+.collisionCheck-section h3 { margin: 0 0 10px; font-size: 14px; }
+.collisionCheck-section p { color: var(--theme-muted); font-size: 12px; line-height: 1.7; }
+.collisionCheck-section small { color: var(--theme-muted); font-weight: normal; }
+.collisionCheck-counts, .collisionCheck-list-heading, .collisionCheck-section li { display: flex; justify-content: space-between; gap: 12px; }
+.collisionCheck-counts strong { font-size: 24px; }
+.collisionCheck-counts span:last-child strong { color: #ff7779; }
+.collisionCheck-section li .collisionCheck-ratio { color: #22c55e; }
+.collisionCheck-list-heading { font-size: 12px; color: var(--theme-muted); padding: 8px 0; }
+.collisionCheck-section ol, .collisionCheck-section ul { list-style: none; padding: 0; margin: 0; }
+.collisionCheck-section ol { max-height: 260px; overflow-y: auto; }
+.collisionCheck-section li { padding: 8px 0; font-size: 13px; font-variant-numeric: tabular-nums; }
+.collisionCheck-demo-list li > span:first-child { display: grid; gap: 3px; }
+.collisionCheck-demo-list small { font-size: 10px; }
+.collisionCheck-demo-hit { color: #ff4d4f; }
+.collisionCheck-demo-safe { color: #22c55e; }

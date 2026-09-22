@@ -1,0 +1,9 @@
+{
+    "name": "@types/stats.js",
+    "version": "0.17.4",
+    "private": true,
+    "geondtVendoredTypesOnly": true,
+    "description": "TypeScript definitions for stats.js",
+    "license": "MIT",
+    "types": "index.d.ts"
+}

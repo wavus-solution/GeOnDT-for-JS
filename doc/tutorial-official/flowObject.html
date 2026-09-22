@@ -1,0 +1,1537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>3D 흐름 객체 그리기 예제</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        #analy-popup .div-popup {
+            width: 420px;
+            height: 620px;
+            top: 2vh;
+            padding-bottom: 10px;
+        }
+
+        .u3-popup .u3-popup-content .modal-header {
+            border-bottom: none;
+            height: 20px;
+            padding: 5px;
+            line-height: 20px;
+            background-color: rgb(43, 69, 140);
+        }
+
+        /* 컨테이너(배경 조금 키워서 보기 좋게) */
+        #bt-anim-ctrl{
+            position: fixed; left:50%; bottom: 12px; transform: translateX(-50%);
+            display:flex; gap:8px; padding:10px 12px;
+            background: rgba(0,0,0,.45); border-radius:12px; z-index:10000;
+        }
+
+        /* 버튼 스타일 오버라이드 (bootstrap보다 뒤에 선언) */
+        #bt-anim-ctrl .btn{
+            background:#111 !important;
+            color:#fff !important;
+            border:1px solid #000 !important;
+            font-size:16px;
+            line-height:1.2;
+            padding:10px 18px;
+            min-width:84px;
+            border-radius:10px;
+            transition:
+                    background .15s ease,
+                    transform .12s ease,
+                    box-shadow .15s ease,
+                    border-color .15s ease;
+        }
+
+        /* 호버 효과 */
+        #bt-anim-ctrl .btn:hover{
+            background:#1a1a1a !important;          /* 살짝 밝게 */
+            border-color: #3636ff !important;
+            transform: translateY(-1px) scale(1.02); /* 살짝 떠오르는 느낌 */
+            box-shadow: 0 6px 14px rgba(0,0,0,.25);  /* 그림자 */
+        }
+
+        /* 눌렀을 때 */
+        #bt-anim-ctrl .btn:active{
+            transform: translateY(0);                /* 눌리면서 내려옴 */
+            box-shadow: 0 2px 6px rgba(0,0,0,.25);
+        }
+
+
+        /* 상태 텍스트 */
+        #bt-anim-ctrl .anim-status{
+            color:#fff; align-self:center; margin-left:6px; opacity:.9; font-size:14px;
+        }
+
+        /* 인터랙션 */
+        #bt-anim-ctrl .btn:hover { background:#1a1a1a !important; }
+        #bt-anim-ctrl .btn:active { transform: translateY(1px); }
+        #bt-anim-ctrl .btn:focus { outline: none; box-shadow: 0 0 0 2px rgba(255,255,255,.25); }
+
+        .mode-seg{
+            width: 100%;
+            display: flex;
+            gap: 0;
+            margin: 8px 0 12px;
+            border-radius: 10px;
+            overflow: hidden;
+
+            background: rgba(0,0,0,.28);
+            border: 1px solid rgba(255,255,255,.10);
+            box-shadow: 0 8px 18px rgba(0,0,0,.22);
+        }
+
+        .mode-seg .seg-btn{
+            flex: 1;
+            height: 36px;
+
+            border: 0;
+            background: transparent;
+            color: rgba(255,255,255,.85);
+
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: .2px;
+            cursor: pointer;
+
+            transition: background .15s ease, color .15s ease, transform .12s ease;
+        }
+
+        .mode-seg .seg-btn + .seg-btn{
+            border-left: 1px solid rgba(255,255,255,.08);
+        }
+
+        .mode-seg .seg-btn:hover{
+            background: rgba(255,255,255,.06);
+            color: #fff;
+        }
+
+        .mode-seg .seg-btn:active{
+            transform: translateY(1px);
+        }
+
+        .mode-seg .seg-btn.is-active{
+            background: rgba(43, 69, 140, .92);          /* 너 팝업 헤더랑 톤 맞춤 */
+            color: #fff;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,.16);
+        }
+
+        /* ===== Bottom Property Panel ===== */
+        .prop-panel{
+            position: absolute;
+            left: 84%;
+            bottom: 14px;
+            transform: translateX(-50%);
+            width: min(500px, calc(100% - 28px));
+            z-index: 15000;
+            background: rgba(12, 18, 28, 0.68);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            backdrop-filter: blur(12px);
+            border-radius: 14px;
+            box-shadow: 0 14px 40px rgba(0, 0, 0, .28);
+            color: #fff;
+            overflow: hidden;
+        }
+
+        .prop-panel.is-hidden{ display:none; }
+
+        .prop-header{
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            padding: 5px 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            background: rgb(60 80 160);
+        }
+
+        .prop-title{
+            display:flex;
+            align-items:baseline;
+            gap:10px;
+            font-weight: 800;
+        }
+
+        #prop-title-text{ font-size: 14px; letter-spacing: .2px; }
+        .prop-sub{
+            font-size: 12px;
+            opacity: .85;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow:hidden;
+            text-overflow: ellipsis;
+            max-width: 520px;
+        }
+
+        .prop-close{
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(0,0,0,0.25);
+            color:#fff;
+            cursor:pointer;
+            transition: transform .12s ease, background .15s ease, border-color .15s ease;
+        }
+        .prop-close:hover{
+            transform: translateY(-1px);
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(120,170,255,.35);
+        }
+
+        .prop-body{
+            max-height: 400px;
+            padding: 10px 12px 12px;
+            overflow: auto;
+        }
+
+        .prop-table{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .prop-table td{
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            vertical-align: top;
+        }
+
+        .prop-table td.k{
+            /*width: 180px;*/
+            color: rgba(255,255,255,.82);
+            font-weight: 700;
+        }
+
+        .prop-table td.v{
+            color: rgba(255,255,255,.95);
+            word-break: break-word;
+        }
+
+        .prop-empty{
+            opacity:.8;
+            padding: 14px 10px;
+            text-align: center;
+        }
+
+        /* ===== IO lists ===== */
+        .io-wrap{
+            display:flex;
+            gap:10px;
+            margin-top: 10px;
+        }
+        .io-col{
+            flex:1;
+            min-width: 0;
+            background: rgba(0,0,0,.18);
+            border: 1px solid rgba(255,255,255,.08);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .io-title{
+            padding: 8px 10px;
+            font-weight: 800;
+            font-size: 12px;
+            background: rgba(255,255,255,.06);
+            border-bottom: 1px solid rgba(255,255,255,.06);
+        }
+        .io-list{
+            padding: 8px 10px;
+            font-size: 12px;
+            max-height: 120px;
+            overflow:auto;
+        }
+        .io-chip{
+            display:inline-block;
+            padding: 4px 8px;
+            margin: 4px 6px 0 0;
+            border-radius: 999px;
+            background: rgba(255,255,255,.06);
+            border: 1px solid rgba(255,255,255,.08);
+            opacity:.95;
+            cursor: pointer;
+        }
+        .io-empty{
+            opacity:.7;
+            padding: 6px 0;
+        }
+
+        .prop-btn{
+            display:inline-flex;
+            align-items:center;
+            gap:6px;
+            max-width: 100%;
+            padding: 4px 10px;
+            border-radius: 10px;
+
+            background: rgba(255,255,255,.06);
+            border: 1px solid rgba(255,255,255,.12);
+            color: rgba(255,255,255,.95);
+            font-weight: 800;
+            cursor: pointer;
+            user-select: none;
+
+            transition: transform .12s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
+        }
+
+        .prop-btn:hover{
+            background: rgba(255,255,255,.10);
+            border-color: rgba(120,170,255,.45);
+            box-shadow: 0 6px 16px rgba(0,0,0,.22);
+            transform: translateY(-1px);
+        }
+
+        .prop-btn:active{
+            transform: translateY(0px);
+            box-shadow: 0 2px 6px rgba(0,0,0,.22);
+        }
+
+        .prop-btn:focus{ outline: none; }
+
+        .prop-btn .tag{
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 999px;
+            background: rgba(43, 69, 140, .92);
+            border: 1px solid rgba(255,255,255,.14);
+        }
+
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> 3D 흐름 객체 그리기 예제 </span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        바람길, 전류처럼 경로를 따라 <strong> 흐르는 효과를 3D로 시각화 </strong>하는 예제입니다.<br>
+        바람, 전류 같은 흐름을 색상/밴드/화살표 타입으로 시각화하고, 속도·반지름을 실시간으로 변경할 수 있습니다.
+    </p>
+</div>
+<div id="map-wrapper">
+    <div id="map"></div>
+    <div id="div-left-menu">
+
+        <div>
+            <div style="display: inline-flex; position: relative">
+                <button id="analy-bnt" class="btn btn-xs menu-btn">
+                    <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+                <div class="div-btn-info" hidden>
+                    분석 팝업 열기
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="btn-group" id='top-sbar'>
+        <div class='btn-group-vertical-block' id='right-toolbar'>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                     src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                     alt="나침반">
+            </button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                    id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                    id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                    id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+            </button>
+        </div>
+        <div class='btn-group' id='bt-bottom-bar'>
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                   value="위경도: ##.####  ###.#### ">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                   value="고도:####">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                   value="각도: ##">
+        </div>
+    </div>
+    
+    <div id="bt-anim-ctrl" class="btn-group">
+        <button type="button" id="anim-start"  class="btn btn-xs ">시작</button>
+        <button type="button" id="anim-pause"  class="btn btn-xs active">일시정지</button>
+        <button type="button" id="anim-resume" class="btn btn-xs ">재시작</button>
+        <button type="button" id="anim-stop"   class="btn btn-xs ">종료</button>
+        <span id="anim-status" class="anim-status">정지</span>
+    </div>
+    <div id="analy-popup" oncontextmenu='return false'>
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content" style="margin:0 10px;">
+                <div class="col-md-12">
+                    <div class="btn-group mode-seg">
+                        <button type="button" class="seg-btn is-active" data-mode="adapter">
+                            <span class="t">어댑터 추가</span>
+                        </button>
+                        <button type="button" class="seg-btn" data-mode="pipe">
+                            <span class="t">전선 추가</span>
+                        </button>
+                        <button type="button" class="seg-btn" data-mode="select">
+                            <span class="t">객체 선택</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-12 ">
+                    <div class="btn btn-block btn-sm btn-default" id="clear">지우기</div>
+                </div>
+                <div class="col-lg-12" style="margin-top: 20px">
+                    <div class="param" target="FlowPipe">
+                        <div class="form-group row" data-field="common">
+                            <label class="col-sm-5 control-label">타입 : </label>
+                            <div class="col-sm-4">
+                                <div class="form-inline">
+                                    <select id="flow-type" class="form-control">
+                                        <option>COLOR_BAND</option>
+                                        <option>COLOR_FILL</option>
+                                        <option>ARROW</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group row" data-field="common">
+                            <label for="base-color" class="col-sm-4 control-label">배경 색상 : </label>
+                            <div class="col-sm-2">
+                                <input id="base-color" type="color" name="color" value="#ffffff">
+                            </div>
+                            <label for="base-opacity" class="col-sm-3  control-label">투명도 : </label>
+                            <div class="col-sm-2">
+                                <input id="base-opacity" type="number" name="opacity" value="0.1" style="width: 50px">
+                            </div>
+                        </div>
+                        <div class="form-group row" data-field="common">
+                            <label for="color" class="col-sm-4 control-label">흐름 색상 : </label>
+                            <div class="col-sm-2">
+                                <input id="color" type="color" name="flowStyle" value="#ff0000">
+                            </div>
+                            <label for="opacity" class="col-sm-3  control-label">투명도 : </label>
+                            <div class="col-sm-2">
+                                <input id="opacity" type="number" name="flowStyle" value="1" style="width: 50px">
+                            </div>
+                        </div>
+                        <div class="form-group row" data-field="isWave">
+                            <label for="softness" class="col-sm-5 control-label">웨이브 효과: </label>
+                            <div class="col-sm-4">
+                                <div class="form-inline">
+                                    <input id ="isWave" class="form-control" type="checkbox" name="flowStyle">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group row" data-field="softness">
+                            <label for="softness" class="col-sm-5 control-label">부드러움(0~1) : </label>
+                            <div class="col-sm-4">
+                                <div class="form-inline">
+                                    <input id ="softness" class="form-control" type="number" name="flowStyle" value="0">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group row" data-field="bandLength">
+                            <label for ="bandLength" class="col-sm-5 control-label">밴드 길이(m) : </label>
+                            <div class="col-sm-4">
+                                <div class="form-inline">
+                                    <input id ="bandLength" class="form-control" type="number" name="flowStyle" value="30">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group row" data-field="bandNum" style="display: flex">
+                            <label class="col-sm-5 control-label">밴드 수 : </label>
+                            <div class="col-sm-4">
+                                <div class="form-inline">
+                                    <input id ="bandNum" class="form-control" type="number" name="flowStyle" value="10">
+                                </div>
+                                <div class="form-inline">
+                                    autoNum : <input class="form-control" type="checkbox" id="autoNum" name="flowStyle">
+                                </div>
+                            </div>
+
+                        </div>
+                        <div class="form-group row" data-field="bandGap">
+                            <label class="col-sm-5 control-label">밴드 간격(m) : </label>
+                            <div class="col-sm-4">
+                                <div class="form-inline">
+                                    <input id ="bandGap" class="form-control" type="number" name="flowStyle" value="10">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group row" data-field="aroundRepeat" style="display: flex">
+                            <label for="aroundRepeat" class="col-sm-5 control-label">화살표 수 (둘레) : </label>
+                            <div class="col-sm-4">
+                                <div class="form-inline">
+                                    <input id ="aroundRepeat" class="form-control" type="number" name="flowStyle" value="1">
+                                </div>
+                            </div>
+
+                        </div>
+                        <div class="form-group row" data-field="aroundRepeat" style="display: flex">
+                            <label for="arrowWidth" class="col-sm-5 control-label">화살표 너비 : </label>
+                            <div class="col-sm-4">
+                                <div class="form-inline">
+                                    <input id ="arrowWidth" class="form-control" type="number" name="flowStyle" value="3">
+                                </div>
+                            </div>
+
+                        </div>
+                        <div class="form-group row" data-field="common">
+                            <label class="col-sm-5 control-label">흐름 속도(m/s) : </label>
+                            <div class="col-sm-4">
+                                <div class="form-inline">
+                                    <input class="form-control" type="number" name="flowSpeed" value="50">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group row" data-field="common">
+                            <label class="col-sm-5 control-label">반지름(m) : </label>
+                            <div class="col-sm-4">
+                                <div class="form-inline">
+                                    <input class="form-control" type="number" name="piperadius" value="5">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="apply" class="btn btn-default confirm">적용</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="prop-panel" class="prop-panel is-hidden">
+        <div class="prop-header">
+
+            <div class="prop-title">
+                <span id="prop-title-text">속성정보</span>
+                <span id="prop-sub-text" class="prop-sub"></span>
+            </div>
+            <button type="button" id="prop-close" class="prop-close" title="닫기">✕</button>
+        </div>
+
+        <div class="prop-body">
+            <div class="io-wrap">
+                <div class="io-col">
+                    <div class="io-title">IN (inputs)</div>
+                    <div id="io-in" class="io-list"></div>
+                </div>
+                <div class="io-col">
+                    <div class="io-title">OUT (outputs)</div>
+                    <div id="io-out" class="io-list"></div>
+                </div>
+            </div>
+            <table class="prop-table">
+                <tbody id="prop-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script>
+    //라이센스 인증
+
+    const showMap = {
+        COLOR_FILL: ['common', 'softness', 'isWave'],
+        COLOR_BAND: ['common', 'softness', 'bandLength', 'bandNum', 'bandGap' ],
+        ARROW:      ['common', 'bandLength', 'bandNum', 'bandGap', 'aroundRepeat'],
+    };
+
+    GeOnDT.ready(function () {
+        let targetGeom;
+        let PARAM = undefined;
+        const GEOM_TYPE = 'FlowPipe';
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// 지도 기본세팅 /////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        const app = new GeOnDT.U3dAPP({
+            containername: 'map'
+        });
+        window.app = app;
+        app.setHomePosition(126.9395, 37.52, 450, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+        app.updateHomePosition();
+        app.createloadingBar('load');
+        app.on('change', updatePosData);
+
+        //이미지 레이어 생성
+        const layer = new GeOnDT.image.U3dPatternXYZLayer({
+            name: 'pattern'
+        });
+        // const layer = new GeOnDT.image.U3dImageXYZLayer({
+        //     name: 'satellite',
+        //     baseurl: layerInfo.image.vworldsaturl,
+        //     reverseY: true
+        // });
+        app.addLayer(layer);
+        //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+        app.setNameBaseLayer('pattern');
+        app.showLayer('pattern', true);
+
+        //+ 지형 생성
+        app.createHeightXYZLayer({
+            name: 'korea_terrain',
+            baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            ext: '.umf',
+            reverseY: true,
+            minlevel: 9,
+            maxlevel: 17,
+            useproxy: false
+        });
+        app.showLayer('korea_terrain', true);
+
+        //+ 3d vector layer 생성
+        const vectorLayer = new GeOnDT.vector.U3dVectorLayer({
+            name: 'vector',
+        });
+
+        window.vectorLayer = vectorLayer;
+        app.addLayer(vectorLayer);
+        app.showLayer('vector', true);
+
+        window.select = new GeOnDT.select.U3dSelect({
+            targetLayer: [window.vectorLayer.getName()]
+        });
+        app.addSelect(window.select);
+        window.select.on('end', onSelectEnd, 'select.end');
+
+        window.nodeManager = GeOnDT.node.U3dNodeManager.Instance;
+        nodeManager.on("linkRegistered", (e) => {
+            const {linkId, from, to} = e.data;
+
+            console.log("linkID:", linkId);
+            console.log("FROM node:", from.id);
+            console.log("TO   node:", to.id);
+        });
+
+        nodeManager.on("branch", (e) => {
+            const { node, out } = e.data;
+            console.log("분기 발생: node =", node.id, "out =", out);
+        });
+
+        nodeManager.on("merge", (e) => {
+            const { node, input } = e.data;
+            console.log("합류 발생: node =", node.id, "in =", input);
+        });
+        nodeManager.on("chained", (e) => {
+            const { node } = e.data;
+            console.log("연결 발생: node =", node.id);
+        });
+
+        app.endloadingBar();
+
+        activeAdd(true);
+
+        getParam();
+        updateFlowPipeUI("COLOR_BAND");
+
+        // ===== 모드 상태 =====
+        let currentAddMode = 'adapter'; // 'adapter' | 'pipe'
+
+        // ===== 모드 버튼 클릭 =====
+        $(document).on('click', '.mode-seg .seg-btn', function () {
+            const mode = $(this).data('mode');
+            currentAddMode = mode;
+
+            // UI active 토글
+            $('.mode-seg .seg-btn').removeClass('is-active');
+            $(this).addClass('is-active');
+
+            // (선택) 안내 토스트
+            if (typeof toast === 'function') {
+                if(mode==='adapter' || mode==='pipe') {
+                    toast(mode === 'adapter' ? '어댑터 추가 모드' : '전선 추가 모드');
+                    activeAdd(true);
+                } else {
+                    toast('객체 선택 모드');
+                    activeAdd(false);
+                }
+            }
+        });
+
+        $(document).on('keydown', function (e) {
+            if (e.key === 'Escape' || e.keyCode === 27) {
+                dblClickFunction();
+            }
+        });
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// event 등록 ///////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+        function onSelectEnd(result) {
+            const data = result.data;
+            if(data && data.length !== 0) {
+                window.select.addSelected(data[0]);
+                openPropPanel(data[0]);
+            } else {
+                closePropPanel();
+            }
+
+        }
+
+        function activeAdd(active) {
+            if (active) {
+                app.on('click', clickFunction);
+                app.on('dblclick', dblClickFunction);
+                app.on('mousemove', hoverAdapters);
+                select.deactive();
+            } else {
+                app.off('click', clickFunction);
+                app.off('dblclick', dblClickFunction);
+                app.off('mousemove', hoverAdapters);
+                select.active();
+            }
+        }
+
+
+        //+ [적용] 버튼 클릭시 입력한 parameter 값으로 도형 세부사항 적용
+        $('#apply').on('click', getParam);
+
+        //+ [지우기] 버튼 클릭시 vectorLayer에 그려진 도형 전체 지우기
+        $('#clear').on('click', function () {
+            if (!!window.targetGeom && !!window.targetGeom.removePathGeometry) {
+                window.targetGeom.removePathGeometry();
+            }
+            vectorLayer.clear();
+            targetGeom = undefined; //+ 작업중인 도형 지우기
+            app.setUnderGroundMode(false);
+            app.setEnableOpacityImageLayers(false);
+        });
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// function 선언 ////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+        let previousAdapter;
+        function hoverAdapters(e) {
+            if (currentAddMode === 'adapter') return;
+
+            const world = app.closestPointAtPixel(e);
+            if (!world) return;
+
+            // 월드 좌표 기준으로 가까운 어댑터 추적
+            const adapter = checkAdapters(world);
+
+            // 이전 adapter와 다르면 bounds 숨김
+            if (previousAdapter && previousAdapter !== adapter) {
+                previousAdapter.hideBounds();
+            }
+
+            // 새로운 adapter에 bounds 표시
+            if (adapter) {
+                adapter.showBounds();
+                previousAdapter = adapter;
+            } else {
+                previousAdapter = undefined;
+            }
+
+            // 미리보기 파이프 추가
+            if(targetGeom && targetGeom.isFlowPipe)
+                targetGeom.previewPipe(world.x, world.y, world.z);
+        }
+
+        function checkAdapters(pos) {
+            if (!pos) return;
+
+            const adapters = getAdapters();
+            if (!adapters || adapters.length === 0) return;
+
+            let best;
+            let minDistance = Infinity;
+            for (const adapter of adapters) {
+                // 좌표와 어댑터가 교차되는지 검사
+                const intersect = adapter.intersectPosition(pos);
+                // 교차되면 가장 적합한 어댑터 추출
+                if (intersect?.distance !== undefined && intersect.distance < minDistance) {
+                    best = intersect.object;
+                    minDistance = intersect.distance;
+                }
+            }
+            return best;
+        }
+
+        function getAdapters() {
+            if (!vectorLayer || !vectorLayer.getGeometries) return [];
+            return [...vectorLayer.getGeometries()].filter(g => g && g.isAdapter);
+        }
+
+        function getAdapterKey(adapter){
+            return adapter.uuid ?? adapter.name;
+        }
+
+        function getPipes() {
+            if (!vectorLayer || !vectorLayer.getGeometries) return [];
+            return [...vectorLayer.getGeometries()].filter(g => g && g.isFlowPipe);
+        }
+
+        function dblClickFunction() {
+            if (!targetGeom) return;
+
+            targetGeom.endPreviewPipe();
+            // targetGeom.setSectionHighlightNormalized(0.4, 0.6, '#ffff00', 0.0);
+            calcPipeI(targetGeom);
+            targetGeom = undefined;
+        }
+
+        function calcPipeI(pipe) {
+            const length = pipe.getLength();        // m 라고 가정(아니면 스케일 변환 필요)
+            const radius = pipe.getPipeRadius();    // m 라고 가정(아니면 스케일 변환 필요)
+
+            const path = pipe.userData?.adapterPath;
+            if (!path || path.length < 2) return;
+
+            const powerInfo = path[path.length - 2].getProperties?.() ?? {};
+            const voltage = Number(powerInfo["전압"]);
+            const rSource = Number(powerInfo["저항"]); // 전원(어댑터) 내부저항(Ω)
+
+            if (!Number.isFinite(voltage) || !Number.isFinite(rSource)) return;
+
+            // 단면적 (m^2)
+            const area = Math.PI * radius * radius;
+
+            // 구리 저항률(Ω·m). 알루미늄이면 2.82e-8 정도
+            const rho = 1.68e-8;
+
+            // 파이프(전선) 저항(Ω)
+            const rPipe = rho * (length / area);
+
+            // 전류(A)
+            const I = voltage / (rSource + rPipe);
+            pipe.setProperties({
+                '전류': I,
+                '파이프저항': rPipe,
+                '전압': voltage,
+                '전원저항': rSource
+            })
+        }
+
+
+        function clickFunction(e) {
+            const world = app.closestPointAtPixel(e);
+            if (!world) return;
+
+            if (currentAddMode === 'adapter') {
+                const radius = 10;
+                world.z += radius;
+                const style = {opacity: 0.7, color: "#ff8000"};
+                const properties = {'전압' : 24, '저항' : 1};
+                const adapter = createAdaptedGeometry({world, radius, style, properties}, vectorLayer);
+                if (adapter) {
+                    assignNodeToAdapter(adapter);
+                    toast('어댑터 추가 완료');
+                }
+                return;
+            }
+
+            if (currentAddMode === 'pipe') {
+                drawGeom(world);
+            }
+        }
+
+        function createAdaptedGeometry(param, layer) {
+            if (param?.position === undefined && param?.world === undefined) return;
+
+            const style = param.style;
+            const adapter = new GeOnDT.geom.U3dAdaptedGeometry({
+                name: param.name ?? 'adapter_' + Math.floor(Math.random() * 1500) + 1,
+                radius: param.radius ?? 10,                // 어댑터 반경
+                buffer: param.buffer ?? 2,                 // 어댑터 인식 범위 (반경)
+                boundColor: style.boundColor ?? "#76ff00",  // 어댑터 인식 범위 표시 색상
+                lineColor: style.lineColor ?? "#e712f6",    // 어댑터 연결 선 색상
+                lineThick: 0.1,
+                widthSegments: param.widthSegments ?? 16,   // 어댑터 세밀도 ( 클수록 구에 더 가까움 : 성능 별로 조절 )
+                color: style.color,                         // 어댑터 색상
+                opacity: style.opacity ?? 1,                // 어댑터 투명도
+                properties: param.properties                // 어댑터 속성정보
+            });
+
+            if (layer)
+                layer.addGeometry(adapter);
+            else
+                window.vectorLayer.addGeometry(adapter);
+
+            if (param.world) {
+                const world = param.world;
+                adapter.setWorldPosition(world); // 어댑터 생성 위치 설정 (월드 좌표)
+            } else {
+                const geoPos = param.position;
+                adapter.setPosition(geoPos.x, geoPos.y, geoPos.z);  // 어댑터 생성 위치 설정 (위경도 좌표 )
+            }
+            // !! 위경도 <-> 월드 좌표 변환 오차 때문에 세밀한 위치 지정은 월드 좌표로 하는게 정확함
+
+            return adapter;
+        }
+
+        function assignNodeToAdapter(adapter) {
+            if (!adapter) return null;
+
+            const nodeKey = adapter.name
+            const node = nodeManager.addNode(adapter, nodeKey);
+            if (!node) return;
+
+            adapter.userData = adapter.userData || {};
+            adapter.userData.node = node;
+
+            return node;
+        }
+
+        function hoverFunction(e) {
+            const world = app.closestPointAtPixel(e);
+            if(targetGeom) targetGeom.previewPipe(world.x, world.y, world.z);
+        }
+        //+ 선택한 type으로 도형 그리기
+        function drawGeom( world) {
+            app.drawFast();
+            if (targetGeom === undefined) createGeom();
+
+            if (targetGeom && previousAdapter) {
+                world = previousAdapter.getPosition();
+                targetGeom.userData = targetGeom.userData || {};
+                if (!targetGeom.userData.startAdapter) {
+                    targetGeom.userData.startAdapter = previousAdapter; // 첫 어댑터
+                }
+
+                if(targetGeom.userData.endAdapter) {
+                    const from = targetGeom.userData.endAdapter
+                    const to = previousAdapter;
+                    const fromNode = nodeManager.getNode(from.name);
+                    const toNode = nodeManager.getNode(to.name);
+
+                    nodeManager.registerLink(fromNode, toNode, undefined, {object: targetGeom})
+                }
+
+                targetGeom.userData.endAdapter = previousAdapter;       // 마지막 어댑터 계속 갱신
+                pushAdapterPath(targetGeom, previousAdapter);
+            }
+
+            if (targetGeom && targetGeom.isFlowPipe && world) {
+                targetGeom.addWorldPosition(world.x, world.y, world.z);
+            }
+        }
+
+
+        function pushAdapterPath(pipe, adapter){
+            if (!pipe || !adapter) return;
+            pipe.userData ||= {};
+
+            pipe.userData.adapterPath ||= [];
+
+            const list = pipe.userData.adapterPath;
+            const last = list[list.length - 1];
+
+            // 같은 어댑터 연속 중복 방지
+            if (last !== adapter) list.push(adapter);
+        }
+
+
+        function createGeom(type='FlowPipe') {
+            let geom;
+            switch (type) {
+                case 'FlowPipe':
+                    PARAM.name = `flow_${crypto.randomUUID()}`;
+                    geom = new GeOnDT.geom.U3dFlowPipe(PARAM);
+                    break;
+            }
+            if (geom) {
+                geom.setLoop(false);
+                vectorLayer.addGeometry(geom); //+ vectorLayer에 도형 추가
+                targetGeom = geom;
+                window.targetGeom = targetGeom;
+                targetGeom.on("flowUpdate", e => {
+                    const flowPipe = e.target
+                    if(!flowPipe) return;
+                    const { time, progress } = e.data;
+                    updateFunction(flowPipe, time, progress)
+                })
+
+                targetGeom.on("flowEnd", e => {
+                    const { timeSec } = e.data;
+                    console.log('흐름 종료 : ', timeSec);
+                })
+
+                // targetGeom.setProperties({
+                //     '전압' :
+                // })
+                // targetGeom.on('enter', e => {
+                //     const { timeSec, progress } = e.data;
+                //     console.log('섹션 진입', timeSec, progress);
+                // });
+                //
+                // targetGeom.on('exit', e => {
+                //     const { timeSec, progress } = e.data;
+                //     console.log('섹션 이탈', timeSec, progress);
+                // });
+            }
+        }
+
+        const testColor ="#0015ff";
+        const testColor2 ="#e600ff";
+        function updateFunction(flowPipe, time, progress) {
+            if(progress > 0.6) {
+                flowPipe.setFlowColor (testColor);
+            } else  if(progress < 0.6 && progress > 0.3) {
+                flowPipe.setFlowColor (testColor2);
+            } else {
+                const color = $("#color").val();
+                flowPipe.setFlowColor (color);
+            }
+        }
+
+        //+ parameter 저장
+        function getParam() {
+            const param = {
+                flowStyle : {} ,
+                tension: 0
+            };
+            param['flowType'] = $('#flow-type').val();
+            $('.param input').each(function (i, v) {
+                if (v.value === undefined || v.value === '') return;
+                let value;
+                if (v.type === 'number') {
+                    value = Number(v.value);
+                } else if (v.type === 'checkbox') {
+                    value = v.checked;
+                } else {
+                    value = v.value;
+                }
+
+                if(v.name === "flowStyle"){
+                    param.flowStyle[v.id] =  value;
+                }else{
+                    param[v.name] = value;
+                }
+            });
+
+            PARAM = param;
+            PARAM.app = app
+            targetGeom = undefined;
+        }
+
+        $('#flow-type').on('change', function () {
+            updateFlowPipeUI(this.value);
+        });
+
+        function updateFlowPipeUI(type){
+            const $root = $('.param[target="FlowPipe"]');
+            const visible = new Set(showMap[type] || ['type']);
+            $root.find('.form-group.row').each(function(){
+                const key = $(this).data('field');
+                $(this).toggle(key && visible.has(key));
+            });
+        }
+
+        window.testChange = () => {
+            if(targetGeom) {
+                targetGeom.changeFlowType("COLOR_FILL");
+            }
+        }
+
+        function createGraphPlayer(nodeManager) {
+            let state = 'stopped';    // 'running' | 'paused' | 'stopped'
+            async function playFromNode(startNode, {
+                maxDepth = Infinity,
+                maxSteps = 100000,
+            } = {}) {
+                if (!startNode) return;
+
+                const depthMap = nodeManager.computeDepthFrom(startNode, { setOnNode: true });
+
+                // 1) depth별 노드 묶기
+                const nodesByDepth = new Map(); // depth -> [node]
+                for (const [nodeId, d] of depthMap) {
+                    if (!Number.isFinite(d) || d > maxDepth) continue;
+                    const n = nodeManager.getNode(nodeId);
+                    if (!n) continue;
+                    if (!nodesByDepth.has(d)) nodesByDepth.set(d, []);
+                    nodesByDepth.get(d).push(n);
+                }
+
+                // depth 오름차순
+                const depths = [...nodesByDepth.keys()].sort((a, b) => a - b);
+
+                let steps = 0;
+
+                // 2) 레벨 순차 실행
+                for (const d of depths) {
+                    if (steps++ > maxSteps) break;
+
+                    const levelNodes = nodesByDepth.get(d) ?? [];
+                    const levelEdges = [];
+
+                    for (const node of levelNodes) {
+                        const outEdges = nodeManager.getOutLinks(node);
+
+                        for (const edge of outEdges) {
+                            const toDepth = depthMap.get(edge.to);
+
+                            // "다음 레벨로 가는" 엣지만 실행 (d -> d+1)
+                            if (toDepth !== d + 1) continue;
+
+                            const pipe = edge.userData?.object;
+                            if (!pipe) continue;
+
+                            levelEdges.push({ edge, pipe });
+                        }
+                    }
+
+                    if (levelEdges.length === 0) continue;
+
+                    // 3) 레벨의 모든 파이프를 동시에 시작하고, 전부 끝날 때까지 대기
+                    const tasks = levelEdges.map(async ({ pipe }) => {
+                        pipe.flowStart();
+                        await waitFlowEnd(pipe);
+                    });
+
+                    await Promise.all(tasks);
+                }
+            }
+
+            function waitFlowEnd(pipe) {
+                return new Promise((resolve) => {
+                    const handler = (e) => {
+                        if (pipe.off) pipe.off("flowHit", handler);
+                        resolve(e);
+                    };
+                    if (pipe.once) pipe.once("flowHit", handler);
+                    else pipe.on("flowHit", handler);
+                });
+            }
+
+            return {
+                start(node, opt) { return playFromNode(node, opt); },
+                pause(){
+                    for (const geom of vectorLayer.getGeometries()) {
+                        if(geom.isFlowPipe) geom.flowPause()
+                    }
+                    state = 'paused';
+                },
+                resume(){
+                    for (const geom of vectorLayer.getGeometries()) {
+                        if(geom.isFlowPipe) geom.flowResume()
+                    }
+                    state = 'running';
+                },
+                stop(){
+                    for (const geom of vectorLayer.getGeometries()) {
+                        if(geom.isFlowPipe) geom.flowStop();
+                    }
+                    state = 'stopped';
+                },
+                get state() { return state; }
+            };
+        }
+
+
+        const animationPlayer = createGraphPlayer(nodeManager);
+
+        function setAnimStatus(text){
+            const el = document.getElementById('anim-status');
+            if (el) el.textContent = text;
+        }
+
+
+        $(document).on('click', '#anim-start', function () {
+            const node = getNodeFromSelected(__selectedObject)
+                || getNodeFromSelected(window.targetGeom);
+
+            if (!node) {
+                // fallback: 전부 동시에(기존 방식)
+                for (const geom of vectorLayer.getGeometries()) geom.flowStart?.();
+                setAnimStatus('전체 재생');
+                return;
+            }
+
+            animationPlayer.stop();
+            animationPlayer.start(node);
+            setAnimStatus('선택 재생');
+        });
+
+        $('#anim-pause').on('click', function ()  { animationPlayer.pause();  setAnimStatus('일시정지'); });
+        $('#anim-resume').on('click', function () { animationPlayer.resume(); setAnimStatus('재생 중'); });
+        $('#anim-stop').on('click', function ()   { animationPlayer.stop();   setAnimStatus('정지'); });
+
+
+        $(document).on('click', '#prop-tbody .prop-btn', function () {
+            const name = $(this).data('geom');
+            const geom = vectorLayer.getGeometryByName(name);
+            if (!geom) return;
+
+            window.select.clearSelect();
+            window.select.addSelected(geom);
+        });
+
+        let __selectedObject = null;
+
+        function openPropPanel(obj){
+            __selectedObject = obj;
+
+            $('#prop-panel').removeClass('is-hidden');
+
+            const title = obj?.getName();
+
+            $('#prop-sub-text').text(`${title}`.trim());
+
+            renderPropTable(obj);
+            renderNodeIO(obj);
+        }
+
+        $("#io-in").on("click", ".io-chip", function () {
+            const id = $(this).text().trim();
+            const geom = vectorLayer.getGeometryByName(id);
+            window.select.clearSelect()
+            window.select.addSelected(geom);
+        });
+
+        $("#io-out").on("click", ".io-chip", function () {
+            const id = $(this).text().trim();
+            const geom = vectorLayer.getGeometryByName(id);
+            window.select.clearSelect()
+            window.select.addSelected(geom);
+        });
+
+        function closePropPanel(){
+            __selectedObject = null;
+            $('#prop-panel').addClass('is-hidden');
+            $('#prop-tbody').empty();
+        }
+
+        function renderPropTable(obj){
+            const $tb = $('#prop-tbody');
+            $tb.empty();
+
+            const props = extractProperties(obj);
+            const keys = Object.keys(props);
+
+            if (keys.length === 0){
+                $tb.append(`<tr><td class="prop-empty" colspan="2">표시할 속성이 없습니다.</td></tr>`);
+                return;
+            }
+
+            for (const k of keys){
+                const v = props[k];
+
+                // ✅ 클릭 가능한 케이스만 버튼화
+                if (k === 'startAdapter' || k === 'endAdapter') {
+                    const id = String(v ?? '').trim();
+                    $tb.append(`
+        <tr>
+          <td class="k">${escapeHtml(k)}</td>
+          <td class="v">
+            <button type="button" class="prop-btn" data-geom="${escapeHtml(id)}">
+              <span class="tag">GO</span>
+              <span>${escapeHtml(id)}</span>
+            </button>
+          </td>
+        </tr>
+      `);
+                    continue;
+                }
+
+                if (k === 'adapterPath' && Array.isArray(v)) {
+                    const chips = v.map(id => `
+        <button type="button" class="prop-btn" data-geom="${escapeHtml(id)}">
+          <span class="tag">PATH</span>
+          <span>${escapeHtml(id)}</span>
+        </button>
+      `).join(' ');
+                    $tb.append(`
+        <tr>
+          <td class="k">${escapeHtml(k)}</td>
+          <td class="v" style="display:flex; flex-wrap:wrap; gap:6px;">${chips}</td>
+        </tr>
+      `);
+                    continue;
+                }
+
+                // 기본 렌더
+                $tb.append(`
+      <tr>
+        <td class="k">${escapeHtml(k)}</td>
+        <td class="v">${escapeHtml(formatValue(v))}</td>
+      </tr>
+    `);
+            }
+        }
+
+
+        /** 객체에서 속성정보를 최대한 뽑아내기 */
+        function extractProperties(obj){
+            const out = {};
+
+            if (!obj) return out;
+
+            if (typeof obj.getProperties === 'function') {
+                const property = obj.getProperties();
+                if (property && typeof property === 'object') {
+                    // 배열/Map/객체 모두 대응
+                    if (Array.isArray(property)) {
+                        // [{key, value}] 같은 구조면 처리
+                        for (const it of property) {
+                            if (!it) continue;
+                            const kk = it.key ?? it.name ?? it[0];
+                            const vv = it.value ?? it.val ?? it[1];
+                            if (kk != null) out[String(kk)] = vv;
+                        }
+                    } else if (property instanceof Map) {
+                        for (const [kk, vv] of property.entries()) out[String(kk)] = vv;
+                    } else {
+                        Object.assign(out, property);
+                    }
+                }
+            }
+
+            if (obj.userData && typeof obj.userData === 'object'){
+                if (Array.isArray(obj.userData.adapterPath)) {
+                    out['adapterPath'] = obj.userData.adapterPath.map(getAdapterId).filter(Boolean);
+                }
+
+                // startAdapter / endAdapter
+                if (obj.userData.startAdapter) out['startAdapter'] = getAdapterId(obj.userData.startAdapter);
+                if (obj.userData.endAdapter)   out['endAdapter']   = getAdapterId(obj.userData.endAdapter);
+            }
+
+            // // 기본 필드(항상 표시하고 싶으면)
+            // out['uuid'] = obj.uuid ?? out['uuid'];
+            out['type'] = obj.isFlowPipe ? 'Pipe' : 'Adapter';
+
+            return out;
+        }
+
+        function getAdapterId(adapter){
+            if (!adapter) return '';
+            return adapter.name ?? adapter.uuid;
+        }
+
+        function formatValue(v){
+            if (v == null) return '';
+            if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+            if (typeof v === 'string') return v;
+            try { return JSON.stringify(v); } catch { return String(v); }
+        }
+
+        function escapeHtml(str){
+            return String(str)
+                .replaceAll('&','&amp;')
+                .replaceAll('<','&lt;')
+                .replaceAll('>','&gt;')
+                .replaceAll('"','&quot;')
+                .replaceAll("'","&#039;");
+        }
+
+        function renderNodeIO(selectedObj){
+            const node = getNodeFromSelected(selectedObj);
+
+            // 초기화
+            $('#io-in').empty();
+            $('#io-out').empty();
+
+            if (!node){
+                $('.io-wrap').css('display', 'none');
+                return
+            }
+            $('.io-wrap').css('display', 'flex');
+
+            const inputs  = [...(node.inputs  ?? [])];
+            const outs = [...(node.outputs ?? [])];
+
+            if (inputs.length === 0) $('#io-in').append(`<div class="io-empty">없음</div>`);
+            else {
+                for (let input of inputs) {
+                    const edges = nodeManager.getLinks();
+                    let key = input.id
+                    for(let edge of edges) {
+                        if(input.id === edge.id){
+                            const obj = edge.userData?.object;
+                            key = obj.name ?? input.id;
+                        }
+                    }    $('#io-in').append(`<span class="io-chip">${escapeHtml(key)}</span>`)
+                }
+            }
+
+            if (outs.length === 0) $('#io-out').append(`<div class="io-empty">없음</div>`);
+            else {
+                for (let out of outs) {
+                    const edges = nodeManager.getLinks();
+                    let key = out.id
+                    for(let edge of edges) {
+                        if( out.id === edge.id){
+                            const obj = edge.userData?.object;
+                            key = obj.name ?? out.id;
+                        }
+                    }   $('#io-out').append(`<span class="io-chip">${escapeHtml(key)}</span>`)
+                }
+            }
+        }
+
+        function getNodeFromSelected(obj){
+            if (!obj) return undefined;
+            if (obj.userData?.node) return obj.userData.node;
+            if (obj.inputs && obj.outputs) return obj;
+            return undefined;
+        }
+
+        $(document).on('click', '#prop-close', closePropPanel);
+
+
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>plt 파일 가시화 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        #analy-popup .div-popup {
+            width: 500px;
+            height: 280px;
+            top: 60vh;
+            padding-bottom: 10px;
+        }
+
+        .plt-layer  {
+            position: absolute;
+            top: 20px;
+            left: 16px;
+            z-index: 20;
+            width: 220px;
+            padding: 12px;
+            border-radius: 8px;
+            background: rgba(20, 20, 20, 0.82);
+            color: #fff;
+        }
+
+        .plt-control {
+            position: absolute;
+            top: 220px;
+            left: 16px;
+            z-index: 20;
+            width: 220px;
+            padding: 12px;
+            border-radius: 8px;
+            background: rgba(20, 20, 20, 0.82);
+            color: #fff;
+        }
+
+        .plt-control label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .plt-control input[type="range"] {
+            width: 100%;
+        }
+
+        .plt-control-value {
+            margin-top: 6px;
+            font-size: 12px;
+            text-align: right;
+        }
+
+        .plt-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            font-size: 12px;
+            font-weight: 400;
+        }
+
+        .plt-checkbox input {
+            margin: 0;
+        }
+
+        .plt-radio-group {
+            margin-top: 10px;
+        }
+
+        .plt-legend {
+            position: absolute;
+            top: 570px;
+            left: 16px;
+            z-index: 20;
+            width: 220px;
+            padding: 12px;
+            border-radius: 8px;
+            background: rgba(20, 20, 20, 0.82);
+            color: #fff;
+        }
+
+        .plt-legend-title {
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .plt-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+
+        .plt-legend-swatch {
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            flex: 0 0 18px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+        }
+
+        .plt-panel-manager {
+            position: absolute;
+            top: 20px;
+            right: 16px;
+            z-index: 30;
+            width: 220px;
+            padding: 12px;
+            border-radius: 8px;
+            background: rgba(20, 20, 20, 0.82);
+            color: #fff;
+        }
+
+        .plt-panel-manager-title {
+            margin-bottom: 10px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .plt-panel-manager-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .plt-panel-toggle-btn {
+            width: 100%;
+            padding: 7px 10px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            font-size: 12px;
+            text-align: left;
+            transition: background 0.15s ease;
+        }
+
+        .plt-panel-toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.16);
+        }
+
+        .plt-panel-toggle-btn.is-hidden {
+            opacity: 0.65;
+        }
+
+        .plt-box-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: -4px -4px 10px;
+            padding: 4px;
+            cursor: move;
+            user-select: none;
+        }
+
+        .plt-box-title {
+            font-size: 13px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> plt 파일 가시화 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+    </p>
+</div>
+<div id="map-wrapper">
+    <div id="map"></div>
+    <div class="plt-panel-manager" id="plt-panel-manager">
+        <div class="plt-panel-manager-title">패널 제어</div>
+        <div class="plt-panel-manager-buttons">
+            <button type="button" class="plt-panel-toggle-btn" data-panel-target="plt-layer" data-panel-label="레이어 패널">레이어 패널 Hide</button>
+            <button type="button" class="plt-panel-toggle-btn" data-panel-target="plt-control" data-panel-label="제어 패널">제어 패널 Hide</button>
+            <button type="button" class="plt-panel-toggle-btn" data-panel-target="plt-legend" data-panel-label="범례 패널">범례 패널 Hide</button>
+        </div>
+    </div>
+    <div class="plt-layer" id="plt-layer" >
+        <div class="plt-box-header">
+            <span class="plt-box-title">레이어 패널</span>
+        </div>
+        <label class="plt-checkbox" for="pattern-layer-toggle">
+            <input type="checkbox" id="pattern-layer-toggle">
+            <span>기본 지형 가시화</span>
+        </label>
+        <label class="plt-checkbox" for="satellite-layer-toggle">
+            <input type="checkbox" id="satellite-layer-toggle" checked>
+            <span>Vworld 영상 가시화</span>
+        </label>
+        <label class="plt-checkbox" for="terrain-layer-toggle">
+            <input type="checkbox" id="terrain-layer-toggle" checked>
+            <span>고도 정보 가시화</span>
+        </label>
+        <label class="plt-checkbox" for="wfs-layer-toggle">
+            <input type="checkbox" id="wfs-layer-toggle">
+            <span>WFS 건물 가시화</span>
+        </label>
+        <label class="plt-checkbox" for="plt-mesh-toggle">
+            <input type="checkbox" id="plt-mesh-toggle" checked>
+            <span>PLT 형상 가시화</span>
+        </label>
+    </div>
+    <div class="plt-control" id="plt-control">
+        <div class="plt-box-header">
+            <span class="plt-box-title">제어 패널</span>
+        </div>
+        <label for="plt-z-slider">Z Offset</label>
+        <input type="range" id="plt-z-slider" min="0" max="20" step="0.05" value="20">
+        <div class="plt-control-value"><span id="plt-z-value">0</span> m</div>
+        <label for="plt-opacity-slider">pltMesh 투명도</label>
+        <input type="range" id="plt-opacity-slider" min="0" max="1" step="0.01" value="0.85">
+        <div class="plt-control-value"><span id="plt-opacity-value">0.85</span></div>
+        <label class="plt-checkbox" for="plt-wireframe-toggle">
+            <input type="checkbox" id="plt-wireframe-toggle">
+            <span>와이어프레임 가시화</span>
+        </label>
+        <div class="plt-radio-group">
+            <label class="plt-checkbox" for="plt-color-none">
+                <input type="radio" name="plt-color-mode" id="plt-color-none" value="none" checked>
+                <span>범례 Off</span>
+            </label>
+            <label class="plt-checkbox" for="plt-color-hmax">
+                <input type="radio" name="plt-color-mode" id="plt-color-hmax" value="hmax">
+                <span>최대 수심 범례(hmax)</span>
+            </label>
+            <label class="plt-checkbox" for="plt-color-vmax">
+                <input type="radio" name="plt-color-mode" id="plt-color-vmax" value="Vmax">
+                <span>최대 유속 범례(Vmax)</span>
+            </label>
+            <label class="plt-checkbox" for="plt-color-vhmax">
+                <input type="radio" name="plt-color-mode" id="plt-color-vhmax" value="Vhmax">
+                <span>최대 유량 범례(Vhmax)</span>
+            </label>
+        </div>
+    </div>
+    <div class="plt-legend" id="plt-legend" style="display: none;">
+        <div class="plt-box-header">
+            <span class="plt-box-title">범례 패널</span>
+        </div>
+        <div class="plt-legend-title" id="plt-legend-title"></div>
+        <div id="plt-legend-items"></div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    const strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script type="module">
+    //라이센스 인증
+    await GeOnDT;
+    const ol = __GEONDT__.ol;
+    const app = new GeOnDT.U3dAPP({
+        containername: 'map', //+ U3dApp(지도영역)의 div ID, *필수 입력
+        ratiomodeltilesize: 3.0
+    });
+    await app.loadCameraState({
+        "camera": {
+            "x": 129.44682466045165,
+            "y": 35.942401043179245,
+            "z": 2078.104763397291
+        },
+        "center": {
+            "x": 129.40124018506486,
+            "y": 35.97231726740522,
+            "z": 0
+        },
+        "distance": 7018.910363908454,
+        "azimuth": 0.889522871655717,
+        "polar": 1.196413105439943,
+        "homePosition": [
+            129.40124018506486,
+            35.97231726740522,
+            7018.910363908454,
+            50.965906326229785,
+            68.54942149584909
+        ],
+        "type": "GEOGRAPHIC",
+        "height": 2078.104763397291
+    }, 1);
+
+    app.createloadingBar('load');
+    app.drawFast();
+
+    window.app = app;
+    const THREE = app._THREE;
+    const defaultLayer = new GeOnDT.image.U3dPatternXYZLayer({
+        name: 'pattern',
+        baseurl: 'default',
+        usebasetexture: false,
+        color: 0xffffff,
+        opacity: 1.0
+    });
+    app.addLayer(defaultLayer);
+    app.showLayer('pattern', false);
+
+    const layer = new GeOnDT.image.U3dImageXYZLayer({
+        name: 'satellite',
+        baseurl: layerInfo.image.vworldsaturl,
+        reverseY: true
+    });
+    app.addLayer(layer);
+    app.setNameBaseLayer('satellite');
+    app.showLayer('satellite', true);
+
+    const terrainLayer = new GeOnDT.terrain.U3dHeightXYZLayer({
+        name: 'Korea Terrain',
+        baseurl: layerInfo.height.url,
+        ext: '.umf',
+        reverseY: true,
+        minlevel: 9,
+        maxlevel: 17,
+        useproxy: false,
+    });
+
+    app.addLayer(terrainLayer);
+    app.showLayer('Korea Terrain', true);
+
+    let buildingLayer;
+    $.ajax({
+        url: 'https://3d.geon.kr/v1/layers?type=u3f&category=u3f_2hd_15',
+        crossDomain: true,
+        error: function (e) {
+            console.error(e);
+        }
+    }).then(async (result) => {
+        buildingLayer = self.app.createModelGroupLayer({
+            name: 'buildingLayer',
+            maxlevel: 15,
+            minlevel: 15,
+        });
+        const infos = result.params.data;
+        for (const info of infos) {
+            const u3fLayer = app.create3DFModelLayer({
+                name: info.name,
+                basename: info.fileName,
+                baseurl: info.baseUrl,
+                minlevel: info.metaData.minLevel,
+                maxlevel: info.metaData.maxLevel,
+                compressmodel: true,
+                isShareMaterial: true,
+                makeU3FPackage: 0
+            });
+            await u3fLayer;
+            buildingLayer.addLayer(u3fLayer);
+        }
+
+        app.showLayer(buildingLayer.getName(), false);
+    });
+
+    $.ajax({
+        url: 'https://3d-dev.geon.kr/data/plt/test.max.plt',
+        method: 'GET',
+        dataType: 'text',
+        success: function (data) {
+            const lines = data.split('\n');
+            const nodes = [];
+            for (let i = 4; i < 4 + 62498; i++) {
+                const parts = lines[i].trim().split(/\s+/);
+                if (parts.length === 11) {
+                    nodes.push({
+                        E:      parseFloat(parts[0]),
+                        N:      parseFloat(parts[1]),
+                        z:      parseFloat(parts[2]),
+                        hmax:   parseFloat(parts[3]),
+                        etamax: parseFloat(parts[4]),
+                        Vmax:   parseFloat(parts[5]),
+                        Vhmax:  parseFloat(parts[6]),
+                        V2hmax: parseFloat(parts[7]),
+                        taumax: parseFloat(parts[8]),
+                        t_wet:  parseFloat(parts[9]),
+                        t_maxh: parseFloat(parts[10])
+                    });
+                }
+            }
+
+            const elements = [];
+            for (let i = 4 + 62498; i < 4 + 62498 + 115101; i++) {
+                const parts = lines[i].trim().split(/\s+/);
+                if (parts.length === 4) {
+                    elements.push(parts.map(Number));
+                }
+            }
+
+            const output = {
+                meta: {
+                    total_nodes: nodes.length,
+                    total_elements: elements.length,
+                    variables: ["E","N","z","hmax","etamax","Vmax","Vhmax","V2hmax","taumax","t_wet","t_maxh"],
+                    zone_type: "FEQUADRILATERAL"
+                },
+                nodes,
+                elements
+            };
+            const jsonStr = JSON.stringify(output);
+            buildMesh(jsonStr);
+        },
+        error: function (xhr, status, err) {
+            console.error('요청 실패:', status, err);
+        }
+    });
+
+    const pltZSlider = document.getElementById('plt-z-slider');
+    const pltZValue = document.getElementById('plt-z-value');
+    const pltOpacitySlider = document.getElementById('plt-opacity-slider');
+    const pltOpacityValue = document.getElementById('plt-opacity-value');
+    const pltWireframeToggle = document.getElementById('plt-wireframe-toggle');
+    const patternLayerToggle = document.getElementById('pattern-layer-toggle');
+    const satelliteLayerToggle = document.getElementById('satellite-layer-toggle');
+    const wfsLayerToggle = document.getElementById('wfs-layer-toggle');
+    const terrainLayerToggle = document.getElementById('terrain-layer-toggle');
+    const pltMeshToggle = document.getElementById('plt-mesh-toggle');
+    const pltLegend = document.getElementById('plt-legend');
+    const pltLegendTitle = document.getElementById('plt-legend-title');
+    const pltLegendItems = document.getElementById('plt-legend-items');
+    const pltColorModes = document.querySelectorAll('input[name="plt-color-mode"]');
+    const panelButtons = document.querySelectorAll('.plt-panel-toggle-btn');
+    const panelVisibilityState = {
+        'plt-layer': true,
+        'plt-control': true,
+        'plt-legend': true
+    };
+    let legendContentVisible = false;
+
+    function applyPltMeshZOffset(value) {
+        pltZValue.textContent = String(value);
+        if (window.pltMesh) {
+            const basePosition = window.pltMesh.userData.basePosition;
+            if (basePosition) {
+                window.pltMesh.position.set(
+                    basePosition.x,
+                    basePosition.y,
+                    basePosition.z + value
+                );
+            } else {
+                window.pltMesh.position.z = value;
+            }
+        }
+    }
+
+    function applyPltMeshVisibility() {
+        if (window.pltMesh) {
+            window.pltMesh.visible = pltMeshToggle.checked;
+        }
+    }
+
+    function applyPltMeshWireframe() {
+        if (window.pltMesh && window.pltMesh.material) {
+            window.pltMesh.material.wireframe = pltWireframeToggle.checked;
+            window.pltMesh.material.needsUpdate = true;
+        }
+    }
+
+    function applyPltMeshOpacity(value) {
+        pltOpacityValue.textContent = Number(value).toFixed(2);
+        if (window.pltMesh && window.pltMesh.material) {
+            window.pltMesh.material.transparent = true;
+            window.pltMesh.material.opacity = Number(value);
+            window.pltMesh.material.needsUpdate = true;
+        }
+    }
+
+    function setPanelVisibility(panelId, visible) {
+        panelVisibilityState[panelId] = visible;
+        const panel = document.getElementById(panelId);
+        if (!panel) return;
+
+        if (panelId === 'plt-legend') {
+            panel.style.display = visible && legendContentVisible ? 'block' : 'none';
+        } else {
+            panel.style.display = visible ? 'block' : 'none';
+        }
+
+        const button = document.querySelector('.plt-panel-toggle-btn[data-panel-target="' + panelId + '"]');
+        if (button) {
+            const label = button.dataset.panelLabel;
+            button.textContent = label + ' ' + (visible ? 'Hide' : 'Show');
+            button.classList.toggle('is-hidden', !visible);
+        }
+    }
+
+    function syncLegendPanelVisibility() {
+        setPanelVisibility('plt-legend', panelVisibilityState['plt-legend']);
+    }
+
+    function enablePanelDrag(panelId) {
+        const panel = document.getElementById(panelId);
+        if (!panel) return;
+        const handle = panel.querySelector('.plt-box-header');
+        if (!handle) return;
+
+        let startX = 0;
+        let startY = 0;
+        let startLeft = 0;
+        let startTop = 0;
+        let dragging = false;
+
+        handle.addEventListener('mousedown', function (event) {
+            if (event.button !== 0) return;
+            dragging = true;
+            startX = event.clientX;
+            startY = event.clientY;
+            startLeft = panel.offsetLeft;
+            startTop = panel.offsetTop;
+            document.body.style.userSelect = 'none';
+            event.preventDefault();
+        });
+
+        document.addEventListener('mousemove', function (event) {
+            if (!dragging) return;
+            panel.style.left = startLeft + (event.clientX - startX) + 'px';
+            panel.style.top = startTop + (event.clientY - startY) + 'px';
+        });
+
+        document.addEventListener('mouseup', function () {
+            if (!dragging) return;
+            dragging = false;
+            document.body.style.userSelect = '';
+        });
+    }
+
+    function setPatternLayerVisibility(visible) {
+        patternLayerToggle.checked = visible;
+        app.showLayer('pattern', visible);
+        if (visible) {
+            app.setNameBaseLayer('pattern');
+        }
+    }
+
+    function setSatelliteLayerVisibility(visible) {
+        satelliteLayerToggle.checked = visible;
+        app.showLayer('satellite', visible);
+        if (visible) {
+            app.setNameBaseLayer('satellite');
+        }
+    }
+
+    const COLOR_RANGES = {
+        hmax: {
+            title: 'hmax 최대 수심 범례 (m)',
+            items: [
+                { label: '0', color: '#1e3a8a' },
+                { label: '0 - 0.1', color: '#2563eb' },
+                { label: '0.1 - 0.3', color: '#22c55e' },
+                { label: '0.3 - 0.5', color: '#facc15' },
+                { label: '0.5 - 1.0', color: '#f97316' },
+                { label: '1.0 - 2.0', color: '#ef4444' },
+                { label: '>= 2.0', color: '#991b1b' }
+            ]
+        },
+        Vmax: {
+            title: 'Vmax 최대 유속 범례 (m/s)',
+            items: [
+                { label: '0', color: '#1e3a8a' },
+                { label: '0 - 0.01', color: '#2563eb' },
+                { label: '0.01 - 0.7', color: '#22c55e' },
+                { label: '0.7 - 2.0', color: '#facc15' },
+                { label: '2.0 - 3.0', color: '#f97316' },
+                { label: '>= 3.0', color: '#991b1b' }
+            ]
+        },
+        Vhmax: {
+            title: 'Vhmax 최대 유량 범례 (m²/s)',
+            items: [
+                { label: '0', color: '#1e3a8a' },
+                { label: '0 - 0.001', color: '#2563eb' },
+                { label: '0.001 - 0.4', color: '#22c55e' },
+                { label: '0.4 - 3.0', color: '#facc15' },
+                { label: '3.0 - 6.0', color: '#f97316' },
+                { label: '>= 6.0', color: '#991b1b' }
+            ]
+        }
+    };
+
+    function getSelectedColorMode() {
+        const selected = document.querySelector('input[name="plt-color-mode"]:checked');
+        return selected ? selected.value : 'none';
+    }
+
+    function renderLegend(mode) {
+        if (mode === 'none' || !COLOR_RANGES[mode]) {
+            legendContentVisible = false;
+            pltLegendTitle.textContent = '';
+            pltLegendItems.innerHTML = '';
+            syncLegendPanelVisibility();
+            return;
+        }
+
+        const config = COLOR_RANGES[mode];
+        legendContentVisible = true;
+        pltLegendTitle.textContent = config.title;
+        pltLegendItems.innerHTML = config.items.map(function (item) {
+            return '<div class="plt-legend-item"><span class="plt-legend-swatch" style="background:' + item.color + ';"></span><span>' + item.label + '</span></div>';
+        }).join('');
+        syncLegendPanelVisibility();
+    }
+
+    function updatePltMeshMaterial() {
+        const mode = getSelectedColorMode();
+        const useVertexColors = mode !== 'none';
+        renderLegend(mode);
+
+        if (!window.pltMesh) return;
+
+        const geometry = window.pltMesh.geometry;
+        if (useVertexColors) {
+            const attrName = mode === 'hmax' ? 'hmaxColor' : mode === 'Vmax' ? 'vmaxColor' : 'vhmaxColor';
+            const selectedColorAttr = geometry.getAttribute(attrName);
+            if (selectedColorAttr) {
+                geometry.setAttribute('color', selectedColorAttr);
+            }
+        } else if (geometry.getAttribute('color')) {
+            geometry.deleteAttribute('color');
+        }
+
+        const prevMaterial = window.pltMesh.material;
+
+        window.pltMesh.material = new THREE.MeshLambertMaterial({
+            color: useVertexColors ? 0xffffff : 0x4aa3ff,
+            vertexColors: useVertexColors,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: Number(pltOpacitySlider.value),
+            wireframe: pltWireframeToggle.checked
+        });
+
+        if (prevMaterial) {
+            prevMaterial.dispose();
+        }
+    }
+
+    pltZSlider.addEventListener('input', function () {
+        applyPltMeshZOffset(Number(this.value));
+    });
+
+    pltOpacitySlider.addEventListener('input', function () {
+        applyPltMeshOpacity(this.value);
+    });
+
+    patternLayerToggle.addEventListener('change', function () {
+        if (this.checked) {
+            setPatternLayerVisibility(true);
+            setSatelliteLayerVisibility(false);
+            terrainLayerToggle.checked = false;
+            app.showLayer('Korea Terrain', false);
+        } else {
+            setPatternLayerVisibility(false);
+        }
+    });
+
+    satelliteLayerToggle.addEventListener('change', function () {
+        if (this.checked) {
+            setPatternLayerVisibility(false);
+        }
+        setSatelliteLayerVisibility(this.checked);
+    });
+
+    wfsLayerToggle.addEventListener('change', function () {
+        if (!buildingLayer) return;
+        app.showLayer(buildingLayer.getName(), this.checked);
+    });
+
+    terrainLayerToggle.addEventListener('change', function () {
+        app.showLayer('Korea Terrain', this.checked);
+    });
+
+    pltMeshToggle.addEventListener('change', function () {
+        applyPltMeshVisibility();
+    });
+
+    pltWireframeToggle.addEventListener('change', function () {
+        applyPltMeshWireframe();
+    });
+
+    panelButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+            const panelId = this.dataset.panelTarget;
+            setPanelVisibility(panelId, !panelVisibilityState[panelId]);
+        });
+    });
+
+    enablePanelDrag('plt-layer');
+    enablePanelDrag('plt-control');
+    enablePanelDrag('plt-legend');
+    setPanelVisibility('plt-layer', true);
+    setPanelVisibility('plt-control', true);
+    syncLegendPanelVisibility();
+
+    pltColorModes.forEach(function (input) {
+        input.addEventListener('change', function () {
+            updatePltMeshMaterial();
+        });
+    });
+
+    function getHmaxColor(hmax) {
+        if (hmax >= 2.0) return [0.6000, 0.1059, 0.1059];
+        if (hmax >= 1.0) return [0.9373, 0.2667, 0.2667];
+        if (hmax >= 0.5) return [0.9765, 0.4510, 0.0863];
+        if (hmax >= 0.3) return [0.9804, 0.8000, 0.0824];
+        if (hmax >= 0.1) return [0.1333, 0.7725, 0.3686];
+        if (hmax > 0) return [0.1451, 0.3882, 0.9216];
+        return [0.1176, 0.2275, 0.5412];
+    }
+
+    function getVmaxColor(vmax) {
+        if (vmax >= 3.0) return [0.6000, 0.1059, 0.1059];
+        if (vmax >= 2.0) return [0.9765, 0.4510, 0.0863];
+        if (vmax >= 0.7) return [0.9804, 0.8000, 0.0824];
+        if (vmax >= 0.01) return [0.1333, 0.7725, 0.3686];
+        if (vmax > 0) return [0.1451, 0.3882, 0.9216];
+        return [0.1176, 0.2275, 0.5412];
+    }
+
+    function getVhmaxColor(vhmax) {
+        if (vhmax >= 6.0) return [0.6000, 0.1059, 0.1059];
+        if (vhmax >= 3.0) return [0.9765, 0.4510, 0.0863];
+        if (vhmax >= 0.4) return [0.9804, 0.8000, 0.0824];
+        if (vhmax >= 0.001) return [0.1333, 0.7725, 0.3686];
+        if (vhmax > 0) return [0.1451, 0.3882, 0.9216];
+        return [0.1176, 0.2275, 0.5412];
+    }
+
+    function buildMesh(jsonStr) {
+        const data = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
+        const nodes = Array.isArray(data.nodes) ? data.nodes : [];
+        const elements = Array.isArray(data.elements) ? data.elements : [];
+
+        const worldPositions = new Array(nodes.length);
+        const positions = new Float32Array(nodes.length * 3);
+        const hmaxColors = new Float32Array(nodes.length * 3);
+        const vmaxColors = new Float32Array(nodes.length * 3);
+        const vhmaxColors = new Float32Array(nodes.length * 3);
+        const nodeIndexMap = new Map();
+        const proj4 = __GEONDT__.proj4;
+        let minX = Infinity;
+        let minY = Infinity;
+        let minZ = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+        let maxZ = -Infinity;
+
+        for (let i = 0; i < nodes.length; i++) {
+            const node = nodes[i];
+            const worldXY = proj4('EPSG:5187', 'EPSG:3857', [node.E, node.N]);
+            const worldZ = node.z + node.hmax;
+
+            worldPositions[i] = {
+                x: worldXY[0],
+                y: worldXY[1],
+                z: worldZ
+            };
+
+            minX = Math.min(minX, worldXY[0]);
+            minY = Math.min(minY, worldXY[1]);
+            minZ = Math.min(minZ, worldZ);
+            maxX = Math.max(maxX, worldXY[0]);
+            maxY = Math.max(maxY, worldXY[1]);
+            maxZ = Math.max(maxZ, worldZ);
+
+            const hmaxColor = getHmaxColor(node.hmax);
+            hmaxColors[i * 3] = hmaxColor[0];
+            hmaxColors[i * 3 + 1] = hmaxColor[1];
+            hmaxColors[i * 3 + 2] = hmaxColor[2];
+
+            const vmaxColor = getVmaxColor(node.Vmax);
+            vmaxColors[i * 3] = vmaxColor[0];
+            vmaxColors[i * 3 + 1] = vmaxColor[1];
+            vmaxColors[i * 3 + 2] = vmaxColor[2];
+
+            const vhmaxColor = getVhmaxColor(node.Vhmax);
+            vhmaxColors[i * 3] = vhmaxColor[0];
+            vhmaxColors[i * 3 + 1] = vhmaxColor[1];
+            vhmaxColors[i * 3 + 2] = vhmaxColor[2];
+
+            nodeIndexMap.set(i + 1, i);
+        }
+
+        const center = {
+            x: (minX + maxX) / 2,
+            y: (minY + maxY) / 2,
+            z: (minZ + maxZ) / 2
+        };
+
+        for (let i = 0; i < worldPositions.length; i++) {
+            const worldPosition = worldPositions[i];
+            positions[i * 3] = worldPosition.x - center.x;
+            positions[i * 3 + 1] = worldPosition.y - center.y;
+            positions[i * 3 + 2] = worldPosition.z - center.z;
+        }
+
+        const indices = [];
+
+        for (let i = 0; i < elements.length; i++) {
+            const el = elements[i];
+            if (!Array.isArray(el) || el.length !== 4) continue;
+
+            const a = nodeIndexMap.get(el[0]);
+            const b = nodeIndexMap.get(el[1]);
+            const c = nodeIndexMap.get(el[2]);
+            const d = nodeIndexMap.get(el[3]);
+
+            if (a === undefined || b === undefined || c === undefined) continue;
+
+            if (el[2] === el[3]) {
+                indices.push(a, b, c);
+            } else {
+                if (d === undefined) continue;
+                indices.push(a, b, c);
+                indices.push(a, c, d);
+            }
+        }
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('hmaxColor', new THREE.BufferAttribute(hmaxColors, 3));
+        geometry.setAttribute('vmaxColor', new THREE.BufferAttribute(vmaxColors, 3));
+        geometry.setAttribute('vhmaxColor', new THREE.BufferAttribute(vhmaxColors, 3));
+        geometry.setIndex(indices);
+        geometry.computeVertexNormals();
+
+        if (window.pltMesh) {
+            app.getScene().remove(window.pltMesh);
+            window.pltMesh.geometry.dispose();
+            window.pltMesh.material.dispose();
+        }
+
+        window.pltMesh = new THREE.Mesh(
+            geometry,
+            new THREE.MeshLambertMaterial()
+        );
+        window.pltMesh.userData.basePosition = new THREE.Vector3(center.x, center.y, center.z);
+        app.getScene().add(window.pltMesh);
+        applyPltMeshVisibility();
+        applyPltMeshZOffset(Number(pltZSlider.value));
+        updatePltMeshMaterial();
+        app.endloadingBar();
+    }
+</script>
+</body>
+</html>

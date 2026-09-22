@@ -1,0 +1,24 @@
+<nav class="terrain-rail" data-example-rail aria-label="terrain 도구">
+    <button id="analy-bnt" class="rail-button" type="button" data-legacy-toggle-state aria-pressed="false">
+        <span class="rail-icon">▦</span><span>분석</span>
+    </button>
+</nav>
+
+<div id="analy-popup" oncontextmenu="return false;" class="legacy-floating-panel legacy-main-feature-panel legacy-migration-panel" style="display:none;">
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content">
+                <div class="panel panel-default">
+                    <div class="radio">
+                        <label>
+                            <input type="checkbox" name="terrain" value="korea">
+                            전국 지형(고도) 켜기
+                            <button type="button" class="btn btn-xs btn-default btn-fly" style="margin-left: 20px;" target="서울">이동</button>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>

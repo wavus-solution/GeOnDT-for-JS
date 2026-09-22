@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>객체 확산 예제</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        #analy-popup .div-popup {
+            width: 450px;
+            height: 500px;
+            top: 25vh;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 5px;
+        }
+
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> 객체 확산 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        타입과 속성값을 입력 후에 <strong>확산 객체 생성 모드를 선택 하여 마우스 클릭 지점에 확산 객체가 생성</strong>되는 예제입니다.<br>
+        이미지를 지정하거나 색상을 지정하여 설정 할수 있습니다.
+        투명도 및 크기를 조절 하여 설정 할수 있습니다.
+        확산 객체에 생성 영역과 방향을 지정하여 생성 할수 있습니다.
+    </p>
+</div>
+<div id="map-wrapper">
+    <div id="map"></div>
+    <div id="div-left-menu">
+        <div>
+            <div style="display: inline-flex; position: relative">
+                <button id="analy-bnt" class="btn btn-xs menu-btn">
+                    <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+                <div class="div-btn-info" hidden>
+                    분석 팝업 열기
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="btn-group" id='top-sbar'>
+        <div class='btn-group-vertical-block' id='right-toolbar'>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                     src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                     alt="나침반">
+            </button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                    id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                    id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                    id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+            </button>
+        </div>
+        <div class='btn-group' id='bt-bottom-bar'>
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                   value="위경도: ##.####  ###.#### ">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                   value="고도:####">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                   value="각도: ##">
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu='return false'>
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content" style="margin:0 5px;">
+                <div class="form-group">
+                    <label class="col-sm-4 control-label" style=" margin-top: 10px">타입</label>
+                    <div claee="col-sm-4 form-inline" style="display: flex; margin-left: 10%; padding-left: 15px">
+                        <div class="radio">
+                            <label>
+                                <input type="radio" name="type" value="diffusion" checked>
+                                대기 확산
+                            </label>
+                        </div>
+                        <div class="radio" style="margin-left: 2%; margin-top: 10px">
+                            <label>
+                                <input type="radio" name="type" value="rain">
+                                비
+                            </label>
+                        </div>
+                        <div class="radio" style="margin-left: 2%; margin-top: 10px">
+                            <label>
+                                <input type="radio" name="type" value="snow">
+                                눈
+                            </label>
+                        </div>
+                    </div>
+                    <label class="col-sm-4 control-label">이미지</label>
+                    <div class="col-sm-4">
+                        <div class="form-inline">
+                            <input class="form-control param" type="text" name="particleImage"
+                                   value="image/cloud1.png" style="">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-5 control-label">영역</label>
+                    <div>
+                        <div class="form-group" style="display: inline-flex; margin-left: 5%">
+                            <label class="control-label" style="padding-top: 5px; margin-right: 2%"> X
+                                : </label><input class="form-control param" style="width: 20%;" type="number"
+                                                 name="posSpreadX" value="100">
+                            <label class="control-label" style="padding-top: 5px; margin-left: 2%; margin-right: 2%"> Y
+                                : </label><input class="form-control param" style="width: 20%;" type="number"
+                                                 name="posSpreadY" value="100">
+                            <label class="control-label" style="padding-top: 5px; margin-left: 2%; margin-right: 2%"> Z
+                                : </label><input class="form-control param" style="width: 20%;" type="number"
+                                                 name="posSpreadZ" value="10">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-4 control-label">영역 가중치</label>
+                    <div>
+                        <div class="form-group" style="display: inline-flex; margin-left: 5%">
+                            <label class="control-label" style="padding-top: 5px; margin-right: 2%"> X : </label><input class="form-control param" style="width: 20%;" type="number" name="velSpreadX"
+                                value="0">
+                            <label class="control-label" style="padding-top: 5px; margin-left: 2%; margin-right: 2%"> Y
+                                : </label><input class="form-control param" style="width: 20%;" type="number"
+                                                 name="velSpreadY" value="0">
+                            <label class="control-label" style="padding-top: 5px; margin-left: 2%; margin-right: 2%"> Z
+                                : </label><input class="form-control param" style="width: 20%;" type="number"
+                                                 name="velSpreadZ" value="0">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-4 control-label">초기 가중치</label>
+                    <div>
+                        <div class="form-group" style="display: inline-flex; margin-left: 5%">
+                            <label class="control-label" style="padding-top: 5px; margin-right: 2%"> X : </label><input class="form-control param" style="width: 20%;" type="number" name="velocityX"
+                                value="0">
+                            <label class="control-label" style="padding-top: 5px; margin-left: 2%; margin-right: 2%"> Y
+                                : </label><input class="form-control param" style="width: 20%;" type="number"
+                                                 name="velocityY" value="0">
+                            <label class="control-label" style="padding-top: 5px; margin-left: 2%; margin-right: 2%"> Z
+                                : </label><input class="form-control param" style="width: 20%;" type="number"
+                                                 name="velocityZ" value="0">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="col-sm-4 control-label">초기 가속</label>
+                    <div>
+                        <div class="form-group" style="display: inline-flex; margin-left: 5%">
+                            <label class="control-label " style="padding-top: 5px; margin-right: 2%"> X
+                                : </label><input class="form-control param" style="width: 20%;" type="number" name="accelerationX"
+                                value="0">
+                            <label class="control-label" style="padding-top: 5px; margin-left: 2%; margin-right: 2%"> Y
+                                : </label><input class="form-control param" style="width: 20%;" type="number"
+                                                 name="accelerationY" value="0">
+                            <label class="control-label" style="padding-top: 5px; margin-left: 2%; margin-right: 2%"> Z
+                                : </label><input class="form-control param" style="width: 20%;" type="number"
+                                                 name="accelerationZ" value="0">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-5">
+                        <label for="colorStart" class=" control-label">시작 색상</label>
+                        <input id="colorStart" type="color" name="colorStart" value="#768C8F">
+                    </div>
+                    <div class="col-sm-5">
+                        <label for="colorEnd" class=" control-label">종료 색상</label>
+                        <input id="colorEnd" type="color" name="colorEnd" value="#806D08">
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin:40px 10px;">
+                    <div class="radio">
+                        <label>
+                            <input type="radio" name="mode" value="idle" checked>
+                            기본 모드
+                        </label>
+                    </div>
+                    <div class="radio">
+                        <label>
+                            <input type="radio" name="mode" value="active">
+                            확산 객체 생성 모드
+                        </label>
+                    </div>
+                </div>
+
+                <label style="margin-left: 10px; margin-bottom : 15px">direction : </label>
+                <button class="btn btn-default glyphicon glyphicon-arrow-left control " id="left-velocity"></button>
+                <button class="btn btn-default glyphicon glyphicon-arrow-right control" id="right-velocity"></button>
+                <button class="btn btn-default glyphicon glyphicon-arrow-up control" id="up-velocity"></button>
+                <button class="btn btn-default glyphicon glyphicon-arrow-down control" id="down-velocity"></button>
+
+                <label style="margin-left: 5px; margin-bottom : 15px">height : </label>
+                <button class="btn btn-default glyphicon glyphicon-arrow-up control" id="z-up-velocity"></button>
+                <button class="btn btn-default glyphicon glyphicon-arrow-down control" id="z-down-velocity"></button>
+
+            </div>
+
+
+        </div>
+    </div>
+</div>
+<div id="load">
+    <img src="image/loading.svg" alt="loading">
+</div>
+
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script>
+    //라이센스 인증
+    Union3D.ready(function () {
+        let PARAM = {
+            'colorStart': $('input[name="colorStart"]').val(),
+            'colorEnd': $('input[name="colorEnd"]').val(),
+        };
+        let dataUrl = dataServerUrl + '/poi_image/';
+        const options = {
+            "diffusion": {
+
+                posSpreadX: 100,
+                posSpreadY: 100,
+                posSpreadZ: 10,
+
+                velocityX: 200,
+                velocityY: 0,
+                velocityZ: 0,
+
+                velSpreadX: 200,
+                velSpreadY: 10,
+                velSpreadZ: 50,
+
+                accelerationX: 0,
+                accelerationY: 0,
+                accelerationZ: 0,
+
+                particleImage: dataUrl + 'cloud1.png',
+
+                angleBase: 0,
+                angleSpread: 180,
+                angleVelocityBase: 0,
+                angleVelocitySpread: 15,
+
+                sizeTween: [[0, 3], [100, 200]], // timeArray, sizeArray
+                opacityTween: [[1, 3], [0.99, 0.01]], // timeArray, opacityArray
+                colorTween: [[0.1, 3], [PARAM.colorStart, PARAM.colorEnd]], // timeArray, colorArray
+
+                particlesPerSecond: 1000,
+                particleDeathAge: 3.0,
+                emitterDeathAge: 10
+            },
+            "rain": {
+
+                posSpreadX: 500,
+                posSpreadY: 500,
+                posSpreadZ: 10,
+
+                velocityX: 0,
+                velocityY: 0,
+                velocityZ: -400,
+
+                velSpreadX: 10,
+                velSpreadY: 10,
+                velSpreadZ: 50,
+
+
+                accelerationX: 0,
+                accelerationY: 0,
+                accelerationZ: -10,
+
+                particleImage: dataUrl + 'raindrop2flip.png',
+
+                angleBase: 0,
+                angleSpread: 0,
+                angleVelocityBase: 0,
+                angleVelocitySpread: 0,
+
+                sizeBase: 8.0,
+                sizeSpread: 4.0,
+                colorBase: {x: 0.66, y: 1.0, z: 0.7}, // H,S,L
+                colorSpread: {x: 0.00, y: 0.0, z: 0.2},
+                opacityBase: 0.6,
+
+                particlesPerSecond: 500,
+                particleDeathAge: 1.0,
+                emitterDeathAge: 60
+            },
+            "snow": {
+
+                posSpreadX: 1000,
+                posSpreadY: 1000,
+                posSpreadZ: 50,
+
+                velocityX: 0,
+                velocityY: 0,
+                velocityZ: -40,
+
+                velSpreadX: 50,
+                velSpreadY: 50,
+                velSpreadZ: 20,
+
+
+                accelerationX: 0,
+                accelerationY: 0,
+                accelerationZ: -10,
+
+                particleImage: dataUrl + 'snowflake.png',
+
+                angleBase: 0,
+                angleSpread: 720,
+                angleVelocityBase: 0,
+                angleVelocitySpread: 60,
+
+                sizeTween: [[0, 0.25], [5, 15]], // timeArray, sizeArray
+                opacityTween: [[2, 3], [0.8, 0]], // timeArray, opacityArray
+                colorBase: {x: 0.66, y: 1.0, z: 0.9}, // H,S,L
+
+                particlesPerSecond: 200,
+                particleDeathAge: 4.0,
+                emitterDeathAge: 60
+            }
+
+        }
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// 지도 기본세팅 /////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        var app = new Union3D.U3dAPP({
+            searchtype: 'sphere',//+ 타일검색 방법
+            containername: 'map' //+ U3dApp(지도영역)의 div ID, *필수 입력
+        });
+        window.app = app;
+        app.setHomePosition(126.92757486832318, 37.51936537240114, 450, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+        app.updateHomePosition();
+        app.createloadingBar('load');
+        app.on('change', updatePosData);
+
+        //이미지 레이어 생성
+        var layer = new Union3D.image.U3dImageXYZLayer({
+            name: 'satellite',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.image.vworldsaturl,  //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+        });
+        app.addLayer(layer);
+        //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+        app.setNameBaseLayer('satellite');
+        app.showLayer('satellite', true);
+        app.endloadingBar();
+
+        //+ u3f 모델 //////////////////////////////////////////////
+        initModelLayers();
+
+        var terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+            name: 'Korea Terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            ext: '.umf', //+ 파일 확장자,  *필수 입력
+            reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false), *필수 입력
+            minlevel: 9,  //+ 가시화 최소 레벨
+            maxlevel: 15, //+ 가시화 최대 레벨
+            useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+            maxprocess: 2, //+ process 최대값
+            interpolationheight: true,  //+ 고도보간 기능 사용 여부
+            rectangle: Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수
+        });
+        app.addLayer(terrainLayer);
+        app.showLayer('Korea Terrain', true);
+
+        if (app === undefined) return;
+        //+ 모든 분석 모드 정지
+
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////// event 등록 //////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+        let isActive = false;
+        let type = 'diffusion'
+        $(document).on('click', 'input[type="radio"]', function (e) {
+            var target = e.target.value;
+            if (target === 'active') {
+
+                //+ 마우스 클릭 event 추가
+                isActive = true;
+                app.on('click', clickFunc);
+            } else if (target === 'idle') {
+
+                //+ 마우스 클릭 event 제거
+                isActive = false;
+                app.off('click', clickFunc)
+            } else if(target === 'diffusion'|| (target === 'rain') || (target === 'snow')){
+                let option = options[target];
+                setParam(option);
+                type = target;
+
+            }
+        });
+
+        app.on('click', clickFunc);
+
+        function clickFunc(e) {
+            //클릭한 지점의 확산 객체 생성
+            if (isActive) {
+                var point = app.closestPointAtPixel(e); //+ 마우스 클릭 위치 좌표값 변환
+                createSpread(point);
+            }
+        }
+
+        let analy = app.getAnalysis('Particle');
+        function createSpread(point) {
+
+            getParam();
+            let position = point;
+            let positionSpread = {
+                x: PARAM.posSpreadX,
+                y: PARAM.posSpreadY,
+                z: PARAM.posSpreadZ
+            }
+
+            let velocityBase = {
+                x: PARAM.velocityX,
+                y: PARAM.velocityY,
+                z: PARAM.velocityZ
+            }
+            let velocitySpread = {
+                x: PARAM.velSpreadX,
+                y: PARAM.velSpreadY,
+                z: PARAM.velSpreadZ
+            }
+            let acceleration = {
+                x: PARAM.accelerationX,
+                y: PARAM.accelerationY,
+                z: PARAM.accelerationZ
+            }
+
+
+            if (type == 'diffusion')
+                position.z += 10;
+            else if (type == 'rain' || type == 'snow')
+                position.z += 50;
+
+            let opt = {
+                position: position, // 위치 초기값
+                positionSpread: positionSpread, // 초기값 + 범위값 - 초기 위치에서 범위안의 값으로 무작위 생성
+                velocityBase: velocityBase, // 초기 속도 및 방향 설정
+                velocitySpread: velocitySpread, // 초기 속도 + 범위값 - 초기 속도에서 설정한 범위 값으로 무작위 생성
+                acceleration: acceleration, // 초기 속도 + 가속도 - 이동하면서 점차 설정한 값이 더해짐
+
+                angleBase: options[type].angleBase, // 초기 회전값 - 생성 될 때의 회전값
+                angleSpread: options[type].angleSpread, // 최기 회전값 + 범위값 - 초기 회전에서 범위값으로 무작위 생성
+                angleVelocityBase: options[type].angleVelocityBase, // 초기 회전 속도 설정
+                angleVelocitySpread: options[type].angleVelocitySpread,// 초기 회전 속도 + 범위 - 초기 회전 속도에서 범위안에 무작위 값으로 생성
+
+                particleImage: options[type].particleImage, // 확산 객체 텍스쳐 이미지 설정
+
+                opacityTween: [[0, options[type].particleDeathAge], [0.88, 0.01]],
+                sizeTween: [[0, options[type].particleDeathAge], [50, 200]],
+                colorTween: [[0, options[type].particleDeathAge], [PARAM.colorStart, PARAM.colorEnd]],
+
+                /**
+                 * sizeTween과 opacityTween의 timeArray와 sizeArray는 시간이 흐름에 따라 크기와 불투명도가 어떻게 변화하는지를 제어하는 역할을 합니다.
+                 * colorTween도 동일하게 시간의 흐름의따라 해당 색상으로 점차 변화하는 값을 지정해주는 속성값입니다.
+                 * sizeTween의 예를 살펴보면:
+                 *
+                 * timeArray는 특정 시간 지점을 나타내고, sizeArray는 해당 시간에 도달했을 때 객체의 크기를 나타냅니다.
+                 * 예를 들어, timeArray[0] = 0초이고 sizeArray[0] = 100이라면, 0초부터 크기가 100이 됩니다.
+                 * 현재 사용 중인 grid type에서는 0(sizeTween[0][0]의 값)초에서 3(sizeTween[0][1]의 값)초 사이에 크기가 100(sizeTween[1][0])값에서 200(sizeTween[1][1])으로 등비에 따라 증가합니다. ( 100 ~ 200의 크기로 0 ~ 3초까지의 크기변화를 나타냅니다. )
+
+                 * 이 경우 3초 동안 100의 크기 차이가 나며, 이는 초당 33.33...(100/3)씩 증가하게 됩니다.
+                 *         즉, timeArray와 sizeArray는 시간별로 크기가 어떻게 변하는지를 정의하고, 각 구간의 크기 변화 속도는 두 지점 사이의 크기 차이를 두 시간 간격으로 나누어 계산됩니다.
+                 *         particleDeathAge의 값이 timeArray의 최대값이고 해당 값까지 크기가 등비로 조정됩니다.
+                 *       ex) particleDeathAge 3일경우 해당 수치들은 3초 일때의 해당하는 값까지만 적용이 됩니다. ( timeArray의 값이 3보다 큰 경우 무시됨 )
+                 */
+
+
+                particlesPerSecond: options[type].particlesPerSecond, // 초당 생성 갯수
+                particleDeathAge: options[type].particleDeathAge, // 확산객체의 생명주기 최대값 해당 수치가 되면 재생성
+                emitterDeathAge: options[type].emitterDeathAge, // 확산객체 모델의 재생 시간
+                speed: 0.1, // 재생 속도
+                // speed:param.speed
+            }
+            if (type == 'rain') {
+                opt.sizeBase = options[type].sizeBase;
+                opt.sizeSpread = options[type].sizeSpread;
+                opt.colorBase = options[type].colorBase;
+                opt.colorSpread = options[type].colorSpread;
+                opt.opacityBase = options[type].opacityBase;
+
+                opt.sizeTween = undefined;
+                opt.colorTween = undefined;
+                opt.opacityTween = undefined;
+
+            }
+            if (type == 'snow') {
+
+                opt.colorBase = options[type].colorBase;
+                opt.sizeTween = options[type].sizeTween;
+                opt.opacityTween = options[type].opacityTween;
+                opt.colorTween = undefined;
+
+            }
+
+            //opt = Object.assign(opt, options[type]);
+            console.log(opt);
+            analy.initialize(opt);
+            analy.active();
+
+        }
+
+        const sampleParam = [
+            {
+                position: {x:14129532.465401735, y: 4511620.148604766, z: 20, grounded_: true},
+                param: {
+                    posSpreadX: 50,
+                    posSpreadY: 50,
+                    posSpreadZ: 1,
+
+                    velocityX: 50,
+                    velocityY: 50,
+                    velocityZ: 5,
+
+                    velSpreadX: 60,
+                    velSpreadY: 65,
+                    velSpreadZ: 10,
+
+                    accelerationX: -1,
+                    accelerationY: -10,
+                    accelerationZ: -5,
+
+                    particleImage: dataUrl + 'cloud1.png',
+
+                    angleBase: 0,
+                    angleSpread: 0,
+                    angleVelocityBase: 0,
+                    angleVelocitySpread: 45,
+
+
+                    sizeBase: 10,
+                    sizeSpread: 300,
+
+                    //sizeTween: [[10, 30], [100, 400]], // timeArray, sizeArray
+                    opacityTween: [[0.1, 30], [0.55, 0.0]], // timeArray, opacityArray
+                    colorTween: [[0.1, 3], ['#eb0a0a', '#1638dd']], // timeArray, colorArray
+
+                    particlesPerSecond: 500,
+                    particleDeathAge: 30.0,
+                    emitterDeathAge: 600,
+                    speed: 0.15,
+
+                }
+            },
+
+            {
+                position: {x: 14129545.46540216, y: 4511563.148602887, z: 20, grounded_: true},
+                param: {
+                    posSpreadX: 50,
+                    posSpreadY: 50,
+                    posSpreadZ: 1,
+
+                    velocityX: 50,
+                    velocityY: 20,
+                    velocityZ: 10,
+
+                    velSpreadX: 10,
+                    velSpreadY: 50,
+                    velSpreadZ: 10,
+
+                    accelerationX: 20,
+                    accelerationY: -25,
+                    accelerationZ: -7,
+
+                    particleImage: dataUrl + 'cloud1.png',
+
+                    angleBase: 0,
+                    angleSpread: 0,
+                    angleVelocityBase: 0,
+                    angleVelocitySpread: 45,
+
+
+                    sizeBase: 10,
+                    sizeSpread: 300,
+
+
+//                        sizeTween: [[0, 30], [80, 150]], // timeArray, sizeArray
+                    opacityTween: [[0.1, 10], [0.5, 0.0]], // timeArray, opacityArray
+                    colorTween: [[0.1, 1.5], ['#ea9956', '#1638dd']], // timeArray, colorArray
+
+                    particlesPerSecond: 500,
+                    particleDeathAge: 30.0,
+                    emitterDeathAge: 600,
+                    speed: 0.1
+                }
+            },
+
+            {
+                position: {x: 14129482.465400089, y: 4511641.148605455, z: 20, grounded_: true},
+                param: {
+                    posSpreadX: 50,
+                    posSpreadY: 50,
+                    posSpreadZ: 1,
+
+                    velocityX: 40,
+                    velocityY: 20,
+                    velocityZ: 10,
+
+                    velSpreadX: 20,
+                    velSpreadY: 50,
+                    velSpreadZ: 10,
+
+                    accelerationX: -20,
+                    accelerationY: 20,
+                    accelerationZ: -7,
+
+
+                    particleImage: dataUrl + 'cloud1.png',
+
+                    angleBase: 0,
+                    angleSpread: 0,
+                    angleVelocityBase: 0,
+                    angleVelocitySpread: 45,
+
+
+                    sizeBase: 10,
+                    sizeSpread: 200,
+
+
+//                        sizeTween: [[0, 30], [80, 150]], // timeArray, sizeArray
+                    opacityTween: [[0.1, 10], [0.35, 0.0]], // timeArray, opacityArray
+                    colorTween: [[0.1, 1.5], ['#ea9956', '#1638dd']], // timeArray, colorArray
+
+                    particlesPerSecond: 500,
+                    particleDeathAge: 30.0,
+                    emitterDeathAge: 600,
+                    speed: 0.1
+                }
+            },
+
+        ]
+        const sampleParam_ = [
+            {
+                position: {x: 14129617.465404531, y: 4511612.148604498, z: 20, grounded_: true},
+                param: {
+                    posSpreadX: 20,
+                    posSpreadY: 20,
+                    posSpreadZ: 1,
+
+                    velocityX: 50,
+                    velocityY: 60,
+                    velocityZ: 10,
+
+                    velSpreadX: -10,
+                    velSpreadY: 50,
+                    velSpreadZ: 10,
+
+                    accelerationX: 20,
+                    accelerationY: -15,
+                    accelerationZ: -7,
+
+                    particleImage: dataUrl + 'cloud1.png',
+
+                    angleBase: 0,
+                    angleSpread: 0,
+                    angleVelocityBase: 0,
+                    angleVelocitySpread: 45,
+
+
+                    sizeBase: 50,
+                    sizeSpread: 150,
+
+
+//                        sizeTween: [[0, 30], [80, 150]], // timeArray, sizeArray
+                    opacityTween: [[0.1, 30], [0.3, 0.0]], // timeArray, opacityArray
+                    colorTween: [[0.1, 2], ['#fbc664', '#74ca16']], // timeArray, colorArray
+
+                    particlesPerSecond: 800,
+                    particleDeathAge: 30.0,
+                    emitterDeathAge: 600,
+                    speed: 0.1
+                }
+            },
+
+            {
+                position: {x: 14129559.465402624, y: 4511743.148608814, z: 20, grounded_: true},
+                param: {
+                    posSpreadX: 20,
+                    posSpreadY: 20,
+                    posSpreadZ: 1,
+
+                    velocityX: 50,
+                    velocityY: 60,
+                    velocityZ: 10,
+
+                    velSpreadX: -10,
+                    velSpreadY: 50,
+                    velSpreadZ: 10,
+
+                    accelerationX: 20,
+                    accelerationY: -15,
+                    accelerationZ: -7,
+
+                    particleImage: dataUrl + 'cloud1.png',
+
+                    angleBase: 0,
+                    angleSpread: 0,
+                    angleVelocityBase: 0,
+                    angleVelocitySpread: 45,
+
+
+                    sizeBase: 50,
+                    sizeSpread: 150,
+
+
+                    // sizeTween: [[0, 30], [80, 150]], // timeArray, sizeArray
+                    opacityTween: [[0.1, 30], [0.3, 0.0]], // timeArray, opacityArray
+                    colorTween: [[0.1, 1.5], ['#fbc664', '#74ca16']], // timeArray, colorArray
+
+                    particlesPerSecond: 800,
+                    particleDeathAge: 30.0,
+                    emitterDeathAge: 600,
+                    speed: 0.1
+                }
+            }
+        ]
+
+        createSample();
+
+        function createSample() {
+
+            sampleParam.forEach(function (info) {
+                createSampleSpread(info.position, info.param);
+
+            })
+            setTimeout(function () {
+                sampleParam_.forEach(function (info) {
+                    createSampleSpread(info.position, info.param);
+                })
+            }, 3000);
+
+        }
+
+        function createSampleSpread(point, param) {
+
+            let position = point;
+            let positionSpread = {
+                x: param.posSpreadX,
+                y: param.posSpreadY,
+                z: param.posSpreadZ
+            }
+
+            let velocityBase = {
+                x: param.velocityX,
+                y: param.velocityY,
+                z: param.velocityZ
+            }
+            let velocitySpread = {
+                x: param.velSpreadX,
+                y: param.velSpreadY,
+                z: param.velSpreadZ
+            }
+            let acceleration = {
+                x: param.accelerationX,
+                y: param.accelerationY,
+                z: param.accelerationZ
+            }
+
+            let opt = {
+                position: position,
+                positionSpread: positionSpread,
+                velocityBase: velocityBase,
+                velocitySpread: velocitySpread,
+                acceleration: acceleration,
+
+
+                particleImage: param.particleImage,
+
+                sizeBase: param.sizeBase,
+                sizeSpread: param.sizeSpread,
+                sizeTween: param.sizeTween,
+                opacityTween: param.opacityTween,
+                colorTween: param.colorTween,
+                speed: param.speed
+            }
+            // opt = Object.assign(opt,options[type]);
+            console.log(opt);
+            analy.initialize(opt);
+            analy.active();
+        }
+
+        function setParam(option) {
+            var param = {};
+            $('.param').each(function (i, v) {
+                if (v.value === undefined || v.value === '') return;
+                var value = option[v.name];
+                if (option.type === 'number') {
+                    value = Number(value);
+                }
+                param[v.name] = value;
+                v.value = value;
+            });
+            param['colorStart'] = $('input[name="colorStart"]').val();
+            param['colorEnd'] = $('input[name="colorEnd"]').val();
+            PARAM = param;
+
+        }
+
+        function getParam() {
+            var param = {};
+            $('.param').each(function (i, v) {
+                if (v.value === undefined || v.value === '') return;
+                var value;
+                if (v.type === 'number') {
+                    value = Number(v.value);
+                } else {
+                    value = v.value;
+                }
+                param[v.name] = value;
+
+            });
+            param['colorStart'] = $('input[name="colorStart"]').val();
+            param['colorEnd'] = $('input[name="colorEnd"]').val();
+            PARAM = param;
+
+        }
+
+        window.metalayers = {};
+
+        function initModelLayers() {
+            try {
+                let modelayers = app.createModelGroupLayer({
+                    maxlevel: 19,
+                    minlevel: 17,
+                    name: 'u3f'
+                });
+                /* request U3f layers list */
+                $.ajax({
+                    url: modelU3fURL,
+                    crossDomain: true,
+                    beforeSend: function (xhr) {
+                        xhr.setRequestHeader('User-Authorization', trdDimAPIKey);
+                        xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+                    },
+                    error: function (e) {
+                        console.info(e);
+                    }
+                }).then(function (result) {
+                    let maxprocess_model_ = 10;
+                    let sizeblock_model_ = 10;
+                    let updateimagedistance_ = 50;
+                    let wrapping = undefined;
+                    let infos = result.params.data;
+
+                    for (let i = 0; i < infos.length; i++) {
+                        let info = infos[i];
+                        /* 레이어 목록 중 발행중인 레이어만 요청 */
+                        if (info.state === "ACTIVE") {
+                            let metaData = info.metaData;
+                            let subLayerName = info.name;
+                            let buldLayerConstruct = {};
+                            Object.assign(buldLayerConstruct, {name: subLayerName});
+                            Object.assign(buldLayerConstruct, {basename: subLayerName});
+                            Object.assign(buldLayerConstruct, {baseurl: info.baseUrl});
+                            Object.assign(buldLayerConstruct, {minlevel: metaData.minLevel});
+                            Object.assign(buldLayerConstruct, {maxlevel: metaData.maxLevel});
+                            Object.assign(buldLayerConstruct, {srs: metaData.srs});
+                            Object.assign(buldLayerConstruct, {ext: '.' + metaData.ext});
+                            Object.assign(buldLayerConstruct, {maxprocess: maxprocess_model_});
+                            Object.assign(buldLayerConstruct, {sizeblock: sizeblock_model_});
+                            Object.assign(buldLayerConstruct, {updateimagedistance: updateimagedistance_});
+                            Object.assign(buldLayerConstruct, {grouplayer: modelayers});
+                            Object.assign(buldLayerConstruct, {wrapping: wrapping});
+                            Object.assign(buldLayerConstruct, {renderorder: 0});
+                            Object.assign(buldLayerConstruct, {useproxy: false});
+                            let subLayer = app.create3DFModelLayer(buldLayerConstruct);
+                            if (subLayer !== false) {
+                                subLayer.then(function (layer) {
+                                    modelayers.addLayer(subLayer);
+                                    if (i === infos.length - 1) {
+                                        console.log("u3f model layer load");
+                                        app.showLayer(modelayers.getName(), true);
+                                    }
+                                }).fail(function (layer) {
+
+                                });
+                            }
+                        }
+                        window.metalayers[info.name] = info;
+                    }
+                })
+            } catch (localBuldError) {
+                console.log('Initialize Error Message : ' + localBuldError);
+            }
+        }
+
+
+        const ROTATION_VALUE = 1; //회전 offset
+        $(document).on('click', '.control', function (e) {
+            let particles = app._particles; //선택된 광원
+
+            if (particles.length === 0) {
+                return;
+            }
+
+            const id = $(e.target).attr('id');
+            switch (id) {
+                case 'left-velocity':
+                    changeParticleVelocity('x', -ROTATION_VALUE)
+                    break;
+                case 'right-velocity':
+                    changeParticleVelocity('x', ROTATION_VALUE)
+                    break;
+                case 'up-velocity':
+                    changeParticleVelocity('y', ROTATION_VALUE)
+                    break;
+                case 'down-velocity':
+                    changeParticleVelocity('y', -ROTATION_VALUE)
+                    break;
+
+                case 'z-up-velocity':
+                    changeParticleVelocity('z', ROTATION_VALUE)
+                    break;
+                case 'z-down-velocity':
+                    changeParticleVelocity('z', -ROTATION_VALUE)
+                    break;
+
+
+            }
+        });
+
+        function changeParticleVelocity(dir, velocity) {
+            if (dir == undefined || velocity == undefined) return;
+            let particles = app._particles;
+
+            if (particles.length === 0) {
+                return;
+            }
+            particles.forEach(function (particle) {
+                particle.velocityBase[dir] = velocity * Math.abs(particle.velocityBase[dir]);
+                particle.particleArray.forEach(function (part) {
+                    part.velocity[dir] = velocity * Math.abs(part.velocity[dir]);
+                })
+            })
+        }
+    });
+</script>
+</body>
+</html>

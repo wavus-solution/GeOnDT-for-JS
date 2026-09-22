@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>점 스냅</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="점-스냅">점 스냅</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-%EC%A0%90-%EC%8A%A4%EB%83%85-%EC%8B%9C%EC%9E%91%ED%95%98%EA%B8%B0">점 스냅 시작하기</a></li>
+<li><a href="#2-%EC%8A%A4%EB%83%85-%EB%B0%A9%EC%8B%9D-%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0">스냅 방식 설정하기</a></li>
+<li><a href="#3-%EC%8A%A4%EB%83%85-%EA%B2%B0%EA%B3%BC-%ED%99%95%EC%9D%B8%ED%95%98%EA%B8%B0">스냅 결과 확인하기</a></li>
+</ol>
+<p>점 스냅은 입력한 좌표를 mesh 표면에서 가장 가까운 점으로 보정해 월드 좌표로 돌려주는 유틸 함수입니다.</p>
+<div class="document-thumbnail" data-size="medium">
+<figure class="document-image">
+<img src="image/snapPointToMeshUtil/thumbnail.gif" alt="파란 입력점이 건물 표면 위 빨간 스냅점으로 보정되는 여러 사례" loading="eager">
+<figcaption>파란 입력점이 건물 표면 위 빨간 스냅점으로 보정되는 여러 사례</figcaption>
+</figure>
+</div>
+<blockquote>
+<ul>
+<li><strong>mesh</strong>: 3D 객체의 표면을 이루는 삼각형 집합입니다. <code>UMesh</code>, <code>UU3fMesh</code>, <code>UWfsMesh</code>, 3D Tiles 등이 모두 mesh 기반 객체입니다.</li>
+<li><strong>스냅(snap)</strong>: 대략적인 입력 좌표를 실제 면 위의 점으로 자동 보정하는 동작입니다.</li>
+<li><strong>법선(normal)</strong>: 면이 향하는 방향을 나타내는 벡터입니다. 스냅된 지점에 객체를 세우거나 방향을 맞출 때 사용합니다.</li>
+<li><strong>폴백(fallback)</strong>: 요청한 방식으로 처리할 수 없을 때 다른 방식으로 대신 처리하는 것입니다.</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="1-점-스냅-시작하기">1. 점 스냅 시작하기</h2>
+<p>지하 배관이나 선로 같은 시설물, 건물 표면의 특정 지점은 사용자가 정밀하게 클릭하기 어렵습니다.<br>점 스냅을 사용하면 대략적인 위치를 입력해도 실제 면 위의 점으로 자동 보정되므로, 시설물 표면에 점을 안정적으로 배치할 수 있습니다.</p>
+<p>스냅 함수는 <code>GeOnDT.util</code> 네임스페이스로 제공되며 mesh 기반 객체 어디에나 사용할 수 있습니다.</p>
+<h4 class="api-heading" id="api">API</h4>
+<p>GeOnDT.util.SnapPointToMesh(<code>mesh</code>, <code>geo</code>, <code>options</code>) : 위경도 좌표를 월드 좌표로 변환한 뒤 mesh 표면으로 스냅하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>mesh</code> (<code>Mesh</code>) : 스냅 대상 mesh. <code>UMesh</code>, <code>UU3fMesh</code>, <code>UWfsMesh</code>, 3D Tiles 등을 사용. <strong>필수</strong></li>
+<li><code>geo</code> (<code>GeoPosition</code>) : 위경도 좌표. <code>{ x: 경도, y: 위도, z: 높이 }</code> 형식이며 높이를 생략하면 0으로 처리. <strong>필수</strong></li>
+<li><code>options</code> (<code>object</code>) : 스냅 옵션. 생략 가능. 자세한 항목은 <a href="#2-%EC%8A%A4%EB%83%85-%EB%B0%A9%EC%8B%9D-%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0">스냅 방식 설정하기</a> 참고</li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>SnapResult | null</code>) : 스냅 결과 객체. 유효한 면을 찾지 못하면 <code>null</code></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>GeOnDT.util.SnapWorldPointToMesh(<code>mesh</code>, <code>worldPoint</code>, <code>options</code>) : 이미 월드 좌표로 변환된 점을 그대로 스냅하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>mesh</code> (<code>Mesh</code>) : 스냅 대상 mesh. <strong>필수</strong></li>
+<li><code>worldPoint</code> (<code>Vector3</code>) : 월드(Mercator) 좌표. <strong>필수</strong></li>
+<li><code>options</code> (<code>object</code>) : 스냅 옵션. 생략 가능</li>
+</ul>
+</details>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>SnapResult | null</code>) : 스냅 결과 객체. 유효한 면을 찾지 못하면 <code>null</code></li>
+</ul>
+</details>
+<h3 id="1-기본-사용-예제">1. 기본 사용 예제</h3>
+<p>대상 mesh는 보통 <code>U3dSelect</code>로 선택하거나, 클릭한 객체를 그대로 사용합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token comment">// 월드 좌표를 위경도 좌표로 변환합니다.</span>
+<span class="token keyword">const</span> geo <span class="token operator">=</span> GeOnDT<span class="token punctuation">.</span>UMathEngine<span class="token punctuation">.</span><span class="token function">getGoogleToGeographic</span><span class="token punctuation">(</span>wx<span class="token punctuation">,</span> wy<span class="token punctuation">,</span> wz<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 스냅을 실행합니다.</span>
+<span class="token keyword">const</span> result <span class="token operator">=</span> GeOnDT<span class="token punctuation">.</span>util<span class="token punctuation">.</span><span class="token function">SnapPointToMesh</span><span class="token punctuation">(</span>targetMesh<span class="token punctuation">,</span> geo<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 스냅에 실패하면 null이 반환되므로 결과를 먼저 확인합니다.</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span>result<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>result<span class="token punctuation">.</span>position<span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// 스냅된 월드 좌표</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>result<span class="token punctuation">.</span>faceIndex<span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// 스냅된 면 인덱스</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>result<span class="token punctuation">.</span>distance<span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// 입력점과 스냅점 사이의 거리</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<hr>
+<h2 id="2-스냅-방식-설정하기">2. 스냅 방식 설정하기</h2>
+<p>스냅 방식은 <code>options.lockHeight</code>로 결정합니다.</p>
+<p><code>false</code>로 두면 mesh 표면에서 입력점과 가장 가까운 점을 찾아 스냅합니다.<br>높이도 함께 바뀝니다.</p>
+<p><code>true</code>로 두면 입력한 높이를 유지한 채 수평 방향으로만 스냅합니다.<br>입력 높이의 단면이 허용 거리 안에 있으면 그 높이로 수평 스냅하고, <strong>단면이 없거나 허용 거리를 벗어나면 높이 고정을 풀고 3D 스냅으로 폴백합니다.</strong></p>
+<h4 class="api-heading" id="api-2">API</h4>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>options.lockHeight</code> (<code>boolean</code>) : 높이 고정 여부. <code>true</code>면 수평 방향으로만 스냅. 기본값: <code>false</code></li>
+<li><code>options.lockHeightMaxDistance</code> (<code>number</code>) : 높이 고정을 허용할 최대 거리(m). 입력 높이의 단면이 이 거리 안에 있을 때만 높이를 고정하고, 초과하면 3D 스냅으로 폴백</li>
+</ul>
+</details>
+<p><code>lockHeightMaxDistance</code>를 지정하지 않으면 대상에 따라 다르게 동작합니다.<br>선로나 배관처럼 <code>group</code>과 <code>_BATCHID</code>가 없는 단일 mesh는 기본값 50m가 적용되고,<br>격리 키가 있는 건물이나 3D Tiles는 거리 제한 없이 해당 객체 범위에서 단면을 찾습니다.</p>
+<h3 id="1-높이-고정-스냅-예제">1. 높이 고정 스냅 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token comment">// 입력 높이를 유지한 채 수평으로만 스냅합니다.</span>
+<span class="token keyword">const</span> flat <span class="token operator">=</span> GeOnDT<span class="token punctuation">.</span>util<span class="token punctuation">.</span><span class="token function">SnapPointToMesh</span><span class="token punctuation">(</span>targetMesh<span class="token punctuation">,</span> geo<span class="token punctuation">,</span> <span class="token punctuation">{</span>
+    <span class="token literal-property property">lockHeight</span><span class="token operator">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-허용-거리-지정-예제">2. 허용 거리 지정 예제</h3>
+<pre class="language-javascript"><code class="language-javascript"><span class="token comment">// 높이 고정 단면이 30m 이내일 때만 높이를 고정하고, 초과하면 3D 스냅으로 폴백합니다.</span>
+<span class="token keyword">const</span> result <span class="token operator">=</span> GeOnDT<span class="token punctuation">.</span>util<span class="token punctuation">.</span><span class="token function">SnapPointToMesh</span><span class="token punctuation">(</span>targetMesh<span class="token punctuation">,</span> geo<span class="token punctuation">,</span> <span class="token punctuation">{</span>
+    <span class="token literal-property property">lockHeight</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">lockHeightMaxDistance</span><span class="token operator">:</span> <span class="token number">30</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="3-높이-고정-결과-비교">3. 높이 고정 결과 비교</h3>
+<p>같은 지점을 입력해도 허용 거리 안에 단면이 있는지에 따라 결과가 달라집니다.<br>입력점과 스냅점을 잇는 선이 수평이면 높이 고정이 적용된 것이고, 비스듬하면 3D 스냅으로 폴백된 것입니다.</p>
+<div class="document-image-grid" data-columns="2">
+<figure class="document-image">
+<img src="image/snapPointToMeshUtil/snap_lockheight_fallback.png" alt="허용 거리를 벗어나 3D 최단점으로 폴백된 스냅. 스냅점 높이가 입력 높이와 달라 연결선이 비스듬합니다" loading="eager">
+<figcaption>허용 거리를 벗어나 3D 최단점으로 폴백된 스냅. 스냅점 높이가 입력 높이와 달라 연결선이 비스듬합니다</figcaption>
+</figure>
+<figure class="document-image">
+<img src="image/snapPointToMeshUtil/snap_lockheight_applied.png" alt="입력 높이를 유지한 채 벽면으로 수평 스냅된 결과. 두 점의 높이가 같아 연결선이 수평입니다" loading="eager">
+<figcaption>입력 높이를 유지한 채 벽면으로 수평 스냅된 결과. 두 점의 높이가 같아 연결선이 수평입니다</figcaption>
+</figure>
+</div>
+<hr>
+<h2 id="3-스냅-결과-확인하기">3. 스냅 결과 확인하기</h2>
+<p>스냅에 성공하면 <code>SnapResult</code> 객체를 반환하고, 유효한 면을 찾지 못하면 <code>null</code>을 반환합니다.<br><strong>결과를 사용하기 전에 <code>null</code> 여부를 먼저 확인해야 합니다.</strong></p>
+<h4 class="api-heading" id="api-3">API</h4>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>position</code> (<code>Vector3</code>) : 스냅된 최종 월드 좌표</li>
+<li><code>normal</code> (<code>Vector3</code>) : 스냅된 면의 법선 벡터</li>
+<li><code>faceIndex</code> (<code>number</code>) : 스냅된 면(삼각형)의 인덱스</li>
+<li><code>distance</code> (<code>number</code>) : 입력점과 스냅점 사이의 거리. 높이를 고정한 경우 두 점의 높이가 같으므로 수평 거리</li>
+<li><code>lockHeightApplied</code> (<code>boolean</code>) : 높이 고정이 실제로 적용되었는지 여부. <code>false</code>면 단면이 없거나 허용 거리를 초과해 3D 최단점으로 폴백된 상태</li>
+</ul>
+</details>
+<h3 id="1-폴백-여부-확인-예제">1. 폴백 여부 확인 예제</h3>
+<p>높이 고정을 요청했더라도 실제로 적용되지 않을 수 있으므로, <code>lockHeightApplied</code>로 결과를 확인합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> result <span class="token operator">=</span> GeOnDT<span class="token punctuation">.</span>util<span class="token punctuation">.</span><span class="token function">SnapPointToMesh</span><span class="token punctuation">(</span>targetMesh<span class="token punctuation">,</span> geo<span class="token punctuation">,</span> <span class="token punctuation">{</span>
+    <span class="token literal-property property">lockHeight</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">lockHeightMaxDistance</span><span class="token operator">:</span> <span class="token number">30</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span>result<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>result<span class="token punctuation">.</span>lockHeightApplied<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'높이를 유지한 채 수평으로 스냅되었습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+        console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'허용 거리 안에 단면이 없어 3D 최단점으로 스냅되었습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+</code></pre>
+</main>
+</body>
+</html>
+

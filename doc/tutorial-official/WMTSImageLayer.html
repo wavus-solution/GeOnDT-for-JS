@@ -1,0 +1,380 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>WMTS 이미지 레이어 가시화</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+</head>
+<body>
+
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> WMTS 이미지 레이어 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden><p class="lead">브이월드의 <strong><mark>Base·Hybrid WMTS 레이어</mark></strong>와 GeoServer의 <strong><mark>도로 WMTS 레이어를 지정 스타일로 화면에 출력</mark></strong>하는 예제입니다.</p></div>
+<div id="map-wrapper">
+    <div>
+        <div id="map"></div>
+        <div id="div-left-menu" style="width: 350px" oncontextmenu='return false'>
+            <div id="left-menu-list-panel">
+                <div class="form-group div-layer">
+                    <div class="div-category">
+                        <label class="label-layerType">
+                            레이어
+                        </label>
+                    </div>
+                    <div id="layer-list">
+                        <div class="div-sub-category">
+                            <div class="sub-category-tile active">
+                                <label class="label-layerType">이미지 레이어</label>
+                                <div class="category-btn-group">
+                                    <label class="expand-btn layer"><img src="image/btn_expand.svg" style="rotate: 180deg" alt=""></label>
+                                </div>
+                            </div>
+                            <div class="sub-category-content" style="height: 200px; overflow: auto">
+                                <div class="checkbox"><label>
+                                    <input class="input-showLayer" type="checkbox" target="satellite" disabled>
+                                    VWorld Satellite (기본 Map)
+                                </label></div>
+                                <div class="checkbox"><label>
+                                    <input class="input-showLayer" type="checkbox" target="Base" data-wmts="vworld" disabled>
+                                    VWorld Base WMTS
+                                </label></div>
+                                <div class="checkbox"><label>
+                                    <input class="input-showLayer" type="checkbox" target="Hybrid" data-wmts="vworld" disabled>
+                                    VWorld Hybrid WMTS
+                                </label></div>
+                                <div class="checkbox"><label>
+                                    <input class="input-showLayer" type="checkbox" target="geoserver_roads" data-wmts="geoserver" disabled>
+                                    GeoServer 도로 WMTS
+                                </label></div>
+                                <p id="vworld-status" class="help-block" role="status" hidden></p>
+                                <p id="geoserver-status" class="help-block" role="status" hidden></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div style="display: inline-flex; position: relative">
+                    <button id="left-menu-bnt" class="btn btn-xs menu-btn active">
+                        <img src="image/left_panel_open_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                    </button>
+                    <div class="div-btn-info" hidden>
+                        레이어 탭 열기
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="btn-group" id='top-sbar'>
+            <div class='btn-group-vertical-block' id='right-toolbar'>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                    <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                         src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                         alt="나침반">
+                </button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                        id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                        id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                        id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg"
+                                                                     alt="">
+                </button>
+            </div>
+            <div class='btn-group' id='bt-bottom-bar'>
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                       value="위경도: ##.####  ###.#### ">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                       value="고도:####">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                       value="각도: ##">
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    $(document).on('mouseover', '.info-box', function () {
+        $('.ex-explanation').show();
+    });
+    $(document).on('mouseout', '.info-box', function () {
+        $('.ex-explanation').hide();
+    });
+    $(document).on('click', '#left-menu-bnt', function () {
+        $(this).toggleClass('active');
+        $('#div-left-menu').css('width', $(this).hasClass('active') ? '350px' : '0');
+    });
+    $(document).on('click', '.sub-category-tile', function (event) {
+        event.preventDefault();
+        $(this).toggleClass('active');
+        const expanded = $(this).hasClass('active');
+        $(this).next().css({height: expanded ? '200px' : '0', overflow: expanded ? 'auto' : 'hidden'});
+        $(this).find('.expand-btn img').css('rotate', expanded ? '180deg' : '0deg');
+    });
+    $(document).on('click', '#compass-image-id', function () {
+        if (window.app) window.app.alignNorth();
+    });
+    $(document).on('click', '#right-tbar-btn-zoomin', function () {
+        if (window.app) window.app.zoomIn();
+    });
+    $(document).on('click', '#right-tbar-btn-zoomout', function () {
+        if (window.app) window.app.zoomOut();
+    });
+    $(document).on('click', '#right-tbar-btn-flyto', function () {
+        if (window.app) window.app.updateHomePosition();
+    });
+    $(document).on('mouseover', '.menu-btn', function () {
+        $(this).next().show();
+    });
+    $(document).on('mouseout', '.menu-btn', function () {
+        $(this).next().hide();
+    });
+
+    // 카메라 변경 이벤트에 맞춰 WMS 예제와 같은 나침반·좌표 표시를 갱신합니다.
+    function updatePosData() {
+        if (!window.app) return;
+        const info = window.app.getCameraState();
+        const degrees = ((-info.azimuth * 180 / Math.PI) % 360 + 360) % 360;
+        $('#compass-image-id').css('transform', 'rotate(' + -info.azimuth + 'rad)');
+        $('#bottom-tbar-btn-angle').val('각도: ' + degrees.toFixed(0) + '°');
+        $('#bottom-tbar-btn-pos').val('위경도: ' + Number(info.center.y).toFixed(3) + '°, ' + Number(info.center.x).toFixed(3) + '°');
+        $('#bottom-tbar-btn-height').val('높이: ' + Number(info.camera.z).toFixed(1) + 'm');
+    }
+</script>
+<script>
+    // 브이월드에서 발급받은 웹 서비스 인증키를 입력합니다.
+    const VWORLD_API_KEY = '1D901079-C699-4CE9-8452-7B9667018F10';
+    // 원본 서비스: http://210.217.19.185:58089/geoserver/gwc/service/wmts
+    // CORS 미지원 서버이므로 Capabilities와 GetTile 모두 같은 출처의 프록시를 사용합니다.
+    // 로컬은 _vite.config.js가 전달하며, 배포 서버에도 같은 경로의 역방향 프록시가 필요합니다.
+    const GEOSERVER_WMTS_URL = '/geoserver/gwc/service/wmts';
+    const GEOSERVER_LAYER_NAME = 'gcs:gis_osm_roads_free_1';
+    const GEOSERVER_STYLE_NAME = 'gcs:gis_osm_roads_free_1_default';
+    const layers = {};
+    window.layers = layers;
+
+    GeOnDT.ready(async function () {
+        const app = new Union3D.U3dAPP({containername: 'map'});
+        window.app = app;
+        app.on('change', updatePosData);
+        app.setIntensityLight(0.8);
+        app.setHomePosition(127.1201, 37.4207, 5000, 2, 0);
+        app.updateHomePosition();
+
+        //이미지 레이어 생성
+        var layer = new Union3D.image.U3dImageXYZLayer({
+            name: 'satellite',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldsaturl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+        });
+        app.addLayer(layer);
+        //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+        app.showLayer('satellite', true);
+        app.setNameBaseLayer('satellite');
+        const satelliteCheckbox = document.querySelector('input[target="satellite"]');
+        satelliteCheckbox.checked = true;
+        satelliteCheckbox.disabled = false;
+        satelliteCheckbox.addEventListener('change', function () {
+            app.showLayer('satellite', satelliteCheckbox.checked);
+        });
+        document.getElementById('load').hidden = true;
+
+        for (const checkbox of document.querySelectorAll('input[data-wmts]')) {
+            checkbox.addEventListener('change', function () {
+                app.showImageLayer(checkbox.getAttribute('target'), checkbox.checked);
+            });
+        }
+
+        // 한 서비스의 인증·접속 실패나 지연이 다른 WMTS 레이어의 초기화를 막지 않게 합니다.
+        await Promise.all([initVworldWmts(), initGeoserverWmts()]);
+
+        async function initVworldWmts() {
+            const status = document.getElementById('vworld-status');
+            if (!VWORLD_API_KEY.trim() || VWORLD_API_KEY === 'YOUR_VWORLD_API_KEY') {
+                status.textContent = '브이월드 WMTS 인증키를 입력하세요.';
+                status.hidden = false;
+                return;
+            }
+            const serviceUrl = 'https://api.vworld.kr/req/wmts/1.0.0/' + encodeURIComponent(VWORLD_API_KEY);
+            try {
+                const response = await fetch(serviceUrl + '/WMTSCapabilities.xml', {
+                    signal: AbortSignal.timeout(15000)
+                });
+                if (!response.ok) throw new Error('Capabilities HTTP ' + response.status);
+
+                const ol = window.__GEONDT__.ol;
+                const capabilities = new ol.format.WMTSCapabilities().read(await response.text());
+                const formats = {Base: 'image/png', Hybrid: 'image/png'};
+
+                // 서버가 선언한 TileMatrix 식별자·해상도·원점을 그대로 사용합니다.
+                for (const name of Object.keys(formats)) {
+                    const metadata = capabilities.Contents.Layer.find(layer => layer.Identifier === name);
+                    const sourceOptions = ol.source.WMTS.optionsFromCapabilities(capabilities, {
+                        layer: name,
+                        matrixSet: 'GoogleMapsCompatible',
+                        requestEncoding: 'REST',
+                        format: formats[name]
+                    });
+                    if (!metadata || !sourceOptions) throw new Error('WMTS 레이어 정보를 찾을 수 없습니다.');
+
+                    // HTTPS와 입력한 키를 유지하고 브이월드 공식 REST 경로를 사용합니다.
+                    sourceOptions.urls = [serviceUrl + '/' + name + '/{TileMatrix}/{TileRow}/{TileCol}.png'];
+                    sourceOptions.requestEncoding = 'REST';
+                    sourceOptions.crossOrigin = 'anonymous';
+
+                    layers[name] = app.create3dImageWMTSLayer({
+                        name: name,
+                        srs: 'EPSG:3857',
+                        geoextent: metadata.WGS84BoundingBox || [-180, -85.05112878, 180, 85.05112878],
+                        minlevel: 6,
+                        maxlevel: 19,
+                        reverseY: true,
+                        transparent: true,
+                        layers: [{
+                            name: name,
+                            // 지도의 이미지를 그릴 때 호출됩니다.
+                            // 이전 작업에서 사용한 WMTS source가 있으면 재사용하고,매번 새 OL 레이어를 만들어 반환합니다
+                            callback: function (_parameter, sharedSources) {
+                                // 가상 지도 해제 시 source도 해제되므로 타일별로 생성합니다.
+                                const source = sharedSources?.[0] || new ol.source.WMTS(sourceOptions);
+                                if (!sharedSources?.[0]) source.on('tileloaderror', function () {
+                                    status.textContent = '브이월드 타일 요청에 실패했습니다. 인증키, 등록 도메인 및 네트워크를 확인하세요.';
+                                    status.hidden = false;
+                                });
+                                return new ol.layer.Tile({source: source});
+                            }
+                        }]
+                    });
+                    if (!layers[name]) throw new Error('WMTS 레이어를 생성하지 못했습니다.');
+                    app.showImageLayer(name, false);
+                }
+
+                for (const checkbox of document.querySelectorAll('input[data-wmts="vworld"]')) {
+                    checkbox.disabled = false;
+                }
+            } catch (error) {
+                status.textContent = '브이월드 WMTS를 불러오지 못했습니다: ' + error.message;
+                status.hidden = false;
+                console.error('브이월드 WMTS 초기화 실패', error);
+            }
+        }
+
+        async function initGeoserverWmts() {
+            const status = document.getElementById('geoserver-status');
+            try {
+                const response = await fetch(GEOSERVER_WMTS_URL + '?REQUEST=GetCapabilities&SERVICE=WMTS', {
+                    signal: AbortSignal.timeout(15000)
+                });
+                if (!response.ok) throw new Error('Capabilities HTTP ' + response.status);
+                // 프록시가 없는 개발 서버는 XML 대신 기본 HTML을 200으로 반환할 수 있습니다.
+                if ((response.headers.get('Content-Type') || '').includes('text/html')) {
+                    throw new Error('WMTS XML 대신 HTML이 반환되었습니다. 개발 서버 재시작 및 프록시 설정을 확인하세요.');
+                }
+
+                const ol = window.__GEONDT__.ol;
+                const capabilities = new ol.format.WMTSCapabilities().read(await response.text());
+                const metadata = capabilities.Contents.Layer.find(layer => layer.Identifier === GEOSERVER_LAYER_NAME);
+                if (!metadata) throw new Error('도로 WMTS 레이어 정보를 찾을 수 없습니다.');
+                if (!metadata.Style.some(style => style.Identifier === GEOSERVER_STYLE_NAME)) {
+                    throw new Error('요청한 도로 스타일을 찾을 수 없습니다.');
+                }
+                if (!metadata.TileMatrixSetLink.some(link => link.TileMatrixSet === 'EPSG:900913')) {
+                    throw new Error('도로 WMTS의 EPSG:900913 타일 격자를 찾을 수 없습니다.');
+                }
+
+                // EPSG:900913은 EPSG:3857과 같은 좌표계지만 타일 식별자는 서버 선언값을 유지합니다.
+                const sourceOptions = ol.source.WMTS.optionsFromCapabilities(capabilities, {
+                    layer: GEOSERVER_LAYER_NAME,
+                    matrixSet: 'EPSG:900913',
+                    requestEncoding: 'KVP',
+                    format: 'image/png'
+                });
+                if (!sourceOptions) throw new Error('도로 WMTS 요청 옵션을 만들지 못했습니다.');
+
+                // 기본 스타일은 line이며, 내장 OpenLayers는 스타일 Title로 선택하므로 Identifier를 직접 지정합니다.
+                sourceOptions.style = GEOSERVER_STYLE_NAME;
+                sourceOptions.urls = [GEOSERVER_WMTS_URL];
+                sourceOptions.requestEncoding = 'KVP';
+                sourceOptions.crossOrigin = 'anonymous';
+
+                const name = 'geoserver_roads';
+                layers[name] = app.create3dImageWMTSLayer({
+                    name: name,
+                    srs: 'EPSG:3857',
+                    geoextent: metadata.WGS84BoundingBox,
+                    minlevel: 6,
+                    maxlevel: 19,
+                    reverseY: true,
+                    transparent: true,
+                    layers: [{
+                        name: GEOSERVER_LAYER_NAME,
+                        // 지도의 이미지를 그릴 때 호출됩니다.
+                        // 이전 작업에서 사용한 WMTS source가 있으면 재사용하고,매번 새 OL 레이어를 만들어 반환합니다
+                        callback: function (_parameter, sharedSources) {
+                            // 가상 지도 해제 시 source도 해제되므로 타일별로 생성합니다.
+                            const source = sharedSources?.[0] || new ol.source.WMTS(sourceOptions);
+                            // 새 source를 만들었을 때만 오류 알림을 등록합니다.
+                            if (!sharedSources?.[0]) source.on('tileloaderror', function () {
+                                status.textContent = 'GeoServer 도로 타일 요청에 실패했습니다. 서버 연결과 프록시 설정을 확인하세요.';
+                                status.hidden = false;
+                            });
+                            return new ol.layer.Tile({source: source});
+                        }
+                    }]
+                });
+                if (!layers[name]) throw new Error('도로 WMTS 레이어를 생성하지 못했습니다.');
+
+                // 예제를 열면 위성지도 위에 도로를 표시하고 체크박스로 가시성을 제어합니다.
+                app.showImageLayer(name, true);
+                const checkbox = document.querySelector('input[target="geoserver_roads"]');
+                checkbox.checked = true;
+                checkbox.disabled = false;
+            } catch (error) {
+                status.textContent = 'GeoServer 도로 WMTS를 불러오지 못했습니다: ' + error.message;
+                status.hidden = false;
+                console.error('GeoServer 도로 WMTS 초기화 실패', error);
+            }
+        }
+    });
+</script>
+</body>
+</html>
+
+
+
+
+
+

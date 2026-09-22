@@ -1,0 +1,650 @@
+<nav class="componentControlAtIndoor-rail" data-example-rail aria-label="componentControlAtIndoor 도구">
+    <button id="analy-bnt" class="rail-button" type="button" data-legacy-toggle-state aria-pressed="false">
+        <span class="rail-icon">▦</span><span>분석</span>
+    </button>
+</nav>
+
+<div id="analy-popup" oncontextmenu="return false;" class="legacy-floating-panel legacy-main-feature-panel legacy-migration-panel" style="display:none;">
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <div class="d-flex">
+                            <div>카메라 설정</div>
+                            <div class="flex-1 text-right">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="h-300 scroll-auto panel-body">
+                        <div class="form-group">
+                            <label class="camera-mode-label">
+                                <input type="radio" class="camera-mode" name="camera-mode" value="default" checked>
+                                지도 카메라
+                            </label>
+                            <label class="camera-mode-label">
+                                <input type="radio" class="camera-mode" name="camera-mode" value="indoor">
+                                실내 카메라
+                            </label>
+                            <label class="camera-mode-label">
+                                <input type="radio" class="camera-mode" name="camera-mode" value="first">
+                                1인칭 카메라
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <div class="btn btn-default btn-sm" id="moveHome">전경</div>
+                            <div class="btn btn-default btn-sm" id="moveRoom1">실내1</div>
+                            <div class="btn btn-default btn-sm" id="moveRoom2">실내2</div>
+                        </div>
+                    </div>
+                </div>
+                <br>
+
+                <div class="panel panel-default indoor-component-panel">
+                    <div class="panel-heading">
+                        <div class="d-flex">
+                            <div>컴포넌트 설정</div>
+                            <div class="flex-1 text-right"></div>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <!-- 드론 통합 모니터링 예제의 상세 설정 탭과 같은 구성입니다. 선택한 탭의 내용만 표시하며 전환은 ui.js가 담당합니다. -->
+                        <div class="indoor-tablist" id="indoor-component-tablist" role="tablist" aria-label="컴포넌트 추가 탭">
+                            <button id="indoor-tab-facility" class="indoor-tab" type="button" role="tab" aria-selected="true" aria-controls="indoor-tabpanel-facility" data-tab="facility">시설물</button>
+                            <button id="indoor-tab-adapter" class="indoor-tab" type="button" role="tab" aria-selected="false" aria-controls="indoor-tabpanel-adapter" data-tab="adapter" tabindex="-1">어댑터</button>
+                            <button id="indoor-tab-heat" class="indoor-tab" type="button" role="tab" aria-selected="false" aria-controls="indoor-tabpanel-heat" data-tab="heat" tabindex="-1">열원</button>
+                            <button id="indoor-tab-pipe" class="indoor-tab" type="button" role="tab" aria-selected="false" aria-controls="indoor-tabpanel-pipe" data-tab="pipe" tabindex="-1">전선</button>
+                        </div>
+
+                        <div class="indoor-tabpanel" id="indoor-tabpanel-facility" role="tabpanel" aria-labelledby="indoor-tab-facility" data-tab-panel="facility">
+                            <div class="form-group">
+                                <label style="display: block">
+                                    <select class="form-control input-sm componentList" id="componentList"
+                                            style="width:160px;"></select>
+                                </label>
+                                <div class="btn btn-default btn-sm" id="createComponentS">단일 배치</div>
+                                <div class="btn btn-default btn-sm" id="createComponentL">라인 배치</div>
+                            </div>
+                        </div>
+
+                        <div class="indoor-tabpanel" id="indoor-tabpanel-adapter" role="tabpanel" aria-labelledby="indoor-tab-adapter" data-tab-panel="adapter" hidden>
+                            <div class="form-group" style="margin-bottom:6px;">
+                                <div class="btn btn-default btn-sm" id="addAdapter">추가</div>
+                                <div class="btn btn-default btn-sm" id="showAdapter">Show</div>
+                                <div class="btn btn-default btn-sm" id="hideAdapter">Hide</div>
+                            </div>
+                            <div class="form-group" style="margin-top:4px;">
+                                <div class="input-group input-group-sm">
+                                    <select id="adapter-select" class="form-control">
+                                        <option value="">어댑터가 없습니다</option>
+                                    </select>
+                                    <span class="input-group-btn">
+                                        <button id="adapter-apply" class="btn btn-default" type="button">선택</button>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="indoor-tabpanel" id="indoor-tabpanel-heat" role="tabpanel" aria-labelledby="indoor-tab-heat" data-tab-panel="heat" hidden>
+                            <div class="form-group" style="margin-bottom:6px;">
+                                <div class="btn btn-default btn-sm" id="add-heat">추가</div>
+                                <div class="btn btn-default btn-sm" id="set-heat-target">대상 설정</div>
+                            </div>
+                            <div class="form-group" style="margin-top:4px;">
+                                <div class="input-group input-group-sm">
+                                    <select id="heat-select" class="form-control">
+                                        <option value=""> 선택 없음</option>
+                                    </select>
+                                    <span class="input-group-btn">
+                                        <button id="heat-active" class="btn btn-default" type="button">ON</button>
+                                        <button id="heat-deactive" class="btn btn-default" type="button">OFF</button>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="indoor-tabpanel" id="indoor-tabpanel-pipe" role="tabpanel" aria-labelledby="indoor-tab-pipe" data-tab-panel="pipe" hidden>
+                            <div class="form-group" style="margin-bottom:6px;">
+                                <div class="btn btn-default btn-sm" id="addPipe">추가</div>
+                                <div class="btn btn-default btn-sm" id="showPipe">Show</div>
+                                <div class="btn btn-default btn-sm" id="hidePipe">Hide</div>
+                                <div class="btn btn-danger btn-sm" id="removePipe">전체 제거</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <br>
+                <div class="panel panel-default indoor-hierarchy-panel">
+                    <div class="panel-heading">
+                        <div class="d-flex">
+                            <div>전체 계층 구조</div>
+                            <div class="flex-1 text-right">
+                                <button type="button" class="btn btn-default btn-xs" id="open-all-hierarchy-tree">전체 펼치기</button>
+                                <button type="button" class="btn btn-default btn-xs" id="close-all-hierarchy-tree">전체 접기</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <!-- 부모·자식 관계로 이루어진 트리입니다. 부모가 없는 객체를 최상위에 두고 자식은 연결선과 함께 안쪽에 표시합니다. main.js가 채웁니다. -->
+                        <div class="indoor-hierarchy-box">
+                            <ul class="indoor-hierarchy-list" id="hierarchy-tree-container" role="tree" aria-label="객체 계층 트리"></ul>
+                            <p class="indoor-hierarchy-empty" id="hierarchy-tree-empty">배치된 컴포넌트가 없습니다.</p>
+                        </div>
+                    </div>
+                </div>
+                <br>
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <div class="d-flex">
+                            <div>LOD 모드 설정</div>
+                            <div class="flex-1 text-right">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="lod-group" role="radiogroup" aria-label="LOD 모드 설정">
+                            <input type="radio" id="lod-custom" name="lodMode" value="custom">
+                            <label for="lod-custom">LOD ON</label>
+                            <input type="radio" id="lod-none" name="lodMode" value="none" checked>
+                            <label for="lod-none">LOD OFF</label>
+                        </div>
+                    </div>
+                </div>
+                <br>
+                <div class="panel panel-default">
+                    <div class="panel-body">
+                        <button type="button" class="btn btn-default btn-sm" id="btn-work-save">저장</button>
+                        <button type="button" class="btn btn-default btn-sm" id="btn-work-load">불러오기</button>
+                        <button type="button" class="btn btn-danger btn-sm" id="btn-work-reset">전체
+                            제거
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<div id="map-notice" class="map-notice legacy-map-notice">
+        <span class="map-notice-text" id="selectInfo">
+            마우스 클릭 : 객체 선택 <br>
+            space + 마우스 클릭 : 박스 선택
+        </span>
+        <span class="map-notice-text" id="pipeInfo" style="display: none;">
+            마우스 클릭 : 파이프 추가 <br>
+            더블클릭 or Esc키 : 추가 종료
+        </span>
+    </div>
+
+<div id="selectbox-mode-toast" class="selectbox-mode-toast legacy-selection-toast"></div>
+
+<div id="selectInfo-popup" class="div-popup legacy-floating-panel legacy-selection-panel legacy-migration-panel">
+        <div class="div-popup-control" style="cursor: move;">
+            <label class="label-popup-control" style="float: left;margin: 4px;color: #ffffff">선택 정보</label>
+            <label class="label-popup-control btn btn-default btn-sm detail-popup-exit">닫기</label>
+        </div>
+        <div class="div-popup-content" style="padding: 10px;height: 80%;">
+            <ul id="select-list"></ul>
+        </div>
+    </div>
+
+<div id="detailInfo-popup" class="div-popup legacy-floating-panel legacy-detail-panel legacy-migration-panel">
+        <div class="div-popup-control" style="cursor: move;">
+            <span class="selected-object-name-detail"></span>
+            <label class="label-popup-control" style="float: left;margin: 4px;color: #ffffff" ;> 객체 정보</label>
+            <label class="label-popup-control btn btn-default btn-sm detail-popup-exit">닫기</label>
+        </div>
+        <div class="div-popup-content" style="padding: 10px;">
+            
+            <ul class="nav nav-tabs" role="tablist">
+                <li role="presentation" class="active"><a href="#detail-info-tab" aria-controls="detail-info-tab"
+                                                          role="tab" data-toggle="tab">상세정보</a></li>
+                <li role="presentation"><a href="#hierarchy-edit-tab" aria-controls="hierarchy-edit-tab" role="tab"
+                                           data-toggle="tab">계층 편집</a></li>
+                <li role="presentation"><a href="#style-tab" aria-controls="style-tab" role="tab"
+                                           data-toggle="tab">스타일</a></li>
+            </ul>
+            
+            <div class="tab-content" style="padding-top: 15px;">
+                <div role="tabpanel" class="tab-pane active" id="detail-info-tab">
+                    <div class="panel panel-default">
+                        
+                        
+                        
+                        <div class="panel-body">
+                            <div class="form-group">
+                                <label>위치</label>
+                                <div class="input-group">
+                                    <span class="input-group-addon">X</span><input type="text" class="form-control"
+                                                                                   id="detail-pos-x">
+                                    <span class="input-group-addon">Y</span><input type="text" class="form-control"
+                                                                                   id="detail-pos-y">
+                                    <span class="input-group-addon">Z</span><input type="text" class="form-control"
+                                                                                   id="detail-pos-z">
+                                </div>
+                            </div>
+                            <div class="form-group" style="margin-top: 10px;">
+                                <label>회전 (Degree)</label>
+                                <div class="input-group">
+                                    <span class="input-group-addon">X</span><input type="text" class="form-control"
+                                                                                   id="detail-rot-x">
+                                    <span class="input-group-addon">Y</span><input type="text" class="form-control"
+                                                                                   id="detail-rot-y">
+                                    <span class="input-group-addon">Z</span><input type="text" class="form-control"
+                                                                                   id="detail-rot-z">
+                                </div>
+                            </div>
+                            <div class="form-group" style="margin-top: 10px;">
+                                <label>크기</label>
+                                <div class="input-group">
+                                    <span class="input-group-addon">X</span><input type="text" class="form-control"
+                                                                                   id="detail-sca-x">
+                                    <span class="input-group-addon">Y</span><input type="text" class="form-control"
+                                                                                   id="detail-sca-y">
+                                    <span class="input-group-addon">Z</span><input type="text" class="form-control"
+                                                                                   id="detail-sca-z">
+                                </div>
+                            </div>
+                            <div class="form-group" style="margin-top: 10px;">
+                                <label for="detail-properties">Properties</label>
+                                <textarea class="form-control" id="detail-properties" rows="4"></textarea>
+                                <button type="button" class="btn btn-primary btn-sm" id="update-properties">변경
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div role="tabpanel" class="tab-pane" id="hierarchy-edit-tab" style="padding-top: 15px;">
+                    <div class="panel panel-default">
+                        <div class="panel-body" style="padding: 5px 10px">
+                            <div class="panel-body" style="height: fit-content;">
+                                <p><strong>부모:</strong> <span id="current-parent">없음</span>
+                                    <button type="button" id="remove-parent-btn" class="btn btn-danger btn-xs">
+                                        관계
+                                        해제
+                                    </button>
+                                </p>
+                                <div>
+                                    <p><strong>자식 목록:</strong></p>
+                                    <ul id="children-list" class="list-group"
+                                        style="max-height: 80px; overflow-y: auto; border: 1px solid #ddd;">
+                                        
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="btn-group" style="margin: 10px;">
+                                <button type="button" class="btn btn-info btn-sm" id="set-parent-btn">부모 설정</button>
+                                <button type="button" class="btn btn-info btn-sm" id="add-child-btn">자식 설정</button>
+                            </div>
+                            <button type="button" class="btn btn-primary btn-sm" id="set-hierarchy-detail">
+                                계층 정보 수정
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div role="tabpanel" class="tab-pane" id="style-tab">
+                    <div class="panel panel-default">
+                        <div class="panel-body">
+                            
+                            <div id="temperature" class="form-group" style="margin-bottom:12px; display: none">
+                                <div>
+                                    <label for="style-color">온도</label>
+                                    <div class="input-group" style="display:flex;">
+                                        <input type="range" id="heat-range" min="0" max="100" class="form-control" style="padding:0;height:28px;">
+                                        <input type="number" id="heat" class="form-control input-sm" min="0" max="100"
+                                               style="width: 50px; margin: 0 11px;" readonly>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label for="style-color">범위</label>
+                                    <div class="input-group" style="display:flex;">
+                                       <input type="range" id="buffer-range" min="0" max="10" step="0.1" class="form-control" style="padding:0;height:28px;">
+                                       <input type="number" id="buffer" class="form-control input-sm" style="width: 50px; margin: 0 11px;" readonly>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom:12px;">
+                                <label for="style-color">색상</label>
+                                <div style="display: flex; gap:10px; align-items:center;">
+                                    <input type="color" id="style-color" value="#4da3ff">
+                                    <input type="text" id="style-color-hex" class="form-control input-sm"
+                                           style="width:110px" value="#4da3ff" maxlength="7" readonly>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="opacity-range">투명도</label>
+                                <div class="input-group" style="display:flex;">
+                                    <input type="range" id="opacity-range" min="0" max="1" step="0.01" value="1"
+                                           class="form-control" style="padding:0;height:28px;">
+                                    <input type="number" id="opacity" class="form-control input-sm" min="0" max="1"
+                                           step="0.01" value="1.00" style="width: 50px; margin: 0 11px;" readonly>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="max-dist">LOD 거리</label>
+                                <div class="input-group" style="display:flex;">
+                                    <input type="number" id="max-dist" class="form-control input-sm"
+                                           style="width: 50px; margin: 0 11px;">
+                                </div>
+                            </div>
+
+                            <div class="form-group" style="margin-top: 10px;">
+                                <label for="max-dist">Outline 효과
+                                    <input type="checkbox" id="barrier-enabled" style="margin-left: 7px; vertical-align: text-bottom;">
+                                </label>
+                                <fieldset id="outline-effect-fieldset"
+                                          style="margin-top: 10px; padding: 10px; border: 1px solid rgba(75,148,213,0.25); border-radius: 8px; background: rgba(0,0,0,0.18); display:none;">
+                                    <div id="outline-effect-body">
+                                        <div class="form-group" style="margin-top: 2px;">
+                                            <div class="input-group" style="display:flex; gap:8px; align-items:center;">
+                                                <select id="barrier-mode" class="form-control input-sm" style="width: 120px;">
+                                                    <option value="1">BASIC</option>
+                                                    <option value="2">BOUNCE</option>
+                                                    <option value="3">FLOW</option>
+                                                    <option value="4">BLOOM</option>
+                                                </select>
+                                                <button class="btn btn-default btn-sm" id="barrier-apply" type="button">적용</button>
+                                                <button class="btn btn-danger btn-sm" id="barrier-clear" type="button">해제</button>
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group" style="margin-top: 8px;">
+                                            <label for="barrier-color">색상</label>
+                                            <div style="display:flex; gap:10px; align-items:center;">
+                                                <input type="color" id="barrier-color" value="#ff9100">
+                                                <input type="text" id="barrier-color-hex" class="form-control input-sm"
+                                                       style="width:110px" value="#ff9100" maxlength="7" readonly>
+                                            </div>
+                                            <label for="barrier-width">선 두께</label>
+                                            <div class="input-group" style="display:flex;">
+                                                <input type="number" id="barrier-width" class="form-control input-sm"
+                                                       min="0" max="20" step="0.1" value="1" style="width: 80px;">
+                                            </div>
+                                            <label for="barrier-renderOrder">renderOrder</label>
+                                            <div class="input-group" style="display:flex; gap:8px; align-items:center;">
+                                                <select id="barrier-renderOrder" class="form-control input-sm" style="width: 150px;">
+                                                    <option value="3">3(PASS 3)</option>
+                                                    <option value="2">2(PASS 2)</option>
+                                                    <option value="1">1(PASS 1)</option>
+                                                </select>
+                                            </div>
+
+                                        </div>
+
+                                        <div class="form-group barrier-opt-flow" style="margin-top: 8px; display:none;">
+                                            <label for="barrier-dash-color">점선 색상</label>
+                                            <div style="display:flex; gap:10px; align-items:center;">
+                                                <input type="color" id="barrier-dash-color" value="#00ffcc">
+                                                <input type="text" id="barrier-dash-color-hex" class="form-control input-sm"
+                                                       style="width:110px" value="#00ffcc" maxlength="7" readonly>
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group barrier-opt-bounce" style="margin-top: 8px; display:none;">
+                                            <label for="barrier-bounce-speed">bounceSpeed</label>
+                                            <div class="input-group" style="display:flex;">
+                                                <input type="number" id="barrier-bounce-speed" class="form-control input-sm"
+                                                       min="0" max="10" step="0.1" value="1" style="width: 80px;">
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group barrier-opt-flow" style="margin-top: 8px; display:none;">
+                                            <label for="barrier-flow-speed">flowSpeed</label>
+                                            <div class="input-group" style="display:flex;">
+                                                <input type="number" id="barrier-flow-speed" class="form-control input-sm"
+                                                       min="-10" max="10" step="0.1" value="1" style="width: 80px;">
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group barrier-opt-flow" style="margin-top: 8px; display:none;">
+                                            <label for="barrier-dash-density">dashDensity</label>
+                                            <div class="input-group" style="display:flex;">
+                                                <input type="number" id="barrier-dash-density" class="form-control input-sm"
+                                                       min="1" max="100" step="1" value="20" style="width: 80px;">
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group barrier-opt-flow" style="margin-top: 8px; display:none;">
+                                            <label for="barrier-dash-ratio">dashRatio</label>
+                                            <div class="input-group" style="display:flex;">
+                                                <input type="number" id="barrier-dash-ratio" class="form-control input-sm"
+                                                       min="0" max="1" step="0.01" value="0.5" style="width: 80px;">
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group barrier-opt-flow" style="margin-top: 8px; display:none;">
+                                            <label for="barrier-time-offset">timeOffset</label>
+                                            <div class="input-group" style="display:flex;">
+                                                <input type="number" id="barrier-time-offset" class="form-control input-sm"
+                                                       min="-10" max="10" step="0.1" value="0" style="width: 80px;">
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group barrier-opt-bloom"
+                                             style="margin-top: 8px; display:none;">
+                                            <label for="barrier-glow-intensity">glowIntensity</label>
+                                            <div class="input-group" style="display:flex;">
+                                                <input type="number" id="barrier-glow-intensity"
+                                                       class="form-control input-sm"
+                                                       min="0" max="5" step="0.1" value="1" style="width: 80px;">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </fieldset>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<div id="gizmo-toolbar-wrap" style="display: none" class="legacy-toolbar-panel">
+        <div id="gizmo-toolbar">
+            <div class="btn-group">
+                <button type="button" class="btn btn-default gizmo" data-mode="translate" title="이동">
+                    <img class="btn-image" src="image/btn-translate.png" data-name="translate" alt="translate">
+                </button>
+                <button type="button" class="btn btn-default gizmo" data-mode="rotate" title="회전">
+                    <img class="btn-image" src="image/btn-rotate.png" data-name="rotate" alt="rotate">
+                </button>
+                <button type="button" class="btn btn-default gizmo" data-mode="scale" title="크기">
+                    <img class="btn-image" src="image/btn-scale.png" data-name="scale" alt="scale">
+                </button>
+                <button type="button" class="btn btn-default gizmo" data-action="reset" title="초기화">
+                    <img class="btn-image" src="image/btn-reset.png" data-name="reset" alt="reset">
+                </button>
+                <button type="button" class="btn btn-default gizmo" data-action="align" id="set-align" title="정렬">
+                    <img class="btn-image" src="image/btn-align.png" data-name="align" alt="align">
+                </button>
+                <button type="button" class="btn btn-default gizmo" data-action="detail-toggle" title="상세편집">
+                    <img class="btn-image" src="image/btn-detail.png" data-name="detail" alt="detail">
+                </button>
+                <button type="button" class="btn btn-default" data-action="remove" title="제거">
+                    <img class="btn-image" src="image/btn-remove.png" data-name="remove" alt="remove">
+                </button>
+                <button type="button" class="btn btn-default close" data-action="close" title="편집종료">&times;</button>
+            </div>
+        </div>
+        
+        <div id="gizmo-remote" class="u3-popup gizmo-remote" style="display:none;">
+            <div class="u3-popup-content">
+                <div class="modal-header">
+                    <span>상세편집</span>
+                </div>
+                <div id="gizmo-remote-detail">
+                    
+                    <div class="row" style="display:flex;gap:6px;align-items:center;margin:6px 0;">
+                        <label style="width:60px;">위치</label>
+                        <div class="detail-edit-panel">
+                            <button type="button" class="btn detail arrow" name="top-left">↖</button>
+                            <button type="button" class="btn detail arrow" name="up">↑</button>
+                            <button type="button" class="btn detail arrow" name="top-right">↗</button>
+                            <button type="button" class="btn detail arrow" name="left">←</button>
+                            <button type="button" class="btn translate center" name="axis">XY</button>
+                            <button type="button" class="btn detail arrow" name="right">→</button>
+                            <button type="button" class="btn detail arrow" name="bottom-left">↙</button>
+                            <button type="button" class="btn detail arrow" name="down">↓</button>
+                            <button type="button" class="btn detail arrow" name="bottom-right">↘</button>
+                        </div>
+                    </div>
+
+                    
+                    <div class="row" style="display:flex;gap:6px;align-items:center;margin:6px 0;">
+                        <label style="width:60px;">회전</label>
+                        <div class="detail-edit-panel-xs">
+                            <button type="button" class="btn detail arrow" name="rot-left">←</button>
+                            <button type="button" class="btn rotation center" name="axis">X</button>
+                            <button type="button" class="btn detail arrow" name="rot-right">→</button>
+                        </div>
+                    </div>
+
+                    
+                    <div class="row" style="display:flex;gap:6px;align-items:center;margin:6px 0;">
+                        <label style="width:60px;">크기</label>
+                        <div class="detail-edit-panel-xs">
+                            <button type="button" class="btn detail arrow" name="scale-down" title="크기 감소">-</button>
+                            <button type="button" class="btn scale center" name="axis">X</button>
+                            <button type="button" class="btn detail arrow" name="scale-up" title="크기 증가">+</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<div id="align-detail-toolbar" class="legacy-toolbar-panel" style="display: none">
+    <div class="u3-popup" id="align-remote" style="display: block; left:47%; top:8%; position:absolute;">
+        <div class="u3-popup-content">
+            <div id="align-remote-detail" style="display: block;">
+                <div class="row" style="display:flex;gap:6px;align-items:center;margin:6px 0;">
+                    <label style="width:60px;">정렬 간격</label>
+                    <div class="detail-edit-panel-xs input-group">
+                        <button type="button" class="btn detail align-spacing" name="sub-spacing">-</button>
+                        <input class="detail align-spacing" style="text-align: center;" id="spacing-val" name="value" value="1">
+                        <button type="button" class="btn detail align-spacing" name="add-spacing">+</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="work-io-popup" class="work-save-popup legacy-floating-panel legacy-work-panel" style="display:none;">
+        <div class="work-save-header">
+            <span id="work-io-title">작업 저장</span>
+            <button type="button" class="popup-close">&times;</button>
+        </div>
+        <textarea id="work-io-text" class="work-save-text" spellcheck="false"></textarea>
+        <div class="work-io-actions">
+            <button type="button" id="work-io-confirm" class="btn btn-default btn-sm">확인</button>
+        </div>
+    </div>
+
+<div id="sub-map-div" class="legacy-sub-map-panel legacy-migration-panel">
+        <div id="sub-map-header">
+            <span class="sub-map-title"></span>
+            <button type="button" id="sub-map-close" title="닫기" class="sub-map-close-btn">
+                &times;
+            </button>
+        </div>
+        <div id="sub-map-body">
+            <div id="map2"></div>
+            <div id="sub-popup" oncontextmenu="return false;">
+                <div class="div-popup">
+                    <div class="div-popup-content">
+                        <div class="panel panel-default">
+                            <div class="panel-heading">
+                                <div class="d-flex">
+                                    <div>자식 객체 추가</div>
+                                    <div class="flex-1 text-right"></div>
+                                </div>
+                            </div>
+                            <div class="h-300 scroll-auto panel-body">
+                                <label style="display: inline-block">
+                                    <select id="sub-list" class="form-control input-sm componentList"
+                                            style="width:160px;"></select>
+                                </label>
+                                <div class="btn btn-default btn-sm" id="addChildComponent">추가</div>
+                            </div>
+                        </div>
+                        <div class="panel panel-default">
+                            <div class="panel-heading">
+                                <div class="d-flex">
+                                    <div>어댑터 추가</div>
+                                    <div class="flex-1 text-right"></div>
+                                </div>
+                            </div>
+                            <div class="h-300 scroll-auto panel-body">
+                                <div class="btn btn-default btn-sm" id="addChildAdapter">추가</div>
+                            </div>
+                        </div>
+                        <div class="panel panel-default">
+                            <div class="panel-heading">
+                                <div class="d-flex">
+                                    <div> 자식 목록</div>
+                                    <div class="flex-1 text-right"></div>
+                                </div>
+                            </div>
+                            <div class="h-300 scroll-auto panel-body">
+                                <label style="display: inline-block">
+                                    <select class="form-control input-sm" id="childList" style="width:150px;">
+                                    </select>
+                                </label>
+                                <div class="btn btn-info btn-sm" id="selectChildComponent">선택</div>
+                                <div class="btn btn-danger btn-sm" id="removeChildComponent">제거</div>
+                            </div>
+                        </div>
+
+                        <div class="panel panel-default">
+                            <div class="panel-heading">
+                                <div class="d-flex">
+                                    <div> 부모 객체 투명도 설정</div>
+                                    <div class="flex-1 text-right"></div>
+                                </div>
+                            </div>
+                            <div class="h-300 scroll-auto panel-body">
+                                <div class="input-group" style="display:flex;">
+                                    <input type="range" id="p-opacity-range" min="0" max="1" step="0.01" value="1"
+                                           class="form-control" style="padding:0;height:28px;">
+                                    <input type="number" id="p-opacity" class="form-control input-sm" min="0" max="1"
+                                           step="0.01" value="1.00" style="width: 50px; margin: 0 11px;" readonly>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="sub-gizmo-toolbar-wrap" style="display: none; z-index: 999999">
+                <div id="sub-gizmo-toolbar">
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-default gizmo" data-mode="translate" title="이동">
+                            <img class="btn-image" src="image/btn-translate.png" data-name="translate" alt="translate">
+                        </button>
+                        <button type="button" class="btn btn-default gizmo" data-mode="rotate" title="회전">
+                            <img class="btn-image" src="image/btn-rotate.png" data-name="rotate" alt="rotate">
+                        </button>
+                        <button type="button" class="btn btn-default gizmo" data-mode="scale" title="크기">
+                            <img class="btn-image" src="image/btn-scale.png" data-name="scale" alt="scale">
+                        </button>
+                        <button type="button" class="btn btn-default gizmo" data-action="reset" title="초기화">
+                            <img class="btn-image" src="image/btn-reset.png" data-name="reset" alt="reset">
+                        </button>
+                        <button type="button" class="btn btn-default gizmo" data-action="align" title="부모 기준 정렬">
+                            <img class="btn-image" src="image/btn-align.png" data-name="align" alt="align">
+                        </button>
+                        <button type="button" class="btn btn-default" data-action="remove" title="제거">
+                            <img class="btn-image" src="image/btn-remove.png" data-name="remove" alt="remove">
+                        </button>
+                        <button type="button" class="btn btn-default close" data-action="close" title="편집종료">&times;
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <button type="button" id="sub-map-save" class="btn btn-default btn-sm">확인</button>
+        </div>
+    </div>

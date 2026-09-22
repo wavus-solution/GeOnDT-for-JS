@@ -1,0 +1,104 @@
+@charset "UTF-8";
+
+/*----------- guide start ------------*/
+#guide-doc .tableArea {
+	padding-left: 45px;
+}
+
+#guide-doc table th {
+	border-bottom: 2px solid #bbb;
+	white-space: nowrap;
+	padding: 8px 10px;
+	font-weight: bold;
+}
+
+#guide-doc table td {
+	border-bottom: 1px solid #ddd;
+	padding: 8px 10px;
+}
+/*----------- guide end ------------*/
+
+/*----------- api start ------------*/
+#api-doc .codeblock {
+    margin: 0 13px 33px 13px;
+}
+/*----------- api end ------------*/
+
+/*----------- tab start ------------*/
+.tabs button {
+    width: 88px;
+    height: 32px;
+    font-weight: normal;
+}
+
+.tab-pannel.current {
+	display: block;
+}
+
+.tab-pannel {
+	display: none;
+}
+/*----------- tab end ------------*/
+
+/*----------- modal start ------------*/
+.modal-wrap {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width:100%;
+	height:100%;
+	z-index: 10000000;
+	background-color: rgba(0,0,0,0.5);
+}
+.modal {
+	position: fixed;
+	top: 5%;
+	left: 50%;
+	width:90%;
+	height:90%;
+	margin-left: -45%;
+	background-color: #fff;
+}
+.modal .btnPopupClose {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    width: 20px;
+    height: 20px;
+    background: url(../images/common/btn-popup-close.png);
+    background-size: cover;
+}
+.modal iframe {
+	width:100%;
+	height:100%;
+	border:0;
+}
+/*----------- modal end ------------*/
+
+/*----------- Scroll bar start ------------*/
+.mScroll .mCSB_scrollTools .mCSB_dragger:hover .mCSB_dragger_bar {
+	background-color: #3c62ce;
+}
+
+/* .mCSB_scrollTools .mCSB_dragger .mCSB_dragger_bar{
+	background-color: #3c62ce !important;
+	background-color: rgba(60,98,206,0.75) !important;
+	filter: "alpha(opacity=75)";
+	-ms-filter: "alpha(opacity=75)"; 
+} */
+
+.mCSB_scrollTools .mCSB_dragger:hover .mCSB_dragger_bar{
+	background-color: #3c62ce !important;
+	background-color: rgba(60,98,206,0.85) !important;
+	filter: "alpha(opacity=85)";
+	-ms-filter: "alpha(opacity=85)"; 
+}
+
+.mCSB_scrollTools .mCSB_dragger:active .mCSB_dragger_bar,
+.mCSB_scrollTools .mCSB_dragger.mCSB_dragger_onDrag .mCSB_dragger_bar{
+	background-color: #3c62ce !important;
+	background-color: rgba(60,98,206,0.9) !important;
+	filter: "alpha(opacity=90)";
+	-ms-filter: "alpha(opacity=90)"; 
+}
+/*----------- Scroll bar end------------*/

@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/html">
+<head>
+    <meta charset="UTF-8">
+    <title>실내 건물 (3ds 모델) 사용자 지정 그룹화 설정 예제</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+
+        #load {
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            position: fixed;
+            display: block;
+            opacity: 1;
+            /*background: white;*/
+            z-index: 5000;
+            text-align: center;
+        }
+
+        #load > img {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            z-index: 5001;
+        }
+
+        #analy-popup .div-popup {
+            width: 1200px;
+            height: 400px;
+            top: 45vh;
+        }
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> 실내 건물 (3ds 모델) 사용자 지정 그룹화 설정</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div id="map-wrapper">
+    <div id="map"></div>
+    <div id="div-left-menu">
+        <div>
+            <div style="display: inline-flex; position: relative">
+                <button id="analy-bnt" class="btn btn-xs menu-btn">
+                    <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+                <div class="div-btn-info" hidden>
+                    분석 팝업 열기
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="btn-group" id='top-sbar'>
+        <div class='btn-group-vertical-block' id='right-toolbar'>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                     src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                     alt="나침반">
+            </button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                    id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                    id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                    id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+            </button>
+        </div>
+        <div class='btn-group' id='bt-bottom-bar'>
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                   value="위경도: ##.####  ###.#### ">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                   value="고도:####">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                   value="각도: ##">
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu='return false'>
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div style="display: flex; overflow: auto" >
+                <div class="col-sm-3" style="width: 35%; overflow: auto;" >
+                    <table class="table table-bordered table-condensed">
+                        <colgroup>
+                            <col class="col-xs-2">
+                            <col class="col-xs-5">
+                        </colgroup>
+                        <thead>
+                        <tr>
+                            <th>정보</th>
+                            <th>값</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+
+                        <tr>
+                            <td><code>File metadata</code></td>
+                            <td><samp id="file-metadata"></samp></td>
+                        </tr>
+                        <tr>
+                            <td><code>Group Name</code></td>
+                            <td><samp id="group-name"></samp></td>
+                        </tr>
+                        <tr>
+                            <td><code>Group Metadata</code></td>
+                            <td><samp id="group-metadata"></samp></td>
+                        </tr>
+                        <tr>
+                            <td><code>Mesh Name</code></td>
+                            <td><samp id="mesh-name"></samp></td>
+                        </tr>
+                        <tr>
+                            <td><code>Mesh Metadata</code></td>
+                            <td><samp id="mesh-metadata"></samp></td>
+                        </tr>
+
+                        <tr id="user-group-tr" hidden>
+                            <td><code>User Group Data</code></td>
+                            <td><samp id="user-group-data"></samp></td>
+                        </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+                <div class="col-sm-6" style="width: 35%">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <div class="d-flex">
+                                <div>선택된 Mesh 목록</div>
+                                <div class="flex-1 text-right">
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-sm select-highlight">선택 표시</div>
+                                        <div class="btn btn-default btn-sm btn-select-clear">선택 초기화</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="select-target-list h-300 scroll-auto panel-body" style="height: 150px; overflow-y: scroll">
+
+                            <ol class="selected-list"></ol>
+                            <pre class="list-info">선택한 Mesh가 없습니다.</pre>
+
+                            <div class="btn-group"
+                                 style=" display: flex;  position: sticky; bottom:20px; float: right; margin-top:5px">
+                                <input type="text" class="groupName-value" value="" placeholder="그룹 이름을 작성해주세요"> 
+                                <div class="btn btn-default btn-sm select-grouping" style="  justify-content: space-between;"> 그룹화
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-4" style="width: 30%">
+                    <table class="table table-bordered table-condensed">
+                        <colgroup>
+                            <col class="col-xs-3">
+                            <col class="col-xs-7">
+                        </colgroup>
+                        <thead>
+                        <tr>
+                            <th><code>생성된 그룹 이름</code></th>
+                            <th><code>Mesh Name (Original group Name) </code></th>
+                        </tr>
+                        </thead>
+                        <tbody id="grouping-list">
+
+                        <tr id="grouping-list-child">
+                            <td><code>그룹 이름</code></td>
+                            <td><samp id="groupName">소속된 mesh가 없습니다.</samp></td>
+                        </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        건물 모델에 마우스 좌 클릭시 해당 mesh에 대한 정보와 기존 그룹에 같이 해당하는 mesh들이 강조됩니다.
+        해당 건물에 사용자가 지정한 Mesh들을 묶어 그룹화 할수 있습니다.
+    </p>
+    <pre><label>실내 건물 (3ds 모델) 사용자 지정 그룹화 설정 예제</label>
+        건물 모델에 마우스 좌 클릭시 해당 mesh에 대한 정보와 기존 그룹에 같이 해당하는 Mesh들이 강조됩니다.
+        [ 단일 / 그룹 ] 추가 할 대상을 선택하고 추가 버튼을 누릅니다.
+        선택된 Mesh 목록에 추가한 Mesh들이 나타납니다.
+        [ 선택 표시 ] 버튼을 클릭시 선택된 Mesh 목록에 있는 대상들이 지도 상에 강조됩니다.
+        [ 선택 초기화 ] 버튼을 클릭시 선택된 Mesh 목록이 비어집니다.
+        [ 그룹화 ] 선택된 Mesh 목록에 있는 대상들을 Text Box에 내용의 이름으로 그룹화 됩니다.
+        그룹화된 정보들은 우측에서 확인 하실 수 있습니다.
+        그룹화된 정보들은 해당 레이어 metadata에 user data group 항목에 추가됩니다.
+
+        user group data - 현재 사용자가 추가한 user group data에 대한 정보 || '그룹 이름 : [{meshName, oriGroupName} Mesh List]
+</pre>
+</div>
+
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script>
+    //라이센스 인증
+    Union3D.ready(function () {
+        //지도 초기화
+        const serverURL = 'https://3d.geon.kr/';
+        const API_KEY = 'YKAFjxVvNJEA/S1xcEjprW49M6wQSAva3PC7u3KHJxrZ3ZaTVfN40QdiqzAYrFf5';
+
+        window.app = new Union3D.U3dAPP({
+            containername: 'map'
+        });
+
+        var terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+            name: 'Korea Terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            ext: '.umf',  //+ 파일 확장자, *필수 입력
+            reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+            minlevel: 9,  //+ 가시화 최소 레벨
+            maxlevel: 15, //+ 가시화 최대 레벨
+            useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+            maxprocess: 2, //+ process 최대값
+            interpolationheight: true,  //+ 고도보간 기능 사용 여부
+            rectangle: Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수
+        });
+        //  app.addLayer(terrainLayer);
+        //  app.showLayer('Korea Terrain', true);
+        let indoorName = 'asia_mun_indoor' // 서버 등록시 작성한 name
+        let layer
+
+        app.createloadingBar('load');
+        createEmapSatLayer('base');
+        app.setNameBaseLayer('base');
+        app.showImageLayer('base', true).then(function () {
+            app.setHomePosition(126.92030749767363, 35.14688362328411, 800, 2, 60); //아시아문화 전당 위치
+            app.updateHomePosition()
+            //  var indoorName = 'asia_mun_indoor' // 서버 등록시 작성한 name
+            // var layer
+            setRoadUrl(indoorName).then((opt) => {
+
+                layer = app.createModelTdsLayer(opt);
+                if (defined(layer)) {
+                    layer.ready.then(function (indoor) {
+                        window.layerObject = layer;
+                        app.endloadingBar(100);
+                        app.fitLayerExtent(indoorName);
+                        app.showLayer(indoorName, true);
+                        layer.setGroupOriginPosition();
+                        indoor.fail(function (err) {
+                            app.endloadingBar(100);
+                        })
+                    })
+                }
+            });
+        });
+        app.setIntensityLight(1.1);
+        app.setUnderGroundMode();
+
+        function defined(value) {
+            return value !== undefined && value !== null;
+        }
+
+        function setRoadUrl(name) {
+            var promise = $.Deferred();
+            getRegisteredComponent(name).then((result) => {
+                const info = result.params.data;
+                //  let joinList=[info.baseUrl,info.fileName];
+                let metaPath = info.metaPath;
+                let xmlUrl = dataServerUrl + "/" + metaPath;
+                //  let roadImageURL = joinList.join('/');
+                let baseUrl = info.baseUrl;
+
+                var opt = {
+                    baseurl: baseUrl,
+                    name: info.name,
+                    xmlurl: xmlUrl,
+                    // needdownmodelxml: true,
+                    // uselod: true,
+                    type: "model",
+                    ext: "3ds",
+                    drawline: false,
+                    backgroudlight: false,
+                    needtexture: true,
+                    needxml: true,
+                    listmodel: [],
+                    scale: info.metaData.scale,
+                    rotation: info.metaData.rotation,
+                    location: info.metaData.location,
+                    boundingBox: info.metaData.boundingBox,
+                    side: Union3D.UDEF.DoubleSide,
+
+                    containMetaData: true, //metaData JSON 파일 포함 여부
+                    userGroupDataName: 'userGroupData'
+                    //    usePositionOffset: true //metaData Position offset 사용 여부
+                };
+
+                promise.resolve(opt);
+                console.log(opt);
+            });
+            return promise;
+        }
+
+        //서버에 등록된 레이어의 정보를 가져옵니다.
+        function getRegisteredComponent(name) {
+            return $.ajax({
+                url: serverURL + 'v1/layer/' + name,
+
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader('User-Authorization', API_KEY);
+                }
+            });
+        }
+
+
+        function createEmapSatLayer(name) {
+            var opt = {
+                name: name
+                , useProxy: true
+            }
+            opt = Object.assign(opt, {
+                reverseY: true
+                , useproxy: true
+                , url: layerInfo.image.emapsaturl
+                , xyorder: "xy"
+            });
+
+            var imagelayer = app.createEmapSatLayer(opt);
+            return imagelayer;
+        }
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// event 등록 ///////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        //+ ObjectInfo 분석 모드 활성화
+        var analy = app.getAnalysis('ObjectInfo');
+        analy.active();
+
+        //+ 마우스 클릭 event 등록
+        let group = [];
+        app.on('click', function (e) {
+            //analy.removeAllHighlight();
+            let obj = analy.intersectModel(e); //+ 마우스 클릭시 해당하는 model 찾기
+            if (obj === undefined || obj.length === 0) {
+                //+ 해당하는 model이 없을 경우
+                // analy.clear();
+                return;
+            }
+            var modelObj = obj[0].object;
+            if (defined(modelObj.getParent()) && layer._object.children.length > 1) {
+                analy.setHighlight(modelObj.getParent(), 0x0000ff);
+                analy.setHighlight(modelObj, 0x00ff00);
+            } else {
+                analy.setHighlight(modelObj, 0x00ff00);
+            }
+
+            let latlon = app.vector3ToGeoGraphic(obj[0].point); //+ vector 좌표 위경도 좌표로 변환
+            let overlay = createOverlay('overlay', obj[0], latlon); //+ 위경도 좌표에 overlay 생성
+            $('.delete').on('click', deleteSelectMesh.bind(overlay));
+            overlay.show(); //+ overlay 가시화
+
+            let meshName = layer.getMeshName(modelObj);
+            let metaData = layer.getMeshMetaData(modelObj);
+            let fileMetaData, groupMetaData, meshMetaData, userGroupData;
+            if (defined(metaData)) {
+                fileMetaData = metaData.fileMetaData;
+                groupMetaData = metaData.groupMetaData;
+                meshMetaData = metaData.meshMetaData;
+                userGroupData = metaData.userGroupData;
+            }
+
+            var text0 = '';
+            if (defined(fileMetaData))
+                text0 = JSON.stringify(fileMetaData);
+            $('#file-metadata').html(text0);
+
+            var text1 = modelObj.getMetaDataGroupName();
+            $('#group-name').html(text1);
+
+            var text2 = ''
+            if (defined(groupMetaData))
+                text2 = JSON.stringify(groupMetaData);
+            $('#group-metadata').html(text2);
+
+            var text3 = meshName;
+            $('#mesh-name').html(text3);
+
+            var text4 = '';
+            if (defined(meshMetaData)) {
+                text4 = JSON.stringify(meshMetaData);
+            }
+            $('#mesh-metadata').html(text4);
+
+            if (defined(modelObj._userGroupName)) {
+                if (defined(userGroupData)) {
+                    layer.getUserGroupMesh(modelObj, analy);
+                    $('#user-group-tr').removeAttr("hidden");
+                    let text5 = JSON.stringify(userGroupData);
+                    $('#user-group-data').html(text5);
+                }
+            } else {
+                let text5 = '';
+                $('#user-group-tr').attr("hidden", true);
+                $('#user-group-data').html(text5);
+            }
+            var targetName = text1 + '#' + text3;
+            $('#target-id').val(targetName);
+
+        });
+        //[ 선택 표시 ] 버튼 클릭시
+        $('.select-highlight').on('click', function (e) {
+                if (group.length === 0) {
+                    return;
+                } else {
+                    analy.removeAllHighlight();
+                    analy.clear();
+                    for (let i = 0; i < group.length; i++) {
+                        let mesh = group[i];
+                        analy.setHighlight(mesh);
+                    }
+                }
+            }
+        );
+        //[ 선택 초기화 ] 버튼 클릭시
+        $('.btn-select-clear').on('click', function (e) {
+            if (group.length === 0) {
+                return;
+            } else {
+                analy.removeAllHighlight();
+                app.removeAllOverlay();
+                analy.clear();
+                group = [];
+                let $list = $('.selected-list');
+                $list.empty();
+            }
+            $('.list-info').css('display', 'block');
+
+        });
+        //[ 그룹화 ] 버튼 클릭시
+        $('.select-grouping').on('click', function (e) {
+            if (group.length === 0) {
+                return;
+            }
+            let groupName = $('.groupName-value').val();
+            let $groupList = $('#grouping-list');
+            if (defined(groupName)) {
+                if (layer.getAllUserGroupList().length === 0)
+                    $groupList.empty();
+                let userGroup = layer.setSelectGrouping(group, groupName);
+                if (defined((userGroup))) {
+
+                    $('.select-highlight').trigger('click');
+                    let childMesh = Object.values(userGroup.children);
+                    let childName = [];
+                    childMesh.forEach(function (mesh) {
+                        let meshName = layer.getMeshName(mesh);
+                        let oriGroupName = mesh.getMetaDataGroupName()
+                        childName.push(meshName + ' (' + oriGroupName + ')');
+                    })
+                    let isExist = document.getElementById(userGroup.name);
+                    if (defined(isExist)) {
+                        isExist.remove();
+                    }
+
+                    $groupList.append(
+                        ` <tr id=${userGroup.name}>
+                              <td><code>${userGroup.name}</code></br>
+                              <button class="btn btn-xs delete-group" id =${groupName} > 삭제 </button>
+                               <button class="btn btn-xs group-highlight" id =${groupName} > 선택 표시 </button>
+                              </td>
+                              <td><samp id=${userGroup.name}>${childName}</samp></td>
+                              </tr>`);
+
+                    $('#grouping-list-child').css('display', 'none');
+                    $('.delete-group').on('click', deleteGroup);
+                    $('.group-highlight').on('click', groupHighlight);
+                    let key = layer.getUserGroupDataName();
+                    layer.applyUserGroup(userGroup, key);
+                }
+            }
+
+        })
+
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////// function 선언 ////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        function groupHighlight(e) {
+            let target = $(e.target).attr('id');
+            let selectGroup = layer.getUserGroupList(target);
+            if (defined(selectGroup)) {
+                if (selectGroup.length === 0) {
+                    return;
+                } else {
+                    analy.removeAllHighlight();
+                    analy.clear();
+                    for (let i = 0; i < selectGroup.length; i++) {
+                        let mesh = selectGroup[i];
+                        analy.setHighlight(mesh);
+                    }
+                }
+            }
+        }
+
+        function deleteSelectMesh(e) {
+            let $list = $('.selected-list');
+            let target = $(e.target).attr('id');
+            if (group.length > 0) {
+                group = group.filter(function (child) {
+                    if (child.uuid == target) {
+                        analy.removeHighlight(child);
+                    } else {
+                        return child.uuid != target;
+                    }
+                });
+                $(e.target).parent().remove();
+                analy.clear();
+            } else {
+                $list.empty();
+                $('.list-info').css('display', 'block');
+                return;
+            }
+            app.removeOverlay(this); //+ overlay 제거
+            // analy.clear(); //
+        }
+
+        function deleteGroup(e) {
+            let $groupList = $('#grouping-list');
+            let target = $(e.target).attr('id');
+            let layerGroupList = layer.getAllUserGroupList();
+            if (layerGroupList.length > 0) {
+                layerGroupList.find(function (group) {
+                    if (group.name == target) {
+                        analy.removeHighlight(Object.values(group.children));
+                        layer.removeSelectGroup(group);
+                    }
+                });
+                $(e.target).parent().parent().remove();
+                analy.clear();
+            }
+            if (layerGroupList.length === 0) {
+                $groupList.empty();
+                $('#grouping-list-child').css('display', 'block');
+            }
+        }
+
+        //+ overlay 생성 function
+        function createOverlay(name, obj, position) {
+            var html = printOverlayHtml(obj);//+ overlay UI
+            var overlay = new Union3D.overlay.U3dOverlay({
+                name: name, //+ 오버레이 이름, * 필수 입력,  defaultValue(opt.name, undefined);
+                id: obj.uuid, //+ 오버레이 ID, defaultValue(opt.id, Guid());
+                element: html, //+ 오버레이 html의 문자열 또는 JQuery 객체, *필수 입력
+                position: position, //+ 오버레이 위치(위경도), defaultValue(opt.position, undefined);, *필수 입력
+                useanchor: true, //+ 클릭 지점에 따라 앵커 자동 변경,  defaultValue(opt.useanchor, true);
+                balloon: {x: -50, y: 10}, //+ balloon 위치,  defaultValue(opt.balloon, {x: 0, y: 0});
+            });
+            app.removeAllOverlay(); //+ 다른 overlay 전체 삭제
+            app.addOverlay(overlay); //+ 새로 만든 overlay 추가
+            var element = overlay.getElement();
+            //+ overlay에 닫기 event 추가
+            $(element).on('click', '.close', popUpCloseClick.bind(overlay));
+            $('.add-button').on('click', function (e) {
+
+                let target = $(e.target).attr('id');
+                let typeName = 'add-type';
+                let groupType = 'group';
+                let singleType = 'single';
+                let type = $("input[type=radio][name=" + typeName + "]:checked").val();
+                if (type == singleType) {
+                    let targetObj = obj.object;
+
+                    if (group.length > 0) {
+                        let isContain = group.find(function (child) {
+                                return child.uuid === targetObj.uuid;
+                            }
+                        )
+                        if (!defined(isContain)) {
+                            group.push(targetObj);
+                        }
+                    } else {
+                        group.push(targetObj);
+                    }
+
+                    meshAddList();
+                } else if (type === groupType) {
+                    let targetObj
+                    let targetMesh = obj.object
+                    if (defined(targetMesh.getParent())) {
+                        targetObj = targetMesh.getParent().getChildren(); //+ getparent, getchildren
+                    }
+                    if (defined(targetObj)) {
+                        if (group.length > 0) {
+                            targetObj.forEach(function (mesh) {
+                                let isContain = group.find(function (child) {
+                                        return child.uuid === mesh.uuid;
+                                    }
+                                )
+                                if (!defined(isContain)) {
+                                    group.push(mesh);
+                                }
+                            })
+
+                        } else {
+                            targetObj.forEach(function (mesh) {
+                                group.push(mesh);
+                            });
+                        }
+                    }
+                    if (defined(targetMesh._userGroupName)) {
+                        if (defined(layer._metaDataObject)) {
+                            layer.getUserGroupMesh(targetMesh, analy, group);
+                        }
+                    }
+                    meshAddList();
+                }
+                $('.delete').on('click', deleteSelectMesh.bind(overlay));
+            })
+            return overlay;
+        }
+
+        function meshAddList() {
+            let $list = $('.selected-list');
+            $list.empty();
+            if (group.length !== 0)
+                $('.list-info').css('display', 'none');
+
+            for (let i = 0; i < group.length; i++) {
+                let key = group[i];
+                let meshName = layer.getMeshName(key);
+                $list.append(
+                    `<li ><span> ${key.getMetaDataGroupName()} : ${meshName} </span>
+                         <button class="btn btn-xs delete" id =${key.uuid} > 삭제 </button></li>`);
+            }
+        }
+
+        //+ overlay UI
+        function printOverlayHtml(ob) {
+            let obj = ob.object;
+            let meshName = layer.getMeshName(obj);
+            let str = '';
+            let metaData = layer.getMeshMetaData(obj);
+            let groupMetaData;
+            let meshMetaData;
+            if (defined(metaData)) {
+                groupMetaData = metaData.groupMetaData;
+                meshMetaData = metaData.meshMetaData;
+            }
+
+            str += '<div class="u3-popup" id=' + obj.uuid + '>';
+            str += '<div class="u3-popup-content">';
+            str += '<div class="modal-header">';
+            str += '<button type="button" class="close"><span aria-hidden="true">&times;</span>';
+            str += '</button>';
+            str += '</div>';
+
+            str += '<div class="item-sub-title"><span class="text-icon">group name : </span>' + obj.getMetaDataGroupName() + '</div>';  //+ model layer Name
+            str += '<div class="item-sub-title"><span class="text-icon">mesh name: </span>' + meshName + '</div>'; //+ model UUID
+            str += '' +
+
+                '<input type="radio" id=' + obj.uuid + ' name="add-type" value="single" checked="checked"> 단일 </input>\n' +
+                '<input type="radio" id=' + obj.uuid + ' name="add-type" value="group"> 그룹 </input>' +
+                '<button class="btn btn-xs add-button" name="add-button" id=' + obj.uuid + '> 추가 </button>'
+
+            str += '</div>';
+            str += '</div>';
+            return str;
+        }
+
+        //+ overlay 닫기 event function
+        function popUpCloseClick() {
+            $(this.element).off('click', '.close', popUpCloseClick);
+            analy.removeAllHighlight();
+            app.removeOverlay(this); //+ overlay 제거
+            analy.clear(); //+ 분석 내용 비우기
+        }
+
+        // 카메라 이동값 세팅
+
+    });
+</script>
+</body>
+</html>

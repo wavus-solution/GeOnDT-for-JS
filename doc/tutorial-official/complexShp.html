@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>SHP 주상 복합 모델 레이어 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        .col-sm-3 {
+            width: 23%
+        }
+
+        .ex-explanation {
+            width: 800px;
+        }
+
+        #analy-popup .div-popup {
+            width: 1190px;
+            height: 350px;
+        }
+
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu="return false;">
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> SHP 모델 레이어 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead" style="font-size: 16px">
+        Shp 파일을 업로드하여 3D 모델을 생성하는 레이어 예제입니다.<br>
+        <strong>생성한 3D 모델의 색상, 투명도, 외벽 텍스쳐 이미지 </strong>스타일을 설정할수 있습니다.
+    </p>
+    <pre>지도상에 설계건물(shp 파일)을 추가할 수 있습니다.
+        1. 설계건물(shp) 추가 버튼 클릭
+        2. 파일 목록창에서 shp파일 셋(shp, prj, dbf)을 선택합니다.
+            * shp파일이 선택되지 않으면 건물이 로드되지 않습니다.
+            * shp파일 셋(shp, prj, dbf)은 같은 이름이여야 합니다.
+            * prj 파일이 없을 경우 EPSG:5179 좌표로 로드 됩니다.
+        3. 저장버튼을 클릭하면 현재 로드된 설계건물이 저장됩니다.
+        4. 불러오기 버튼은 저장된 설계건물을 불러옵니다.
+        5. 전체지우기 버튼은 현재 로드된 모든 설계건물을 삭제합니다.
+        6. 건물색상 지정은 [선택] 버튼 클릭 후에 대상을 지정 후에 단일 및 전체 적용으로 설정할 수 있습니다.
+        7. 건물 텍스처 변경은 [선택] 버튼 클릭 후에 대상을 지정 후에 텍스트 이미지 파일을 불러 적용합니다.
+        8. 라벨 적용은 [선택] 버튼 클릭 후에 대상을 지정 후에 [라벨적용]버튼을 클릭하여 적용합니다.</pre>
+</div>
+<div id="map-wrapper">
+    <div>
+        <div id="map"></div>
+        <div id="div-left-menu">
+            <div id="left-menu-list-panel">
+                <div class="form-group div-layer">
+                    <div class="div-category">
+                        <label class="label-layerType">
+                            레이어
+                        </label>
+                    </div>
+                    <div id="layer-list">
+                        <div class="div-sub-category">
+                            <div class="sub-category-tile">
+                                <label class="label-layerType">
+                                    이미지 레이어
+                                </label>
+                                <div class="category-btn-group">
+                                    <label class="expand-btn layer">
+                                        <img src="image/btn_expand.svg" alt="">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sub-category-content">
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="satellite">
+                                        VWorld Satellite
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="base">
+                                        VWorld Base
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="hybrid">
+                                        VWorld Hybrid
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="osm">
+                                        OSM
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="google">
+                                        Google
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="emapsat">
+                                        Emap Satellite
+                                    </label>
+                                </div>
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="emapbase">
+                                        Emap Base
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="div-sub-category">
+                            <div class="sub-category-tile">
+                                <label class="label-layerType">
+                                    지형 레이어
+                                </label>
+                                <div class="category-btn-group">
+                                    <label class="expand-btn layer">
+                                        <img src="image/btn_expand.svg" alt="">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sub-category-content">
+                                <div class="checkbox">
+                                    <label>
+                                        <input class="input-showLayer" type="checkbox" target="korea_terrain">
+                                        전체 지형
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div style="display: inline-flex; position: relative">
+                    <button id="left-menu-bnt" class="btn btn-xs menu-btn">
+                        <img src="image/left_panel_open_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                    </button>
+                    <div class="div-btn-info" hidden>
+                        레이어 탭 열기
+                    </div>
+                </div>
+                <div>
+                    <div style="display: inline-flex; position: relative">
+                        <button id="analy-bnt" class="btn btn-xs menu-btn">
+                            <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                        </button>
+                        <div class="div-btn-info" hidden>
+                            분석 팝업 열기
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="btn-group" id='top-sbar'>
+            <div class='btn-group-vertical-block' id='right-toolbar'>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                    <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                         src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                         alt="나침반">
+                </button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                        id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                        id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+                <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                        id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg"
+                                                                     alt="">
+                </button>
+            </div>
+            <div class='btn-group' id='bt-bottom-bar'>
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                       value="위경도: ##.####  ###.#### ">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                       value="고도:####">
+                <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                       value="각도: ##">
+            </div>
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu="return false;">
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content">
+                <div class="col-sm-3">
+                    <div class="form-group" style="margin-left: 10px">
+                        <span class="btn btn-default" id="choose">설계건물(shp) 추가</span>
+                        <input multiple="multiple" type="file" id="getfile" name="filename[]" accept=".shp, .prj, .dbf"
+                               style="display: none">
+
+
+                        <div class="row" style="border: 2px solid #aaaaaa; border-radius: 5px; ">
+                            <div class="row" style="margin-top: 10px;margin-left: 10px;">
+                                <label for="stroke" class="control-label">건물색상_1(side)</label>
+                                <label for="stroke" class="control-label" style="margin-left: 4%">건물색상_2(top)</label>
+                            </div>
+
+                            <div class="row" style="margin-top: -5px; margin-left: 10px">
+                                <input id="stroke" type="color" name="stroke" value="#2d5625" style="width:70px;">
+                                <input id="stroke_2" type="color" name="stroke" value="#2d6625"
+                                       style="margin-left: 20%;width:70px;">
+                            </div>
+
+                            <div class="row" style="margin-top: 10px; margin-left: 10px">
+                                <label for="stroke" class="control-label">투명도 (0-1 사이의 소수)</label>
+                            </div>
+
+                            <div class="row" style="margin-top: -5px; margin-left: 10px; padding-bottom: 5px">
+                                <input id="transparent" name="transparent" style="width:85px;" value="1" min="0" max="1"
+                                       type="number" step="0.1">
+                                <button class="btn btn-default btn-sm apply" id="layer-apply" style="width:70px;">전체적용
+                                </button>
+                                <button class="btn btn-default btn-sm apply" id="apply" style="width:70px;">적용</button>
+                            </div>
+
+                        </div>
+
+                        <div class="row" style="margin-top: 8px;">
+                            <label for="stroke" class="control-label">건물 텍스쳐</label>
+                        </div>
+
+                        <div class="row" style="margin-top: -5px;">
+                            <button class="btn btn-default btn-sm apply" id="texture-apply" style="width:115px;">텍스쳐
+                                변경
+                            </button>
+                            <button class="btn btn-default btn-sm apply" id="texture-reset" style="width:115px;">텍스쳐
+                                초기화
+                            </button>
+                        </div>
+
+                        <div class="row" style="margin-top: 6px;">
+                            <label for="stroke" class="control-label">라벨</label>
+                        </div>
+                        <div class="row" style="margin-top: -6px;">
+                            <input id="label" name="label" style="width:155px;">
+                            <button class="btn btn-default btn-sm label-apply" id="label-apply" style="width:70px;">
+                                라벨적용
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-sm-4">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <div class="d-flex">
+                                <div>설계건물(shp) 목록</div>
+                                <div class="flex-1 text-right">
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-xs btn-save-building">저장</div>
+                                        <div class="btn btn-default btn-xs btn-load-building">불러오기</div>
+                                    </div>
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-xs btn-cancel-all">전체지우기</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                        <div class="remove-target-list h-300 scroll-auto panel-body">
+                            <pre>설계건물(shp)이 없습니다</pre>
+                        </div>
+                    </div>
+                    <div style="margin-left: 15px">
+                        <div class="row" style="margin-top: 8px;">
+                            <label for="stroke" class="control-label">건물 색상 프리셋</label>
+                        </div>
+                        <div class="row" style="margin-top: -5px;">
+                            <button class="btn btn-default btn-sm apply" id="style-preset-apply" style="width:115px;">색상
+                                프리셋 변경
+                            </button>
+                        </div>
+
+                        <div class="row" style="margin-top: 8px;">
+                            <label for="stroke" class="control-label">층별 나누기</label>
+                        </div>
+                        <div class="row" style="margin-top: -5px;">
+                            <button class="btn btn-default btn-sm apply" id="floor-apply" style="width:115px;">실행
+                            </button>
+                            <button class="btn btn-default btn-sm apply" id="floor-reset" style="width:115px;">초기화
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-sm-5">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <div class="d-flex">
+                                <div>선택된 건물 목록</div>
+                                <div class="flex-1 text-right">
+                                    <div class="btn-group">
+                                        <select name="mode" class="form-control input-sm">
+                                            <option value="point">클릭으로 선택 (Shift + click 시 다중선택 지원)</option>
+                                            <option value="area">영역으로 선택</option>
+                                        </select>
+                                    </div>
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-sm btn-select toggle">선택</div>
+                                    </div>
+                                    <div class="btn-group">
+                                        <div class="btn btn-default btn-sm btn-select-clear">선택 초기화</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="select-target-list h-300 scroll-auto panel-body">
+                            <pre>선택된 건물이 없습니다.</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script src="js/layerInfo.js"></script>
+
+<script id="execute-event">
+    let strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "200px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script id="set-imagelayer">
+    let ImageLayer = function (Union3D, app, opt) {
+        this._type = "ImageLayer";
+        this.layer = undefined;
+        this._union3d = Union3D;
+        this._app = app;
+        this._name = opt.name;
+        this.options = opt;
+        this.ready = $.Deferred();
+    }
+    ImageLayer.prototype.create = function () {
+        let self = this;
+        if (self._name === 'emapbase') {
+            self.layer = self._app.createEmapBaseLayer(this.options);
+        } else if (self._name === 'emapsat') {
+            self.layer = self._app.createEmapSatLayer(this.options);
+        } else {
+            self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
+            self._app.addLayer(this.layer);
+        }
+        this.layer.then(() => {
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+    ImageLayer.prototype.show = function (isShow) {
+        let promies = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow ? "시작" : "종료"));
+        this._app.showLayer(this.options.name, isShow).then(() => {
+            promies.resolve();
+        })
+        this.isShow = isShow;
+        return promies;
+    }
+</script>
+<script id="set-terrain">
+    let HeightLayer = function (Union3D, app, opt) {
+        this._type = "HeightLayer";
+        this.layer = undefined;
+        this._app = app;
+        if (opt.rectangle === undefined)
+            opt.rectangle = Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수
+        this.options = opt;
+        this._name = opt.name;
+        this.ready = $.Deferred();
+    }
+    HeightLayer.prototype.create = function () {
+        let self = this;
+        self.layer = this._app.createHeightXYZLayer(self.options);
+        self.layer.then(() => {
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+    HeightLayer.prototype.show = function (isShow) {
+        let promies = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow ? "시작" : "종료"));
+        this._app.showLayer(this.options.name, isShow).then(() => {
+            promies.resolve();
+        })
+        this.isShow = isShow;
+        return promies;
+    }
+</script>
+<script id="layer-setting">
+    const LAYER_OPT = {
+        satellite: {
+            name: 'satellite',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldsaturl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+        },
+        base: {
+            name: 'base', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldbaseurl,  //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            transparent: true //+ layer 투명화 여부
+        },
+        hybrid: {
+            name: 'hybrid', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldhybirdurl,  //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            transparent: true //+ layer 투명화 여부
+        },
+        osm: {
+            name: 'osm', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.osmurl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            transparent: true, //+ layer 투명화 여부
+        },
+        google: {
+            name: 'google',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.googleurl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            transparent: true,  //+ layer 투명화 여부
+        },
+        emapsat: {
+            name: 'emapsat',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            url: layerInfo.image.emapsaturl, //+ 레이어 url, defaultValue(opt.url, 'http://210.117.198.120:8081/o2map/services');
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            useProxy: true, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+            xyorder: "xy" //+ Col Row 순서, defaultValue(opt.xyorder, 'xy');
+        },
+        emapbase: {
+            name: 'emapbase', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            url: layerInfo.image.emapbaseurl, //+ 레이어 url, defaultValue(opt.url, 'http://mapapi.ngii.go.kr:8013/openapi/Gettile.do');
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            useProxy: true, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+            xyorder: "xy", //+ Col Row 순서, defaultValue(opt.xyorder, 'xy');
+        },
+        korea_terrain: {
+            name: 'korea_terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            ext: '.umf', //+ 파일 확장자, *필수 입력
+            reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+            minlevel: 9,  //+ 가시화 최소 레벨
+            maxlevel: 15, //+ 가시화 최대 레벨
+            useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+            maxprocess: 2, //+ process 최대값
+            interpolationheight: true,  //+ 고도보간 기능 사용 여부
+        }
+    };
+
+    let LayerList = function (Union3D, app) {
+        return {
+            //이미지레이어
+            satellite: new ImageLayer(Union3D, app, LAYER_OPT.satellite),
+            base: new ImageLayer(Union3D, app, LAYER_OPT.base),
+            hybrid: new ImageLayer(Union3D, app, LAYER_OPT.hybrid),
+            osm: new ImageLayer(Union3D, app, LAYER_OPT.osm),
+            google: new ImageLayer(Union3D, app, LAYER_OPT.google),
+            emapsat: new ImageLayer(Union3D, app, LAYER_OPT.emapsat),
+            emapbase: new ImageLayer(Union3D, app, LAYER_OPT.emapbase),
+
+            //고도레이어
+            korea_terrain: new HeightLayer(Union3D, app, LAYER_OPT.korea_terrain)
+        }
+    }
+</script>
+<script>
+    let currentTextureIndex = 0;
+    let currentStyleIndex = 0;
+
+    let textureList = [
+        `${dataServerUrl}image/buld/buld_texture_1.jpg`,
+        `${dataServerUrl}image/buld/buld_texture_2.jpg`,
+        `${dataServerUrl}image/buld/buld_texture_3.jpg`,
+    ];
+
+    let topStyleParmeters = [
+
+        {
+            color: 0xD4D6D7,
+            emissive: 0x333333,
+            metalness: 0.0,
+            roughness: 0.9,
+            opacity:1,
+            side: 2  // 0 : BackSide, 1 : FrontSide, 2 : DoubleSide
+        },
+        {
+            color: 0xD4D6D7,
+            emissive: 0x333333,
+            metalness: 0.0,
+            roughness: 0.9,
+            opacity: 0,
+            side: 2  // 0 : BackSide, 1 : FrontSide, 2 : DoubleSide
+        },
+        {
+            color: 0xD4D6D7,
+            emissive: 0x333333,
+            metalness: 0.0,
+            roughness: 0.9,
+            opacity: 1,
+            side: 2  // 0 : BackSide, 1 : FrontSide, 2 : DoubleSide
+        },
+
+
+    ]
+    let sideStyleParmeters = [
+
+        {
+            polygonOffset:-2,
+            depthWrite: true,
+            color: 0x333333,
+            emissive: 0x333333,
+            metalness: 0.0,
+            roughness: 0.9,
+            opacity: 0.5,
+            side: 2  // 0 : BackSide, 1 : FrontSide, 2 : DoubleSide
+        },
+        {
+            scale:0.99,
+            polygonOffset:0,
+            depthWrite: true,
+            color: 0xCCC097,
+            emissive: 0x333333,
+            metalness: 0.0,
+            roughness: 0.9,
+            opacity: 0.8,
+            side: 2  // 0 : BackSide, 1 : FrontSide, 2 : DoubleSide
+        },
+        {
+            scale:0.98,
+            depthWrite: true,
+            color: 0x67BAF9,
+            emissive: 0x333333,
+            metalness: 0.0,
+            roughness: 0.9,
+            opacity: 0.8,
+            side: 2  // 0 : BackSide, 1 : FrontSide, 2 : DoubleSide
+        }
+    ]
+
+    let currentTextureVisible = true;
+
+    window.saveParameter = [];
+
+    Union3D.ready(async function () {
+        //지도 기본 세팅///////////////////////////////////////
+        window.app = new Union3D.U3dAPP({
+            containername: 'map' //+ U3dApp(지도영역)의 div ID, *필수 입력
+        });
+        app.setIntensityLight(0.8);
+        app.setHomePosition(126.96581614997346, 37.523504862572274, 2000, 0, 45); //경도, 위도, 높이, 방위각, 고도각
+        app.updateHomePosition();
+
+
+        app.on('change', updatePosData);
+        app.createloadingBar('load');
+        app.loadingBar();
+
+        try {
+            await loadShpFile(layerInfo.shp.complexBuilding1);
+            await loadShpFile(layerInfo.shp.complexBuilding2);
+            await loadShpFile(layerInfo.shp.complexBuilding3);
+        }catch(e){
+            console.log("loadShpFile is fail.")
+        }
+
+        //이미지 레이어 생성
+        let layers = new LayerList(Union3D, app);
+        let initLayerList = ['satellite', 'korea_terrain']
+        initLayar(initLayerList);
+
+        $(document).on('click', '.input-showLayer:input[type=checkbox]', function (e) {
+            const $checkbox = $(e.target);
+            const name = $checkbox.attr('target');
+            checkLayer(name, $checkbox[0].checked);
+        });
+
+        function checkLayer(name, checked) {
+            if (checked) {
+                if (layers[name].layer === undefined) {
+                    layers[name].create();
+                }
+                layers[name].show(true);
+            } else {
+                layers[name].show(false);
+            }
+        }
+
+        function initLayar(list) {
+            const basename = list[0];
+            Union3D.UDEF.createPromise((resolve) => {
+                list.forEach((name) => {
+                    if (layers[name].layer === undefined) {
+                        layers[name].create();
+                        layers[name].ready.then(() => {
+                            if (name === basename)
+                                app.setNameBaseLayer(name);
+
+                            app.showLayer(name, true);
+                            $('.input-showLayer:input[target=' + name + ']').prop("checked", true);
+                        });
+                    }
+                });
+                resolve(true);
+            }).then((resolve) => {
+                if (resolve)
+                    app.endloadingBar();
+            });
+        }
+
+        $('#choose').click(function () {
+            $('#getfile').click();
+        });
+        let layerList = [];
+        let file = document.querySelector('#getfile');
+        let depthCount = 0;
+        file.onchange = function (e) {
+            let promises = [];
+            let fileList = e.target.files;
+
+            for (let i = 0; i < fileList.length; i++) {
+                let fileObject = fileList[i];
+                promises.push(readFile(fileObject));
+            }
+
+            $.when.apply($, promises).done(function (promise1, promise2, promise3) {
+
+                let parser = new Union3D.parser.UShpParser();
+                let result = getResult([promise1, promise2, promise3]);
+                if (result != undefined) {
+                    app.createloadingBar('load');
+                    app.loadingBar('load');
+                    // prj 파일이 입력되지 않았을 때는 epsg 5179를 기본값으로 설정
+
+                    result.prj = 'EPSG:5174';
+                    let shp = parser.parseShp(result.shp, result.prj);
+
+                    if (shp !== undefined) {
+                        let dbf = parser.parseDbf(result.dbf);
+                        let featureCollection = parser.combine([shp, dbf]);
+                        if (shp[0] && shp[0].bbox && shp[0].bbox[0] !== undefined) {
+                            let modelPosX = shp[0].bbox[0];
+                            let modelPosY = shp[0].bbox[1];
+                            app.setHomePosition(modelPosX, modelPosY, 435, 0, 0)
+                            app.updateHomePosition().then(function () {
+                                let param = {result, featureCollection}
+                                app._drawArg.endloadingBar(1500, createLayer, param)
+//                                    createLayer(result,featureCollection)
+                            })
+                        } else if (shp.length > 0) {
+                            let modelPosX = shp[0].coordinates[0];
+                            let modelPosY = shp[0].coordinates[1];
+                            app.setHomePosition(modelPosX, modelPosY, 435, 0, 0)
+                            app.updateHomePosition().then(function () {
+                                let param = {result, featureCollection}
+                                app._drawArg.endloadingBar(1500, createLayer, param)
+//                                    createLayer(result,featureCollection)
+                            })
+                        } else {
+                            app._drawArg.endloadingBar(100);
+                        }
+                        return true;
+                    } else {
+                        confirm('shp파일이 선택되지 않았습니다.')
+                    }
+                } else {
+                    // 같은 이름의 shp, prj, dbf 파일이 아닌 경우
+                    confirm('잘못된 shp파일 셋(shp, prj, dbf) 입니다.')
+                }
+
+                $("#getfile").val('');
+                app.endloadingBar();
+            });
+
+        };
+
+        function createLayer(param) {
+            if (param === undefined || param === null)
+                return;
+            let result = param.result;
+            let featureCollection = param.featureCollection;
+            let layer = new Union3D.model.U3dModelShapeLayer({
+                name: result.name,
+                minlevel: 17,
+                transparent: true,
+                style: {
+                    color: 0xD4D6D7,
+                    opacity: 0.5,
+                    transparent: true
+                },
+                textureurl: textureList, //외벽 텍스쳐 이미지를 적용할시 반드시 입력, (다중 이미지 사용시 리스트 입력, 단일 이미지 사용시 문자열입력)
+                usetexture: false,
+                // 레이어 생성부 바로 텍스쳐 이미지를  적용 할시 true 입력
+                // textureurl 이 리스트일 경우 0번 인덱스의 텍스쳐 url 사용
+                // styleFunction이 입력 되어있을 경우 styleFunction의 러턴값 우선 적용
+                useproxy: true,
+
+                heightFunction: heightFunction, // 층별 높이 함수 설정
+                landHeightFunction: landHeightFunction, // 층별 바닥 높이 설정
+                depthOffset: depthCount, // 여러파일 추가시 render 우선순위 설정 (높을수록 우선순위 비례)
+                setTopSideStyle: true, // 옆면, 윗면 각각 style 설정 유무
+                //
+                styleFunction: styleFunction,
+                // styleFunction의 리턴 스타일 값으로 스타일을 적용 할 수있습니다.
+                // styleFunction의 리턴 값으로 스타일 적용 할시, layer.updateStyle()를 호출 하여야 합니다.
+
+            });
+            app.addLayer(layer);
+            try {
+                layer.ready(()=>{
+                    if (featureCollection.features.length > 0) {
+                        app.showLayer(layer.getName(), true);
+                        layer.addFeatureCollection(featureCollection);
+
+                        let topParameters = topStyleParmeters[currentStyleIndex];
+                        let sideParameters = sideStyleParmeters[currentStyleIndex];
+
+                        layer._modelList.forEach(function (model) {
+                            layer.setTopStyle(model, topParameters);
+                            layer.setSideStyle(model, sideParameters);
+                        });
+                        currentStyleIndex++;
+                        layerList.push(layer);
+                        printShpModels();
+                        depthCount++;
+                        confirm("설계건물(shp)이 로드되었습니다.\n\n (※ 지도상에 잘못된 위치에 로드되었다면 prj 파일을 확인하세요.)");
+                    }
+                })
+
+            } catch (e) {
+                confirm(e.message);
+            }
+        }
+
+        function heightFunction(feature) {
+            let height;
+            if ((feature != undefined) && (feature.properties != undefined)) {
+                let floorHeight = feature.properties['EXTR_HG'];
+                if (floorHeight !== undefined)
+                    height = floorHeight;
+            }
+
+            return height;
+        }
+
+        function landHeightFunction(feature) {
+            let landHeight;
+            if ((feature !== undefined) && (feature.properties !== undefined)) {
+                let floorNum = feature.properties['FLR_NO'];
+                let floorHeight = feature.properties['EXTR_HG'];
+                landHeight = (floorNum - 1) * floorHeight;
+            }
+            return landHeight;
+        }
+
+        function styleFunction(feature) {
+            return {
+                //color: color, //+ 색상 입력 가능
+                opacity: 1, //+투명도 입력 가능
+                visible: true, //+ 가시화 여부
+                imgvisible: currentTextureVisible, //+ 이미지 가시화 여부
+                imgurl: textureList[currentTextureIndex] //+ 이미지 url
+            };
+        }
+
+        function getResult(promiseArray) {
+            let result = {};
+            let name = undefined;
+            let extArray = [];
+
+            for (let i = 0; i < promiseArray.length; i++) {
+                let promise = promiseArray[i];
+                if (promise === undefined) {
+                    continue;
+                }
+                if (promise.ext === 'shp') {
+                    result.shp = promise;
+                } else if (promise.ext === 'dbf') {
+                    result.dbf = promise;
+                } else if (promise.ext === 'prj') {
+                    result.prj = promise;
+                }
+
+                if (!verifyShapefileSet(name, extArray, promise)) {
+                    result = undefined;
+                    return result;
+                } else {
+                    name = promise.name;
+                    extArray.push(promise.ext);
+                }
+            }
+            result.name = name;
+            return result;
+        }
+
+        function verifyShapefileSet(name, extArray, promise) {
+            // 같은 이름의 shp, prj, dbf가 아니면 잘못된 파일셋
+            // 파일포맷(shp, prj, dbf) 중 중복된 파일포맷이 입력된 경우는 잘못된 파일셋
+            let verify = false;
+
+            if (name === undefined) {
+                verify = true;
+                return verify;
+            } else {
+                if (name === promise.name && verifyExtArray(extArray, promise.ext)) {
+                    verify = true;
+                } else {
+                    verify = false;
+                }
+            }
+            return verify
+        }
+
+        function verifyExtArray(extArray, ext) {
+            let verify = extArray.includes(ext);
+            return !verify;
+        }
+
+        function readFile(FILE_ELEMENT, callback) {
+            let promise = $.Deferred();
+            let reader = new FileReader();
+
+            let fileInfo = getFileInfo(FILE_ELEMENT.name);
+            reader.onload = function (ev) {
+                // callback({result: reader.result, ext: ext});
+                promise.resolve({result: reader.result, ext: fileInfo.ext, name: fileInfo.name})
+            };
+            if (fileInfo.ext === 'shp') {
+                reader.readAsArrayBuffer(FILE_ELEMENT);
+                //  reader.readAsText(FILE_ELEMENT);
+            } else if (fileInfo.ext === 'prj')
+                reader.readAsText(FILE_ELEMENT);
+            else if (fileInfo.ext === 'dbf') {
+                reader.readAsArrayBuffer(FILE_ELEMENT);
+                // reader.readAsText(FILE_ELEMENT);
+            }
+            return promise;
+        }
+
+        function getFileInfo(path) {
+            let sOriginImgUrl = path;
+            let arSplitUrl = sOriginImgUrl.split("/");    //   "/" 로 전체 url 을 나눈다
+            let nArLength = arSplitUrl.length;
+            let arFileName = arSplitUrl[nArLength - 1];   // 나누어진 배열의 맨 끝이 파일명이다
+            let arSplitFileName = arFileName.split(".");   // 파일명을 다시 "." 로 나누면 파일이름과 확장자로 나뉜다
+
+            let fileInfo = {
+                name: arSplitFileName[0],   // 파일이름
+                ext: arSplitFileName[1]     // 확장자
+            };
+
+            return fileInfo;
+        }
+
+
+        function objectInfoClick(e) {
+            var selected = e.data.select;
+            if (selected === undefined || selected.length === 0) {
+                return;
+            }
+            var point = app.closestPointAtPixel(e.data.mouseEvent);
+            point = app.vector3ToGeoGraphic(point);
+            createOverlay(selected[0], point);
+
+        }
+
+        function createOverlay(obj, position) {
+            var html = printOverlayHtml(obj);
+            var overlay = new Union3D.overlay.U3dOverlay({
+                name: 'select',
+                id: obj.uuid,
+                element: $(html),
+                position: position,
+                balloon: {x: -50, y: 10},
+                useanchor: true
+            });
+            app.removeAllOverlay();
+            app.addOverlay(overlay);
+            overlay.show();
+            //var $element = overlay.getElement();
+            // $element.on('click', '.close', popUpCloseClick.bind(overlay));
+            return overlay;
+        }
+
+
+        function printOverlayHtml(obj) {
+            let str = '';
+            str += '<div class="u3-popup" id=' + obj.uuid + '>';
+            str += '<div class="u3-popup-content">';
+            str += '<div class="modal-header">';
+            str += '<button type="button" class="close"><span aria-hidden="true">&times;</span>';
+            str += '</button>';
+            str += '</div>';
+            // str += '<div class="d-flex select-item" layer="' + obj.getLayerName() + '"uid="' + obj.getUid() + '" >';
+            // str += '<div class="flex-1">'
+            str += '<span class="badge">레이어 이름</span>' + obj.getLayerName() + '&nbsp';
+            str += '<span class="badge">호실</span>' + obj._uproperties['HO_NO'] + '</div>';
+            str += '<div class="text-right">';
+            str += '</div>';
+            str += '</div>';
+
+            str = str === '' ? '<pre>선택된 건물이 없습니다</pre>' : str;
+            return str;
+
+        }
+
+        function printShpModels() {
+            let list = layerList;
+            let str = '';
+            list.forEach(function (object) {
+                str += '<div class="d-flex layer" name="' + object.getName() + '">';
+                str += '<div class="flex-1 layer-name-div">' + object.getName() + '</div>';
+                str += '<div class="text-right">';
+                str += '<div class="btn-group">';
+                str += '<div class="btn btn-xs btn-default btn-showLabel">라벨보기</div>';
+                str += '<div class="btn btn-xs btn-default btn-hideLabel">라벨숨김</div>';
+                str += '<div class="btn btn-xs btn-danger btn-cancel-remove">삭제</div>';
+                str += '</div>';
+                str += '</div>';
+                str += '</div>';
+            });
+
+
+            str = str === '' ? '<pre>설계건물(shp)이 없습니다</pre>' : str;
+            $('.remove-target-list').html(str);
+
+        }
+
+
+        $(document).on('click', '.layer-name-div', function () {
+            let name = $(this).closest('.layer').attr('name');
+            let layer = app.getLayerByName(name);
+            if (layer != undefined) {
+                selectOn();
+                select.addSelected(layer._modelList)
+
+            }
+        });
+
+        //레이어 라벨 보이기
+        $(document).on('click', '.btn-showLabel', function () {
+            let name = $(this).closest('.layer').attr('name');
+            let layer = app.getLayerByName(name);
+            layer.showLabel(true);
+        });
+
+        //레이어 라벨 감추기
+        $(document).on('click', '.btn-hideLabel', function () {
+            let name = $(this).closest('.layer').attr('name');
+            let layer = app.getLayerByName(name);
+            layer.showLabel(false);
+        });
+
+        // 설계건물 삭제
+        $(document).on('click', '.btn-cancel-remove', function () {
+            let name = $(this).closest('.layer').attr('name');
+
+            let layer = app.getLayerByName(name);
+            if (layer)
+                app.removeLayer(layer);
+            let idx = layerList.findIndex(function (layer_) {
+                return layer_ === layer;
+            });
+            if (idx > -1) {
+                layerList.splice(idx, 1);
+                document.querySelector('#getfile').value = "";
+                printShpModels();
+            }
+        });
+
+        // 전체 지우기
+        $('.btn-cancel-all').on('click', function () {
+            layerList.forEach(function (value) {
+                let name = value.getName();
+                app.removeLayer(name);
+            });
+            layerList = [];
+            printShpModels();
+        });
+
+        // 저장하기
+        $('.btn-save-building').on('click', function () {
+            layerList.forEach(function (value) {
+                let saveData = value.getParam();
+                saveData.featureCollection = value.getFeatureCollection();
+                saveParameter.push(JSON.stringify(saveData));
+            });
+
+            confirm('설계건물 작업이 저장되었습니다.')
+        });
+
+        // 불러오기
+        $('.btn-load-building').on('click', function () {
+            $('.btn-cancel-all').click();
+
+            if (saveParameter.length === 0) {
+                confirm('저장된 설계건물 목록이 없습니다');
+                return;
+            }
+
+            for(let i=0; i<saveParameter.length;i++){
+                const option = saveParameter[i];
+                let shpModelOpt = JSON.parse(option);
+
+                shpModelOpt.heightFunction = heightFunction;
+                shpModelOpt.landHeightFunction = landHeightFunction;
+                shpModelOpt.setTopSideStyle = true;
+                shpModelOpt.textureUrl = textureList;
+                let layer = new Union3D.model.U3dModelShapeLayer(shpModelOpt);
+                try {
+                    app.addLayer(layer);
+                    app.showLayer(layer.getName(), true);
+                    layer.addFeatureCollection(shpModelOpt.featureCollection);
+                    layerList.push(layer);
+
+                    let topParameters = topStyleParmeters[currentStyleIndex];
+                    let sideParameters = sideStyleParmeters[currentStyleIndex];
+
+                    layer._modelList.forEach(function (model) {
+                        layer.setTopStyle(model, topParameters);
+                        layer.setSideStyle(model, sideParameters);
+                    });
+                    currentStyleIndex++;
+
+                    if (currentStyleIndex === 3) {
+                        currentStyleIndex = 0;
+                    }
+                    let geo = {x: 126.96581614997346, y: 37.523504862572274};
+                    layer.setShpPositionFromGeographic(geo);
+
+                    app.setHomePosition(geo.x, geo.y, 435, 0, 0)
+                    app.updateHomePosition().then(function () {
+                        app._drawArg.endloadingBar(1500, createLayer);
+                        layer.setGroupOriginPosition();
+                        layer.setFloorFromGroupName(55, 0, '층', 'FLR_NO');
+                    });
+
+                } catch (e) {
+                    confirm(e.message);
+                }
+            }
+
+            printShpModels();
+            confirm(layerList.length + "개의 설계건물(shp)을 불러왔습니다.");
+        });
+
+        //선택 모듈 기본 설정
+        let select;
+        let isSelectMode = false;
+        $('.btn-select').on('click', function () {
+            const $this = $(this);
+            if (!isSelectMode) {
+                selectOn();
+                isSelectMode = true;
+                $this.addClass('active');
+            } else {
+                selectOff();
+                isSelectMode = false;
+                $this.removeClass('active');
+            }
+
+        });
+        $(document).on('click', 'input[type=checkbox]', checked);
+
+        function checked(e) {
+            var $checkbox = $(e.target);
+            if ($checkbox[0].checked) {
+                app.setFlyMode();
+                app.getDomElement().focus();
+            } else {
+                app.setPanMode();
+            }
+        }
+
+        //선택 모듈 활성화
+        function selectOn() {
+            if (select !== undefined) {
+                return;
+            }
+            select = new Union3D.select.U3dSelect({mode: 'point'});
+            app.addSelect(select);
+            // selector 스타일 변경, addSelect() 실행 후, 아래 API 호출해야 적용가능
+            select.setSelectorColor({ //선택 영역 스타일 변경, resetSelectorColor() -> 기본설정으로 초기화
+                stroke: {
+                    color: 'rgba(255, 255, 0, 1.0)',
+                    width: 3
+                },
+                fill: {
+                    color: 'rgba(255,0,255,0.5)'
+                }
+            });
+            select.setSelectedColor('rgba(255,100,0)', 0.4);
+            select.active();
+            //건물선택시 발생되는 이벤트
+            select.on('change', printSelectedList);
+        }
+
+        //선택 모듈 비활성화
+        function selectOff() {
+            if (select === undefined) {
+                return;
+            }
+            select.deactive();
+            app.removeSelect(select);
+            select.off('change', printSelectedList);
+            select = undefined;
+        }
+
+        //선택모드 설정
+        $(document).on('change', 'select[name="mode"]', function () {
+            if (select === undefined) {
+                $('.btn-select').trigger('click');
+            }
+            select.setMode(this.value); //선택 방식을 설정하는 함수
+        });
+
+        // 선택 초기화 버튼
+        $(document).on('click', '.btn-select-clear', function () {
+            select.clear();
+            let str = '<pre>선택된 건물이 없습니다</pre>';
+            $('.select-target-list').html(str);
+        });
+
+        function printSelectedList(e) {
+            let selected = e.data;
+            let str = '';
+            if (selected && e.data && e.data.length > 0) {
+                selected.forEach(function (obj) {
+                    if(!obj.isLine2 && obj._uproperties){
+                        str += '<div class="d-flex select-item" layer="' + obj.getLayerName() + '"uid="' + obj.getUid() + '" >';
+                        str += '<div class="flex-1">'
+                        str += '<span class="badge">레이어 이름</span>' + obj.getLayerName() + '&nbsp';
+                        str += '<span class="badge">ID</span>' + obj.getUid() + '</div>';
+                        str += '<span class="badge">호실</span>' + obj.name + '</div>';
+                        str += '<div class="text-right">';
+                        str += '</div>';
+                    }
+                });
+            }
+            str = str === '' ? '<pre>선택된 건물이 없습니다</pre>' : str;
+            $('.select-target-list').html(str);
+            return str;
+        }
+
+        $('#label-apply').on('click', function (e) {
+            if (select === undefined || select.getSelected().length === 0) {
+                alert('Please Select Object.');
+                return;
+            }
+            select.getSelected().forEach(function (value) {
+                value.setLabelText($('#label').val());
+            });
+            //select.clear();
+        });
+
+
+        //스타일 적용 버튼
+        $('#apply').on('click', function (e) {
+            if (select === undefined || select.getSelected().length === 0) {
+                alert('Please Select Object.');
+                return;
+            }
+            select.getSelected().forEach(function (obj) {
+
+                let sideParameters = {
+                    color: $('#stroke').val(),
+                    emissive: $('#stroke').val(),
+                    metalness: 0.9,
+                    roughness: 0.5,
+                    opacity: Number($('#transparent').val()),
+                    side: 2  // 0 : BackSide, 1 : FrontSide, 2 : DoubleSide
+                }
+
+                let topParameters = {
+                    color: $('#stroke_2').val(),
+                    emissive: $('#stroke_2').val(),
+                    metalness: 0.7,
+                    roughness: 0.1,
+                    opacity: Number($('#transparent').val()),
+                    side: 2  // 0 : BackSide, 1 : FrontSide, 2 : DoubleSide
+                }
+
+                //
+                let layerName = obj.getLayerName();
+                let idx = layerList.findIndex(function (layer) {
+                    return layer.getName().equalIgnoreCase(layerName);
+                });
+                if (idx > -1) {
+                    let layer = layerList[idx];
+                    if (layer._setTopSideStyle) {
+                        layer.setTopStyle(obj, topParameters);
+                        layer.setSideStyle(obj, sideParameters);
+                    } else {
+                        obj.setColor($('#stroke').val());
+                        //obj.setEmissive( $('#stroke').val());
+                        obj.setOpacity($('#transparent').val());
+                    }
+                }
+            });
+            // select.clear();
+        });
+
+        //스타일 전체 적용 버튼
+        $('#layer-apply').on('click', function (e) {
+            if (select === undefined || select.getSelected().length === 0) {
+                alert('Please Select Object.')
+                return;
+            }
+
+            let sideParameters = {
+                color: $('#stroke').val(),
+                emissive: $('#stroke').val(),
+                metalness: 0.0,
+                roughness: 0.0,
+                opacity: Number($('#transparent').val()),
+                side: 2  // 0 : BackSide, 1 : FrontSide, 2 : DoubleSide
+            }
+
+            let topParameters = {
+                color: $('#stroke_2').val(),
+                emissive: $('#stroke_2').val(),
+                metalness: 0.7,
+                roughness: 0.1,
+                opacity: Number($('#transparent').val()),
+                side: 2  // 0 : BackSide, 1 : FrontSide, 2 : DoubleSide
+            }
+
+            window.ll = layerList;
+            let layerNames = [];
+            select.getSelected().forEach(function (obj) {
+                //select.clear();
+                let layerName = obj.getLayerName();
+                if (!layerNames.includes(layerName)) {
+                    let idx = layerList.findIndex(function (layer) {
+                        return layer.getName() === layerName;
+                    });
+                    if (idx > -1) {
+                        let layer = layerList[idx];
+                        if (!layer._setTopSideStyle) {
+                            layer.setStyle({
+                                color: $('#stroke').val(),
+                                opacity: $('#transparent').val()
+                            });
+
+                        } else {
+                            layer._modelList.forEach(function (model) {
+                                layer.setTopStyle(model, topParameters);
+                                layer.setSideStyle(model, sideParameters);
+                            });
+                        }
+                        layerNames.push(layerName);
+                    }
+                }
+            });
+        });
+        $('#texture-apply').on('click', function (e) {
+            currentTextureIndex++;
+            currentTextureVisible = true;
+            if (currentTextureIndex === 3) {
+                currentTextureIndex = 0;
+            }
+            if (select === undefined || select.getSelected().length === 0) {
+                alert('Please Select Object.');
+                return;
+            }
+            let layerNames = [];
+            select.getSelected().forEach(function (obj) {
+                //select.clear();
+                let layerName = obj.getLayerName();
+                if (!layerNames.includes(layerName)) {
+                    let idx = layerList.findIndex(function (layer) {
+                        return layer.getName() === layerName;
+                    });
+                    if (idx > -1) {
+                        let layer = layerList[idx];
+                        layer._useTexture = true;
+                        layer._textureUrl = textureList[currentTextureIndex];
+                        layer.updateStyle();
+                        layerNames.push(layerName);
+                    }
+
+                }
+            });
+        });
+
+
+        $('#texture-reset').on('click', function (e) {
+            currentTextureVisible = false;
+
+            if (select.getSelected().length === 0) {
+                return;
+            }
+            select.getSelected().forEach(function (obj) {
+                //select.clear();
+
+                let layerName = obj.getLayerName();
+                let idx = layerList.findIndex(function (layer) {
+                    return layer.getName() === layerName;
+                });
+                if (idx > -1) {
+                    let layer = layerList[idx];
+                    layer.updateStyle();
+                }
+
+            });
+        });
+
+        $('#style-preset-apply').on('click', function (e) {
+            currentStyleIndex++;
+            if (currentStyleIndex === 3) {
+                currentStyleIndex = 0;
+            }
+            if (select === undefined || select.getSelected().length === 0) {
+                alert('Please Select Object.');
+                return;
+            }
+            let layerNames = [];
+            select.getSelected().forEach(function (obj) {
+               // select.clear();
+                let layerName = obj.getLayerName();
+                if (!layerNames.includes(layerName)) {
+                    let idx = layerList.findIndex(function (layer) {
+                        return layer.getName() === layerName;
+                    });
+                    if (idx > -1) {
+                        let layer = layerList[idx];
+                        let topParameters = topStyleParmeters[currentStyleIndex];
+                        let sideParameters = sideStyleParmeters[currentStyleIndex];
+
+                        layer._modelList.forEach(function (model) {
+                            layer.setTopStyle(model, topParameters);
+                            layer.setSideStyle(model, sideParameters);
+                        });
+
+                        layerNames.push(layerName);
+                    }
+                }
+            });
+
+        });
+
+
+        $('#floor-apply').on('click', function (e) {
+            if (layerList.length > 0) {
+                let offset = 0.05;
+                layerList.forEach(function (layer) {
+                    layer.animateInterval(1, 0, 0, 12).then(()=>{
+                        layer._modelList.forEach((mesh)=>{
+                            mesh._oriPosition.z += offset;
+                        });
+                        offset += 0.05;
+                    });
+                });
+            }
+        });
+
+        $('#floor-reset').on('click', function (e) {
+            if (layerList.length > 0) {
+                layerList.forEach(function (layer) {
+                    layer.moveUserGroupPosition(0, 0, 0);
+                })
+            }
+        });
+        window.app = app;
+    });
+
+    function loadShpFile (url) {
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                url: url
+                , type: 'GET'
+                , async: true
+                , processData: false
+                , contentType: false
+                , success: function (result) {
+                    saveParameter.push(result);
+                    resolve();
+                }
+                , fail: function (request, status, error) {
+                    reject();
+                }
+            });
+        });
+    }
+</script>
+</body>
+</html>
+

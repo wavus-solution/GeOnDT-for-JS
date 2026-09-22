@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>충돌검사 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        html, body {
+            height: 100%;
+        }
+
+        #analy-popup .div-popup {
+            width: 320px;
+            height: fit-content;
+            top: 15px;
+            overflow: auto;
+        }
+
+
+        #collision-status-popup .div-popup {
+            width: 320px;
+            height: 660px;
+            top: 10px;
+            left: calc(100vw - 370px);
+        }
+
+        #collision-status-popup .div-popup .div-popup-control {
+            background-color: rgb(43, 69, 140);
+            height: 40px;
+        }
+
+        #collision-status-popup .div-popup .div-popup-control .btn {
+            background-color: black;
+            color: white;
+            border: 0;
+        }
+
+        #collision-status-popup .div-popup {
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+        }
+
+        .div-popup-content {
+            padding: 15px;
+            overflow: visible;
+        }
+
+        .collision-status-panel {
+            margin-top: 12px;
+            padding: 10px;
+            border: 1px solid #d9d9d9;
+            border-radius: 6px;
+            background: #282828;
+        }
+
+        .collision-status-panel strong {
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .collision-status-summary {
+            margin-bottom: 8px;
+            font-size: 12px;
+            color: #9a9a9a;
+        }
+
+        .collision-status-list {
+            height: 540px;
+            overflow-y: auto;
+            margin: 0;
+            padding-left: 18px;
+            font-size: 12px;
+        }
+
+        .collision-status-list li + li {
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu='return false'>
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> 충돌검사 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        드론 컴포넌트와 폴리곤 영역(비행금지 영역)간의 충돌을 검사하는 예제입니다.
+    </p>
+</div>
+<div id="map-wrapper">
+    <div id="map"></div>
+    <div id="div-left-menu" oncontextmenu='return false'>
+        <div>
+            <div style="display: inline-flex; position: relative">
+                <button id="analy-bnt" class="btn btn-xs menu-btn">
+                    <img src="image/analytics_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+                </button>
+                <div class="div-btn-info" hidden>
+                    분석 팝업 열기
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="btn-group" id='top-sbar'>
+        <div class='btn-group-vertical-block' id='right-toolbar'>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+                <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                     src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                     alt="나침반">
+            </button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                    id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                    id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+            <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                    id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+            </button>
+        </div>
+        <div class='btn-group' id='bt-bottom-bar'>
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+                   value="위경도: ##.####  ###.#### ">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+                   value="고도:####">
+            <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+                   value="각도: ##">
+        </div>
+    </div>
+    <div id="analy-popup" oncontextmenu='return false'>
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content">
+                <div style="display: ruby">
+                    <div class="checkbox">
+                        <label>
+                            <input id="u3f-layer" type="checkbox">
+                            건물 가시화
+                        </label>
+                    </div>
+                    <div class="checkbox">
+                        <label>
+                            <input id="createDebugCanvas" type="checkbox" >
+                            성능 정보 출력
+                        </label>
+                    </div>
+
+
+
+
+
+
+                </div>
+                <div class="col-md-12" style="margin-bottom: 10px">
+                    헬리콥터 모델 개수 : <span id="heliCnt">0</span><br>
+                    드론 모델 개수 : <span id="droneCnt">0</span><br>
+                    전체 모델 개수 : <span id="totalCnt">0</span>
+                </div>
+                <div class="collision-status-panel" style="display:none;">
+                    <strong>충돌 현황</strong>
+                    <div class="collision-status-summary" id="collisionStatusSummaryInline">
+                        충돌 중 0건 / 전체 0개 / 충돌률 0.00%
+                    </div>
+                    <ol class="collision-status-list" id="collisionStatusListInline">
+                        <li>충돌 중인 오브젝트가 없습니다.</li>
+                    </ol>
+                </div>
+                <div class="form-group">
+                    <label for="add-count">추가/삭제 개수</label>
+                    <input type="number" class="form-control input-sm" id="add-count" value="100" min="1" step="1">
+                </div>
+                <div class="form-group">
+                    <label for="object-type">모델 선택</label>
+                    <select class="form-control input-sm" id="object-type">
+                        <option value="ka27" >헬리콥터</option>
+                        <option value="drone_02" selected>드론</option>
+                    </select>
+                </div>
+                <div class="radio">
+                    <label>
+                        <input type="radio" name="mode" value="play" checked>
+                        애니메이션 시작
+                    </label>
+                </div>
+                <div class="radio">
+                    <label>
+                        <input type="radio" name="mode" value="stop">
+                        애니메이션 정지
+                    </label>
+                </div>
+                <div class="form-group">
+                    <button class="btn btn-default" id="add">추가</button>
+                    <button class="btn btn-default" id="delete">삭제</button>
+                    <button class="btn btn-default" id="deleteAll">모두 지우기</button>
+                    <button class="btn btn-default" id="map-mode">지도모드</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="collision-status-popup" oncontextmenu='return false'>
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <span style="float: left; margin-left: 20px">충돌 검사</span>
+            </div>
+            <div class="div-popup-content">
+                <div class="collision-status-panel" style="margin-top: 0;">
+                    <div class="collision-status-summary" id="collisionStatusSummary">
+                        충돌 중 0건/ 전체 0개/ 충돌률 0.00%
+                    </div>
+                    <ol class="collision-status-list" id="collisionStatusList">
+                        <li>충돌 객체 없음</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="load">
+        <img src="image/loading.svg" alt="loading">
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+            $('#collision-status-popup').hide();
+            $('#analy-bnt').removeClass('active');
+            $('#collision-status-bnt').removeClass('active');
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active')){
+            $('#analy-popup').show();
+            $('#collision-status-popup').show();
+        }
+        else {
+            $('#analy-popup').hide();
+            $('#collision-status-popup').hide();
+        }
+    });
+
+    $(document).on('click', '#collision-status-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#collision-status-popup').show();
+        else
+            $('#collision-status-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('#collision-status-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+        $('.collision-popup-exit').on('click', function () {
+            $('#collision-status-popup').hide();
+            $('#collision-status-bnt').removeClass('active');
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script id="set-imagelayer">
+    let ImageLayer = function (GeOnDT, app, opt) {
+        this._type = "ImageLayer";
+        this.layer = undefined;
+        this._GeOnDT = GeOnDT;
+        this._app = app;
+        this._name = opt.name;
+        this.options = opt;
+        this.ready = $.Deferred();
+    }
+    ImageLayer.prototype.create = function () {
+        let self = this;
+        if (self._name === 'emapbase') {
+            self.layer = self._app.createEmapBaseLayer(this.options);
+        } else if (self._name === 'emapsat') {
+            self.layer = self._app.createEmapSatLayer(this.options);
+        } else {
+            self.layer = new self._GeOnDT.image.U3dImageXYZLayer(this.options);
+            self._app.addLayer(this.layer);
+        }
+        this.layer.then(() => {
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+    ImageLayer.prototype.show = function (isShow) {
+        let promies = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow ? "시작" : "종료"));
+        this._app.showLayer(this.options.name, isShow).then(() => {
+            promies.resolve();
+        })
+        this.isShow = isShow;
+        return promies;
+    }
+</script>
+<script id="set-terrain">
+    let HeightLayer = function (GeOnDT, app, opt) {
+        this._type = "HeightLayer";
+        this.layer = undefined;
+        this._app = app;
+        this.options = opt;
+        this._name = opt.name;
+        this.ready = $.Deferred();
+    }
+    HeightLayer.prototype.create = function () {
+        let self = this;
+        self.layer = this._app.createHeightXYZLayer(self.options);
+        self.layer.then(() => {
+            self.ready.resolve();
+        }).catch(function () {
+            self.ready.reject();
+        });
+    }
+    HeightLayer.prototype.show = function (isShow) {
+        let promies = $.Deferred();
+        console.log(this.options.name + " 레이어 가시화 " + (isShow ? "시작" : "종료"));
+        this._app.showLayer(this.options.name, isShow).then(() => {
+            promies.resolve();
+        })
+        this.isShow = isShow;
+        return promies;
+    }
+</script>
+<script id="layer-setting">
+    const LAYER_OPT = {
+        satellite: {
+            name: 'satellite',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldsaturl, //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+        },
+        hybrid: {
+            name: 'hybrid', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+            baseurl: layerInfo.image.vworldhybirdurl,  //+ 이미지 데이터 URL, *필수 입력
+            reverseY: true, //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            transparent: true //+ layer 투명화 여부
+        },
+        korea_terrain: {
+            name: 'korea_terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+            baseurl: layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+            ext: '.umf', //+ 파일 확장자, *필수 입력
+            reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+            minlevel: 9,  //+ 가시화 최소 레벨
+            maxlevel: 17, //+ 가시화 최대 레벨
+        }
+    };
+
+    let LayerList = function (GeOnDT, app) {
+        return {
+            //이미지레이어
+            satellite: new ImageLayer(GeOnDT, app, LAYER_OPT.satellite),
+            hybrid: new ImageLayer(GeOnDT, app, LAYER_OPT.hybrid),
+            //고도레이어
+            korea_terrain: new HeightLayer(GeOnDT, app, LAYER_OPT.korea_terrain)
+        }
+    }
+</script>
+
+<script>
+    let cnt = 0;
+    const COMPONENT_SPEED = 1000;
+    const COMPONENT_START_POSITION = {x: 126.91415231094318, y: 37.53189615862187, z: 430};
+    const DEFAULT_COMPONENT_COLOR = '#ffffff';
+    const COLLISION_COMPONENT_COLOR = '#ff4d4f';
+
+    let componentSeq = 0;
+    const componentNamesByModel = {
+        ka27: [],
+        drone_02: []
+    };
+    const modelCounts = {
+        ka27: 0,
+        drone_02: 0
+    };
+    GeOnDT.ready(function () {
+        document.title = 'Collision Check Grid';
+        const componentMap = new Map();
+        const collisionRatios = new Map();
+        const collisionComponents = new Set();
+        let noFlyCollider = undefined;
+        const noFlyColliders = [];
+
+        const componentOption = {
+            model: {
+                name: 'animationModel',
+                rotation: {x: 0, y: 0, z: 0},
+                scale: {x: 5, y: 5, z: 5},
+                needxml: false,
+                drawline: false,
+                backgroudlight: false,
+                type: "model",
+                listmodel: [
+                    {
+                        name: 'ka27',
+                        baseurl: layerInfo.model.helicopterurl,
+                        fileName: 'ka27',
+                        ext: 'fbx',
+                        rotation: {x: 90, y: 0, z: 0},
+                        scale: {x: 0.3, y: 0.3, z: 0.3},
+                        colliderRadius: 80
+                    },
+                    {
+                        name: 'drone_02',
+                        baseurl: layerInfo.model.drone2url,
+                        fileName: layerInfo.model.drone2name,
+                        ext: layerInfo.model.drone2ext,
+                        rotation: {x: 0, y: 0, z: 0},
+                        scale: {x: 1.2, y: 1.2, z: 1.2},
+                        colliderRadius: 35
+                    }
+                ]
+            }
+        };
+        const modelInfoMap = componentOption.model.listmodel.reduce(function (map, info) {
+            map[info.name] = info;
+            return map;
+        }, {});
+
+        //지도 기본 세팅///////////////////////////////////////
+        const app = new GeOnDT.U3dAPP({
+            containername: 'map', //+ U3dApp(지도영역)의 div ID, *필수 입력
+            ratioModelTileSize : 3,
+            cameraType: 'orthographic',
+            postOption: {
+                useAO:false,
+                useBloom: false
+            }
+        });
+        window.app = app;
+        app.setHomePosition(126.9395, 37.525, 5000, 2, 10); //경도, 위도, 높이, 방위각, 고도각
+        app.updateHomePosition();
+
+        app.on('change', updatePosData);
+
+        app.createloadingBar('load');
+        app.loadingBar();
+
+        //이미지 레이어 생성
+        let layers = new LayerList(GeOnDT, app);
+        let initLayerList = ['satellite', 'korea_terrain']
+        initLayar(initLayerList);
+
+        $(document).on('click', '.input-showLayer:input[type=checkbox]', function (e) {
+            const $checkbox = $(e.target);
+            const name = $checkbox.attr('target');
+            checkLayer(name, $checkbox[0].checked);
+        });
+
+        function checkLayer(name, checked) {
+            if (checked) {
+                if (layers[name].layer === undefined) {
+                    layers[name].create();
+                }
+                layers[name].show(true);
+            } else {
+                layers[name].show(false);
+            }
+        }
+
+        function initLayar(list) {
+            const basename = list[0];
+            GeOnDT.UDEF.createPromise((resolve) => {
+                list.forEach((name) => {
+                    if (layers[name].layer === undefined) {
+                        layers[name].create();
+                        layers[name].ready.then(() => {
+                            if (name === basename)
+                                app.setNameBaseLayer(name);
+
+                            app.showLayer(name, true);
+                            $('.input-showLayer:input[target=' + name + ']').prop("checked", true);
+                        });
+                    }
+                });
+                resolve(true);
+            }).then((resolve) => {
+                if (resolve)
+                    app.endloadingBar();
+            });
+        }
+
+        // u3f(2.3) model layer 가시화
+        const u3fLayerName = 'U3F_2.3_ModelLayer';
+        $('#u3f-layer').on('click', function () {
+            const checked = this.checked;
+            const layer = app.getLayerByName(u3fLayerName);
+            if (checked) {
+                if(layer){
+                    return app.showLayer(u3fLayerName, true);
+                }else{
+                    createU3fModelLayers().then(function () {
+                        return app.showLayer(u3fLayerName, true);
+                    }).catch(function () {
+                        $('#u3f-layer').prop('checked', false);
+                    });
+                }
+            }else{
+                if(layer)
+                    app.showLayer(u3fLayerName, false);
+            }
+        });
+
+        function getU3fModelLayerInfo() {
+            return {
+                useServer: true,
+                serverUrl: trdDimResUrl + 'v1/layers?type=u3f&category=AL_D198',
+                minlevel: 15,
+                maxlevel: 15,
+                options: {
+                    useproxy: false,
+                    compressmodel: true,
+                    isShareMaterial: true,
+                    makeU3FPackage: 0
+                }
+            };
+        }
+
+        function requestU3fLayerList(serverUrl) {
+            return $.ajax({
+                url: serverUrl,
+                crossDomain: true,
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader('User-Authorization', trdDimAPIKey);
+                    xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+                },
+                error: function (e) {
+                    console.info(e);
+                }
+            });
+        }
+
+        function createU3fModelLayers() {
+            const info = getU3fModelLayerInfo();
+            let groupLayer = app.createModelGroupLayer({
+                name: u3fLayerName,
+                maxlevel: info.maxlevel,
+                minlevel: info.minlevel
+            });
+
+            requestU3fLayerList(info.serverUrl).then(function (result) {
+                const infos = (result && result.params && result.params.data) ? result.params.data : [];
+                const activeInfos = infos.filter(function (layerInfo) {
+                    return layerInfo && layerInfo.state === 'ACTIVE';
+                });
+
+                if (activeInfos.length === 0) {
+                    return;
+                }
+
+                activeInfos.forEach(function (layerInfo) {
+                    let baseName = layerInfo.fileName;
+                    if (!baseName || baseName === '') {
+                        baseName = layerInfo.name;
+                    }
+
+                    const options = {
+                        name: layerInfo.name,
+                        basename: baseName,
+                        baseurl: layerInfo.baseUrl,
+                        useproxy: info.options.useproxy,
+                        minlevel: layerInfo.metaData ? layerInfo.metaData.minLevel : info.minlevel,
+                        maxlevel: layerInfo.metaData ? layerInfo.metaData.maxLevel : info.maxlevel,
+                        compressmodel: info.options.compressmodel,
+                        isShareMaterial: info.options.isShareMaterial,
+                        makeU3FPackage: info.options.makeU3FPackage
+                    };
+
+                    const subLayer = app.create3DFModelLayer(options);
+                    if(subLayer){
+                        subLayer.then(function () {
+                            groupLayer.addLayer(subLayer);
+                        })
+                    }
+
+                });
+            })
+            return groupLayer
+        }
+
+        window.collisionManager = new GeOnDT.collision.UCollisionManager({
+            cellSize: 400,
+            scheduled: true,
+            interval: 20
+        });
+        collisionManager.on('update', updateColliderWorld);
+
+        // 충돌한 컴포넌트를 하이라이트 시키는 함수
+        function setComponentHighLight(componentName, collided) {
+            const component = componentMap.get(componentName);
+            if (!component) return;
+
+            if (collided) {
+                if (!collisionComponents.has(componentName)) {
+                    collisionComponents.add(componentName);
+                    component.setColor(COLLISION_COMPONENT_COLOR);
+                }
+                return;
+            }
+
+            if (collisionComponents.delete(componentName)) {
+                component.setColor(DEFAULT_COMPONENT_COLOR);
+            }
+        }
+
+        //////프로세스 디버그 가시화
+        $('#createDebugCanvas').on('click',function (){
+            const checked = this.checked;
+            if(checked)
+                app?.createDebugCanvas?.();
+            else{
+                app?.removeDebugCanvas?.();
+            }
+        })
+
+
+        // 충돌 영역 생성
+        const vectorLayer = new GeOnDT.vector.U3dVectorLayer({
+            name: 'vector',
+            dynamicUpdate: true
+        });
+        app.addLayer(vectorLayer);
+        app.showLayer('vector', true);
+
+        window.loftGeometry = new GeOnDT.geom.U3dPolygonLoftGeometry({
+            height: 1000,
+            name: 'restrictedArea',
+            opacity: 0.3,
+            color: '#ff4d4f',
+            topScale: 0.5,
+            useLine: true
+        });
+        vectorLayer.addGeometry(loftGeometry);
+        const points = [
+            {x: 126.91160394254062, y: 37.53278998812233, z: 15.21680868980816},
+            {x: 126.91661229349282, y: 37.521076644871776, z: 7.171354462428442},
+            {x: 126.92850218092813, y: 37.51697157560039, z: 14.67666965280854},
+            {x: 126.94376024678945, y: 37.51904331019058, z: 4.999959677992425},
+            {x: 126.93972119176922, y: 37.52370591100043, z: 6.160741083380991},
+            {x: 126.93125022809969, y: 37.53032517011463, z: 7.381352701905269},
+            {x: 126.92256421436922, y: 37.533693207724596, z: 6.0730599339741875},
+            {x: 126.91079701332058, y: 37.534731251465374, z: 5.000075929304552}
+        ]
+        for(let lonlat of points) {
+            loftGeometry.addPosition(lonlat.x, lonlat.y, lonlat.z + 1);
+        }
+
+        // 비행 금지 구역 충돌체 생성
+        noFlyCollider = GeOnDT.collision.UPolygonCollider.fromGeometry(loftGeometry, {
+            id: 'restrictedAreaCollider',
+            groupName: 'nofly',
+            groups: ['drone'],
+            isTrigger: true,
+            collisionMode: 'polygon'
+        });
+        // 매니저에 비행 금지 구역 충돌체 추가
+        collisionManager.addCollider(noFlyCollider);
+        noFlyColliders.push(noFlyCollider);
+
+        const blueLoftGeometry = new GeOnDT.geom.U3dPolygonLoftGeometry({
+            height: 1000,
+            name: 'restrictedAreaBlue',
+            opacity: 0.3,
+            color: '#2f6fff',
+            topScale: 0.5,
+            useLine: true
+        });
+        vectorLayer.addGeometry(blueLoftGeometry);
+        const bluePoints = [
+            {x: 126.909975, y: 37.511493, z: 5},
+            {x: 126.918935, y: 37.514182, z: 5},
+            {x: 126.926928, y: 37.511268, z: 5},
+            {x: 126.927201, y: 37.505209, z: 5},
+            {x: 126.912068, y: 37.505487, z: 5}
+        ];
+        for (let lonlat of bluePoints) {
+            blueLoftGeometry.addPosition(lonlat.x, lonlat.y, lonlat.z + 1);
+        }
+
+        const blueNoFlyCollider = GeOnDT.collision.UPolygonCollider.fromGeometry(blueLoftGeometry, {
+            id: 'restrictedAreaBlueCollider',
+            groupName: 'nofly',
+            groups: ['drone'],
+            isTrigger: true,
+            collisionMode: 'polygon'
+        });
+        collisionManager.addCollider(blueNoFlyCollider);
+        noFlyColliders.push(blueNoFlyCollider);
+
+        const concaveLoftGeometry = new GeOnDT.geom.U3dPolygonLoftGeometry({
+            height: 1000,
+            name: 'restrictedAreaConcave',
+            opacity: 0.3,
+            color: '#ffd21f',
+            topScale: 0.5,
+            useLine: true
+        });
+        vectorLayer.addGeometry(concaveLoftGeometry);
+        const concavePoints = [
+            {x: 126.888500, y: 37.523000, z: 5},
+            {x: 126.896500, y: 37.524600, z: 8},
+            {x: 126.906800, y: 37.525700, z: 5},
+            {x: 126.907300, y: 37.523000, z: 9},
+            {x: 126.908200, y: 37.520700, z: 5},
+            {x: 126.898500, y: 37.519700, z: 7},
+            {x: 126.899400, y: 37.516000, z: 5},
+            {x: 126.895300, y: 37.515000, z: 8},
+            {x: 126.891300, y: 37.514300, z: 5},
+            {x: 126.886500, y: 37.521500, z: 7}
+        ];
+        for (let lonlat of concavePoints) {
+            concaveLoftGeometry.addPosition(lonlat.x, lonlat.y, lonlat.z + 1);
+        }
+
+        const concaveNoFlyCollider = GeOnDT.collision.UPolygonCollider.fromGeometry(concaveLoftGeometry, {
+            id: 'restrictedAreaConcaveCollider',
+            groupName: 'nofly',
+            groups: ['drone'],
+            isTrigger: true,
+            collisionMode: 'polygon'
+        });
+        collisionManager.addCollider(concaveNoFlyCollider);
+        noFlyColliders.push(concaveNoFlyCollider);
+
+        /////////////////////////////////////////////////////
+
+        var option = componentOption.model;
+        var animationLayer = new GeOnDT.model.U3dMultipleComponentLayer(option);
+        app.addLayer(animationLayer);
+        animationLayer.setInstanced(true);
+        window.animationLayer = animationLayer;
+        animationLayer.ready(function () {
+            app.showLayer(option.name, true).then(function () {
+                console.log("U3dMultipleComponentLayer show");
+            });
+        });
+
+        $(document).on('click', 'input[type="radio"]', function (e) {
+            var target = e.target.value;
+            if (target === 'play') {
+                animationLayer.startAnimation();
+            } else {
+                animationLayer.pauseAnimation();
+            }
+        })
+
+        $('#deleteAll').on('click', function () {
+            cnt = 0;
+            componentNamesByModel.ka27.length = 0;
+            componentNamesByModel.drone_02.length = 0;
+            modelCounts.ka27 = 0;
+            modelCounts.drone_02 = 0;
+            componentMap.clear();
+            collisionRatios.clear();
+            collisionManager.clear();
+            for (const collider of noFlyColliders) {
+                collisionManager.addCollider(collider);
+            }
+            updateCountText();
+            animationLayer.removeAllComponent();
+        });
+
+        let viewTarget = undefined;
+        $('#map-mode').on('click', function () {
+            if(!viewTarget) return;
+            viewTarget.setCameraTrace(false);
+            let position = viewTarget.getVectorPosition();
+            app.setCameraWorldPosition({
+                x: position.x,
+                y: position.y,
+                z: position.z + 1000,
+                rotateX: 0,
+                rotateY: 0
+            });
+        });
+
+        $('#randomView').on('click', function () {
+            if(viewTarget)  {
+                viewTarget.setCameraTrace(false);
+                viewTarget = undefined;
+            }
+            viewTarget = getRandomTarget();
+            if(!viewTarget) return;
+            const offset = {x: 0, y: -0, z: 50}
+            const targetOffset = {x: 40, y: 40, z: 30};
+            viewTarget.setCameraTrace(true, 'ThirdPersonFront', offset, targetOffset);
+        });
+
+        function getRandomTarget() {
+            const list = animationLayer.getComponents();
+
+            if (!Array.isArray(list) || list.length === 0) {
+                return undefined;
+            }
+
+            const randomIndex = Math.floor(Math.random() * list.length);
+            return list[randomIndex];
+        }
+
+        function updateCountText() {
+            $('#heliCnt').text(modelCounts.ka27);
+            $('#droneCnt').text(modelCounts.drone_02);
+            $('#totalCnt').text(cnt);
+            renderCollisionStatus();
+        }
+
+        function renderCollisionStatus() {
+            const totalCount = Math.max(cnt, 0);
+            const activeCollisions = collisionRatios.size;
+            const collisionRate = totalCount > 0 ? (activeCollisions / totalCount) * 100 : 0;
+
+            $('#collisionStatusSummary').text(
+                `충돌 중 ${activeCollisions}건 / 전체 ${totalCount}개 / 충돌률 ${collisionRate.toFixed(2)}%`
+            );
+
+            const $list = $('#collisionStatusList');
+            $list.empty();
+
+            if (activeCollisions === 0) {
+                $list.append('<li>충돌 중인 오브젝트가 없습니다.</li>');
+                return;
+            }
+
+            const items = Array.from(collisionRatios.entries()).sort(function (a, b) {
+                return b[1] - a[1];
+            });
+
+            for (const [componentName, ratio] of items) {
+                $list.append(`<li>${componentName} - ${(ratio * 100).toFixed(2)}%</li>`);
+            }
+        }
+
+        function getRequestCount() {
+            const count = parseInt($('#add-count').val(), 10);
+            if (!Number.isFinite(count) || count < 1) {
+                $('#add-count').val(1);
+                return 1;
+            }
+            return count;
+        }
+
+        function getSelectedModelInfo() {
+            return modelInfoMap[$('#object-type').val()] || modelInfoMap.ka27;
+        }
+
+
+        $('#delete').on('click', function () {
+            const selectedModel = getSelectedModelInfo().name;
+            const selectedNames = componentNamesByModel[selectedModel];
+            const count = Math.min(getRequestCount(), selectedNames.length);
+            cnt -= count;
+            for (var i = 0; i < count; i++) {
+                const componentName = selectedNames.pop();
+                if (componentName) {
+                    modelCounts[selectedModel] = Math.max(0, modelCounts[selectedModel] - 1);
+                    unregisterComponentCollider(componentName);
+                    animationLayer.removeComponentByName(componentName);
+                }
+            }
+            updateCountText();
+        });
+
+        function addComponent(delay, modelInfo){
+            return new Promise((resolve, reject) => {
+                try {
+                    const componentName = modelInfo.name + '_' + componentSeq++;
+                    componentNamesByModel[modelInfo.name].push(componentName);
+                    modelCounts[modelInfo.name] += 1;
+                    const component = animationLayer.addPosition({
+                        geoPosition: COMPONENT_START_POSITION, //+ 컴포넌트를 추가할 위경도 위치
+                        speed: COMPONENT_SPEED, //+ 컴포넌트 속도
+                        repeat: true, //+ 반복 이동 여부
+                        movepointlist: [],    //경로설정 옵션, 컴포넌트의 이동경로 배열
+                        object: modelInfo.name,
+                        rotation: modelInfo.rotation, //모델 회전 보정
+                        scale: modelInfo.scale,
+                        name: componentName,
+                        updateAnimationFunc: requestCollisionUpdate
+                    });
+                    // 충돌체 등록
+                    registerComponentCollider(component, modelInfo);
+                    resolve();
+                } catch (e) {
+                    reject();
+                }
+            });
+        }
+
+        // 컴포넌트에 충돌체 추가
+        function registerComponentCollider(component, modelInfo) {
+            if (!component) return;
+
+            componentMap.set(component.name, component);
+            // 콜린더(sphere) 생성
+            const collider = new GeOnDT.collision.USphereCollider({
+                id: component.name,
+                target: component,
+                radius: modelInfo.colliderRadius || 30,
+                groupName: 'drone',
+                groups: ['nofly'],
+            });
+
+            // 매니저에 드론 충돌체 등록
+            collisionManager.addCollider(collider);
+        }
+
+        // 컴포넌트에 충돌체 제거
+        function unregisterComponentCollider(componentName) {
+            // 매니저에 드론 충돌체 해제
+            collisionManager.removeCollider(componentName);
+
+            setComponentHighLight(componentName, false);
+            const component = componentMap.get(componentName);
+            if (component) componentMap.delete(componentName);
+
+            collisionRatios.delete(componentName);
+            renderCollisionStatus();
+        }
+
+        function requestCollisionUpdate(pos, lookAt, rot, perDist, nowDist, component) {
+            if (!component?.name) return;
+            const colliderId = component.name;
+            collisionManager.updateCollider(colliderId, pos);
+        }
+
+        function updateColliderWorld(e) {
+            // 비행 금지 구역(교차 대상)이 없으면 리턴
+            if (noFlyColliders.length === 0) return;
+
+            const newCollisionComponents = new Set();
+            collisionRatios.clear();
+
+            // 충돌 객체
+            const hits = collisionManager.getIntersectionsByGroup('nofly', false);
+            for (const {collider: noFlyAreaCollider, hit: componentCollider} of hits) {
+                const componentName = componentCollider.id;
+                if (!componentMap.has(componentName)) continue;
+                newCollisionComponents.add(componentName);
+                const ratio = GeOnDT.collision.computeIntersectionRatio(componentCollider, noFlyAreaCollider);
+                collisionRatios.set(componentName, Math.max(collisionRatios.get(componentName) ?? 0, ratio));
+            }
+
+            // 충돌->비충돌인 컴포넌트 하이라이트 해제
+            for (const componentName of collisionComponents) {
+                if (!newCollisionComponents.has(componentName)) {
+                    setComponentHighLight(componentName, false);
+                }
+            }
+            // 비충돌->충돌인 컴포넌트 하이라이트
+            for (const componentName of newCollisionComponents) {
+                setComponentHighLight(componentName, true);
+            }
+
+            renderCollisionStatus();
+        }
+
+        $('#add').on('click', async function () {
+            const count = getRequestCount();
+            const modelInfo = getSelectedModelInfo();
+            cnt += count;
+            updateCountText();
+
+            $("input:radio[name='mode']:radio[value='play']").click();
+            try{
+                for (let i = 0; i < count; i++) {
+                    await addComponent(5,modelInfo);
+                }
+            }catch (e){
+                console.error(e);
+            }
+
+            updateCountText();
+        });
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>단층 (Fault)</title>
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body id="explanation">
+<!-- AUTO-GENERATED FILE: edit the corresponding Markdown source instead. -->
+<main class="markdown-document">
+<h1 id="단층-fault">단층 (Fault)</h1>
+<h2 id="목차">목차</h2>
+<ol>
+<li><a href="#1-%EB%8B%A8%EC%B8%B5-%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0">단층 생성하기</a></li>
+<li><a href="#2-%EB%8B%A8%EC%B8%B5%EB%A9%B4-%ED%98%95%ED%83%9C-%EC%A7%80%EC%A0%95%ED%95%98%EA%B8%B0">단층면 형태 지정하기</a></li>
+<li><a href="#3-%EA%B9%8A%EC%9D%B4%EB%B3%84-%EC%83%89%EC%83%81-%EC%A7%80%EC%A0%95%ED%95%98%EA%B8%B0">깊이별 색상 지정하기</a></li>
+<li><a href="#4-%EC%99%B8%EA%B3%BD%EC%84%A0%EA%B3%BC-%EA%B0%95%EC%A1%B0-%ED%91%9C%EC%8B%9C%ED%95%98%EA%B8%B0">외곽선과 강조 표시하기</a></li>
+<li><a href="#5-%EC%86%8D%EC%84%B1%EC%A0%95%EB%B3%B4%EC%99%80-%ED%95%B4%EC%A0%9C">속성정보와 해제</a></li>
+</ol>
+<div class="document-thumbnail" data-size="medium">
+<figure class="document-image">
+<img src="image/faultStart/thumbnail.png" alt="지하 모드에서 깊이별 그라디언트로 표시된 단층면" loading="eager">
+<figcaption>지하 모드에서 깊이별 그라디언트로 표시된 단층면</figcaption>
+</figure>
+</div>
+<p><code>U3dFault</code>는 지표의 상단 좌표에서 지하로 뻗어 내려가는 단층면을 표시합니다.<br>지질 조사 결과의 단층, 절리, 파쇄대처럼 땅속으로 기울어 들어가는 면을 지도 위에 겹쳐 볼 때 사용합니다.</p>
+<p>단층면은 상단 좌표를 기준으로 경사각(<code>dip</code>)만큼 기울어져 폭(<code>width</code>)만큼 지하로 내려간 면으로 만들어집니다.<br><mark>단층면은 지하에 만들어지므로 지하 모드를 켜야 화면에서 보입니다.</mark></p>
+<blockquote>
+<ul>
+<li><strong>주향(strike)</strong>: 단층면이 지표와 만나는 선의 방향입니다. 정북을 기준으로 한 각도(도)로 나타냅니다.</li>
+<li><strong>경사(dip)</strong>: 단층면이 수평면에 대해 기울어진 각도(도)입니다. <code>90</code>이면 수직으로 서고, 값이 작을수록 완만하게 눕습니다.</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="1-단층-생성하기">1. 단층 생성하기</h2>
+<p><code>U3dFault</code> 생성자로 객체를 만들고 <code>U3dVectorLayer.addGeometry</code>로 레이어에 등록하면 화면에 표시됩니다.<br>레이어를 만들고 도형을 등록·제거하는 방법은 <a href="vectorLayerStart.html#2-%EB%8F%84%ED%98%95-%EB%93%B1%EB%A1%9D%ED%95%98%EA%B3%A0-%EC%A0%9C%EA%B1%B0%ED%95%98%EA%B8%B0">3D Geometry 시작하기 - 도형 등록하고 제거하기</a>에서 설명합니다.</p>
+<p><mark><code>app</code>과 <code>topCoordinates</code>는 반드시 넘겨야 합니다.</mark><br>단층면은 지형 고도와 수직 축척을 참조해 만들어지므로 앱 객체가 필요하고, 상단 좌표가 있어야 면의 위치가 정해집니다.</p>
+<p><code>width</code>도 함께 지정합니다.<br>생략하면 면의 깊이가 정해지지 않아 형상이 만들어지지 않습니다.</p>
+<h4 class="api-heading" id="api">API</h4>
+<p>U3dFault(<code>opt</code>) : 단층 객체를 생성하는 생성자</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opt</code> (<code>object</code>) : 단층 생성 옵션</li>
+<li><code>opt.app</code> (<code>U3dApp</code>) : 앱 객체. <strong>필수</strong></li>
+<li><code>opt.topCoordinates</code> (<code>Array&lt;GeoPositionVector3&gt;</code>) : 단층 상단 좌표 배열 (위경도, EPSG:4326). <strong>필수</strong></li>
+<li><code>opt.width</code> (<code>number</code>) : 경사 방향으로 내려가는 폭(m). <strong>필수</strong></li>
+<li><code>opt.length</code> (<code>number</code>) : 주향 방향 길이(m). 상단 좌표가 하나일 때 사용. 기본값: <code>0</code></li>
+<li><code>opt.dip</code> (<code>number</code>) : 경사각(도). 기본값: <code>0</code></li>
+<li><code>opt.dtop</code> (<code>number</code>) : 단층 상단부의 깊이(m). 기본값: <code>0</code></li>
+<li><code>opt.strike</code> (<code>number</code>) : 정북 기준 주향 각도(도). 상단 좌표가 하나일 때 사용. 기본값: <code>0</code></li>
+<li><code>opt.name</code> (<code>string</code>) : 객체 이름</li>
+<li><code>opt.colors</code> (<code>Array&lt;ColorRepresentation&gt;</code>) : 깊이별 그라디언트 색상 배열(2~10개)</li>
+<li><code>opt.opacity</code> (<code>number</code>) : 투명도(0~1). 기본값: <code>0.7</code></li>
+<li><code>opt.outline</code> (<code>boolean</code>) : 외곽선 표시 여부. 기본값: <code>false</code></li>
+<li><code>opt.lineWidth</code> (<code>number</code>) : 외곽선 두께(화면 픽셀). 기본값: <code>2</code></li>
+<li><code>opt.fadeStartDepth</code> (<code>number</code>) : 투명도 감소가 시작되는 깊이(m). 기본값: <code>3000</code></li>
+<li><code>opt.properties</code> (<code>KeyValue</code>) : 사용자 정의 속성정보</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-1">API</h4>
+<p>U3dApp.setUnderGroundMode(<code>enable</code>) : 지하 모드를 켜고 끄는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>enable</code> (<code>boolean</code>) : <code>true</code>면 지하 모드</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-2">API</h4>
+<p>U3dApp.setEnableOpacityImageLayers(<code>enable</code>) : 영상 레이어 투명 처리 사용 여부를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>enable</code> (<code>boolean</code>) : <code>true</code>면 영상 레이어를 반투명하게 처리</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-3">API</h4>
+<p>U3dApp.setOpacityImageLayers(<code>opacity</code>) : 영상 레이어의 투명도를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opacity</code> (<code>number</code>) : 투명도(0~1)</li>
+</ul>
+</details>
+<h3 id="1-단층-생성-예제">1. 단층 생성 예제</h3>
+<p>지하 모드를 켜고 지표 영상을 반투명하게 만들면, 지상 시점에서도 지하의 단층면이 비쳐 보입니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> app <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>U3dAPP</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">containername</span><span class="token operator">:</span> <span class="token string">'map'</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> vectorLayer <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>vector<span class="token punctuation">.</span>U3dVectorLayer</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'vector'</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+app<span class="token punctuation">.</span><span class="token function">setUnderGroundMode</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>            <span class="token comment">// 지하 모드</span>
+app<span class="token punctuation">.</span><span class="token function">setEnableOpacityImageLayers</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// 지표를 반투명하게</span>
+app<span class="token punctuation">.</span><span class="token function">setOpacityImageLayers</span><span class="token punctuation">(</span><span class="token number">0.5</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> fault <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>geom<span class="token punctuation">.</span>U3dFault</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'fault_01'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">app</span><span class="token operator">:</span> app<span class="token punctuation">,</span>
+    <span class="token literal-property property">topCoordinates</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span><span class="token number">126.9393</span><span class="token punctuation">,</span> <span class="token number">37.5194</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">width</span><span class="token operator">:</span> <span class="token number">300</span><span class="token punctuation">,</span>     <span class="token comment">// 경사 방향 폭</span>
+    <span class="token literal-property property">length</span><span class="token operator">:</span> <span class="token number">400</span><span class="token punctuation">,</span>    <span class="token comment">// 주향 방향 길이</span>
+    <span class="token literal-property property">dip</span><span class="token operator">:</span> <span class="token number">60</span>         <span class="token comment">// 경사각</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+vectorLayer<span class="token punctuation">.</span><span class="token function">addGeometry</span><span class="token punctuation">(</span>fault<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="2-단층면-형태-지정하기">2. 단층면 형태 지정하기</h2>
+<p>단층면의 모양은 상단 좌표와 아래 값들로 정해집니다.</p>
+<ul>
+<li><code>width</code> : 경사면을 따라 내려가는 폭</li>
+<li><code>dip</code> : 면이 수평에서 기울어진 각도</li>
+<li><code>dtop</code> : 단층 상단부의 깊이</li>
+<li><code>strike</code> : 면이 뻗어 나갈 방향</li>
+<li><code>length</code> : 면이 뻗어 나갈 거리</li>
+</ul>
+<p><strong>width와 dip</strong> — 이 둘이 단층면이 도달하는 깊이를 정합니다.<br>같은 <code>width</code>라도 <code>dip</code>이 클수록 더 깊은 곳까지 내려갑니다.</p>
+<p><strong>dtop</strong> — 지표에 드러나지 않고 땅속 일정 깊이에서 시작하는 단층을 표현할 때 사용합니다.</p>
+<p><strong>strike와 length</strong> — 상단 좌표가 하나일 때, 면이 어느 방향으로 얼마나 뻗을지를 정합니다.</p>
+<p>단층면은 지표 쪽의 윗변 하나를 잡고, 그 변을 <code>dip</code> 각도로 <code>width</code>만큼 땅속으로 내려 만든 면입니다.<br><mark>윗변은 선이라서 점이 두 개 필요합니다.</mark><br>그래서 상단 좌표를 하나만 주면 <code>strike</code>(방향)와 <code>length</code>(거리)로 두 번째 점을 계산해 윗변을 완성하고, 두 개 이상 주면 그 점들이 그대로 윗변이 됩니다.</p>
+<figure class="document-image">
+<img src="image/faultStart/fault_top_edge.png" alt="상단 좌표가 하나면 strike 방향과 length 거리로 두 번째 점을 만들어 윗변을 완성하고, 두 개 이상이면 준 점들이 그대로 윗변이 되는 것을 비교한 그림" loading="eager">
+<figcaption>상단 좌표가 하나면 strike 방향과 length 거리로 두 번째 점을 만들어 윗변을 완성하고, 두 개 이상이면 준 점들이 그대로 윗변이 되는 것을 비교한 그림</figcaption>
+</figure>
+<div class="document-table">
+<table>
+<thead><tr><th>상단 좌표</th><th>만들어지는 단층면</th><th><code>strike</code> / <code>length</code></th></tr></thead>
+<tbody><tr><td>1개</td><td>지정한 방향으로 뻗은 면 하나</td><td>필요</td></tr>
+<tr><td>2개 이상</td><td>좌표를 이은 선을 따라 꺾이는 면</td><td>불필요</td></tr></tbody>
+</table>
+</div>
+<p>조사 결과가 단층선 형태로 주어질 때는 좌표를 그대로 넣으면 됩니다.<br>이때는 방향과 길이가 좌표에서 정해집니다.</p>
+<p>생성 후 형태를 바꿀 때는 <code>setParam</code>을 사용합니다.</p>
+<h4 class="api-heading" id="api-4">API</h4>
+<p>U3dFault.setParam(<code>param</code>) : 단층 속성을 갱신하고 형태를 다시 만드는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>param</code> (<code>object</code>) : 변경할 속성 객체</li>
+<li><code>param.width</code> (<code>number</code>) : 경사 방향 폭(m)</li>
+<li><code>param.length</code> (<code>number</code>) : 주향 방향 길이(m)</li>
+<li><code>param.dip</code> (<code>number</code>) : 경사각(도)</li>
+<li><code>param.dtop</code> (<code>number</code>) : 상단부 깊이(m)</li>
+<li><code>param.strike</code> (<code>number</code>) : 주향 각도(도)</li>
+<li><code>param.colors</code> (<code>Array&lt;ColorRepresentation&gt;</code>) : 깊이별 그라디언트 색상 배열(2~10개)</li>
+<li><code>param.opacity</code> (<code>number</code>) : 투명도(0~1)</li>
+<li><code>param.outline</code> (<code>boolean</code>) : 외곽선 표시 여부</li>
+<li><code>param.lineWidth</code> (<code>number</code>) : 외곽선 두께(화면 픽셀)</li>
+<li><code>param.fadeStartDepth</code> (<code>number</code>) : 투명도 감소가 시작되는 깊이(m)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-5">API</h4>
+<p>U3dFault.getParam() : 현재 단층 속성을 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>object</code>) : 폭·길이·경사각·색상 등 현재 속성 객체</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-6">API</h4>
+<p>U3dFault.addPosition(<code>x</code>, <code>y</code>, <code>z</code>) : 상단 좌표를 하나 추가하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>x</code> (<code>number</code>) : 경도</li>
+<li><code>y</code> (<code>number</code>) : 위도</li>
+<li><code>z</code> (<code>number</code>) : 고도(m)</li>
+</ul>
+</details>
+<h3 id="1-경사각-변경-예제">1. 경사각 변경 예제</h3>
+<p>같은 폭이라도 경사각을 올리면 단층면이 더 깊은 곳까지 내려갑니다.<br>현장 관측값이 갱신되었을 때 객체를 다시 만들지 않고 형태만 조정할 수 있습니다.</p>
+<pre class="language-javascript"><code class="language-javascript">fault<span class="token punctuation">.</span><span class="token function">setParam</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">dip</span><span class="token operator">:</span> <span class="token number">80</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-상단부-깊이-지정-예제">2. 상단부 깊이 지정 예제</h3>
+<p>지표에 드러나지 않고 지하 200m 아래에서 시작하는 단층을 표현합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">fault<span class="token punctuation">.</span><span class="token function">setParam</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">dtop</span><span class="token operator">:</span> <span class="token number">200</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="3-주향-방향-지정-예제">3. 주향 방향 지정 예제</h3>
+<p>상단 좌표가 하나일 때, 면이 어느 방향으로 얼마나 뻗을지를 정합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">fault<span class="token punctuation">.</span><span class="token function">setParam</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">strike</span><span class="token operator">:</span> <span class="token number">45</span><span class="token punctuation">,</span> <span class="token literal-property property">length</span><span class="token operator">:</span> <span class="token number">800</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="4-단층선을-따라-만드는-예제">4. 단층선을 따라 만드는 예제</h3>
+<p>조사 결과가 여러 점으로 주어질 때는 상단 좌표를 모두 넣어 꺾인 단층면을 만듭니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> fault <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GeOnDT<span class="token punctuation">.</span>geom<span class="token punctuation">.</span>U3dFault</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">app</span><span class="token operator">:</span> app<span class="token punctuation">,</span>
+    <span class="token literal-property property">topCoordinates</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+        <span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span><span class="token number">126.9360</span><span class="token punctuation">,</span> <span class="token number">37.5180</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+        <span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span><span class="token number">126.9395</span><span class="token punctuation">,</span> <span class="token number">37.5200</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+        <span class="token keyword">new</span> <span class="token class-name">THREE<span class="token punctuation">.</span>Vector3</span><span class="token punctuation">(</span><span class="token number">126.9430</span><span class="token punctuation">,</span> <span class="token number">37.5195</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span>
+    <span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">width</span><span class="token operator">:</span> <span class="token number">300</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">dip</span><span class="token operator">:</span> <span class="token number">70</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+vectorLayer<span class="token punctuation">.</span><span class="token function">addGeometry</span><span class="token punctuation">(</span>fault<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="3-깊이별-색상-지정하기">3. 깊이별 색상 지정하기</h2>
+<p>단층면은 단색이 아니라 깊이에 따라 변하는 그라디언트로 그려집니다.<br>어느 부분이 얕고 어느 부분이 깊은지를 색만 보고 판단할 수 있습니다.</p>
+<p>색을 다루는 값은 세 가지입니다.</p>
+<ul>
+<li><code>colors</code> : 깊이에 따라 적용할 색상 배열</li>
+<li><code>fadeStartDepth</code> : 이 깊이보다 깊은 부분을 흐리게 만드는 기준</li>
+<li><code>getDepthColorStops</code> : 각 색이 실제로 걸린 깊이를 조회</li>
+</ul>
+<p><strong>colors</strong> — 2~10개의 색을 넣습니다.<br><mark>배열의 첫 번째 색이 가장 깊은 곳에, 마지막 색이 지표 쪽에 적용됩니다.</mark><br>지정하지 않으면 보라에서 노랑으로 이어지는 기본 5색 그라디언트가 사용됩니다.</p>
+<p><strong>fadeStartDepth</strong> — 이 깊이보다 더 내려간 부분을 점점 투명하게 만듭니다.<br>깊은 쪽을 흐리게 두면 지표 근처의 단층 형태가 더 잘 드러납니다.</p>
+<p><strong>getDepthColorStops</strong> — 각 색이 실제로 어느 깊이에 놓였는지 돌려줍니다.</p>
+<p>색이 놓이는 깊이는 고정된 값이 아닙니다.<br><mark>단층면이 도달하는 깊이가 <code>width</code>와 <code>dip</code>에 따라 달라지므로, 색 배열이 같아도 각 색에 대응하는 깊이는 바뀝니다.</mark><br>아래는 색 세 개를 그대로 두고 <code>dip</code>만 <code>60</code>에서 <code>30</code>으로 바꾼 경우입니다.<br><code>dip</code>은 단층면이 수평에서 기울어진 각도이므로, 값이 작을수록 면이 눕고 도달하는 깊이도 얕아집니다.</p>
+<figure class="document-image">
+<img src="image/faultStart/fault_depth_stops.png" alt="같은 색 배열이라도 dip이 60일 때는 가장 깊은 색이 지하 259.8m에, 30일 때는 150m에 놓이는 것을 비교한 그림" loading="eager">
+<figcaption>같은 색 배열이라도 dip이 60일 때는 가장 깊은 색이 지하 259.8m에, 30일 때는 150m에 놓이는 것을 비교한 그림</figcaption>
+</figure>
+<p>그래서 화면에 깊이 범례를 그릴 때 깊이를 직접 계산해 넣으면, 형태를 바꾸는 순간 범례가 실제 단층면과 어긋납니다.<br><code>getDepthColorStops</code>가 돌려준 값을 그대로 쓰면 그럴 일이 없습니다.</p>
+<h4 class="api-heading" id="api-7">API</h4>
+<p>U3dFault.setFadeStartDepth(<code>depth</code>) : 투명도 감소가 시작되는 깊이를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>depth</code> (<code>number</code>) : 깊이(m)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-8">API</h4>
+<p>U3dFault.getFadeStartDepth() : 투명도 감소가 시작되는 깊이를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>number</code>) : 깊이(m)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-9">API</h4>
+<p>U3dFault.getDepthColorStops() : 깊이별 색상 구간 정보를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>Array&lt;object&gt;</code>) : 색상 구간 배열. 가장 깊은 곳부터 지표 순서</li>
+<li><code>return[].ratio</code> (<code>number</code>) : 전체 깊이에 대한 비율. <code>1</code>이 가장 깊은 곳, <code>0</code>이 지표</li>
+<li><code>return[].depth</code> (<code>number</code>) : 지표에서 잰 깊이(m)</li>
+<li><code>return[].color</code> (<code>Color</code>) : 해당 지점의 색상</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-10">API</h4>
+<p>U3dFault.setOpacity(<code>opacity</code>) : 투명도를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>opacity</code> (<code>number</code>) : 투명도(0~1). <code>0</code>이면 완전 투명, <code>1</code>이면 불투명</li>
+</ul>
+</details>
+<h3 id="1-색상-배열-지정-예제">1. 색상 배열 지정 예제</h3>
+<p>깊은 곳은 진한 남색, 지표 쪽은 옅은 하늘색으로 두어 깊이감을 강조합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">fault<span class="token punctuation">.</span><span class="token function">setParam</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">colors</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'#08306b'</span><span class="token punctuation">,</span> <span class="token string">'#4292c6'</span><span class="token punctuation">,</span> <span class="token string">'#deebf7'</span><span class="token punctuation">]</span> <span class="token comment">// 최대 깊이 → 지표 순서</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-깊은-구간-흐리게-만들기-예제">2. 깊은 구간 흐리게 만들기 예제</h3>
+<p>관심 구간이 얕은 쪽일 때 깊은 부분을 흐리게 하면 화면이 덜 복잡해집니다.</p>
+<pre class="language-javascript"><code class="language-javascript">fault<span class="token punctuation">.</span><span class="token function">setFadeStartDepth</span><span class="token punctuation">(</span><span class="token number">500</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 500m부터 서서히 투명해집니다.</span>
+</code></pre>
+<h3 id="3-범례용-색상-구간-조회-예제">3. 범례용 색상 구간 조회 예제</h3>
+<p>화면 한쪽에 깊이 범례를 그릴 때, 색과 깊이를 짝지어 그대로 사용합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> stops <span class="token operator">=</span> fault<span class="token punctuation">.</span><span class="token function">getDepthColorStops</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+stops<span class="token punctuation">.</span><span class="token function">forEach</span><span class="token punctuation">(</span><span class="token parameter">stop</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>stop<span class="token punctuation">.</span>depth<span class="token punctuation">,</span> stop<span class="token punctuation">.</span>color<span class="token punctuation">.</span><span class="token function">getHexString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token comment">// 259.8 '08306b'  ← 가장 깊은 곳</span>
+<span class="token comment">// 129.9 '4292c6'</span>
+<span class="token comment">// 0     'deebf7'  ← 지표</span>
+</code></pre>
+<hr>
+<h2 id="4-외곽선과-강조-표시하기">4. 외곽선과 강조 표시하기</h2>
+<p><strong>외곽선</strong> — 단층면 여러 개가 겹쳐 보일 때 각 면의 경계를 구분해 줍니다.<br>두께는 화면 픽셀 단위라 지도를 확대·축소해도 일정하게 보입니다.</p>
+<p><strong>강조</strong> — 사용자가 목록에서 특정 단층을 선택했을 때 <code>setHighLight</code>로 색과 외곽선을 한 번에 바꿉니다.<br>선택을 해제할 때는 <code>resetHighLight</code>로 원래 색상과 투명도로 되돌립니다.</p>
+<h4 class="api-heading" id="api-11">API</h4>
+<p>U3dFault.setUseLine(<code>use</code>) : 외곽선 표시 여부를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>use</code> (<code>boolean</code>) : <code>true</code>면 외곽선을 표시</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-12">API</h4>
+<p>U3dFault.setLineWidth(<code>width</code>) : 외곽선 두께를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>width</code> (<code>number</code>) : 두께(화면 픽셀)</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-13">API</h4>
+<p>U3dFault.setHighLight(<code>color</code>, <code>opacity</code>) : 단층면을 강조 표시하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>color</code> (<code>ColorRepresentation</code>) : 강조 색상. 기본값: <code>0x22aa22</code></li>
+<li><code>opacity</code> (<code>number</code>) : 강조 투명도. 기본값: <code>0.8</code></li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-14">API</h4>
+<p>U3dFault.resetHighLight() : 강조 표시를 해제하고 원래 상태로 되돌리는 함수</p>
+<h3 id="1-외곽선-표시-예제">1. 외곽선 표시 예제</h3>
+<p>단층면이 여러 개 겹칠 때 경계를 또렷하게 만듭니다.</p>
+<pre class="language-javascript"><code class="language-javascript">fault<span class="token punctuation">.</span><span class="token function">setUseLine</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+fault<span class="token punctuation">.</span><span class="token function">setLineWidth</span><span class="token punctuation">(</span><span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="2-선택-강조-예제">2. 선택 강조 예제</h3>
+<p>목록에서 단층을 클릭했을 때 해당 면만 눈에 띄게 바꿉니다.</p>
+<pre class="language-javascript"><code class="language-javascript">fault<span class="token punctuation">.</span><span class="token function">setHighLight</span><span class="token punctuation">(</span><span class="token string">'#ffcc00'</span><span class="token punctuation">,</span> <span class="token number">0.9</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h3 id="3-강조-해제-예제">3. 강조 해제 예제</h3>
+<p>다른 단층을 선택하기 전에 이전 강조를 되돌립니다.</p>
+<pre class="language-javascript"><code class="language-javascript">fault<span class="token punctuation">.</span><span class="token function">resetHighLight</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<hr>
+<h2 id="5-속성정보와-해제">5. 속성정보와 해제</h2>
+<p>도형에는 id, 이름, 업무 데이터 같은 부가 정보를 key-value 형태로 담아 둘 수 있습니다.</p>
+<p>새 속성을 넣을 때는 <code>addProperties</code>, 기존 값을 바꿀 때는 <code>changeProperties</code>, 전체를 통째로 교체할 때는 <code>setProperties</code>를 사용합니다.</p>
+<p>더 이상 쓰지 않는 단층은 <code>dispose</code>로 정리합니다.</p>
+<h4 class="api-heading" id="api-15">API</h4>
+<p>U3dFault.setId(<code>id</code>) : 식별자를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>id</code> (<code>string</code>) : 식별자</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-16">API</h4>
+<p>U3dFault.getId() : 식별자를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>string</code>) : 식별자</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-17">API</h4>
+<p>U3dFault.getProperties() : 사용자 정의 속성정보를 반환하는 함수</p>
+<details class="api-disclosure">
+<summary title="반환값 펼치기">반환값</summary>
+<ul>
+<li><code>return</code> (<code>KeyValue</code>) : 사용자 정의 속성정보</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-18">API</h4>
+<p>U3dFault.setProperties(<code>input</code>) : 사용자 정의 속성정보 전체를 설정하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>input</code> (<code>KeyValue | string</code>) : 속성 객체 또는 JSON 문자열</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-19">API</h4>
+<p>U3dFault.addProperties(<code>key</code>, <code>value</code>) : 속성정보를 하나 추가하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>key</code> (<code>string</code>) : 속성 식별키</li>
+<li><code>value</code> (<code>*</code>) : 속성 값</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-20">API</h4>
+<p>U3dFault.changeProperties(<code>key</code>, <code>value</code>) : 기존 속성정보의 값을 변경하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>key</code> (<code>string</code>) : 변경할 속성 식별키</li>
+<li><code>value</code> (<code>*</code>) : 속성 값</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-21">API</h4>
+<p>U3dFault.removeProperties(<code>key</code>) : 속성정보를 제거하는 함수</p>
+<details class="api-disclosure">
+<summary title="매개변수 펼치기">매개변수</summary>
+<ul>
+<li><code>key</code> (<code>string</code>) : 제거할 속성 식별키</li>
+</ul>
+</details>
+<h4 class="api-heading" id="api-22">API</h4>
+<p>U3dFault.dispose() : 단층과 관련 리소스를 해제하는 함수</p>
+<h3 id="1-속성정보-다루기-예제">1. 속성정보 다루기 예제</h3>
+<pre class="language-javascript"><code class="language-javascript">fault<span class="token punctuation">.</span><span class="token function">setId</span><span class="token punctuation">(</span><span class="token string">'F-2024-011'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+fault<span class="token punctuation">.</span><span class="token function">addProperties</span><span class="token punctuation">(</span><span class="token string">'단층명'</span><span class="token punctuation">,</span> <span class="token string">'양산단층'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+fault<span class="token punctuation">.</span><span class="token function">addProperties</span><span class="token punctuation">(</span><span class="token string">'조사연도'</span><span class="token punctuation">,</span> <span class="token number">2024</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+fault<span class="token punctuation">.</span><span class="token function">changeProperties</span><span class="token punctuation">(</span><span class="token string">'조사연도'</span><span class="token punctuation">,</span> <span class="token number">2025</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 기존 값 변경</span>
+fault<span class="token punctuation">.</span><span class="token function">removeProperties</span><span class="token punctuation">(</span><span class="token string">'조사연도'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>       <span class="token comment">// 속성 제거</span>
+
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>fault<span class="token punctuation">.</span><span class="token function">getProperties</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// {단층명: '양산단층'}</span>
+</code></pre>
+<h3 id="2-해제-예제">2. 해제 예제</h3>
+<p>레이어에서 먼저 제거한 뒤 해제합니다.</p>
+<pre class="language-javascript"><code class="language-javascript">vectorLayer<span class="token punctuation">.</span><span class="token function">removeGeometry</span><span class="token punctuation">(</span>fault<span class="token punctuation">)</span><span class="token punctuation">;</span>
+fault<span class="token punctuation">.</span><span class="token function">dispose</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+</main>
+</body>
+</html>
+

@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>분할화면 및 조작 동기화 예제</title>
+    <link rel="stylesheet" href="lib/jquery/jquery-ui-1.12.1/jquery-ui.css">
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/main.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        #map-wrapper {
+            position: relative;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+        }
+
+        #map1 {
+            height: 100%;
+            width: 100%;
+            position: absolute;
+            grid-column-start: 1;
+            grid-column-end: 2;
+            grid-row-start: 1;
+            grid-row-end: 2;
+        }
+
+        #map2 {
+            height: 100%;
+            width: 100%;
+            position: absolute;
+            grid-column-start: 2;
+            grid-column-end: 3;
+            grid-row-start: 1;
+            grid-row-end: 2;
+        }
+
+        #map3 {
+            height: 100%;
+            width: 100%;
+            position: absolute;
+            grid-column-start: 1;
+            grid-column-end: 2;
+            grid-row-start: 2;
+            grid-row-end: 3;
+        }
+
+        #map4 {
+            height: 100%;
+            width: 100%;
+            position: absolute;
+            grid-column-start: 2;
+            grid-column-end: 3;
+            grid-row-start: 2;
+            grid-row-end: 3;
+        }
+
+        .label {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+        }
+    </style>
+</head>
+<body>
+<div id="header" oncontextmenu="return false;">
+    <div>
+        <img src="image/solution_GeOnDT.png" >
+
+        <span> 분할화면 및 조작 동기화 예제</span>
+    </div>
+    <div class="execute-popup">
+        <button class="btn btn-block btn-default">직접해보기</button>
+    </div>
+    <div class="info-box">
+        <img src="image/help_outline_black_24dp.svg" alt="">
+    </div>
+</div>
+<div class="ex-explanation" hidden>
+    <p class="lead">
+        분할화면을 설정하고 <strong>분활화면의 조작을 동기화</strong>하는 예제입니다.<br>
+        동기화된 화면은 타겟 화면의 조작을 동일하게 수행합니다.
+    </p>
+</div>
+<div id="map-wrapper">
+    <div id="map1">
+        <span class="label label-primary">조작</span>
+    </div>
+    <div id="map2">
+        <span class="label label-success">동기화</span>
+    </div>
+    <div id="map3">
+        <span class="label label-success">동기화 (5 배율 축소) </span>
+    </div>
+    <div id="map4">
+        <span class="label label-danger">해제</span>
+    </div>
+</div>
+<div class="btn-group" id='top-sbar'>
+    <div class='btn-group-vertical-block' id='right-toolbar'>
+        <button type="button" class="btn btn-xs btn-block right-tbar-ex btn-compass" title="나침반">
+            <img class="compass-image" id="compass-image-id" style="transform: rotate(0rad)"
+                 src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAC8klEQVRIiY3WW29WVRAG4Gc2X1VsKwWDloakScUqieEQ0MQTeIiJJqJX/BEu/Qkm/A8Tb4yJp8QjBhMNCEEOEdSoCMWmArWlAm0ZL9YqLV++XVjJTvZea+add2bNu9YO9zAycwibMHCZvkFu9nENExFxdTXfuAvwdmzHIKZnmRs4eHDcvn0XFsfHcw3rMIsTEXHsngNk5jDeQB+O4FxEzEDyLj4IvsvMQTyO3VjAxxFxaTXSMnM8Mw9k5iuZ2bljjbHk2+SdLp9OtT+QmU+uXOt0GY7iLXwWET/1iL8H92N3sj64AhGxgC8z82+8mZk/R0RCswK8v4J/1Qs8S7lewDwexdPdNhFxCp9j79JcU8E3VHYTEXG0B3PYii1KrRu81MsoIo5jZ2Y+vDKD5/AYvmgBVwk8UJIxjx1ZWrfX+BXPQlM3crSyv9LLOnmwkpivU7cwVOd6jSMYzcy+BiO4id9WYb8Dm+v7YH0a7MnerX6pYo402ICrmGxh3+BtDJdP79VnHi/iqW6fiLhVMTd00I/riiJ7jQaHcAK/BN/XwIcUkV1v8fsP/Z2Wxdvj/czcxNQN5tbRmWEjHKVvmotrmRPtJ05HObRGMIDpboP9ZUPH8AxuYAZ28ZCydq4Fey0uNIoah/BIL6uqyB+Uml5XlHyfsgenI+J8t09mNhXzcoML1WGsNU/+UJqgwWJlnjjZYj9cMS829Rw5j5HMXN+SxQLOWBZmo5TzbEuAXfgrIuaXHA4rOnh5lSxOK50RWIOzEXGtxXZLxSyMIuIffIPNmbmzJYtJ/Kk0xgJO9bLLzG04HhFTtwNUgFl8iFczc2sLs5PVZ1LZl27wJ/Aavl6au0MHEfF7Zn6E1zNzIw5HxOIKk7P4F2fqviwBr8HzSu0/XboLaL8yNylXZoMflXrP1rW9OBURU5k5oKh5l9JZn0TExB2kW0ohM0M55LZZFuGM0n6LipCGFKGewLGVzO8aoCvYevW3RbnZblr+bel5xC+N/wFYZRmTpx8usQAAAABJRU5ErkJggg=="
+                 alt="나침반">
+        </button>
+        <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomin"
+                id="right-tbar-btn-zoomin" title="확대"><img src="image/add_white_24dp.svg" alt=""></button>
+        <button type="button" class="btn btn-xs btn-block right-tbar-ex zoomout"
+                id="right-tbar-btn-zoomout" title="축소"><img src="image/remove_black_24dp.svg" alt=""></button>
+        <button type="button" class="btn btn-xs btn-block right-tbar-ex flyto"
+                id="right-tbar-btn-flyto" title="flyto"><img src="image/home_FILL0_wght400_GRAD0_opsz24.svg" alt="">
+        </button>
+    </div>
+    <div class='btn-group' id='bt-bottom-bar'>
+        <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-pos"
+               value="위경도: ##.####  ###.#### ">
+        <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-height"
+               value="고도:####">
+        <input type="button" class="btn btn-xs bt-bottom-tbar" id="bottom-tbar-btn-angle"
+               value="각도: ##">
+    </div>
+</div>
+<div id="load">
+    <img src="image/loading.svg" alt="loading">
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../../dist/GeOnDT.min.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script id="ui-event">
+    const homePositon = {lat: 126.9395, lon: 37.52, height: 450, left: 2, down: 60}
+
+    $(document).on('mouseover', '.info-box', function (e) {
+        $('.ex-explanation').show();
+    });
+
+    $(document).on('mouseout', '.info-box', function (e) {
+        $('.ex-explanation').hide();
+    });
+
+    $(document).on('click', '#left-menu-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            openLeftMenu(true);
+        else
+            openLeftMenu(false);
+    });
+
+    function openLeftMenu(isOpen) {
+        if (isOpen) {
+            $('#div-left-menu').css('width', '350px');
+            $('.left-menu-bnt-img').css('rotate', '180deg');
+            $('#analy-popup').show();
+        } else {
+            $('#div-left-menu').css('width', '0');
+            $('.left-menu-bnt-img').css('rotate', '0deg');
+            $('#analy-popup').hide();
+        }
+    }
+
+    $(document).on('click', '#analy-bnt', function (e) {
+        $(this).toggleClass('active');
+        if ($(this).hasClass('active'))
+            $('#analy-popup').show();
+        else
+            $('#analy-popup').hide();
+    });
+
+    $(document).on('click', '#compass-image-id', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.alignNorth();
+    });
+
+    $(document).on('click', '.sub-category-tile', function (event) {
+        if ($(this).hasClass('anlay')) return;
+
+        event.preventDefault();
+        if (app === undefined) return;
+        let content = $(this).next();
+        let btn = $(this).children()[1].children;
+        $(this).toggleClass("active")
+        if ($(this).hasClass("active")) {
+            content.css("height", "100px");
+            content.css("overflow", "auto");
+            $(btn).children().css('rotate', '180deg');
+        } else {
+            content.css("height", "0");
+            content.css("overflow", "hidden");
+            $(btn).children().css('rotate', '0deg');
+        }
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomin', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomIn();
+    });
+
+    $(document).on('click', '#right-tbar-btn-zoomout', function (event) {
+        event.preventDefault();
+        if (app === undefined) return;
+        app.zoomOut();
+    });
+    $(document).on('click', "#right-tbar-btn-flyto", function () {
+        app.flyTo({x: homePositon.lat, y: homePositon.lon}, 2000);
+    });
+
+    function updatePosData() {
+        if (app === undefined) return;
+
+        const info = app.getCameraState();
+        const rad = info.azimuth;
+        app.setRotationOverviewMap(rad);
+        app.setGeoCenterToOverviewMap(info.center.x, info.center.y);
+
+        //나침반 설정
+        const value = 'rotate(' + -rad + 'rad)';
+        $('#compass-image-id').css({transform: value});
+
+        let deg = -rad * 180 / Math.PI;
+        if (deg < 0) {
+            deg += 360;
+        }
+        const angle = '각도: ' + deg.toFixed(0) + '°';
+        $('#bottom-tbar-btn-angle').val(angle);
+
+        const pos = '위경도: ' + parseFloat(info.center.y).toFixed(3) + '°, ' + parseFloat(info.center.x).toFixed(3) + '°';
+        $('#bottom-tbar-btn-pos').val(pos);
+
+        const height = '높이: ' + parseFloat(info.camera.z).toFixed(1) + 'm';
+        $('#bottom-tbar-btn-height').val(height);
+    }
+
+    $(function () {
+        $('#analy-popup').draggable();
+        $('.popup-exit').on('click', function () {
+            if ($('#analy-bnt').hasClass('active')) {
+                $('#analy-popup').hide();
+                $('#analy-bnt').removeClass('active');
+            } else {
+                $('#analy-popup').show();
+                $('#analy-bnt').addClass('active');
+            }
+
+        });
+    });
+
+    $(document).on('mouseover', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().show();
+    });
+
+    $(document).on('mouseout', ".menu-btn", function (e) {
+        e.preventDefault()
+        $(this).next().hide();
+    });
+
+</script>
+<script>
+    Union3D.ready(function () {
+
+        var app1 = createApp('map1');  //+ 좌측상단 맵
+        var app2 = createApp('map2'); //+ 우측상단 맵
+        var app3 = createApp('map3'); //+ 좌측하단 맵
+        var app4 = createApp('map4'); //+ 우측하단 맵
+
+        //app1의 조작이 app2와 연동된다.
+        var listener12Id = app1.syncCamera(app2);
+        //app1의 조작이 app3와 연동된다. 5배 떨어진 카메라 동기화
+        var listener13Id = app1.syncCamera(app3, 5);
+        //app1의 조작이 app4와 연동된다.
+        var listener14Id = app1.syncCamera(app4);
+
+        //app1 <-> app4 연동 해제
+        app1.unkey('change', listener14Id);
+
+        //+ App 생성
+        function createApp(containerName) {
+            var app = new Union3D.U3dAPP({
+                containername: containerName
+            });
+
+            app.setHomePosition(126.9395, 37.525, 5000, 2, 10); //경도, 위도, 높이, 방위각, 고도각
+            app.updateHomePosition();
+            app.createloadingBar('load');
+            app.on('change', updatePosData);
+            window.app = app;
+            //이미지 레이어 생성
+            var layer = new Union3D.image.U3dImageXYZLayer({
+                name: 'satellite', //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+                baseurl: layerInfo.image.vworldsaturl, //+ 이미지 데이터 URL, *필수 입력
+                reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            });
+            app.addLayer(layer);
+            //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+            app.setNameBaseLayer('satellite'); //+ 배경이미지 레이어 설정
+            app.showLayer('satellite', true);
+            app.endloadingBar();
+
+            return app;
+        }
+
+        //+ Emap 위성 Layer 생성
+        function createEmapSatLayer(name, app) {
+            var maxprocess_image = 5;
+            var key = 'emapsat';
+            var geoextent = [124.281252, 33.276145, 129.563837, 38.593601];
+            var opt = {
+                name: name //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+                , maxprocess: maxprocess_image  //+ 최대 process 값
+                , useProxy: true //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+                , geoextent: geoextent //+ 영역, defaultValue(opt.geoextent, getEmapGeoExtent_());
+            }
+
+            opt = Object.assign(opt, {
+                reverseY: true  //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+                , useproxy: true //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+                , xyorder: "xy"  //+ Col Row 순서, defaultValue(opt.xyorder, 'xy');
+            });
+
+            return app.createEmapSatLayer(opt);
+        }
+    });
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+

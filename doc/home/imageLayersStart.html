@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>이미지 레이어</title>
+</head>
+<body style="padding-top: 0">
+<div class="content">
+    <h2 class="lead"> 1. 시작하기 </h2>
+    <div class="doc">
+        <!------------------------------------------------------------------------------------------------->
+        <div class="explane1" >
+            * ImageLayer를 시작하기 위해서 우선 생성 옵션 값이 필요합니다. 옵션 값의 자세한 내용은 API 페이지의 ImageLayer를 카테고리를 참고해 주세요.
+        </div>
+        <div class="explane1">
+            * 생성 옵션 값 중 <mark>url</mark>은 꼭 넣어 줘야하는 필수 옵션 값입니다.
+        </div>
+        <label class="code-label">이미지 레이어 옵션</label>
+        <div class="code" id="text1-code"></div>
+        <div class="code-text" id="text1" hidden="hidden">
+            const option = {
+                name     : "emapsat",  // 레이어 이름
+                baseurl      : "http://210.117.198.120:8081/o2map/services", // 이미지 데이터 URL *필수 입력
+                reverseY : true, // Y축 반전 여부, default 'false'
+                useProxy : true, // 프록시 사용 여부, default 'false'
+                xyorder  : "xy", // Col Row 순서, default 'xy'
+                transparent: false // layer 투명화 여부 default 'false'
+            }
+        </div>
+        <!------------------------------------------------------------------------------------------------->
+        <div class="explane1">
+            * 자주 사용되는 Emap base와 Emap satellite 이미지 레이어는 <strong><mark>app.createEmapBaseLayer(opt), app.createEmapSatLayer(opt)</mark></strong> 함수를 사용해 생성합니다.
+        </div>
+        <label class="code-label">Emap 이미지 레이어 생성</label>
+        <div class="code" id="text2-code"></div>
+        <div class="code-text" id="text2" hidden="hidden">
+            const emapBaselayer = app.createEmapBaseLayer(option); // Emap Base 이미지 레이어 생성
+
+            const emapSatlayer = app.createEmapSatLayer(option); // Emap Satellite 이미지 레이어 생성
+        </div>
+        <!------------------------------------------------------------------------------------------------->
+        <div class="explane1">
+            * 그외 ImageLayer는<mark> new GeOnDT.image.U3dImageXYZLayer(opt) 객체 생성 후 <strong>app.addLayer()</strong></mark> 함수를 호출하여 생성합니다.
+        </div>
+        <label class="code-label">사용자 이미지 레이어 생성</label>
+        <div class="code" id="text3-code"></div>
+        <div class="code-text" id="text3" hidden="hidden">
+            const layer = new GeOnDT.image.U3dImageXYZLayer(option);
+            app.addLayer(layer); //app에 생성한 layer를 등록
+        </div>
+        <!------------------------------------------------------------------------------------------------->
+        <div class="explane1">
+            * 모든 레이어 객체는 생성 후 <mark><strong>.ready()</strong> 또는 <strong>.then()</strong> 을 포함하는 promise 함수를 지원</mark>합니다. 해당 함수를 이용해 후처리를 수행할 수 있습니다.
+        </div>
+        <label class="code-label">이미지 레이어 생성 후 이벤트</label>
+        <div class="code" id="text4-code">
+        </div>
+        <div class="code-text" id="text4" hidden="hidden">
+            layer.ready(() => {
+                console.log(name + " create success.");
+            }).then(() => {
+                console.log(name + " create success.");
+            }).catch(function (e) {
+                console.error("work fail : "  + e);
+            }).finally(() => {
+                console.log(name + " create end.");
+            });
+        </div>
+        <!------------------------------------------------------------------------------------------------->
+        <div class="explane1">
+            * 생성된 레이어는 <mark><strong>app.showLayer(layername, true/false)</strong></mark> 함수를 통해 가시화/비가시화가 가능합니다.
+        </div>
+        <label class="code-label">이미지 레이어 생성 후 출력</label>
+        <div class="code" id="text5-code">
+        </div>
+        <div class="code-text" id="text5" hidden="hidden">
+            layer.ready(() => {
+                app.showLayer(name, true).then(()=>{
+                    console.log(name + " show.");
+                });
+            }).catch(function (e) {
+                console.error("work fail : "  + e);
+            });
+        </div>
+        <!------------------------------------------------------------------------------------------------->
+    </div>
+</div>
+</body>
+</html>

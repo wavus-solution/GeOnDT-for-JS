@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>BIM Object 레이어</title>
+</head>
+<body style="padding-top: 0">
+<div class="index">
+    <a href="#jump1">1. BIM Object 레이어 시작하기</a><br>
+    <a href="#jump2">2. 객체 구조 살펴보기</a><br>
+    <a href="#jump3">3. 객체 강조 · 숨기기 · 투명도</a><br>
+    <a href="#jump4">4. 위치 제어하기</a><br>
+</div>
+<hr>
+<div class="content">
+    <!--============================== 1. 시작하기 ==============================-->
+    <h2 class="lead" id="jump1"> 1. BIM Object 레이어 시작하기 </h2>
+    <div class="doc">
+        <div class="explane1">
+            * BIM Object 레이어는 <mark>건축·시설물의 BIM 데이터를 웹에서 볼 수 있도록 변환한 결과를 불러와 지도 위에 출력</mark>하는 레이어입니다.<br>
+            * <mark><strong>BIM</strong></mark> 은 건물을 겉모양만이 아니라 <mark>기둥·벽·배관처럼 건물을 이루는 부품 하나하나 — 이하 <strong>객체</strong> — 의 정보까지 담아 만든 3D 데이터</mark>입니다. (표준 파일 형식 : IFC)<br>
+            * IFC 파일은 웹 브라우저가 바로 그리기에는 무겁기 때문에, <mark>서버에 레이어를 등록할 때 웹용 3D 형식인 OBJ 로 미리 변환</mark>됩니다. 이 레이어는 그 <strong>변환 결과(OBJ)와 객체 정보(메타데이터)</strong>를 함께 사용합니다.<br>
+            * 그래서 건물을 통째로 보여주는 데서 그치지 않고, <mark><strong>객체 하나하나를 찾아 강조하거나 숨기는 등 개별 제어</strong></mark>할 수 있는 것이 특징입니다.<br>
+            * 레이어는 <mark><strong>app.createModelBIMObjLayer(opt)</strong></mark> 함수로 생성하며, 필수 옵션이 누락되면 레이어가 생성되지 않고 <mark>undefined</mark> 가 반환됩니다.
+            <div class="explane_api">
+                app.<span class="api_name">createModelBIMObjLayer</span>(<span class="param_name">opt</span>);
+                <div class="explane_api_param">
+                    <span class="param_name">opt.layername</span>
+                    <span class="param_type">string</span> : BIM Object 레이어 고유 이름 <span class="important_tg">*필수 입력</span><br>
+                    <span class="param_name">opt.baseurl</span>
+                    <span class="param_type">string</span> : BIM Object 모델 데이터 URL (변환 결과 파일들이 있는 폴더) <span class="important_tg">*필수 입력</span><br>
+                    <span class="param_name">opt.serverurl</span>
+                    <span class="param_type">string</span> : 3D 데이터 서버 URL <span class="important_tg">*필수 입력</span><br>
+                    <span class="param_name">opt.metaData</span>
+                    <span class="param_type">object</span> : 서버 등록 시 생성된 BIM 메타데이터 (files 정보 포함) <span class="important_tg">*필수 입력</span><br>
+                    <span class="param_name">opt.name</span>
+                    <span class="param_type">string</span> : 레이어 이름. 기본값 'U3dModelBIMObjLayer'<br>
+                    <span class="param_name">opt.autoHeight</span>
+                    <span class="param_type">boolean</span> : 지형 고도에 맞춰 모델 높이를 자동으로 맞출지 여부<br>
+                    <span class="param_name">opt.useproxy</span>
+                    <span class="param_type">boolean</span> : 프록시 사용 여부. 기본값 false<br>
+                    <span class="param_name">opt.proxyurl</span>
+                    <span class="param_type">string</span> : 프록시 URL. 기본값 './proxy.jsp?url='<br>
+                </div>
+            </div>
+        </div>
+        <div class="explane1">
+            * 생성한 레이어는 <mark><strong>.ready().then()</strong></mark> 안에서 <mark><strong>app.showLayer(layername, true)</strong></mark> 로 가시화합니다.
+        </div>
+        <label class="code-label"> BIM Object 레이어 생성 </label>
+        <div class="code" id="text1-code"></div>
+        <div class="code-text" id="text1" hidden="hidden">
+            const opt = {
+                name: 'bim Layer',                    // 레이어 이름
+                layername: 'bim Layer',               // 레이어 고유 이름 *필수
+                baseurl: 'https://.../data/bim/',     // 변환 결과 데이터 폴더 URL *필수
+                serverurl: 'https://3d-dev.geon.kr/', // 3D 데이터 서버 *필수
+                metaData: layerInfo.metaData,         // 서버 등록 시 생성된 메타데이터 *필수
+                autoHeight: true,                     // 지형 고도 자동 맞춤
+            };
+
+            const bimLayer = app.createModelBIMObjLayer(opt);
+
+            // 로딩이 끝난 후 실행
+            bimLayer.ready.then(() => {
+                app.showLayer('bim Layer', true).then(() => {
+                    app.fitLayerExtent('bim Layer'); // 레이어로 카메라 이동
+                });
+            }).catch((e) => {
+                console.error('레이어 생성 실패 : ' + e);
+            });
+        </div>
+    </div>
+
+    <!--============================== 2. 객체 구조 살펴보기 ==============================-->
+    <h2 class="lead" id="jump2"> 2. 객체 구조 살펴보기 </h2>
+    <div class="doc">
+        <div class="explane1">
+            * 하나의 BIM 레이어는 <mark>여러 개의 모델 파일</mark>로 구성되며, 각 파일 안에 객체들이 <mark>트리 구조</mark>로 들어 있습니다.<br>
+            * <mark><strong>getFileNames()</strong></mark> 는 레이어에 포함된 모델 파일 이름 목록을 돌려줍니다. 이후 모든 객체 제어 함수는 이 <mark>파일 이름을 첫 번째 인자</mark>로 받습니다.<br>
+            * <mark><strong>getMateDataTree(fileName)</strong></mark> 은 해당 파일의 <mark>객체 메타데이터 트리</mark>를 돌려줍니다. 트리는 <mark>traverse(콜백)</mark> 으로 순회할 수 있고, 각 객체는 <mark>getId()</mark> 로 고유 번호를 얻습니다.
+            <div class="explane_api">
+                U3dModelBIMObjLayer.<span class="api_name">getFileNames</span> ()
+                <div class="explane_api_param">
+                    <span class="param_name">return</span>
+                    <span class="param_type">Array</span> : 레이어에 포함된 모델 파일 이름 목록<br>
+                </div>
+            </div>
+            <div class="explane_api">
+                U3dModelBIMObjLayer.<span class="api_name">getMateDataTree</span> (<span class="param_name">fileName</span>)
+                <div class="explane_api_param">
+                    <span class="param_name">fileName</span>
+                    <span class="param_type">string</span> : 조회할 모델 파일 이름 <span class="important_tg">*필수 입력</span><br>
+                    <span class="param_name">return</span>
+                    <span class="param_type">object</span> : 객체 메타데이터 트리<br>
+                </div>
+            </div>
+        </div>
+        <label class="code-label"> 파일 목록과 객체 트리 순회 </label>
+        <div class="code" id="text2-code"></div>
+        <div class="code-text" id="text2" hidden="hidden">
+            for (const fileName of bimLayer.getFileNames()) {
+                const metaTree = bimLayer.getMateDataTree(fileName);
+
+                metaTree.traverse((meta) => {
+                    console.log(meta.getId()); // 객체의 고유 ID
+                });
+            }
+        </div>
+        <div class="explane1">
+            * 객체의 고유 ID를 알면 <mark><strong>getObjectById</strong></mark> 로 3D 객체(mesh)를, <mark><strong>getMetaById</strong></mark> 로 메타데이터를 각각 조회할 수 있습니다.
+            <div class="explane_api">
+                U3dModelBIMObjLayer.<span class="api_name">getObjectById</span> (<span class="param_name">fileName, id</span>)
+                <div class="explane_api_param">
+                    <span class="param_name">fileName</span>
+                    <span class="param_type">string</span> : 모델 파일 이름 <span class="important_tg">*필수 입력</span><br>
+                    <span class="param_name">id</span>
+                    <span class="param_type">string</span> : 객체의 고유 ID <span class="important_tg">*필수 입력</span><br>
+                    <span class="param_name">return</span>
+                    <span class="param_type">Object3D</span> : 해당 객체의 3D 객체<br>
+                </div>
+            </div>
+            <div class="explane_api">
+                U3dModelBIMObjLayer.<span class="api_name">getMetaById</span> (<span class="param_name">fileName, id</span>)
+                <div class="explane_api_param">
+                    <span class="param_name">fileName</span>
+                    <span class="param_type">string</span> : 모델 파일 이름 <span class="important_tg">*필수 입력</span><br>
+                    <span class="param_name">id</span>
+                    <span class="param_type">string</span> : 객체의 고유 ID <span class="important_tg">*필수 입력</span><br>
+                    <span class="param_name">return</span>
+                    <span class="param_type">object</span> : 해당 객체의 메타데이터<br>
+                </div>
+            </div>
+        </div>
+        <label class="code-label"> ID로 객체 조회 </label>
+        <div class="code" id="text3-code"></div>
+        <div class="code-text" id="text3" hidden="hidden">
+            const object = bimLayer.getObjectById(fileName, id); // 객체의 3D 객체(mesh)
+            const meta = bimLayer.getMetaById(fileName, id);     // 객체의 메타데이터
+        </div>
+    </div>
+
+    <!--============================== 3. 객체 강조 · 숨기기 · 투명도 ==============================-->
+    <h2 class="lead" id="jump3"> 3. 객체 강조 · 숨기기 · 투명도 </h2>
+    <div class="doc">
+        <div class="explane1">
+            * <mark><strong>select</strong></mark> 는 특정 객체(하위 객체 포함)를 <mark>색상으로 강조</mark>합니다. 기본 색상은 빨강(0xff0000)입니다.<br>
+            * <mark><strong>clear()</strong></mark> 는 select 로 변경된 색상을 <mark>모두 원래대로</mark> 되돌립니다.
+            <div class="explane_api">
+                U3dModelBIMObjLayer.<span class="api_name">select</span> (<span class="param_name">fileName, id, color</span>)
+                <div class="explane_api_param">
+                    <span class="param_name">fileName</span>
+                    <span class="param_type">string</span> : 모델 파일 이름 <span class="important_tg">*필수 입력</span><br>
+                    <span class="param_name">id</span>
+                    <span class="param_type">string</span> : 강조할 객체의 고유 ID <span class="important_tg">*필수 입력</span><br>
+                    <span class="param_name">color</span>
+                    <span class="param_type">Color</span> : 강조 색상. 기본값 0xff0000 (빨강)<br>
+                </div>
+            </div>
+        </div>
+        <div class="explane1">
+            * <mark><strong>setOpacity</strong></mark> 는 레이어 전체 또는 특정 파일의 <mark>투명도</mark>를 바꿉니다. (첫 번째 인자가 투명도인 점에 주의)<br>
+            * <mark><strong>resetOpacity</strong></mark> 는 변경한 투명도를 원래대로 되돌립니다.<br>
+            <div class="explane_api">
+                U3dModelBIMObjLayer.<span class="api_name">setOpacity</span> (<span class="param_name">opacity, fileName</span>)
+                <div class="explane_api_param">
+                    <span class="param_name">opacity</span>
+                    <span class="param_type">number</span> : 투명도 (0 ~ 1) <span class="important_tg">*필수 입력</span><br>
+                    <span class="param_name">fileName</span>
+                    <span class="param_type">string</span> : 대상 모델 파일 이름. 생략하면 레이어 전체에 적용<br>
+                </div>
+            </div>
+            <div class="explane_api">
+                U3dModelBIMObjLayer.<span class="api_name">resetOpacity</span> (<span class="param_name">fileName</span>)
+                <div class="explane_api_param">
+                    <span class="param_name">fileName</span>
+                    <span class="param_type">string</span> : 대상 모델 파일 이름. 생략하면 레이어 전체에 적용<br>
+                </div>
+            </div>
+        </div>
+        <label class="code-label"> 객체 강조 — 전체는 반투명, 대상 객체만 빨강 </label>
+        <div class="code" id="text4-code"></div>
+        <div class="code-text" id="text4" hidden="hidden">
+            bimLayer.setOpacity(0.6, fileName);               // 파일 전체를 반투명하게
+            bimLayer.select(fileName, meta.getId(), 0xff0000); // 대상 객체만 빨강으로 강조
+
+            // 원래대로 되돌리기
+            bimLayer.clear();          // 강조 색상 해제
+            bimLayer.resetOpacity();   // 투명도 복원
+        </div>
+        <div class="explane1">
+            * <mark><strong>showObject</strong></mark> 는 특정 객체 하나를 <mark>보이거나 숨깁니다</mark>. 내부 구조를 확인하려고 벽·지붕을 잠시 감출 때 유용합니다.
+            <div class="explane_api">
+                U3dModelBIMObjLayer.<span class="api_name">showObject</span> (<span class="param_name">fileName, id, visible</span>)
+                <div class="explane_api_param">
+                    <span class="param_name">fileName</span>
+                    <span class="param_type">string</span> : 모델 파일 이름 <span class="important_tg">*필수 입력</span><br>
+                    <span class="param_name">id</span>
+                    <span class="param_type">string</span> : 대상 객체의 고유 ID <span class="important_tg">*필수 입력</span><br>
+                    <span class="param_name">visible</span>
+                    <span class="param_type">boolean</span> : 가시화 여부. 기본값 false (숨김)<br>
+                </div>
+            </div>
+        </div>
+        <label class="code-label"> 객체 보이기 / 숨기기 </label>
+        <div class="code" id="text5-code"></div>
+        <div class="code-text" id="text5" hidden="hidden">
+            bimLayer.showObject(fileName, id, false); // 객체 숨기기
+            bimLayer.showObject(fileName, id, true);  // 객체 다시 보이기
+        </div>
+        <label class="code-label">객체 클릭 — 전(원래 모습) / 후(전체는 반투명, 클릭한 객체만 빨강 강조 + 객체 정보 팝업 표시)</label><br>
+        <img src="./image/BIMObjectLayer/select_off.png" alt="객체 클릭 전" data-size="half">
+        <img src="./image/BIMObjectLayer/select_on.png" alt="객체 강조 + 정보 팝업" data-size="half">
+    </div>
+
+    <!--============================== 4. 위치 제어하기 ==============================-->
+    <h2 class="lead" id="jump4"> 4. 위치 제어하기 </h2>
+    <div class="doc">
+        <div class="explane1">
+            * 파일 단위로 모델의 위치를 <mark>위경도 좌표</mark>로 조회·이동할 수 있습니다.<br>
+            * <mark><strong>getPosition(fileName)</strong></mark> 은 현재 위치(위경도)를 돌려주고, <mark><strong>setPosition(fileName, location)</strong></mark> 은 해당 위치로 이동시킵니다.<br>
+            * <mark><strong>resetPosition()</strong></mark> 은 메타데이터에 기록된 <mark>원래 위치로 복귀</mark>시킵니다.
+            <div class="explane_api">
+                U3dModelBIMObjLayer.<span class="api_name">setPosition</span> (<span class="param_name">fileName, location</span>)
+                <div class="explane_api_param">
+                    <span class="param_name">fileName</span>
+                    <span class="param_type">string</span> : 모델 파일 이름 <span class="important_tg">*필수 입력</span><br>
+                    <span class="param_name">location</span>
+                    <span class="param_type">object</span> : 이동할 위경도 좌표 {x: 경도, y: 위도, z: 높이} <span class="important_tg">*필수 입력</span><br>
+                </div>
+            </div>
+        </div>
+        <label class="code-label"> 위치 조회 · 이동 · 복귀 </label>
+        <div class="code" id="text6-code"></div>
+        <div class="code-text" id="text6" hidden="hidden">
+            const location = bimLayer.getPosition(fileName); // 현재 위치 (위경도)
+
+            location.z = location.z + 10;                    // 10m 위로
+            bimLayer.setPosition(fileName, location);        // 위치 적용
+
+            bimLayer.resetPosition();                        // 원래 위치로 복귀
+        </div>
+        <div class="explane1">
+            * <mark><strong>setAutoHeight</strong></mark> 는 지형(Terrain)의 고도 값을 읽어 <mark>모델 바닥을 지면 높이에 자동으로</mark> 맞춥니다. 생성 옵션 autoHeight 와 같은 기능을 생성 후에 적용하는 함수입니다.
+            <div class="explane_api">
+                U3dModelBIMObjLayer.<span class="api_name">setAutoHeight</span> (<span class="param_name">autoHeight</span>)
+                <div class="explane_api_param">
+                    <span class="param_name">autoHeight</span>
+                    <span class="param_type">boolean</span> : true 면 지형 고도에 맞춤, false 면 원래 높이로 복귀<br>
+                </div>
+            </div>
+        </div>
+        <label class="code-label"> 지형 고도에 자동 맞춤 </label>
+        <div class="code" id="text7-code"></div>
+        <div class="code-text" id="text7" hidden="hidden">
+            bimLayer.setAutoHeight(true);  // 모델 바닥을 지형 높이에 맞춤
+            bimLayer.setAutoHeight(false); // 원래 높이로 복귀
+        </div>
+    </div>
+</div>
+</body>
+</html>

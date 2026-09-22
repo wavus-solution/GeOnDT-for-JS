@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>바로 E-Map 레이어 예제</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/tutorial.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        .examples {
+            padding: 15px 30px 15px 30px;
+        }
+
+    </style>
+</head>
+<body>
+<div id="map-wrapper">
+    <div id="map"></div>
+</div>
+<div class="execute-popup">
+    <button>직접해보기</button>
+</div>
+<div class="examples row">
+    <div class="form-group">
+        <div class="checkbox">
+            <label>
+                <input type="checkbox" target="satellite" checked>
+                바로 E-Map 위성영상
+            </label>
+        </div>
+        <div class="checkbox">
+            <label>
+                <input type="checkbox" target="base">
+                바로 E-Map 기본영상
+            </label>
+        </div>
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function () {
+        window.open('./runner.html?url=' + strings[strings.length - 1] + '&title=' + document.title);
+    })
+</script>
+<script>
+    require(['app/Union3D'], function (Union3D) {
+        //라이센스 인증
+        Union3D.ready(function () {
+            //레이어 생성자 옵션
+            var LAYER_OPT = {
+                satellite: {
+                    name: 'emap_sat',
+                    url: layerInfo.image.emapsaturl,
+                    apikey: '04trYP9_xwLAfALjwZ-B8g',
+                    reverseY: true,
+                    useProxy: true,
+                    maxprocess: 2
+                },
+                base: {
+                    name: 'emap_base',
+                    url: layerInfo.image.emapbaseurl,
+                    apikey: '04trYP9_xwLAfALjwZ-B8g',
+                    ext: 'image/png',
+                    useProxy: true,
+                    maxprocess: 2
+                }
+            };
+
+            //지도 초기화
+            var app = new Union3D.U3dAPP({
+                containername: 'map'
+            });
+            app.setIntensityLight(0.85);
+            app.setHomePosition(126.9395, 37.52, 450, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+            app.updateHomePosition();
+
+
+            app.createEmapSatLayer(LAYER_OPT['satellite']);
+            app.setNameBaseLayer('emap_sat');
+            app.showLayer('emap_sat');
+
+            $(document).on('click', 'input[type=checkbox]', checked);
+
+            function checked(e) {
+                var $checkbox = $(e.target);
+                var name = $checkbox.attr('target');
+                if (name === 'satellite') {
+                    app.createEmapSatLayer(LAYER_OPT[name]);
+                } else {
+                    app.createEmapBaseLayer(LAYER_OPT[name]);
+                }
+
+                if ($checkbox[0].checked) {
+                    app.showImageLayer(LAYER_OPT[name].name, true)
+                } else {
+                    app.showImageLayer(LAYER_OPT[name].name, false)
+                }
+            }
+        });
+    });
+</script>
+</body>
+</html>

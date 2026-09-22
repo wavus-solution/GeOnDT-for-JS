@@ -1,0 +1,92 @@
+<template data-example-rail>
+    <button class="rail-button measure-rail-button" type="button" data-panel-target="measure-panel" aria-expanded="false">
+        <span class="rail-icon" aria-hidden="true">📏</span><span>측정</span>
+    </button>
+</template>
+
+<aside class="glass-panel example-panel measure-panel" id="measure-panel" aria-hidden="true">
+    <header class="panel-header">
+        <div>
+            <span class="eyebrow">MEASUREMENT</span>
+            <h2>거리 / 면적 / 고도 측정</h2>
+        </div>
+        <button class="panel-close" type="button" data-panel-close="measure-panel" aria-label="측정 패널 닫기">×</button>
+    </header>
+
+    <div class="panel-content measure-panel-content">
+        <p class="panel-description">
+            측정 모드를 고른 뒤 지도를 클릭하거나, 위경도 좌표를 직접 넣어 거리와 면적을 잽니다.
+        </p>
+
+        <section class="measure-section" aria-labelledby="measure-mode-heading">
+            <h3 id="measure-mode-heading">측정 모드</h3>
+            <div class="measure-mode-grid" data-api-help="measure.mode">
+                <label>
+                    <input type="radio" name="measure-mode" value="pan" checked>
+                    <span>기본</span>
+                </label>
+                <label>
+                    <input type="radio" name="measure-mode" value="Distance">
+                    <span>거리</span>
+                </label>
+                <label>
+                    <input type="radio" name="measure-mode" value="Area">
+                    <span>면적</span>
+                </label>
+                <label>
+                    <input type="radio" name="measure-mode" value="Height">
+                    <span>고도</span>
+                </label>
+            </div>
+            <p class="measure-hint" id="measure-mode-hint">지도를 자유롭게 이동합니다. 측정 기능은 꺼져 있습니다.</p>
+        </section>
+
+        <section class="measure-section" aria-labelledby="measure-model-heading">
+            <h3 id="measure-model-heading">건물 모델</h3>
+            <label class="measure-option-row" data-api-help="model.u3f">
+                <input id="measure-u3f" type="checkbox" checked>
+                <span class="measure-option-copy">
+                    <strong>U3F 모델</strong>
+                    <small>고도 모드에서 건물 높이를 재려면 필요합니다</small>
+                </span>
+                <b id="measure-u3f-badge">불러오는 중</b>
+            </label>
+        </section>
+
+        <section class="measure-section" aria-labelledby="measure-coord-heading">
+            <h3 id="measure-coord-heading">좌표 입력 측정</h3>
+            <div class="measure-coord-grid" data-api-help="measure.coordinate">
+                <label>
+                    <input type="radio" name="measure-coord-type" value="Distance" checked>
+                    <span>거리</span>
+                </label>
+                <label>
+                    <input type="radio" name="measure-coord-type" value="Area">
+                    <span>면적</span>
+                </label>
+            </div>
+            <p class="measure-hint">
+                <code>{"coord": [{"x": 경도, "y": 위도, "z": 높이}, ...]}</code> 형식으로 입력합니다. 거리는 두 점부터, 면적은 세 점부터 측정됩니다.
+            </p>
+            <textarea id="measure-coord-text" class="measure-textarea" rows="6" aria-label="측정 좌표 입력">{"coord": [{"x": 126.9395, "y": 37.52, "z": 8.145}, {"x": 126.939, "y": 37.519, "z": 15}, {"x": 126.94, "y": 37.519, "z": 15}]}</textarea>
+            <button id="measure-coord-submit" class="measure-action primary" type="button" data-api-help="measure.coordinate">
+                입력 좌표로 측정하기
+            </button>
+        </section>
+
+        <section class="measure-section measure-result-card" aria-labelledby="measure-result-heading">
+            <div class="measure-result-heading">
+                <h3 id="measure-result-heading">측정 결과</h3>
+                <span id="measure-result-status">측정 대기</span>
+            </div>
+            <p id="measure-result-empty">측정 모드를 고르고 지도를 클릭하거나, 좌표를 넣어 측정하세요.</p>
+            <ol id="measure-segment-list" data-api-help="measure.distance-value" hidden></ol>
+            <dl id="measure-total" hidden>
+                <div><dt>합계</dt><dd id="measure-total-value">-</dd></div>
+            </dl>
+            <button id="measure-clear" class="measure-action" type="button" data-api-help="measure.clear">
+                측정 초기화
+            </button>
+        </section>
+    </div>
+</aside>

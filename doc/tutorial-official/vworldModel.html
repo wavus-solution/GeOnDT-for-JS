@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>VWorld 모델 레이어 예제</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="css/tutorial.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <style>
+        .examples {
+            padding: 15px 30px 15px 30px;
+        }
+
+    </style>
+</head>
+<body>
+<div id="map-wrapper">
+    <div id="map"></div>
+</div>
+<div class="execute-popup"><button>직접해보기</button></div>
+<div class="examples row">
+    <div class="ex-explanation" hidden>
+        <p class="lead">
+            3D 모델 레이어 중, <strong>VWorld 모델 레이어를 화면에 출력</strong>하는 예제입니다.<br>
+        </p>
+    </div>
+    <div class="form-group">
+        <div class="checkbox">
+            <label>
+                <input type="checkbox" target="vworld">
+                VWorld 모델
+            </label>
+        </div>
+    </div>
+</div>
+
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="execute-event">
+    var strings = document.location.href.split('/');
+    $('.execute-popup').click(function() {
+        window.open('./runner.html?url=' + strings[strings.length-1] + '&title=' + document.title);
+    })
+</script>
+<script>
+    require(['app/Union3D'], function (Union3D) {
+        //라이센스 인증
+        Union3D.ready(function () {
+            var maxprocess_model = 5;
+            var sizeblock_model  = 5;
+
+            //지도 기본 세팅///////////////////////////////////////
+            var app = new Union3D.U3dAPP({
+                containername: 'map' //+ U3dApp(지도영역)의 div ID, *필수 입력
+            });
+            app.setHomePosition(126.9395, 37.52, 450, 2, 60); //경도, 위도, 높이, 방위각, 고도각
+            app.updateHomePosition();
+
+            //이미지 레이어 생성
+            var layer = new Union3D.image.U3dImageXYZLayer({
+                name: 'satellite',  //+ 레이어 이름, defaultValue(opt.naem, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}
+                baseurl: layerInfo.image.vworldsaturl, //+ 이미지 데이터 URL, *필수 입력
+                reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
+            });
+            app.addLayer(layer);
+            app.showLayer('satellite', true);
+            //APP에 배경이미지 레이어를 필수로 설정해 주어야한다.
+            app.setNameBaseLayer('satellite');
+
+            var terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
+                name               : 'Korea Terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+                baseurl            : layerInfo.height.url, //+ 고도 데이터 기본 URL, *필수 입력
+                ext                : '.umf',  //+ 파일 확장자, *필수 입력
+                reverseY           : true,  //+ X축 반전 여부, defaultValue(opt.reverseY, false)
+                minlevel           : 9, //+ 가시화 최소 레벨
+                maxlevel           : 15, //+ 가시화 최대 레벨
+                useproxy           : false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
+                maxprocess         : 2,  //+ process 최대값
+                interpolationheight: true, //+ 고도보간 기능 사용 여부
+                rectangle          : Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수
+            });
+            app.addLayer(terrainLayer);
+            app.showLayer('Korea Terrain', true);
+            /////////////////////////////////////////////////////
+
+
+            $(document).on('click', 'input[type=checkbox]', checked);
+
+            function checked(e) {
+                var $checkbox = $(e.target);
+                var name      = $checkbox.attr('target');
+                if ($checkbox[0].checked) {
+                    createLayer();
+                } else {
+                    removeLayer();
+                }
+            }
+
+            var vworldModel = undefined;
+            function createLayer() {
+                if (vworldModel !== undefined) {
+                    return;
+                }
+                vworldModel = new Union3D.model.U3dModelVWorldLayer({
+                    name        : 'vworld model',  //+ VWorld 3D 건물 레이어 이름, defaultValue(opt.name, Guid())  : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
+                    useproxy    : true, //+ 프록시 사용 여부, defaultValue(opt.useproxy, false);
+                    baseurl: layerInfo.model.vworldurl,  //+ VWorld 2D 지도 서비스 기본 URL , defaultValue(opt.baseurl, 'https://xdworld.vworld.kr/2d/Satellite/service/');  *필수 입력
+                    basemodelurl: layerInfo.model.vworldbasemodelurl,  //+ VWorld 3D 건물 모델 서비스 기본 URL, defaultValue(opt.basemodelurl, 'https://xdworld.vworld.kr/XDServer/requestLayerObject?Layer=facility_build');  *필수 입력
+                    ext: '.jpeg',  //+ 건물 이미지 포맷, defaultValue(opt.ext, '.jpg');
+                    partloading: true, //+ 군집화 로딩 여부(부분로딩), defaultValue(opt.partloading, true);
+                    opacity     : 0.3, //+ 투명화 여부 true 일 경우, 투명도 설정값으로 적용
+                    animation   : true, //+ animation 사용 여부
+                    minlevel    : Union3D.UDEF.isIE() ? 17 : 17, //Union3D.UDEF.isIE() ? 17 : 17, //+ 가시화 최소레벨
+                    maxlevel    : Union3D.UDEF.isIE() ? 19 : 19, // Union3D.UDEF.isIE() ? 19 : 19, //+ 가시화 최대레벨
+                    maxprocess  : maxprocess_model,  //+ 최대 process 값, defaultValue(opt.maxprocess, (UDEF.isIE() ? 2 : 5));
+                    sizeblock   : sizeblock_model  //+ one per block model size,  defaultValue(opt.sizeblock, UDEF.isIE() ? 2 : 10)
+                });
+                app.addLayer(vworldModel);
+                app.showLayer('vworld model', true);
+             //   app.redrawModel(vworldModel.getName())
+            }
+
+            function removeLayer() {
+                if (vworldModel === undefined) {
+                    return;
+                }
+
+                app.removeLayer(vworldModel);
+                vworldModel = undefined;
+            }
+        });
+    });
+</script>
+</body>
+</html>

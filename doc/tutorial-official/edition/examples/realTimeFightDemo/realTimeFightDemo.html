@@ -1,0 +1,145 @@
+<nav class="flight-rail" data-example-rail aria-label="실시간 항공 추적 도구">
+    <button
+        class="rail-button"
+        type="button"
+        data-panel-target="flight-tracking-panel"
+        data-api-help="layer.create"
+        aria-controls="flight-tracking-panel"
+        aria-expanded="false"
+    >
+        <span class="rail-icon" aria-hidden="true">✈</span>
+        <span>항공기</span>
+    </button>
+</nav>
+
+<aside class="glass-panel example-panel flight-panel" id="flight-tracking-panel" aria-hidden="true">
+    <header class="panel-header">
+        <div>
+            <span class="eyebrow">REALTIME FLIGHT</span>
+            <h2>항공기 정보</h2>
+        </div>
+        <button
+            class="panel-close"
+            type="button"
+            data-panel-close="flight-tracking-panel"
+            aria-label="항공기 정보 닫기"
+        >×</button>
+    </header>
+
+    <div class="panel-content flight-panel-content">
+        <p class="panel-description">
+            운항 중인 항공기를 실시간으로 갱신하고 누적 비행 경로와 카메라 추적을 확인합니다.
+        </p>
+
+        <section class="flight-section" aria-labelledby="flight-route-heading">
+            <h3 id="flight-route-heading">누적 경로</h3>
+            <div class="flight-route-actions" data-api-help="route.visibility">
+                <button class="flight-action" type="button" id="route-on">경로 보기</button>
+                <button class="flight-action" type="button" id="route-off">경로 끄기</button>
+            </div>
+        </section>
+
+        <section class="flight-section" aria-labelledby="flight-display-heading">
+            <h3 id="flight-display-heading">표시 옵션</h3>
+            <div class="flight-option-list">
+                <label class="flight-option" data-api-help="label.visibility">
+                    <input type="checkbox" id="setLabel" checked>
+                    <span>편명 라벨 표시</span>
+                </label>
+                <label class="flight-option" data-api-help="debug.box">
+                    <input type="checkbox" id="boxDebug">
+                    <span>수신 위치 디버그 상자</span>
+                </label>
+            </div>
+        </section>
+
+        <section class="flight-section" aria-labelledby="flight-filter-heading">
+            <h3 id="flight-filter-heading">목록 필터</h3>
+            <div class="flight-filter-row">
+                <label class="flight-field">
+                    <span>노선</span>
+                    <select class="flight-select" id="route-type-select">
+                        <option value="DOMESTIC">국내선</option>
+                        <option value="INTERNATIONAL">국제선</option>
+                    </select>
+                </label>
+                <label class="flight-field">
+                    <span>출발 공항</span>
+                    <select class="flight-select" id="airport-select">
+                        <option value="ALL">전체</option>
+                    </select>
+                </label>
+            </div>
+        </section>
+
+        <section class="flight-section flight-list-section" data-api-help="camera.trace" aria-labelledby="flight-list-heading">
+            <div class="flight-list-heading">
+                <h3 id="flight-list-heading">항공기 목록</h3>
+                <span class="flight-count" id="plane-num">0</span>
+            </div>
+            <div class="flight-search-row">
+                <input type="text" class="flight-search" id="plane-search" placeholder="편명 검색" autocomplete="off">
+                <button class="flight-action" type="button" id="plane-search-btn">검색</button>
+            </div>
+            <p class="flight-list-status" id="plane-list-status">항공기 정보를 불러오는 중입니다.</p>
+            <div class="flight-list-scroll">
+                <ul class="flight-list" id="plane-list"></ul>
+            </div>
+        </section>
+    </div>
+</aside>
+
+<section class="glass-panel flight-detail" id="flight-detail" aria-label="선택한 항공기 정보" hidden>
+    <div class="flight-info-card">
+        <div class="flight-header">
+            <strong class="plane-name" id="flight-name"></strong>
+            <span class="route-badge" id="route-type"></span>
+        </div>
+
+        <p class="via-chip" id="via-airport" hidden></p>
+
+        <div class="route-row">
+            <div class="airport-block">
+                <span class="airport-label">출발</span>
+                <span class="airport-name" id="origin"></span>
+            </div>
+            <span class="flight-icon" aria-hidden="true">✈</span>
+            <div class="airport-block right">
+                <span class="airport-label">도착</span>
+                <span class="airport-name" id="destination"></span>
+            </div>
+        </div>
+
+        <p class="plane-state" id="flight-state"></p>
+
+        <div class="flight-progress">
+            <div class="flight-progress-bar" id="flight-progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+
+        <div class="plane-time">
+            <span id="start-time"></span>
+            <span class="duration-time" id="duration-time"></span>
+            <span id="eta-time"></span>
+        </div>
+    </div>
+
+    <div class="flight-log-card" id="state-div" hidden>
+        <h3>통과 구간 정보</h3>
+        <div class="flight-log" id="state-log"></div>
+    </div>
+
+    <div class="flight-log-card" id="section-div" data-api-help="route.pick" tabindex="0" hidden>
+        <h3>클릭 구간 정보</h3>
+        <ul class="flight-section-log" id="section-log"></ul>
+    </div>
+</section>
+
+<div class="flight-camera-bar" id="camera-bottom-bar" data-api-help="camera.view" aria-label="추적 카메라 시점" hidden>
+    <button class="flight-camera-button" type="button" data-view="ThirdPersonFront">앞면</button>
+    <button class="flight-camera-button" type="button" data-view="ThirdPersonBack">뒷면</button>
+    <button class="flight-camera-button" type="button" data-view="TopView">윗면</button>
+    <button class="flight-camera-button" type="button" data-view="ThirdPersonLeft">좌측</button>
+    <button class="flight-camera-button" type="button" data-view="ThirdPersonRight">우측</button>
+</div>
+
+<p class="flight-notice" id="flight-notice" role="status" aria-live="polite" hidden></p>
