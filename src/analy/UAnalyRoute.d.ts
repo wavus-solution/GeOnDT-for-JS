@@ -6,13 +6,12 @@ import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSeg
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { UAnaly } from "./UAnaly.js";
-import type { UAnalyCO } from "./UAnaly.types.js";
+import type { UAnaly, UAnalyCO } from "./UAnaly.js";
 import type { U3dApp } from "../app/U3dApp.js";
 import type { UTween } from "../core/UTween.js";
 import type { U3dMouseEvent } from "../event/U3dMouseEvent.js";
 import type { ULineGeometry } from "../geometry/ULineGeometry.js";
-import type { WorldPositionVector3 } from "../types/global.types.js";
+import type { WorldPositionVector3 } from "../types/global.js";
 
 /**
  * ~extends import('@UAnaly').UAnalyCO <br>

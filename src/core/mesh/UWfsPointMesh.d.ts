@@ -7,7 +7,7 @@ import GUI from "../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.
 import * as three_examples_jsm_math_ConvexHull_js from "../../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dLayer } from "../../3dLayer/U3dLayer.js";
-import type { ModelBufferGeometry, ModelMaterial } from "./UModelMesh.types.js";
+import type { ModelBufferGeometry, ModelMaterial } from "./UModelMesh.js";
 
 declare class UWfsPointMesh extends Points<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> {
     /**

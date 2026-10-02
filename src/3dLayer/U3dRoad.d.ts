@@ -6,13 +6,13 @@ import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSeg
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { U3dRoadCO, U3dRoadNode, U3dRoadSaveData } from "./U3dRoad.types.js";
 import type { UCssBilboard } from "../annotation/UCssBilboard.js";
 import type { U3dApp } from "../app/U3dApp.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
 import type { UGroup } from "../core/UGroup.js";
 import type { UMesh } from "../core/mesh/UMesh.js";
-import type { GeoPosition, KeyValue, WorldPosition, WorldPositionVector3 } from "../types/global.types.js";
+import type { U3dPOI } from "../geometry/U3dPOI.js";
+import type { GeoPosition, KeyValue, WorldPosition, WorldPositionVector3 } from "../types/global.js";
 
 /**
  * `도로`객체 클래스
@@ -180,4 +180,64 @@ declare class U3dRoad {
     checkDistance(point: three.Vector3): number;
 }
 
-export type { U3dRoad };
+type U3dRoadNode = {
+        point: three.Vector3;
+        prev: three.Vector3;
+        next: three.Vector3;
+        direction: three.Vector3;
+    };
+
+type U3dRoadSaveData = {
+        name: string;
+        positions: Array<WorldPosition>;
+        width: number;
+        height: number;
+        imageUrl: string;
+        visible: boolean;
+        labelVisible: boolean;
+        labelcenter: WorldPosition;
+    };
+
+/**
+     * U3dRoad 생성자 옵션
+     */
+    type U3dRoadCO = {
+        /**
+         * U3dApp
+         */
+        app: U3dApp;
+        /**
+         * road object type
+         */
+        type?: string;
+        /**
+         * event dispatcher
+         */
+        dispatcher?: KeyValue;
+        /**
+         * road owner layer
+         */
+        layer?: KeyValue;
+        /**
+         * 도로 객체 이름
+         */
+        name?: string;
+        /**
+         * 도로 너비
+         */
+        width?: number;
+        /**
+         * 도로 높이
+         */
+        height?: number;
+        /**
+         * 도로 이미지 데이터 URL
+         */
+        image?: string;
+        /**
+         * 도로 POI
+         */
+        poi?: U3dPOI;
+    };
+
+export type { U3dRoad, U3dRoadCO, U3dRoadNode, U3dRoadSaveData };

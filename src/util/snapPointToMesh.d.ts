@@ -6,7 +6,7 @@ import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSeg
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { GeoPosition, WorldPositionVector3 } from "../types/global.types.js";
+import type { GeoPosition, WorldPositionVector3 } from "../types/global.js";
 
 /**
  * 위경도(geo) 좌표를 mesh의 면(face)에 스냅(투영)해 월드 좌표상의 위치로 변환합니다.

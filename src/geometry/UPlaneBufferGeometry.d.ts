@@ -7,7 +7,6 @@ import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js"
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { UBufferGeometry } from "../core/geometry/UBufferGeometry.js";
-import type { UPlaneCustomBox, UPlaneTemplateInfo } from "./UPlaneBufferGeometry.types.js";
 
 /**
  * ~extends import('@UBufferGeometry') <br>
@@ -332,4 +331,30 @@ declare class UPlaneBufferGeometry extends UBufferGeometry {
     #private;
 }
 
-export type { UPlaneBufferGeometry };
+/**
+     * templateInfo 캐시에 저장되는 데이터 구조 <br>
+     */
+    type UPlaneTemplateInfo = {
+        indices: Array<number>;
+        vertices: Array<number>;
+        normals: Array<number>;
+        uvs: Array<number>;
+        uwidth: number;
+        uheight: number;
+        segmentWidth: number;
+        segmentHeight: number;
+        boundingBox: three.Box3;
+    };
+
+/**
+     * customBox에 저장되는 데이터 구조 <br>
+     */
+    type UPlaneCustomBox = {
+        minx: number;
+        miny: number;
+        maxx: number;
+        maxy: number;
+        height: number;
+    };
+
+export type { UPlaneBufferGeometry, UPlaneCustomBox, UPlaneTemplateInfo };

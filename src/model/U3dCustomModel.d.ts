@@ -7,7 +7,7 @@ import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js"
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { UEventDispatcher } from "../core/UEventDispatcher.js";
-import type { WorldPosition } from "../types/global.types.js";
+import type { WorldPosition } from "../types/global.js";
 
 /**
  * @classdesc `사용자 건물`(CustomModel) 모델 관련 클래스

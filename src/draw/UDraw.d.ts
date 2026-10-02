@@ -10,8 +10,8 @@ import type { U3dShaderMeasureLayer } from "../3dLayer/U3dShaderMeasureLayer.js"
 import type { U3dApp } from "../app/U3dApp.js";
 import type { UEventDispatcher } from "../core/UEventDispatcher.js";
 import type { UGroup } from "../core/UGroup.js";
-import type { EventCallBack } from "../types/global.types.js";
-import type { OLFeature, OLStyle } from "../types/ol.types.js";
+import type { EventCallBack } from "../types/global.js";
+import type { OLFeature, OLStyle } from "../types/ol.js";
 
 /**
  * OpenLayers Vector Source 인터페이스 (ol 패키지 타입 미설치 환경 대응)

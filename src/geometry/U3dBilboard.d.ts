@@ -9,7 +9,7 @@ import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/ty
 import type { UCssBilboard } from "../annotation/UCssBilboard.js";
 import type { U3dApp } from "../app/U3dApp.js";
 import type { UGroup } from "../core/UGroup.js";
-import type { WorldPosition } from "../types/global.types.js";
+import type { WorldPosition } from "../types/global.js";
 
 /**
  * U3dBilboard 생성자 옵션 <br>

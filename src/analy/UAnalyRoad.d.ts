@@ -8,11 +8,11 @@ import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/e
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dRoadExtension } from "../3dLayer/U3dRoadExtension.js";
 import type { U3dVectorLayer } from "../3dLayer/U3dVectorLayer.js";
-import type { UAnaly } from "./UAnaly.js";
-import type { UAnalyRoadCO, UGizmoControlsEx } from "./UAnalyRoad.types.js";
+import type { UAnaly, UAnalyCO } from "./UAnaly.js";
 import type { U3dApp } from "../app/U3dApp.js";
 import type { UGroup } from "../core/UGroup.js";
-import type { GeoPosition } from "../types/global.types.js";
+import type { UGizmoControls } from "../mode/UGizmoControls.js";
+import type { GeoPosition, WorldPositionVector3 } from "../types/global.js";
 import type { deferred } from "../util/deferred.js";
 
 /**
@@ -296,4 +296,61 @@ declare class UAnalyRoad extends UAnaly {
     #private;
 }
 
-export type { UAnalyRoad };
+/**
+     * ~extends import('@UAnaly').UAnalyCO <br>
+     * UAnalyRoad 생성자 옵션
+     */
+    type UAnalyRoadCO_Content = {
+        /**
+         * 도로 분석 이름
+         */
+        name?: string;
+        /**
+         * 정지선 표시 여부
+         */
+        drawStopLine?: boolean;
+        /**
+         * 스케일
+         */
+        scale?: {
+            x: number;
+            y: number;
+            z: number;
+        };
+        /**
+         * 회전
+         */
+        rotation?: {
+            x: number;
+            y: number;
+            z: number;
+        };
+    };
+
+/**
+     * ~extends import('@UAnaly').UAnalyCO <br>
+     * UAnalyRoad 생성자 옵션
+     */
+    type UAnalyRoadCO = Omit<Omit<UAnalyCO, never> & UAnalyRoadCO_Content, never>;
+
+/**
+     * ~extends UGizmoControls <br>
+     * update·dispose·addEventListener 멤버를 포함한 UGizmoControls 확장 타입
+     */
+    type UGizmoControlsEx = UGizmoControls & {
+        update(): void;
+        dispose(): void;
+        addEventListener(type: string, listener: Function): void;
+    };
+
+type IntersectionTarget = {
+        name: string;
+        _olGeom?: object;
+        /**
+         * 도로 중심선 (월드 좌표, EPSG:3857)
+         */
+        center?: Array<WorldPositionVector3>;
+        geometry?: object;
+    };
+
+export type { IntersectionTarget, UAnalyRoad, UAnalyRoadCO, UAnalyRoadCO_Content, UGizmoControlsEx };

@@ -9,7 +9,7 @@ import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/ty
 import type { UCollider } from "./UCollider.js";
 import type { UCollisionGrid } from "./UCollisionGrid.js";
 import type { UEventDispatcher } from "../core/UEventDispatcher.js";
-import type { WorldPositionVector3 } from "../types/global.types.js";
+import type { WorldPositionVector3 } from "../types/global.js";
 
 type CollisionHitInfo = {
     collider: UCollider;

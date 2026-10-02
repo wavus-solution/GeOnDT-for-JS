@@ -13,9 +13,9 @@ import type { UCamera } from "../core/UCamera.js";
 import type { URenderer } from "../core/URenderer.js";
 import type { UScene } from "../core/UScene.js";
 import type { UMesh } from "../core/mesh/UMesh.js";
-import type { U3dPOICO } from "../geometry/U3dPOI.types.js";
+import type { U3dPOICO } from "../geometry/U3dPOI.js";
 import type { U3dOverlay, U3dOverlayCO } from "../overlay/U3dOverlay.js";
-import type { WorldPositionVector3 } from "../types/global.types.js";
+import type { WorldPositionVector3 } from "../types/global.js";
 
 type ViewAnalyOption = {
     /**

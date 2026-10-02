@@ -6,23 +6,19 @@ import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSeg
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { U3dComponentPosition } from "../3dLayer/U3dComponentPosition.js";
-import type { ComponentParam } from "../3dLayer/U3dComponentPosition.types.js";
-import type { ComponentSaveDate, U3dMultipleComponentLayer } from "../3dLayer/U3dMultipleComponentLayer.js";
-import type { ComponentObject } from "../3dLayer/U3dMultipleComponentLayer.types.js";
-import type { U3dRoad } from "../3dLayer/U3dRoad.js";
-import type { U3dRoadSaveData } from "../3dLayer/U3dRoad.types.js";
+import type { ComponentParam, U3dComponentPosition } from "../3dLayer/U3dComponentPosition.js";
+import type { ComponentObject, ComponentSaveDate, U3dMultipleComponentLayer } from "../3dLayer/U3dMultipleComponentLayer.js";
+import type { U3dRoad, U3dRoadSaveData } from "../3dLayer/U3dRoad.js";
 import type { U3dShaderMeasureLayer } from "../3dLayer/U3dShaderMeasureLayer.js";
-import type { UAnaly } from "./UAnaly.js";
-import type { U3dRoadOption, UAnalyMultipleComponentCO } from "./UAnalyMultipleComponent.types.js";
+import type { UAnaly, UAnalyCO } from "./UAnaly.js";
 import type { UCssBilboard } from "../annotation/UCssBilboard.js";
-import type { UEventDispatcherListener } from "../core/UEventDispatcher.types.js";
+import type { UEventDispatcherListener } from "../core/UEventDispatcher.js";
 import type { UGroup } from "../core/UGroup.js";
 import type { U3dMouseEvent } from "../event/U3dMouseEvent.js";
 import type { ULineGeometry } from "../geometry/ULineGeometry.js";
 import type { UGizmoControls } from "../mode/UGizmoControls.js";
-import type { GeoPosition, WorldPosition } from "../types/global.types.js";
-import type { DeferredObject } from "../util/deferred.types.js";
+import type { GeoPosition, WorldPosition } from "../types/global.js";
+import type { DeferredObject } from "../util/deferred.js";
 import type { ViewAnalyOption } from "../view/U3dView.js";
 
 /**
@@ -526,4 +522,85 @@ declare class UAnalyMultipleComponent extends UAnaly {
     #private;
 }
 
-export type { UAnalyMultipleComponent };
+type MeasureLayer = {
+        clearDrawFeature: () => void;
+        _measureFeature: {
+            id: string | number;
+        } | undefined;
+        _measurePoints: Array<object>;
+        addMeasurePoint: (arg0: object) => {
+            id: string | number;
+        };
+        commitFeature: () => unknown;
+        removeFeature: (arg0: object) => void;
+        setMeasureType: (arg0: string) => void;
+    };
+
+/**
+     * 도로 생성 옵션
+     */
+    type U3dRoadOption = {
+        /**
+         * 도로 좌표 배열
+         */
+        positions: Array<GeoPosition>;
+        /**
+         * 도로 이름
+         */
+        name?: string;
+        /**
+         * 도로 너비
+         */
+        width?: number;
+        /**
+         * 도로 높이
+         */
+        height?: number;
+        /**
+         * 도로 이미지 URL
+         */
+        imageUrl?: string;
+        /**
+         * 도로 가시화 여부
+         */
+        visible?: boolean;
+        /**
+         * 라벨 가시화 여부
+         */
+        labelVisible?: boolean;
+        /**
+         * 라벨 중심 좌표
+         */
+        labelcenter?: WorldPosition;
+    };
+
+/**
+     * 생성자 옵션
+     * ~extends import('@UAnaly').UAnalyCO <br>
+     */
+    type UAnalyMultipleComponentCO_Content = {
+        /**
+         * 분析모드 이름
+         */
+        name?: string;
+        /**
+         * 컴포넌트 크기
+         */
+        scale?: WorldPosition;
+        /**
+         * 컴포넌트 회전값
+         */
+        rotation?: WorldPosition;
+        /**
+         * 구간 추가 시 가이드 라인 가시화 여부
+         */
+        lineVisible?: boolean;
+    };
+
+/**
+     * 생성자 옵션
+     * ~extends import('@UAnaly').UAnalyCO <br>
+     */
+    type UAnalyMultipleComponentCO = Omit<Omit<UAnalyCO, never> & UAnalyMultipleComponentCO_Content, never>;
+
+export type { MeasureLayer, U3dRoadOption, UAnalyMultipleComponent, UAnalyMultipleComponentCO, UAnalyMultipleComponentCO_Content };

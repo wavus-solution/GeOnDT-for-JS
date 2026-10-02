@@ -7,12 +7,11 @@ import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js"
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dLayer } from "../3dLayer/U3dLayer.js";
-import type { UAnaly } from "./UAnaly.js";
-import type { UAnalyHeightLimitCO } from "./UAnalyHeightLimit.types.js";
+import type { UAnaly, UAnalyCO } from "./UAnaly.js";
 import type { UHeightFilter } from "./UHeightFilter.js";
 import type { DispatchInputEvent } from "../core/UEventDispatcher.js";
 import type { UMesh } from "../core/mesh/UMesh.js";
-import type { OLGeometry } from "../types/ol.types.js";
+import type { OLGeometry } from "../types/ol.js";
 
 /**
  * ~extends import('@UAnaly').UAnaly <br>
@@ -154,4 +153,21 @@ declare class UAnalyHeightLimit extends UAnaly {
     _loadedListener(e: DispatchInputEvent): void;
 }
 
-export type { UAnalyHeightLimit };
+/**
+     * ~extends import('@UAnaly').UAnalyCO <br>
+     * UAnalyHeightLimit 생성자 옵션
+     */
+    type UAnalyHeightLimitCO_Content = {
+        /**
+         * 분석 클래스 이름
+         */
+        name?: string;
+    };
+
+/**
+     * ~extends import('@UAnaly').UAnalyCO <br>
+     * UAnalyHeightLimit 생성자 옵션
+     */
+    type UAnalyHeightLimitCO = Omit<Omit<UAnalyCO, never> & UAnalyHeightLimitCO_Content, never>;
+
+export type { UAnalyHeightLimit, UAnalyHeightLimitCO, UAnalyHeightLimitCO_Content };

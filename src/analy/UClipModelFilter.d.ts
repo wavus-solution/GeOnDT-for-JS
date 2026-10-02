@@ -6,12 +6,12 @@ import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSeg
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { ClippingLayer } from "./UAnalyClipping.types.js";
-import type { UClipModelFilterCO } from "./UClipModelFilter.types.js";
+import type { ClippingLayer } from "./UAnalyClipping.js";
 import type { U3dApp } from "../app/U3dApp.js";
-import type { UEventDispatcher } from "../core/UEventDispatcher.js";
+import type { UEventDispatcher, UEventDispatcherCO } from "../core/UEventDispatcher.js";
 import type { UMesh } from "../core/mesh/UMesh.js";
 import type { U3dSelect } from "../select/U3dSelect.js";
+import type { OLGeometry } from "../types/ol.js";
 
 /**
  * ~extends import('@UEventDispatcher').UEventDispatcher <br>
@@ -129,4 +129,56 @@ declare class UClipModelFilter extends UEventDispatcher {
     };
 }
 
-export type { UClipModelFilter };
+/**
+     * ~extends import('@UEventDispatcher').UEventDispatcherCO <br>
+     * UClipModelFilter 생성자 옵션
+     */
+    type UClipModelFilterCO_Content = {
+        /**
+         * 편집지형 ID
+         */
+        id?: string;
+        /**
+         * ol의 feature polygon geometry
+         */
+        geometry?: OLGeometry;
+        /**
+         * 클리핑 할 layer 이름 목록
+         */
+        layers?: Array<string>;
+        /**
+         * 앱 인스턴스
+         */
+        app?: U3dApp;
+        /**
+         * 필터링 type
+         */
+        type?: string;
+        /**
+         * 필터링 기준 축 ( x축: 'x', y축: 'y', z축: 'z', 높이 : 'height', 사용자 임의 축 : 'custom' )
+         */
+        axis?: string;
+        /**
+         * 필터링 기준에서의 대상 범위
+         */
+        size?: number;
+        /**
+         * 스타일 옵션
+         */
+        style?: {
+            color: number;
+            opacity: number;
+        };
+        /**
+         * 셀렉터
+         */
+        selector?: U3dSelect;
+    };
+
+/**
+     * ~extends import('@UEventDispatcher').UEventDispatcherCO <br>
+     * UClipModelFilter 생성자 옵션
+     */
+    type UClipModelFilterCO = Omit<Omit<UEventDispatcherCO, never> & UClipModelFilterCO_Content, never>;
+
+export type { UClipModelFilter, UClipModelFilterCO, UClipModelFilterCO_Content };

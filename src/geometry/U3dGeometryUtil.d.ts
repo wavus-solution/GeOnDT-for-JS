@@ -8,7 +8,7 @@ import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/e
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
 import type { UMesh } from "../core/mesh/UMesh.js";
-import type { OLGeometry } from "../types/ol.types.js";
+import type { OLGeometry } from "../types/ol.js";
 
 /**
  * 3D 지오메트리 유틸리티 클래스 <br>

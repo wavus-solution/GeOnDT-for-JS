@@ -7,7 +7,6 @@ import GUI from "../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.
 import * as three_examples_jsm_math_ConvexHull_js from "../../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { UMesh } from "./UMesh.js";
-import type { ModelBufferGeometry, ModelMaterial } from "./UModelMesh.types.js";
 import type { UGizmoControls } from "../../mode/UGizmoControls.js";
 
 declare class UModelMesh extends UMesh {
@@ -23,4 +22,23 @@ declare class UModelMesh extends UMesh {
     /** @type {import('@UGizmoControls').UGizmoControls | null} */ hasGizmo: UGizmoControls | null;
 }
 
-export type { UModelMesh };
+type ModelBufferGeometry_Content = {
+        boundsTree?: unknown;
+        computeBoundsTree?: Function;
+    };
+
+type ModelBufferGeometry = three.BufferGeometry & ModelBufferGeometry_Content;
+
+type ModelMaterial_Content = {
+        _oriColor?: three.Color;
+        _oriOpacity?: number;
+        _oriMap?: three.Texture | three.CanvasTexture;
+        _exceptTexture?: boolean;
+        color: three.Color;
+        map?: three.Texture | three.CanvasTexture | undefined | null;
+        emissive?: three.Color;
+    };
+
+type ModelMaterial = three.Material & ModelMaterial_Content;
+
+export type { ModelBufferGeometry, ModelBufferGeometry_Content, ModelMaterial, ModelMaterial_Content, UModelMesh };

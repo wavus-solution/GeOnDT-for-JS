@@ -6,14 +6,14 @@ import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSeg
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { Ananlysis_Mesh, UAnalyCO } from "./UAnaly.types.js";
 import type { U3dApp } from "../app/U3dApp.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
-import type { UEventDispatcher } from "../core/UEventDispatcher.js";
+import type { UEventDispatcher, UEventDispatcherCO } from "../core/UEventDispatcher.js";
 import type { UGroup } from "../core/UGroup.js";
 import type { URaycaster } from "../core/URaycaster.js";
 import type { UScene } from "../core/UScene.js";
 import type { U3dMouseEvent } from "../event/U3dMouseEvent.js";
+import type { Common_Mesh } from "../types/global.js";
 
 /**
  * ~extends import('@UEventDispatcher').UEventDispatcher <br>
@@ -248,4 +248,30 @@ declare class UAnaly extends UEventDispatcher {
     removeAllHighlight(): void;
 }
 
-export type { UAnaly };
+/**
+     * ~extends import('@UEventDispatcher').UEventDispatcherCO <br>
+     * UAnaly 생성자 옵션
+     */
+    type UAnalyCO_Content = {
+        /**
+         * 분석 타입
+         */
+        type?: string;
+    };
+
+/**
+     * ~extends import('@UEventDispatcher').UEventDispatcherCO <br>
+     * UAnaly 생성자 옵션
+     */
+    type UAnalyCO = Omit<Omit<UEventDispatcherCO, never> & UAnalyCO_Content, never>;
+
+type Ananlysis_Mesh_Content = {
+        /**
+         * mesh 선택 플래그
+         */
+        _isPicked?: boolean;
+    };
+
+type Ananlysis_Mesh = Common_Mesh & Ananlysis_Mesh_Content;
+
+export type { Ananlysis_Mesh, Ananlysis_Mesh_Content, UAnaly, UAnalyCO, UAnalyCO_Content };

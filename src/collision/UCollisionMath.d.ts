@@ -30,4 +30,22 @@ declare function computeBoundingIntersectionRatio(a: Partial<{
  */
 declare function computeIntersectionRatio(sourceCollider: UCollider, targetCollider: UCollider): number;
 
-export type { computeBoundingIntersectionRatio, computeIntersectionRatio };
+/**
+     * `UCollisionMath`의 JSTS 형상 생성 함수가 반환하는 기하 객체입니다.
+     */
+    type UCollisionJstsGeometry = {
+        /**
+         * 다른 형상과의 교차 형상을 새 객체로 반환하는 함수입니다.
+         */
+        intersection: (arg0: UCollisionJstsGeometry) => UCollisionJstsGeometry;
+        /**
+         * 다른 형상과 교차하는지 반환하는 함수입니다.
+         */
+        intersects: (arg0: UCollisionJstsGeometry) => boolean;
+        /**
+         * 형상의 면적을 현재 좌표 단위의 제곱으로 반환하는 함수입니다.
+         */
+        getArea: () => number;
+    };
+
+export type { UCollisionJstsGeometry, computeBoundingIntersectionRatio, computeIntersectionRatio };

@@ -35876,9 +35876,12 @@ declare class U3dApp extends U3dObject {
     createExecuteCommand(): void;
     getExecuteCommand(): UAppCommand;
     /**
-     * 데이터프레임을 업데이트하는 함수
-     * @param {number} curTime 최근 시간
-     * @return {boolean} 업데이트 결과 [true : 업데이트 성공, false : 업데이트 실패]
+     * 등록된 메인 작업의 프레임 갱신을 수행합니다.
+     * 실행 주기를 기다리거나 작업 목록이 없으면 false를 반환합니다.
+     * 선택한 콜백은 앱 명령 객체를 this로 사용하며, 콜백의 예외는 호출자에게 전달합니다.
+     *
+     * @param {number} curTime 프레임 시각(ms)
+     * @returns {boolean} 선택한 작업의 호출을 마쳤는지 여부
      *
      * @ignore
      */
@@ -38170,12 +38173,13 @@ declare class U3dApp extends U3dObject {
     compileAsync(target: any): Promise<three.Object3D<three.Object3DEventMap>>;
     draw(clear: any): void;
     /**
-     * 추가한 view들을 라운드로빈 방식으로 순회하여 현재 프레임에서 그릴 view을 찾는 함수
-     * forceSnapshot true인 뷰는 우선순위 1
-     * 시간 복잡도: O(min(list.length, maxScanPerTick))
-     * @param {number} [maxPerTick=5]  한 틱에서 실제로 처리할 최대 뷰 수(상한)
-     * @param {number} [maxScanPerTick=5] 라운드로빈으로 스캔할 최대 뷰 수(스캔 상한)
-     * @returns {Array<import('@U3dView').U3dView>} draw할 views
+     * 현재 프레임에서 그릴 뷰 목록을 반환합니다.
+     * 표시 중이고 카메라가 있는 뷰가 대상이며, 강제 스냅샷 뷰는 일반 뷰보다 먼저 포함합니다.
+     * 일반 뷰의 순회 위치는 다음 호출에 이어집니다. 원본 목록과 뷰 객체는 변경하지 않습니다.
+     *
+     * @param {number} [maxPerTick=5] 일반 뷰의 처리 상한. 0이면 강제 스냅샷 뷰만 반환합니다.
+     * @param {number} [maxScanPerTick=10] 일반 뷰의 순회 한도. 처리 상한보다 작은 값은 처리 상한까지 적용합니다.
+     * @returns {Array<import('@U3dView').U3dView>} 강제 스냅샷 뷰와 이번 호출에서 선택한 일반 뷰의 새 배열
      */
     getRenderViewList(maxPerTick?: number, maxScanPerTick?: number): Array<U3dView>;
     drawModel(clear: any): void;
@@ -64255,6 +64259,11 @@ declare global {
          */
         contrast?: number;
     };
+    /**
+     * 인스턴스 렌더 구조를 조립할 때 필요한 레이어의 상태와 조회 권한입니다.
+     * 원본 cache·그룹 한도를 참조하며 앱에는 renderer 조회만 요청합니다.
+     */
+    type U3dMultipleComponentMeshSource = Pick<U3dMultipleComponentLayer, "_cacheMeshList" | "_instancedMaxCount" | "_app" | "_drawLine" | "getName">;
 }
 
 declare global {
@@ -69538,6 +69547,59 @@ declare global {
         SunAmount: UAnalySun;
         PhysicalFlow: UAnalyPhysicalFlow;
         SkyLine: UAnalySkyLine;
+    };
+    /**
+     * 그림자 갱신에 필요한 레이어의 최소 인터페이스입니다.
+     * 원본 레이어를 그대로 전달하며 새 레이어를 생성하거나 등록 상태를 변경하지 않습니다.
+     */
+    type U3dAppShadowLayer = {
+        /**
+         * 레이어의 표시 여부를 조회합니다.
+         */
+        getVisible: U3dLayer["getVisible"];
+        /**
+         * 레이어의 그림자 갱신 허용 여부를 조회합니다.
+         */
+        isUseShadowUpdate: U3dLayer["isUseShadowUpdate"];
+        /**
+         * 결과물이 모이는 그룹을 조회합니다.
+         */
+        getGroup: U3dLayer["getGroup"];
+        /**
+         * 프레임 시각(ms)을 받아 그림자를 갱신합니다. 없으면 해당 레이어는 건너뜁니다.
+         */
+        updateShadow?: (arg0: number) => void;
+    };
+    /**
+     * ~extends Array<T> <br>
+     *
+     * 원본 작업 배열과 그 배열의 현재 실행 순번입니다.
+     * 등록·제거는 기존 배열을 사용하며, 선택과 순환 처리는 index만 변경합니다.
+     */
+    type U3dAppCommandQueue<T> = Array<T> & {
+        index: number;
+    };
+    /**
+     * 프레임 준비 작업이 조회·호출하는 앱 멤버만 지정한 인터페이스입니다.
+     * 앱 객체 자체를 참조하여 콜백 실행 전에 교체된 멤버도 조회합니다.
+     */
+    type U3dAppDrawReadySource = Pick<U3dApp, "_animationManager" | "_mixerManager" | "_freeFlyControl" | "getInstanceVideoLayers" | "_drawArg" | "_fires" | "_particles" | "getAnalysis" | "getSky" | "getLight">;
+    /**
+     * 절단면 계산에 필요한 초기화된 카메라·지도 컨트롤의 최소 상태입니다.
+     */
+    type U3dAppClippingPlaneSource = {
+        /**
+         * 현재 지도 타겟을 제공하는 컨트롤
+         */
+        _mapControl: {
+            target: three.Vector3;
+        };
+        /**
+         * 현재 카메라 위치를 제공하는 카메라
+         */
+        _camera: {
+            position: three.Vector3;
+        };
     };
 }
 
@@ -81731,8 +81793,11 @@ export type { U3dApp_Analysis };
 export type { U3dAppCallbackCopyOption };
 export type { U3dAppCallbackMap };
 export type { U3dAppCameraStateStore };
+export type { U3dAppClippingPlaneSource };
 export type { U3dAppCO };
+export type { U3dAppCommandQueue };
 export type { U3dAppDebugState };
+export type { U3dAppDrawReadySource };
 export type { U3dAppDrawState };
 export type { U3dAppEMI };
 export type { U3dAppEnvState };
@@ -81744,6 +81809,7 @@ export type { U3dAppPostProcessState };
 export type { U3dAppProcessState };
 export type { U3dAppPropertyMap };
 export type { U3dAppRoundRobinState };
+export type { U3dAppShadowLayer };
 export type { U3dAppTweenHandle };
 export type { U3dAppUpdateState };
 export type { U3dAppWindowRect };
@@ -81988,6 +82054,7 @@ export type { U3dMultipleComponentLayerCO_Content };
 export type { U3dMultipleComponentLayerEMI };
 export type { U3dMultipleComponentLayerEMI_Content };
 export type { U3dMultipleComponentLayerStyle };
+export type { U3dMultipleComponentMeshSource };
 export type { U3dMultipleComponentModelInfo };
 export type { U3dObjectCO };
 export type { U3dObjectCO_Content };

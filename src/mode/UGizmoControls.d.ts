@@ -6,8 +6,8 @@ import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSeg
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
+import type { U3dApp } from "../app/U3dApp.js";
 import type { TransformControls } from "../lib/three/controls/TransformControls.js";
-import type { UGizmoControlsCO, UGizmoControlsPointer } from "./UGizmoControls.types.js";
 
 /**
  * ~extends import('@union3d/lib/three/controls/TransformControls').TransformControls <br>
@@ -84,4 +84,44 @@ declare class UGizmoControls extends TransformControls {
     #private;
 }
 
-export type { UGizmoControls };
+/**
+     * UGizmoControls 생성자 옵션
+     */
+    type UGizmoControlsCO = {
+        /**
+         * 기즈모 투영에 사용할 카메라
+         */
+        camera?: three.Camera;
+        /**
+         * 포인터 이벤트를 수신할 DOM 요소
+         */
+        domelement?: HTMLElement;
+        /**
+         * 소속 앱. 드래그 중 현재 카메라 컨트롤을 비활성화하고 변경 시 렌더링을 요청한다. 없으면 오류 메시지를 남긴다.
+         */
+        app?: U3dApp;
+        /**
+         * 기즈모 헬퍼 UI 크기
+         */
+        size?: number;
+    };
+
+/**
+     * TransformControls가 포인터 이벤트에서 추출해 전달하는 포인터 정보
+     */
+    type UGizmoControlsPointer = {
+        /**
+         * NDC x 좌표 (-1 ~ 1)
+         */
+        x: number;
+        /**
+         * NDC y 좌표 (-1 ~ 1)
+         */
+        y: number;
+        /**
+         * 눌린 포인터 버튼
+         */
+        button: number;
+    };
+
+export type { UGizmoControls, UGizmoControlsCO, UGizmoControlsPointer };

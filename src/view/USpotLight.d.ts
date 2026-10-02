@@ -10,8 +10,8 @@ import type { U3dComponentPosition } from "../3dLayer/U3dComponentPosition.js";
 import type { U3dApp } from "../app/U3dApp.js";
 import type { UScene } from "../core/UScene.js";
 import type { UMesh } from "../core/mesh/UMesh.js";
-import type { Degree, WorldPosition } from "../types/global.types.js";
-import type { DeferredObject } from "../util/deferred.types.js";
+import type { Degree, WorldPosition } from "../types/global.js";
+import type { DeferredObject } from "../util/deferred.js";
 import type { U3dView } from "./U3dView.js";
 
 type LightAnalyOption = {

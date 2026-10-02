@@ -6,8 +6,7 @@ import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSeg
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { U3dImageLayer } from "./U3dImageLayer.js";
-import type { U3dImageXYZLayerCO } from "./U3dImageXYZLayer.types.js";
+import type { U3dImageLayer, U3dImageLayerCO } from "./U3dImageLayer.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 
@@ -95,4 +94,33 @@ declare class U3dImageXYZLayer extends U3dImageLayer {
     #private;
 }
 
-export type { U3dImageXYZLayer };
+/**
+     * ~extends import('@union3d/3dLayer/U3dImageLayer').U3dImageLayerCO <br>
+     * 생성자 옵션
+     */
+    type U3dImageXYZLayerCO_Content = {
+        /**
+         * X축 반전 여부
+         */
+        reverseX?: boolean;
+        /**
+         * Y축 반전 여부
+         */
+        reverseY?: boolean;
+        /**
+         * 추가적인 xml 파일을 사용할 지 여부.(xml 파일에서 proj나 타일 포멧, 바운딩박스 정보 등을 읽는다.)
+         */
+        needXml?: boolean;
+        /**
+         * 추가적인 xml 파일을 사용할 지 여부가 true 일때, xml를 다운로드할 url, needXml이 true일때만 작동
+         */
+        xmlUrl?: string;
+    };
+
+/**
+     * ~extends import('@union3d/3dLayer/U3dImageLayer').U3dImageLayerCO <br>
+     * 생성자 옵션
+     */
+    type U3dImageXYZLayerCO = Omit<Omit<U3dImageLayerCO, never> & U3dImageXYZLayerCO_Content, never>;
+
+export type { U3dImageXYZLayer, U3dImageXYZLayerCO, U3dImageXYZLayerCO_Content };

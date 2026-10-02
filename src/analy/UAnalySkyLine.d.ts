@@ -6,9 +6,9 @@ import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSeg
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { UAnaly } from "./UAnaly.js";
-import type { SkyLineStyle, UAnalySkyLineCO } from "./UAnalySkyLine.types.js";
+import type { UAnaly, UAnalyCO } from "./UAnaly.js";
 import type { U3dApp } from "../app/U3dApp.js";
+import type { ColorLike } from "../types/global.js";
 import type { deferred } from "../util/deferred.js";
 
 /**
@@ -76,4 +76,57 @@ declare class UAnalySkyLine extends UAnaly {
     #private;
 }
 
-export type { UAnalySkyLine };
+/**
+     * ~extends import('@UAnaly').UAnalyCO <br>
+     *
+     * UAnalySkyLine 생성자 옵션
+     */
+    type UAnalySkyLineCO_Content = {
+        /**
+         * 분석모드 명
+         */
+        name?: string;
+    };
+
+/**
+     * ~extends import('@UAnaly').UAnalyCO <br>
+     *
+     * UAnalySkyLine 생성자 옵션
+     */
+    type UAnalySkyLineCO = Omit<Omit<UAnalyCO, never> & UAnalySkyLineCO_Content, never>;
+
+/**
+     * 스카이라인 스타일 옵션
+     */
+    type SkyLineStyle = {
+        /**
+         * 경계선 색상
+         */
+        lineColor?: ColorLike;
+        /**
+         * 경계선 두께
+         */
+        lineSize?: number;
+        /**
+         * 경계선 초과 모델 영역 색상
+         */
+        overColor?: ColorLike;
+        /**
+         * 지면 색상 적용 여부
+         */
+        useGroundColor?: boolean;
+        /**
+         * 지면 색상
+         */
+        groundColor?: ColorLike;
+        /**
+         * 하늘 색상 적용 여부
+         */
+        useSkyColor?: boolean;
+        /**
+         * 하늘 색상
+         */
+        skyColor?: ColorLike;
+    };
+
+export type { SkyLineStyle, UAnalySkyLine, UAnalySkyLineCO, UAnalySkyLineCO_Content };

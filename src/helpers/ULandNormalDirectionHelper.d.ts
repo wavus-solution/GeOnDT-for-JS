@@ -9,7 +9,7 @@ import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/ty
 import type { U3dLayer } from "../3dLayer/U3dLayer.js";
 import type { U3dApp } from "../app/U3dApp.js";
 import type { U3dGeometry } from "../geometry/U3dGeometry.js";
-import type { GeoPosition } from "../types/global.types.js";
+import type { GeoPosition } from "../types/global.js";
 
 /**
  * 교차점에 표시할 렌더 가능한 객체 타입입니다.

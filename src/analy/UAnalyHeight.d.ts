@@ -7,8 +7,7 @@ import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js"
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dComponentPosition } from "../3dLayer/U3dComponentPosition.js";
-import type { UAnaly } from "./UAnaly.js";
-import type { UAnalyCO } from "./UAnaly.types.js";
+import type { UAnaly, UAnalyCO } from "./UAnaly.js";
 
 /**
  * ~extends import('@UAnaly').UAnalyCO <br>

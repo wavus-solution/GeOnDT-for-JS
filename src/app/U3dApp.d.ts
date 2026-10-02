@@ -7,38 +7,56 @@ import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js"
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dComponentPosition } from "../3dLayer/U3dComponentPosition.js";
-import type { U3dGridTileLayer } from "../3dLayer/U3dGridTileLayer.js";
-import type { U3dGridTileLayerCO } from "../3dLayer/U3dGridTileLayer.types.js";
+import type { U3dGridTileLayer, U3dGridTileLayerCO } from "../3dLayer/U3dGridTileLayer.js";
 import type { U3dGroupLayer } from "../3dLayer/U3dGroupLayer.js";
-import type { U3dHeightXYZLayer } from "../3dLayer/U3dHeightXYZLayer.js";
-import type { U3dHeightXYZLayerCO } from "../3dLayer/U3dHeightXYZLayer.types.js";
-import type { U3dImageLayerCO } from "../3dLayer/U3dImageLayer.types.js";
+import type { U3dHeightXYZLayer, U3dHeightXYZLayerCO } from "../3dLayer/U3dHeightXYZLayer.js";
+import type { U3dImageLayerCO } from "../3dLayer/U3dImageLayer.js";
 import type { U3dImageWMSLayer } from "../3dLayer/U3dImageWMSLayer.js";
-import type { U3dImageWMTSLayer } from "../3dLayer/U3dImageWMTSLayer.js";
-import type { U3dImageWMTSLayerCO } from "../3dLayer/U3dImageWMTSLayer.types.js";
+import type { U3dImageWMTSLayer, U3dImageWMTSLayerCO } from "../3dLayer/U3dImageWMTSLayer.js";
 import type { U3dImageXYZLayer } from "../3dLayer/U3dImageXYZLayer.js";
 import type { U3dLayer } from "../3dLayer/U3dLayer.js";
-import type { U3dLayerList } from "../3dLayer/U3dLayerList.js";
-import type { U3dLayerListClassifiedLayersOption } from "../3dLayer/U3dLayerList.types.js";
-import type { U3dModelBIMObjLayer } from "../3dLayer/U3dModelBIMObjLayer.js";
-import type { U3dModelBIMObjLayerCO } from "../3dLayer/U3dModelBIMObjLayer.types.js";
-import type { U3dModelLayerCO } from "../3dLayer/U3dModelLayer.types.js";
+import type { U3dLayerList, U3dLayerListClassifiedLayersOption } from "../3dLayer/U3dLayerList.js";
+import type { U3dModelBIMObjLayer, U3dModelBIMObjLayerCO } from "../3dLayer/U3dModelBIMObjLayer.js";
+import type { U3dModelLayerCO } from "../3dLayer/U3dModelLayer.js";
 import type { U3dModelTdsLayer } from "../3dLayer/U3dModelTdsLayer.js";
 import type { U3dModelU3FLayer } from "../3dLayer/U3dModelU3FLayer.js";
 import type { U3dModelWFSLayer } from "../3dLayer/U3dModelWFSLayer.js";
 import type { U3dMultipleComponentLayer, U3dMultipleComponentLayerCO } from "../3dLayer/U3dMultipleComponentLayer.js";
-import type { U3dOpenLayer } from "../3dLayer/U3dOpenLayer.js";
-import type { U3dOpenLayerCO } from "../3dLayer/U3dOpenLayer.types.js";
-import type { U3dPatternXYZLayer } from "../3dLayer/U3dPatternXYZLayer.js";
-import type { U3dPatternXYZLayerCO } from "../3dLayer/U3dPatternXYZLayer.types.js";
+import type { U3dOpenLayer, U3dOpenLayerCO } from "../3dLayer/U3dOpenLayer.js";
+import type { U3dPatternXYZLayer, U3dPatternXYZLayerCO } from "../3dLayer/U3dPatternXYZLayer.js";
 import type { U3dShaderMeasureLayer } from "../3dLayer/U3dShaderMeasureLayer.js";
 import type { U3dTerrainLayer } from "../3dLayer/U3dTerrainLayer.js";
 import type { U3dVideoLayer } from "../3dLayer/U3dVideoLayer.js";
 import type { UAnaly } from "../analy/UAnaly.js";
-import type { UAnimationController } from "../analy/UAnimationController.js";
-import type { UAnimationControllerCO } from "../analy/UAnimationController.types.js";
+import type { UAnalyAlarm } from "../analy/UAnalyAlarm.js";
+import type { UAnalyAlignModel } from "../analy/UAnalyAlignModel.js";
+import type { UAnalyArea } from "../analy/UAnalyArea.js";
+import type { UAnalyAverageHeight } from "../analy/UAnalyAverageHeight.js";
+import type { UAnalyClipping } from "../analy/UAnalyClipping.js";
+import type { UAnalyContour } from "../analy/UAnalyContour.js";
+import type { UAnalyCustomLand } from "../analy/UAnalyCustomLand.js";
+import type { UAnalyCustomModel } from "../analy/UAnalyCustomModel.js";
+import type { UAnalyDepth } from "../analy/UAnalyDepth.js";
+import type { UAnalyDistance } from "../analy/UAnalyDistance.js";
+import type { UAnalyGizmoModel } from "../analy/UAnalyGizmoModel.js";
+import type { UAnalyHeight } from "../analy/UAnalyHeight.js";
+import type { UAnalyHeightLimit } from "../analy/UAnalyHeightLimit.js";
+import type { UAnalyLandScape } from "../analy/UAnalyLandScape.js";
+import type { UAnalyMultipleComponent } from "../analy/UAnalyMultipleComponent.js";
+import type { UAnalyObjectInfo } from "../analy/UAnalyObjectInfo.js";
+import type { UAnalyParticle } from "../analy/UAnalyParticle.js";
+import type { UAnalyPhysicalFlow } from "../analy/UAnalyPhysicalFlow.js";
+import type { UAnalyRoad } from "../analy/UAnalyRoad.js";
+import type { UAnalyRoute } from "../analy/UAnalyRoute.js";
+import type { UAnalySection } from "../analy/UAnalySection.js";
+import type { UAnalySkyLine } from "../analy/UAnalySkyLine.js";
+import type { UAnalySlope } from "../analy/UAnalySlope.js";
+import type { UAnalySlopeAspect } from "../analy/UAnalySlopeAspect.js";
+import type { UAnalySun } from "../analy/UAnalySun.js";
+import type { UAnalySurfaceVolume } from "../analy/UAnalySurfaceVolume.js";
+import type { UAnalyViewCone } from "../analy/UAnalyViewCone.js";
+import type { UAnimationController, UAnimationControllerCO } from "../analy/UAnimationController.js";
 import type { UAnimationManager } from "../analy/UAnimationManager.js";
-import type { PIXELRE_SOLUTION_OPTION, U3dAnalysisTypeMap, U3dAppCallbackCopyOption, U3dAppEMI, U3dApp_Analysis } from "./U3dApp.types.js";
 import type { UDevToolView } from "./UDevToolView.js";
 import type { UAppCommand } from "../cmd/UAppCommand.js";
 import type { U3dObject } from "../core/U3dObject.js";
@@ -52,8 +70,7 @@ import type { UDrawArg } from "../core/UDrawArg.js";
 import type { UGroup } from "../core/UGroup.js";
 import type { UOrthographicCamera } from "../core/UOrthographicCamera.js";
 import type { URaycasterCO } from "../core/URaycaster.js";
-import type { URenderer } from "../core/URenderer.js";
-import type { PostProcessParam } from "../core/URenderer.types.js";
+import type { PostProcessParam, URenderer } from "../core/URenderer.js";
 import type { UScene } from "../core/UScene.js";
 import type { UMesh } from "../core/mesh/UMesh.js";
 import type { UFog } from "../effect/UFog.js";
@@ -66,10 +83,8 @@ import type { UUnderground } from "../env/UUnderground.js";
 import type { VolumetricFire } from "../env/VolumetricFire.js";
 import type { U3dAppEventHandler } from "../event/U3dAppEventHandler.js";
 import type { U3dMouseEvent } from "../event/U3dMouseEvent.js";
-import type { U3dPOI } from "../geometry/U3dPOI.js";
-import type { U3dPOICO } from "../geometry/U3dPOI.types.js";
-import type { UFrustumHelper } from "../helpers/UFrustumHelper.js";
-import type { UFrustumHelperCO } from "../helpers/UFrustumHelper.types.js";
+import type { U3dPOI, U3dPOICO } from "../geometry/U3dPOI.js";
+import type { UFrustumHelper, UFrustumHelperCO } from "../helpers/UFrustumHelper.js";
 import type { UFrustumTerrainProjectionHelper, UFrustumTerrainProjectionHelperCO } from "../helpers/UFrustumTerrainProjectionHelper.js";
 import type { UIndexManager } from "../manager/UIndexManager.js";
 import type { UMixerManager } from "../manager/UMixerManager.js";
@@ -90,8 +105,8 @@ import type { U3dOverlayManager } from "../overlay/U3dOverlayManager.js";
 import type { U3dQuadSet } from "../quadtree/U3dQuadSet.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 import type { U3dSelect } from "../select/U3dSelect.js";
-import type { ColorLike, Degree, GeoPosition, GeoPositionVector3, GooglePosition, KeyValue, Radian, WorldPosition, WorldPositionVector3 } from "../types/global.types.js";
-import type { DeferredObject } from "../util/deferred.types.js";
+import type { ColorLike, Degree, GeoPosition, GeoPositionVector3, GooglePosition, KeyValue, Radian, WorldPosition, WorldPositionVector3 } from "../types/global.js";
+import type { DeferredObject } from "../util/deferred.js";
 import type { U3dView, U3dViewCO } from "../view/U3dView.js";
 import type { U3dViewLight } from "../view/U3dViewLight.js";
 import type { USpotLight } from "../view/USpotLight.js";
@@ -1404,9 +1419,12 @@ declare class U3dApp extends U3dObject {
     createExecuteCommand(): void;
     getExecuteCommand(): UAppCommand;
     /**
-     * 데이터프레임을 업데이트하는 함수
-     * @param {number} curTime 최근 시간
-     * @return {boolean} 업데이트 결과 [true : 업데이트 성공, false : 업데이트 실패]
+     * 등록된 메인 작업의 프레임 갱신을 수행합니다.
+     * 실행 주기를 기다리거나 작업 목록이 없으면 false를 반환합니다.
+     * 선택한 콜백은 앱 명령 객체를 this로 사용하며, 콜백의 예외는 호출자에게 전달합니다.
+     *
+     * @param {number} curTime 프레임 시각(ms)
+     * @returns {boolean} 선택한 작업의 호출을 마쳤는지 여부
      *
      * @ignore
      */
@@ -3698,12 +3716,13 @@ declare class U3dApp extends U3dObject {
     compileAsync(target: any): Promise<three.Object3D<three.Object3DEventMap>>;
     draw(clear: any): void;
     /**
-     * 추가한 view들을 라운드로빈 방식으로 순회하여 현재 프레임에서 그릴 view을 찾는 함수
-     * forceSnapshot true인 뷰는 우선순위 1
-     * 시간 복잡도: O(min(list.length, maxScanPerTick))
-     * @param {number} [maxPerTick=5]  한 틱에서 실제로 처리할 최대 뷰 수(상한)
-     * @param {number} [maxScanPerTick=5] 라운드로빈으로 스캔할 최대 뷰 수(스캔 상한)
-     * @returns {Array<import('@U3dView').U3dView>} draw할 views
+     * 현재 프레임에서 그릴 뷰 목록을 반환합니다.
+     * 표시 중이고 카메라가 있는 뷰가 대상이며, 강제 스냅샷 뷰는 일반 뷰보다 먼저 포함합니다.
+     * 일반 뷰의 순회 위치는 다음 호출에 이어집니다. 원본 목록과 뷰 객체는 변경하지 않습니다.
+     *
+     * @param {number} [maxPerTick=5] 일반 뷰의 처리 상한. 0이면 강제 스냅샷 뷰만 반환합니다.
+     * @param {number} [maxScanPerTick=10] 일반 뷰의 순회 한도. 처리 상한보다 작은 값은 처리 상한까지 적용합니다.
+     * @returns {Array<import('@U3dView').U3dView>} 강제 스냅샷 뷰와 이번 호출에서 선택한 일반 뷰의 새 배열
      */
     getRenderViewList(maxPerTick?: number, maxScanPerTick?: number): Array<U3dView>;
     drawModel(clear: any): void;
@@ -4482,4 +4501,567 @@ declare class U3dApp extends U3dObject {
     #private;
 }
 
-export type { TargetRectOption, U3d3DFModelLayerCO, U3dApp, U3dAppCO, U3dAppPropertyMap, U3dAppRoundRobinState, U3dAppTweenHandle, U3dAppWindowRect, U3dEmapLayerCO, U3dEmapLayerCO_Content, U3dEmapSatLayerCO, U3dEmapSatLayerCO_Content, U3dLayerCommonCO, U3dModelGroupLayerCO, U3dTMSImageLayerCO, U3dTMSImageLayerCO_Content, U3dTdsModelLayerCO, U3dWFSModelLayerCO, U3dWMSImageLayerCO, U3dWMTSLayerCO, U3dWMTSLayerCO_Content };
+/**
+     * 화면 해상도 옵션
+     */
+    type PIXELRE_SOLUTION_OPTION = "SD" | "HD" | "FHD" | "QHD" | "UHD" | "CUSTOM";
+
+/**
+     * U3dApp 이벤트 인터페이스
+     */
+    type U3dAppEMI = {
+        /**
+         * 레이어 생성 시, 호출
+         */
+        LAYER_CREATE: string;
+    };
+
+/**
+     * U3dApp 분석모드 인터페이스
+     */
+    type U3dApp_Analysis = {
+        /**
+         * 면적 측정 분석
+         */
+        AREA: "Area";
+        /**
+         * 거리 측정 분석
+         */
+        DISTANCE: "Distance";
+        /**
+         * 고도 분석
+         */
+        HEIGHT: "Height";
+        /**
+         * 등고선 분석
+         */
+        CONTOUR: "Contour";
+        /**
+         * 경관 분석
+         */
+        LAND_SCAPE: "LandScape";
+        /**
+         * 표면 체적 분석
+         */
+        SURFACE_VOLUME: "SurfaceVolume";
+        /**
+         * 경사 분석
+         */
+        SLOPE: "Slope";
+        /**
+         * 객체 정보 분석
+         */
+        OBJECT_INFO: "ObjectInfo";
+        /**
+         * 모델 기즈모 분석
+         */
+        GIZMO_MODEL: "GizmoModel";
+        /**
+         * 모델 정렬 분석
+         */
+        ALIGN_MODEL: "AlignModel";
+        /**
+         * 컴포넌트 분석
+         */
+        MULTIPLE_COMPONENT: "multipleComponent";
+        /**
+         * 도로 분석
+         */
+        ROAD: "Road";
+        /**
+         * 사용자 모델 분석
+         */
+        CUSTOM_MODEL: "CustomModel";
+        /**
+         * 경사 방향 분석
+         */
+        SLOPE_ASPECT: "SlopeAspect";
+        /**
+         * 사용자 지형 분석
+         */
+        CUSTOM_LAND: "CustomLand";
+        /**
+         * 경로 분석
+         */
+        ROUTE: "Route";
+        /**
+         * 평균 높이 분석
+         */
+        AVERAGE_HEIGHT: "AverageHeight";
+        /**
+         * 높이 제한 분석
+         */
+        HEIGHT_LIMIT: "HeightLimit";
+        /**
+         * 시야각 분석
+         */
+        VIEW_CONE: "ViewCone";
+        /**
+         * 클리핑 분석
+         */
+        CLIPPING: "Clipping";
+        /**
+         * 알람 분석
+         */
+        ALARM: "Alarm";
+        /**
+         * 깊이 분석
+         */
+        DEPTH: "Depth";
+        /**
+         * 단면 분석
+         */
+        SECTION: "Section";
+        /**
+         * 파티클 분석
+         */
+        PARTICLE: "Particle";
+        /**
+         * 일조량 분석
+         */
+        SUN_AMOUNT: "SunAmount";
+        /**
+         * 물리 흐름 분석
+         */
+        PHYSICAL_FLOW: "PhysicalFlow";
+        /**
+         * 스카이라인 분석
+         */
+        SKY_LINE: "SkyLine";
+    };
+
+/**
+     * 렌더/업데이트 콜백을 키별로 묶어 보관할 때 쓰는 옵션
+     */
+    type U3dAppCallbackCopyOption = {
+        /**
+         * 복사 동작 여부
+         */
+        copy: boolean;
+    };
+
+/**
+     *
+     * 프레임 갱신 상태
+     */
+    type U3dAppCallbackMap = Map<string, Array<Function>>;
+
+/**
+     * 공통 콜백 맵 타입
+     */
+    type U3dAppFrameState = {
+        /**
+         * 업데이트 FPS
+         */
+        updateFps: number;
+        /**
+         * 업데이트 주기
+         */
+        updateFrameUnit: number;
+        /**
+         * 마지막 업데이트 시각
+         */
+        updateFrameTime: number;
+        /**
+         * 작업 업데이트 FPS
+         */
+        updateWorkFps: number;
+        /**
+         * 작업 업데이트 주기
+         */
+        updateWorkFrameUnit: number;
+        /**
+         * 마지막 작업 업데이트 시각
+         */
+        updateWorkFrameTime: number;
+        /**
+         * 레이어 업데이트 FPS
+         */
+        updateLayerFps: number;
+        /**
+         * 레이어 업데이트 주기
+         */
+        updateLayerFrameUnit: number;
+        /**
+         * 마지막 레이어 업데이트 시각
+         */
+        updateLayerFrameTime: number;
+        /**
+         * 그림자 업데이트 시각
+         */
+        updateShadowFrameTime: number;
+        /**
+         * 그림자 레이어 순번
+         */
+        updateShadowLayerCurser: number;
+        /**
+         * 최대 그리기 FPS
+         */
+        drawMaxFps: number;
+        /**
+         * 실제 그리기 FPS
+         */
+        drawFps: number;
+        /**
+         * 그리기 주기
+         */
+        drawFrameUnit: number;
+        /**
+         * 마지막 그리기 시각
+         */
+        drawFrameTime: number;
+        /**
+         * 준비 중인 그리기 프레임 수
+         */
+        drawReadyFrame: number;
+        /**
+         * 준비 완료 대기 목록
+         */
+        drawReadyList: Array<Function>;
+        /**
+         * 유휴 상태 그리기 FPS
+         */
+        drawIdleFps: number;
+        /**
+         * 유휴 상태 그리기 주기
+         */
+        drawIdleFrameUnit: number;
+        /**
+         * 유휴 상태 그리기 속도
+         */
+        drawIdleSpeed: number;
+        /**
+         * 유휴 상태 유지 프레임 수
+         */
+        drawIdleFrameCount: number;
+        /**
+         * 유휴 상태 경과 프레임
+         */
+        drawIdleFrame: number;
+        /**
+         * 유휴 상태 그리기 여부
+         */
+        isIdleDraw: boolean;
+        /**
+         * 트윈 갱신 FPS
+         */
+        tweenFps: number;
+        /**
+         * 트윈 갱신 주기
+         */
+        tweenFrameUnit: number;
+        /**
+         * 마지막 트윈 갱신 시각
+         */
+        tweenFrameTime: number;
+    };
+
+/**
+     * 공통 콜백 맵 타입
+     */
+    type U3dAppDrawState = {
+        /**
+         * 렌더 해상도
+         */
+        pixelResolution: [number, number];
+        /**
+         * 렌더 픽셀 비율
+         */
+        pixelRatio: number;
+        callbackRenderAfter: U3dAppCallbackMap;
+        callbackRenderBefore: U3dAppCallbackMap;
+        renderGroup: UGroup | undefined;
+        externalScene: UScene | undefined;
+        commentRenderGroup: UGroup | undefined;
+        enableSwipe: boolean;
+        nameSwipeLayers: Map<string, U3dAppCallbackCopyOption>;
+    };
+
+/**
+     * 공통 콜백 맵 타입
+     */
+    type U3dAppUpdateState = {
+        /**
+         * 업데이트 전 콜백 목록
+         */
+        callbackUpdateBefore: U3dAppCallbackMap;
+    };
+
+/**
+     * 공통 콜백 맵 타입
+     */
+    type U3dAppPostProcessState = {
+        /**
+         * 후처리 사용 여부
+         */
+        usePostProcess: boolean | undefined;
+        /**
+         * 후처리 옵션
+         */
+        postOption: object | undefined;
+    };
+
+/**
+     * 공통 콜백 맵 타입
+     */
+    type executeCommandParam = {
+        /**
+         * 실행 메서드 id
+         */
+        id: number;
+        /**
+         * 실행 메서드
+         */
+        callback: Function;
+    };
+
+/**
+     * 공통 콜백 맵 타입
+     */
+    type U3dAppProcessState = {
+        /**
+         * 앱 명령 객체
+         */
+        appCommand: UAppCommand | undefined;
+        /**
+         * 실행 중인 명령 목록
+         */
+        executeCommandList: Array<executeCommandParam> | undefined;
+        /**
+         * 메인 명령 목록
+         */
+        executeMainCommandList: Array<executeCommandParam> | undefined;
+    };
+
+/**
+     * 공통 콜백 맵 타입
+     */
+    type U3dAppOverviewState = {
+        /**
+         * 카메라 타겟 기준 사용 여부
+         */
+        camTargetType: boolean;
+        /**
+         * 인덱스맵 DOM id
+         */
+        idoverview: string | undefined;
+    };
+
+/**
+     * 공통 콜백 맵 타입
+     */
+    type U3dAppEnvState = {
+        /**
+         * 환경 광원 세기
+         */
+        intensityLight: number;
+        /**
+         * 태양 광원 세기
+         */
+        intensitySunLight: number;
+        /**
+         * 하늘 객체
+         */
+        sky: USky | undefined;
+        /**
+         * 광원 객체
+         */
+        light: ULight | undefined;
+    };
+
+/**
+     * 공통 콜백 맵 타입
+     */
+    type U3dAppManagerState = {
+        /**
+         * 인덱스 매니저
+         */
+        indexManager: UIndexManager | undefined;
+        /**
+         * 프로세스 매니저
+         */
+        processManager: UProcessManager | undefined;
+        /**
+         * 테스트 매니저
+         */
+        testManager: UTestManager | undefined;
+    };
+
+/**
+     * 공통 콜백 맵 타입
+     */
+    type U3dAppCameraStateStore = {
+        savedInfo: UCameraState | undefined;
+    };
+
+/**
+     * 공통 콜백 맵 타입
+     */
+    type U3dAppDebugState = {
+        /**
+         * 로딩 캔버스
+         */
+        canvasLoading: HTMLCanvasElement | undefined;
+        /**
+         * 로딩 캔버스 컨텍스트
+         */
+        canvasLoadingContext: CanvasRenderingContext2D | undefined;
+        /**
+         * 로딩 표시 여부
+         */
+        canvasLoadingVisible: boolean;
+        /**
+         * 로딩 색상
+         */
+        canvasLoadingColor: string;
+        /**
+         * 로딩 프레임 카운트
+         */
+        loadingFrame: number;
+        /**
+         * 로딩 지연 카운트
+         */
+        loadingDelayCount: number;
+        /**
+         * 프로세스 로딩 총량
+         */
+        loadingProcessTotal: number;
+        /**
+         * 프로세스 로딩 현재값
+         */
+        loadingProcessNow: number;
+        /**
+         * 작업 로딩 총량
+         */
+        loadingWorkTotal: number;
+        /**
+         * 작업 로딩 현재값
+         */
+        loadingWorkNow: number;
+        /**
+         * 사용자 로딩 총량
+         */
+        loadingUserTotal: number;
+        /**
+         * 사용자 로딩 현재값
+         */
+        loadingUserNow: number;
+        /**
+         * 전체 로딩 총량
+         */
+        loadingTotal: number;
+        /**
+         * 전체 로딩 현재값
+         */
+        loadingNow: number;
+        /**
+         * 로딩 진행률
+         */
+        loadingRate: number;
+    };
+
+/**
+     * 공통 콜백 맵 타입
+     */
+    type U3dRemovedModelInfo = {
+        /**
+         * 레이어 이름
+         */
+        layer: string;
+        /**
+         * 모델 고유값
+         */
+        uid: string;
+    };
+
+/**
+     * 기본 분석 이름과 분석 클래스의 매핑
+     */
+    type U3dAnalysisTypeMap = {
+        Area: UAnalyArea;
+        Distance: UAnalyDistance;
+        Height: UAnalyHeight;
+        Contour: UAnalyContour;
+        LandScape: UAnalyLandScape;
+        SurfaceVolume: UAnalySurfaceVolume;
+        Slope: UAnalySlope;
+        ObjectInfo: UAnalyObjectInfo;
+        GizmoModel: UAnalyGizmoModel;
+        AlignModel: UAnalyAlignModel;
+        multipleComponent: UAnalyMultipleComponent;
+        Road: UAnalyRoad;
+        CustomModel: UAnalyCustomModel;
+        SlopeAspect: UAnalySlopeAspect;
+        CustomLand: UAnalyCustomLand;
+        Route: UAnalyRoute;
+        AverageHeight: UAnalyAverageHeight;
+        HeightLimit: UAnalyHeightLimit;
+        ViewCone: UAnalyViewCone;
+        Clipping: UAnalyClipping;
+        Alarm: UAnalyAlarm;
+        Depth: UAnalyDepth;
+        Section: UAnalySection;
+        Particle: UAnalyParticle;
+        SunAmount: UAnalySun;
+        PhysicalFlow: UAnalyPhysicalFlow;
+        SkyLine: UAnalySkyLine;
+    };
+
+/**
+     * 그림자 갱신에 필요한 레이어의 최소 인터페이스입니다.
+     * 원본 레이어를 그대로 전달하며 새 레이어를 생성하거나 등록 상태를 변경하지 않습니다.
+     */
+    type U3dAppShadowLayer = {
+        /**
+         * 레이어의 표시 여부를 조회합니다.
+         */
+        getVisible: U3dLayer["getVisible"];
+        /**
+         * 레이어의 그림자 갱신 허용 여부를 조회합니다.
+         */
+        isUseShadowUpdate: U3dLayer["isUseShadowUpdate"];
+        /**
+         * 결과물이 모이는 그룹을 조회합니다.
+         */
+        getGroup: U3dLayer["getGroup"];
+        /**
+         * 프레임 시각(ms)을 받아 그림자를 갱신합니다. 없으면 해당 레이어는 건너뜁니다.
+         */
+        updateShadow?: (arg0: number) => void;
+    };
+
+/**
+     * ~extends Array<T> <br>
+     *
+     * 원본 작업 배열과 그 배열의 현재 실행 순번입니다.
+     * 등록·제거는 기존 배열을 사용하며, 선택과 순환 처리는 index만 변경합니다.
+     */
+    type U3dAppCommandQueue<T> = Array<T> & {
+        index: number;
+    };
+
+/**
+     * 프레임 준비 작업이 조회·호출하는 앱 멤버만 지정한 인터페이스입니다.
+     * 앱 객체 자체를 참조하여 콜백 실행 전에 교체된 멤버도 조회합니다.
+     */
+    type U3dAppDrawReadySource = Pick<U3dApp, "_animationManager" | "_mixerManager" | "_freeFlyControl" | "getInstanceVideoLayers" | "_drawArg" | "_fires" | "_particles" | "getAnalysis" | "getSky" | "getLight">;
+
+/**
+     * 절단면 계산에 필요한 초기화된 카메라·지도 컨트롤의 최소 상태입니다.
+     */
+    type U3dAppClippingPlaneSource = {
+        /**
+         * 현재 지도 타겟을 제공하는 컨트롤
+         */
+        _mapControl: {
+            target: three.Vector3;
+        };
+        /**
+         * 현재 카메라 위치를 제공하는 카메라
+         */
+        _camera: {
+            position: three.Vector3;
+        };
+    };
+
+export type { PIXELRE_SOLUTION_OPTION, TargetRectOption, U3d3DFModelLayerCO, U3dAnalysisTypeMap, U3dApp, U3dAppCO, U3dAppCallbackCopyOption, U3dAppCallbackMap, U3dAppCameraStateStore, U3dAppClippingPlaneSource, U3dAppCommandQueue, U3dAppDebugState, U3dAppDrawReadySource, U3dAppDrawState, U3dAppEMI, U3dAppEnvState, U3dAppFrameState, U3dAppManagerState, U3dAppOverviewState, U3dAppPostProcessState, U3dAppProcessState, U3dAppPropertyMap, U3dAppRoundRobinState, U3dAppShadowLayer, U3dAppTweenHandle, U3dAppUpdateState, U3dAppWindowRect, U3dApp_Analysis, U3dEmapLayerCO, U3dEmapLayerCO_Content, U3dEmapSatLayerCO, U3dEmapSatLayerCO_Content, U3dLayerCommonCO, U3dModelGroupLayerCO, U3dRemovedModelInfo, U3dTMSImageLayerCO, U3dTMSImageLayerCO_Content, U3dTdsModelLayerCO, U3dWFSModelLayerCO, U3dWMSImageLayerCO, U3dWMTSLayerCO, U3dWMTSLayerCO_Content, executeCommandParam };

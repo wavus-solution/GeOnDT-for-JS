@@ -10,7 +10,7 @@ import type { U3dApp } from "../app/U3dApp.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
 import type { URenderer } from "../core/URenderer.js";
 import type { U3dOverlayManager } from "./U3dOverlayManager.js";
-import type { ColorLike, GeoPosition, WorldPosition } from "../types/global.types.js";
+import type { ColorLike, GeoPosition, WorldPosition } from "../types/global.js";
 
 /**
  * U3dOverlay 클래스 생성자에 전달하는 옵션입니다.

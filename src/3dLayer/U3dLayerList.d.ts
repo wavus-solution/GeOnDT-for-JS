@@ -7,7 +7,6 @@ import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js"
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dLayer } from "./U3dLayer.js";
-import type { U3dLayerListCO, U3dLayerListClassifiedLayersOption } from "./U3dLayerList.types.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 
@@ -327,4 +326,30 @@ declare class U3dLayerList {
     disposeAll(): void;
 }
 
-export type { U3dLayerList };
+/**
+     * 생성자 옵션
+     */
+    type U3dLayerListCO_Content = {
+        /**
+         * DrawArg
+         */
+        drawarg?: UDrawArg;
+    };
+
+/**
+     * 생성자 옵션
+     */
+    type U3dLayerListCO = U3dLayerListCO_Content;
+
+/**
+     * getInstanceClassifiedLayers 옵션
+     */
+    type U3dLayerListClassifiedLayersOption = {
+        imagelayers?: Array<U3dLayer>;
+        heightlayers?: Array<U3dLayer>;
+        modellayers?: Array<U3dLayer>;
+        vectorTilelayers?: Array<U3dLayer>;
+        userlayers?: Array<U3dLayer>;
+    };
+
+export type { U3dLayerList, U3dLayerListCO, U3dLayerListCO_Content, U3dLayerListClassifiedLayersOption };

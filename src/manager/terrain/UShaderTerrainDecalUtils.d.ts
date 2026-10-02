@@ -11,8 +11,8 @@ import type { U3dImageLayer } from "../../3dLayer/U3dImageLayer.js";
 import type { U3dLayer } from "../../3dLayer/U3dLayer.js";
 import type { U3dApp } from "../../app/U3dApp.js";
 import type { TerrainDecalConfig } from "./UShaderTerrainDecalConfig.js";
-import type { TerrainCompositeStepStopReason } from "./UTerrainDecalCompositeComposer.types.js";
-import type { TerrainDecalCompositionPlan, TerrainDecalCompositionStability } from "./UTerrainDecalCompositionPlan.types.js";
+import type { TerrainCompositeStepStopReason } from "./UTerrainDecalCompositeComposer.js";
+import type { TerrainDecalCompositionPlan, TerrainDecalCompositionStability } from "./UTerrainDecalCompositionPlan.js";
 
 /**
      * terrain decal에서 사용하는 3차원 좌표입니다.

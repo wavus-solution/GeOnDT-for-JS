@@ -7,7 +7,7 @@ import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js"
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { UDrawArg } from "./UDrawArg.js";
-import type { WorldPositionVector3 } from "../types/global.types.js";
+import type { WorldPositionVector3 } from "../types/global.js";
 
 /**
  * ~extends import('three').OrthographicCamera <br>

@@ -8,8 +8,8 @@ import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/e
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { URaycaster } from "../core/URaycaster.js";
 import type { FirstPersonControls } from "../lib/three/controls/FirstPersonControls.js";
-import type { WorldPosition } from "../types/global.types.js";
-import type { DeferredObject } from "../util/deferred.types.js";
+import type { WorldPosition } from "../types/global.js";
+import type { DeferredObject } from "../util/deferred.js";
 
 /**
  * @classdesc `보행 모드`(WalkMode) 관련 함수

@@ -6,7 +6,7 @@ import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSeg
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { DeferredObject } from "../util/deferred.types.js";
+import type { DeferredObject } from "../util/deferred.js";
 
 declare class UMeta {
     static parseXML(doc: any): UMeta;

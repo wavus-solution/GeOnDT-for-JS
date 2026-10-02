@@ -7,8 +7,7 @@ import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js"
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { UTexture } from "../core/texture/UTexture.js";
-import type { U3dGeometry } from "./U3dGeometry.js";
-import type { U3dGeometryCO, U3dGeometryStyleParam } from "./U3dGeometry.types.js";
+import type { U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam } from "./U3dGeometry.js";
 
 /**
  * ~extends import('@U3dGeometry').U3dGeometryCO <br>

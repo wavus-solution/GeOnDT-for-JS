@@ -7,7 +7,7 @@ import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js"
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dGeometry } from "./U3dGeometry.js";
-import type { Double_Array, KeyValue } from "../types/global.types.js";
+import type { Double_Array, KeyValue } from "../types/global.js";
 
 /**
  * 팩토리가 생성할 수 있는 도형의 종류입니다. <br>

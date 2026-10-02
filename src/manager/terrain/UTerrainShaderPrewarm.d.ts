@@ -8,7 +8,7 @@ import * as three_examples_jsm_math_ConvexHull_js from "../../../dist/types/thre
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { UTerrainMesh } from "../../core/mesh/UTerrainMesh.js";
 import type { UShaderTerrainDecalManager } from "./UShaderTerrainDecalManager.js";
-import type { TerrainMaterial } from "./UShaderTerrainDecalUtils.types.js";
+import type { TerrainMaterial } from "./UShaderTerrainDecalUtils.js";
 import type { UTerrainMaterial } from "../../shader/UTerrainMaterial.js";
 
 /**

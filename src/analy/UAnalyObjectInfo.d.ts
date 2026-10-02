@@ -6,8 +6,7 @@ import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSeg
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { UAnaly } from "./UAnaly.js";
-import type { UAnalyObjectInfoCO } from "./UAnalyObjectInfo.types.js";
+import type { UAnaly, UAnalyCO } from "./UAnaly.js";
 import type { UInfoBasicModel } from "../info/UInfoBasicModel.js";
 import type { UInfoWFSModel } from "../info/UInfoWFSModel.js";
 
@@ -78,4 +77,29 @@ declare class UAnalyObjectInfo extends UAnaly {
     #private;
 }
 
-export type { UAnalyObjectInfo };
+/**
+     * ~extends import('@union3d/analy/UAnaly').UAnalyCO <br>
+     * 생성자 옵션
+     */
+    type UAnalyObjectInfoCO_Content = {
+        /**
+         * 모드 이름
+         */
+        name?: string;
+        /**
+         * Object 정보를 출력할 Html element
+         */
+        container?: HTMLElement;
+        /**
+         * 하이라이트 색상
+         */
+        _highligthColor?: three.ColorRepresentation;
+    };
+
+/**
+     * ~extends import('@union3d/analy/UAnaly').UAnalyCO <br>
+     * 생성자 옵션
+     */
+    type UAnalyObjectInfoCO = Omit<Omit<UAnalyCO, never> & UAnalyObjectInfoCO_Content, never>;
+
+export type { UAnalyObjectInfo, UAnalyObjectInfoCO, UAnalyObjectInfoCO_Content };

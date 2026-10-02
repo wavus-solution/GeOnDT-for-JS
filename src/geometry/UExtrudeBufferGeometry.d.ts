@@ -7,7 +7,6 @@ import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js"
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { UBufferGeometry } from "../core/geometry/UBufferGeometry.js";
-import type { UExtrudeBufferGeometryCO } from "./UExtrudeBufferGeometry.types.js";
 
 /**
  * ~extends import('@union3d/core/geometry/UBufferGeometry') <br>
@@ -50,4 +49,58 @@ declare class UExtrudeBufferGeometry extends UBufferGeometry {
     override clone(): this;
 }
 
-export type { UExtrudeBufferGeometry };
+/**
+     * UV 생성기 타입 <br>
+     */
+    type UVGeneratorType = {
+        generateTopUV: (arg0: UExtrudeBufferGeometry, arg1: Array<number>, arg2: number, arg3: number, arg4: number) => Array<three.Vector2>;
+        generateSideWallUV: (arg0: UExtrudeBufferGeometry, arg1: Array<number>, arg2: number, arg3: number, arg4: number, arg5: number, arg6: Array<number>) => Array<three.Vector2>;
+    };
+
+/**
+     * UExtrudeBufferGeometry 생성 옵션 <br>
+     */
+    type UExtrudeBufferGeometryCO = {
+        /**
+         * 커브 세그먼트 수 <br>
+         */
+        curveSegments?: number;
+        /**
+         * 압출 스텝 수 <br>
+         */
+        steps?: number;
+        /**
+         * 압출 깊이 <br>
+         */
+        depth?: number;
+        /**
+         * 베벨 활성화 여부 <br>
+         */
+        bevelEnabled?: boolean;
+        /**
+         * 베벨 두께 <br>
+         */
+        bevelThickness?: number;
+        /**
+         * 베벨 크기 (기본값: bevelThickness - 2) <br>
+         */
+        bevelSize?: number;
+        /**
+         * 베벨 세그먼트 수 <br>
+         */
+        bevelSegments?: number;
+        /**
+         * 압출 경로 커브 <br>
+         */
+        extrudePath?: three.Curve<three.Vector3>;
+        /**
+         * UV 생성기 <br>
+         */
+        UVGenerator?: UVGeneratorType;
+        /**
+         * (deprecated) depth 사용 권장 <br>
+         */
+        amount?: number;
+    };
+
+export type { UExtrudeBufferGeometry, UExtrudeBufferGeometryCO, UVGeneratorType };

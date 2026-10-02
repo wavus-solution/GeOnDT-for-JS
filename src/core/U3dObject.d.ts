@@ -8,7 +8,7 @@ import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/e
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { UEventDispatcher, UEventDispatcherCO } from "./UEventDispatcher.js";
 import type { UMeta } from "../meta/UMeta.js";
-import type { EventCallBack } from "../types/global.types.js";
+import type { EventCallBack } from "../types/global.js";
 
 /**
  * ~extends import('@UEventDispatcher').UEventDispatcherCO <br>

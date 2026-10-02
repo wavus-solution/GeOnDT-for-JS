@@ -6,7 +6,6 @@ import { LineSegments2 } from "../../../dist/types/three/examples/jsm/lines/Line
 import GUI from "../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { UMTLWriterResult } from "./UMTLWriter.types.js";
 
 /**
  * @classdesc
@@ -33,4 +32,36 @@ declare class UMTLWriter {
     write(objects: any, isMergeSameImage: any, outputName: any, imageFlipY: any): Promise<UMTLWriterResult>;
 }
 
-export type { UMTLWriter };
+/**
+     * `UMTLWriter.write`가 resolve하는 MTL 파일 쓰기 결과입니다.
+     */
+    type UMTLWriterResult = {
+        /**
+         * MTL 파일 이름
+         */
+        name: string;
+        /**
+         * MTL 파일 Blob
+         */
+        blob: Blob;
+        /**
+         * MTL이 참조하는 이미지 리소스 목록
+         */
+        resource: Array<UMTLWriterImgResource>;
+    };
+
+/**
+     * MTL 파일이 참조하는 이미지 리소스입니다.
+     */
+    type UMTLWriterImgResource = {
+        /**
+         * 이미지 이름
+         */
+        name: string;
+        /**
+         * 이미지 Blob
+         */
+        blob: Blob;
+    };
+
+export type { UMTLWriter, UMTLWriterImgResource, UMTLWriterResult };

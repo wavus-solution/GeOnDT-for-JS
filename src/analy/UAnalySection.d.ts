@@ -6,14 +6,13 @@ import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSeg
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { UAnaly } from "./UAnaly.js";
-import type { FilteredEntry, MeasurePOILike, SelectLayerLike, UAnalySectionCO } from "./UAnalySection.types.js";
+import type { UAnaly, UAnalyCO } from "./UAnaly.js";
 import type { UGroup } from "../core/UGroup.js";
 import type { UMesh } from "../core/mesh/UMesh.js";
 import type { U3dCircle } from "../geometry/U3dCircle.js";
 import type { U3dCylinder } from "../geometry/U3dCylinder.js";
 import type { U3dLine } from "../geometry/U3dLine.js";
-import type { EventCallBack, GeoPosition, WorldPositionVector3 } from "../types/global.types.js";
+import type { EventCallBack, GeoPosition, WorldPositionVector3 } from "../types/global.js";
 
 /**
  * ~extends import('@UAnaly').UAnaly <br>
@@ -160,4 +159,46 @@ declare class UAnalySection extends UAnaly {
     drawVerticalLine(dist: three.Vector3, name?: string): void;
 }
 
-export type { UAnalySection };
+/**
+     * ~extends import('@union3d/analy/UAnaly').UAnalyCO <br>
+     * `횡단면` / `종단면` 영역 분석 생성자 옵션
+     */
+    type UAnalySectionCO_Content = {
+        /**
+         * 분석모드 이름
+         */
+        name?: string;
+    };
+
+/**
+     * ~extends import('@union3d/analy/UAnaly').UAnalyCO <br>
+     * `횡단면` / `종단면` 영역 분석 생성자 옵션
+     */
+    type UAnalySectionCO = Omit<Omit<UAnalyCO, never> & UAnalySectionCO_Content, never>;
+
+type SelectLayerLike = {
+        setMeasureType: (type: string) => void;
+        addMeasurePoint: (geo: object) => unknown;
+    };
+
+type FilteredEntry = {
+        arr: Array<UMesh | {
+            layerName: string;
+            id: unknown;
+        }>;
+        type: string;
+        poiGroupID: string | number;
+        height?: number;
+    };
+
+type MeasurePOILike_Content = {
+        setPosition?: Function;
+        setLabel?: Function;
+        setPointSize?: Function;
+        setPointColor?: Function;
+        getUid?: Function;
+    };
+
+type MeasurePOILike = three.Object3D & MeasurePOILike_Content;
+
+export type { FilteredEntry, MeasurePOILike, MeasurePOILike_Content, SelectLayerLike, UAnalySection, UAnalySectionCO, UAnalySectionCO_Content };

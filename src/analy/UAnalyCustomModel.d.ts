@@ -7,8 +7,10 @@ import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js"
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { UAnaly } from "./UAnaly.js";
-import type { CustomModelEntry } from "./UAnalyCustomModel.types.js";
 import type { U3dLine } from "../geometry/U3dLine.js";
+import type { U3dCustomModel } from "../model/U3dCustomModel.js";
+import type { U3dCustomModelGroup } from "../model/U3dCustomModelGroup.js";
+import type { U3dCustomModelMesh } from "../model/U3dCustomModelMesh.js";
 
 /**
  * ~extends import('@UAnaly').UAnaly <br>
@@ -198,4 +200,10 @@ declare class UAnalyCustomModel extends UAnaly {
     #private;
 }
 
-export type { UAnalyCustomModel };
+/**
+     * 사용자 건물 항목. 단일 모델(U3dCustomModel), 그룹(U3dCustomModelGroup),
+     * 메쉬 모델(U3dCustomModelMesh) 중 하나를 가리킨다.
+     */
+    type CustomModelEntry = U3dCustomModel | U3dCustomModelGroup | U3dCustomModelMesh;
+
+export type { CustomModelEntry, UAnalyCustomModel };

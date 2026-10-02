@@ -10,7 +10,7 @@ import type { UCamera } from "../core/UCamera.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
 import type { UOrthographicCamera } from "../core/UOrthographicCamera.js";
 import type { UMapControlBase } from "./UMapControlBase.js";
-import type { WorldPosition } from "../types/global.types.js";
+import type { WorldPosition } from "../types/global.js";
 
 /**
  * ~extends UMapControlBase <br>

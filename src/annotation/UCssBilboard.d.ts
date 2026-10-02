@@ -7,7 +7,7 @@ import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js"
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { CSS2DObject } from "../lib/three/renderers/CSS2DRenderer.js";
-import type { WorldPosition } from "../types/global.types.js";
+import type { WorldPosition } from "../types/global.js";
 
 /**
  * ~extends import('@union3d/lib/three/renderers/CSS2DRenderer').CSS2DObject <br>

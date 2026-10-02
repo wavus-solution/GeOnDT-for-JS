@@ -38,15 +38,18 @@
 ## 3. 정규 자연어 수도코드
 
 ```spec
-U3dMultipleComponentLayerCO extends U3dModelBasicLayerCO 부분 타입 명세
+U3dMultipleComponentLayerCO 타입 정의
+    U3dModelBasicLayerCO와 U3dMultipleComponentLayerCO_Content를 합성하여 기반 모델 옵션과 컴포넌트 기본 설정을 함께 받는다.
+
+U3dMultipleComponentLayerCO_Content 부분 타입 명세
     이 명세에서 사용하는 필드:
         scale?: Vector3Like
-            이후 생성하는 컴포넌트의 layerScale 저장값이며 생략하면 각 축에 1을 사용한다. 개별 렌더 scale은 별도 opt.scale이 결정한다.
+            이후 생성하는 컴포넌트의 layerScale 저장값이며 생략하면 각 축에 1을 사용한다. 개별 렌더 scale은 별도 opt.scale이 결정한다. [확인 Q-009]
         rotation?: Vector3Like
-            이후 생성하는 모든 컴포넌트에 전달할 레이어 회전이며 생략하면 각 축에 0을 사용한다.
+            이후 생성하는 모든 컴포넌트에 전달할 레이어 회전이며 생략하면 각 축에 0을 사용한다. [확인 Q-009]
         collisiondistance?: number
             생성하는 컴포넌트에 전달할 충돌 감지 거리이며 생략하면 10을 사용한다.
-        collisionFunction?: Function
+        collisionFunction?: function
             컴포넌트의 충돌 처리에 전달할 callback이다.
         setInstanced?: boolean
             기본 컴포넌트 생성 방식을 지정하며 생략하면 true이다.
@@ -96,7 +99,7 @@ ComponentCreateOption 부분 타입 명세
         properties?: Record<string, unknown>
             컴포넌트에 저장할 사용자 속성이다.
         style?: object
-            색상·불투명도·밝기·대비와 mesh의 depthTest·depthWrite·renderOrder 설정이다.
+            색상·불투명도·밝기·대비·채도와 mesh의 depthTest·depthWrite·renderOrder 설정이다.
             brightness와 contrast는 0 이상의 유한한 숫자이며 Float32로 표현 가능해야 한다. undefined·null은 생략으로 처리한다.
         lights?: Array<object>
             컴포넌트에 연결할 spot light 옵션 목록이다.
@@ -207,12 +210,29 @@ InstancedComponentInfo 타입 정의
             인스턴스 모델 교체 경로에서 임시로 수집하는 animation mixer 목록이다. 새 mixer를 수집하지만 기존 컴포넌트에 연결하지 않는다. [확인 Q-018]
 
 InstancedInfo_Content 타입 정의
-    Map<number, InstancedComponentInfo>에 다음 제어 상태를 함께 보관한다.
     lastIndex?: number
         다음 instance ID 발급과 마지막 유지 렌더 그룹 계산의 기준이 되는 현재 최고 ID이다.
 
+InstancedInfo 타입 정의
+    Map<number, InstancedComponentInfo>와 InstancedInfo_Content를 합성한다. 숫자 ID의 배치 정보와 lastIndex를 같은 Map 객체에 보관한다.
+
 InstancedInfoStore 타입 정의
-    모델 이름을 key로 하고 `InstancedInfo_Content`를 값으로 갖는 Map이다.
+    모델 이름을 key로 하고 `InstancedInfo`를 값으로 갖는 Map이다.
+
+ComponentObjectBase 타입 정의
+    일반 U3dComponentPosition 또는 U3dComponentInstancedPosition의 공통 제어 대상을 나타낸다.
+
+ComponentObject 타입 정의
+    ComponentObjectBase와 Record<string, any>를 합성한 타입이며 현재 목록·조회·생성 API에서 사용한다.
+
+U3dMultipleComponentLayerEMI_Content 타입 정의
+    BEFORE_CREATE: string
+        컴포넌트용 모델을 복사하기 전의 이벤트 이름이다.
+    CREATE: string
+        컴포넌트 생성 후 결과를 전달하는 이벤트 이름이다.
+
+U3dMultipleComponentLayerEMI 타입 정의
+    U3dLayerEMI와 U3dMultipleComponentLayerEMI_Content를 합성하여 기반 레이어 이벤트와 생성 이벤트를 함께 제공한다.
 
 TypedUInstancedMesh 타입 정의
     UInstancedMesh에 모델명, 그룹 번호, instance 원본·적용 행렬 Map과 barrier 정보를 함께 기록하는 확장 타입이다.
@@ -300,7 +320,8 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
             UCheckTime — 갱신 시간 검사 객체 생성; 생성자: {new UCheckTime()}
             UGroup — 인스턴스 상위 그룹 생성; 생성자: {new UGroup()}
         동작:
-            옵션 key를 현재 클래스의 OPT_KEYS에 맞게 정규화하고 기반 모델 레이어를 초기화한다.
+            옵션 key를 현재 클래스의 OPT_KEYS에 맞게 정규화한다. 입력 생략·null·비객체는 normalizeOptionKeys가 빈 객체로 바꾼다.
+            정규화 결과가 없다면 안내 후 super 호출 전에 종료를 시도하지만 현재 정규화 함수의 정상 반환으로는 이 분기에 들어가지 않는다. 결과가 있으면 기반 모델 레이어를 초기화한다.
             컴포넌트 목록·이름 색인과 모델별 instance 정보·경계·mesh cache를 빈 상태로 만든다.
             scale, rotation, image, 충돌 설정, 인스턴스 기본 모드·그룹 크기와 라벨 기본값을 저장한다. camel 표기의 collisionDistance는 정규화 뒤 생성자가 읽는 key와 다를 수 있다. [확인 Q-001]
             drawPath, typePath, axis와 rotateAngle도 레이어 속성에 저장하지만 현재 논리적 소스 단위에서는 다시 사용하지 않는다. [확인 Q-021]
@@ -345,17 +366,15 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
                 기반 layer의 dispose 결과를 반환한다.
 
         override update(drawArg?: UDrawArg, curTime?: number) -> void
-            처리 기준:
-                app, camera 또는 컴포넌트가 없으면 갱신하지 않는다.
-                컴포넌트 수가 550 이하이면 모두 갱신하고 cursor를 0으로 되돌린다.
+            처리 기준: app, camera 또는 컴포넌트가 없으면 갱신하지 않는다.
             의존:
+                U3dLayer — 상속된 앱 참조 조회; 속성 읽기: {_app}
                 U3dApp — idle draw 여부와 카메라 위치·객체 조회; 함수: {isIdleDraw(), getCameraPosition()}; 속성 읽기: {_camera}
-                ComponentObject — 카메라 거리와 프레임 상태 갱신; 함수: {updateCameraDistance(), update()}
             동작:
-                app의 idle 상태와 카메라 위치를 읽고 현재 컴포넌트 목록을 가져온다.
-                컴포넌트가 550개 이하이면 각 컴포넌트에 카메라 위치·idle 상태·현재 시각을 전달하여 모두 갱신한다.
-                550개를 초과하면 모든 컴포넌트의 카메라 거리를 먼저 갱신한다.
-                cursor부터 최대 550개의 컴포넌트만 update하고, 다음 구간의 시작 위치로 cursor를 옮기며 끝에 도달하면 0으로 순환한다.
+                _app이 없으면 종료한다.
+                _app이 있으면 idle 상태를 읽은 뒤 현재 컴포넌트 목록과 그 길이를 가져온다.
+                빈 목록이면 종료하고, 비어 있지 않으면 갱신 cursor 상태와 카메라 위치를 조회한다. 카메라 객체가 없으면 종료한다.
+                _app과 app._camera가 있으면 목록·cursor 상태·먼저 읽은 목록 길이·카메라 위치·idle 상태·현재 시각을 내부 배분 계산에 전달한다.
 
     생성 방식 설정 책임 그룹
         역할: 이후 생성할 컴포넌트의 기본 일반·인스턴스 방식을 관리한다.
@@ -365,8 +384,8 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
                 defined — 인스턴스 상위 그룹 존재 여부 판정; 함수: {defined()}
                 UGroup — 누락된 인스턴스 상위 그룹 생성; 생성자: {new UGroup()}
             동작:
-                기본 인스턴스 생성 여부를 입력값으로 바꾼다.
-                인스턴스 상위 그룹이 없으면 새 UGroup을 만든다.
+                _setInstanced를 입력값으로 바꾼다.
+                _instancedObject가 없으면 새 UGroup을 만들어 그 속성에 저장한다.
 
         isInstanced() -> boolean
             동작: 현재 기본 인스턴스 생성 여부를 반환한다.
@@ -435,7 +454,7 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
             동작:
                 교차 object가 없으면 undefined를 반환한다.
                 교차 object가 instanced mesh이면 누락된 mesh 그룹 번호와 교차 instanceId를 각각 0으로 대체한 뒤 두 값을 합쳐 모델 전체 instance ID를 계산한다.
-                모델별 instance metadata의 컴포넌트 이름이 있으면 이름 색인으로 반환한다.
+                intersect.object가 있고 mesh._objectName이 존재하면 모델별 instance metadata를 조회하고 컴포넌트 이름이 있는 경우 이름 색인으로 반환한다.
                 metadata 이름으로 찾지 못하면 컴포넌트 목록에서 같은 모델명과 전체 instance ID를 가진 인스턴스 컴포넌트를 찾는다.
                 일반 mesh이면 각 일반 컴포넌트의 object tree에서 교차 mesh와 uuid가 같은 mesh를 가진 컴포넌트를 반환한다.
                 어느 경로에서도 찾지 못하면 undefined를 반환한다.
@@ -462,6 +481,7 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
             처리 기준: app이 없거나 점이 세 개 미만이면 빈 배열을 반환한다.
             의존:
                 defined — app, 경계와 위치 존재 여부 판정; 함수: {defined()}
+                U3dLayer — 상속된 앱 참조 조회; 속성 읽기: {_app}
                 ComponentObject — world 경계 상자 조회; 함수: {getBoundingBox()}; 속성 읽기: {position}
             동작:
                 geographic 점 목록을 world XY 검색 영역으로 변환하고 실패하면 빈 배열을 반환한다.
@@ -472,6 +492,7 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
         #computeSearchArea(points: Array<GeoPosition>) -> SearchArea | undefined
             처리 기준: 점이 세 개 미만이면 undefined를 반환한다.
             의존:
+                U3dLayer — 좌표 변환을 요청할 앱 참조 조회; 속성 읽기: {_app}
                 U3dApp — geographic 좌표의 world 좌표 변환; 함수: {geographicToVector3()}
                 THREE — world XY 꼭짓점과 축 정렬 경계 생성; 생성자: {new Vector2(), new Box2()}; 함수: {setFromPoints()}
             동작:
@@ -479,44 +500,6 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
                 모든 꼭짓점을 포함하는 Box2를 만들어 빠른 사전 판정 경계로 사용한다.
                 마지막 점과 첫 점을 연결하는 변을 포함하여 인접 꼭짓점 쌍의 polygon 변 목록을 만든다.
                 꼭짓점·경계·변 목록을 SearchArea로 반환한다.
-
-        #boundInSearchArea(box3: Box3, area: SearchArea) -> boolean
-            의존: THREE — 3D 경계의 XY 투영과 포함·교차 판정; 생성자: {new Vector2(), new Box2()}; 함수: {intersectsBox(), containsPoint()}
-            동작:
-                컴포넌트 Box3의 x·y 최소·최대값으로 Box2를 만들고 검색 polygon의 Box2와 겹치지 않으면 false를 반환한다.
-                검색 polygon 꼭짓점 하나라도 컴포넌트 Box2 안에 있으면 true를 반환한다.
-                컴포넌트 Box2의 네 꼭짓점 하나라도 검색 polygon 안에 있으면 true를 반환한다.
-                검색 polygon의 각 변과 컴포넌트 Box2의 네 변을 비교하여 하나라도 교차하면 true를 반환한다.
-                포함·교차 조건이 모두 없으면 false를 반환한다.
-
-        #intersectsSegment(p1: Vector2, p2: Vector2, q1: Vector2, q2: Vector2) -> boolean
-            동작:
-                각 선분을 기준으로 상대 선분의 두 끝점 방향을 계산한다.
-                양쪽 끝점이 서로 반대 방향에 있으면 두 선분이 일반 교차한다고 판정한다.
-                방향값이 0인 끝점은 상대 선분의 축 범위 안에 있는지 검사하여 끝점 접촉과 겹침도 교차로 판정한다.
-                어느 조건도 만족하지 않으면 false를 반환한다.
-
-        #orientation2D(a: Vector2, b: Vector2, c: Vector2) -> number
-            처리 기준: 외적 절댓값이 `1e-12` 이하이면 공선으로 판정한다.
-            동작:
-                선분 a-b와 점 c의 2D 외적을 계산한다.
-                양의 허용 오차보다 크면 1, 음의 허용 오차보다 작으면 -1, 그 사이이면 0을 반환한다.
-
-        #pointOnSegment2D(a: Vector2, b: Vector2, c: Vector2) -> boolean
-            동작: 점 c의 x와 y가 각각 선분 a-b의 최소·최대 범위 안에 모두 포함되는지 반환한다.
-
-        #pointInSearchArea(point: Vector3 | Vector2, area: SearchArea) -> boolean
-            의존: THREE — Vector3의 XY 투영; 생성자: {new Vector2()}; 함수: {containsPoint()}
-            동작:
-                Vector3 입력이면 x와 y로 Vector2를 만들고 Vector2이면 그대로 사용한다.
-                검색 Box2 밖이면 false를 반환한다.
-                검색 Box2 안이면 polygon ray-casting 결과를 반환한다.
-
-        #pointInPolygon(p: Vector2, polyPoints: Array<Vector2>) -> boolean
-            동작:
-                polygon의 마지막-첫 변을 포함하여 모든 변을 순회한다.
-                점의 y를 가로지르는 변마다 교차 x를 계산하고 점보다 오른쪽에서 교차할 때 내부 여부를 반전한다.
-                홀짝 교차 누적 결과를 반환한다.
 
     컴포넌트 생성과 등록 책임 그룹
         역할: 미리 로드한 모델과 위치 옵션을 일반 또는 인스턴스 컴포넌트로 만들고 레이어 상태에 등록한다.
@@ -529,7 +512,8 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
             의존:
                 defined — 생성 결과와 선택 입력·상태 존재 여부 판정; 함수: {defined()}
                 UScene — 원본 model group과 생성 object의 scene 연결; 함수: {remove(), add()}
-                ComponentObject — 라벨·가시성·경로·속성·색상·불투명도·animation 상태 적용과 등록 식별값 조회; 함수: {setLabel(), showLabel(), hideLabel(), show(), hide(), addMovePoint(), addPathGeometry(), addProperties(), setColor(), setOpacity(), setBrightness(), setContrast(), startMixer(), stopMixer(), getAnimationNow(), moveResume(), moveStart(), movePause()}; 속성 읽기: {_setInstanced, instanceId, _object, name, _lightList}
+                U3dLayer — 상속 scene·앱 조회와 animation 존재 표식 기록; 속성 읽기: {_scene, _app}; 속성 쓰기: {_animation}
+                ComponentObject — 라벨·가시성·경로·속성·색상·불투명도·animation 상태 적용과 등록 식별값 조회; 함수: {setLabel(), showLabel(), hideLabel(), show(), hide(), addMovePoint(), addPathGeometry(), addProperties(), setColor(), setOpacity(), setBrightness(), setContrast(), setSaturation(), startMixer(), stopMixer(), getAnimationNow(), moveResume(), moveStart(), movePause()}; 속성 읽기: {_setInstanced, instanceId, _object, name, _lightList}
                 U3dComponentPosition — U3dComponentPosition 계열의 path geometry 지원 대상 판정; 상수: {U3dComponentPosition}
                 U3dLayer — spot light option에 전달할 기반 draw context 조회; 속성 읽기: {_drawArg}
                 USpotLight — 컴포넌트 조명 생성과 회전 초기화; 생성자: {new USpotLight()}; 함수: {resetRotation()}
@@ -545,16 +529,22 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
                 인스턴스 컴포넌트이면 공용 인스턴스 상위 그룹을, 일반 컴포넌트이면 자체 object를 부모가 없을 때만 scene에 추가한다.
                 labelVisible에 따라 라벨을 만들고 표시하거나 숨긴다.
                 visible이 있으면 컴포넌트를 표시하거나 숨긴다.
-                drawPolygon이 존재하지만 이동점 목록이 없으면 빈 이동점 목록을 만든다.
+                drawPolygon이 존재하지만 이동점 목록이 없으면 원본 opt.movepointlist에 빈 배열을 저장한다.
                 이동점·자세 목록 또는 path geometry를 연결하고 해당 레이어에 애니메이션이 있음을 기록한다.
-                사용자 properties와 style의 색상·불투명도를 정의된 항목만 컴포넌트에 적용하고 밝기·대비는 생성 전에 보관·검증한 값을 적용한다. 생성 callback이나 style getter의 이후 변경은 해당 두 값에 반영하지 않는다.
-                같은 이름이 색인에 없을 때만 목록·이름 Map에 등록하고 요청된 spot light를 만들어 app과 컴포넌트에 연결한다.
+                사용자 properties를 적용한다. style은 생성 후 다시 읽어 현재 색상·불투명도·밝기·대비·채도의 정의된 항목을 순서대로 적용한다.
+                그 다음 생성 전에 보관·검증한 밝기·대비가 있으면 다시 적용하므로 이 두 값은 마지막에 최초 보관값으로 확정된다. 생성 후 style getter·설정 callback에서 예외가 나면 이미 생성된 상태는 되돌리지 않는다.
+                같은 이름이 색인에 없을 때만 목록·이름 Map에 등록한다. 요청된 light 옵션 원본마다 생성 이름·drawarg를 기록한 뒤 spot light를 만들어 app과 컴포넌트에 연결하므로 입력 light 객체도 변경된다.
                 이름이 중복되면 scene과 앞선 설정은 이미 적용되지만 목록·이름 Map에는 등록하지 않은 채 CREATE 이벤트와 반환을 계속한다. [확인 Q-004]
                 현재 재생 상태가 playing이면 mixer와 이동을 시작·재개하고 paused이면 mixer와 이동을 일시정지한다.
                 CREATE 이벤트를 발생시키고 생성한 컴포넌트를 반환한다.
 
         addComponent(opt: ComponentCreateOption) -> void
             처리 기준: deprecated API이며 현재 활성 경로는 addPosition() 호출 직후 종료한다.
+            의존:
+                UGroup — 무조건 return 뒤 비활성 legacy 경로에만 남은 그룹 생성; 생성자: {new UGroup()}
+                __GInfo__ — 비활성 legacy 경로의 모델 생성 안내; 함수: {__GInfo__()}
+                defined — 비활성 legacy 경로의 옵션·결과 존재 판정; 함수: {defined()}
+                UDEF — 비활성 legacy 경로의 완료 객체 구성; 함수: {createPromise()}
             동작:
                 addPosition()을 호출하고 반환값을 전달하지 않은 채 종료한다.
                 함수 아래에 남아 있는 legacy crowd 생성 코드는 무조건 return 뒤에 있어 실행되지 않는다.
@@ -572,7 +562,7 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
             의존:
                 deferred — 호출자에게 반환할 완료 객체 생성; 함수: {deferred()}
                 DeferredObject — 기반 로드 성공 결과와 실패 이유 전달; 함수: {resolve(), reject()}
-                U3dModelBasicLayer — 단일 원본 모델 load 또는 기존 설정 reload; 함수: {load(), reLoad()}
+                U3dModelBasicLayer — 단일 원본 모델 load 또는 기존 설정 reload; 함수: {load(), prototype.reLoad.call()}
             동작:
                 modelInfo가 있으면 기반 load를 시작하고 성공 object로 반환 deferred를 resolve하며, 지원하지 않는 확장자·잘못된 경로·네트워크 오류 등 load의 실패 이유로 reject한다.
                 modelInfo가 없으면 기반 reLoad를 시작하고 성공 시 반환 deferred를 resolve한다. reLoad의 실패는 연결하지 않는다.
@@ -590,7 +580,7 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
                 컴포넌트가 없으면 undefined를 반환한다.
                 getModel과 getParam을 제공하고 원본 모델을 찾을 수 있는 각 컴포넌트에서 모델명과 단일 parameter 배열을 수집한다.
                 수집 결과가 없으면 undefined를 반환한다.
-                `save` 이벤트로 결과를 전달하고 같은 `{component: 결과}` 객체를 반환한다.
+                `save` 이벤트와 반환에는 각각 새 `{component: 결과}` wrapper를 사용하되 component 배열 참조는 공유한다.
 
         loadWork(savedData: ComponentParam | Array<ComponentParam>) -> Promise<Array<ComponentObject | undefined>>
             인터페이스:
@@ -604,10 +594,11 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
                 각 복사본의 컴포넌트 생성 Promise를 시작하여 목록에 저장한다.
                 생성 Promise가 완료되면 `load` 이벤트를 발생시키고 생성된 컴포넌트의 저장 계층 연결을 후속 실행한다.
 
-                모든 생성 Promise를 합친 Promise를 반환한다.
+                모든 생성 Promise를 합친 Promise를 반환한다. 중복 이름은 undefined가 아니라 reject로 전달되며 선언 주석과의 차이는 확인 대상이다. [확인 Q-024]
+                완료 후 이벤트·계층 연결을 수행하는 then 결과는 반환 Promise 목록에 넣지 않으므로 그 callback 예외는 별도 후속 Promise의 실패가 된다.
 
         async #loadComponent(data: ComponentParam) -> Promise<ComponentObject | undefined>
-            처리 기준: 같은 이름의 컴포넌트가 이미 있으면 이름을 포함한 오류를 throw한다.
+            처리 기준: 같은 이름의 컴포넌트가 이미 있으면 이름을 포함한 오류를 throw한다. [확인 Q-024]
             동작:
                 저장값의 instanced 여부를 레이어 기본 생성 모드로 설정한다.
                 같은 이름의 기존 컴포넌트를 조회한다.
@@ -623,6 +614,49 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
                 저장된 parent 이름이 있으면 이름 색인에서 부모를 찾고 부모 quaternion을 현재 rotation으로 갱신한다.
                 찾은 parent가 U3dComponentPosition 계열이면 현재 컴포넌트의 부모로 연결한다.
                 저장된 children을 순회하여 각 이름의 컴포넌트를 찾고 현재 컴포넌트의 자식으로 연결한다.
+
+    색상 조정 책임 그룹
+        역할: 현재 컴포넌트가 제공하는 색상 조정 기능을 호출하고 처음 발견한 유효 값을 조회한다.
+
+        setBrightness(brightness: number = 1) -> boolean
+            처리 기준: 유한한 숫자가 아니면 컴포넌트를 변경하지 않고 false를 반환한다.
+            동작: 현재 컴포넌트의 setBrightness에 입력을 전달하여 하나 이상 성공했는지 반환한다.
+
+        getBrightness() -> number
+            동작: 현재 컴포넌트에서 처음 얻은 유한한 밝기값을 반환하고 없으면 NaN을 반환한다.
+
+        setContrast(contrast: number = 1) -> boolean
+            처리 기준: 유한한 숫자가 아니면 컴포넌트를 변경하지 않고 false를 반환한다.
+            동작: 현재 컴포넌트의 setContrast에 입력을 전달하여 하나 이상 성공했는지 반환한다.
+
+        getContrast() -> number
+            동작: 현재 컴포넌트에서 처음 얻은 유한한 대비값을 반환하고 없으면 NaN을 반환한다.
+
+        setSaturation(saturation: number = 1) -> boolean
+            처리 기준: 유한한 숫자가 아니면 컴포넌트를 변경하지 않고 false를 반환한다.
+            동작: 현재 컴포넌트의 setSaturation에 입력을 전달하여 하나 이상 성공했는지 반환한다.
+
+        getSaturation() -> number
+            동작: 현재 컴포넌트에서 처음 얻은 유한한 채도값을 반환하고 없으면 NaN을 반환한다.
+
+        resetColorAdjustment() -> boolean
+            동작: 현재 컴포넌트의 resetColorAdjustment를 인수 없이 호출하여 하나 이상 성공했는지 반환한다.
+
+        #applyColorAdjustmentToComponents(methodName: 'setBrightness' | 'setContrast' | 'setSaturation' | 'resetColorAdjustment', value?: number) -> boolean
+            의존:
+                defined — 전달할 설정값의 존재 여부 판정; 함수: {defined()}
+                ComponentObject — 지정된 색상 조정 메서드 호출; 함수: {setBrightness(), setContrast(), setSaturation(), resetColorAdjustment()}
+            동작:
+                현재 목록을 순회하며 지정 이름의 멤버가 함수인 컴포넌트만 처리한다.
+                컴포넌트를 receiver로 하여 값이 정의되어 있으면 그 값을 전달하고 그 외에는 인수 없이 호출한다.
+                명시적 false가 아닌 반환은 undefined도 성공으로 집계하고 하나 이상 성공하면 true, 없으면 false를 반환한다.
+                새 컴포넌트의 기본 설정은 저장하지 않으며 예외가 나면 앞서 적용한 항목을 되돌리지 않고 뒤 항목 처리도 중단한다.
+
+        #getColorAdjustmentFromComponents(methodName: 'getBrightness' | 'getContrast' | 'getSaturation') -> number
+            의존: ComponentObject — 지정된 색상 조정값 조회; 함수: {getBrightness(), getContrast(), getSaturation()}
+            동작:
+                현재 목록에서 지정 이름의 메서드를 컴포넌트 자신을 receiver로 호출하고 유한한 숫자를 처음 얻으면 즉시 반환한다.
+                함수가 없거나 결과가 비유한 값이면 다음 항목을 검사하고 끝까지 유효값이 없으면 NaN을 반환한다.
 
     애니메이션과 경로 표시 책임 그룹
         역할: 이동 경로 애니메이션, 모델 내장 mixer와 누적 경로 표시를 서로 구분하여 제어한다.
@@ -701,13 +735,14 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
             의존:
                 THREE — 문자열·객체 색상을 정수 색상으로 변환; 생성자: {new Color()}; 함수: {getHex()}
                 U3dModelBasicLayer — 기반 경계 디버그 상태 설정; 함수: {debugBound()}
+                U3dLayer — 상속된 debug helper·이벤트 식별과 앱 참조 조회; 속성 읽기: {_debug, _app}
                 U3dApp — 렌더 직전 callback 등록; 함수: {setRenderBefore()}
                 ComponentObject — 개별 경계 조회; 함수: {getBoundingBox()}
                 UBox3HelperGroup — 경계 누적과 GPU 반영; 함수: {add(), commit()}
             동작:
                 입력 색상을 정수 색상으로 바꾸고 기반 경계 디버그 설정이 실패하면 false를 반환한다.
-                isDebug가 true이면 매 렌더 직전에 모든 컴포넌트 경계를 objectBound에 추가하고 한 번에 반영하는 callback을 등록한다.
-
+                isDebug가 true이면 매 렌더 직전 callback을 등록한다.
+                    callback 실행 시 self._debug.objectBound가 있으면 현재 컴포넌트 목록의 경계를 helper에 추가하고 한 번에 반영한다. 없으면 목록 조회 없이 종료한다.
                 설정을 마치면 true를 반환한다.
 
         getRenderPosition() -> {position: ComponentObject, needClear: boolean} | undefined
@@ -800,14 +835,20 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
                 THREE.Object3D — 교체한 모델과 child의 렌더·선택 metadata 기록; 속성 쓰기: {type, mixer, name, _bbox, getBBox, _utype, _rootObject, _ulayername}
                 UGroup — 일반 교체 object 그룹 생성과 tree 구성; 생성자: {new UGroup()}; 함수: {add(), traverse()}
                 UScene — 이전 object 분리와 새 object·인스턴스 그룹 연결; 함수: {remove(), add()}
+                U3dLayer — 교체 object를 연결할 상속 scene 조회; 속성 읽기: {_scene}
                 UDEF — 이전 일반 object 자원 해제와 mesh 유형 표시; 함수: {disposeObject3D()}; 상수: {UMESH_TYPE._component}
                 U3dObject — 교체한 일반 모델 child에 기록할 레이어 이름 조회; 속성 읽기: {_name}
             동작:
                 ID가 같은 컴포넌트와 option.object 이름이 같은 로드 모델을 찾고 기존 object가 없으면 종료한다.
                 인스턴스 컴포넌트에서 모델명이 같으면 변경하지 않는다.
-                인스턴스 경로에서는 새 모델을 skinned 구조로 정규화하고 새 모델명으로 instance metadata와 렌더 mesh를 먼저 만든다. 교체 옵션의 animationNum은 addInstancedInfo 결과에 복사되지 않아 createInstancedMesh에 전달되지 않는다. [확인 Q-015]
-                새 변환 초기값과 경계를 컴포넌트에 기록한 뒤 이전 모델의 instance 정보·mesh·matrix를 제거한다. 회전이나 크기를 생략하면 새 instance 정보에는 각각 0 회전과 단위 크기를 사용한다.
-                컴포넌트의 instance ID·모델명·회전을 새 정보에 맞추고 새 그룹과 metadata를 다시 연결한다. 이때 instance matrix는 addInstancedInfo가 축값 크기로 보정한 rotation을 사용하지만 component.rotation에는 같은 값에 π/180을 다시 곱한다. [확인 Q-017]
+                인스턴스 교체 입력의 name 속성에 component.name을 저장한다.
+                인스턴스 교체 입력의 position이 없으면 이전 object 위치 clone을 option.position에 저장한다.
+                component._object가 있고 인스턴스 경로이면 새 모델을 skinned 구조로 정규화하고 새 모델명으로 instance metadata와 렌더 mesh를 먼저 만든다.
+                교체 옵션의 animationNum은 addInstancedInfo 결과에 복사되지 않아 createInstancedMesh에 전달되지 않는다. [확인 Q-015]
+                component._object가 있고 인스턴스 교체 경로이면 새 변환 초기값과 경계를 컴포넌트에 기록한 뒤 이전 모델의 instance 정보·mesh·matrix를 제거한다.
+                회전이나 크기를 생략하면 새 instance 정보에는 각각 0 회전과 단위 크기를 사용한다.
+                component._object가 있고 인스턴스 교체 경로이면 컴포넌트의 instance ID·모델명·회전을 새 정보에 맞추고 새 그룹과 metadata를 다시 연결한다.
+                이때 instance matrix는 addInstancedInfo가 축값 크기로 보정한 rotation을 사용하지만 component.rotation에는 같은 값에 π/180을 다시 곱한다. [확인 Q-017]
                 scale 입력이 있으면 component.scale과 새 object scale을 바꾸고, 생략하면 두 값은 기존 크기를 유지한다. 따라서 생략 시 새 instance matrix는 단위 크기의 info.scale을 사용하지만 컴포넌트 상태와 object scale은 기존 크기를 유지한다. [확인 Q-023]
                 새 모델의 animation mixer는 info.mixers에 수집되지만 component.setMixers()로 기존 컴포넌트에 연결하지 않는다. [확인 Q-018]
                 현재 밝기를 setter로 다시 전달하여 저장된 대비와 함께 새 인스턴스 그룹에 적용한다. 인스턴스 상위 그룹이 scene에 없으면 한 번 추가하고 교체를 종료한다.
@@ -819,7 +860,7 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
         override getMetaData() -> UMeta | undefined
             의존:
                 defined — 기반 metadata 존재 여부 판정; 함수: {defined()}
-                U3dModelBasicLayer — 기반 metadata 조회; 함수: {getMetaData()}
+                U3dModelBasicLayer — 기반 metadata 조회; 함수: {prototype.getMetaData.call()}
                 U3dObject — position metadata 생성; 함수: {createMeta()}
                 UMeta — 컴포넌트 위치 metadata 값 기록과 연결; 함수: {addChild()}; 속성 쓰기: {attribute}
             동작:
@@ -867,18 +908,24 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
             동작: 기반 원본 model group의 자식에서 이름이 같은 첫 object를 반환하고 없으면 undefined를 반환한다.
 
         removeModelAlphaMap(name: string) -> void
-            의존: ModelObject3D — alpha map 제거; 함수: {removeAlphaMap()}
+            의존:
+                U3dModelBasicLayer — 상속된 원본 모델 목록·그룹 조회; 속성 읽기: {_objectList, _object}
+                ModelObject3D — alpha map 제거; 함수: {removeAlphaMap()}
             동작: 별도 object 목록이 비어 있으면 원본 model group 자식을 사용하고, 아니면 object 목록을 사용하여 이름이 같은 모든 모델의 alpha map을 제거한다.
 
         resetModelAlphaMap(name: string) -> void
-            의존: ModelObject3D — alpha map 원본 복구; 함수: {resetAlphaMap()}
+            의존:
+                U3dModelBasicLayer — 복원 대상 원본 모델 목록·그룹 조회; 속성 읽기: {_objectList, _object}
+                ModelObject3D — alpha map 원본 복구; 함수: {resetAlphaMap()}
             동작: 별도 object 목록이 비어 있으면 원본 model group 자식을 사용하고, 아니면 object 목록을 사용하여 이름이 같은 모든 모델의 alpha map을 원본으로 복구한다.
 
         setModelAlphaTest(name: string, alphaFilter: number) -> void
             인터페이스:
                 name: 설정할 로드 모델 이름
                 alphaFilter: 픽셀을 폐기할 alpha 임계값
-            의존: ModelObject3D — alpha test 설정; 함수: {setAlphaTest()}
+            의존:
+                U3dModelBasicLayer — alpha test 대상 원본 모델 목록·그룹 조회; 속성 읽기: {_objectList, _object}
+                ModelObject3D — alpha test 설정; 함수: {setAlphaTest()}
             동작: 별도 object 목록이 비어 있으면 원본 model group 자식을 사용하고, 아니면 object 목록을 사용하여 이름이 같은 모든 모델에 alphaFilter를 적용한다.
 
         setScale(scale: Vector3Like | number) -> void
@@ -926,6 +973,7 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
             의존:
                 defined — event, raycaster, camera와 교차 식별값 존재 여부 판정; 함수: {defined()}
                 UDrawArg — 현재 카메라 조회; 함수: {getCamera()}
+                U3dLayer — 카메라 조회에 사용할 상속 draw context; 속성 읽기: {_drawArg}
                 URaycaster — normalized 화면 좌표로 ray 구성과 object 교차; 생성자: {new URaycaster()}; 함수: {setFromCamera(), intersectObject()}
                 THREE — normalized 좌표 생성; 생성자: {new Vector2()}
                 ComponentObject — 표시·렌더 object·instance 그룹·식별 상태 조회와 교차 거리 기록; 속성 읽기: {_show, _object, instancedGroup, _setInstanced, instanceId, groupIndex}; 속성 쓰기: {distance}
@@ -951,6 +999,22 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
             동작:
                 model의 모든 mesh를 순회하고 getBoundingBox를 제공하는 mesh의 경계 크기를 구한다.
                 어느 한 mesh라도 x·y·z 중 하나가 1 이하이면 false를 반환하고, 검사한 모든 mesh가 세 축 모두 1보다 크면 true를 반환한다.
+
+비공개 공간 판정과 프레임 배분 책임 그룹
+    역할: 공개 검색·갱신 API가 준비한 입력의 공간 판정과 갱신 순서를 계산한다.
+
+U3dMultipleComponentMeshSource 부분 타입 명세
+    이 명세에서 사용하는 필드:
+        _cacheMeshList: object
+            원본과 인스턴스 mesh를 저장하는 레이어의 cache 참조이다.
+        _instancedMaxCount: number
+            모델별 인스턴스 그룹의 최대 수이다.
+        _app: U3dApp
+            인스턴스 mesh에 전달할 renderer를 조회하는 앱이다.
+        _drawLine: boolean
+            instance 설정의 마지막 단계에서 표시용 외곽선을 만들지 결정한다.
+        getName: () -> string
+            메시의 picking 식별 상태에 기록할 레이어 이름 조회 함수이다.
 
 인스턴스 정보와 그룹 내부 함수 책임 그룹
     역할: 모델별 instance ID, 변환 정보와 ID 구간별 렌더 그룹의 대응 관계를 유지한다.
@@ -994,7 +1058,7 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
         처리 기준: 인스턴스 상위 그룹이 없으면 undefined를 반환한다.
         의존: UGroup — 모델·ID 구간 렌더 그룹 생성·식별과 상위 그룹 연결; 생성자: {new UGroup()}; 함수: {add()}; 속성 쓰기: {name, _objectName}
         동작:
-            같은 모델명과 offset의 그룹을 조회하고 이미 있으면 새 그룹을 만들지 않는다.
+            _instancedObject가 있으면 같은 모델명과 offset의 그룹을 조회하고 이미 있으면 새 그룹을 만들지 않는다.
             없으면 `<모델명>^<offset>` 이름과 원본 모델명을 가진 UGroup을 만들어 인스턴스 상위 그룹에 추가하고 반환한다.
 
 컴포넌트 생성 내부 함수 책임 그룹
@@ -1014,7 +1078,7 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
             __GError__ — 로드 모델 누락 오류 출력; 함수: {__GError__()}
         동작:
             geoPosition이 있으면 drawArg 변환을 사용해 world position으로 바꾼다.
-            아니면 worldPos 또는 google의 x·y·z를 새 world position으로 복사한다.
+            아니면 worldPos 또는 google이 있으면 각 축에서 worldPos 값을 우선하고 null·undefined인 경우만 google 값으로 보충하여 새 world position을 만든다. x는 worldPos.x 다음 google.x, y는 worldPos.y 다음 google.y, z는 worldPos.z 다음 google.z의 순서이다.
             어떤 위치 입력도 없으면 undefined를 반환한다. [확인 Q-003]
             loadedModel이 있고 object가 없으면 loadedModel 이름을 object로 사용한다.
             컴포넌트별 instanced가 있으면 그 값을, 없으면 레이어 기본 모드를 선택한다.
@@ -1028,109 +1092,19 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
 
     createInstancedMesh(object: Object3D, opt: ComponentCreateOption, objGroup: UGroup) -> UGroup | undefined
         인터페이스: this: instance 정보·렌더 그룹·mesh cache를 소유하는 현재 레이어
-        처리 기준: object나 모델별 instance 정보가 없으면 undefined를 반환한다.
+        처리 기준: object나 모델별 instance 정보가 없으면 undefined를 반환한다. 그룹도 준비할 수 없으면 종료한다.
         의존:
             defined — 원본 object와 렌더 그룹 존재 여부 판정; 함수: {defined()}
-            THREE.Object3D — 원본 mesh tree 순회·world matrix 갱신과 animation 상태 기록; 함수: {traverse(), updateMatrixWorld()}; 속성 읽기·쓰기: {parent.position, position, mixer, animations}
+            THREE.Object3D — 원본 world matrix 갱신과 animation 상태 기록; 함수: {updateMatrixWorld()}; 속성 읽기·쓰기: {parent.position, position, mixer, animations}
             THREE — 원본·부모 위치 초기화와 모델 animation mixer 구성; 생성자: {new AnimationMixer()}; 함수: {Vector3.set(), clipAction()}
-            UGroup — 생성·재사용한 instance mesh 연결과 animation 목록 기록; 함수: {add()}; 속성 쓰기: {animations}
-            InstancedMeshLike — 그림자와 picking용 layer 식별 상태 기록; 속성 쓰기: {_setShadow, _ulayername}
-            UInstancedBatchedSkinnedMesh — legacy instance와 animation 배정; 함수: {addInstance(), setAnimationAt()}
-            U3dObject — 생성 mesh에 기록할 layer 이름 조회; 함수: {getName()}
+            UGroup — 그룹 animation 목록 기록; 속성 쓰기: {animations}
         동작:
-            모델 정보의 lastIndex를 현재 instance ID로 사용하고 `floor(ID / instancedMaxCount)`로 그룹 번호를 계산한다.
-            해당 모델·그룹 번호의 렌더 그룹을 조회하고 없으면 만들어 사용한다.
+            원본 이름을 먼저 보관하고 모델 정보의 lastIndex 또는 size - 1을 현재 instance ID로 사용하며 floor(ID / instancedMaxCount)로 그룹 번호를 계산한다.
+            self._instancedInfo가 있고 모델별 정보도 있으면 해당 모델·그룹 번호의 렌더 그룹을 조회하고 없으면 만들어 사용한다.
             원본 모델과 부모의 위치를 0으로 맞추고 world matrix를 갱신한다.
-            원본 tree를 순회하며 geometry position이 있는 각 mesh의 child 순서와 그룹 번호로 cache key를 만든다.
-            skinned mesh이면서 모델 animation이 있으면 cache를 우선 사용한다. cache가 없을 때 type이 batchedMesh이면 legacy batched builder를, 아니면 skeleton UInstancedMesh builder를 사용한다.
-            batchedMesh는 addInstance 결과 ID와 선택 animation 번호를 적용하고, 일반 skeleton instance는 모델 전체 ID를 그룹 내부 나머지 ID로 바꾼다.
-            정적 mesh도 cache를 우선 사용하고 없으면 material clone 기반 UInstancedMesh를 만든다.
-            정적 mesh의 isUpdate는 truthy이면 그대로 사용하고, false이면 현재 그룹의 마지막 ID에서만 전체 entity 갱신을 수행하도록 다시 결정한다.
-            각 생성·재사용 mesh에 component 변환과 원본 child 변환을 합성하고 선택 dummy를 연결한 뒤 렌더 그룹에 추가한다.
-
+            self._instancedInfo가 있고 모델별 정보와 렌더 그룹이 준비된 경우 레이어 상태·원본·옵션·선택 그룹·instance 정보·ID·그룹 번호·렌더 그룹·cache와 먼저 보관한 모델명을 내부 조립 함수에 전달한다.
             모델 animation이 있으면 원본 object용 mixer와 clip action을 준비하여 그룹의 animation과 opt.mixers에 연결한다.
             모델·ID 구간 렌더 그룹을 반환한다.
-
-    createInstancedBatchedSkinnedMesh_OLD(child: SkinnedMesh, modelName: string, idxNum: number, groupIndex: number, count: number, animations: Array<AnimationClip>, object: Object3D) -> UInstancedBatchedSkinnedMesh | undefined
-        인터페이스: this: instance 그룹 한도와 mesh cache를 소유하는 현재 레이어
-        처리 기준: geometry 또는 material이 없으면 undefined를 반환한다.
-        의존: UInstancedBatchedSkinnedMesh — legacy batched mesh·geometry·animation 구성과 cache 식별 상태 기록; 생성자: {new UInstancedBatchedSkinnedMesh()}; 함수: {setMaterial(), addGeometry(), addAnimation()}; 속성 쓰기: {_objectName, _groupIndex, name}
-        동작:
-            count가 현재 그룹의 ID 상한을 넘으면 그룹 번호를 1 증가시킨다.
-            최대 instance 수와 geometry vertex 수를 용량으로 하는 batched skinned mesh를 만든다.
-            모델명·그룹 번호·child 이름을 metadata로 기록하고 material과 geometry를 등록한다.
-            `<object 이름>_<child 순서>_<그룹 번호>` key로 mesh cache에 저장한다.
-            원본 skeleton과 모든 animation clip을 mesh에 추가하고 반환한다.
-
-    createInstancedBatchedSkinnedMesh(object: SkinnedMesh, modelName: string, idxNum: number, groupIndex: number, count: number) -> TypedUInstancedMesh | undefined
-        인터페이스: this: instance 그룹 한도와 mesh cache를 소유하는 현재 레이어
-        처리 기준: geometry 또는 material이 없으면 undefined를 반환한다.
-        의존:
-            defined — mesh cache 저장소 존재 여부 판정; 함수: {defined()}
-            UInstancedMesh — skeleton 기반 instance mesh 생성·초기화, entity 표시와 cache·animation 상태 기록; 생성자: {new UInstancedMesh()}; 함수: {initSkeleton(), addInstances(), setVisibilityAt()}; 속성 읽기: {skeleton}; 속성 쓰기: {_objectName, _groupIndex, name, userData.exceptAO, userData.makeSkinnedMesh, userData.mixer}
-            InstancedEntity — 각 instance의 ID·소유 mesh 조회와 skeleton bone·animation 진행 상태 초기화; 함수: {updateBones()}; 속성 읽기: {id, owner}; 속성 쓰기: {time, speed}
-            UInstancedMeshUtil — skinned instance용 저비용 material 설정; 함수: {setLowMaterial()}
-            U3dApp — instance mesh renderer 조회; 함수: {getRenderer()}
-            THREE — geometry 복제와 skeleton root용 mixer 생성; 생성자: {new AnimationMixer()}; 함수: {BufferGeometry.clone()}
-        동작:
-            count가 현재 그룹의 ID 상한을 넘으면 그룹 번호를 1 증가시킨다.
-            geometry를 clone하고 원본 material과 renderer를 사용하여 최대 용량의 UInstancedMesh를 만든 뒤 skeleton을 초기화한다.
-            ambient occlusion·skinned 변환 표시와 skeleton root mixer를 userData에 기록하고 저비용 material을 적용한다.
-            최대 용량만큼 instance entity를 만들면서 현재 count 이후 ID는 숨기고, skeleton이 있으면 bone을 초기 갱신하며 animation time 0과 speed 1을 설정한다.
-            모델명·그룹 번호·child 이름을 기록하고 모델·child·그룹 key로 cache에 저장하여 반환한다.
-
-    createUInstancedMesh(object: Mesh, modelName: string, idxNum: number, groupIndex: number, count: number) -> TypedUInstancedMesh | Object3D
-        인터페이스: this: instance 그룹 한도와 mesh cache를 소유하는 현재 레이어
-        처리 기준: geometry 또는 material이 없으면 입력 object를 그대로 반환한다.
-        의존:
-            defined — mesh cache 저장소 존재 여부 판정; 함수: {defined()}
-            UInstancedMesh — 정적 instance mesh와 entity 생성·표시 및 cache·picking 상태 초기화; 생성자: {new UInstancedMesh()}; 함수: {getBarrierInstances(), addInstances(), setVisibilityAt()}; 속성 쓰기: {_barrierSet, _objectName, _groupIndex, _ulayername, name}
-            InstancedEntity — 아직 구성되지 않은 entity의 ID·정보·소유 mesh 조회; 속성 읽기: {id, _info, owner}
-            U3dApp — instance mesh renderer 입력; 함수: {getRenderer()}
-            U3dObject — 생성 mesh에 기록할 layer 이름 조회; 함수: {getName()}
-            THREE — geometry 복제; 함수: {BufferGeometry.clone()}
-        동작:
-            geometry와 material clone으로 최대 용량의 UInstancedMesh를 만든다.
-            barrier instance를 Set으로 저장하고 모델명·그룹 번호·레이어명·child 이름을 기록한다.
-            모델·child·그룹 key로 cache에 저장한다.
-            최대 용량만큼 entity를 만들고 현재 count 이후 아직 정보가 없는 ID는 렌더되지 않도록 숨긴 뒤 mesh를 반환한다.
-
-    changeMeshToSkinnedMesh(mesh: Object3D) -> Object3D
-        인터페이스: this: 모델별 skinned 변환 cache를 소유하는 현재 레이어
-        의존:
-            defined — 변환 cache와 geometry 위치 속성 존재 여부 판정; 함수: {defined()}
-            THREE.Object3D — skinned mesh 존재 검사, 일반 mesh 순회·변환 갱신과 bone 계층 연결; 함수: {traverse(), updateMatrixWorld(), add()}; 속성 읽기·쓰기: {name}; 속성 읽기: {animations}; 속성 쓰기: {userData.makeSkinnedMesh}
-            THREE — 행렬 분해·회전 변환·변환 복사와 bone·skeleton·skinned mesh 구성; 생성자: {new Bone(), new Skeleton(), new SkinnedMesh()}; 함수: {decompose(), setFromQuaternion(), copy(), set(), clone(), bind()}; 상수: {DetachedBindMode}; 속성 쓰기: {_oriPosition, _oriQuaternion, _oriScale, bindMode}
-            UGroup — 변환한 skinned mesh와 root bone 수용·cache 복제 및 animation 기록; 생성자: {new UGroup()}; 함수: {add(), clone()}; 속성 쓰기: {name, animations}
-        동작:
-            tree에 skinned mesh가 이미 있거나 animation clip이 없으면 입력 mesh를 그대로 반환한다.
-            같은 모델 이름의 변환 cache가 있으면 cache object를 반환한다.
-            일반 mesh마다 world matrix를 위치·quaternion·크기로 분해하여 자식 bone과 skeleton을 만들고 같은 geometry·material의 detached skinned mesh를 구성한다.
-            원본 변환을 skinned mesh의 초기 metadata로 기록하고 root bone 아래에 연결한다.
-            변환한 skinned mesh와 root bone, 원본 animation 목록을 새 그룹에 모으고 모델명 key로 clone을 cache한 뒤 그룹을 반환한다.
-
-    findMapIndexByValueId(map: Map<number, unknown>, targetId: number) -> number
-        동작: Map key 순서를 순회하여 targetId가 나타난 순번을 반환하고 찾지 못하면 targetId 자체를 반환한다.
-
-    setupMeshInstance(mesh: InstancedMeshLike, child: Object3D, info: InstancedInfo_Content, count: number, index: number, objGroup: UGroup, isUpdate: boolean = true) -> void
-        인터페이스: this: instance 정보와 선택 외곽선 설정을 소유하는 현재 레이어
-        처리 기준: count의 instance 정보가 visible false이면 matrix·dummy·instance 상태를 만들지 않고 종료한다. 이후 show 경로가 이 초기 상태 전체를 다시 만드는지 확인이 필요하다. [확인 Q-014]
-        의존:
-            defined — instance 정보와 mesh geometry 존재 여부 판정; 함수: {defined()}
-            console — legacy matrix 설정 실패 경고 출력; 함수: {warn()}
-            U3dModelBasicLayer — 선택 외곽선 생성 여부 조회; 속성 읽기: {_drawLine}
-            THREE — component·child 변환 합성·분해와 선택 dummy·외곽선 구성; 생성자: {new Object3D(), new EdgesGeometry(), new LineSegments(), new LineBasicMaterial()}; 함수: {compose(), multiplyMatrices(), decompose(), setFromEuler(), setFromQuaternion(), clone(), copy()}; 속성 쓰기: {Object3D.name, Object3D.instancedMesh, LineSegments.receiveShadow, LineSegments.castShadow}
-            InstancedMeshLike — instance 행렬·가시성·entity·edge와 경계 갱신; 함수: {updateInstances(), setMatrixAt(), setVisibilityAt(), computeBoundingSphere(), add()}; 속성 읽기: {instances}; 속성 읽기·쓰기: {_matrixMap, _oriMatrixMap, instanceMatrix.needsUpdate, userData._sourceNode, userData.edgeLines}
-            InstancedEntity — 기존 변환·식별 상태 조회와 새 instance 정보 저장; 속성 읽기: {id, owner}; 속성 읽기·쓰기: {_info}
-            UGroup — picking용 dummy object 연결; 함수: {add()}
-        동작:
-            component 위치·회전·크기로 matrix를 만들고 원본 child world matrix를 뒤에 곱하여 최종 instance 변환을 계산한다.
-            최종 matrix를 `_matrixMap`에, 원본 child matrix·위치·quaternion·크기를 `_oriMatrixMap`에 저장하고 최초 source child를 userData에 기록한다.
-            updateInstances 경로에서 isUpdate가 true이면 모든 entity를 순회하여 현재 index에는 새 변환, 다른 index에는 기존 `_info`를 적용하고 표시 대상의 가시성을 켠 뒤 bounding sphere를 다시 계산한다.
-            isUpdate가 false이면 현재 entity의 `_info`만 갱신한다.
-            setMatrixAt 경로에서는 instance 정보 Map의 key 순번을 실제 matrix index로 변환하여 matrix를 쓰고 instanceMatrix 갱신을 표시한다.
-            child 이름과 instanced mesh 참조를 가진 dummy object를 출력 그룹에 추가하여 개별 선택 경로를 유지한다.
-            외곽선 표시가 활성화되어 있으면 mesh geometry의 edge line을 최종 변환에 맞춰 만들고 instance ID별 edgeLines Map과 mesh에 연결한다.
 
     createComponent(opt: ComponentCreateOption) -> ComponentObject | undefined
         인터페이스: this: 레이어의 생성 기준과 draw context를 제공하는 현재 레이어
@@ -1145,14 +1119,15 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
             THREE.Object3D — 생성 컴포넌트의 mesh tree 순회; 함수: {traverse()}
             THREE.Mesh — 기본 render order 적용; 속성 쓰기: {renderOrder}
         동작:
-            출력 그룹과 빈 mixer 목록을 만들고 위치·모델·일반/인스턴스 경로를 정규화한다.
+            출력 그룹을 만들고 입력 opt.mixers에 빈 배열을 저장한 뒤 위치·모델·일반/인스턴스 경로를 정규화한다.
             정규화 결과를 확인하기 전에 labelVisible을 읽으므로 componentSetting이 undefined를 반환하면 예외가 발생할 수 있다. [확인 Q-003]
+            labelVisible이 정의되지 않았으면 opt.labelVisible에 레이어의 labelVisible을 저장하고, 정의된 입력은 그대로 둔다.
             정규화 결과가 있으면 기반 layer·drawArg·공통 scale·rotation·image·충돌·경로·표현 설정을 합친 component option을 만든다. type이 없으면 `component`를 사용하고, image는 개별 생성 opt가 아니라 레이어의 `_image` 값을 사용한다.
             pathopacity와 pathOpacity, pathcolor와 pathColor는 각각 소문자 alias를 먼저 truthy 검사한다. 소문자 alias가 숫자 0이면 뒤의 camelCase 값으로 대체되지만, 마지막 피연산자인 camelCase 값 0은 보존된다. [확인 Q-022]
-            인스턴스 모드에서는 마지막 instance ID·그룹·정보를 option에 연결한 뒤 인스턴스 컴포넌트를 만든다.
+            opt가 있고 opt.instanced가 true인 경우 마지막 instance ID·그룹·정보를 option에 연결한 뒤 인스턴스 컴포넌트를 만든다.
             일반 모드에서는 일반 컴포넌트를 만든다.
-            생성된 컴포넌트의 mesh tree를 순회하여 `UDEF.RENDER_ORDER.MODEL`을 기본 renderOrder로 설정하고 style이 있으면 depthTest·depthWrite·renderOrder를 적용한다.
-
+            opt가 있으면 생성된 일반·인스턴스 컴포넌트의 렌더 tree를 순회한다.
+                child.isMesh가 true인 경우 `UDEF.RENDER_ORDER.MODEL`을 기본 renderOrder로 설정하고 style이 정의되어 있으면 depthTest·depthWrite·renderOrder를 적용한다.
             생성한 컴포넌트를 반환하고 정규화 결과가 없으면 undefined를 반환한다.
 
     setComponentDepth(mesh: Mesh, style: object) -> void
@@ -1174,10 +1149,6 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
             ID를 instancedMaxCount로 나눈 몫을 그룹 번호로 계산한다.
             같은 모델명·그룹 번호의 렌더 그룹을 찾아 option에 연결한다.
             최대 그룹 용량, 현재 ID의 instance 정보와 인스턴스 활성 표시를 option에 기록하고 반환한다.
-
-    getCloneMaterial(originalMaterial: Material | Array<Material>) -> Material | Array<Material>
-        의존: THREE.Material — 재질 복제; 함수: {clone()}
-        동작: 배열이면 각 material을 clone한 새 배열을 반환하고 단일 material이면 clone 하나를 반환한다.
 
 컴포넌트 제거 내부 함수 책임 그룹
     역할: 일반·인스턴스 컴포넌트의 계층, metadata, 렌더 instance와 GPU 자원을 함께 정리한다.
@@ -1213,19 +1184,20 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
             UInstancedBatchedSkinnedMesh — runtime class 판정과 legacy instance 숨김·삭제; 상수: {UInstancedBatchedSkinnedMesh}; 함수: {setVisible(), deleteInstance()}
             UInstancedMesh — runtime class 판정, instance 숨김·삭제, matrix map·edge 조회와 경계 갱신; 상수: {UInstancedMesh}; 함수: {setVisible(), removeInstances(), getEdgeLine(), computeBoundingSphere()}; 속성 읽기: {_matrixMap, _oriMatrixMap}
         동작:
-            모델 전체 ID를 instancedMaxCount로 나눈 나머지를 그룹 내부 ID로 계산하고 모델별 instance 정보를 삭제한다.
-            같은 모델명·컴포넌트 그룹 번호의 렌더 그룹을 찾는다.
-            렌더 그룹의 mesh를 순회하며 종류에 맞게 그룹 내부 instance를 숨기고 삭제한다.
-            mesh의 적용·원본 matrix Map에서 그룹 내부 ID를 삭제하고 해당 ID의 edge line이 있으면 해제·분리한다.
+            component._object.name이 있고 instance ID도 존재하는 경우 모델 전체 ID를 instancedMaxCount로 나눈 나머지를 그룹 내부 ID로 계산하고 모델별 instance 정보를 삭제한다.
+            component._object.name이 있는 경우 같은 모델명·컴포넌트 그룹 번호의 렌더 그룹을 찾는다.
+            component._object.name이 있고 렌더 그룹이 있으면 mesh를 순회한다.
+                종류에 맞게 그룹 내부 instance를 숨기고 삭제하며, UInstancedMesh인 경우에는 즉시 경계구도 다시 계산한다.
+                적용·원본 matrix Map이 둘 다 있는 mesh만 양쪽 Map에서 그룹 내부 ID를 삭제한다.
+                instancedMesh.getEdgeLine이 있으면 해당 ID의 edge line을 조회하고 반환된 line이 있으면 해제·분리한다.
+            component._object.name이 있는 제거 경로에서 모델별 instance 정보가 비었으면 해당 모델의 모든 렌더 그룹과 cache를 제거하고 종료한다.
+            component._object.name이 있고 남은 정보가 있으면 최고 ID가 속한 그룹보다 큰 렌더 그룹과 cache만 정리한다.
 
-            모델별 instance 정보가 비었으면 해당 모델의 모든 렌더 그룹과 cache를 제거하고 종료한다.
-            남은 정보가 있으면 최고 ID가 속한 그룹보다 큰 렌더 그룹과 cache만 정리한다.
-
-    clearInstancedObject(name: string, info: InstancedInfo_Content, component: U3dComponentInstancedPosition) -> void
+    clearInstancedObject(name: string, info: InstancedInfo, component: U3dComponentInstancedPosition) -> void
         인터페이스: this: 인스턴스 상위 그룹과 mesh cache를 소유하는 현재 레이어
         의존: U3dComponentInstancedPosition — 마지막 유지 렌더 그룹 계산에 사용할 그룹 한도 조회; 속성 읽기: {_instancedMaxCount}
         동작:
-            info.lastIndex가 유효하면 사용하고 아니면 남은 key 중 최댓값을 구한다.
+            info.lastIndex가 null·undefined이면 -1로 시작하고 그 값이 0 미만일 때만 남은 key 중 최댓값을 구한다. 유한성 검사는 따로 하지 않는다.
             최고 ID를 instancedMaxCount로 나눈 몫을 마지막 유지 그룹 번호로 계산한다.
             인스턴스 상위 그룹과 mesh cache를 뒤에서 순회하여 같은 모델이면서 마지막 유지 그룹보다 번호가 큰 그룹·mesh를 해제하고 부모에서 분리하며, mesh cache key도 삭제한다.
 

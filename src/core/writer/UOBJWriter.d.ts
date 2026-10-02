@@ -6,7 +6,7 @@ import { LineSegments2 } from "../../../dist/types/three/examples/jsm/lines/Line
 import GUI from "../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { UOBJWriterResult } from "./UOBJWriter.types.js";
+import type { UMTLWriterResult } from "./UMTLWriter.js";
 
 /**
  * @classdesc
@@ -45,4 +45,22 @@ declare class UOBJWriter {
     };
 }
 
-export type { UOBJWriter };
+/**
+     * `UOBJWriter.write`가 resolve하는 OBJ 파일 쓰기 결과입니다.
+     */
+    type UOBJWriterResult = {
+        /**
+         * OBJ 파일 이름
+         */
+        name: string;
+        /**
+         * OBJ 파일 Blob
+         */
+        obj: Blob;
+        /**
+         * 함께 만든 MTL 파일 정보. MTL을 쓰지 않으면 undefined
+         */
+        mtl: UMTLWriterResult | undefined;
+    };
+
+export type { UOBJWriter, UOBJWriterResult };

@@ -7,7 +7,7 @@ import GUI from "../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.
 import * as three_examples_jsm_math_ConvexHull_js from "../../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { UDrawArg } from "../UDrawArg.js";
-import type { ColorLike } from "../../types/global.types.js";
+import type { ColorLike } from "../../types/global.js";
 
 /**
      * `UTDSLoader` 생성 옵션입니다. 3DS 파일을 어떤 좌표 해석·재질·텍스처 정책으로 읽을지 정합니다.

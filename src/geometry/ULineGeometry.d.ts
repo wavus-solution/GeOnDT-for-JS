@@ -8,7 +8,7 @@ import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/e
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dApp } from "../app/U3dApp.js";
 import type { UBufferGeometry } from "../core/geometry/UBufferGeometry.js";
-import type { WorldPositionVector3 } from "../types/global.types.js";
+import type { WorldPositionVector3 } from "../types/global.js";
 
 /**
  * ULineGeometry 생성자 옵션 <br>

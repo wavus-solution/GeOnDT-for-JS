@@ -6,12 +6,11 @@ import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSeg
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { UAnaly } from "./UAnaly.js";
-import type { UAnalyDepthCO, UAnalyDepthPointData, UAnalyDepthResult } from "./UAnalyDepth.types.js";
+import type { UAnaly, UAnalyCO } from "./UAnaly.js";
 import type { UCssBilboard } from "../annotation/UCssBilboard.js";
 import type { UMesh } from "../core/mesh/UMesh.js";
 import type { U3dMouseEvent } from "../event/U3dMouseEvent.js";
-import type { EventCallBack, GeoPosition, WorldPositionVector3 } from "../types/global.types.js";
+import type { EventCallBack, GeoPosition, WorldPositionVector3 } from "../types/global.js";
 
 /**
  * ~extends import('@union3d/analy/UAnaly').UAnaly <br>
@@ -283,4 +282,77 @@ declare class UAnalyDepth extends UAnaly {
     #private;
 }
 
-export type { UAnalyDepth };
+/**
+     * ~extends import('@union3d/analy/UAnaly').UAnalyCO <br>
+     * UAnalyDepth 생성자 옵션
+     */
+    type UAnalyDepthCO_Content = {
+        /**
+         * 분석모드 이름
+         */
+        name?: string;
+        /**
+         * 충돌 구체 색상 (대상 있을 때)
+         */
+        intersectColor1?: number;
+        /**
+         * 충돌 구체 색상 (대상 없을 때)
+         */
+        intersectColor2?: number;
+        /**
+         * 라벨 가시화 설정 목록
+         */
+        labelVisibilityList?: Array<boolean>;
+    };
+
+/**
+     * ~extends import('@union3d/analy/UAnaly').UAnalyCO <br>
+     * UAnalyDepth 생성자 옵션
+     */
+    type UAnalyDepthCO = Omit<Omit<UAnalyCO, never> & UAnalyDepthCO_Content, never>;
+
+/**
+     * 측정 지점의 결과 데이터 정보
+     */
+    type UAnalyDepthPointData = {
+        /**
+         * 경도
+         */
+        x: number;
+        /**
+         * 위도
+         */
+        y: number;
+        /**
+         * 고도
+         */
+        z: number;
+        /**
+         * 지형으로부터 거리
+         */
+        fromTerrain: number;
+        /**
+         * 이전 지점으로부터 거리
+         */
+        fromPrePoint: number;
+        /**
+         * 충돌 메시
+         */
+        mesh?: three.Object3D | undefined;
+    };
+
+/**
+     * 측정 결과 정보
+     */
+    type UAnalyDepthResult = {
+        /**
+         * 총 거리
+         */
+        length: number;
+        /**
+         * 지점 목록
+         */
+        points: Array<UAnalyDepthPointData>;
+    };
+
+export type { UAnalyDepth, UAnalyDepthCO, UAnalyDepthCO_Content, UAnalyDepthPointData, UAnalyDepthResult };

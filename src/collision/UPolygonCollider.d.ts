@@ -6,12 +6,10 @@ import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSeg
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { UCollider } from "./UCollider.js";
-import type { UColliderCO } from "./UCollider.types.js";
-import type { USphereCollider } from "./USphereCollider.js";
-import type { USphereColliderIntersectionDetails, USphereColliderIntersectionDetailsOptions } from "./USphereCollider.types.js";
+import type { UCollider, UColliderCO } from "./UCollider.js";
+import type { USphereCollider, USphereColliderIntersectionDetails, USphereColliderIntersectionDetailsOptions } from "./USphereCollider.js";
 import type { UGroup } from "../core/UGroup.js";
-import type { WorldPositionVector3 } from "../types/global.types.js";
+import type { WorldPositionVector3 } from "../types/global.js";
 
 /**
  * ~extends UColliderCO <br>

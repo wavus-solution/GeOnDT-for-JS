@@ -6,7 +6,8 @@ import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSeg
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { UAnalyGizmoModel } from "./UAnalyGizmoModel.js";
+import type { UAnalyGizmoModel, UAnalyGizmoModelCO } from "./UAnalyGizmoModel.js";
+import type { UAlignControls } from "../mode/UAlignControls.js";
 
 /**
  * ~extends import('@union3d/analy/UAnalyGizmoModel').UAnalyGizmoModel <br>
@@ -45,4 +46,34 @@ declare class UAnalyAlignModel extends UAnalyGizmoModel {
     getSpacing(): number | undefined;
 }
 
-export type { UAnalyAlignModel };
+/**
+     * ~extends import('@union3d/analy/UAnalyGizmoModel').UAnalyGizmoModelCO <br>
+     * UAnalyAlignModel 생성자 옵션
+     */
+    type UAnalyAlignModelCO_Content = {
+        /**
+         * 분석 클래스 이름
+         */
+        name?: string;
+    };
+
+/**
+     * ~extends import('@union3d/analy/UAnalyGizmoModel').UAnalyGizmoModelCO <br>
+     * UAnalyAlignModel 생성자 옵션
+     */
+    type UAnalyAlignModelCO = Omit<Omit<UAnalyGizmoModelCO, never> & UAnalyAlignModelCO_Content, never>;
+
+/**
+     * UAlignControls에 EventDispatcher / TransformControls 상속 멤버를 추가한 확장 타입 <br>
+     */
+    type AlignControlTC_Content = {
+        addEventListener: (arg0: string, arg1: Function) => void;
+        getMode: () => string;
+    };
+
+/**
+     * UAlignControls에 EventDispatcher / TransformControls 상속 멤버를 추가한 확장 타입 <br>
+     */
+    type AlignControlTC = UAlignControls & AlignControlTC_Content;
+
+export type { AlignControlTC, AlignControlTC_Content, UAnalyAlignModel, UAnalyAlignModelCO, UAnalyAlignModelCO_Content };

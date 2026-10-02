@@ -7,9 +7,9 @@ import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js"
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
-import type { UFrustumHelperLoadOption, UFrustumHelperSaveOption, UFrustumHelperTerrainStampSnapshot } from "./UFrustumHelper.types.js";
+import type { UFrustumHelperLoadOption, UFrustumHelperSaveOption, UFrustumHelperTerrainStampSnapshot } from "./UFrustumHelper.js";
 import type { UTerrainStamp } from "./UTerrainStamp.js";
-import type { ColorLike } from "../types/global.types.js";
+import type { ColorLike } from "../types/global.js";
 
 type UFrustumTerrainProjectionHelper_Fill_Content = {
     enabled?: boolean;

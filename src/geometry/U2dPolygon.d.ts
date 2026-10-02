@@ -6,9 +6,8 @@ import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSeg
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { U2dGeometry } from "./U2dGeometry.js";
-import type { U2dGeometryCO } from "./U2dGeometry.types.js";
-import type { Double_Array, Quad_Array, Triple_Array } from "../types/global.types.js";
+import type { U2dGeometry, U2dGeometryCO } from "./U2dGeometry.js";
+import type { Double_Array, Quad_Array, Triple_Array } from "../types/global.js";
 
 /**
  * ~extends import('@union3d/geometry/U2dGeometry').U2dGeometryCO <br>
