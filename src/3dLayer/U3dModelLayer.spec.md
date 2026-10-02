@@ -12,6 +12,10 @@
 U3dModelLayer extends U3dLayer 클래스 정의
     의존: U3dLayer — 기반 레이어 상태·확장 계약; 상속: {U3dLayer}
 
+    static OPT_KEYS: Array<string> = U3dLayer.OPT_KEYS와 모델 공통 옵션의 정본 키 목록
+        의존: U3dLayer — 부모 옵션 목록 확장; 속성 읽기: {OPT_KEYS}
+        부모 목록을 재정의하여 useTexture, setWireframe, compressModel, ext, toonImgUrl, emissiveColor, useEditMode를 추가한다.
+
     removedList: Array<string> = 빈 배열
         삭제·분리 표시를 보관한다. 외부 변경과 반환 참조의 변경이 필터·복원 결과에 반영된다.
     editedList: Array<string> = 빈 배열
@@ -37,6 +41,7 @@ U3dModelLayer extends U3dLayer 클래스 정의
 
     constructor(opt: U3dModelLayerCO = {})
         의존:
+            normalizeOptionKeys — 실제 생성 클래스의 옵션 정규화; 함수: {normalizeOptionKeys()}
             U3dLayer — 기반 초기화; 생성자: {super()}
             UDEF — 모델 분류·렌더 순서·기본 발광색; 상수: {LAYER_TYPE.MODEL, PROCESS.TYPE.MODEL, RENDER_ORDER.MODEL, DEFAULT_MODEL_EMISSIVE_COLOR}
             defaultValue — 기본값 선택; 함수: {defaultValue()}
@@ -44,9 +49,13 @@ U3dModelLayer extends U3dLayer 클래스 정의
             UGroup — 라벨 그룹; 생성자: {new UGroup()}
             THREE — 발광 색상; 생성자: {new THREE.Color()}
         동작:
+            new.target의 OPT_KEYS를 기준으로 옵션 키의 대소문자 별칭을 camelCase로 정규화하고 그 결과를 부모에 전달한다.
+            입력 객체 자신의 열거 가능한 키만 별칭 대상으로 삼는다. 별칭이 있으면 복사본을 사용하며 원본 옵션에 키를 추가하거나 값을 대입하지 않는다.
+            정본 키와 다른 대소문자 별칭을 함께 지정하면 별칭 값이 undefined여도 정본 값을 덮어쓴다. 여러 별칭이 있으면 입력 객체의 열거 순서에서 마지막 별칭을 사용한다.
             부모 초기화 후 모델 종류·클래스 이름·작업 종류를 설정하고 기존 렌더 순서에 모델 순서를 더한다.
             작업 처리기를 undefined로, 삭제·편집 목록과 편집 사전을 새 빈 컬렉션으로 설정한다.
-            usetexture=true, setWireframe=false, compressmodel=false, ext=.u3f를 undefined 입력의 기본값으로 읽으며 압축이 참이면 지정 ext와 무관하게 .u3f.gz를 사용한다. 부모 ext 기본값 .png는 여기서 .u3f로 재설정된다.
+            useTexture=true, setWireframe=false, compressModel=false, ext=.u3f를 undefined 입력의 기본값으로 읽으며 false·0·빈 문자열·null을 기본값으로 대체하지 않는다.
+            압축이 참이면 지정 ext와 무관하게 .u3f.gz를 사용한다. 부모 ext 기본값 .png는 여기서 .u3f로 재설정된다.
             세 캐시와 라벨 그룹을 생성하고 라벨을 표시 상태로 초기화한다.
             toonImgUrl, emissiveColor 또는 기본 발광색, useEditMode=true를 저장하고 RGB 값으로 공유 Color를 생성한다.
 
@@ -685,13 +694,17 @@ U3dModelLayerComposedResult 타입 정의
 
 U3dModelLayerCO_Content 부분 타입 명세
     이 명세에서 사용하는 필드:
-        usetexture: boolean = true
+        useTexture: boolean = true
         setWireframe: boolean = false
-        compressmodel: boolean = false
+        compressModel: boolean = false
         ext: string = .u3f
         toonImgUrl?: string
         emissiveColor?: RGBColor
         useEditMode: boolean = true
+        usetexture?: boolean
+            useTexture의 하위 호환 별칭이다.
+        compressmodel?: boolean
+            compressModel의 하위 호환 별칭이다.
 
 U3dModelLayerCO 타입 정의
     U3dLayerCO와 U3dModelLayerCO_Content의 교집합이다.

@@ -26,7 +26,7 @@ declare class U3dModelTdsLayer extends U3dModelBasicLayer {
     /**
      * U3dModelTdsLayer 클래스 생성자입니다. <br>
      * 모델 배치와 사용자 그룹·메타데이터 옵션을 보관합니다. <br>
-     * baseurl이 없으면 자식 초기화를 중단하며 주소가 있으면 location 또는 position이 필요합니다.
+     * baseUrl이 없으면 자식 초기화를 중단하며 주소가 있으면 location 또는 position이 필요합니다.
      *
      * @param {Partial<U3dModelTdsLayerCO>} [opt={}] 모델 주소·배치·층 분류 설정
      */
@@ -100,14 +100,16 @@ declare class U3dModelTdsLayer extends U3dModelBasicLayer {
     /**
      * 층 분류 결과에 맞춰 원본 그룹을 이동하고 자식을 복제한 그룹 목록을 만듭니다. <br>
      * 분류 함수가 있으면 반환 키 순서로 배치하며 결과를 등록 목록에 자동 추가하지 않습니다. <br>
+     * 기본 분류 함수를 사용하면 commonName이 필요하며, 생략한 채 분류를 실행하면 TypeError가 발생합니다. <br>
+     * 사용자 분류 함수의 반환 조건은 U3dModelTdsGroupFunction을 따릅니다. <br>
      * 호출 전에 setGroupOriginPosition으로 원위치를 준비하십시오.
      *
      * @param {number} floorCount 분류할 최상위 층 번호
      * @param {number} [height=0] 층간 z 이동량
-     * @param {string} [commonName] 결과 그룹 이름의 공통 접미사
+     * @param {string} [commonName] 결과 그룹 이름의 공통 접미사, 기본 분류 함수 사용 시 필수이며 빈 문자열 허용
      * @param {string} [commonChar='0'] 층 번호 앞 비교 문자
      * @param {string} [seperator] 이름 분리 문자, 생략하면 밑줄 자동 분리
-     * @returns {Array<import('@UGroup').UGroup> | undefined} 비어 있지 않은 복제 그룹 목록 또는 처리하지 않은 결과
+     * @returns {Array<import('@UGroup').UGroup> | undefined} 자식이 있는 복제 그룹 목록(빈 배열 가능) 또는 조기 종료의 undefined
      */
     setFloorFromGroupName(floorCount: number, height?: number, commonName?: string, commonChar?: string, seperator?: string): Array<UGroup> | undefined;
     /**

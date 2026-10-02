@@ -154,8 +154,6 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
     _maxlevel: number = 19
         tile binding을 만들 level 범위의 기본값이다.
     _maxReadyLevel: number = 17
-    _isLowPerformance: boolean
-        저성능 장치 정책 값이다. 옵션이 없으면 전역 `GeonDT.deviceScore`가 4 미만일 때 true다.
     _version: string = '2.0'
     _preserveTileRequestsOnHide: boolean = false
         숨김 전환 구간에만 true가 되어 `cancelAllTile()`이 요청 취소를 건너뛰게 한다.
@@ -206,7 +204,6 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
             UMercator — tile 좌표 변환기 생성; 생성자: {new UMercator()}
             UCache — 재질 캐시 생성; 생성자: {new UCache()}
             UCheckTime — 시간 측정기 생성; 생성자: {new UCheckTime()}
-            Web API — 저성능 판정에 쓰는 전역 장치 점수 읽기; 속성 읽기: {globalThis.GeonDT.deviceScore}
             UTerrainDecalCompositionOrderRegistry — UTerrainDecalCompositionOrderRegistry 사용; 생성자: {new UTerrainDecalCompositionOrderRegistry()}
             THREE — THREE 사용; 생성자: {new Color()}
         동작:
@@ -215,7 +212,6 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
             feature 목록과 원본 feature 표를 비우고 feature 목록에 source 도우미를 연결한다.
             편집 좌표 두 벌과 tile binding 표, 표시 추적 집합을 빈 값으로 만든다.
             채움·외곽선 색을 Color 객체로 바꿔 기본값으로 두고 그 값으로 레이어 스타일을 구성한다.
-            전역 장치 점수가 4 미만이면 저성능으로 판정하고, 옵션이 있으면 옵션을 우선한다.
             `measureGeometryMode` 옵션이 있으면 정규화해 쓰고, 없을 때만 `useSimpleMeasure`가 true이면 `'auto'`, false이면 `'basic'`으로 정한다.
             simple 경로의 정점 수 상한들과 갱신 대기 상태, revision 상태를 초기값으로 둔다.
 
@@ -1198,7 +1194,7 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
             동작: 그룹이면 scene에서 떼고 자식마다 자원을 해제한 뒤 비우고, mesh이면 떼고 자원을 해제하며, 둘 다 아니면 오류를 기록한다.
 
     설정 접근자 책임 그룹
-        역할: 렌더링 방식, 저성능 정책, simple 경로 상한과 디버그 조건을 읽고 바꾼다.
+        역할: 렌더링 방식, simple 경로 상한과 디버그 조건을 읽고 바꾼다.
 
         setMeasureGeometryMode(mode: U3dShaderMeasureGeometryMode, refresh: boolean = true) -> U3dShaderMeasureLayer
             역할: 측정 도형을 그리는 방식을 바꾼다.
@@ -1230,12 +1226,6 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
 
         setVersion(version: string) -> void
             동작: 입력 문자열을 측정 데이터 버전 속성에 그대로 저장한다.
-
-        getIsLowPerformance() -> boolean
-            동작: 저성능 렌더링 정책 속성을 그대로 돌려준다.
-
-        setIsLowPerformance(value: boolean) -> void
-            동작: 입력 값을 저성능 렌더링 정책 속성에 그대로 저장한다.
 
         setTerrainDebugEnabled(value: boolean) -> U3dShaderMeasureLayer
             인터페이스: 반환은 이어 호출할 수 있도록 돌려주는 이 레이어 자신이다.
@@ -1756,8 +1746,6 @@ U3dShaderMeasureLayerCO_Content 부분 타입 명세
             레이어 기준 스타일이자 스타일 해석의 최종 기본값이다.
         terrainDebugEnabled?: boolean = false
         terrainDebugTileFilter?: string | Array<string> | Set<string> | U3dShaderMeasureTerrainDebugFilter
-        isLowPerformance?: boolean
-            생략하면 전역 장치 점수가 4 미만일 때 참이 된다.
         useSimpleMeasure?: boolean = true
             초기 렌더링 방식을 정할 때만 쓰이며 `measureGeometryMode`가 있으면 그쪽이 우선한다.
         measureGeometryMode?: U3dShaderMeasureGeometryMode

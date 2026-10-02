@@ -1,4 +1,5 @@
 import {getRuntimeBaseLayerName, getRuntimeLayer, setRuntimeLayerVisible} from './example-runtime.js';
+import {MODEL_LAYER_PRESETS} from './example-layerinfo.js';
 
 /** 한 번에 보여 주는 알림 개수입니다. 더 쌓이면 오래된 것부터 지웁니다. */
 const TOAST_MAX_VISIBLE = 2;
@@ -254,6 +255,14 @@ export function normalizeExampleCommonUiConfig(runtime = {}, commonUi = {}) {
     return {
         imageLayerPanel,
         terrainLayerPanel,
+        modelLayers: (Array.isArray(runtime.modelLayers) ? runtime.modelLayers : [])
+            .filter(entry => entry && Object.hasOwn(MODEL_LAYER_PRESETS, entry.preset))
+            .map(entry => ({
+                name: MODEL_LAYER_PRESETS[entry.preset].name,
+                title: entry.preset === 'seoul_u3f' ? '서울 건물' : entry.preset,
+                description: 'U3F 모델 레이어',
+                visible: entry.visible !== false
+            })),
         imageLayers,
         terrainLayers: terrainLayerPanel && terrainAvailable
             ? [{...TERRAIN_LAYER_DETAILS, visible: terrainVisible}]
@@ -313,6 +322,22 @@ export function createExampleCommonUiMarkup(config) {
             <div class="panel-content">
                 <p class="common-layer-description">지도 표면에 적용할 고도 데이터를 설정합니다.</p>
                 ${createLayerRows(config.terrainLayers)}
+            </div>
+        </aside>`);
+    }
+
+    if (config.modelLayers?.length > 0) {
+        railParts.push(`<button class="rail-button" type="button" data-panel-target="common-model-layer-panel" aria-controls="common-model-layer-panel" aria-expanded="false">
+            <span class="rail-icon common-model-layer-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="m12 2 9 5v10l-9 5-9-5V7zM3 7l9 5 9-5M12 12v10"/></svg></span><span>모델</span>
+        </button>`);
+        panelParts.push(`<aside class="glass-panel example-panel common-layer-panel" id="common-model-layer-panel" data-common-ui-panel aria-hidden="true">
+            <header class="panel-header">
+                <div><span class="eyebrow">MODEL LAYER</span><h2>모델 레이어</h2></div>
+                <button class="panel-close" type="button" data-panel-close="common-model-layer-panel" aria-label="모델 레이어 닫기">×</button>
+            </header>
+            <div class="panel-content">
+                <p class="common-layer-description">지도에 표시할 모델을 켜거나 끕니다.</p>
+                ${createLayerRows(config.modelLayers)}
             </div>
         </aside>`);
     }

@@ -21,7 +21,8 @@ import type { DeferredObject } from "../util/deferred.types.js";
  * 그리기 컨텍스트(context)는 three.js WebGLRenderer가 자기 canvas에 WebGL2로 만들며 이 클래스가 따로 만들지 않습니다.<br>
  * 생성 직후 그 컨텍스트에 KHR_parallel_shader_compile과 WEBGL_multi_draw 확장을 요청하는데, 있으면 쓰고 없으면 그대로 진행하므로 지원하지 않는 기기에서도 그리기 자체는 동작합니다.<br>
  * 셰이더(shader) 오류 검사와 그림자 맵 자동 갱신, 렌더 통계 자동 초기화를 모두 꺼서 프레임마다 드는 비용을 줄이고, 그 시점은 draw()가 직접 정합니다.<br>
- * 컨텍스트를 잃거나 되찾는 이벤트는 setApp()이 등록하며 dispose()는 컨텍스트를 강제로 버립니다.<br>
+ * 컨텍스트를 잃거나 되찾는 이벤트는 이 렌더러가 자기 canvas에 등록하며 app event handler로 전달합니다.<br>
+ * dispose()는 해당 listener를 먼저 해제한 뒤 컨텍스트를 강제로 버리므로 의도적인 종료가 app 복구로 이어지지 않습니다.<br>
  * 화면 크기를 바꾸는 setSize()와 setDrawingBufferSize()는 상속본을 감싸서 후처리 pass 크기와 라벨 렌더러 크기까지 함께 맞춥니다.
  *
  * 후처리는 UEffectComposer를 사용하여 하나에 pass를 끼워 넣는 방식으로 관리합니다.<br>
@@ -108,16 +109,28 @@ declare class URenderer extends three.WebGLRenderer {
      */
     getPostOption(): PostProcessParam;
     /**
+     * 후처리 렌더 타깃의 MSAA 요청 샘플 수를 저장합니다.<br>
+     * 실제 적용값은 장치 상한으로 제한하며, 이미 생성된 타깃은 다음 후처리 렌더 시작 시 갱신합니다.<br>
+     * 다른 후처리 pass의 활성 상태는 변경하지 않습니다.
+     * @param {number} samples 0 이상의 안전한 정수이며 0이면 MSAA를 비활성화합니다.
+     * @returns {void} 반환값 없음
+     * @throws {RangeError} 샘플 수가 0 이상의 안전한 정수가 아닌 경우
+     */
+    setComposerSamples(samples: number): void;
+    _postOption: {};
+    /**
      * 후처리 설정을 갱신하고 그 값을 각 pass에 반영합니다.<br>
      * 넘기지 않은 항목은 기존 값을 유지하고, 기존 값도 없으면 정적 기본값을 사용합니다.<br>
      * AO와 Bloom의 기본값은 호출할 때마다 기기 성능 판정값으로 먼저 덮어쓰므로, 저사양 기기에서는 지정하지 않은 항목이 꺼진 채로 시작합니다.<br>
      * 화면 품질용 pass를 모두 켠 뒤 대비·밝기를 적용하고, AO·Bloom·Dither는 설정값에 따라 개별로 켜고 끕니다.<br>
      * composer가 아직 없으면 등록된 pass가 없어 설정 저장까지만 이뤄집니다.
+     * composerSamples는 기본 4이며 변경 시 다음 후처리 렌더 시작에 반영됩니다.
      *
      * @param {Partial<PostProcessParam>} [option={}] 바꿀 항목만 담은 설정이며, 생략한 항목은 기존 값 또는 기본값을 사용
+     * @returns {void} 반환값 없음
+     * @throws {RangeError} composerSamples가 0 이상의 안전한 정수가 아닌 경우
      */
     setPostOption(option?: Partial<PostProcessParam>): void;
-    _postOption: {};
     /**
      * 현재 화면 크기를 composer와 크기에 민감한 pass들에 다시 알려 줍니다.<br>
      * 감싼 setSize()와 setDrawingBufferSize()가 자동으로 부르므로 보통 직접 호출할 필요는 없습니다.<br>
@@ -168,7 +181,7 @@ declare class URenderer extends three.WebGLRenderer {
     /**
      * 렌더러를 앱에 연결하고 그릴 장면과 렌더 그룹을 넘겨받습니다.<br>
      * 렌더 그룹의 자식 중 이름이 렌더 종류와 같은 것들을 종류별 담을 곳으로 등록하며, 사용자 전용 그룹은 제외합니다.<br>
-     * 이어서 컨텍스트(context) 분실·복구 이벤트와 라벨 렌더러를 준비하므로, 이 호출 전에는 draw()가 아무것도 그리지 않습니다.
+     * 이어서 자기 canvas의 context 분실·복구 listener와 라벨 렌더러를 준비하므로, 이 호출 전에는 draw()가 아무것도 그리지 않습니다.
      *
      * @param {import("@U3dApp").U3dApp} app 장면과 렌더 그룹을 제공할 앱
      */
@@ -204,14 +217,6 @@ declare class URenderer extends three.WebGLRenderer {
      * 라벨 층은 마우스 입력을 가로채지 않도록 설정하며, 앱이 연결되어 있지 않으면 아무것도 하지 않습니다.
      */
     initLabelRenderer(): void;
-    /**
-     * 그리기 컨텍스트(context)를 잃거나 되찾을 때 알림을 남기도록 canvas에 이벤트를 겁니다.<br>
-     * 컨텍스트를 잃으면 앱의 복구 처리를 함께 호출합니다.<br>
-     * canvas를 넘기지 않으면 이 렌더러의 canvas를 사용합니다.
-     *
-     * @param {HTMLCanvasElement} [canvas] 이벤트를 걸 canvas이며 생략하면 렌더러 자신의 canvas
-     */
-    setContextHandelEvent(canvas?: HTMLCanvasElement): void;
     /**
      * 다음 프레임을 다 그린 뒤 화면을 JPEG 데이터 URL로 넘겨받도록 예약합니다.<br>
      * 예약만 하고 곧바로 돌아오며 실제 값은 다음 draw()가 끝날 때 전달됩니다.<br>

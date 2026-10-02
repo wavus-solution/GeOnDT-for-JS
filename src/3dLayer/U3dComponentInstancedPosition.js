@@ -824,7 +824,7 @@ class U3dComponentInstancedPosition extends U3dComponentPosition {
         }
         if (!fixedOverlay) this.settingOverlay?.(posVec);
 
-        this.recordCumulativePathFrame?.(this.position, undefined, undefined, this.speed / 3.6);
+        this.recordCumulativePathFrame?.(this.position);
         this.updateChildrenMatrix();
     }
 

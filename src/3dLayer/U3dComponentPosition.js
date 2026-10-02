@@ -34,6 +34,7 @@ const AUTO_UPDATE = true;
 const COMPONENT_TYPE = {COMPONENT: "component", CROWD: "crowd"};
 const TEMP_POSITION = new THREE.Vector3();
 const TEMP_TO_UPDATE = new THREE.Vector3();
+const TEMP_CUMULATIVE_PATH_QUATERNION = new THREE.Quaternion();
 const SAMPLE_COUNT = 512;
 const WAYPOINT_HISTORY_LIMIT = 100;
 
@@ -110,31 +111,31 @@ class U3dComponentPosition {
     /** @type {number} */
     #saturation = 1;
 
-    /** @type {Array<WaypointRecord>} */
-    #waypointHistory = [];
-
     /**
      * moveSmoothly로 도착한 최근 100개 지점의 복사본입니다. 오래된 지점부터 정렬됩니다. <br>
      * 시작점·대기 목표점·프레임 보간점은 포함하지 않습니다.
-     * 이동 중지나 컨트롤러 교체 시 유지하고 dispose 시 비웁니다.
+     * U3dCumulativePath가 소유한 이력을 조회합니다. 경로 제거 시 함께 비웁니다.
      *
      * @type {Array<WorldPositionVector3>}
      */
     get waypointHistory() {
-        return this.#waypointHistory.map(record => record.point.clone());
+        return this.#cumulativePath?.waypointHistory.map(record => record.point) ?? [];
     }
 
     /**
      * 최근 도착한 지점들을 바탕으로 앞으로 도착할 예측 지점 (count개)과 예상 도착 시간을 계산합니다.<br>
      * 마지막 도착 지점에서 시작해 최근 도착 지점 간 평균 간격만큼 한 단계씩 나아간 지점을 반환합니다.<br>
-     * 예측 방향은 최근 이동 방향과 현재 진행 방향(지금 향하고 있는 목표 지점 방향)을 headingWeight 비율로 섞어 정합니다.
-     * 0이면 최근 이동 방향만, 1이면 현재 진행 방향만 사용합니다(기본 0.5). 현재 진행 방향을 알 수 없으면 최근 이동 방향만 사용합니다.<br>
+     * 최근 도착 지점들이 한쪽으로 꺾이는 추세이면 그 수평 회전율을 이어받아 단계마다 진행 방향을 회전시키므로 예측 지점이 원호를 그립니다.
+     * turnWeight는 회전율 반영 비율이며 0이면 직선 예측, 1이면 추정한 회전율을 그대로 사용합니다(기본 1). 고도(z) 변화는 직선 추세를 유지합니다.<br>
+     * 첫 단계 방향은 최근 이동 추세 방향과 현재 진행 방향(지금 향하고 있는 목표 지점 방향)을 headingWeight 비율로 섞어 정합니다.
+     * 0이면 최근 이동 추세만, 1이면 현재 진행 방향만 사용합니다(기본 1). 현재 진행 방향을 알 수 없으면 최근 이동 추세만 사용합니다.<br>
      * time은 호출 시점부터 그 지점 도착까지의 예상 시간(ms)이며 계산할 수 없으면 Infinity입니다.<br>
      * 도착 이력이 count개보다 적으면 undefined를 반환합니다.<br>
-     * count는 2~100 사이의 정수, headingWeight는 0~1 사이의 숫자여야 하며 아니면 TypeError 또는 RangeError가 발생합니다.
+     * count는 2~100 사이의 정수, headingWeight와 turnWeight는 0~1 사이의 숫자여야 하며 아니면 TypeError 또는 RangeError가 발생합니다.
      *
      * @param {number} count 분석할 최근 도착 지점 수와 반환할 미래 단계 수인 2~100 사이의 정수
-     * @param {number} [headingWeight=0.5] 현재 진행 방향 반영 비율 (0~1). 0이면 도착 이력 추세만, 1이면 현재 진행 방향만 사용합니다.
+     * @param {number} [headingWeight=1] 현재 진행 방향 반영 비율 (0~1). 0이면 도착 이력 추세만, 1이면 현재 진행 방향만 사용합니다.
+     * @param {number} [turnWeight=1] 회전율 반영 비율 (0~1). 0이면 직선 예측, 1이면 도착 이력에서 추정한 수평 회전율을 그대로 반영합니다.
      * @returns {Array<PredictedPosition> | undefined} 가까운 예측점부터 순서대로 담은 위치와 예상 경과 시간 목록 또는 이력이 부족할 때 undefined
      *
      * @example
@@ -148,8 +149,12 @@ class U3dComponentPosition {
      * @example
      * // 이력 추세만으로 예측 (현재 주행 진행 방향 미반영)
      * const trendOnly = component.predictFuturePositions(5, 0);
+     *
+     * @example
+     * // 회전을 반영하지 않는 직선 예측
+     * const straight = component.predictFuturePositions(10, 1, 0);
      */
-    predictFuturePositions(count, headingWeight = 0.5) {
+    predictFuturePositions(count, headingWeight = 1, turnWeight = 1) {
         if (typeof count !== 'number') {
             throw new TypeError('count는 숫자여야 합니다.');
         }
@@ -164,9 +169,17 @@ class U3dComponentPosition {
             throw new RangeError('headingWeight는 0~1 사이여야 합니다.');
         }
 
-        if (this.#waypointHistory.length < count) return undefined;
+        if (typeof turnWeight !== 'number' || Number.isNaN(turnWeight)) {
+            throw new TypeError('turnWeight는 숫자여야 합니다.');
+        }
+        if (turnWeight < 0 || turnWeight > 1) {
+            throw new RangeError('turnWeight는 0~1 사이여야 합니다.');
+        }
 
-        const records = this.#waypointHistory.slice(-count);
+        const history = this.#cumulativePath?.waypointHistory ?? [];
+        if (history.length < count) return undefined;
+
+        const records = history.slice(-count);
         const last = records[count - 1];
         const meanIndex = (count - 1) / 2;
         const step = new THREE.Vector3();
@@ -187,24 +200,31 @@ class U3dComponentPosition {
         // 평균 속도(m/ms): 이력 구간의 실제 이동 거리를 첫 도착부터 마지막 도착까지의 경과 시간으로 나눈다.
         const elapsedMs = last.time - records[0].time;
         const averageSpeed = elapsedMs > 0 ? pathLength / elapsedMs : 0;
-        const stepLength = step.length();
+        // 단계 거리: 곡선 이력에서는 최소제곱 기울기가 현(chord) 길이로 줄어 예측점이 붕괴하므로 실제 이동한 구간의 평균 길이를 쓴다.
+        const stepLength = pathLength / (count - 1);
 
         const now = Date.now();
 
-        // 기준점은 마지막 도착 지점이다. k번째 예측이 k번째 실제 도착과 대응하도록 사양(마지막 도착점 + step × k)을 유지한다.
+        // 기준점은 마지막 도착 지점이다. k번째 예측이 k번째 실제 도착과 대응하도록 사양(마지막 도착점 + 단계 거리 × k)을 유지한다.
         const anchor = last.point;
         const anchorTime = last.time;
 
-        // 예측 방향: 이력 추세 방향에서 현재 진행 방향 쪽으로 사이 각도의 headingWeight 비율만큼 회전시킨다.
-        // 이동량은 이력에서 얻은 step 길이를 유지한다.
-        let direction = step;
-        if (headingWeight > 0 && stepLength > 0) {
+        // 회전율: 이력의 수평 진행 방향 변화에서 단계당 방위각 회전율을 추정하고 turnWeight 비율만 반영한다.
+        const yawRate = turnWeight > 0 ? turnWeight * INTERNAL.estimateYawRate(records.map(record => record.point)) : 0;
+
+        // 첫 단계 방향: 최소제곱 추세는 이력 구간의 평균 진행 방향이므로 수평 방위각을 회전율로 다음 구간 시점까지 돌려 놓는다.
+        // 수평 추세가 상쇄되어 방향이 없으면 마지막 유효 구간의 방향을 한 단계 회전시켜 대신 쓴다.
+        let direction = INTERNAL.createTrendDirection(step, stepLength, yawRate * count / 2)
+            ?? this.#getLastSegmentDirection(records)?.applyAxisAngle(ROTATE_AXIS, yawRate);
+        if (headingWeight > 0) {
             const heading = this.#getCurrentHeadingDirection();
             if (defined(heading)) {
-                const rotated = INTERNAL.rotateTowards(step.clone().normalize(), heading, headingWeight);
-                direction = rotated.multiplyScalar(stepLength);
+                direction = defined(direction) ? INTERNAL.rotateTowards(direction, heading, headingWeight) : heading;
             }
         }
+
+        // 예측점: 첫 단계 방향에서 단계마다 회전율만큼 방향을 돌리며 단계 거리씩 나아간 원호 위의 지점들이다.
+        const points = INTERNAL.createTurningSteps(anchor, direction ?? new THREE.Vector3(), stepLength, yawRate, count);
 
         /** @type {Array<PredictedPosition>} */
         const result = [];
@@ -216,9 +236,26 @@ class U3dComponentPosition {
             } else {
                 time = distance === 0 ? 0 : Number.POSITIVE_INFINITY;
             }
-            result.push({point: anchor.clone().addScaledVector(direction, k), time});
+            result.push({point: points[k - 1], time});
         }
         return result;
+    }
+
+    /**
+     * 도착 이력에서 길이가 있는 마지막 구간의 진행 방향 단위 벡터를 반환합니다.<br>
+     * 모든 구간의 길이가 0이면 undefined를 반환합니다.
+     *
+     * @param {Array<WaypointRecord>} records 오래된 순서의 도착 기록
+     * @returns {import('three').Vector3 | undefined} 진행 방향 단위 벡터 또는 이동이 없을 때 undefined
+     *
+     * @ignore
+     */
+    #getLastSegmentDirection(records) {
+        for (let i = records.length - 1; i > 0; i--) {
+            const segment = new THREE.Vector3().subVectors(records[i].point, records[i - 1].point);
+            if (segment.lengthSq() > 1e-8) return segment.normalize();
+        }
+        return undefined;
     }
 
     /**
@@ -545,12 +582,13 @@ class U3dComponentPosition {
     #pathGeometry;
 
     /** @type {Map<string,  import('@UAnimationController').UAnimationController>} */ #animationControllers = new Map();
+    /** @type {SmoothAniContext | undefined} */ #smoothAniContext = undefined;
 
     /** @type {boolean} */ #drawCumulativePath = false;
     /** @type {import('@union3d/geometry/U3dCumulativePath').U3dCumulativePath | undefined} */ #cumulativePath = undefined;
 
     /** @type {U3dCumulativePath_StyleOpt} */ #pathStyle = {};
-    /** @type {Array<{position: import('three').Vector3Like, dist: number, time: number}>} */ #initPathPositions = [];
+    /** @type {Array<{position: import('three').Vector3Like, time: number}>} */ #initPathPositions = [];
 
     /** @type {CumulativeProperty} */ #cumulativeProperty = {
         lastPass: 0,
@@ -558,7 +596,6 @@ class U3dComponentPosition {
         precision: undefined,
         lastInfo: undefined,
         initTime: 0,
-        moveBaseDist: 0,
         startPosition: undefined
     };
 
@@ -998,7 +1035,6 @@ class U3dComponentPosition {
             precision :  opt.precision,
             lastInfo : undefined,
             initTime : 0,
-            moveBaseDist: 0,
             startPosition: undefined
         }
 
@@ -1060,9 +1096,9 @@ class U3dComponentPosition {
     }
 
     /**
-     * 화면에 그려진 이동 궤적(누적 경로) 객체. `drawCumulativePath`가 true인 상태로 이동해야 생성됩니다.
+     * 이동 궤적과 도착 waypoint 이력을 소유한 누적 경로 객체. 표시가 꺼져 있어도 첫 도착 시 생성됩니다.
      *
-     * @returns {import('@union3d/geometry/U3dCumulativePath').U3dCumulativePath | undefined} 궤적 객체. 아직 그려진 궤적이 없으면 undefined
+     * @returns {import('@union3d/geometry/U3dCumulativePath').U3dCumulativePath | undefined} 아직 생성되지 않았으면 undefined
      */
     get cumulativePath () {
         return this.#cumulativePath
@@ -1388,6 +1424,26 @@ class U3dComponentPosition {
     }
 
     /**
+     * 현재 프레임의 실제 이동 속도(km/h)입니다.<br>
+     * `speed`는 `setSpeed`로 지정한 기준 속도이고, 이 값은 현재 동작 중인 애니메이션 컨트롤러가 실제로 적용한 속도입니다.<br>
+     * `moveSmoothly`에 `durationMs`를 지정하거나 여러 경유지가 쌓여 목표 시간 안에 도착하도록 변속하는 경우 매 프레임 달라집니다.<br>
+     * 동작 중인 애니메이션이 없으면 기준 속도(`speed`)를 반환합니다.
+     *
+     * @returns {number} 현재 이동 속도 (km/h)
+     *
+     * @example durationMs 이동 중 실제 속도를 매 프레임 확인합니다.
+     * component.setUpdateAnimationFunc(() => {
+     *     console.log(`기준 ${component.speed}km/h · 현재 ${component.currentSpeed.toFixed(1)}km/h`);
+     * });
+     */
+    get currentSpeed() {
+        const animation = this.getAnimationNow();
+        if (!defined(animation) || animation.disposed) return this.speed;
+        const speed = animation.speed;
+        return Number.isFinite(speed) ? speed : this.speed;
+    }
+
+    /**
      * 컴포넌트의 모델 리소스를 반환하는 함수
      * @returns {import('three').Object3D | undefined} 모델 데이터 리소스
      */
@@ -1421,12 +1477,14 @@ class U3dComponentPosition {
     disposeAnimationControllers () {
         this._animation = false;
 
+        const controllers = [...this.#animationControllers.values()];
         this.#animationControllers.clear();
         //이벤트 시기가 맞물리는 경우 dispose 시점과 compelete 되는 시점이 맞물리면..
         // undefined하는건 너무 위험.
         // this.#animationControllers = undefined;
         this._animationId = undefined;
         this._startAnimationId = undefined;
+        for (const controller of controllers) controller.dispose();
     }
 
     // getCumulativeDistance () {
@@ -1617,7 +1675,6 @@ class U3dComponentPosition {
             // U3dCumulativePath 초기 생성용 데이터
             this.#initPathPositions.push({
                 position,
-                dist: cumulativeDist,
                 time
             });
             this.#cumulativeProperty.lastInfo = info;
@@ -1771,6 +1828,8 @@ class U3dComponentPosition {
             }
         }
 
+        const useLookAt = opt.useLookAt !== false;
+
         if (typeof complete === "function")
             this.#cumulativeProperty.passCallback = complete;
 
@@ -1790,6 +1849,7 @@ class U3dComponentPosition {
             /** @type {SmoothAniContext} */
             const ctx = {
                 useRotation,
+                useLookAt,
                 delayCount: 0,
                 count: 0
             };
@@ -1804,6 +1864,7 @@ class U3dComponentPosition {
                 Object.assign(ctx, {object, instanceId})
             }
 
+            this.#smoothAniContext = ctx;
             animation = this.#createMoveSmoothAnimation(animationID, ctx);
             if (!defined(animation)) return;
             this._animationId = animationID;
@@ -1815,6 +1876,7 @@ class U3dComponentPosition {
         }
         if (!defined(animation)) return;
 
+        if (this.#smoothAniContext) this.#smoothAniContext.useLookAt = useLookAt;
         this._animation = true;
 
         if (!animation.isRunning && !animation.isPaused) {
@@ -1855,8 +1917,9 @@ class U3dComponentPosition {
             // 사용자 콜백의 등록 여부와 무관하게, 콜백이 위치를 바꾸기 전에 도착점을 보관한다.
             const arrived = self.position;
             if (!self.#disposed && Number.isFinite(arrived.x) && Number.isFinite(arrived.y) && Number.isFinite(arrived.z)) {
-                self.#waypointHistory.push({point: arrived.clone(), time: Date.now()});
-                if (self.#waypointHistory.length > WAYPOINT_HISTORY_LIMIT) self.#waypointHistory.shift();
+                // 표시가 꺼져 있어도 이력의 소유자인 경로는 생성합니다(GPU 초기화는 지연).
+                if (!self.#cumulativePath) self.#createCumulativePath(0);
+                self.#cumulativePath?.recordWaypoint(arrived, Date.now());
             }
             const callback = self.#cumulativeProperty.passCallback;
             if (typeof callback !== "function") return;
@@ -1881,12 +1944,11 @@ class U3dComponentPosition {
 
     /**
      * @param {WorldPositionVector3} position
-     * @param {number} dist
      * @param {number} time
      *
      * @ignore
      */
-    #updateCumulativePath (position, dist, time) {
+    #updateCumulativePath (position, time) {
         const path = this.#cumulativePath;
         if (!defined(path)) return;
 
@@ -1894,19 +1956,22 @@ class U3dComponentPosition {
         if (!defined(scene)) return;
 
         try {
-            path.updatePath(position, dist, time);
+            const rotation = defined(this.lookAt)
+                ? this.getPitchYaw(this.lookAt, position)
+                : this.rotation;
+            TEMP_CUMULATIVE_PATH_QUATERNION.setFromEuler(rotation);
+            path.updatePath(position, time, TEMP_CUMULATIVE_PATH_QUATERNION);
         }catch (e) {
             console.warn(`[${this.name}] U3dCumulativePath updatePath 실패:`, e);
         }
     }
 
     /**
-     * @param {number} distance
      * @param {number} time
      *
      * @ignore
      */
-    #createCumulativePath(distance , time) {
+    #createCumulativePath(time) {
         // return;
         if (defined(this.#cumulativePath)) return;
         const app = this.drawArg?._app;
@@ -1929,7 +1994,6 @@ class U3dComponentPosition {
             if (!defined(geoPosition)) return;
             this.#initPathPositions.push({
                 position : geoPosition,
-                dist : last.dist + distance,
                 time : last.time + time
             })
         }
@@ -1938,10 +2002,14 @@ class U3dComponentPosition {
         const pathWidth = defined(style.width) ? style.width : this._pathWidth;
 
         this.#cumulativePath = new U3dCumulativePath({
+            initializeTrailOnShow: !this.#drawCumulativePath,
             app: app,
             scene: this.scene,
             targetName: this.name,
             precision : this.#cumulativeProperty.precision,
+            positionOffsetQuaternion: TEMP_CUMULATIVE_PATH_QUATERNION.setFromEuler(
+                defined(this.lookAt) ? this.getPitchYaw(this.lookAt, this.position) : this.rotation
+            ),
             pathStyle: {
                 color: pathColor,
                 opacity: pathOpacity,
@@ -1954,13 +2022,14 @@ class U3dComponentPosition {
                 smoothFactor: /** @type {number} */ (style.smoothFactor),
                 smoothMaxDistance: /** @type {number} */ (style.smoothMaxDistance),
                 tailPolicy: /** @type {USimpleTail_Policy} */ (style.tailPolicy),
-                drawOffset: offset
+                drawOffset: offset,
+                positionOffset: style.positionOffset
             },
             initPositions: this.#initPathPositions
         });
         if(this.#cumulativePath) {
             this.#initPathPositions = [];
-            this.#cumulativePath.show();
+            if (this.#drawCumulativePath) this.#cumulativePath.show();
         }
 
     }
@@ -1969,12 +2038,9 @@ class U3dComponentPosition {
      * 현재 위치를 누적 경로에 기록한다.
      * moveSmoothly, addMovePoint, setPosition 등 위치 변경 진입점에서 공통으로 사용한다.
      * @param {WorldPositionVector3} position 기록할 월드 좌표
-     * @param {number} [dist] 애니메이션 컨트롤러 기준 누적 거리
      * @param {number} [time] 애니메이션 컨트롤러 기준 누적 시간(ms)
-     * @param {number} [speed] 현재 속도(m/s)
-     * @param {number} [moveDistance] 이번 프레임 이동 거리U
      */
-    recordCumulativePathFrame(position, dist = undefined, time = undefined, speed = undefined, moveDistance = undefined) {
+    recordCumulativePathFrame(position, time = undefined) {
         if (!defined(position)) return;
 
         const x = Number(position.x);
@@ -1983,61 +2049,18 @@ class U3dComponentPosition {
         if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return;
 
         const path = this.#cumulativePath;
-        const currentPathDist = path?.cumulativeDist ?? 0;
-        const infoBaseDist = this.#cumulativeProperty.lastInfo?.cumulativeDist ?? 0;
-        let resolvedDist = Number(dist);
-        //
-        // if (Number.isFinite(resolvedDist)) {
-        //     resolvedDist += infoBaseDist;
-        //     const frameDistance = Number(moveDistance);
-        //     if (
-        //         defined(path) &&
-        //         resolvedDist <= currentPathDist &&
-        //         Number.isFinite(frameDistance) &&
-        //         frameDistance > 0
-        //     ) {
-        //         resolvedDist = currentPathDist + frameDistance;
-        //     }
-        // } else {
-        //     const lastPoint =
-        //         path?.lastUpdatePoint ??
-        //         this.#cumulativeProperty.startPosition ??
-        //         this.#cumulativeProperty.lastInfo?.world;
-        //     let section = 0;
-        //     if (defined(lastPoint)) {
-        //         const prev = lastPoint instanceof THREE.Vector3
-        //             ? lastPoint
-        //             : new THREE.Vector3(lastPoint.x, lastPoint.y, lastPoint.z);
-        //         section = prev.distanceTo(new THREE.Vector3(x, y, z));
-        //     }
-        //     resolvedDist = currentPathDist + section;
-        // }
-
-        if (!Number.isFinite(resolvedDist)) return;
 
         let resolvedTime = Number(time);
-        // if (!Number.isFinite(resolvedTime)) {
-        //     const frameDistance = Number(moveDistance);
-        //     const directDistance = defined(path)
-        //         ? Math.max(0, resolvedDist - currentPathDist)
-        //         : 0;
-        //     const distanceForTime = Number.isFinite(frameDistance) && frameDistance > 0
-        //         ? frameDistance
-        //         : directDistance;
-        //     const speedMs = Number(speed);
-        //     const elapsed = speedMs > 0 ? distanceForTime / speedMs * 1000 : 0;
-        //     resolvedTime = (this.#cumulativeProperty.initTime ?? 0) + elapsed;
-        // }
         if (!Number.isFinite(resolvedTime)) resolvedTime = 0;
 
-        if (defined(this.#cumulativePath)) {
-            this.#updateCumulativePath(position, resolvedDist, resolvedTime);
+        if (defined(path) && (this.#drawCumulativePath || defined(path.getTail()))) {
+            if (this.#drawCumulativePath && !defined(path.getTail())) path.show();
+            this.#updateCumulativePath(position, resolvedTime);
         } else if (this.#drawCumulativePath) {
-            this.#createCumulativePath(resolvedDist, resolvedTime);
-            this.#updateCumulativePath(position, resolvedDist, resolvedTime);
+            this.#createCumulativePath(resolvedTime);
+            this.#updateCumulativePath(position, resolvedTime);
         }
 
-        this.#cumulativeProperty.moveBaseDist = resolvedDist;
         this.#cumulativeProperty.initTime = resolvedTime;
         this.#cumulativeProperty.startPosition = {x, y, z};
 
@@ -2468,8 +2491,7 @@ class U3dComponentPosition {
 
     }
 
-    _createDefaultSpline(/** @type {WorldPositionVector3} */ position, /** @type {import('three').BufferGeometry} */ geometry) {
-        const range = 10000;
+    _createDefaultSpline(/** @type {WorldPositionVector3} */ position, /** @type {import('three').BufferGeometry} */ geometry, /** @type {number} */range=1000) {
         // 현재 위치 주변에 기본 이동 경로를 구성할 난수 좌표를 만듭니다.
         this._spline = new THREE.CatmullRomCurve3([
             new THREE.Vector3(position.x, position.y, position.z),
@@ -2582,7 +2604,18 @@ class U3dComponentPosition {
     dispose () {
         if (this.#disposed) return;
         this.#disposed = true;
-        this.#waypointHistory.length = 0;
+        this.disposeAnimationControllers();
+        // 곡선은 CPU 데이터이므로 참조를 끊어 제어점과 길이 캐시도 회수되게 한다.
+        this._spline = undefined;
+        this._reductionSpline = undefined;
+        this._splinePitch = undefined;
+        this._splineYaw = undefined;
+        this._splineRoll = undefined;
+        this.pitchYawRollList = undefined;
+        this._sampledPath = undefined;
+        this._sampledPathF32 = undefined;
+        this._sampledDirF32 = undefined;
+        this._sampleSegN = undefined;
         for (const path of [this.splineObject, this.tempsplineObject, this.oriSplineObject]) {
             this._initSplineObject(/** @type {ModelMesh} */ (/** @type {unknown} */ (path)));
         }
@@ -2630,12 +2663,6 @@ class U3dComponentPosition {
         this._endAnimationFunc = undefined;
         this._startAnimationFunc = undefined;
 
-        const aniList = [...this.getAnimations().values()];
-        for (const ani of aniList) {
-            if (!ani) continue;
-            ani.dispose?.();
-        }
-
         this.name = undefined;
         // this.position = undefined;
         this.drawArg = /** @type {import('@UDrawArg').UDrawArg} */ ({});
@@ -2647,10 +2674,6 @@ class U3dComponentPosition {
         if (defined(this.tween)) {
             this.tween.stop?.();
             this.tween = undefined;
-        }
-
-        if (defined(this.animationControllers)) {
-            this.disposeAnimationControllers();
         }
 
         this.properties = undefined;
@@ -4605,7 +4628,7 @@ class U3dComponentPosition {
         // overlay가 하나 이상 존재하는 경우
         if(!fixedOverlay) this.settingOverlay(position);
 
-        this.recordCumulativePathFrame?.(this.position, undefined, undefined, this.speed / 3.6);
+        this.recordCumulativePathFrame?.(this.position);
     }
 
     /**
@@ -5562,6 +5585,11 @@ function createMovePoint (animateNow) {
     self._useTruthPath(arr);
 
     //----------- 경로 샘플링 -----------//
+    // 이전 경로가 샘플 방식이었어도 새 경로의 설정만 사용한다.
+    self._sampledPath = undefined;
+    self._sampledPathF32 = undefined;
+    self._sampledDirF32 = undefined;
+    self._sampleSegN = undefined;
     const sampling  = !self.smoothCorner;
     if(sampling) {
         const sampledCurve = self.useOriginRoute ? self._spline : self._reductionSpline;

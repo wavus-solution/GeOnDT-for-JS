@@ -81,7 +81,7 @@ declare class UAnalyRoute extends UAnaly {
      *
      * @ignore
      */
-    static "__#127@#getRightUpAxis"(direction: three.Vector3): {
+    static "__#133@#getRightUpAxis"(direction: three.Vector3): {
         right: three.Vector3;
         up: three.Vector3;
     };
@@ -93,7 +93,7 @@ declare class UAnalyRoute extends UAnaly {
      *
      * @ignore
      */
-    static "__#127@#rotateDirection"(axis: three.Vector3, angle: number, direction: three.Vector3): three.Vector3;
+    static "__#133@#rotateDirection"(axis: three.Vector3, angle: number, direction: three.Vector3): three.Vector3;
     /**
      * @param {UAnalyRouteCO} [options={}]
      */

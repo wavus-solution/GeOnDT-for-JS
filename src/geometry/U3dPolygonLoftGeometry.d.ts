@@ -92,8 +92,8 @@ declare class U3dPolygonLoftGeometry extends U3dGeometry {
     getTopSlice(): Array<WorldPositionVector3>;
     /**
      * 도형 공통 속성과 로프트 고유 속성을 일괄 변경하고 형상을 다시 생성합니다. <br>
-     * 지정하지 않은 항목은 현재 값을 유지하며, 허용 범위를 벗어난 항목은 오류 메시지를 출력하고 반영하지 않습니다. <br>
-     * 허용 범위는 `opacity` 0 이상 1 이하, `height` 0 이상, `topScale` 0 초과의 유한한 숫자이며, `topVertices`는 배열, `outline`(또는 별칭)은 boolean입니다. <br>
+     * 지정하지 않은 항목은 현재 값을 유지하며, 허용 범위를 벗어난 항목은 변경 전에 오류를 발생시킵니다. <br>
+     * 허용 범위는 `opacity` 0 이상 1 이하, `height` 0 이상, `topScale` 0 초과의 유한한 숫자이며, `topVertices`는 유한한 좌표를 가진 Vector3가 3개 이상인 배열, `outline`(또는 별칭)은 boolean입니다. <br>
      * 지정한 `topVertices`는 `undefined`나 `null`로 해제되지 않습니다. <br>
      *
      * @override
@@ -135,7 +135,7 @@ declare class U3dPolygonLoftGeometry extends U3dGeometry {
      * 외곽선 표시 여부를 변경하고 형상을 다시 생성합니다. <br>
      * `setParam({useLine})`과 동일합니다. <br>
      *
-     * @param {boolean} useLine 외곽선 표시 여부. boolean이 아니면 오류 메시지를 출력하고 반영하지 않음 <br>
+     * @param {boolean} useLine 외곽선 표시 여부. boolean이 아니면 오류를 발생시키고 반영하지 않음 <br>
      */
     setUseLine(useLine: boolean): void;
     /**

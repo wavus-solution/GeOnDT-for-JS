@@ -22,7 +22,7 @@ declare class U3dHeatManager {
      *
      * @ignore
      */
-    static "__#143@#_TMP": three.Vector3;
+    static "__#149@#_TMP": three.Vector3;
     /**
      * 임시 Quaternion (행렬 분해용) <br>
      *
@@ -30,7 +30,7 @@ declare class U3dHeatManager {
      *
      * @ignore
      */
-    static "__#143@#_TMP_Q": three.Quaternion;
+    static "__#149@#_TMP_Q": three.Quaternion;
     /**
      * 임시 Vector3 (스케일 추출용) <br>
      *
@@ -38,7 +38,7 @@ declare class U3dHeatManager {
      *
      * @ignore
      */
-    static "__#143@#_TMP_S": three.Vector3;
+    static "__#149@#_TMP_S": three.Vector3;
     /**
      * 온도 기반 팔레트를 설정하는 함수 <br>
      *

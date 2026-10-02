@@ -8,6 +8,75 @@ import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/e
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dApp } from "../app/U3dApp.js";
 import type { USimpleTail_Policy } from "../effect/USimpleTail.types.js";
+import type { WorldPositionVector3 } from "../types/global.types.js";
+
+/**
+     * `moveSmoothly`로 실제 도착한 지점 한 건의 이력 기록
+     */
+    type WaypointRecord = {
+        /**
+         * 도착한 월드 좌표 (EPSG:3857, m)
+         */
+        point: WorldPositionVector3;
+        /**
+         * 도착 시각 (`Date.now()` 기준 epoch ms)
+         */
+        time: number;
+    };
+
+/**
+     * 출력 범위의 경로 지점별로 호출되는 fade 함수. 일괄 입력은 마지막에, 숨긴 경로는 show 시 평가합니다. this는 U3dCumulativePath입니다.
+     * 숫자 0~1은 폭과 불투명도에 함께 적용됩니다(0: 숨김, 1: 유지).
+     * {width, alpha}로 각각 지정할 수 있습니다. 생략/비정상 값은 1, 범위 밖 값은 0~1로 제한합니다.
+     * 노드 사이 값은 보간됩니다. 0을 반환해도 이력을 삭제하지 않습니다.
+     */
+    type U3dCumulativePathFadeFunc = (info: U3dCumulativePathFadeInfo) => number | {
+        width?: number;
+        alpha?: number;
+    };
+
+type U3dCumulativePathFadeInfo = {
+        /**
+         * 보정 후 월드 좌표
+         */
+        position: {
+            x: number;
+            y: number;
+            z: number;
+        };
+        /**
+         * 경로가 자체 계산한 누적 거리(m)
+         */
+        dist: number;
+        /**
+         * 입력 누적 시간(ms). epoch 시각이 아닐 수 있습니다.
+         */
+        time: number;
+        /**
+         * 이력에 추가된 epoch 시각(ms)
+         */
+        recordedAt: number;
+        /**
+         * 최신 지점까지 실제 경로 거리(m)
+         */
+        distance: number;
+        /**
+         * 최신 지점의 time과 해당 지점 time의 차이(ms)
+         */
+        elapsedTime: number;
+        /**
+         * 현재 시각에서 recordedAt까지 지난 시간(ms)
+         */
+        ageMs: number;
+        /**
+         * 평가 기준 epoch 시각(ms)
+         */
+        now: number;
+        /**
+         * 경로가 소유한 최근 도착 waypoint 이력의 복사본. 접근할 때 복사합니다.
+         */
+        waypointHistory: Array<WaypointRecord>;
+    };
 
 /**
      * 경로의 각 지점에서 색을 얼마나 진하게 칠할지 정하는 콜백입니다. <br>
@@ -55,11 +124,11 @@ import type { USimpleTail_Policy } from "../effect/USimpleTail.types.js";
          */
         debugPointBox?: boolean;
         /**
-         * 지점 사이를 부드럽게 이을지 여부 <br>
+         * 실시간 추가 지점과 `initPositions`·`createTrailFromPositions`의 일괄 입력 지점 사이를 부드럽게 이을지 여부 <br>
          */
         smooth?: boolean;
         /**
-         * 새 지점을 직전 지점 쪽으로 보간하는 비율 (0 초과 1 이하). 작을수록 직전 지점에 가까워져 더 완만해지고, 1이면 보간하지 않습니다 <br>
+         * 각 입력 지점을 직전 반영 지점 쪽으로 보간하는 비율 (0 초과 1 이하). 작을수록 직전 지점에 가까워져 더 완만해지고, 1이면 보간하지 않습니다 <br>
          */
         smoothFactor?: number;
         /**
@@ -70,6 +139,14 @@ import type { USimpleTail_Policy } from "../effect/USimpleTail.types.js";
          * 각 지점을 진행 방향으로 밀어내는 거리 (미터). 양수면 진행 방향 앞, 음수면 뒤로 옮겨 그립니다 <br>
          */
         drawOffset?: number;
+        /**
+         * 각 지점을 컴포넌트의 로컬 x, y, z축으로 옮기는 보정값 (미터). 기본값은 `{x:0, y:0, z:0}`입니다 <br>
+         */
+        positionOffset?: three.Vector3 | {
+            x: number;
+            y: number;
+            z: number;
+        };
         /**
          * maxDistance 경계가 앞으로 이동해 경로 앞부분이 완전히 투명해질 때 호출되는 콜백 <br>
          */
@@ -94,19 +171,27 @@ import type { USimpleTail_Policy } from "../effect/USimpleTail.types.js";
             z: number;
         };
         /**
-         * 경로 시작점부터 그 지점까지 누적된 이동 거리 (미터) <br>
-         */
-        dist: number;
-        /**
          * 그 지점이 기록된 시각. `styleFunc`에 그대로 전달됩니다 <br>
          */
         time: number;
+        /**
+         * 이력에 추가된 epoch 시각(ms). 생략하면 경로 입력 시 Date.now()를 저장합니다.
+         */
+        recordedAt?: number;
+        /**
+         * 해당 지점에서 컴포넌트 로컬축을 월드축으로 변환할 회전값 <br>
+         */
+        orientation?: three.QuaternionLike;
     };
 
 /**
      * U3dCumulativePath 생성자 옵션 <br>
      */
     type U3dCumulativePathCO = {
+        /**
+         * 첫 show 또는 updatePath까지 경로 자원 생성을 지연합니다. recordWaypoint만 호출하면 자원을 생성하지 않습니다.
+         */
+        initializeTrailOnShow?: boolean;
         /**
          * 경로를 그려 넣을 장면. **필수** <br>
          */
@@ -128,10 +213,6 @@ import type { USimpleTail_Policy } from "../effect/USimpleTail.types.js";
          */
         initTime?: number;
         /**
-         * 제거 예정(deprecated) 옵션. 값은 저장되지만 현재 누적 거리 계산에는 사용되지 않습니다 <br>
-         */
-        initDist?: number;
-        /**
          * 만들자마자 그려 둘 지점 목록. 이미 지나온 경로를 한 번에 복원할 때 사용합니다 <br>
          */
         initPositions?: Array<U3dCumulativePathPositionData>;
@@ -141,9 +222,21 @@ import type { USimpleTail_Policy } from "../effect/USimpleTail.types.js";
          */
         drawOffset?: number;
         /**
-         * 최소 업데이트 거리 (미터). `updatePath`에서 직전 값과의 `dist` 증가량이 이보다 작으면 건너뜁니다 <br>
+         * 각 지점을 컴포넌트의 로컬 x, y, z축으로 옮기는 보정값 (미터). `pathStyle.positionOffset`보다 우선하며 기본값은 `{x:0, y:0, z:0}`입니다 <br>
+         */
+        positionOffset?: three.Vector3 | {
+            x: number;
+            y: number;
+            z: number;
+        };
+        /**
+         * positionOffset을 월드축으로 변환할 기본 quaternion. 각 지점의 orientation 또는 updatePath의 orientation이 우선합니다 <br>
+         */
+        positionOffsetQuaternion?: three.QuaternionLike;
+        /**
+         * 최소 업데이트 거리 (미터). `updatePath`에서 마지막 기록 좌표와의 실제 거리이 이보다 작으면 건너뜁니다 <br>
          */
         precision?: number;
     };
 
-export type { U3dCumulativePathCO, U3dCumulativePathPositionData, U3dCumulativePathStyleFunc, U3dCumulativePath_StyleOpt };
+export type { U3dCumulativePathCO, U3dCumulativePathFadeFunc, U3dCumulativePathFadeInfo, U3dCumulativePathPositionData, U3dCumulativePathStyleFunc, U3dCumulativePath_StyleOpt, WaypointRecord };

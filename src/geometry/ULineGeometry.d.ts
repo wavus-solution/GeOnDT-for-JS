@@ -82,7 +82,7 @@ declare class ULineGeometry extends UBufferGeometry {
      *
      * @ignore
      */
-    static "__#116@#computeVertex"(points: Array<three.Vector3>, width: number): Array<number>;
+    static "__#122@#computeVertex"(points: Array<three.Vector3>, width: number): Array<number>;
     /**
      * @param {number} start
      * @param {number} end
@@ -90,7 +90,7 @@ declare class ULineGeometry extends UBufferGeometry {
      *
      * @ignore
      */
-    static "__#116@#computeFace"(start: number, end: number): {
+    static "__#122@#computeFace"(start: number, end: number): {
         indices: Array<number>;
         normals: Array<number>;
     };
@@ -100,14 +100,14 @@ declare class ULineGeometry extends UBufferGeometry {
      *
      * @ignore
      */
-    static "__#116@#computeUV"(count: number): Array<number>;
+    static "__#122@#computeUV"(count: number): Array<number>;
     /**
      * @param {number} v
      * @returns {Array<number>}
      *
      * @ignore
      */
-    static "__#116@#getUV"(v: number): Array<number>;
+    static "__#122@#getUV"(v: number): Array<number>;
     /**
      * @param {import('three').Vector3} point1 시작 점 <br>
      * @param {import('three').Vector3} point2 끝 점 <br>
@@ -117,7 +117,7 @@ declare class ULineGeometry extends UBufferGeometry {
      *
      * @ignore
      */
-    static "__#116@#extractRoadPoint"(point1: three.Vector3, point2: three.Vector3, width: number, end?: boolean): Array<number>;
+    static "__#122@#extractRoadPoint"(point1: three.Vector3, point2: three.Vector3, width: number, end?: boolean): Array<number>;
     /**
      * 라인(띠) 지오메트리를 생성합니다. <br>
      * 생성 후 `addPoint`/`setPoints`로 점을 넣으시면, spline 곡선으로 이어진 일정 너비의 띠가 만들어집니다. <br>

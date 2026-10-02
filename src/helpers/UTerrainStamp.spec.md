@@ -47,7 +47,7 @@ circle 도형은 center와 0보다 큰 유한한 radius를 가져야 한다.
 도형 없는 stamp 인스턴스는 생성할 수 있지만 registry에는 등록하지 않아야 한다.
 visible이 false이거나 dispose된 stamp는 registry에서 제거되어 shader 후보에 포함되지 않아야 한다.
 setter가 유효한 변경을 수행하면 관련 layer state를 dirty 처리하여 다음 render에서 uniform texture를 다시 작성해야 한다.
-getPoints(), getCircle(), getStyle(), getColor(), getGradientColor()는 외부 변경이 내부 상태를 직접 흔들지 않도록 복사 가능한 값을 복사해 반환해야 한다.
+getPoints(), getCenter(), getCircle(), getStyle(), getColor(), getGradientColor()는 외부 변경이 내부 상태를 직접 흔들지 않도록 복사 가능한 값을 복사해 반환해야 한다.
 texture는 문자열 URL일 때만 이미지 atlas 대상으로 사용하고, texture가 없거나 load되지 않았으면 color 또는 gradient fill 경로를 사용해야 한다.
 textureFit은 stretch 또는 contain만 허용하고 그 외 값은 stretch로 보정해야 한다.
 textureFit contain은 texture가 있는 4점 polygon에서만 네 꼭짓점 warp 기준으로 사용해야 한다.
@@ -129,6 +129,10 @@ UTerrainStampAtlas 클래스 정의
         atlas에 등록할 수 있는 서로 다른 이미지 URL의 최대 수이다.
     entries: Map<string, object>
         정규화된 URL별 atlas cell과 load 상태를 보관한다.
+    nextIndex: number = 0
+        아직 할당한 적 없는 다음 cell index이다.
+    freeIndices: Array<number> = 빈 배열
+        명시적으로 해제되어 다시 할당할 수 있는 cell index 목록이다.
     canvas: HTMLCanvasElement | undefined
         브라우저 환경에서 atlas 픽셀을 합성하는 canvas이다.
     context: CanvasRenderingContext2D | undefined = undefined
@@ -141,6 +145,7 @@ UTerrainStampAtlas 클래스 정의
         동작:
             기본 atlas 크기, cell 크기, cell 배치 수와 최대 이미지 수를 저장한다.
             URL entry Map, canvas, context와 texture 참조를 빈 상태로 둔다.
+            다음 cell index를 0으로 두고 재사용할 cell 목록을 비운다.
 
     setMaxImages(value: number) -> boolean
         역할: atlas가 사용되기 전 URL image 최대 수를 변경한다.
@@ -160,14 +165,15 @@ UTerrainStampAtlas 클래스 정의
     getTexture() -> CanvasTexture | DataTexture
         역할: shader uniform에 연결할 atlas texture를 lazy 생성해 반환한다.
         의존:
-            Three texture API — document 또는 2D context 부재 fallback과 브라우저 atlas texture 구성; 생성자: {new DataTexture(), new CanvasTexture()}; 상수: {RGBAFormat, FloatType, LinearFilter, ClampToEdgeWrapping}; 속성 쓰기: {needsUpdate, minFilter, magFilter, wrapS, wrapT, generateMipmaps, flipY}
+            Three texture API — document 또는 2D context 부재 fallback과 브라우저 atlas texture 구성; 생성자: {new DataTexture(), new CanvasTexture()}; 상수: {RGBAFormat, FloatType, LinearFilter, ClampToEdgeWrapping, SRGBColorSpace}; 속성 쓰기: {needsUpdate, minFilter, magFilter, wrapS, wrapT, generateMipmaps, flipY, colorSpace}
             Web API — canvas 생성과 2D context 조회; 함수: {document.createElement(), getContext(), clearRect()}
         동작:
             기존 texture가 있으면 그대로 반환한다.
             document가 없으면 1x1 흰색 DataTexture를 만들고 저장해 반환한다.
             canvas를 atlas 크기로 만들고 2D context를 얻는다.
             2D context를 얻지 못하면 1x1 흰색 DataTexture를 만들고 저장해 반환한다.
-            canvas를 비우고 linear filter와 clamp wrapping을 가진 CanvasTexture를 만들어 저장한 뒤 반환한다.
+            canvas를 비우고 linear filter와 clamp wrapping을 가진 CanvasTexture를 만든다.
+            canvas의 이미지 RGB를 GPU에서 선형 색상으로 변환해 읽도록 SRGBColorSpace를 지정하고 저장한 뒤 반환한다. 이미지 alpha는 색 공간 변환 대상이 아니다.
 
     getEntry(url: string) -> object | undefined
         역할: texture URL에 대응하는 atlas cell entry를 반환하고 없으면 새로 등록한다.
@@ -175,11 +181,23 @@ UTerrainStampAtlas 클래스 정의
         의존: Web API — 경고 출력; 함수: {console.warn()}
         동작:
             URL 문자열을 정규화하고 기존 entry가 있으면 반환한다.
-            maxImages를 넘으면 경고하고 undefined를 반환한다.
-            다음 cell index의 row와 column으로 atlas UV rect를 계산한다.
-            unloaded entry를 Map에 저장하고 이미지 load를 시작한다.
+            재사용할 cell이 없고 다음 cell index가 maxImages에 도달했으면 경고하고 undefined를 반환한다.
+            해제된 cell을 우선 사용하고 없으면 다음 cell index를 할당해 row와 column으로 atlas UV rect를 계산한다.
+            cell index를 포함한 unloaded entry를 Map에 저장하고 이미지 load를 시작한다.
 
             새 entry를 반환한다.
+
+    releaseEntry(url: string) -> boolean
+        역할: URL의 atlas cell과 진행 중인 이미지 load 연결을 해제한다.
+        처리 기준: 등록되지 않은 URL이면 false를 반환한다.
+        의존:
+            Web API — 이미지 load callback과 src 연결 제거; 함수: {removeAttribute()}; 속성 쓰기: {onload, onerror}
+            CanvasRenderingContext2D — 해제한 cell의 픽셀 제거; 함수: {clearRect()}
+            Three texture API — atlas GPU upload 요청; 속성 쓰기: {needsUpdate}
+        동작:
+            Map에서 entry를 먼저 제거하고 cell index를 재사용 목록에 넣는다.
+            Image callback과 src 연결 및 entry의 Image 참조를 제거한다.
+            cell을 비우고 texture와 전체 stamp state를 dirty 처리한 뒤 true를 반환한다.
 
     loadEntry(entry: object, x: number, y: number) -> void
         역할: atlas entry의 이미지 URL 후보를 순차 load한다.
@@ -189,6 +207,7 @@ UTerrainStampAtlas 클래스 정의
             context가 없거나 Image 생성자가 없으면 load를 시도하지 않는다.
             URL 후보 목록을 만든다.
 
+            다음 후보를 시도하기 전에 현재 Map의 entry와 같은 객체인지 확인하며 해제되거나 대체되었으면 중단한다.
             후보가 소진되면 entry를 unloaded 상태로 두고 경고한다.
             현재 후보 URL의 Image load 함수를 호출하고 실패 callback에서 다음 후보를 시도한다.
 
@@ -200,6 +219,7 @@ UTerrainStampAtlas 클래스 정의
         동작:
             Image를 만들고 entry에 보관한다.
             anonymous CORS를 설정한다.
+            성공·실패 callback에서 현재 Map의 entry와 같은 객체인지 확인하며 해제되거나 대체되었으면 중단한다.
             load 성공 callback에서 cell을 비우고 이미지를 cell 크기로 그린다.
             load 성공 callback에서 entry를 loaded로 표시하고 atlas texture와 전체 stamp state를 dirty 처리한다.
 
@@ -281,6 +301,17 @@ UTerrainStamp 클래스 정의
 
     static getTextureAtlasMaxImages() -> number
         동작: 전역 texture atlas의 현재 최대 이미지 수를 반환한다.
+
+    static releaseTexture(url: string) -> boolean
+        역할: 표시 중인 도장이 사용하지 않는 이미지 URL의 공용 atlas cache를 명시적으로 해제한다.
+        인터페이스:
+            표시 중인 도장이 사용하는 URL 또는 등록되지 않은 URL이면 false, 해제했으면 true를 반환한다.
+            숨겨진 도장이 같은 URL을 다시 사용하면 이미지를 다시 load하므로 URL은 호출자가 유효하게 유지해야 한다.
+            Blob URL 자체는 해제하지 않으며 모든 사용자 정리와 revokeObjectURL 호출은 호출자가 책임진다.
+        처리 기준: url이 문자열이 아니면 TypeError를 던진다.
+        동작:
+            전체 활성 layer state의 stamp cache에 같은 texture URL이 있으면 false를 반환한다.
+            atlas의 해당 URL entry를 해제하고 결과를 반환한다.
 
     static getRenderState(layer: object) -> object | undefined
         역할: terrain material이 사용할 layer별 stamp uniform 상태를 조회한다.
@@ -386,6 +417,27 @@ UTerrainStamp 클래스 정의
             동작:
                 현재 points가 배열이 아니면 undefined를 반환한다.
                 polygon 꼭짓점 또는 polyline 경유점의 복사본을 담은 새 배열을 반환한다.
+
+        setCenter(center: Vector3 | UTerrainStampPointLike) -> UTerrainStamp | undefined
+            처리 기준: center가 올바르지 않거나 현재 도형이 유효하지 않으면 기존 도형을 유지하고 undefined를 반환한다.
+            의존: THREE.Vector3 — polygon·polyline의 현재 중심과 이동량 계산; 생성자: {new Vector3()}; 함수: {multiplyScalar()}
+            동작:
+                center와 현재 도형의 점을 월드 좌표로 검증한다.
+
+                circle이면 radius를 유지하고 center를 입력 좌표의 복사본으로 바꾼다.
+
+                polygon과 polyline이면 화면에 사용하는 최대 16개 점의 산술 평균을 현재 중심으로 계산한다.
+                새 중심까지의 이동량을 모든 저장 점에 더해 기존 모양과 크기를 유지한다.
+                변경된 도형을 registry에 동기화하고 자신을 반환한다.
+
+        getCenter() -> Vector3 | undefined
+            의존: THREE.Vector3 — 중심 복사와 polygon·polyline 중심 계산 결과 생성; 생성자: {new Vector3()}; 함수: {multiplyScalar()}
+            동작:
+                circle이면 유효한 center를 복사한 새 Vector3를 반환한다.
+
+                polygon과 polyline이면 화면에 사용하는 최대 16개 점의 산술 평균을 새 Vector3로 반환한다.
+
+                유효한 도형이 없으면 undefined를 반환한다.
 
         setCircle(center: Vector3 | UTerrainStampPointLike, radius: number) -> UTerrainStamp | undefined
             처리 기준: center가 없거나 radius가 양수가 아니면 오류를 기록하고 undefined를 반환한다.

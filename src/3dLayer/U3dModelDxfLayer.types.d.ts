@@ -6,7 +6,7 @@ import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSeg
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { U3dModelLayerCO } from "./U3dModelLayer.js";
+import type { U3dModelLayerCO } from "./U3dModelLayer.types.js";
 import type { U3dPOI } from "../geometry/U3dPOI.js";
 
 /**
@@ -98,7 +98,7 @@ import type { U3dPOI } from "../geometry/U3dPOI.js";
     type U3dDxfStyleFunction = (entity: U3dDxfEntity | undefined, mesh: U3dDxfObject) => any;
 
 /**
-     * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayerCO <br>
+     * ~extends U3dModelLayerCO <br>
      * DXF 레이어 생성 옵션입니다. 기존 minlevel·dxfinfo 키는 소문자를 유지합니다.
      * style을 생략하면 color=0x3399CC, opacity=1, label=''인 새 객체를 사용합니다.
      */
@@ -170,7 +170,7 @@ import type { U3dPOI } from "../geometry/U3dPOI.js";
     };
 
 /**
-     * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayerCO <br>
+     * ~extends U3dModelLayerCO <br>
      * DXF 레이어 생성 옵션입니다. 기존 minlevel·dxfinfo 키는 소문자를 유지합니다.
      * style을 생략하면 color=0x3399CC, opacity=1, label=''인 새 객체를 사용합니다.
      */

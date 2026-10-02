@@ -226,9 +226,9 @@ GDecalTerrainShader.replaceFragmentShader: string
         USE_PATH_DECAL을 정의하면 path 평가 규칙이 추가된다.
             path는 polyline이 아니라 선형 segment index로 참조하며 style index는 packing 단계에서 Feature마다 하나씩 부여된다.
             segment 하나의 누적 판정 순서는 index 범위 검사, style index가 0 미만이면 중단, 재질 구간 판정, style의 batch 순번으로 batch 판정, meta의 visible이 0.5 이하이면 중단이다. 그다음 선 굵기를 확정하고 segment 좌표를 읽는다.
-            선 굵기를 여유 폭으로 삼은 segment AABB 안에 없으면 거리 계산 없이 중단하고, AABB 안이면 선분까지의 제곱거리가 선 굵기 제곱 이하일 때만 hit로 본다.
-            hit인 segment의 style index가 직전에 누적한 style index와 같으면 중단하고, 다르면 그 index를 직전값으로 기록한 뒤 그때 처음 style 색 texel을 읽어 커버리지 1로 누적한다. 비교 대상이 직전 하나뿐이므로 서로 다른 Feature의 hit가 사이에 끼면 같은 Feature가 다시 누적된다. [확인 Q-005]
-            픽셀 진입 시 pathSegmentCount가 0 이하이거나 pathFullBounds에 threshold 여유를 준 범위 밖이면 빈 상태를 반환한다.
+            선 굵기와 AA 반경을 더한 segment AABB 밖이면 거리 계산 없이 중단한다. 안이면 선분 거리와 양쪽 경계의 smoothstep 차로 커버리지를 계산하므로 한 픽셀보다 가는 선도 부분 커버리지를 갖는다.
+            같은 Feature의 연속된 segment는 커버리지 최댓값으로 한 번만 합성한다. 더 큰 커버리지가 나오면 해당 Feature를 합성하기 전 상태로 돌아가 새 값으로 합성하므로 반투명 이음새가 진해지지 않는다. Worker와 즉시 경로는 원본 segment 순서대로 bucket에 등록해 같은 Feature의 연속성을 유지한다.
+            픽셀 진입 시 pathSegmentCount가 0 이하이거나 pathFullBounds에 threshold와 AA 반경 두 배의 여유를 준 범위 밖이면 빈 상태를 반환한다.
             pathUseBuckets가 0 이하이면 고정 상한 256회 반복으로 segment index를 0부터 직접 순회하고 pathSegmentCount에 도달하면 반복을 끊는다. 상한을 고정한 것은 모바일·WebGL1 드라이버의 루프 최적화 부담을 줄이기 위한 것이며, segment 수가 상한을 넘는 상태를 이 경로로 연결하면 남은 segment는 평가되지 않는다.
             pathUseBuckets가 0보다 크면 bucket index texel에서 시작 texel과 texel 수를 정수로 복원하고, bucket meta 영역의 texel 수(격자 가로 곱 세로)를 더한 위치부터 차례로 읽는다.
             bucket texel 위치가 0 미만이거나 texture 전체 texel 수 이상이면 그 항목만 건너뛴다.
@@ -238,17 +238,16 @@ GDecalTerrainShader.replaceFragmentShader: string
             점 texel 좌표의 시작값은 pointStart에 0.5를 더한 값을 보정한 가로 크기로 나눠 내림한 행과 pointStart에서 그 행과 가로 크기의 곱을 뺀 열로 구하며, 선형 index 조회와 같은 나눗셈 오차 회피 규칙을 쓴다. 그 뒤 반복마다 열을 1 늘리고 가로 크기에 닿으면 열을 0으로 되돌리며 행을 1 늘리는 방식으로 증분 진행하고, uv 변환은 미리 구한 역수 곱으로 처리한다.
             첫 비교 대상 이전 점은 점 목록의 마지막 점이므로 닫힌 다각형의 마지막 변까지 모두 검사된다.
             교차 판정은 현재 점과 이전 점의 y가 검사 점 y를 서로 다른 방향으로 지날 때만 유효하고, 그 변과 수평선의 교점 x가 검사 점 x 이상일 때 교차 수를 1 늘린다. 두 y가 같아 분모가 0이 되는 경우를 막기 위해 분모에 1e-6을 더한다.
-            반환값은 최소 제곱거리가 임계 제곱 이하이면 -1.0(외곽), 그렇지 않으면 교차 수의 홀짝(1.0 내부, 0.0 외부)이다.
-            픽셀 진입 시 areaCount가 0 이하이거나 areaFullBounds에 threshold 여유를 준 범위 밖이면 빈 상태를 반환한다.
+            반환값은 최소 거리의 제곱근에 안팎 부호를 적용한 거리이며 내부는 음수, 외부는 양수다.
+            픽셀 진입 시 areaCount가 0 이하이거나 areaFullBounds에 threshold와 AA 반경 두 배의 여유를 준 범위 밖이면 빈 상태를 반환한다.
             bucket meta uniform 배열에서 시작 행과 행 수를 정수로 복원하고 그 행들을 순회하며, 행 index가 0 미만이거나 areaCount 이상이면 건너뛴다.
             행마다 fill 색과 옵션 texel, 행 header를 먼저 읽어 재질 구간 판정과 batch 판정을 하고 옵션의 visible이 0.5 이하이면 건너뛴다.
             옵션의 마지막 채널이 0.5를 넘으면 clipping된 다각형이 tile 전체를 덮는 경우이므로, 교차 검사 없이 fill alpha가 -1.0이면 커버리지 1로 지우고 그렇지 않으면 커버리지 1로 fill을 누적한 뒤 다음 행으로 넘어간다.
-            그 외에는 선 굵기를 확정하고 stroke 색과 행별 경계 texel을 읽어, 선 굵기를 여유 폭으로 삼은 행 경계 밖이면 건너뛴다.
-            header의 점 수가 3 미만이면 다각형을 만들 수 없으므로 건너뛰고, 그렇지 않으면 header의 pointStart와 점 수, 선 굵기 제곱을 넘겨 외곽·내부 판정을 실행한다.
-            판정 결과에서 외곽 여부는 -1.0에서만 1이 되도록 두 계단 함수의 차로 만들고, 내부 여부는 0.5 이상에서만 1이 된다. 외곽으로 판정된 픽셀은 내부 여부가 0이므로 fill과 hole이 적용되지 않는다.
-            fill alpha가 -1.0이고 내부 여부가 1 이상이면 hole로 보고 내부 여부만큼 지운다.
-            외곽 여부가 0보다 크면 stroke 색을 외곽 여부를 커버리지로 삼아 누적한다.
-            hole이 아니고 내부 여부가 0보다 크면 fill 색을 내부 여부를 커버리지로 삼아 누적한다.
+            그 외에는 선 굵기를 확정하고 stroke 색과 행별 경계 texel을 읽어, 선 굵기와 AA 반경을 더한 행 경계 밖이면 건너뛴다.
+            header의 점 수가 3 미만이면 건너뛰고, 그렇지 않으면 pointStart와 점 수로 부호 있는 최소 거리를 구한다.
+            내부와 외부의 외곽선 경계에 smoothstep을 적용해 fill 커버리지와 전체 커버리지를 구하고, 그 차를 stroke 커버리지로 사용한다.
+            fill alpha가 -1.0이면 fill 커버리지만큼 지운다. 지우기와 stroke는 서로 다른 부분을 차지하므로 기존 상태의 잔여율은 1 - fillCoverage - strokeAlpha로 계산한다.
+            일반 면은 fill과 stroke의 premultiplied 색·알파를 더해 한 Feature로 합성한다. 두 영역을 순차 합성하지 않아 접점에 투명한 틈이 생기지 않는다.
         USE_CIRCLE_DECAL을 정의하면 circle 평가 규칙이 추가된다.
             픽셀 진입 시 circleCount가 0 이하이거나 circleBounds에 threshold 여유를 준 범위 밖이면 빈 상태를 반환한다.
             bucket meta uniform 배열에서 시작 행과 행 수를 정수로 복원하고 그 행들을 순회하며, 행 index가 0 미만이거나 circleCount 이상이면 건너뛴다.
@@ -302,6 +301,7 @@ GDecalTerrainShader.setFragmentShader(fragmentShader: string) -> string
 - packed texture 레이아웃 계약: path segment는 좌표 texel과 meta texel을 index로 1:1 대응시키고, path style은 색 texel과 batch texel 두 개를 style index마다 사용한다. area는 앞쪽 행 header 구간과 뒤쪽 점 목록을 하나의 선형 texture에 담고 header가 pointStart로 점 시작을 가리키며, area style은 열 3개(fill, stroke, 옵션)·행 1개 구조, area 경계는 열 1개·행 1개 구조다. circle은 행마다 데이터 texel 1개와 style texel 3개를 사용한다. 이 계약은 UTerrainDecalPrepareTask의 packing, UShaderTerrainDecalUtils의 DataTexture 생성, UTerrainDecalCompositeComposer의 batch 범위 조회와 공유하므로 한쪽만 바꾸지 않는다.
 - 정수 index 복원 계약: 실수 채널의 정수 index는 0.5를 더한 뒤 내림으로 복원하며, 무효 index는 -1로 padding한다. packing 쪽 반올림 규칙이 달라지면 무효 판정과 style 참조가 함께 깨진다.
 - bucket 계약: bucket index는 기준 경계와 격자만으로 계산하므로 bucket meta를 만든 쪽과 같은 경계·격자를 uniform으로 연결해야 한다. area·circle의 bucket meta는 길이 BUCKET_COUNT의 uniform 배열이므로 격자 가로·세로의 곱이 BUCKET_COUNT를 넘지 않아야 하고, path의 bucket meta는 index texture 앞부분에 두어 격자 가로·세로 곱만큼의 texel을 차지한다.
+- 선·면 AA 계약: local 좌표의 화면 미분은 피처별 분기 전에 한 번 계산한다. 두 방향 미분 길이 합의 절반을 AA 반경으로 쓰되 긴 bucket 변의 절반으로 제한한다. 후보 생성은 긴 bucket 변 하나만큼 확장하고 raster의 추가 두께도 AA 반경 이하로 제한해 경계가 후보에서 잘리지 않게 한다. 극단적인 축소에서 더 넓은 AA가 필요하면 후보 여유와 셰이더 상한을 함께 조정해야 한다.
 - 알파 표현 계약: 누적 상태의 RGB는 premultiplied, 기본 색과 주고받는 색은 straight alpha다. 합성 texture도 premultiplied로 저장되므로 sampling 경계에서 되돌린다. fill alpha -1.0은 색이 아니라 hole 표식이고, circle의 음수 fill alpha는 fill 없음을 뜻한다.
 - 나눗셈 하한 계약: 알파 되돌림과 선분·교차 계산은 1e-6, 안티에일리어싱 폭은 0.0001, texture 크기와 경계 크기는 각각 1과 1e-6을 하한으로 두어 0 나눗셈으로 결과가 무한이 되는 것을 막는다.
 - define 조합 제약: 직접 평가에는 USE_TERRAIN_DECAL과 종류별 USE_PATH_DECAL·USE_AREA_DECAL·USE_CIRCLE_DECAL이 필요하고, 합성 결과 sampling에는 USE_TERRAIN_DECAL_COMPOSITE가 필요하다. 둘 중 하나만 켜면 두 경로는 상호 배타이므로 전환할 때 이전 define을 남기지 않아야 한다. USE_TERRAIN_DECAL_HYBRID는 두 경로를 함께 쓰는 유일한 조합이며 합성 texture 선언이 필요하므로 USE_TERRAIN_DECAL_COMPOSITE와 직접 평가 define을 함께 켜야 한다. 이때 direct 대상 필터가 packed batch 순번이 음수인 Feature만 직접 평가하므로 정적 대상이 합성 결과와 직접 평가에서 두 번 그려지지 않는다. USE_TERRAIN_DECAL_COMPOSITION_BATCH와 USE_TERRAIN_DECAL_COMPOSITE_RASTER는 offscreen 합성 실행에서만 정의한다.

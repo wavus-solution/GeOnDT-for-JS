@@ -380,7 +380,7 @@ UTerrainDecalCompositeComposer 클래스 정의
             renderer texture 상한을 모르면 target 이 더 작게 잡힐 수 있어 여유를 과소평가하므로 계산하지 않는다.
             content 폭과 높이는 합성기가 범위를 최소 1 로 넓히는 clamp 를 함께 반영한다.
             content 픽셀 수는 최소 content 해상도 이상이므로 texel 크기의 상한은 content 크기를 그 해상도로 나눈 값이다. 분모는 기본 해상도가 아니라 실제 최소 content 해상도다.
-            여유는 그 texel 상한에 sampling footprint texel 수를 곱한 값이다. 합성 raster 의 최소 외곽선 보정 절반 texel 과 결과 texture 의 LinearFilter sampling 1 texel 을 합한 값이며 batch scissor padding 은 coverage 를 넓히지 않아 넣지 않는다.
+            여유는 그 texel 상한에 sampling footprint 2.5 texel을 곱한 값이다. 합성 raster의 최소 외곽선 보정 0.5 texel, 선·면 AA 반경 1 texel과 결과 texture의 LinearFilter sampling 1 texel을 합한다. batch scissor padding은 coverage를 넓히지 않아 넣지 않는다.
 
         동작:
             정리 상태와 입력 형식, renderer 상한을 확인하고 하나라도 어긋나면 NaN 을 반환한다.
@@ -836,7 +836,7 @@ GPU 자원 생성 책임 그룹
             decal 평가 본문에 알파 사전 곱 출력과 알파 0 이하 버림을 더한 fragment shader 를 붙인다.
             투명 출력, 깊이 판정·기록 해제, 양면 렌더링, tone mapping 해제와 premultiplied 전용 blending 계수를 설정하여 반환한다.
 
-    createTerrainCompositeRenderTarget(width: number, height: number, name: string) -> WebGLRenderTarget
+    createTerrainCompositeRenderTarget(width: number, height: number, name: string, mipmapped: boolean, maxAnisotropy: number) -> WebGLRenderTarget
         역할: 합성 결과를 담을 premultiplied RGBA8 offscreen target을 만든다.
 
         인터페이스:
@@ -845,7 +845,7 @@ GPU 자원 생성 책임 그룹
 
         처리 기준:
             가로와 세로는 1 미만이면 1 로 올린다.
-            sampling 은 선형 필터를 쓰고 mipmap 은 만들지 않으며, 경계 밖 좌표는 가장자리 값으로 고정한다.
+            전체 합성의 비어 있지 않은 target은 축소에 LinearMipmapLinearFilter, 확대에 LinearFilter를 쓰고 이방성은 GPU 한도와 8 중 작은 값으로 설정한다. hybrid와 빈 합성은 기존 LinearFilter를 유지한다. 경계 밖 좌표는 가장자리 값으로 고정한다.
             premultiplied 결과를 그대로 보존해야 하므로 색 공간 변환을 적용하지 않고 multisample 도 사용하지 않는다.
 
         의존:
@@ -853,10 +853,10 @@ GPU 자원 생성 책임 그룹
 
         동작:
             1 이상으로 보정한 크기로 RGBA8 target 을 만들고 깊이·스텐실 버퍼를 끈다.
-            texture 이름을 넣고 mipmap 생성과 색 공간 변환을 끄며 양방향 wrap 을 가장자리 고정으로 설정한다.
+            texture 이름을 넣고 초기 mipmap 생성과 색 공간 변환을 끄며 양방향 wrap을 가장자리 고정으로 설정한다. 마지막 batch의 마지막 조각을 그리기 직전에만 generateMipmaps를 켜서 Three.js의 render 종료 처리로 한 번 생성한다.
             multisample 수를 0 으로 두고 target 을 반환한다.
 
-    resolveTerrainCompositeVariant(job: TerrainCompositeRasterJob, variantIndex: number) -> TerrainCompositeVariant
+    resolveTerrainCompositeVariant(job: TerrainCompositeRasterJob, variantIndex: number, renderer: WebGLRenderer) -> TerrainCompositeVariant
         역할: 현재 host 구간의 합성 결과 항목과 RenderTarget을 필요할 때 한 번만 만든다.
 
         인터페이스:
@@ -1014,7 +1014,7 @@ program anchor 유지 책임 그룹
             입력 packed 상태에 tileScale uniform 이 없으면 결과 uniform 에서도 생략한다.
             precomposed 결과 define 은 입력 packed define 을 물려받지 않고 terrain decal 사용과 composite sampling 경로 두 개만 켠다. 반투명 decal 포함과 material 강제 갱신은 항상 알린다.
             hybrid 결과는 정적 합성 texture 와 동적 packed DataTexture 를 한 material 에서 함께 써야 하므로 입력 packed define 과 uniform 을 모두 물려받고 composite sampling 과 hybrid 경로 define 을 더 켠다. 이때 packed 입력의 소유권이 결과 상태로 옮겨졌음을 함께 알려 scheduler 가 같은 자원을 두 번 해제하지 않게 한다.
-            추정 바이트 크기는 target 해상도와 host 구간 수로 계산한 픽셀 바이트에 부가 비용을 더한 값이며, hybrid 는 물려받은 packed 입력의 추정 크기도 더한다.
+            추정 바이트 크기는 각 target의 기본 픽셀 바이트와 생성된 모든 밉 레벨의 픽셀 바이트에 부가 비용을 더한다. 가로·세로를 각각 내림 절반으로 줄여 1×1까지 계산하므로 가늘고 긴 target도 누락하지 않는다. hybrid는 물려받은 packed 입력의 추정 크기도 더한다.
             합성 target 만의 크기는 전체 크기와 별도로 기록한다. 다음 revision 이 이 target 을 그대로 물려받을 때 전체 크기를 더하면 그 안에 이미 들어 있는 packed 크기가 revision 마다 겹쳐 쌓이므로, 물려받을 쪽이 target 크기만 골라 쓸 수 있어야 한다.
             결과 상태의 tile 기준점은 packed 입력 상태의 기준점을 값 사본으로 옮긴다. 합성 범위는 packed 입력의 tile-local 좌표에서 나오므로 그 기준점이 결과의 좌표계이며, 예약 옵션의 기준점은 예약 시점의 tile 값이라 이 입력이 packing 된 기준점과 다를 수 있어 쓰지 않는다. 입력에 기준점이 없으면 결과에도 없다.
             소유권을 이전한 뒤에는 임시 material 을 해제하고 job 을 완료로 표시하여 합성기 등록에서 제거한다.

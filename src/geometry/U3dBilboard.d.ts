@@ -102,7 +102,7 @@ declare class U3dBilboard {
      *
      * @ignore
      */
-    static "__#8@#uuid": string;
+    static "__#9@#uuid": string;
     /**
      * UUID 카운터 <br>
      *
@@ -110,7 +110,7 @@ declare class U3dBilboard {
      *
      * @ignore
      */
-    static "__#8@#count": number;
+    static "__#9@#count": number;
     /**
      * 생성된 빌보드 목록 <br>
      *
@@ -138,7 +138,7 @@ declare class U3dBilboard {
      *
      * @ignore
      */
-    static "__#8@#deleteGroup"(group: UGroup): void;
+    static "__#9@#deleteGroup"(group: UGroup): void;
     /**
      * 기본 빌보드(`bilboard` 타입)를 만들어 반환합니다. <br>
      * 씬에 추가하지 않고 객체만 만들어 반환하므로, 반환값을 직접 씬/그룹에 추가해야 합니다. <br>

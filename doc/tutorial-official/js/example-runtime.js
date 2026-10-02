@@ -1,5 +1,5 @@
 import {parseExampleCodeTokens} from './example-source-token.js';
-import {BASE_LAYER_PRESETS, TERRAIN_LAYER_PRESET, TERRAIN_LOCALHOST_BASEURL} from './example-layerinfo.js';
+import {BASE_LAYER_PRESETS, TERRAIN_LAYER_PRESET, TERRAIN_LOCALHOST_BASEURL, MODEL_LAYER_PRESETS} from './example-layerinfo.js';
 
 /**
  * Manifest Source를 실제 편집 Source와 URL 정보가 있는 객체로 변환합니다.
@@ -628,13 +628,26 @@ function normalizeRuntimeLayerEntries(config) {
 }
 
 /**
- * Runtime Config에 선언된 공통 배경지도와 지형을 생성합니다.
+ * Runtime Config에 선언된 공통 배경지도, 지형, 모델을 생성합니다.
  * @param {Record<string, unknown>} app GeOnDT 앱
  * @param {Record<string, unknown>} config Runtime Config
  * @returns {Promise<Record<string, unknown>>} 생성된 레이어
  */
 export async function createRuntimeLayers(app, config) {
     config = config || {};
+    const modelEntries = config.modelLayers === undefined ? [] : config.modelLayers;
+    if (!Array.isArray(modelEntries)) throw new Error('runtime.modelLayers는 모델 preset 객체 배열이어야 합니다.');
+    const modelNames = new Set();
+    for (const entry of modelEntries) {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry) || !Object.hasOwn(MODEL_LAYER_PRESETS, entry.preset)) {
+            throw new Error(`지원하지 않는 Model Layer preset입니다: ${entry?.preset}`);
+        }
+        if (entry.visible !== undefined && typeof entry.visible !== 'boolean') {
+            throw new Error('runtime.modelLayers의 visible은 true 또는 false여야 합니다.');
+        }
+        if (modelNames.has(entry.preset)) throw new Error(`중복된 Model Layer preset입니다: ${entry.preset}`);
+        modelNames.add(entry.preset);
+    }
     const layers = {};
     const visibilityTasks = [];
     const baseLayers = normalizeRuntimeLayerEntries(config);
@@ -690,8 +703,55 @@ export async function createRuntimeLayers(app, config) {
             ));
         }
     }
+    for (const entry of modelEntries) {
+        const {layer} = await createRuntimeModelLayer(app, entry.preset);
+        layers[entry.preset] = layer;
+        visibilityTasks.push(observeInitialLayerVisibility(
+            app.showLayer(layer.getName(), entry.visible !== false),
+            layer.getName()
+        ));
+    }
     await Promise.all(visibilityTasks);
     return layers;
+}
+
+/**
+ * 서울 U3F 서브 레이어를 준비하고 그룹을 반환합니다. 일부 실패 시 준비된 모델은 유지합니다.
+ * 레이어는 then 메서드를 가지므로 Promise 결과에는 레이어 대신 래퍼 객체를 전달합니다.
+ * @param {Record<string, unknown>} app GeOnDT 앱
+ * @param {string} presetName 모델 프리셋 이름
+ * @returns {Promise<{layer: Record<string, unknown>}>} 모델 그룹
+ */
+async function createRuntimeModelLayer(app, presetName) {
+    const preset = MODEL_LAYER_PRESETS[presetName];
+    const existing = getRuntimeLayer(app, preset.name);
+    if (existing) return {layer: existing};
+    const group = app.createModelGroupLayer({
+        name: preset.name,
+        visible: false,
+        minlevel: preset.options.minlevel,
+        maxlevel: preset.options.maxlevel
+    });
+    if (!group) throw new Error(`${presetName} 모델 그룹 생성 실패`);
+    const results = await Promise.allSettled(preset.models.map(async basename => {
+        const layer = app.create3DFModelLayer({
+            ...preset.options,
+            name: `${preset.name}-${basename}`,
+            basename,
+            baseurl: `${preset.baseurl}${basename}/`
+        });
+        if (!layer) throw new Error(`${basename} U3F 서브 레이어 생성 실패`);
+        await new Promise((resolve, reject) => {
+            layer.then(() => { resolve(); }).catch(reject);
+        });
+        group.addLayer(layer);
+    }));
+    const failed = results.filter(result => result.status === 'rejected');
+    if (failed.length) {
+        console.warn(`[tutorial:runtime] ${presetName}: ${failed.length}/${results.length} 모델 로딩 실패`, failed);
+    }
+    // 외부 모델 서버 장애가 다른 예제 기능의 초기화를 중단하지 않게 합니다.
+    return {layer: group};
 }
 
 /**

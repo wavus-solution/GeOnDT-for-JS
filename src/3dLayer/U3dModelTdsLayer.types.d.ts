@@ -14,12 +14,18 @@ import type { ModelMesh } from "../types/global.types.js";
      * ~extends U3dModelBasicLayerCO <br>
      *
      * TDS 레이어의 배치와 사용자 그룹·메타데이터 옵션입니다. <br>
-     * baseurl이 정의된 경우 location 또는 position으로 위치를 전달하십시오. <br>
+     * baseUrl이 정의된 경우 location 또는 position으로 위치를 전달하십시오. <br>
+     * 정규화 목록에 등록된 옵션 키는 대소문자 구분 없이 처리하며 기존 baseurl·animationspeed 입력도 지원합니다. <br>
+     * 정본 키와 다른 표기를 함께 전달하면 다른 표기의 값이 우선하며, 다른 표기가 여러 개면 입력 열거 순서의 마지막 값을 사용합니다. <br>
      * 부모와 다른 location·scale 입력 형태는 자식 계약으로 구체화합니다.
      */
     type U3dModelTdsLayerCO_Content = {
         /**
-         * 자식 생성자가 읽는 기존 모델 주소 키
+         * 모델 데이터를 받아올 주소
+         */
+        baseUrl?: string;
+        /**
+         * baseUrl의 기존 소문자 호환 키
          */
         baseurl?: string;
         /**
@@ -44,6 +50,10 @@ import type { ModelMesh } from "../types/global.types.js";
         type?: string;
         /**
          * 저장할 애니메이션 속도
+         */
+        animationSpeed?: number;
+        /**
+         * animationSpeed의 기존 소문자 호환 키
          */
         animationspeed?: number;
         /**
@@ -84,7 +94,9 @@ import type { ModelMesh } from "../types/global.types.js";
      * ~extends U3dModelBasicLayerCO <br>
      *
      * TDS 레이어의 배치와 사용자 그룹·메타데이터 옵션입니다. <br>
-     * baseurl이 정의된 경우 location 또는 position으로 위치를 전달하십시오. <br>
+     * baseUrl이 정의된 경우 location 또는 position으로 위치를 전달하십시오. <br>
+     * 정규화 목록에 등록된 옵션 키는 대소문자 구분 없이 처리하며 기존 baseurl·animationspeed 입력도 지원합니다. <br>
+     * 정본 키와 다른 표기를 함께 전달하면 다른 표기의 값이 우선하며, 다른 표기가 여러 개면 입력 열거 순서의 마지막 값을 사용합니다. <br>
      * 부모와 다른 location·scale 입력 형태는 자식 계약으로 구체화합니다.
      */
     type U3dModelTdsLayerCO = Omit<Omit<Omit<U3dModelBasicLayerCO, "location" | "scale">, never> & U3dModelTdsLayerCO_Content, never>;
@@ -105,7 +117,7 @@ import type { ModelMesh } from "../types/global.types.js";
          */
         height?: number;
         /**
-         * 결과 그룹 이름의 공통 접미사
+         * 결과 그룹 이름의 공통 접미사, 기본 분류 함수 사용 시 필수이며 빈 문자열 허용
          */
         commonName?: string;
         /**
@@ -128,7 +140,9 @@ import type { ModelMesh } from "../types/global.types.js";
 
 /**
      * 레이어를 this로 호출하여 층 이름별 원본 목록을 반환하는 교체 지점입니다. <br>
-     * setFloorFromGroupName은 반환 객체의 키 순서대로 복제 그룹을 구성합니다.
+     * setFloorFromGroupName에서 정상 처리하려면 그룹 이름별 원본 배열을 담은 객체를 반환하십시오. <br>
+     * 빈 객체나 빈 원본 배열은 허용하며, 반환 객체의 키 순서대로 복제 그룹을 구성합니다. <br>
+     * undefined·null을 반환하면 setFloorFromGroupName에서 TypeError가 발생합니다.
      */
     type U3dModelTdsGroupFunction = (this: U3dModelTdsLayer) => Record<string, Array<ModelMesh>> | undefined;
 

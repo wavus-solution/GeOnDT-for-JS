@@ -16,7 +16,7 @@ import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/ty
  * @group helpers
  */
 declare class UBox3Helper extends LineSegments<BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> {
-    /** @type {WeakMap<import('three').BufferGeometry, number>} */ static "__#57@#geometryReferences": WeakMap<three.BufferGeometry, number>;
+    /** @type {WeakMap<import('three').BufferGeometry, number>} */ static "__#59@#geometryReferences": WeakMap<three.BufferGeometry, number>;
     /**
      * 색상 키별 공유 재질 저장소다.
      * 기존 공개 Map에는 외부에서 임의의 키·값을 넣을 수 있으므로 기존 any 계약을 유지한다.
@@ -77,7 +77,7 @@ declare class UBox3Helper extends LineSegments<BufferGeometry<three.NormalBuffer
      *
      * @ignore
      */
-    static "__#57@#releaseMaterial"(colorKey: number, material: three.Material | Array<three.Material>): void;
+    static "__#59@#releaseMaterial"(colorKey: number, material: three.Material | Array<three.Material>): void;
     /**
      * 표시할 box와 공유 재질을 연결한다. 색상 변환 등의 오류는 호출자에게 전달한다.
      *

@@ -271,6 +271,18 @@ declare class UTerrainStamp {
      */
     static getTextureAtlasMaxImages(): number;
     /**
+     * 표시 중인 도장이 사용하지 않는 이미지 주소를 공용 이미지 보관소에서 해제합니다.
+     *
+     * 해당 이미지를 쓰는 도장을 모두 정리한 뒤 호출하면 보관 공간을 다른 이미지가 재사용합니다.<br>
+     * 숨겨진 도장이 같은 주소로 다시 표시되면 이미지를 다시 읽으므로 주소를 유효하게 유지해야 합니다.<br>
+     * Blob URL 자체는 해제하지 않습니다. URL을 소유한 호출자가 모든 사용자를 정리한 뒤 revokeObjectURL을 호출하십시오.
+     *
+     * @param {string} url 보관소에서 해제할 이미지 주소입니다.
+     * @returns {boolean} 해제했으면 true, 표시 중인 도장이 사용하거나 등록되지 않은 주소이면 false입니다.
+     * @throws {TypeError} url이 문자열이 아니면 발생합니다.
+     */
+    static releaseTexture(url: string): boolean;
+    /**
      * 지형을 그리는 쪽이 참조할 영상 레이어별 도장 표시 상태를 반환합니다.
      *
      * 같은 레이어에 대해서는 항상 같은 객체를 돌려주므로 호출한 쪽에서 참조를 보관해 두고 사용할 수 있습니다.<br>
@@ -453,6 +465,29 @@ declare class UTerrainStamp {
      * @returns {Array<import('three').Vector3|UTerrainStampPointLike>|undefined} 월드 좌표(EPSG:3857) 점 목록의 복사본이며, 점 목록을 가진 도형이 아니면 undefined입니다.
      */
     getPoints(): Array<three.Vector3 | UTerrainStampPointLike> | undefined;
+    /**
+     * 도형의 현재 중심을 지정한 월드 좌표로 옮깁니다.
+     *
+     * 다각형과 선은 화면에 사용되는 점(앞에서부터 최대 16개)의 산술 평균을 현재 중심으로 삼고,
+     * 새 중심까지의 이동량을 모든 꼭짓점 또는 경유점에 더하므로 기존 모양과 크기가 유지됩니다.<br>
+     * 원은 반지름을 유지한 채 중심 좌표만 바뀝니다.<br>
+     * 별도로 지정한 mappingFrame은 움직이지 않으므로 함께 옮겨야 하면 update()로 새 mappingFrame을 지정하십시오.<br>
+     * 올바르지 않은 좌표이거나 아직 도형이 없는 도장이면 오류 메시지를 남기고 기존 도형을 그대로 유지합니다.
+     *
+     * @param {import('three').Vector3|UTerrainStampPointLike} center 옮겨 갈 도형 중심의 월드 좌표(EPSG:3857)입니다.
+     * @returns {UTerrainStamp|undefined} 이동했으면 이 도장 자신을, 입력 또는 현재 도형이 올바르지 않으면 undefined를 반환합니다.
+     */
+    setCenter(center: three.Vector3 | UTerrainStampPointLike): UTerrainStamp | undefined;
+    points: any;
+    /**
+     * 현재 도형의 중심을 복사해 반환합니다.
+     *
+     * 원은 설정된 중심을 반환하고, 다각형과 선은 화면에 사용되는 점(앞에서부터 최대 16개)의 산술 평균을 반환합니다.<br>
+     * 반환된 값을 바꿔도 이 도장에는 반영되지 않습니다.
+     *
+     * @returns {import('three').Vector3|undefined} 현재 도형 중심의 복사본이며, 유효한 도형이 없으면 undefined입니다.
+     */
+    getCenter(): three.Vector3 | undefined;
     /**
      * 원의 중심과 반지름을 바꿉니다.
      *
@@ -828,7 +863,6 @@ declare class UTerrainStamp {
      */
     dispose(): void;
     type: string;
-    points: any[];
     center: any;
     radius: number;
     #private;

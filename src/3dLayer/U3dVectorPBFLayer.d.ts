@@ -47,6 +47,12 @@ declare class U3dVectorPBFLayer extends U2dVectorShaderLayer {
      */
     constructor(opt: U3dVectorPBFLayerCO);
     /**
+     * 초기화할 때 타일셋 루트의 `metadata.json` 을 읽어 소스 레벨 범위와 영역을 보완할지 여부이며, 생성자의 `needJson` 옵션 값입니다.
+     *
+     * @type {boolean}
+     */
+    _needJson: boolean;
+    /**
      * 타일 서버가 실제로 타일을 제공하는 마지막 레벨이며, 생성자의 `realMaxLevel` 옵션 값입니다. <br>
      * 이 레벨보다 깊은 타일은 새로 요청하지 않고 이 레벨의 조상 타일 데이터를 잘라 씁니다.
      *

@@ -7,6 +7,7 @@ import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js"
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dModelLayer } from "./U3dModelLayer.js";
+import type { U3dModelLayerCO } from "./U3dModelLayer.types.js";
 import type { UCheckTime } from "../core/UCheckTime.js";
 import type { UGroup } from "../core/UGroup.js";
 import type { U3dGeometryUtil } from "../geometry/U3dGeometryUtil.js";
@@ -15,7 +16,7 @@ import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 import type { WorldPosition } from "../types/global.types.js";
 
 /**
- * ~extends import('@U3dModelLayer').U3dModelLayerCO <br>
+ * ~extends U3dModelLayerCO <br>
  * U3dMaskLayer 생성자 옵션
  */
 type U3dMaskLayerCO_Content = {
@@ -71,13 +72,13 @@ type U3dMaskLayerCO_Content = {
 };
 
 /**
- * ~extends import('@U3dModelLayer').U3dModelLayerCO <br>
+ * ~extends U3dModelLayerCO <br>
  * U3dMaskLayer 생성자 옵션
  */
-type U3dMaskLayerCO = Omit<Omit<any, never> & U3dMaskLayerCO_Content, never>;
+type U3dMaskLayerCO = Omit<Omit<U3dModelLayerCO, never> & U3dMaskLayerCO_Content, never>;
 
 /**
- * ~extends import('@U3dModelLayer').U3dModelLayerCO <br>
+ * ~extends U3dModelLayerCO <br>
  * U3dMaskLayer 생성자 옵션
  *
  * @memberOf U3dMaskLayer
@@ -123,7 +124,7 @@ type U3dMaskLayerCO = Omit<Omit<any, never> & U3dMaskLayerCO_Content, never>;
  * DEM 데이터 기본 URL.
  * 현재 코드에서는 주석 처리되어 있지만 옵션으로 전달될 수 있는 값
  *
- * @typedef {Omit<import('@U3dModelLayer').U3dModelLayerCO, never> & U3dMaskLayerCO_Content} U3dMaskLayerCO
+ * @typedef {Omit<U3dModelLayerCO, never> & U3dMaskLayerCO_Content} U3dMaskLayerCO
  */
 /**
  * 기반 모델 레이어의 타일에 마스크 값을 저장하고 박스로 표시하는 레이어입니다.

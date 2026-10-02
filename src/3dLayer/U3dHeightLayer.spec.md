@@ -115,14 +115,15 @@ U3dHeightLayer extends U3dLayer 클래스 정의
         인터페이스: 반환: _heightScale에 저장된 값
         동작: _heightScale을 반환한다.
 
-    setHeightScale(scale: number = 1.0) -> void
+    setHeightScale(scale: number | null | undefined = 1.0) -> void
         역할: 지형 높이 배율 설정과 현재 캐시 타일 메시의 Z축 배율을 변경한다.
 
         인터페이스:
-            scale: 지형 높이에 적용할 배율이며 생략하면 1.0을 사용한다.
+            scale: 지형 높이에 적용할 배율이며 생략하거나 undefined 또는 null이면 1.0을 사용한다.
 
         처리 기준:
-            _heightScale에는 scale과 0.1 중 큰 값을 저장한다.
+            scale이 문자열이면 현재 배율과 타일 메시를 변경하지 않고 TypeError를 발생시킨다.
+            _heightScale에는 기본값 처리한 scale과 0.1 중 큰 값을 저장한다.
             현재 타일 메시에는 _heightScale에 저장한 보정 배율을 적용한다.
             캐시 키, 타일 또는 메시를 찾지 못한 항목은 변경하지 않는다.
 

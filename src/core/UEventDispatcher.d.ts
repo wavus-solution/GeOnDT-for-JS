@@ -91,19 +91,38 @@ declare class UEventDispatcher {
      */
     addEventListener(type: string, listener: EventCallBack, once?: boolean | undefined, name?: string | undefined): string | null;
     /**
-     * @param {string} type 이벤트 타입
-     * @param {EventCallBack} listener 이벤트 함수
-     * @param {boolean | undefined} [once=false] 한번만 동작할지 여부. true면 1회 동작
-     * @param {string | undefined} [name] 이벤트 함수 식별 이름 (ID)
-     * @return {string | null} 등록된 이벤트 함수 식별 이름. 등록 실패 시 null 반환
+     * 지정한 종류의 이벤트가 발생할 때 호출할 이벤트 함수(listener)를 등록하고, 등록한 함수를 식별하는 이름을 반환합니다.<br>
+     * 이벤트가 발생하면 이벤트 함수는 이 객체를 this로 하여 호출되며, 이벤트를 발생시킨 쪽이 전달한 데이터를 인수로 받습니다.<br>
+     * 전달한 데이터가 없으면 이벤트 종류(type)와 이벤트를 발생시킨 객체(target)를 담은 객체를 인수로 받습니다.<br>
+     * 같은 종류의 이벤트에 이미 등록한 함수 객체를 다시 넘기면 중복 등록하지 않고 null을 반환합니다.<br>
+     * 반환한 이름을 off()에 넘기면 이 이벤트 함수만 해제할 수 있습니다.
+     *
+     * @param {string} type 이벤트 함수를 연결할 이벤트의 종류를 나타내는 이름
+     * @param {EventCallBack} listener 이벤트가 발생할 때마다 호출할 함수
+     * @param {boolean | undefined} [once=false] true이면 이벤트가 처음 발생할 때 한 번만 호출한 뒤 자동으로 해제하며, 기본값은 false
+     * @param {string | undefined} [name] 이벤트 함수를 식별할 이름이며, 생략하거나 빈 문자열이면 같은 함수를 이전에 등록하며 정한 이름, 함수 이름(function.name), 자동 생성한 UUID 순으로 사용
+     * @returns {string | null} 등록한 이벤트 함수의 식별 이름이며, type이나 listener가 비어 있거나 같은 종류의 이벤트에 같은 함수가 이미 등록되어 있으면 null
+     *
+     * @example
+     * const key = app.on('click', (e) => {
+     *     console.log(e);
+     * });
+     * app.off('click', key);
      */
     on(type: string, listener: EventCallBack, once?: boolean | undefined, name?: string | undefined): string | null;
     /**
-     * 1회만 동작하는 이벤트를 등록하는 메서드
-     * @param {string} type 이벤트 타입
-     * @param {EventCallBack} listener 이벤트 함수
-     * @param {string} [name] 이벤트 함수 식별 이름 (ID)
-     * @return {string|null} 등록된 이벤트 함수 식별 이름. 등록 실패 시 null 반환
+     * 지정한 종류의 이벤트가 처음 발생할 때 한 번만 호출할 이벤트 함수(listener)를 등록하고, 등록한 함수를 식별하는 이름을 반환합니다.<br>
+     * 이벤트 함수는 첫 이벤트에서 호출되기 직전에 자동으로 해제되며, 호출 방식과 받는 인수는 on()과 같습니다.
+     *
+     * @param {string} type 이벤트 함수를 연결할 이벤트의 종류를 나타내는 이름
+     * @param {EventCallBack} listener 이벤트가 처음 발생할 때 한 번 호출할 함수
+     * @param {string} [name] 이벤트 함수를 식별할 이름이며, 생략했을 때 이름을 정하는 방식은 on()과 같음
+     * @returns {string | null} 등록한 이벤트 함수의 식별 이름이며, type이나 listener가 비어 있거나 같은 종류의 이벤트에 같은 함수가 이미 등록되어 있으면 null
+     *
+     * @example
+     * app.once(U3dApp.EVENT.LOADED, () => {
+     *     console.log('지도 로딩 완료');
+     * });
      */
     once(type: string, listener: EventCallBack, name?: string): string | null;
     /**
@@ -128,15 +147,31 @@ declare class UEventDispatcher {
      */
     removeEventListener(type: string, listener?: EventCallBack | string): void;
     /**
-     * 이벤트 제거 메서드
-     * @param {string} [type] 이벤트 타입
-     * @param {function | string} [listener]  이벤트 함수 또는 ID
+     * on()이나 once()로 등록한 이벤트 함수(listener)를 해제하여, 이후 이벤트가 발생해도 호출되지 않게 합니다.<br>
+     * type과 listener를 모두 지정하면 그 종류의 이벤트에 등록한 해당 함수 하나만 해제합니다.<br>
+     * listener를 생략하면 그 종류의 이벤트에 등록한 이벤트 함수를 모두 해제하고, type을 생략하면 listener와 관계없이 모든 종류의 이벤트 함수를 해제합니다.<br>
+     * 이때 다른 코드가 등록한 이벤트 함수까지 함께 해제되므로, 특정 함수만 해제하려면 type과 listener를 모두 지정하십시오.
+     *
+     * @param {string} [type] 해제할 이벤트의 종류를 나타내는 이름이며, 생략하면 모든 종류의 이벤트 함수를 해제
+     * @param {function | string} [listener] 해제할 이벤트 함수 또는 on()·once()가 반환한 식별 이름이며, 생략하면 type에 등록한 이벤트 함수를 모두 해제
+     *
+     * @example
+     * const key = app.on('click', (e) => console.log(e));
+     * app.off('click', key); // key로 등록한 함수 하나만 해제
+     * app.off('click');      // click 이벤트에 등록한 함수를 모두 해제
      */
     off(type?: string, listener?: Function | string): void;
     /**
-     * 이벤트 명시적 해제 메서드
-     * @param {string} type 이벤트 타입
-     * @param {string} [key] 이벤트 함수 ID
+     * on()이나 once()가 반환한 식별 이름(key)으로 이벤트 함수(listener)를 찾아 해제하여, 이후 이벤트가 발생해도 호출되지 않게 합니다.<br>
+     * 지정한 종류의 이벤트에 그 이름을 가진 이벤트 함수가 없으면 아무것도 해제하지 않습니다.<br>
+     * key를 생략하면 그 종류의 이벤트에 등록한 이벤트 함수를 다른 코드가 등록한 것까지 모두 해제하므로, 특정 함수만 해제하려면 key를 지정하십시오.
+     *
+     * @param {string} type 해제할 이벤트 함수가 연결된 이벤트의 종류를 나타내는 이름
+     * @param {string} [key] 해제할 이벤트 함수의 식별 이름이며, 생략하면 type에 등록한 이벤트 함수를 모두 해제
+     *
+     * @example
+     * const key = app.on('click', (e) => console.log(e));
+     * app.unkey('click', key);
      */
     unkey(type: string, key?: string): void;
     removeEventListenerAll(): void;

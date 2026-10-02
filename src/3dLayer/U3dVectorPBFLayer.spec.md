@@ -252,20 +252,20 @@ U3dVectorPBFLayer extends U2dVectorShaderLayer 클래스 정의
             waiters 가 0 이고 요청이 아직 종료되지 않았으면 중단을 보낸다.
 
     #abortSourceRequest(request: U3dVectorPBFSourceRequest) -> void
-        역할: 워커에 abort 메시지를 보내 해당 URL 의 다운로드를 중단한다.
+        역할: 워커에 요청 식별자를 보내 해당 소비자만 취소한다. 같은 URL의 이미지·벡터 요청은 유지한다.
 
         처리 기준:
             이미 종료되었거나 중단을 보낸 요청에는 다시 보내지 않는다.
-            워커의 abort() 는 UTaskProcessor 메시지(type 'UPbfParserTask', subType 'abort', data 는 URL)로 동적 호출하며, 어느 워커가 다운로드 중인지 알 수 없어 모든 워커에 보낸다.
+            워커의 abort() 는 UTaskProcessor 메시지(type 'UPbfParserTask', subType 'abort', data 는 requestId)로 동적 호출하며, 어느 워커가 다운로드 중인지 알 수 없어 모든 워커에 보낸다.
             중단 결과는 워커가 실패 플래그 응답으로 알리므로 요청 promise 는 #startSourceRequest 의 변환 단계에서 reject 된다.
 
         의존:
             U3dImagePBFLayer.g_TaskProcessor — 두 PBF 레이어가 공유하는 워커 처리기(UTaskProcessor)로 모든 워커에 메시지 전송; 함수: {allExecTask()}
             UWorkerParameter — 워커 메시지 생성; 생성자: {new UWorkerParameter()}
-            UPbfParserTask(워커) — URL 다운로드 중단; 정적 함수: {abort()}
+            UPbfParserTask(워커) — 요청별 취소; 정적 함수: {abort()}
 
         동작:
-            aborted 를 기록하고 요청 URL 을 데이터로 하는 abort 메시지를 모든 워커에 보낸다.
+            aborted 를 기록하고 requestId 를 데이터로 하는 abort 메시지를 모든 워커에 보낸다.
 
     #startSourceRequest(source: {x: number, y: number, level: number, key: string}) -> U3dVectorPBFSourceRequest
         역할: 소스 타일의 워커 다운로드·디코드 요청을 시작하고 응답을 소스 피처 캐시에 반영한다.
@@ -288,7 +288,8 @@ U3dVectorPBFLayer extends U2dVectorShaderLayer 클래스 정의
 
         동작:
             소스 인덱스로 요청 URL 을 만든다.
-            waiters 0, settled·aborted false 인 요청 객체를 만들고 워커에 loadPbfFeatures 를 예약한다.
+            고유 requestId, waiters 0, settled·aborted false 인 요청 객체를 만들고 워커에 loadPbfFeatures 를 예약한다.
+            취소된 요청은 재사용하지 않는다. 늦은 완료는 새 요청의 등록을 지우거나 캐시를 채우지 않는다.
             응답이 404 가 아닌 실패 플래그면 오류를 만들어 던진다.
             404 실패면 빈 목록을, 그 외에는 3857 소스 피처로 변환한 목록을 결과로 삼는다.
             _disposed 가 아니면 결과의 좌표 개수를 세어 byteLength 와 함께 캐시에 넣고, 어느 경우에도 결과를 반환한다.
@@ -585,7 +586,9 @@ U3dVectorPBFFeaturePriority 함수 타입 정의
 
 U3dVectorPBFSourceRequest 타입 정의
     url: string
-        요청 URL 이며 워커 abort 의 키다.
+        실제 다운로드 URL이다.
+    requestId: string
+        워커 요청마다 생성하는 고유 취소 식별자이다.
     waiters: number
         이 요청을 기다리는 타일 수. 0 이 되면 워커 요청을 중단한다.
     settled: boolean

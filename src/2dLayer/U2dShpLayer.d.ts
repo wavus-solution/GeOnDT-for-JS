@@ -58,7 +58,11 @@ declare class U2dShpLayer extends U3dOpenLayer {
      * @ignore
      */
     _features: Array<U2dShpFeature>;
-    /** @type {[number, number, number, number] | undefined} @ignore */
+    /**
+     * @type {[number, number, number, number] | undefined}
+     *
+     * @ignore
+     */
     _extent: [number, number, number, number] | undefined;
     /**
      * 새 피처에 적용하는 현재 가변 표시 스타일입니다.
@@ -76,7 +80,10 @@ declare class U2dShpLayer extends U3dOpenLayer {
      * @ignore
      */
     _labelFunction: undefined | ((arg0: U2dShpFeature) => string);
-    /** @type {number} @ignore */
+    /** @type {number}
+     *
+     * @ignore
+     */
     _dxfLoadGeneration: number;
     /**
      * 이름, 표시 레벨, 좌표계와 스타일을 새 설정 객체에 담아 반환합니다. <br>

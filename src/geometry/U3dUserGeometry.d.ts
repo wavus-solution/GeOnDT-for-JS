@@ -229,8 +229,6 @@ declare class U3dUserGeometry extends U3dGeometry {
     setLineWidth(size: number): void;
     /** @type {import('three').Box3 | undefined} */
     _bbox: three.Box3 | undefined;
-    /** @type {number | undefined} */
-    _baseElevation: number | undefined;
     /**
      * 도형(과 외곽선)의 위치를 지정한 좌표로 이동시킵니다. <br>
      * `offset`에 정의된 축(x/y/z)만 적용되며, 외곽선 자식 객체도 함께 옮깁니다. <br>

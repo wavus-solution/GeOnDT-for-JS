@@ -5,6 +5,7 @@
     "dist",
     "doc",
     "markdown",
+    "starters",
     "README.md",
     "api-index.json",
     "package-manifest.json",

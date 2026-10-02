@@ -59,7 +59,9 @@ declare class UFileLoader extends three.FileLoader<any> {
     deleteCallBack(id: any): void;
     /**
      * 등록된 호출자 하나를 취소하고 더 이상 활성 호출자가 없으면 실제 fetch도 중단합니다.
-     * 동일 URL을 공유하는 다른 호출자가 남아 있으면 네트워크 요청은 유지합니다.
+     * 동일 URL을 공유하는 다른 호출자가 남아 있으면 네트워크 요청은 유지합니다. <br>
+     * 예를 들어 이미지 PBF와 벡터 PBF가 같은 URL을 내려받는 동안 이미지 소비자만 취소할 때 사용합니다.
+     * URL 전체를 중단하는 abort(url)과 달리, 남아 있는 벡터 소비자는 기존 요청의 결과를 계속 받을 수 있습니다.
      *
      * @param {string} id 취소할 callback 식별자입니다.
      * @returns {boolean} 취소할 callback이 존재했는지 여부입니다.
@@ -78,7 +80,9 @@ declare class UFileLoader extends three.FileLoader<any> {
     override abort(url?: string): this;
     /**
      * URL의 파일을 내려받아 `responseType`에 맞는 형식으로 `onLoad`에 전달합니다. <br>
-     * 같은 URL이 이미 진행 중이면 새 요청을 만들지 않고 콜백만 등록하며, three `Cache`에 있으면 즉시 그 데이터를 반환합니다.
+     * 같은 URL의 취소되지 않은 요청이 진행 중이면 콜백만 등록하며, three `Cache`에 있으면 즉시 그 데이터를 반환합니다. <br>
+     * 취소 직후 같은 URL을 다시 요청할 수 있으므로, 비동기 응답 처리는 URL의 현재 등록값이 아닌
+     * 각 네트워크 요청이 소유한 콜백 목록을 사용합니다. 이전 요청의 종료가 새 요청을 정리하지 않도록 보호합니다.
      *
      * @override
      *

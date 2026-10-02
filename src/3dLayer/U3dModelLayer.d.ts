@@ -7,7 +7,7 @@ import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js"
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dLayer } from "./U3dLayer.js";
-import type { U3dLayerCO } from "./U3dLayer.types.js";
+import type { U3dModelLayerCO } from "./U3dModelLayer.types.js";
 import type { UCache } from "../core/UCache.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
 import type { UGroup } from "../core/UGroup.js";
@@ -16,47 +16,6 @@ import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 import type { U3dQuadTileWork } from "../quadtree/U3dQuadTileWork.js";
 import type { U3dQuadTileWorkProcess } from "../quadtree/U3dQuadTileWorkProcess.js";
 import type { ModelMesh, WorldPositionVector3 } from "../types/global.types.js";
-
-/**
- * ~extends import('@union3d/3dLayer/U3dLayer').U3dLayerCO <br>
- * U3dModelLayer 생성자 옵션
- */
-type U3dModelLayerCO_Content = {
-    /**
-     * 모델 텍스처 사용 여부
-     */
-    usetexture?: boolean;
-    /**
-     * 모델 wireFrame 설정 여부
-     */
-    setWireframe?: boolean;
-    /**
-     * 모델 압축 여부 (압축 방식:gzip)
-     */
-    compressmodel?: boolean;
-    /**
-     * 모델 데이터 형식
-     */
-    ext?: string;
-    /**
-     * toon 이미지 데이터 URL <hidden>
-     */
-    toonImgUrl?: string;
-    /**
-     * 모델 발광(emissive) 색상 (기본값: r=0.006, g=0.006, b=0.006)
-     */
-    emissiveColor?: RGBColor;
-    /**
-     * 모델 편집 모드 사용 여부 <hidden>
-     */
-    useEditMode?: boolean;
-};
-
-/**
- * ~extends import('@union3d/3dLayer/U3dLayer').U3dLayerCO <br>
- * U3dModelLayer 생성자 옵션
- */
-type U3dModelLayerCO = Omit<Omit<U3dLayerCO, never> & U3dModelLayerCO_Content, never>;
 
 /**
  * 분할 편집 정보
@@ -254,24 +213,6 @@ type WorkProcessExt = {
 type WorkProcess = U3dQuadTileWorkProcess & WorkProcessExt;
 
 /**
- * ~extends import('@union3d/3dLayer/U3dLayer').U3dLayerCO <br>
- * U3dModelLayer 생성자 옵션
- *
- * @typedef {object} U3dModelLayerCO_Content
- * @property {boolean} [usetexture=true] 모델 텍스처 사용 여부
- * @property {boolean} [setWireframe=false] 모델 wireFrame 설정 여부
- * @property {boolean} [compressmodel=false] 모델 압축 여부 (압축 방식:gzip)
- * @property {string} [ext='.u3f'] 모델 데이터 형식
- * @property {string} [toonImgUrl] toon 이미지 데이터 URL <hidden>
- * @property {RGBColor} [emissiveColor] 모델 발광(emissive) 색상 (기본값: r=0.006, g=0.006, b=0.006)
- * @property {boolean} [useEditMode=true] 모델 편집 모드 사용 여부 <hidden>
- *
- * @memberof U3dModelLayer
- * @inner
- *
- * @typedef {Omit<U3dLayerCO, never> & U3dModelLayerCO_Content} U3dModelLayerCO
- */
-/**
  * 분할 편집 정보
  * @memberof U3dModelLayer
  * @inner
@@ -417,13 +358,12 @@ type WorkProcess = U3dQuadTileWorkProcess & WorkProcessExt;
  */
 declare class U3dModelLayer extends U3dLayer {
     /**
-     * @param {U3dModelLayerCO} [opt={}]
+     * 모델 레이어의 공통 표시·압축 설정과 모델 캐시·편집 상태를 초기화합니다.
+     * 기존 소문자 옵션도 지원하며, 기본값은 undefined일 때만 적용합니다.
+     *
+     * @param {U3dModelLayerCO} [opt={}] 부모 레이어 설정과 텍스처·압축·와이어프레임·발광색·편집 모드 옵션
      */
     constructor(opt?: U3dModelLayerCO);
-    /**
-     * U3dModelLayer 생성자
-     * @param {U3dModelLayerCO} [opt={}]
-     */
     /** @type {WorkProcess | undefined} */ _workProcess: WorkProcess | undefined;
     /** @type {WorkProcess | undefined} */ _workProcess2: WorkProcess | undefined;
     /** @type {WorkProcess | undefined} */ _workProcess3: WorkProcess | undefined;
@@ -819,4 +759,4 @@ declare class U3dModelLayer extends U3dLayer {
     #private;
 }
 
-export type { EditData, EditedEvent, FaceIndexInfo, MaterialColorInfo, RGBColor, SplitInfo, U3dModelLayer, U3dModelLayerCO, U3dModelLayerCO_Content, WorkProcess, WorkProcessExt };
+export type { EditData, EditedEvent, FaceIndexInfo, MaterialColorInfo, RGBColor, SplitInfo, U3dModelLayer, WorkProcess, WorkProcessExt };

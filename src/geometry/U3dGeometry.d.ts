@@ -96,7 +96,13 @@ declare class U3dGeometry extends UEventDispatcher {
      * @type {boolean}
      */
     dynamicDepthOffset: boolean;
-    /** @type {number} 마지막으로 적용한 지형 기준 높이 오프셋(미터) @ignore */
+    /**
+     * 마지막으로 적용한 지형 기준 높이 오프셋(미터)
+     *
+     * @type {number}
+     *
+     * @ignore
+     */
     _heightOffset: number;
     /**
      * 매 프레임 렌더 직전에 실행할 콜백 모음입니다. <br>
@@ -279,6 +285,7 @@ declare class U3dGeometry extends UEventDispatcher {
     /**
      * 외곽선(테두리 선) 색상을 설정합니다. <br>
      * 외곽선을 가진 도형에만 적용되며, 외곽선이 없는 도형에서 호출하면 색을 바꾸지 않고 콘솔에 기록을 남깁니다. <br>
+     * 올바르지 않은 색상 값은 TypeError 또는 RangeError를 발생시키며 기존 색상을 유지합니다. <br>
      *
      * @param {ColorLike} lineColor 외곽선 색상. 16진수 숫자(`0x000000`), CSS 색 문자열(`'#000000'`) 또는 `THREE.Color`를 넣습니다 <br>
      */
@@ -448,15 +455,15 @@ declare class U3dGeometry extends UEventDispatcher {
      * 깊이 테스트는 그대로 켜져 있으므로, 이 범위를 넘어서 앞에 있는 것은 여전히 이 도형을 가립니다. <br>
      *
      * 사용자는 미터 단위로 지정하며, 렌더 직전에 월드 단위로 변환됩니다. <br>
-     * `dynamicDepthOffset`이 켜져 있으면 동적 계산값을 적용하고, 계산할 수 없을 때만 사용자 지정값을 사용합니다. <br>
+     * `dynamicDepthOffset`이 켜져 있으면 지정한 고정값 대신 동적 계산값을 적용합니다. <br>
      *
-     * @param {number} depthOffset 카메라 쪽으로 당길 최소 거리 (미터). 0을 넣으면 보정하지 않는 것과 같고, 음수는 0으로 맞춥니다. <br>
-     *                             숫자로 바꿀 수 없는 값을 넣으면 `undefined`가 되어 `getDepthOffset`도 `undefined`를 돌려줍니다 <br>
+     * @param {number | null | undefined} depthOffset 카메라 쪽으로 당길 거리 (미터). 0을 넣으면 보정하지 않는 것과 같고, 음수는 0으로 맞춥니다. <br>
+     *                             null 또는 undefined를 넣으면 설정을 지웁니다. 숫자로 바꿀 수 없는 값도 `undefined`로 처리합니다 <br>
      *
      * @example
      * disc.setDepthOffset(10); // 10m
      */
-    setDepthOffset(depthOffset: number): void;
+    setDepthOffset(depthOffset: number | null | undefined): void;
     /**
      * 현재 깊이 보정값을 반환합니다. <br>
      *
@@ -495,6 +502,7 @@ declare class U3dGeometry extends UEventDispatcher {
     getDepthOffsetFunction(): Function | undefined;
     /**
      * 도형의 색상을 설정합니다. <br>
+     * 올바르지 않은 색상 값은 TypeError 또는 RangeError를 발생시키며 기존 색상을 유지합니다. <br>
      *
      * @param {import('three').ColorRepresentation} color 도형 색상. 16진수 숫자(`0xff0000`), CSS 색 문자열(`'#ff0000'`) 또는 `THREE.Color`를 넣습니다 <br>
      */
@@ -624,6 +632,7 @@ declare class U3dGeometry extends UEventDispatcher {
      * 위치(`position`)·회전(`rotation`)·크기(`scale`)도 함께 바꿀 수 있습니다. <br>
      * `rotation`은 사람이 읽고 고치기 쉽도록 도(degree) 단위로 받으며, 라디안을 받는 `setRotation`과 단위가 다릅니다. <br>
      * `position`은 좌표가 하나인 도형에만 적용하며, 좌표가 여러 개인 도형은 모양이 한 점으로 합쳐지지 않도록 적용하지 않고 콘솔에 기록만 남깁니다.
+     * 공통 숫자·boolean·좌표 항목이 잘못되면 변경 전에 TypeError 또는 RangeError를 발생시킵니다. <br>
      *
      * @param {U3dGeometryStyleParam} [param] 변경할 속성 객체. `color`·`opacity`·`brightness`·`contrast`·`shadow`·`lineColor`·`wireframe`·`depthOffset`·`dynamicDepthOffset`·`depthOffsetFunction`·`position`·`rotation`·`scale`을 읽으며, 넣지 않은 항목은 현재 값을 유지합니다
      *

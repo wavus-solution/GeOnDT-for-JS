@@ -89,30 +89,33 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
     _guideStrokeColor: number;
     _guideStrokeWidth: number;
     _maxReadyLevel: number;
-    /** @type {number} Feature draw 순서에 사용할 다음 단조 증가 값입니다. */
+    /**
+     *  Feature draw 순서에 사용할 다음 단조 증가 값입니다.
+     *
+     * @type {number}
+     */
     _drawSequenceCounter: number;
     _terrainDebugEnabled: boolean;
     _terrainDebugTileFilter: string | string[] | Set<string> | U3dShaderMeasureTerrainDebugFilter;
-    _isLowPerformance: any;
     _useSimpleMeasure: any;
     _simpleGeometryLengthThreshold: any;
     _simpleGeometryLineMaxPoints: any;
     _simpleGeometryCircleSegments: any;
     /**
-     * 측정 feature들의 렌더링 상태를 업데이트하고 필요한 render resources를 생성
+     * 측정 도형을 다시 그릴 수 있도록 그리기 자료를 만들어 둡니다. <br>
+     * 이름과 달리 텍스처만 만드는 것이 아니라, 지금 정해진 그리는 방식에 따라 각 도형을 지형 표면에 붙일 자료와 3D 객체(simple 모드 일때) 가운데 알맞은 쪽으로 보냅니다. <br>
+     * 그리기 뼈대가 정한 이름이라 이 레이어가 바꿀 수 없으며, 스타일이나 지점이 바뀔 때 레이어가 스스로 부르므로 직접 부를 일은 없습니다. <br>
+     * 넘긴 도형만 다시 만들고 나머지는 그대로 두므로, 바뀐 도형이 있을 경우 추려서 전달하는걸 권장드립니다.
      *
-     * 이 함수는 2가지 렌더 경로로 feature를 라우팅하는 핵심 진입점 <br>
-     * 1. simple 모드: #drawSimpleFeature() → 직접 Mesh 생성 <br>
-     * 2. basic 모드: tile 기반 ShaderMaterial 렌더링 <br>
-     * 현재 render mode 기준으로 feature 소유권을 전환하고 simple/basic terrain payload를 다시 배치합니다.
-     *
-     * @param {Array<import('@UMeasureFeature').UMeasureFeature>} [features] 갱신할 측정 feature 목록입니다.
-     * @param {number} [startLevel=this._minlevel] 갱신할 최소 타일 레벨입니다.
-     * @param {number} [endLevel=this._maxlevel] 갱신할 최대 타일 레벨입니다.
+     * @param {Array<import('@UMeasureFeature').UMeasureFeature>} [features] 다시 만들 측정 도형 목록이며, 넘기지 않으면 아무 도형도 다시 만들지 않습니다.
+     * @param {number} [startLevel=this._minlevel] 다시 만들 가장 낮은 타일 레벨입니다.
+     * @param {number} [endLevel=this._maxlevel] 다시 만들 가장 높은 타일 레벨입니다.
      */
     createUserTexture(features?: Array<UMeasureFeature>, startLevel?: number, endLevel?: number): any;
     /**
      * 측정 feature에 적용할 스타일을 설정합니다. <br>
+     * 넘긴 항목만 현재 스타일 위에 덮어쓰므로, 넣지 않은 항목은 지금 값을 그대로 유지합니다. <br>
+     * 생성 시점의 기본값으로 되돌리려면 `resetStyle()` 을 사용하십시오. <br>
      * feature 상태는 즉시 바꾸고 terrain payload는 같은 task의 변경과 병합해 갱신합니다. <br>
      * terrain 반영 완료를 기다려야 하면 `commitFeatureUpdate`를 호출합니다.
      *
@@ -155,10 +158,12 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
      */
     override update(drawArg?: UDrawArg, curTime?: number): void;
     /**
-     * feature의 측정 좌표를 반환합니다.
+     * feature가 가진 측정 좌표를 월드 좌표(EPSG:3857)로 반환합니다. <br>
+     * 복사본이 아니라 feature가 쓰는 목록 자체를 돌려주므로, 돌려받은 배열을 고치면 그 feature가 함께 바뀝니다. <br>
+     * feature를 넘기지 않았거나 좌표를 찾지 못하면 빈 배열입니다.
      *
      * @param {import('@UMeasureFeature').UMeasureFeature} feature 측정 feature입니다.
-     * @returns {Array<import('three').Vector3>} 측정 좌표 목록입니다.
+     * @returns {Array<import('three').Vector3>} 월드 좌표(EPSG:3857) 목록 자체입니다.
      */
     getFeatureMeasureVectors(feature: UMeasureFeature): Array<three.Vector3>;
     /**
@@ -166,16 +171,18 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
      * 면 유형이면 마지막 점에서 첫 점으로 돌아오는 구간까지 더해 둘레가 됩니다.
      *
      * @param {import('@UMeasureFeature').UMeasureFeature} feature 측정 feature입니다.
-     * @returns {number} 월드 좌표(EPSG:3857) 평면 기준 길이이며 실제 지표 거리(미터)가 아닙니다. 좌표가 2개보다 적으면 `0` 입니다. <br>
-     * 지표 거리가 필요하면 `getMeasureLength()` 를 사용하십시오.
+     * @returns {number} 월드 좌표(EPSG:3857) 평면 기준 길이이며 실제 지표 거리(미터)가 아닙니다. <br>
+     * 좌표가 2개보다 적으면 반환값은 `0` 입니다. <br>
+     * 지표 거리가 필요하면 `getMeasureLength()` 를 사용하여 확인바랍니다.
      */
     getFeatureLineLength(feature: UMeasureFeature): number;
     /**
      * feature 를 이루는 좌표를 다각형으로 보고 면적을 계산합니다.
      *
      * @param {import('@UMeasureFeature').UMeasureFeature} feature 측정 feature입니다.
-     * @returns {number} 월드 좌표(EPSG:3857) 평면 기준 면적이며 실제 지표 면적(제곱미터)이 아닙니다. 좌표가 3개보다 적으면 `0` 입니다. <br>
-     * 지표 면적이 필요하면 `getMeasureArea()` 를 사용하십시오.
+     * @returns {number} 월드 좌표(EPSG:3857) 평면 기준 면적이며 실제 지표 면적(제곱미터)이 아닙니다. <br>
+     * 좌표가 3개보다 적으면 반환값은 `0` 입니다. <br>
+     * 지표 면적이 필요하면 `getMeasureArea()` 를 사용하여 확인바랍니다.
      */
     getFeaturePolygonArea(feature: UMeasureFeature): number;
     /**
@@ -228,9 +235,11 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
      */
     addFeature(opt: U3dShaderMeasureLayerAddFeatureCO): boolean;
     /**
-     * 측정 지점을 수정 또는 갱신합니다.
+     * 현재 편집 중인 측정의 지점 목록을 통째로 바꿉니다. <br>
+     * 넘긴 목록을 복사해 보관하므로 호출한 뒤 원본 배열을 고쳐도 측정에는 영향을 주지 않습니다.
      *
-     * @param {Array<import('three').Vector3>} points 측정 지점 목록입니다.
+     * @param {Array<import('three').Vector3>} points 새로 넣을 위경도 좌표계(EPSG:4326) 목록이며, 각 항목의 x에 경도 y에 위도 z에 높이를 담습니다.<br>
+     * 배열이 아닌 값을 넘기면 지점이 모두 지워집니다
      * @param {boolean} [isUpdate=true] feature를 즉시 갱신할지 여부입니다.
      * @returns {(import('@UMeasureFeature').UMeasureFeature & {id: string | number}) | undefined} 갱신한 측정 feature입니다.
      */
@@ -240,7 +249,7 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
     /**
      * 측정 지점을 추가합니다.
      *
-     * @param {import('three').Vector3Like | GeoPosition} geo 추가할 지점입니다.
+     * @param {import('three').Vector3Like | GeoPosition} geo 추가할 위경도 좌표계(EPSG:4326) 지점이며, x에 경도 y에 위도 z에 높이를 담습니다.
      * @returns {(import('@UMeasureFeature').UMeasureFeature & {id: string | number}) | undefined} 갱신한 측정 feature입니다.
      */
     addMeasurePoint(geo: three.Vector3Like | GeoPosition): (UMeasureFeature & {
@@ -259,8 +268,9 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
      *
      * @override
      *
-     * @param {import('@U3dQuadTile').U3dQuadTile} tile 정리할 terrain tile입니다.
-     * @param {object} [opt] 정리 옵션입니다.
+     * @param {import('@U3dQuadTile').U3dQuadTile} tile 정리할 terrain tile입니다.<br>
+     * 넘기지 않으면 아무 작업도 하지 않습니다.
+     * @param {object} [opt] 부모와 시그니처를 맞추기 위해 받아 두는 값이며, 해당 레이어는 읽지 않습니다.
      */
     override disposeTile(tile: U3dQuadTile, opt?: object): void;
     /**
@@ -279,64 +289,101 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
      */
     getTerrainCompositionGroupKey(): string;
     /**
-     * 현재 편집 중인 측정 feature 의 좌표를 차례로 이어 누적 길이를 구합니다.
+     * 현재 편집 중인 측정 feature 의 좌표를 차례로 이어 누적 길이를 구합니다. <br>
+     * 면 유형이어도 마지막 점에서 첫 점으로 돌아오는 구간은 더하지 않으므로 둘레가 아니라 이어 온 길이입니다.
      *
-     * @returns {number} 지표 거리 기준 미터 길이입니다. 편집 중인 feature 가 없거나 점이 2개보다 적으면 `0` 입니다.
+     * @returns {number} 지표 거리 기준 미터 길이입니다. <br>
+     * 편집 중인 feature 가 없거나 점이 2개보다 적으면 반환값은 `0` 입니다.
      */
     getMeasureLength(): number;
     /**
-     * 측정 데이터 버전을 반환합니다.
+     * 측정 자료의 버전으로 설정해 둔 값을 반환합니다. <br>
+     * 설정해 둔 version 값을 반환합니다.
      *
-     * @returns {string} 측정 데이터 버전입니다.
+     * @deprecated 보관만 되고 있는 값입니다. 새 코드에서는 사용하지 않는 것을 권장드립니다.
+     *
+     * @returns {string} 설정해 둔 버전 문자열이며 기본값은 `'2.0'` 입니다.
      */
     getVersion(): string;
     /**
-     * 측정 데이터 버전을 설정합니다.
+     * 측정 자료의 버전을 설정합니다. <br>
+     * 값을 설정하여도 추가 작업이 없습니다.
      *
-     * @param {string} version 측정 데이터 버전입니다.
+     * @deprecated 보관만 되고 있는 값입니다. 새 코드에서는 사용하지 않는 것을 권장드립니다.
+     *
+     * @param {string} version 버전 문자열이며, 보관만 되고 쓰이지 않습니다.
      */
     setVersion(version: string): void;
     /**
-     * 저성능 렌더링 모드 사용 여부를 반환합니다.
+     * 측정 도형을 3D 객체로 직접 만들어 그리는 방식을 쓰도록 설정해 두었는지 반환합니다. <br>
+     * 실제로 지금 무엇으로 그리는지는 `getMeasureGeometryMode()` 가 알려주며, 두 값은 어긋날 수 있습니다.
      *
-     * @returns {boolean} 저성능 렌더링 모드 사용 여부입니다.
-     */
-    getIsLowPerformance(): boolean;
-    /**
-     * 저성능 렌더링 모드 사용 여부를 설정합니다.
-     *
-     * @param {boolean} value 저성능 렌더링 모드 사용 여부입니다.
-     */
-    setIsLowPerformance(value: boolean): void;
-    /**
-     * simple 측정 렌더링 사용 여부를 반환합니다.
-     *
-     * @returns {boolean} simple 측정 렌더링 사용 여부입니다.
+     * @returns {boolean} 3D 객체 방식을 쓰도록 설정해 두었으면 참입니다.
      */
     getUseSimpleMeasure(): boolean;
     /**
-     * simple 측정 렌더링 사용 여부를 설정합니다.
+     * 측정 도형을 3D 객체로 직접 만들어 그리는 방식을 쓸지 설정합니다. <br>
+     * 지금 그리는 방식이 지형 표면에 붙이는 `basic` 이거나 아직 정해지지 않았을 때만 방식까지 함께 바꿉니다. <br>
+     * 이미 `simple` 로 그리는 중이면 이 값만 바뀌고 그리는 방식은 그대로 남으므로, 방식을 확실히 되돌리려면 `setMeasureGeometryMode()` 를 사용하십시오. <br>
+     * 화면을 다시 그리지는 않습니다.
      *
-     * @param {boolean} value simple 측정 렌더링 사용 여부입니다.
+     * @param {boolean} value 참이면 3D 객체 방식을, 거짓이면 지형 표면 방식을 쓰도록 설정합니다.
      */
     setUseSimpleMeasure(value: boolean): void;
     /**
-     * 현재 측정 geometry 렌더링 방식을 반환합니다.
+     * 지금 측정 도형을 무엇으로 그리고 있는지 반환합니다. <br>
+     * 예전 이름인 `auto` 나 값이 정해지지 않은 상태는 모두 `basic` 으로 바꿔 돌려주므로, 실제로 돌아오는 값은 두 가지뿐입니다.
      *
-     * @returns {U3dShaderMeasureGeometryMode} 현재 렌더링 방식입니다.
+     * @returns {U3dShaderMeasureGeometryMode} 지형 표면에 붙여 그리면 `'basic'`, 3D 객체로 직접 그리면 `'simple'` 입니다.
      */
     getMeasureGeometryMode(): U3dShaderMeasureGeometryMode;
-    /** @returns {number} simple geometry 최대 길이입니다. */
+    /**
+     * 3D 객체 방식 geometry 의 길이 기준으로 설정해 둔 값을 반환합니다. <br>
+     * 라이브러리 어디에서도 이 값을 읽지 않으므로, 설정해 둔 값을 그대로 돌려주는 것 이상의 뜻은 없습니다.
+     *
+     * @deprecated 보관만 되고 쓰이지 않는 값이므로 새 코드에서는 사용하지 마십시오.
+     *
+     * @returns {number} 설정해 둔 길이 기준이며 기본값은 `5000` 입니다.
+     */
     getSimpleGeometryLengthThreshold(): number;
-    /** @param {number} value simple geometry 최대 길이입니다. */
+    /**
+     * 3D 객체 방식 geometry 의 길이 기준을 설정합니다. <br>
+     * 예전 방식과의 호환을 위해 이름만 남겨 둔 설정이며, 값을 보관만 할 뿐 라이브러리 어디에서도 읽지 않습니다. <br>
+     * 이름과 달리 길이 제한이 걸리지 않으므로, 선을 이루는 점 개수를 줄이려면 `setSimpleGeometryLineMaxPoints()` 를 사용하십시오.
+     *
+     * @deprecated 보관만 되고 쓰이지 않는 값이므로 `setSimpleGeometryLineMaxPoints()` 를 사용하십시오.
+     *
+     * @param {number} value 길이 기준이며, 보관만 되고 그리기에는 쓰이지 않습니다.
+     */
     setSimpleGeometryLengthThreshold(value: number): void;
-    /** @returns {number} simple 선 geometry의 최대 점 개수입니다. */
+    /**
+     * 3D 객체 방식으로 선을 그릴 때 쓸 수 있는 점 개수의 상한을 반환합니다.
+     *
+     * @returns {number} 선 하나에 쓸 점 개수의 상한이며 기본값은 `512` 입니다.
+     */
     getSimpleGeometryLineMaxPoints(): number;
-    /** @param {number} value simple 선 geometry의 최대 점 개수입니다. */
+    /**
+     * 3D 객체 방식으로 선을 그릴 때 쓸 수 있는 점 개수의 상한을 설정합니다. <br>
+     * 측정 좌표가 이보다 많으면 모양을 유지하는 선에서 점을 골라내 이 개수 안으로 줄여 그립니다. <br>
+     * 다음에 선을 다시 만들 때부터 적용되며 이미 그려진 선을 바꾸지는 않습니다. <br>
+     * 화면에 그리는 선에만 적용되므로 길이나 면적 계산 결과는 이 값에 영향을 받지 않습니다.
+     *
+     * @param {number} value 선 하나에 쓸 점 개수의 상한이며, `0` 이나 음수를 넣으면 기본값 `512` 가 대신 쓰입니다.
+     */
     setSimpleGeometryLineMaxPoints(value: number): void;
-    /** @returns {number} simple 원 geometry의 분할 수입니다. */
+    /**
+     * 3D 객체 방식으로 원을 그릴 때 원둘레를 몇 조각으로 나눌지 반환합니다.
+     *
+     * @returns {number} 원 하나를 이루는 조각 수이며 기본값은 `64` 입니다.
+     */
     getSimpleGeometryCircleSegments(): number;
-    /** @param {number} value simple 원 geometry의 분할 수입니다. */
+    /**
+     * 3D 객체 방식으로 원을 그릴 때 원둘레를 몇 조각으로 나눌지 설정합니다. <br>
+     * 값이 클수록 원이 매끄러워지지만 그리는 양도 함께 늘어납니다. <br>
+     * 다음에 원을 다시 만들 때부터 적용되며 이미 그려진 원을 바꾸지는 않습니다.
+     *
+     * @param {number} value 원 하나를 이루는 조각 수이며, `0` 이나 음수를 넣으면 기본값 `64` 가 대신 쓰입니다.
+     */
     setSimpleGeometryCircleSegments(value: number): void;
     /**
      * scene에 등록된 타일 객체를 반환합니다.
@@ -367,10 +414,12 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
      */
     isTileRenderableReady(tile: U3dQuadTile): boolean;
     /**
-     * Measure source가 현재 terrain tile의 화면 Coverage를 실제로 제공하는지 반환합니다.
+     * 이 tile이 측정 내용을 지금 화면에 내보이고 있는지 판정합니다. <br>
+     * 측정이 걸리지 않은 tile과 레이어가 숨겨진 경우에도 `true` 를 돌려주므로, 돌아온 `true` 만으로 "측정이 그려져 있다"고 볼 수는 없습니다. <br>
+     * 판정만 하고 아무 상태도 바꾸지 않습니다.
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 확인할 terrain tile입니다.
-     * @returns {boolean} Measure 비참여 타일이거나 tile·mesh·scene 추적이 표시 상태이고 해당 source feature의 활성 presentation과 최신 revision 적용이 모두 확인되면 `true`입니다.
+     * @returns {boolean} 측정이 걸리지 않은 tile이거나, tile과 mesh가 화면에 올라가 있고 그 tile이 실을 측정 자료가 최신으로 반영되었으면 `true` 입니다.
      */
     isTilePresentationVisible(tile: U3dQuadTile): boolean;
     /**
@@ -395,14 +444,16 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
      */
     isTileRetainedPresentationSafe(tile: U3dQuadTile): boolean;
     /**
-     * Measure 자식 Coverage가 모두 준비될 때까지 현재 부모 tile의 scene 제거를 보류합니다.
+     * 현재 부모 tile을 화면에서 내려도 되는지 판정합니다. <br>
+     * 네 자식 tile이 모두 측정 표시를 갖추기 전에 부모를 내리면 측정이 잠깐 사라지므로, 아직이면 남겨 두라고 알려줍니다. <br>
+     * 판정만 하고 아무 상태도 바꾸지 않으므로, 실제로 남길지는 호출한 쪽이 정합니다.
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 제거하려는 부모 terrain tile입니다.
      * @returns {boolean} 현재 부모 Measure Coverage를 유지해야 하면 `true`입니다.
      */
     isTileSceneRemovalDeferred(tile: U3dQuadTile): boolean;
     /**
-     * measure feature가 실제 참여하는 tile만 source sync 대상으로 등록합니다.
+     * 화면에 새로 올라온 tile 가운데 측정 도형이 실제로 걸치는 것만 자료 동기화 대상으로 등록합니다.
      *
      * @override
      *
@@ -423,72 +474,92 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
     override removeTileFromScene(tile: U3dQuadTile): boolean;
     /**
      * 현재 편집 중인 측정 feature를 레이어에서 지우고 편집 좌표도 함께 비웁니다. <br>
+     * 편집 중이던 feature 는 getFeatures() 목록에서도 함께 빠지며, 이미 확정한 다른 feature 는 그대로 남습니다. <br>
      * 편집 중인 feature 가 없으면 아무 일도 하지 않습니다.
      */
     clearDrawFeature(): void;
     /**
-     * 현재 편집 중인 측정 feature를 반환합니다.
+     * 현재 편집 중인 측정 feature를 반환합니다. <br>
+     * 복사본이 아니라 레이어가 편집에 쓰는 객체 자체이므로, 돌려받은 feature를 고치면 편집 중인 측정이 함께 바뀝니다.
      *
      * @returns {import('@UMeasureFeature').UMeasureFeature | undefined} 현재 편집 중인 측정 feature입니다.
      */
     getMeasureFeature(): UMeasureFeature | undefined;
     /**
-     * 현재 편집 중인 측정 feature의 3D 월드 좌표(EPSG:3857)를 반환합니다.
+     * 현재 편집 중인 측정 feature의 3D 월드 좌표(EPSG:3857)를 반환합니다. <br>
+     * 복사본이 아니라 레이어가 쓰는 목록 자체를 돌려주므로, 돌려받은 배열을 고치면 편집 중인 측정이 함께 바뀝니다. <br>
+     * 편집 중인 feature가 없으면 빈 배열입니다.
      *
-     * @returns {Array<import('three').Vector3>} 3D 월드 좌표(EPSG:3857) 목록입니다.
+     * @returns {Array<import('three').Vector3>} 편집 중인 측정의 월드 좌표(EPSG:3857) 목록 자체입니다.
      */
     getMeasureVectors(): Array<three.Vector3>;
     /**
      * 이전 버전과의 호환을 위해 이름만 남겨 둔 측정 영역 조회 메서드입니다. <br>
      * 본문이 모두 주석 처리되어 있어 어떤 경우에도 `undefined` 만 돌아옵니다. <br>
      * 측정 영역이 필요하면 `getMeasureExtents()` 를 사용하십시오.
+     *
+     * @deprecated 언제나 `undefined` 만 돌려주므로 `getMeasureExtents()` 를 사용하십시오.
      */
     getMeasureExtent(): void;
     /**
-     * 모든 측정 feature의 영역을 반환합니다.
+     * 모든 측정 feature의 영역을 반환합니다. <br>
+     * 아직 확정하지 않고 편집 중인 feature도 함께 포함합니다. <br>
+     * 영역 값은 이 레이어가 계산하지 않고 feature 를 만들 때 받아 둔 값을 그대로 돌려주므로, 좌표계는 그 값을 넣은 쪽이 정합니다.
      *
-     * @returns {Array<UFeatureIDExtent> | undefined} 측정 feature 영역 목록입니다.
+     * @returns {Array<UFeatureIDExtent> | undefined} 측정 feature 별 영역 목록이며, 영역을 가진 feature 가 하나도 없으면 빈 배열이 아니라 `undefined` 입니다.
      */
     getMeasureExtents(): Array<UFeatureIDExtent> | undefined;
     /**
-     * 현재 편집 중인 측정 feature의 마지막 지점을 지정한 지리 좌표로 변경합니다.
+     * 현재 편집 중인 측정 feature의 마지막 지점을 지정한 위경도 좌표로 옮깁니다. <br>
+     * 월드 좌표(EPSG:3857)로 옮기려면 `updateLastPosition()` 을 사용하십시오.
      *
-     * @param {GeoPosition} geo 변경할 지리 좌표입니다.
+     * @param {GeoPosition} geo 옮길 위경도 좌표계(EPSG:4326) 지점이며, x에 경도 y에 위도 z에 높이를 담습니다.
      * @returns {import('@UMeasureFeature').UMeasureFeature | undefined} 갱신한 측정 feature입니다.
      */
     updateLastPoint(geo: GeoPosition): UMeasureFeature | undefined;
     /**
      * 면적 측정 결과 문구를 표시할 지리 좌표를 반환합니다.
      *
-     * @returns {import('three').Vector3 | undefined} 결과 문구를 표시할 지리 좌표입니다.
+     * @returns {import('three').Vector3 | undefined} 결과 문구를 표시할 위경도 좌표계(EPSG:4326) 값이며, x에 경도 y에 위도 z에 높이가 담깁니다. <br>
+     * 편집 중인 feature 가 없거나 면적 표시 대상이 아닌 유형이면 `undefined` 입니다.
      */
     getTextPositionToMeasureArea(): three.Vector3 | undefined;
     /**
      * 현재 편집 중인 측정 feature의 면적을 반환합니다.
      *
-     * @returns {number | undefined} 제곱미터 단위 면적입니다.
+     * @returns {number | undefined} 지구를 구로 보고 계산한 제곱미터 단위 면적입니다. <br>
+     * 편집 중인 측정이 없거나 측정 유형이 선(`LineString`)이면 `undefined` 입니다.
      */
     getMeasureArea(): number | undefined;
     /**
      * 지리 좌표 배열의 면적을 계산합니다.
      *
-     * @param {Array<import('three').Vector3Like>} positions 면적을 계산할 지리 좌표 목록입니다.
-     * @returns {number} 제곱미터 단위 면적입니다.
+     * @param {Array<import('three').Vector3Like>} positions 면적을 계산할 위경도 좌표계(EPSG:4326) 목록이며, 각 항목의 x에 경도 y에 위도 z에 높이를 담습니다.
+     * @returns {number} 지구를 구로 보고 계산한 제곱미터 단위 면적이며, 좌표가 3개보다 적으면 반환값이 `0` 입니다.
      */
     getMeasureAreaByPositions(positions: Array<three.Vector3Like>): number;
     /**
      * 새 측정 feature의 geometry 유형을 설정합니다.
      *
-     * @param {string} type 측정 geometry 유형입니다.
+     * @param {string} type 새로 만들 측정 도형의 유형이며 `LineString`·`Polygon`·`PointBuffer`·`Point` 처럼 UDEF.MEASURE_TYPE 이 정한 문자열을 넘깁니다. <br>
+     * 값을 검사하지 않고 그대로 보관하므로 정해진 문자열이 아니면 이후 도형 생성이 어떤 유형에도 걸리지 않습니다.
      */
     setMeasureType(type: string): void;
     /**
-     * 현재 측정 feature의 편집 상태를 확정하고 반환합니다.
+     * 현재 편집 중인 측정을 확정하고 그 feature를 반환합니다. <br>
+     * 확정하면서 편집 중인 feature와 편집 좌표를 모두 비우므로 곧바로 새 측정을 시작할 수 있습니다. <br>
+     * 확정한 feature는 편집을 시작할 때 이미 `getFeatures()` 목록에 들어가 있으므로 따로 추가하지 않아도 레이어에 남습니다.
      *
-     * @returns {import('@UMeasureFeature').UMeasureFeature | undefined} 확정한 측정 feature입니다.
+     * @returns {import('@UMeasureFeature').UMeasureFeature | undefined} 확정한 측정 feature이며, 편집 중인 측정이 없었으면 `undefined` 입니다.
      */
     commitFeature(): UMeasureFeature | undefined;
-    /** @returns {Array<import('@UMeasureFeature').UMeasureFeature>} 측정 레이어의 feature 목록입니다. */
+    /**
+     * 이 레이어가 보관 중인 측정 feature 전체를 반환합니다. <br>
+     * 편집 중인 측정도 첫 지점을 찍는 순간 이 목록에 들어가므로, 아직 확정하지 않은 feature까지 함께 들어 있습니다. <br>
+     * 복사본이 아니라 레이어가 쓰는 목록 자체를 돌려주므로, 돌려받은 배열에 직접 넣거나 지우면 레이어 상태가 함께 바뀝니다.
+     *
+     * @returns {Array<import('@UMeasureFeature').UMeasureFeature>} 레이어가 보관 중인 측정 feature 목록 자체입니다.
+     */
     getFeatures(): Array<UMeasureFeature>;
     /**
      * 측정 feature 를 레이어의 feature 목록과 좌표·원본 feature 표에서만 지웁니다. <br>
@@ -509,30 +580,36 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
      * 이전 버전과의 호환을 위해 이름만 남겨 둔 전체 영역 조회 메서드입니다. <br>
      * 본문이 모두 주석 처리되어 있어 어떤 경우에도 `undefined` 만 돌아옵니다. <br>
      * 측정 영역이 필요하면 `getMeasureExtents()` 를 사용하십시오.
+     *
+     * @deprecated 언제나 `undefined` 만 돌려주므로 `getMeasureExtents()` 를 사용하십시오.
      */
     getExtent(): void;
     /**
      * 현재 편집 중인 측정 feature 의 geometry 를 구면으로 보고 면적을 계산합니다. <br>
      * `getMeasureArea()` 와 대상은 같지만 계산 방식이 다르므로 값이 완전히 같지는 않습니다.
      *
-     * @returns {number | undefined} 제곱미터 단위 구면 면적입니다. 편집 중인 feature 가 없으면 `undefined` 입니다.
+     * @returns {number | undefined} 제곱미터 단위 구면 면적입니다. <br>
+     * 편집 중인 feature 가 없으면 `undefined` 입니다.
      */
     getSelectedArea(): number | undefined;
     /**
      * 측정 feature 에 부여된 ID 로 feature 를 찾습니다. <br>
      * feature 가 스스로 갖는 내부 고유값으로 찾으려면 `getFeatureByUid()` 를 사용하십시오.
      *
-     * @param {unknown} id 찾을 feature 의 ID 입니다. 값이 없으면 `undefined` 를 돌려줍니다.
+     * @param {unknown} id 찾을 feature 의 ID 입니다. <br>
+     * 값이 없으면 `undefined` 를 돌려줍니다.
      * @returns {import('@UMeasureFeature').UMeasureFeature | undefined} 조회한 측정 feature입니다.
      */
     getFeatureById(id: unknown): UMeasureFeature | undefined;
     /**
-     * UID에 대응하는 측정 좌표를 교체합니다.
+     * UID로 찾은 측정 feature의 좌표를 통째로 바꿉니다. <br>
+     * 해당 UID의 feature나 좌표 기록을 찾지 못하면 아무것도 하지 않습니다. <br>
+     * 좌표만 바꾸고 화면을 다시 그리지는 않으므로, 결과를 보려면 갱신을 따로 요청해야 합니다.
      *
-     * @param {string} uid feature UID입니다.
-     * @param {Array<import('three').Vector3>} vectors 교체할 측정 좌표 목록입니다.
+     * @param {string | number} uid 좌표를 바꿀 측정 feature가 스스로 갖는 내부 고유값입니다.
+     * @param {Array<import('three').Vector3>} vectors 새로 넣을 월드 좌표(EPSG:3857) 목록입니다.
      */
-    setFeaturePoints(uid: string, vectors: Array<three.Vector3>): void;
+    setFeaturePoints(uid: string | number, vectors: Array<three.Vector3>): void;
     /**
      * 측정 feature에 원본 OpenLayers feature를 연결합니다.
      *

@@ -188,27 +188,20 @@ function imagePbfStyleFunction(feature, resolution) {
     }
 
     if (layerName === 'gis_osm_adminareas_a') {
-        //+ 이미지 PBF 레이어는 Polygon 을 fill 로만 그립니다. 워커(UPbfParserTask.loadPbf)가
-        //+ 면에는 context.fill() 만 부르고 stroke 를 호출하지 않아, 스타일에 선을 넣어도 무시됩니다.
-        //+ 그래서 이 레이어로는 경계"선"을 낼 수 없고, 구역을 면으로 구분해야 합니다.
-        //+
-        //+ 인접한 구를 서로 다른 색으로 칠하면 맞닿은 자리가 색 경계로 읽혀 구획이 드러납니다.
-        //+ 알파를 낮게 두어 배경지도가 비치게 하고, 단계가 겹쳐 알파가 누적되지 않도록
-        //+ 한 단계(구)만 칠합니다. 진짜 경계선이 필요하면 벡터 PBF 레이어를 쓰십시오.
-        if (fclass !== 'admin_level6') return [];
-
-        //+ 워커에서 문자열로 복원되는 함수라 바깥 변수를 쓸 수 없어 표를 여기에 적습니다.
-        const ADMIN_FILLS = [
-            'rgba(0, 208, 176, 0.22)', 'rgba(255, 176, 59, 0.22)',
-            'rgba(120, 160, 255, 0.22)', 'rgba(232, 120, 190, 0.22)',
-            'rgba(150, 214, 96, 0.22)', 'rgba(255, 122, 106, 0.22)'
-        ];
-        //+ 같은 구는 어느 타일에서도 같은 색이어야 타일 경계에서 색이 튀지 않으므로
-        //+ 타일과 무관한 값(osm_id, 없으면 이름)으로 색을 정합니다.
-        const seed = String(feature.get('osm_id') || feature.get('name') || '');
-        let hash = 0;
-        for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) % 100000;
-        return fillWith(ADMIN_FILLS[hash % ADMIN_FILLS.length]);
+        //+ 시도·구·동이 서로 겹쳐 들어 있어 면을 칠하면 하위 단계 채움이 상위 경계를 덮으므로,
+        //+ 채움 없이 선만 있는 스타일을 돌려줍니다. 워커는 면에 stroke 가 있으면 외곽선으로 그립니다.
+        //+ [색, 화면 폭(px), 표시 최대 해상도(m/px)] 이며 벡터 레이어의 ADMIN_STYLE 과 굵기·줌 필터가 같고 색만 다릅니다.
+        //+ 경계선은 실제 폭이 없으므로 미터가 아니라 모든 레벨에서 같은 픽셀 굵기로 그립니다.
+        const ADMIN_STYLE = {
+            national: ['#b3246b', 5, Infinity],
+            admin_level4: ['#c43d7e', 4, Infinity],
+            admin_level6: ['#d45a92', 3, 38.3],
+            admin_level7: ['#e07aa8', 2.4, 19.2],
+            admin_level8: ['#eb9bbf', 2, 9.6]
+        };
+        const admin = ADMIN_STYLE[fclass];
+        if (!admin || resolution > admin[2]) return [];
+        return [{stroke: {getColor: function () { return admin[0]; }, getWidth: function () { return admin[1]; }}}];
     }
 
     return [];
@@ -387,6 +380,7 @@ function createVectorPbfLayer(name, source) {
         minlevel: MIN_LEVEL,
         maxlevel: MAX_LEVEL,
         realMaxlevel: REAL_MAX_LEVEL,
+        needJson: true, // 초기화할 때 타일셋 루트의 `metadata.json` 을 읽어 소스 레벨 범위와 영역을 보완할지 여부이며, 생성자의 `needJson` 옵션 값입니다.
         //+ 이 데이터에는 점 피처가 없으므로 점 처리를 끕니다.
         drawPoints: false,
         //+ 타일마다 소스를 조회할 때 붙이는 여유(m)입니다. 이걸 지정하지 않으면 레이어가

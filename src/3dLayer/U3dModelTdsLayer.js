@@ -9,6 +9,7 @@ import { U3dSelect } from '@union3d/select/U3dSelect';
 import { deferred } from "@util/deferred";
 import { UClock } from "@union3d/core/UClock";
 import { INTERNAL } from '@union3d/3dLayer/U3dModelTdsLayer.internal';
+import { normalizeOptionKeys } from '@union3d/util/normalizeOptionKeys';
 
 /**
  * ~extends import('@union3d/3dLayer/U3dModelBasicLayer').U3dModelBasicLayer <br>
@@ -21,19 +22,36 @@ import { INTERNAL } from '@union3d/3dLayer/U3dModelTdsLayer.internal';
  */
 class U3dModelTdsLayer extends U3dModelBasicLayer {
     /**
+     * 부모 옵션과 TDS 레이어 옵션의 대소문자 호환에 사용할 정본 키입니다.
+     *
+     * @override
+     *
+     * @type {Array<string>}
+     *
+     * @ignore
+     */
+    static OPT_KEYS = [
+        ...U3dModelBasicLayer.OPT_KEYS, 'position', 'location', 'scale', 'rotation',
+        'animationSpeed', 'positionOffsetName', 'jsonFileName', 'userGroupDataName',
+        'setAveragePosition', 'setUserGroupFunction', 'userGroupParams'
+    ];
+
+    /**
      * U3dModelTdsLayer 클래스 생성자입니다. <br>
      * 모델 배치와 사용자 그룹·메타데이터 옵션을 보관합니다. <br>
-     * baseurl이 없으면 자식 초기화를 중단하며 주소가 있으면 location 또는 position이 필요합니다.
+     * baseUrl이 없으면 자식 초기화를 중단하며 주소가 있으면 location 또는 position이 필요합니다.
      *
      * @param {Partial<U3dModelTdsLayerCO>} [opt={}] 모델 주소·배치·층 분류 설정
      */
     constructor(opt = {}) {
+        // 부모와 자식이 같은 정규화 옵션을 읽어 기존 소문자 입력도 일관되게 적용합니다.
+        opt = normalizeOptionKeys(opt, new.target);
         super(opt);
         const self = this;
         self._classtype = 'U3dModelTdsLayer';
         self._className = 'U3dModelTdsLayer';
         self._name = defaultValue(opt.name, undefined);
-        self._baseUrl = defaultValue(opt.baseurl, undefined);
+        self._baseUrl = defaultValue(opt.baseUrl, undefined);
         if (!defined(self._baseUrl))
             return;
         self._position = defaultValue(opt.position, new THREE.Vector3(0, 0, 0));
@@ -45,7 +63,7 @@ class U3dModelTdsLayer extends U3dModelBasicLayer {
         self._clock = new UClock();
         /** @type {import('three').AnimationAction | undefined} */
         self._action = undefined;
-        self._animationSpeed = defaultValue(opt.animationspeed, 1);
+        self._animationSpeed = defaultValue(opt.animationSpeed, 1);
         /** @type {Array<import('@UGroup').UGroup>} */
         self._userGroupList = [];
         self._containMetaData = defaultValue(opt.containMetaData, false);
@@ -236,14 +254,16 @@ class U3dModelTdsLayer extends U3dModelBasicLayer {
     /**
      * 층 분류 결과에 맞춰 원본 그룹을 이동하고 자식을 복제한 그룹 목록을 만듭니다. <br>
      * 분류 함수가 있으면 반환 키 순서로 배치하며 결과를 등록 목록에 자동 추가하지 않습니다. <br>
+     * 기본 분류 함수를 사용하면 commonName이 필요하며, 생략한 채 분류를 실행하면 TypeError가 발생합니다. <br>
+     * 사용자 분류 함수의 반환 조건은 U3dModelTdsGroupFunction을 따릅니다. <br>
      * 호출 전에 setGroupOriginPosition으로 원위치를 준비하십시오.
      *
      * @param {number} floorCount 분류할 최상위 층 번호
      * @param {number} [height=0] 층간 z 이동량
-     * @param {string} [commonName] 결과 그룹 이름의 공통 접미사
+     * @param {string} [commonName] 결과 그룹 이름의 공통 접미사, 기본 분류 함수 사용 시 필수이며 빈 문자열 허용
      * @param {string} [commonChar='0'] 층 번호 앞 비교 문자
      * @param {string} [seperator] 이름 분리 문자, 생략하면 밑줄 자동 분리
-     * @returns {Array<import('@UGroup').UGroup> | undefined} 비어 있지 않은 복제 그룹 목록 또는 처리하지 않은 결과
+     * @returns {Array<import('@UGroup').UGroup> | undefined} 자식이 있는 복제 그룹 목록(빈 배열 가능) 또는 조기 종료의 undefined
      */
     setFloorFromGroupName(floorCount, height, commonName, commonChar, seperator) {
         const self = this;

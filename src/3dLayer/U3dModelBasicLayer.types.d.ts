@@ -7,7 +7,7 @@ import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js"
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dModelBasicLayer } from "./U3dModelBasicLayer.js";
-import type { U3dModelLayerCO } from "./U3dModelLayer.js";
+import type { U3dModelLayerCO } from "./U3dModelLayer.types.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
 import type { UGroup } from "../core/UGroup.js";
 import type { GeoPosition, KeyValue } from "../types/global.types.js";
@@ -73,7 +73,7 @@ import type { GeoPosition, KeyValue } from "../types/global.types.js";
     };
 
 /**
-     * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayerCO <br>
+     * ~extends U3dModelLayerCO <br>
      * U3dModelBasicLayer 생성자 옵션
      */
     type U3dModelBasicLayerCO_Content = {
@@ -196,7 +196,7 @@ import type { GeoPosition, KeyValue } from "../types/global.types.js";
     };
 
 /**
-     * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayerCO <br>
+     * ~extends U3dModelLayerCO <br>
      * U3dModelBasicLayer 생성자 옵션
      */
     type U3dModelBasicLayerCO = Omit<Omit<U3dModelLayerCO, never> & U3dModelBasicLayerCO_Content, never>;

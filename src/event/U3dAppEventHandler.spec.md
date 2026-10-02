@@ -17,7 +17,7 @@
 - app의 작업 수가 안정적으로 0인지 polling하고 종류별 완료 이벤트를 발생시킨다.
 - WebGL context 상태를 안내하고 context 복구 시 app의 view 자원, renderer와 map control을 다시 구성한다.
 
-책임 경계: 실제 listener 저장·호출은 `U3dApp`이 상속한 이벤트 dispatcher가 담당한다. `U3dMouseEvent`는 DOM 마우스 좌표를 공개 좌표 형식으로 변환하며, renderer 자체의 WebGL context listener는 `URenderer`가 별도로 소유한다.
+책임 경계: 실제 app listener 저장·호출은 `U3dApp`이 상속한 이벤트 dispatcher가 담당한다. `U3dMouseEvent`는 DOM 마우스 좌표를 공개 좌표 형식으로 변환한다. WebGL context listener의 등록·해제는 canvas를 소유한 `URenderer`가 담당하며 handler는 전달받은 loss·restore의 app 동작만 수행한다.
 
 ### 1.3 주요 동작 방식
 
@@ -35,7 +35,7 @@ native click·dblclick은 mousedown과 각 이벤트의 `timeStamp` 차이가 20
 - `U3dApp.click()`과 `U3dApp.dbclick()`이 공개 API의 `U3dMouseEvent`를 handler에 위임한다.
 - map control의 `start`와 `end` listener가 `onStart()`와 `onEnd()`를 호출한다.
 - `U3dOverlayManager`와 `U3dSelect`가 resize, change와 마우스 이벤트 이름을 구독한다.
-- `URenderer.setContextHandelEvent()`가 renderer canvas의 context event를 별도로 감시하고 handler의 저장된 context callback을 호출한다.
+- `URenderer`가 자기 canvas의 context event를 감시하고 `handleContextLost()`와 `handleContextRestore()`로 전달한다.
 
 ## 2. 요구사항과 품질 기준
 
@@ -126,8 +126,8 @@ U3dAppEventHandler 클래스 정의
     _idTouchStart, _idTouchMove, _idTouchEnd: EventListener | undefined
         container touch event의 bind callback identity다.
 
-    _idMouseClick, _idMouseDBClick, _idContextLost, _idContextRestore, _idContextMenu: EventListener | undefined
-        container click·context event의 bind callback identity다.
+    _idMouseClick, _idMouseDBClick, _idContextMenu: EventListener | undefined
+        container click·contextmenu event의 bind callback identity다.
 
     _idKeyDown, _idKeyUp, _idResize: EventListener | undefined
         document key와 window resize event의 bind callback identity다.
@@ -204,6 +204,14 @@ U3dAppEventHandler 클래스 정의
             renderer canvas가 없거나 event target이 없으면 true를 반환한다.
             두 값이 모두 있으면 target이 현재 renderer의 domElement와 같은지 반환한다.
 
+    handleContextLost(event: WebGLContextEvent | Event) -> void
+        역할: renderer가 전달한 WebGL context 손실을 app 이벤트 중계 흐름으로 연결한다.
+        동작: event를 context 손실 처리 함수에 전달한다.
+
+    handleContextRestore(event: WebGLContextEvent | Event) -> void
+        역할: renderer가 전달한 WebGL context 복구를 app 재구성 흐름으로 연결한다.
+        동작: context 복구 처리 함수를 호출한다.
+
     dispose() -> boolean
         역할: 등록 event와 app·container 참조를 해제하여 handler를 종료한다.
         동작:
@@ -223,7 +231,7 @@ U3dAppEventHandler 클래스 정의
             Web API document — 전역 key listener 제거; 함수: {removeEventListener()}
             Web API window — 전역 resize listener 제거; 함수: {removeEventListener()}
         동작:
-            container callback ID가 존재하는 mousewheel, mousemove, mousedown, mouseup, mouseout, touchstart, touchmove, touchend, click, dblclick, webglcontextlost, webglcontextrestored와 contextmenu listener를 각각 제거하고 ID를 undefined로 바꾼다.
+            container callback ID가 존재하는 mousewheel, mousemove, mousedown, mouseup, mouseout, touchstart, touchmove, touchend, click, dblclick과 contextmenu listener를 각각 제거하고 ID를 undefined로 바꾼다.
             document의 keydown·keyup과 window의 resize listener도 ID가 존재할 때 제거하고 ID를 undefined로 바꾼다.
 
     addEvent() -> void
@@ -235,7 +243,7 @@ U3dAppEventHandler 클래스 정의
             Web API document — 전역 key listener 등록; 함수: {addEventListener()}
             Web API window — 전역 resize listener 등록; 함수: {addEventListener()}
         동작:
-            passive false 옵션으로 container의 mousewheel, mousemove, mousedown, mouseup, mouseout, touchstart, touchmove, touchend, click, dblclick, webglcontextlost, webglcontextrestored와 contextmenu에 bind callback을 등록하고 각 identity를 저장한다. [확인 Q-005]
+            passive false 옵션으로 container의 mousewheel, mousemove, mousedown, mouseup, mouseout, touchstart, touchmove, touchend, click, dblclick과 contextmenu에 bind callback을 등록하고 각 identity를 저장한다. [확인 Q-005]
 
             같은 옵션으로 document의 keydown과 keyup callback을 등록하고 identity를 저장한다.
 
@@ -403,14 +411,15 @@ onTouchEnd(e: TouchEvent) -> void
     의존: U3dApp(app) — TOUCHEND listener 확인과 event 전달; 함수: {hasEventType(), emit()}
     동작: TOUCHEND listener가 있으면 원본 touch event를 emit하고 없으면 종료한다.
 
-onContextLost() -> void
+onContextLost(event: WebGLContextEvent) -> void
     역할: WebGL context 손실을 안내하고 app CONTEXTLOST 이벤트로 중계한다.
     의존:
         U3dMessage — context 손실 안내; 정적 함수: {info()}; 상수: {CNT.CMM.CONTEXT_LOST}
         U3dApp(app) — CONTEXTLOST listener 확인과 이벤트 전달; 함수: {hasEventType(), emit()}
     동작:
+        기본 동작을 막아 context 복구 event가 발생할 수 있게 한다.
         context 손실 메시지와 코드 `2717099`를 기록한다.
-        CONTEXTLOST listener가 있으면 인수 없이 이벤트를 emit하고 없으면 종료한다. [확인 Q-007]
+        CONTEXTLOST listener가 있으면 인수 없이 이벤트를 emit하고 없으면 종료한다.
 
 onContextRestore() -> void
     역할: WebGL context 복구 시 app의 view·renderer·map control을 재구성하고 CONTEXTRESTORE를 알린다.

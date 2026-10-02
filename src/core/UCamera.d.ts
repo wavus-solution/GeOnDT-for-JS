@@ -10,7 +10,7 @@ import type { UDrawArg } from "./UDrawArg.js";
 import type { GooglePosition } from "../types/global.types.js";
 
 /**
- * ~extends import('three').PerspectiveCamera <br>
+ *
  * UCamera 생성자 옵션
  */
 type UCameraCO_Content = {
@@ -37,16 +37,14 @@ type UCameraCO_Content = {
 };
 
 /**
- * ~extends import('three').PerspectiveCamera <br>
+ *
  * UCamera 생성자 옵션
  */
 type UCameraCO = Omit<Omit<three.PerspectiveCamera, never> & UCameraCO_Content, never>;
 
 /**
- * ~extends import('three').PerspectiveCamera <br>
+
  * UCamera 생성자 옵션
- *
- * @group core
  *
  * @typedef {object} UCameraCO_Content
  * @property {number} [fov=50] 카메라 화각 (시야각)
@@ -59,6 +57,14 @@ type UCameraCO = Omit<Omit<three.PerspectiveCamera, never> & UCameraCO_Content, 
  * @inner
  *
  * @typedef {Omit<import('three').PerspectiveCamera, never> & UCameraCO_Content} UCameraCO
+ */
+/**
+ ~extends import('three').PerspectiveCamera <br>
+ 원근 카메라
+
+ @group core
+
+ @extends {THREE.PerspectiveCamera}
  */
 declare class UCamera extends three.PerspectiveCamera {
     /**

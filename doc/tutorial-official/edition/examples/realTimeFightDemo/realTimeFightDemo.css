@@ -207,9 +207,8 @@
 
 .flight-detail {
     position: absolute;
-    top: 64px;
-    /* 우측 레일(16px + 52px)을 피해 공통 패널과 같은 기준선에 둔다. */
-    right: 88px;
+    left: 16px;
+    bottom: 16px;
     z-index: 13;
     display: flex;
     flex-direction: column;
@@ -224,11 +223,6 @@
 
 .flight-detail[hidden] {
     display: none;
-}
-
-/* 공통 패널이나 항공기 패널이 열리면 같은 우측 자리를 쓰므로 그 왼쪽으로 물러난다. */
-.example-app:has(.example-panel.open, .explanation-panel.open) .flight-detail {
-    right: calc(88px + clamp(320px, 27vw, 380px) + 20px);
 }
 
 .flight-info-card {
@@ -490,8 +484,7 @@
     }
 
     .flight-detail {
-        top: auto;
-        right: 10px;
+        left: 10px;
         bottom: 62px;
         width: calc(100vw - 20px);
         max-height: 46dvh;

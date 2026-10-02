@@ -158,7 +158,7 @@ declare class U3dPoint extends U3dGeometry {
      *
      * @type {Record<string, number>}
      */
-    static "__#17@#scaleList": Record<string, number>;
+    static "__#18@#scaleList": Record<string, number>;
     /**
      * 캐시된 Point 재질(materialList)과 그 텍스처를 모두 정리(dispose)합니다. <br>
      * 캐시 텍스처는 살아있는 U3dPoint 인스턴스들이 공유하므로, 앱 종료나 전체 리셋 시점에만 호출해야 합니다. <br>
@@ -170,7 +170,7 @@ declare class U3dPoint extends U3dGeometry {
      * @param {import('three').Texture | null | undefined} texture
      * @returns {boolean}
      */
-    static "__#17@#isCachedTexture"(texture: three.Texture | null | undefined): boolean;
+    static "__#18@#isCachedTexture"(texture: three.Texture | null | undefined): boolean;
     /**
      * 이미지 URL과 offset으로 재질 캐시 키를 만듭니다. <br>
      *
@@ -178,7 +178,7 @@ declare class U3dPoint extends U3dGeometry {
      * @param {import('three').Vector3Like | undefined} offset
      * @returns {string}
      */
-    static "__#17@#cacheKey"(url: string, offset: three.Vector3Like | undefined): string;
+    static "__#18@#cacheKey"(url: string, offset: three.Vector3Like | undefined): string;
     /**
      * 두 offset이 같은 보정값인지 비교합니다. <br>
      *
@@ -186,7 +186,7 @@ declare class U3dPoint extends U3dGeometry {
      * @param {import('three').Vector3Like | undefined} b
      * @returns {boolean}
      */
-    static "__#17@#sameOffset"(a: three.Vector3Like | undefined, b: three.Vector3Like | undefined): boolean;
+    static "__#18@#sameOffset"(a: three.Vector3Like | undefined, b: three.Vector3Like | undefined): boolean;
     /**
      * 포인트 도형을 생성합니다. <br>
      * 색상·크기·이미지(`img`) 등을 옵션으로 지정할 수 있으며, 좌표는 생성 후 `setVertex`(월드)나 `setPositions`(위경도)로 넣습니다. <br>

@@ -10,6 +10,7 @@ GeOnDT의 기능은 기능 안내·API 문서·공식 예제에서 발견하고,
 
 | 지금 확인할 질문 | 시작할 자료 | 찾아낼 근거 |
 |---|---|---|
+| 새 프로젝트에서 제품을 연결하고 지도를 어떻게 처음 띄우는가? | [실행 가능한 시작 예제](getting-started.md) | 라이선스 로드 순서, 배포 타입 연결, 정적 리소스 경로, 지도 생성·해제 |
 | 어떤 기능과 개념이 있으며 내 요구에 무엇을 쓸 수 있는가? | [시작하기와 기능 안내](../doc/home/index.html), [공식 예제 목록](../doc/tutorial-official/index.html) | 관련 개념·용어, 지원 상황, 후보 기능과 API 이름 |
 | 실제로 어떻게 생성·호출하고 화면에 연결하는가? | [공식 예제](../doc/tutorial-official/index.html) | 초기화, 데이터 준비, 입력·이벤트·완료 처리의 실제 사용 흐름 |
 | 인수·옵션·결과가 무엇을 뜻하며 어떤 조건이 필요한가? | [API 문서](../doc/api/index.html) | 사용 계약, 기본값·단위·대상·제약과 관련 API |
@@ -18,6 +19,21 @@ GeOnDT의 기능은 기능 안내·API 문서·공식 예제에서 발견하고,
 | 설명만으로 결정하기 어려운 동작이나 제약은 무엇인가? | 관련 `src`의 spec.md와 공개 JS | 해당 동작의 조건·순서·부수 효과와 구현에서 확인 가능한 범위 |
 
 이 표는 기능의 분류가 아니라 질문에 따른 자료 선택 기준입니다. 새 기능이 추가되어도 같은 방법을 사용합니다. 서비스 전체의 설계와 검증은 [개발 지침](development-guide.md)을 함께 참고하십시오.
+
+### 시작 예제에서 바로 확인할 코드
+
+제품을 처음 연결하거나 초기화 흐름을 확인할 때는 아래 파일부터 읽습니다. JavaScript와 TypeScript 예제는 같은 지도 동작을 제공합니다.
+
+| 확인할 내용 | JavaScript / ES 모듈 | TypeScript / Vite |
+|---|---|---|
+| 라이선스 로드, 제품 import, 준비 대기, 지도 생성·해제, 오류 표시 | [src/main.js](../starters/esm/src/main.js) | [src/main.ts](../starters/typescript-vite/src/main.ts) |
+| 초기 위치, 배경지도, 라이선스·제품 URL | [src/settings.js](../starters/esm/src/settings.js) | [src/settings.ts](../starters/typescript-vite/src/settings.ts) |
+| 실행 명령·개발 도구 | [package.json](../starters/esm/package.json) | [package.json](../starters/typescript-vite/package.json) |
+| 앱 빌드와 정적 제품 파일 복사 | 앱 빌드 없음 | [vite.config.ts](../starters/typescript-vite/vite.config.ts) |
+
+[실행 안내](getting-started.md)의 준비 명령은 제품과 기본 `localhost` 라이선스를 실행용 `static`에 복사합니다. 이 폴더와 TypeScript 예제의 `node_modules`·`build`는 로컬 명령 실행 후 생성되므로 GitHub에 없다고 누락으로 판단하지 않습니다. TypeScript의 실제 선언 연결은 `src/main.ts`의 import 경로와 준비된 제품의 `GeOnDT.modules.d.ts`에서 확인합니다.
+
+시작 예제는 제품 연결과 기본 지도 동작을 보여 줍니다. 사용자 요구에 필요한 기능·데이터·이벤트는 다음 탐색 방법으로 찾아 연결하고, 사용 조건과 결과를 검증합니다.
 
 ## 2. 사용자 표현에서 GeOnDT 용어와 API 이름 찾기
 

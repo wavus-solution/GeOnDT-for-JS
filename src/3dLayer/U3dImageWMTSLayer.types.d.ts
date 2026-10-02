@@ -8,9 +8,10 @@ import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/e
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dLayerEMI } from "./U3dLayer.types.js";
 import type { U3dOpenLayerCO } from "./U3dOpenLayer.types.js";
+import type { OLTileSource } from "../types/ol.types.js";
 
 /**
-     * WMTS Capabilities `Contents/TileMatrixSet/TileMatrix` 항목. 타일 격자의 한 level(축척 단계)입니다.
+     * WMTS 타일 격자의 한 level(축척 단계)을 나타내는 TileMatrix 항목입니다.
      */
     type OLWMTSTileMatrix = {
         /**
@@ -44,7 +45,7 @@ import type { U3dOpenLayerCO } from "./U3dOpenLayer.types.js";
     };
 
 /**
-     * WMTS Capabilities `Contents/TileMatrixSet` 항목. Layer가 링크로 참조하는 타일 격자 정의입니다.
+     * WMTS Layer가 참조하는 TileMatrixSet 타일 격자 정의입니다.
      */
     type OLWMTSTileMatrixSet = {
         /**
@@ -66,7 +67,7 @@ import type { U3dOpenLayerCO } from "./U3dOpenLayer.types.js";
     };
 
 /**
-     * WMTS Capabilities `Layer/TileMatrixSetLink/TileMatrixSetLimits/TileMatrixLimits` 항목. 특정 TileMatrix에서 실제 타일이 존재하는 행·열 범위입니다.
+     * WMTS의 특정 TileMatrix에서 허용하는 타일 행·열 범위입니다.
      */
     type OLWMTSTileMatrixLimit = {
         /**
@@ -92,7 +93,7 @@ import type { U3dOpenLayerCO } from "./U3dOpenLayer.types.js";
     };
 
 /**
-     * WMTS Capabilities `Layer/TileMatrixSetLink` 항목. Layer가 어떤 TileMatrixSet으로 제공되는지와 선택적 범위 제한입니다.
+     * WMTS Layer가 사용하는 TileMatrixSet 식별자와 선택적 범위 제한입니다.
      */
     type OLWMTSTileMatrixSetLink = {
         /**
@@ -106,7 +107,7 @@ import type { U3dOpenLayerCO } from "./U3dOpenLayer.types.js";
     };
 
 /**
-     * WMTS Capabilities `Layer/Style` 항목.
+     * WMTS Layer가 제공하는 Style(스타일)의 식별자와 표시 정보입니다.
      */
     type OLWMTSStyle = {
         /**
@@ -131,7 +132,7 @@ import type { U3dOpenLayerCO } from "./U3dOpenLayer.types.js";
     };
 
 /**
-     * WMTS Capabilities `Layer/Dimension` 항목. TIME, ELEVATION 등 요청 축입니다.
+     * TIME·ELEVATION 등 WMTS 요청 값을 선택하는 Dimension(차원)의 정의입니다.
      */
     type OLWMTSDimension = {
         /**
@@ -149,7 +150,7 @@ import type { U3dOpenLayerCO } from "./U3dOpenLayer.types.js";
     };
 
 /**
-     * WMTS Capabilities `Layer/ResourceURL` 항목. REST 요청 템플릿입니다.
+     * WMTS의 REST 요청 주소를 구성하는 ResourceURL 템플릿입니다.
      */
     type OLWMTSResourceURL = {
         /**
@@ -167,7 +168,7 @@ import type { U3dOpenLayerCO } from "./U3dOpenLayer.types.js";
     };
 
 /**
-     * WMTS Capabilities `Contents/Layer` 항목. 서비스가 제공하는 레이어 하나의 메타데이터입니다. <br>
+     * WMTS 서비스가 제공하는 레이어 하나의 메타데이터입니다. <br>
      * `U3dImageWMTSLayer.getLayerMetadata()`가 반환하는 객체이며 `layer` 옵션은 이 `Identifier`를 가리킵니다.
      */
     type OLWMTSLayer = {
@@ -184,7 +185,8 @@ import type { U3dOpenLayerCO } from "./U3dOpenLayer.types.js";
          */
         Abstract?: string;
         /**
-         * 데이터 범위 `[minLon, minLat, maxLon, maxLat]`(EPSG:4326). 서비스가 실제 데이터와 다르게 선언할 수 있습니다
+         * 위경도 좌표계(EPSG:4326)의 데이터 범위 [minLon, minLat, maxLon, maxLat]. <br>
+         * 서비스가 실제 데이터와 다르게 선언할 수 있습니다
          */
         WGS84BoundingBox?: Array<number>;
         /**
@@ -214,7 +216,7 @@ import type { U3dOpenLayerCO } from "./U3dOpenLayer.types.js";
     };
 
 /**
-     * `ol.format.WMTSCapabilities().read()`가 반환하는 WMTS GetCapabilities 문서 구조(WMTS 1.0.0). <br>
+     * WMTS GetCapabilities 문서에서 내장 OpenLayers가 파싱한 서비스·레이어·격자 정보입니다. <br>
      * `U3dImageWMTSLayer.fetchCapabilities()`의 결과이자 `capabilities` 옵션과 `getCapabilities()`의 형태입니다. <br>
      * 실제 동작에 필요한 멤버만 정의하며, 서비스에 따라 선택 항목이 빠질 수 있습니다.
      */
@@ -252,7 +254,7 @@ import type { U3dOpenLayerCO } from "./U3dOpenLayer.types.js";
     };
 
 /**
-     * `ol.source.WMTS.optionsFromCapabilities()`가 반환하고 `new ol.source.WMTS(options)`에 넘기는 source 옵션. <br>
+     * 내장 OpenLayers WMTS source를 생성하는 요청·격자 옵션입니다. <br>
      * `U3dImageWMTSLayer.getSourceOptions()`가 반환하는 객체이며, 레이어는 생성 옵션(`urls`, `requestEncoding`, `style`, `crossOrigin`, `dimensions`)을 여기에 덮어씁니다.
      */
     type OLWMTSSourceOptions = {
@@ -303,7 +305,7 @@ import type { U3dOpenLayerCO } from "./U3dOpenLayer.types.js";
     };
 
 /**
-     * ~extends import('@union3d/3dLayer/U3dLayer').U3dLayerEMI <br>
+     * ~extends U3dLayerEMI <br>
      *
      * `U3dImageWMTSLayer`가 dispatch하는 이벤트 이름 모음(`U3dImageWMTSLayerEMD`, `U3dImageWMTSLayer.EVENT`)의 형식입니다. <br>
      * 기반 레이어 이벤트(`U3dLayerEMI`)에 WMTS 타일 오류 관측 이벤트를 더합니다.
@@ -323,12 +325,12 @@ import type { U3dOpenLayerCO } from "./U3dOpenLayer.types.js";
     };
 
 /**
-     * ~extends import('@union3d/3dLayer/U3dLayer').U3dLayerEMI <br>
+     * ~extends U3dLayerEMI <br>
      *
      * `U3dImageWMTSLayer`가 dispatch하는 이벤트 이름 모음(`U3dImageWMTSLayerEMD`, `U3dImageWMTSLayer.EVENT`)의 형식입니다. <br>
      * 기반 레이어 이벤트(`U3dLayerEMI`)에 WMTS 타일 오류 관측 이벤트를 더합니다.
      */
-    type U3dImageWMTSLayerEMI = U3dLayerEMI & U3dImageWMTSLayerEMI_Content;
+    type U3dImageWMTSLayerEMI = Omit<Omit<U3dLayerEMI, never> & U3dImageWMTSLayerEMI_Content, never>;
 
 /**
      * TILE_ERROR 이벤트의 `data`입니다. <br>
@@ -412,7 +414,7 @@ import type { U3dOpenLayerCO } from "./U3dOpenLayer.types.js";
     };
 
 /**
-     * ~extends import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayerCO <br>
+     * ~extends U3dOpenLayerCO <br>
      *
      * U3dImageWMTSLayer 생성자 옵션입니다. <br>
      * OL renderer 풀·공유 source 관련 옵션은 `U3dOpenLayerCO`를 그대로 사용합니다. <br>
@@ -469,12 +471,13 @@ import type { U3dOpenLayerCO } from "./U3dOpenLayer.types.js";
          */
         fetchTimeout?: number;
         /**
-         * 자동 구성 source의 타일 요청이 이 횟수만큼 연속 실패하면 `SERVICE_ERROR` 이벤트와 경고 로그를 한 번 발생시킵니다. <br>
-         * 0이면 발생시키지 않습니다
+         * SERVICE_ERROR를 발행할 연속 타일 실패 횟수. <br>
+         * 0이면 서비스 장애 이벤트와 경고 로그를 발생시키지 않습니다
          */
         tileErrorThreshold?: number;
         /**
-         * 데이터 위경도 범위 `[minLon, minLat, maxLon, maxLat]`. 지정하면 Capabilities의 WGS84BoundingBox 대신 사용합니다
+         * 위경도 좌표계(EPSG:4326)의 데이터 범위 [minLon, minLat, maxLon, maxLat]. <br>
+         * 지정하면 Capabilities의 WGS84BoundingBox 대신 사용합니다
          */
         geoExtent?: Array<number>;
         /**
@@ -490,7 +493,7 @@ import type { U3dOpenLayerCO } from "./U3dOpenLayer.types.js";
     };
 
 /**
-     * ~extends import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayerCO <br>
+     * ~extends U3dOpenLayerCO <br>
      *
      * U3dImageWMTSLayer 생성자 옵션입니다. <br>
      * OL renderer 풀·공유 source 관련 옵션은 `U3dOpenLayerCO`를 그대로 사용합니다. <br>
@@ -501,4 +504,39 @@ import type { U3dOpenLayerCO } from "./U3dOpenLayer.types.js";
      */
     type U3dImageWMTSLayerCO = Omit<Omit<U3dOpenLayerCO, never> & U3dImageWMTSLayerCO_Content, never>;
 
-export type { OLWMTSCapabilities, OLWMTSDimension, OLWMTSLayer, OLWMTSResourceURL, OLWMTSSourceOptions, OLWMTSStyle, OLWMTSTileMatrix, OLWMTSTileMatrixLimit, OLWMTSTileMatrixSet, OLWMTSTileMatrixSetLink, U3dImageWMTSLayerCO, U3dImageWMTSLayerCO_Content, U3dImageWMTSLayerEMI, U3dImageWMTSLayerEMI_Content, U3dImageWMTSLayerServiceOptions, U3dImageWMTSLayerTileError };
+/**
+     * 타일 좌표를 요청 URL로 바꾸는 함수입니다. <br>
+     * projection은 내장 OpenLayers가 제공하는 좌표계 객체이며 범위 제한에서는 해석하지 않고 원래 함수에 전달합니다.
+     */
+    type U3dImageWMTSTileUrlFunction = (tileCoord: Array<number> | null, pixelRatio: number, projection: unknown) => string | undefined;
+
+/**
+     * ~extends OLTileSource <br>
+     *
+     * WMTS 타일 URL의 행·열 제한을 설치하는 데 필요한 source 계약입니다.
+     */
+    type U3dImageWMTSLayerLimitedSource_Content = {
+        /**
+         * Matrix 식별자를 조회할 격자 반환
+         */
+        getTileGrid: () => {
+            getMatrixId: (z: number) => string;
+        };
+        /**
+         * 현재 URL 생성 함수 반환
+         */
+        getTileUrlFunction: () => U3dImageWMTSTileUrlFunction;
+        /**
+         * URL 생성 함수 교체
+         */
+        setTileUrlFunction: (fn: U3dImageWMTSTileUrlFunction) => void;
+    };
+
+/**
+     * ~extends OLTileSource <br>
+     *
+     * WMTS 타일 URL의 행·열 제한을 설치하는 데 필요한 source 계약입니다.
+     */
+    type U3dImageWMTSLayerLimitedSource = Omit<OLTileSource, "getTileGrid"> & U3dImageWMTSLayerLimitedSource_Content;
+
+export type { OLWMTSCapabilities, OLWMTSDimension, OLWMTSLayer, OLWMTSResourceURL, OLWMTSSourceOptions, OLWMTSStyle, OLWMTSTileMatrix, OLWMTSTileMatrixLimit, OLWMTSTileMatrixSet, OLWMTSTileMatrixSetLink, U3dImageWMTSLayerCO, U3dImageWMTSLayerCO_Content, U3dImageWMTSLayerEMI, U3dImageWMTSLayerEMI_Content, U3dImageWMTSLayerLimitedSource, U3dImageWMTSLayerLimitedSource_Content, U3dImageWMTSLayerServiceOptions, U3dImageWMTSLayerTileError, U3dImageWMTSTileUrlFunction };

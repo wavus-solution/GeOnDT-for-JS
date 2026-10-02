@@ -6,8 +6,17 @@ import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSeg
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
+import type { U3dComponentInstancedPosition } from "../3dLayer/U3dComponentInstancedPosition.js";
+import type { U3dComponentPosition } from "../3dLayer/U3dComponentPosition.js";
 import type { UDrawArg } from "./UDrawArg.js";
 import type { UEventDispatcherCO } from "./UEventDispatcher.js";
+
+/**
+     * 렌더 부모를 바꾸지 않고 UGroup에 등록하는 논리 컴포넌트입니다.
+     */
+    type UGroupComponent = U3dComponentPosition | U3dComponentInstancedPosition;
+
+type UGroupMember = three.Object3D | UGroupComponent;
 
 /**
      * ~extends import('@UEventDispatcher').UEventDispatcherCO <br>
@@ -40,6 +49,10 @@ import type { UEventDispatcherCO } from "./UEventDispatcher.js";
         _alphaMap?: three.Texture | null;
         alphaTest?: number;
         _alphaTest?: number | null;
+        /**
+         * UGroup 변경 전 알파 테스트 값. Three.js 내부 _alphaTest와 분리합니다.
+         */
+        _groupAlphaTest?: number;
     };
 
 /**
@@ -47,4 +60,4 @@ import type { UEventDispatcherCO } from "./UEventDispatcher.js";
      */
     type UGroup_AlphaMaterial = three.Material & UGroup_AlphaMaterial_Content;
 
-export type { UGroupCO, UGroupCO_Content, UGroup_AlphaMaterial, UGroup_AlphaMaterial_Content };
+export type { UGroupCO, UGroupCO_Content, UGroupComponent, UGroupMember, UGroup_AlphaMaterial, UGroup_AlphaMaterial_Content };

@@ -150,7 +150,7 @@ type VctrTile_Content = {
         /**
          * 업데이트 ID
          */
-        updateId?: number;
+        updateId?: string | number;
         /**
          * 비동기 처리 객체
          */

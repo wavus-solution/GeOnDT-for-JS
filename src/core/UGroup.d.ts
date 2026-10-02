@@ -7,13 +7,13 @@ import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js"
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { UDrawArg } from "./UDrawArg.js";
-import type { UGroupCO } from "./UGroup.types.js";
-import type { UMesh } from "./mesh/UMesh.js";
+import type { UGroupCO, UGroupComponent, UGroupMember } from "./UGroup.types.js";
 
 /**
  * ~extends import('three').Group <br>
  *
- * 여러 3차원 객체를 한 묶음으로 담아 함께 옮기고 함께 다루는 장면 그래프 그룹입니다. <br>
+ * 여러 3차원 객체를 담는 장면 그래프 그룹이며 일반·인스턴스 컴포넌트도 논리 구성원으로 등록할 수 있습니다. <br>
+ * 컴포넌트는 렌더 부모를 유지하며 그룹 변환에는 포함되지 않습니다. 색상·투명도는 컴포넌트 API에 위임합니다. <br>
  * 같은 객체가 두 번 등록되지 않도록 자식 목록을 관리하고, 자식이 빠질 때 이를 알리는 이벤트를 전달합니다. <br>
  * 자식을 하나씩 돌아가며 선택하거나, 레이어 이름으로 메시(mesh)를 찾거나, 하위 메시의 재질(material) 상태를 한 번에 바꾸는 기능도 제공합니다.
  *
@@ -52,25 +52,30 @@ declare class UGroup extends three.Group<three.Object3DEventMap> {
      */
     next(): three.Object3D | undefined;
     /**
-     * 입력한 객체가 이 그룹의 add()로 등록된 자식인지 확인합니다. <br>
+     * 입력한 객체가 이 그룹의 add()로 등록된 자식 또는 컴포넌트인지 확인합니다. <br>
      * 식별자가 아니라 객체 자체가 같은지로 비교하며, 자식의 자식까지 내려가 찾지는 않습니다.
      *
-     * @param {import('three').Object3D} object 등록 여부를 확인할 객체
+     * @param {UGroupMember} object 등록 여부를 확인할 객체 또는 컴포넌트
      * @returns {boolean} add()로 등록된 뒤 아직 제거되지 않았으면 true
      */
-    has(object: three.Object3D): boolean;
+    has(object: UGroupMember): boolean;
     /**
-     * 객체 하나를 이 그룹의 직속 자식으로 추가합니다. <br>
+     * Object3D를 직속 자식으로 추가하거나 컴포넌트를 논리 구성원으로 등록합니다. <br>
      * 값이 비어 있거나 이미 등록된 객체이면 아무것도 바꾸지 않습니다. <br>
-     * 상위 THREE.Group의 add()와 달리 인수를 여러 개 넘겨도 첫 번째 객체 하나만 추가합니다. <br>
+     * 상위 THREE.Group의 add()처럼 여러 인수를 순서대로 추가하며 인수가 없으면 아무것도 바꾸지 않습니다. <br>
      * 추가된 객체는 이전 부모에서 떨어져 나오며, 객체의 added 이벤트와 이 그룹의 childadded 이벤트가 곧바로 전달됩니다.
      *
      * @override
      *
-     * @param {import('three').Object3D} object 직속 자식으로 추가할 객체
+     * 컴포넌트는 별도 구성원으로 등록하며 렌더 객체나 컴포넌트의 부모를 변경하지 않습니다. <br>
+     * 컴포넌트 등록은 그룹에 componentadded 이벤트를 전달하며 그룹 변환의 대상이 되지 않습니다.
+     *
+     * 공개 타입은 THREE.Group과 동일하게 유지합니다. 컴포넌트 입력은 내부에서 판별하며 타입 검사 호출부에서는 명시적인 타입 단언이 필요합니다.
+     *
+     * @param {import('three').Object3D} object 직속 자식 또는 내부적으로 판별할 컴포넌트
      * @returns {this} 메서드를 이어서 호출할 수 있도록 반환하는 이 그룹 자신
      */
-    override add(object: three.Object3D): this;
+    override add(object: three.Object3D, ...args: any[]): this;
     /**
      * 입력한 객체를 이 그룹의 직속 자식과 등록 목록에서 제거합니다. <br>
      * 인수를 여러 개 넘기면 넘긴 순서대로 각 객체를 같은 방식으로 제거합니다. <br>
@@ -79,92 +84,80 @@ declare class UGroup extends three.Group<three.Object3DEventMap> {
      *
      * @override
      *
-     * @param {import('three').Object3D} object 제거할 객체이며, 두 번째 인수부터 함께 넘긴 객체도 같은 방식으로 제거됩니다
+     * 컴포넌트는 등록만 해제하고 componentremoved 이벤트를 전달합니다. 레이어에서 삭제하거나 자원을 해제하지 않습니다.
+     *
+     * @param {import('three').Object3D} object 제거할 객체 또는 내부적으로 판별할 컴포넌트. 인수가 없으면 아무것도 바꾸지 않습니다.
      * @returns {this} 메서드를 이어서 호출할 수 있도록 반환하는 이 그룹 자신
      */
     override remove(object: three.Object3D, ...args: any[]): this;
     /**
-     * 직속 자식 목록과 등록 목록을 즉시 비웁니다. <br>
+     * 컴포넌트 구성원의 복사본을 등록 순서로 반환합니다.
+     * @returns {Array<UGroupComponent>} 일반·인스턴스 컴포넌트 목록
+     */
+    getComponents(): Array<UGroupComponent>;
+    /**
+     * 직접 자식 Object3D와 등록 컴포넌트의 복사본을 반환합니다. 하위 그룹은 펼치지 않습니다.
+     * @returns {Array<UGroupMember>} Object3D 자식 다음에 등록 순서의 컴포넌트가 오는 전체 구성원 목록
+     */
+    getMembers(): Array<UGroupMember>;
+    /**
+     * 모든 자식과 컴포넌트를 remove()로 해제합니다. 렌더 자원과 컴포넌트는 삭제하지 않습니다.
+     * @override
+     * @returns {this} 현재 그룹
+     */
+    override clear(): this;
+    /**
+     * 직속 자식 목록과 컴포넌트 등록 목록을 즉시 비웁니다. <br>
      * remove()와 달리 removed와 childremoved 이벤트를 전달하지 않고, 자식의 부모 연결을 끊지 않으며, 렌더링 자원도 해제하지 않습니다. <br>
      * 화면을 한 번 그릴 때마다 새로 채우는 임시 그룹처럼 자식 기록을 빠르게 버려도 되는 경우에 사용합니다.
      */
     fastClear(): void;
     /**
-     * 하위 메시(mesh)들의 지오메트리(geometry) 경계 상자 중심을 모두 더해 평균한 지점(center)을 계산합니다. <br>
-     * 각 중심에는 그 메시가 아니라 그 메시를 품고 있는 직속 자식의 현재 월드 변환 행렬을 적용하며, 행렬을 계산 시점에 갱신하지는 않습니다. <br>
-     * 계산 과정에서 대상 메시의 지오메트리 경계 상자(BoundingBox)를 다시 계산합니다. <br>
-     * 경계 상자를 얻은 메시가 하나도 없으면 x, y, z가 모두 NaN인 결과를 반환합니다.
-     *
-     * @returns {import('three').Vector3} 계산한 중심 지점을 담은 새 벡터
+     * 하위 메시의 월드 경계 중심과 등록 컴포넌트의 월드 위치를 평균합니다.
+     * 컴포넌트는 공유 렌더 객체와 무관하게 한 번씩 포함하며, 빈 그룹은 (0, 0, 0)을 반환합니다.
+     * @returns {import('three').Vector3} 월드 중심
      */
     getCenter(): three.Vector3;
     /**
-     * 이 그룹의 직속 자식 목록을 반환합니다. <br>
-     * 반환값은 복사본이 아니라 그룹이 실제로 사용하는 배열입니다.
-     *
-     * @returns {Array<import('three').Object3D>} 직속 자식이 담긴 내부 배열
+     * 직접 자식 Object3D와 등록 컴포넌트의 목록 복사본을 반환합니다.
+     * 하위 그룹은 펼치지 않습니다. 렌더 자식만 필요하면 children을 사용합니다.
+     * @returns {Array<UGroupMember>} 직접 구성원 목록
      */
-    getChildren(): Array<three.Object3D>;
+    getChildren(): Array<UGroupMember>;
     /**
-     * 이 그룹이 현재 붙어 있는 상위 객체(parent)를 반환합니다.
-     *
-     * @returns {import('three').Object3D | undefined} 상위 객체이며, 어디에도 붙어 있지 않으면 undefined
+     * 인자가 없으면 이 그룹의 장면 그래프 부모를 반환합니다.
+     * 컴포넌트를 전달하면 이 그룹에 직접 등록된 경우 현재 그룹을, 아니면 undefined를 반환합니다.
+     * 컴포넌트의 기존 부모나 다른 그룹의 등록 상태는 변경하지 않습니다.
+     * @param {UGroupComponent} [component] 소속 여부를 확인할 컴포넌트
+     * @returns {import('three').Object3D | undefined} 부모 또는 컴포넌트가 등록된 현재 그룹
      */
-    getParent(): three.Object3D | undefined;
+    getParent(component?: UGroupComponent): three.Object3D | undefined;
     /**
-     * 자식의 재질(material)에서 알파 맵(alpha map) 텍스처를 떼어 내고 떼어 낸 값을 그 재질 안에 보관합니다. <br>
-     * 보관한 값은 resetAlphaMap()으로 되돌릴 수 있으며, 텍스처 자체는 해제하지 않습니다. <br>
-     * 자식이 재질을 배열로 가지고 있으면 배열 안의 재질을 하나씩 처리합니다. <br>
-     * 직속 자식만 처리하고 그보다 아래 자손은 건드리지 않습니다.
+     * 일반 메시와 일반 컴포넌트의 알파 맵을 보관하고 제거합니다.
+     * 인스턴스 컴포넌트·메시는 공유 재질을 수정하지 않고 콘솔 경고를 출력합니다.
      */
     removeAlphaMap(): void;
     /**
-     * removeAlphaMap()이 떼어 내 보관해 둔 알파 맵(alpha map) 텍스처를 직속 자식의 재질(material)에 다시 붙입니다. <br>
-     * 보관된 값이 없는 재질은 그대로 둡니다. <br>
-     * 자식이 재질을 배열로 가지고 있으면 배열 안의 재질을 하나씩 처리합니다. <br>
-     * 직속 자식만 처리하고 그보다 아래 자손은 건드리지 않습니다.
+     * 일반 메시와 일반 컴포넌트의 보관된 알파 맵을 복원합니다.
+     * 인스턴스 컴포넌트·메시는 공유 재질을 수정하지 않고 콘솔 경고를 출력합니다.
      */
     resetAlphaMap(): void;
     /**
-     * 자식의 재질(material)에 알파 테스트(alpha test) 기준값을 지정하여, 기준에 못 미치는 투명한 픽셀을 그리지 않게 합니다. <br>
-     * 바꾸기 전 값을 그 재질 안에 보관하지만 이를 되돌리는 메서드는 제공하지 않습니다. <br>
-     * 자식이 재질을 배열로 가지고 있으면 배열 안의 재질을 하나씩 처리합니다. <br>
-     * 직속 자식만 처리하고 그보다 아래 자손은 건드리지 않습니다.
-     *
-     * @param {number} alphaFilter 픽셀을 그릴지 판단하는 기준 불투명도이며, null이나 undefined를 넘기면 오류만 출력하고 재질을 바꾸지 않습니다
+     * 일반 메시와 일반 컴포넌트의 알파 테스트 기준값을 변경합니다.
+     * 인스턴스 컴포넌트·메시는 공유 재질을 수정하지 않고 콘솔 경고를 출력합니다.
+     * @param {number} alphaFilter 알파 테스트 기준값
      */
     setAlphaTest(alphaFilter: number): void;
     /**
-     * 레이어 이름이 일치하는 UMesh 자식을 찾아 반환합니다. <br>
-     * 레이어 이름을 넘기지 않으면 첫 번째 직속 자식을 종류와 무관하게 반환합니다. <br>
-     * 직속 자식만 앞에서부터 확인하고 그보다 아래 자손은 찾지 않습니다.
-     *
-     * @param {string} [layername] 찾을 UMesh에 지정된 레이어 이름이며, 생략하면 첫 번째 직속 자식을 반환합니다
-     * @returns {import('@UMesh').UMesh | import('three').Object3D | undefined} 레이어 이름이 일치하는 UMesh, 레이어 이름을 생략했을 때의 첫 직속 자식, 또는 대상이 없으면 undefined
-     */
-    getMesh(layername?: string): UMesh | three.Object3D | undefined;
-    /**
-     * 이 그룹과 모든 하위 자손을 돌면서 조건에 맞는 UMesh의 렌더링 자원을 해제하고 자식에서 제거를 시도합니다. <br>
-     * 대상의 지오메트리(geometry), 재질(material)과 그 재질의 map 텍스처를 해제하고 각 참조를 undefined로 바꿉니다. <br>
-     * 순회 도중에 자식 목록이 바뀌므로 조건에 맞는 메시(mesh)가 여러 개면 일부가 남을 수 있고, 직속 자식이 아닌 메시는 자원만 해제되고 그룹에서 떨어져 나오지 않습니다. <br>
-     * 자원을 해제한 메시가 있어도 반환값은 늘 false이므로 제거 성공 여부 판단에는 사용하지 마십시오.
-     *
-     * @param {string} [layername] 해제 대상 UMesh에 지정된 레이어 이름이며, 생략하면 만나는 모든 UMesh가 대상입니다
-     * @returns {boolean} 처리 결과와 관계없이 언제나 false
-     */
-    removeMesh(layername?: string): boolean;
-    /**
-     * 이 그룹과 모든 하위 자손의 메시(mesh) 재질(material)을 투명 처리 상태로 바꾸고 불투명도를 지정한 값으로 맞춥니다. <br>
-     * 재질을 배열로 가진 메시는 배열 안의 재질을 하나씩 처리하지 않습니다.
-     *
-     * @param {number} opacity 재질에 지정할 불투명도 값
+     * 하위 메시 및 일반·인스턴스 컴포넌트의 투명도를 변경합니다.
+     * 컴포넌트는 setOpacity()에 위임하여 인스턴스별 투명도를 유지합니다.
+     * @param {number} opacity 불투명도 (0~1)
      */
     setOpacity(opacity: number): void;
     /**
-     * 이 그룹과 모든 하위 자손의 메시(mesh) 재질(material) 색상을 지정한 색으로 바꿉니다. <br>
-     * 재질을 배열로 가진 메시는 배열 안의 재질을 하나씩 처리하지 않습니다.
-     *
-     * @param {import('three').ColorRepresentation} color 재질에 지정할 색이며, 16진수 값이나 색 이름 문자열처럼 THREE.Color가 해석할 수 있는 표현
+     * 하위 메시 및 일반·인스턴스 컴포넌트의 색상을 변경합니다.
+     * 컴포넌트는 setColor()에 위임하여 인스턴스별 색상을 유지합니다.
+     * @param {import('three').ColorRepresentation} color 색상
      */
     setColor(color: three.ColorRepresentation): void;
     /**

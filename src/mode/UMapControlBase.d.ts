@@ -565,7 +565,9 @@ declare class UMapControlBase extends UEventDispatcher {
     zoomChanged(change?: boolean): this;
     /**
      * 컨트롤러의 세부 설정을 반환합니다.<br>
-     * 이름을 넘기면 그 설정 값 하나를, 넘기지 않으면 직접 고쳐서 감도와 제어 종류를 바꿀 수 있는 설정 객체 전체를 반환합니다.
+     * 이름을 넘기면 그 설정 값 하나를, 넘기지 않으면 직접 고쳐서 감도와 제어 종류를 바꿀 수 있는 설정 객체 전체를 반환합니다.<br>
+     * 반환 객체는 컨트롤러가 사용하는 공유 객체입니다. 직접 대입은 입력 검증이나 성공 여부 반환을 수행하지 않으므로 호출 측에서 검증한 뒤 속성을 변경합니다.<br>
+     * 관성 값의 기본값 대체와 범위 제한은 계산 시에만 적용되며 저장된 원본 값을 변경하지 않습니다. 속성별 허용 범위는 FactorOption을 참고합니다.
      *
      * @param {string} [factorName] 세부 설정 이름, 미 입력시 factorOption 전체를 리턴합니다.
      * @returns {number|boolean|FactorOption} factorOption 객체 또는 factorOption의 설정 값

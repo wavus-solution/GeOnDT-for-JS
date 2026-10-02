@@ -1,0 +1,13 @@
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { display: flex; flex-direction: column; background: #17212d; color: #edf3fa; font: 14px/1.5 system-ui, sans-serif; }
+header { padding: 12px 20px; border-bottom: 1px solid #354354; }
+h1 { margin: 0; font-size: 18px; }
+#status { white-space: pre-wrap; margin: 8px 0; }
+body[data-state="error"] #status { color: #ffada8; }
+#map { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+button { padding: 6px 12px; border: 1px solid #687b90; border-radius: 4px; background: #25364a; color: inherit; cursor: pointer; }
+button:disabled { opacity: 0.4; cursor: default; }
+button:focus-visible { outline: 2px solid #9acaff; outline-offset: 2px; }
+footer { padding: 6px 20px; font-size: 12px; }
+a { color: #b9dbff; }

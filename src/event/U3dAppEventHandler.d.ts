@@ -58,6 +58,18 @@ declare class U3dAppEventHandler {
     onchange(): void;
     createWorkingEndEvent(): void;
     isValidEventTarget(event: any): boolean;
+    /**
+     * renderer가 전달한 WebGL context 손실을 app 이벤트로 중계합니다.
+     *
+     * @param {WebGLContextEvent | Event} event canvas에서 발생한 context 손실 이벤트
+     */
+    handleContextLost(event: WebGLContextEvent | Event): void;
+    /**
+     * renderer가 전달한 WebGL context 복구를 app 재구성 흐름으로 연결합니다.
+     *
+     * @param {WebGLContextEvent | Event} event canvas에서 발생한 context 복구 이벤트
+     */
+    handleContextRestore(event: WebGLContextEvent | Event): void;
     dispose(): boolean;
     isInitialized(): boolean;
     removeEvent(): void;
@@ -70,8 +82,6 @@ declare class U3dAppEventHandler {
     _idTouchEnd: any;
     _idMouseClick: any;
     _idMouseDBClick: any;
-    _idContextLost: any;
-    _idContextRestore: any;
     _idContextMenu: any;
     _idKeyDown: any;
     _idKeyUp: any;

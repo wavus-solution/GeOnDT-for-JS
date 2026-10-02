@@ -22,7 +22,8 @@ import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/ty
 
 /**
      * helper가 논리 객체 위치를 수집할 수 있는 대상입니다. <br>
-     * Group 입력은 직접 자식 Object3D를 사용하고, 배열 입력은 Object3D와 component를 함께 허용합니다. <br>
+     * Group 입력은 직접 자식 Object3D를 사용하며, UGroup은 getMembers()의 등록 컴포넌트도 함께 사용합니다. <br>
+     * 배열 입력은 Object3D와 component를 함께 허용합니다. <br>
      * 같은 객체를 배열에 여러 번 담아도 하나의 논리 객체로만 계산합니다. <br>
      * Object3D도 getVectorPosition()을 제공하는 component도 아닌 원소가 있으면 TypeError로 거부합니다.
      */

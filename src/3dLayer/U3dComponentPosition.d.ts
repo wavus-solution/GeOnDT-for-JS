@@ -73,7 +73,7 @@ declare class U3dComponentPosition {
     /**
      * moveSmoothly로 도착한 최근 100개 지점의 복사본입니다. 오래된 지점부터 정렬됩니다. <br>
      * 시작점·대기 목표점·프레임 보간점은 포함하지 않습니다.
-     * 이동 중지나 컨트롤러 교체 시 유지하고 dispose 시 비웁니다.
+     * U3dCumulativePath가 소유한 이력을 조회합니다. 경로 제거 시 함께 비웁니다.
      *
      * @type {Array<WorldPositionVector3>}
      */
@@ -81,14 +81,17 @@ declare class U3dComponentPosition {
     /**
      * 최근 도착한 지점들을 바탕으로 앞으로 도착할 예측 지점 (count개)과 예상 도착 시간을 계산합니다.<br>
      * 마지막 도착 지점에서 시작해 최근 도착 지점 간 평균 간격만큼 한 단계씩 나아간 지점을 반환합니다.<br>
-     * 예측 방향은 최근 이동 방향과 현재 진행 방향(지금 향하고 있는 목표 지점 방향)을 headingWeight 비율로 섞어 정합니다.
-     * 0이면 최근 이동 방향만, 1이면 현재 진행 방향만 사용합니다(기본 0.5). 현재 진행 방향을 알 수 없으면 최근 이동 방향만 사용합니다.<br>
+     * 최근 도착 지점들이 한쪽으로 꺾이는 추세이면 그 수평 회전율을 이어받아 단계마다 진행 방향을 회전시키므로 예측 지점이 원호를 그립니다.
+     * turnWeight는 회전율 반영 비율이며 0이면 직선 예측, 1이면 추정한 회전율을 그대로 사용합니다(기본 1). 고도(z) 변화는 직선 추세를 유지합니다.<br>
+     * 첫 단계 방향은 최근 이동 추세 방향과 현재 진행 방향(지금 향하고 있는 목표 지점 방향)을 headingWeight 비율로 섞어 정합니다.
+     * 0이면 최근 이동 추세만, 1이면 현재 진행 방향만 사용합니다(기본 1). 현재 진행 방향을 알 수 없으면 최근 이동 추세만 사용합니다.<br>
      * time은 호출 시점부터 그 지점 도착까지의 예상 시간(ms)이며 계산할 수 없으면 Infinity입니다.<br>
      * 도착 이력이 count개보다 적으면 undefined를 반환합니다.<br>
-     * count는 2~100 사이의 정수, headingWeight는 0~1 사이의 숫자여야 하며 아니면 TypeError 또는 RangeError가 발생합니다.
+     * count는 2~100 사이의 정수, headingWeight와 turnWeight는 0~1 사이의 숫자여야 하며 아니면 TypeError 또는 RangeError가 발생합니다.
      *
      * @param {number} count 분석할 최근 도착 지점 수와 반환할 미래 단계 수인 2~100 사이의 정수
-     * @param {number} [headingWeight=0.5] 현재 진행 방향 반영 비율 (0~1). 0이면 도착 이력 추세만, 1이면 현재 진행 방향만 사용합니다.
+     * @param {number} [headingWeight=1] 현재 진행 방향 반영 비율 (0~1). 0이면 도착 이력 추세만, 1이면 현재 진행 방향만 사용합니다.
+     * @param {number} [turnWeight=1] 회전율 반영 비율 (0~1). 0이면 직선 예측, 1이면 도착 이력에서 추정한 수평 회전율을 그대로 반영합니다.
      * @returns {Array<PredictedPosition> | undefined} 가까운 예측점부터 순서대로 담은 위치와 예상 경과 시간 목록 또는 이력이 부족할 때 undefined
      *
      * @example
@@ -102,8 +105,12 @@ declare class U3dComponentPosition {
      * @example
      * // 이력 추세만으로 예측 (현재 주행 진행 방향 미반영)
      * const trendOnly = component.predictFuturePositions(5, 0);
+     *
+     * @example
+     * // 회전을 반영하지 않는 직선 예측
+     * const straight = component.predictFuturePositions(10, 1, 0);
      */
-    predictFuturePositions(count: number, headingWeight?: number): Array<PredictedPosition> | undefined;
+    predictFuturePositions(count: number, headingWeight?: number, turnWeight?: number): Array<PredictedPosition> | undefined;
     /**
      * 주행 애니메이션이 현재 실행 중인지 여부. `moveStart`/`moveStop`이 갱신하는 내부 상태입니다.
      *
@@ -691,9 +698,9 @@ declare class U3dComponentPosition {
      */
     get cumulativeProperty(): CumulativeProperty;
     /**
-     * 화면에 그려진 이동 궤적(누적 경로) 객체. `drawCumulativePath`가 true인 상태로 이동해야 생성됩니다.
+     * 이동 궤적과 도착 waypoint 이력을 소유한 누적 경로 객체. 표시가 꺼져 있어도 첫 도착 시 생성됩니다.
      *
-     * @returns {import('@union3d/geometry/U3dCumulativePath').U3dCumulativePath | undefined} 궤적 객체. 아직 그려진 궤적이 없으면 undefined
+     * @returns {import('@union3d/geometry/U3dCumulativePath').U3dCumulativePath | undefined} 아직 생성되지 않았으면 undefined
      */
     get cumulativePath(): U3dCumulativePath | undefined;
     /**
@@ -829,6 +836,20 @@ declare class U3dComponentPosition {
      */
     getSpeed(): number;
     /**
+     * 현재 프레임의 실제 이동 속도(km/h)입니다.<br>
+     * `speed`는 `setSpeed`로 지정한 기준 속도이고, 이 값은 현재 동작 중인 애니메이션 컨트롤러가 실제로 적용한 속도입니다.<br>
+     * `moveSmoothly`에 `durationMs`를 지정하거나 여러 경유지가 쌓여 목표 시간 안에 도착하도록 변속하는 경우 매 프레임 달라집니다.<br>
+     * 동작 중인 애니메이션이 없으면 기준 속도(`speed`)를 반환합니다.
+     *
+     * @returns {number} 현재 이동 속도 (km/h)
+     *
+     * @example durationMs 이동 중 실제 속도를 매 프레임 확인합니다.
+     * component.setUpdateAnimationFunc(() => {
+     *     console.log(`기준 ${component.speed}km/h · 현재 ${component.currentSpeed.toFixed(1)}km/h`);
+     * });
+     */
+    get currentSpeed(): number;
+    /**
      * 컴포넌트의 모델 리소스를 반환하는 함수
      * @returns {import('three').Object3D | undefined} 모델 데이터 리소스
      */
@@ -923,12 +944,9 @@ declare class U3dComponentPosition {
      * 현재 위치를 누적 경로에 기록한다.
      * moveSmoothly, addMovePoint, setPosition 등 위치 변경 진입점에서 공통으로 사용한다.
      * @param {WorldPositionVector3} position 기록할 월드 좌표
-     * @param {number} [dist] 애니메이션 컨트롤러 기준 누적 거리
      * @param {number} [time] 애니메이션 컨트롤러 기준 누적 시간(ms)
-     * @param {number} [speed] 현재 속도(m/s)
-     * @param {number} [moveDistance] 이번 프레임 이동 거리U
      */
-    recordCumulativePathFrame(position: WorldPositionVector3, dist?: number, time?: number, speed?: number, moveDistance?: number): void;
+    recordCumulativePathFrame(position: WorldPositionVector3, time?: number): void;
     /**
      * 컴포넌트 누적 경로를 반환하는 메서드입니다.
      * @returns {import('@union3d/geometry/U3dCumulativePath').U3dCumulativePath|undefined} 누적 경로가 없으면 undefined
@@ -968,7 +986,7 @@ declare class U3dComponentPosition {
     _useTruthPath(arr: Array<three.Vector3>): void;
     _splineYaw: UCatmullRomCurve3;
     _splineRoll: UCatmullRomCurve3;
-    _createDefaultSpline(position: WorldPositionVector3, geometry: three.BufferGeometry): void;
+    _createDefaultSpline(position: WorldPositionVector3, geometry: three.BufferGeometry, range?: number): void;
     _checkCollisionOperation(pathPosition: three.Vector3, lookAt: three.Vector3): void;
     /**
      * 누적 경로를 통해 해당하는 컴포넌트를 선택하는 함수

@@ -15,8 +15,10 @@ U3dModelTdsLayerCO 타입 정의
 
 U3dModelTdsLayerCO_Content 부분 타입 명세
     이 명세에서 사용하는 필드:
+        baseUrl?: string
+            모델 데이터를 받아올 주소다.
         baseurl?: string
-            자식 생성자가 직접 읽는 기존 소문자 주소 키다.
+            baseUrl의 기존 소문자 호환 키다.
         position?: Vector3Like
             모델 위치이며 location이 falsy일 때 위치 선택에도 사용한다.
         location?: Vector3Like
@@ -27,8 +29,10 @@ U3dModelTdsLayerCO_Content 부분 타입 명세
             회전이며 undefined 기본값은 영좌표 객체다.
         type?: string
             undefined 기본값은 animation이다.
-        animationspeed?: number
+        animationSpeed?: number
             저장 속도이며 undefined 기본값은 1이다.
+        animationspeed?: number
+            animationSpeed의 기존 소문자 호환 키다.
         containMetaData?: boolean
             메타데이터 사용 여부이며 undefined 기본값은 false이다.
         usePositionOffset?: boolean
@@ -57,7 +61,7 @@ U3dModelTdsGroupParams_Content 부분 타입 명세
         height?: number
             층간 높이 이동량이다.
         commonName?: string
-            결과 그룹 이름에 붙일 공통 접미사다.
+            결과 그룹 이름에 붙일 공통 접미사이며 기본 분류 함수 사용 시 필수다. 빈 문자열은 허용한다.
         commonChar?: string
             이름의 층 번호 비교에 사용하는 문자다.
         seperator?: string
@@ -65,7 +69,10 @@ U3dModelTdsGroupParams_Content 부분 타입 명세
 
 U3dModelTdsGroupFunction 함수 타입 정의
     () -> Record<string, Array<ModelMesh>> | undefined
-    인터페이스: 현재 레이어를 this로 받아 결과 이름별 원본 목록을 반환한다. 기본 함수는 필요한 설정이 없으면 undefined이며 호출자는 반환 객체가 정의되었는지 별도로 검사하지 않는다.
+    인터페이스:
+        현재 레이어를 this로 받아 결과 이름별 원본 배열을 담은 객체를 반환한다.
+        setFloorFromGroupName에서 정상 처리하려면 반환 객체가 필요하며 빈 객체와 빈 원본 배열은 허용한다.
+        기본 함수는 필요한 설정이 없으면 undefined를 반환한다. undefined·null 결과를 setFloorFromGroupName에서 사용하면 TypeError가 발생한다.
 
 U3dModelTdsGroupEntry 부분 타입 명세
     이 명세에서 사용하는 필드:
@@ -99,9 +106,13 @@ U3dModelTdsFloorOwner 타입 정의
 U3dModelTdsLayer extends U3dModelBasicLayer 클래스 정의
     의존: U3dModelBasicLayer — 모델 로딩 기반; 상속: {U3dModelBasicLayer}
 
+    static OPT_KEYS: Array<string> = 부모 키와 TDS 고유 정본 키 목록
+        의존: U3dModelBasicLayer — 상속 옵션 키; 속성 읽기: {OPT_KEYS}
+        부모 키에 position·location·scale·rotation·animationSpeed·positionOffsetName·jsonFileName·userGroupDataName·setAveragePosition·setUserGroupFunction·userGroupParams를 추가한다.
+
     _classtype, _className: string = U3dModelTdsLayer
     _userGroupList: Array<UGroup>
-        baseurl이 정의된 생성 경로에서 빈 배열로 만들며 등록·조회·해제가 공유한다.
+        정규화된 baseUrl이 정의된 생성 경로에서 빈 배열로 만들며 등록·조회·해제가 공유한다.
     _setUserGroupFunction: U3dModelTdsGroupFunction | null
         기본값은 userGroupFunction이며 this가 레이어인 층 분류 교체 지점이다.
     _userGroupParams: U3dModelTdsGroupParams
@@ -123,13 +134,17 @@ U3dModelTdsLayer extends U3dModelBasicLayer 클래스 정의
         인터페이스: 모델 주소·위치·크기·회전, 메타데이터와 층 분류 옵션을 받는다.
         의존:
             U3dModelBasicLayer — 기반 상태 생성; 생성자: {super()}
+            normalizeOptionKeys — 상속 옵션과 기존 표기 호환; 함수: {normalizeOptionKeys()}
             defaultValue — undefined 기본값; 함수: {defaultValue()}
             defined — null·undefined 판정; 함수: {defined()}
             THREE.Vector3 — 기본 위치·크기와 위치 변환; 생성자: {new THREE.Vector3()}
             UClock — 시간 상태; 생성자: {new UClock()}
         동작:
-            부모 생성 후 식별자와 이름을 설정하고 opt.baseurl을 _baseUrl에 저장한다. 주소가 null 또는 undefined이면 나머지 자식 초기화를 하지 않고 반환한다. [확인 Q-001]
-            position과 scale의 undefined 기본값은 각각 새 영벡터와 단위벡터, rotation은 영좌표 객체이며 type은 animation이다. 믹서 목록·시계·미정의 action과 animationspeed 기본값 1을 저장한다.
+            new.target의 OPT_KEYS로 옵션 키를 정규화한 결과를 opt에 재할당하고 부모 생성자에 전달한다.
+            정규화는 원본 옵션 객체를 변경하지 않으며 null 또는 객체가 아닌 입력은 빈 옵션으로 바꾼다.
+            baseurl·animationspeed를 포함한 대소문자 변형을 정본 키로 읽는다. 정본과 다른 표기를 함께 전달하면 다른 표기의 값이 우선하며, 다른 표기가 여러 개이면 입력 열거 순서의 마지막 값이 우선한다.
+            부모 생성 후 식별자와 이름을 설정하고 opt.baseUrl을 _baseUrl에 저장한다. 주소가 null 또는 undefined이면 나머지 자식 초기화를 하지 않고 반환한다. [확인 Q-001]
+            position과 scale의 undefined 기본값은 각각 새 영벡터와 단위벡터, rotation은 영좌표 객체이며 type은 animation이다. 믹서 목록·시계·미정의 action과 animationSpeed 기본값 1을 저장한다.
             사용자 그룹 목록을 비우고 containMetaData·usePositionOffset·setAveragePosition의 undefined 기본값 false를 저장한다. 이름 옵션 세 개와 averagePos의 미정의 상태를 초기화한다.
             setUserGroupFunction이 undefined이면 기본 함수를 저장하고 userGroupParams가 undefined이면 새 빈 객체를 저장한다.
             location이 truthy이면 그것을, 아니면 position을 _location으로 사용한다. Vector3이면 참조를 유지하고 아니면 x·y·z를 새 Vector3에 복사한다. 두 입력이 없으면 성분 접근에서 예외가 발생한다. [확인 Q-001]
@@ -213,6 +228,9 @@ U3dModelTdsLayer extends U3dModelBasicLayer 클래스 정의
 
     setFloorFromGroupName(floorCount: number, height?: number, commonName?: string, commonChar?: string, seperator?: string) -> Array<UGroup> | undefined
         인터페이스: 원본 그룹을 층별로 이동하고 자식을 복제한 사용자 그룹 목록을 반환한다. 등록 목록에 자동 추가하지 않는다.
+        처리 기준:
+            기본 분류 함수를 실행하려면 commonName이 필요하며 빈 문자열은 허용한다. 생략하면 기본 함수의 undefined 결과를 조립에 전달하여 TypeError가 발생한다.
+            사용자 분류 함수로 교체했으면 commonName 필요 여부는 해당 함수에 따르며 반환 객체의 조건은 U3dModelTdsGroupFunction을 따른다.
         의존:
             U3dModelBasicLayer — 그룹 처리 문맥; 속성 읽기: {_drawArg, _group}
             defined — null·undefined 판정; 함수: {defined()}

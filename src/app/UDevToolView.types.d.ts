@@ -108,6 +108,29 @@ import type { FactorOption } from "../mode/UMapControlBase.types.js";
     };
 
 /**
+     * 개발 도구 창의 화면 배치 위치입니다. <br>
+     * `setPlacement`에 넣은 방향만 변경되고 생략한 방향은 기존 값을 유지하며, 빈 문자열은 해당 인라인 스타일을 해제합니다.
+     */
+    type UDevToolPlacement = {
+        /**
+         * 위쪽 기준 위치 또는 빈 문자열
+         */
+        top?: string;
+        /**
+         * 오른쪽 기준 위치 또는 빈 문자열
+         */
+        right?: string;
+        /**
+         * 아래쪽 기준 위치 또는 빈 문자열
+         */
+        bottom?: string;
+        /**
+         * 왼쪽 기준 위치 또는 빈 문자열
+         */
+        left?: string;
+    };
+
+/**
      * 컨트롤러 하나가 다루는 값의 타입입니다. <br>
      * 숫자, 문자열, 참거짓 값을 넣으면 그 값을 조절하는 입력 행이 만들어집니다. <br>
      * 함수를 넣으면 버튼 행이 만들어지고 버튼을 누를 때 그 함수가 실행됩니다.
@@ -186,6 +209,14 @@ import type { FactorOption } from "../mode/UMapControlBase.types.js";
          * 컬러 톤 강도
          */
         toneExposure?: number;
+        /**
+         * 환경광 강도이며 초기 설정 복원에 사용합니다.
+         */
+        intensityLight?: number;
+        /**
+         * 태양광 강도이며 초기 설정 복원에 사용합니다.
+         */
+        intensitySunLight?: number;
         /**
          * 후처리 사용 여부
          */
@@ -280,7 +311,30 @@ import type { FactorOption } from "../mode/UMapControlBase.types.js";
     };
 
 /**
+     * addGraph의 기본 선과 같은 canvas 및 눈금에 추가할 선의 설정입니다.
+     */
+    type UDevToolGraphSeriesOpt = {
+        /**
+         * 같은 탭에서 값을 읽을 컨트롤러의 이름 또는 속성명
+         */
+        traceName: string;
+        /**
+         * 범례에 표시할 이름이며 생략하면 traceName을 사용합니다.
+         */
+        label?: string;
+        /**
+         * 추가 선과 범례에 사용할 CSS 색 값
+         */
+        lineColor?: string;
+        /**
+         * 선과 공백의 픽셀 길이이며 빈 배열이면 실선입니다. 각 값은 0 이상의 유한한 숫자여야 합니다.
+         */
+        lineDash?: Array<number>;
+    };
+
+/**
      * UDevToolView의 addGraph로 그래프 하나를 만들 때 넘기는 옵션입니다.
+     * additionalSeries를 지정하면 같은 canvas와 눈금에 여러 선을 표시하고 범례를 함께 만듭니다.
      */
     type GUI_GRAPH_OPT = {
         /**
@@ -304,9 +358,48 @@ import type { FactorOption } from "../mode/UMapControlBase.types.js";
          */
         lineColor?: string;
         /**
+         * 기본 선의 범례 이름이며 생략하면 addGraph의 traceName을 사용합니다. 범례는 추가 선이 있을 때 표시됩니다.
+         */
+        label?: string;
+        /**
+         * 기본 선의 선과 공백 길이이며 빈 배열이면 실선입니다. 각 값은 0 이상의 유한한 숫자여야 합니다.
+         */
+        lineDash?: Array<number>;
+        /**
+         * 기본 선 뒤에 덧그릴 선들입니다. 모든 선은 같은 탭, 값 범위, 갱신 주기와 maxPoints를 사용합니다.
+         */
+        additionalSeries?: Array<UDevToolGraphSeriesOpt>;
+        /**
          * 그래프가 동시에 보여 줄 점의 최대 개수이며 이를 넘으면 가장 오래된 값부터 버립니다.
          */
         maxPoints?: number;
+    };
+
+/**
+     * 기존 그래프와 같은 canvas 및 눈금을 사용하는 추가 선의 내부 표시 정보입니다. <br>
+     * 부모 그래프와 같은 갱신 주기와 이력 개수를 사용합니다.
+     */
+    type UDevToolGraphSeriesInfo = {
+        /**
+         * 범례에 표시하는 선 이름
+         */
+        label: string;
+        /**
+         * 현재 수치 또는 수치로 시작하는 상태 문자열을 읽는 함수
+         */
+        getValue: () => (number | string);
+        /**
+         * 오래된 것부터 보관하는 측정값이며 부모 그래프의 상한 변경 시 함께 초기화됩니다.
+         */
+        history: Array<number>;
+        /**
+         * 선 색을 지정하는 CSS 색 값
+         */
+        lineColor: string;
+        /**
+         * 선과 공백의 픽셀 길이를 번갈아 지정하며 빈 배열이면 실선입니다.
+         */
+        lineDash: Array<number>;
     };
 
 /**
@@ -356,6 +449,10 @@ import type { FactorOption } from "../mode/UMapControlBase.types.js";
          * 지금까지 읽은 값을 오래된 것부터 담은 목록
          */
         history: Array<number>;
+        /**
+         * 입력 옵션에서 생성한 추가 선의 내부 상태이며 생략하면 기본 선만 표시합니다.
+         */
+        series?: Array<UDevToolGraphSeriesInfo>;
     };
 
 /**
@@ -372,25 +469,25 @@ import type { FactorOption } from "../mode/UMapControlBase.types.js";
      */
     type GUI_TAB_INFO = {
         /**
-         * 탭 버튼에 표시하는 이름이며 다른 메서드에서 탭을 가리키는 식별자로도 쓰입니다. <br>
+         * 탭 버튼에 표시하는 이름이며 다른 메서드에서 탭을 가리키는 식별자로도 쓰입니다.
          */
         name: string;
         /**
-         * 탭 막대에서 이 탭을 선택하는 버튼 Element <br>
+         * 탭 막대에서 이 탭을 선택하는 버튼 Element
          */
         button: HTMLButtonElement;
         /**
-         * 탭을 선택했을 때 보여 주는 내용 영역 Element <br>
+         * 탭을 선택했을 때 보여 주는 내용 영역 Element
          */
         panel: HTMLDivElement;
         /**
-         * 탭 안의 폴더와 입력 행을 관리하는 GUI이며 탭에 항목을 처음 추가할 때 만들어지므로 그전에는 없습니다. <br>
+         * 탭 안의 폴더와 입력 행을 관리하는 GUI이며 탭에 항목을 처음 추가할 때 만들어지므로 그전에는 없습니다.
          */
         gui?: UGUI;
         /**
-         * 이 탭의 입력 행들이 값을 읽고 쓰는 보관소이며 항목 이름에서 공백을 없애고 소문자로 바꾼 키에 현재 값이 담깁니다. <br>
+         * 이 탭의 입력 행들이 값을 읽고 쓰는 보관소이며 항목 이름에서 공백을 없애고 소문자로 바꾼 키에 현재 값이 담깁니다.
          */
         state: Record<string, any>;
     };
 
-export type { Controller_VALUE, GUI_Contoller_OPT, GUI_DevToolController, GUI_DevToolController_Content, GUI_GRAPH_INFO, GUI_GRAPH_INFO_Content, GUI_GRAPH_OPT, GUI_TAB_INFO, GUI_TemplateState, UDevToolMapControlField, UDevToolViewCO, UGUICSSStyle };
+export type { Controller_VALUE, GUI_Contoller_OPT, GUI_DevToolController, GUI_DevToolController_Content, GUI_GRAPH_INFO, GUI_GRAPH_INFO_Content, GUI_GRAPH_OPT, GUI_TAB_INFO, GUI_TemplateState, UDevToolGraphSeriesInfo, UDevToolGraphSeriesOpt, UDevToolMapControlField, UDevToolPlacement, UDevToolViewCO, UGUICSSStyle };

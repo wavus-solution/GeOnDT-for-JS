@@ -13,7 +13,7 @@ declare class U3dNodeManager extends UEventDispatcher {
         LINK_REGISTERED: string;
         BRANCH: string;
     };
-    static "__#146@#instance": any;
+    static "__#152@#instance": any;
     static get Instance(): any;
     constructor();
     get nodes(): Map<any, any>;

@@ -7,7 +7,7 @@ import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js"
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dApp } from "./U3dApp.js";
-import type { GUI_Contoller_OPT, GUI_DevToolController, GUI_GRAPH_OPT, GUI_TAB_INFO, UDevToolViewCO } from "./UDevToolView.types.js";
+import type { GUI_Contoller_OPT, GUI_DevToolController, GUI_GRAPH_OPT, GUI_TAB_INFO, UDevToolPlacement, UDevToolViewCO } from "./UDevToolView.types.js";
 import type { THREE_GUI, THREE_GUI_Controller } from "./UGUI.types.js";
 
 /**
@@ -83,6 +83,22 @@ declare class UDevToolView {
      * devToolView.setMaxHeight('80vh');
      */
     setMaxHeight(maxHeight: number | string): void;
+    /**
+     * 개발 도구 창의 화면 배치 위치를 변경하는 메서드입니다. <br>
+     * 넘긴 방향만 변경하고 생략한 방향은 현재 값을 유지합니다. 빈 문자열을 넘기면 해당 방향의 인라인 스타일을 해제합니다. <br>
+     * 창이 만들어지지 않았거나 해제된 뒤에는 아무 작업도 하지 않습니다.
+     *
+     * @param {UDevToolPlacement} placement 변경할 top, right, bottom, left 값
+     *
+     * @example
+     * devToolView.setPlacement({
+     *     top: '',
+     *     right: '',
+     *     bottom: '16px',
+     *     left: '16px'
+     * });
+     */
+    setPlacement(placement: UDevToolPlacement): void;
     /**
      * 이름이 일치하는 컨트롤러를 찾아 반환하는 메서드입니다. <br>
      * 모든 탭을 순서대로 찾아 처음 일치한 컨트롤러 하나만 반환합니다.
@@ -191,12 +207,23 @@ declare class UDevToolView {
     /**
      * 컨트롤러 값의 변화를 선 그래프로 그려 주는 메서드입니다. <br>
      * 추가한 뒤에는 상태 갱신 주기마다 그때의 값을 읽어 오른쪽으로 이어 그립니다. <br>
+     * opt.additionalSeries로 추가 선을 지정하면 같은 canvas와 눈금을 공유하며 범례를 함께 표시합니다. <br>
      * 추적할 컨트롤러를 찾지 못하면 그래프를 만들지 않습니다.
      *
-     * @param {string} title 그래프 위에 표시할 이름이며 removeGraph에서 그래프를 가리키는 식별자로도 쓰입니다.
-     * @param {string} traceName 값을 읽어 올 컨트롤러의 표시 이름이며 그래프를 추가할 탭 안에서 찾습니다.
-     * @param {GUI_GRAPH_OPT} [opt={}] 그래프를 배치할 탭과 폴더, 표시할 값 범위, 선 색, 유지할 점 개수를 지정하는 옵션
-     * @returns {HTMLCanvasElement | undefined} 그래프를 그리는 canvas Element이며 대상 탭이나 추적할 컨트롤러를 찾지 못하면 undefined
+     * @param {string} title 그래프 위에 표시할 이름이며 removeGraph에서 그래프를 가리키는 식별자로도 쓰입니다. <br>
+     * @param {string} traceName 값을 읽어 올 컨트롤러의 표시 이름이며 그래프를 추가할 탭 안에서 찾습니다. <br>
+     * @param {GUI_GRAPH_OPT} [opt={}] 그래프를 배치할 탭과 폴더, 표시할 값 범위, 선 색, 유지할 점 개수를 지정하는 옵션 <br>
+     * @returns {HTMLCanvasElement | undefined} 그래프를 그리는 canvas Element이며 대상 탭이나 추적할 컨트롤러를 찾지 못하면 undefined <br>
+     * @throws {TypeError} 추가 선 목록이 배열이 아니거나, 선 설정이 객체가 아니거나, 범례 이름이나 점선 길이의 형식이 잘못되면 발생합니다.
+     *
+     * @example 같은 그래프에서 두 컨트롤러 비교
+     * devToolView.addGraph('Process Limits', 'mainProcessLimit', {
+     *     tabName: 'Status', folderName: 'Frame', upperValue: 24,
+     *     label: 'Main', lineColor: '#5cb8ff',
+     *     additionalSeries: [
+     *         { traceName: 'workProcessLimit', label: 'Work', lineColor: '#c792ea', lineDash: [5, 4] }
+     *     ]
+     * });
      */
     addGraph(title: string, traceName: string, opt?: GUI_GRAPH_OPT): HTMLCanvasElement | undefined;
     /**

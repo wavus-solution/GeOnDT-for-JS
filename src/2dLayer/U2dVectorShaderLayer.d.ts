@@ -434,7 +434,12 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     _selectFillColor: three.ColorRepresentation;
     /** @type {import('three').ColorRepresentation} */
     _selectStrokeColor: three.ColorRepresentation;
-    /** @type {number} `storkeWidth`는 기존 오타 키의 하위 호환입니다. */
+    /**
+     * `storkeWidth`는 기존 오타 키의 하위 호환입니다.
+     *
+     * @type {number}
+     *
+     */
     _selectStrokeWidth: number;
     /** @type {string} */
     _olCrs: string;
@@ -478,7 +483,10 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     _toPoJsonFormat: any;
     /** @type {function | undefined} */
     _styleFunction: Function | undefined;
-    /** @type {boolean} setStyle()로 지정한 layer baseline이 styleFunction보다 우선하는지 여부입니다. */
+    /**
+     * setStyle()로 지정한 layer baseline이 styleFunction보다 우선하는지 여부입니다.
+     * @type {boolean}
+     */
     _layerStyleOverridesStyleFunction: boolean;
     /** @type {import('@union3d/core/loader/UFileLoader').UFileLoader} */
     _loader: UFileLoader;

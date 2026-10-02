@@ -1,9 +1,11 @@
-/** 실시간 항공 정보를 제공하는 예제 서버 기본 경로입니다. */
-const FLIGHT_API_BASE_URL = 'https://3d-api.geon.kr/flight/';
+/** 로컬에서는 Vite 프록시를 사용하고 배포 환경에서는 항공 API를 직접 호출합니다. */
+const FLIGHT_API_BASE_URL = ['localhost', '127.0.0.1', '[::1]'].includes(globalThis.location?.hostname)
+    ? '/flight/'
+    : 'https://3d-api.geon.kr/flight/';
 /** 다중 시설물 레이어에 사용할 UAM 모델 정보입니다. */
 const MODEL_INFO = Object.freeze({
     name: 'uam_01',
-    baseurl: 'https://dt-data.mappick.co.kr/ServiceData/component/DroneShow/UAM/',
+    baseurl: 'https://3d-dev.geon.kr/data/component/DroneShow/UAM/',
     fileName: 'UAM_A_Anim_WA_001',
     ext: 'fbx',
     rotation: {x: 90, y: 0, z: 0},
@@ -86,6 +88,7 @@ export async function initialize(context) {
     let selectedComponent;
     let cameraTraceMode = false;
     let locationTimer;
+    let locationRequestPending = false;
     let disposed = false;
     /** 정리 시점에 대기 중인 외부 서버 응답을 즉시 끊기 위한 신호입니다. */
     let notifyDisposed;
@@ -509,12 +512,17 @@ export async function initialize(context) {
                 listChanged = true;
                 continue;
             }
-            if (info.speed !== speed) info.speed = speed;
+            if (info.speed !== speed) {
+                info.speed = speed;
+                if (Number.isFinite(Number(speed)) && Number(speed) >= 0) component.setSpeed(Number(speed));
+            }
 
             updateDebugBox(flightId, geoPosition);
             routeHistory.append(flightId, geoPosition, speed, info.takeoffTime);
             // @example-code:start component.move
-            component.moveSmoothly({position: geoPosition}, handleComponentArrived);
+            // 서버의 다음 갱신까지 도착하도록 시간 기준으로 보간합니다.
+            // 거리/초기 속도로만 이동하면 투영 거리 차이와 서버 속도 변경으로 경유지가 밀립니다.
+            component.moveSmoothly({position: geoPosition, durationMs: LOCATION_REQUEST_INTERVAL_MS}, handleComponentArrived);
             // @example-code:end component.move
         }
 
@@ -734,6 +742,9 @@ export async function initialize(context) {
         if (disposed || locationTimer) return;
         let failureCount = 0;
         locationTimer = setInterval(() => {
+            // 느린 응답 중 다음 요청을 보내면 시뮬레이션이 중복 진행되거나 응답 순서가 뒤집힐 수 있습니다.
+            if (disposed || locationRequestPending) return;
+            locationRequestPending = true;
             updateFlightLocations().then(() => {
                 failureCount = 0;
             }).catch(error => {
@@ -745,6 +756,8 @@ export async function initialize(context) {
                 clearInterval(locationTimer);
                 locationTimer = undefined;
                 setStatus('error', '실시간 위치를 받지 못해 갱신을 중단했습니다. 예제 데이터 서버 상태를 확인하세요.');
+            }).finally(() => {
+                locationRequestPending = false;
             });
         }, LOCATION_REQUEST_INTERVAL_MS);
     }

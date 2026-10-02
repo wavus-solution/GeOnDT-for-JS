@@ -46,7 +46,13 @@ import type { UMeasureFeature, UMeasureFeatureExtent } from "../ol/UMeasureFeatu
 type U3dShaderMeasureExtent = UMeasureFeatureExtent;
 
 type UFeatureIDExtent = {
-        featureId: string;
+        /**
+         * 측정 feature 가 스스로 갖는 내부 고유값이며, 사용자가 부여한 ID 가 아닙니다.
+         */
+        featureId: string | number;
+        /**
+         * 해당 feature 를 감싸는 평면 영역이며, feature 를 만들 때 받아 둔 값을 그대로 전달합니다.
+         */
         extent: UMeasureFeatureExtent;
     };
 
@@ -127,10 +133,6 @@ type U3dShaderMeasureTerrainDebugFilter = (tileKey: string) => boolean;
          */
         terrainDebugTileFilter?: string | Array<string> | Set<string> | U3dShaderMeasureTerrainDebugFilter;
         /**
-         * 저성능 장치 렌더링 정책 강제 여부입니다.
-         */
-        isLowPerformance?: boolean;
-        /**
          * 예전 버전의 simple 렌더 경로 사용 여부입니다. <br>
          * `measureGeometryMode` 를 함께 지정하면 그 값이 우선하고, 지정하지 않았을 때만 이 값으로 초기 방식을 정합니다.
          */
@@ -144,7 +146,7 @@ type U3dShaderMeasureTerrainDebugFilter = (tileKey: string) => boolean;
          */
         measuregeometrymode?: U3dShaderMeasureGeometryMode;
         /**
-         * legacy 호환용 simple geometry 길이 기준입니다.
+         * 예전 방식과의 호환을 위해 이름만 남겨 둔 길이 기준이며, 값을 보관만 하고 그리기에는 쓰이지 않습니다
          */
         simpleGeometryLengthThreshold?: number;
         /**
@@ -296,7 +298,7 @@ type U3dShaderMeasureTileBound = {
          */
         level: number;
         /**
-         * 측정 feature UID입니다.
+         * 이 tile 영역과 짝지은 측정 feature 가 스스로 갖는 내부 고유값이며, 사용자가 부여한 ID 가 아닙니다.
          */
         featureId: string;
         /**
@@ -413,6 +415,9 @@ type MeasureTerrainClearOption = MeasureTerrainSyncOption & Partial<{
 type MeasureTerrainFeaturePayload = TerrainFeature;
 
 type U3dShaderMeasureFeatureRef = {
+        /**
+         * 가리키는 측정 feature 가 스스로 갖는 내부 고유값이며, 사용자가 부여한 ID 가 아닙니다.
+         */
         featureId: string | number;
     };
 
@@ -427,10 +432,7 @@ type U3dShaderMeasureSourceRevisionState = {
         revision: number;
     };
 
-/**
-     * terminal source 상태
-     */
-    type terminalSourceState = {
+type terminalSourceState = {
         /**
          * source 버전입니다.
          */

@@ -97,12 +97,12 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#133@#SINGLE_POSITION_TYPES": Array<string>;
+    static "__#139@#SINGLE_POSITION_TYPES": Array<string>;
     /** @type {Array<string>}
      *
      * @ignore
      */
-    static "__#133@#MULTI_POSITION_TYPES": Array<string>;
+    static "__#139@#MULTI_POSITION_TYPES": Array<string>;
     /**
      * 도형 타입에 따라 단일위치/다중위치 생성 방식을 자동으로 골라 도형을 만들고, 레이어가 주어지면 함께 추가합니다. <br>
      * 좌표를 하나만 주면 도형 하나를, 좌표 배열을 주면 여러 개를 만들어 배열로 반환합니다.
@@ -163,7 +163,7 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#133@#addSingle"(layer: {
+    static "__#139@#addSingle"(layer: {
         addGeometry: (geom: U3dGeometry) => void;
     } | undefined, type: GeomType, coord: Coord | Array<Coord>, params: KeyValue): U3dGeometry | Array<U3dGeometry>;
     /**
@@ -175,7 +175,7 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#133@#addSingleOne"(layer: {
+    static "__#139@#addSingleOne"(layer: {
         addGeometry: (geom: U3dGeometry) => void;
     } | undefined, type: GeomType, coord: Coord, params: KeyValue): U3dGeometry;
     /**
@@ -193,7 +193,7 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#133@#addMulti"(layer: {
+    static "__#139@#addMulti"(layer: {
         addGeometry: (geom: U3dGeometry) => void;
     } | undefined, type: GeomType, coords: Array<Coord> | Double_Array<Coord>, params: KeyValue): U3dGeometry | Array<U3dGeometry>;
     /**
@@ -205,7 +205,7 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#133@#addMultiOne"(layer: {
+    static "__#139@#addMultiOne"(layer: {
         addGeometry: (geom: U3dGeometry) => void;
     } | undefined, type: GeomType, coords: Array<Coord>, params: KeyValue): U3dGeometry;
     /**
@@ -217,7 +217,7 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#133@#buildGeom"(type: GeomType, params: KeyValue): U3dGeometry | undefined;
+    static "__#139@#buildGeom"(type: GeomType, params: KeyValue): U3dGeometry | undefined;
 }
 
 export type { Coord, GeomType, U3dGeometryFactory };

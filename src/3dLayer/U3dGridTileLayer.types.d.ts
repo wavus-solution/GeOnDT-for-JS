@@ -6,10 +6,10 @@ import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSeg
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { U3dModelLayerCO } from "./U3dModelLayer.js";
+import type { U3dModelLayerCO } from "./U3dModelLayer.types.js";
 
 /**
-     * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayerCO <br>
+     * ~extends U3dModelLayerCO <br>
      * U3dGridTileLayer 생성자 옵션
      */
     type U3dGridTileLayerCO_Content = {
@@ -40,7 +40,7 @@ import type { U3dModelLayerCO } from "./U3dModelLayer.js";
     };
 
 /**
-     * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayerCO <br>
+     * ~extends U3dModelLayerCO <br>
      * U3dGridTileLayer 생성자 옵션
      */
     type U3dGridTileLayerCO = Omit<Omit<U3dModelLayerCO, never> & U3dGridTileLayerCO_Content, never>;

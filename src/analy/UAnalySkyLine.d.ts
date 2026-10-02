@@ -13,12 +13,12 @@ import type { deferred } from "../util/deferred.js";
 
 /**
  * ~extends import('@UAnaly').UAnaly <br>
- * `스카이라인` 분석 클래스 <br>
- * 스카이라인 후처리 효과를 활성화하고 경계선·지면·하늘 색상 등 스타일을 설정하는 기능을 제공한다.
+ *
+ * 스카이라인 후처리 효과를 제어하고 화면의 영역별 픽셀 수를 집계합니다.
  *
  * @group analysis
  * @summary `스카이라인` 분석 클래스
- * @extends UAnaly
+ * @extends {UAnaly}
  *
  * @example
  * const skyline = app.getAnalysis('SkyLine');
@@ -28,40 +28,49 @@ import type { deferred } from "../util/deferred.js";
  */
 declare class UAnalySkyLine extends UAnaly {
     /**
-     * @param {UAnalySkyLineCO} [opt={}]
+     * 스카이라인 분석 인스턴스를 생성합니다.
+     *
+     * @param {UAnalySkyLineCO} [opt={}] 생성 옵션
      */
     constructor(opt?: UAnalySkyLineCO);
     name: string;
     /**
+     * 앱을 연결하고 렌더러에 등록된 스카이라인 패스를 조회합니다.
+     *
      * @override
      *
-     * @param {import('@U3dApp').U3dApp} app
-     * @return {this}
+     * @param {import('@U3dApp').U3dApp} app 연결할 앱
+     * @returns {this} 현재 분석 인스턴스
      */
     override setApp(app: U3dApp): this;
     /**
+     * 스카이라인 패스를 활성화한 뒤 분석을 활성 상태로 변경합니다.
+     *
      * @override
      *
-     * @return {this}
+     * @returns {this} 현재 분석 인스턴스
      */
     override active(): this;
     /**
+     * 분석과 스카이라인 패스를 비활성화하고 저장된 픽셀 버퍼를 비웁니다.
+     *
      * @override
      *
-     * @return {this}
+     * @returns {this} 현재 분석 인스턴스
      */
     override deactive(): this;
     /**
-     * 스카이라인의 스타일을 설정하는 함수
+     * 스카이라인의 경계선과 영역별 색상 스타일을 설정합니다.
      *
      * @param {SkyLineStyle} style 스타일 옵션
-     * @return {this}
+     * @returns {this} 현재 분석 인스턴스
      */
     setStyle(style: SkyLineStyle): this;
     /**
-     * 현재 화면의 스카이라인 분석 결과(지면·하늘·초과 픽셀 수)를 반환하는 함수
+     * 화면 배열을 요청하여 하늘·지면·초과 영역의 픽셀 수를 집계합니다.
+     * 분석이 비활성이거나 패스를 연결하지 못하면 반환 객체를 reject합니다.
      *
-     * @return {ReturnType<typeof deferred>}
+     * @returns {ReturnType<typeof deferred>} 화면 집계 결과를 전달하는 deferred 객체
      */
     getScreenInfo(): ReturnType<typeof deferred>;
     #private;

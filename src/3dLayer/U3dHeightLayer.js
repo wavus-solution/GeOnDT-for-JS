@@ -187,11 +187,17 @@ class U3dHeightLayer extends U3dLayer {
     /**
      * 원본 고도 자료를 변경하지 않고 지형 타일 메시의 Z축 배율을 설정하여 화면의 높낮이를 조정합니다. <br>
      * 입력값은 기존 배율과 곱하지 않고 새 배율로 저장하며, 0.1 미만이면 0.1로 보정합니다. <br>
+     * scale을 생략하거나 undefined 또는 null을 전달하면 초기값 1.0을 적용합니다. <br>
+     * 문자열을 전달하면 현재 배율과 타일 메시를 변경하지 않고 TypeError가 발생합니다. <br>
      * 호출 시 레이어 캐시에 등록된 타일 중 현재 메시가 있는 타일에는 즉시 적용하고, 아직 메시가 없는 타일에는 이후 고도가 연결될 때 저장된 배율을 적용합니다.
      *
-     * @param {number} [scale=1.0] 지형 타일 메시의 Z축에 설정할 배율, 생략하면 1.0이며 0.1 미만은 0.1로 보정됨
+     * @param {number | null | undefined} [scale=1.0] 지형 타일 메시의 Z축에 설정할 배율, 생략하거나 undefined·null이면 1.0이며 0.1 미만은 0.1로 보정됨
+     * @throws {TypeError} scale이 문자열일 때 발생합니다.
      */
     setHeightScale(scale = 1.0) {
+        if (scale === null) scale = 1.0;
+        if (typeof scale === 'string') throw new TypeError('scale 값은 문자열일 수 없습니다.');
+
         this._heightScale = Math.max(scale, 0.1);
 
         const keys = this.getCacheKeys();

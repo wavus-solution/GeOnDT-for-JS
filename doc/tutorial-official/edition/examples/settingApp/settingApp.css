@@ -1,0 +1,182 @@
+.parameter label {
+            margin-right: 20px;
+            display: block;
+            font-size: 16px;
+        }
+
+        h3 a {
+            color: white;
+        }
+
+        h3 a:hover {
+            color: #00a8c6;
+        }
+
+        hr {
+            margin-top: 10px;
+            margin-bottom: 10px;
+            border-color: rgba(166, 166, 166, 0.5);
+        }
+
+        .parameter .item {
+            font-weight: normal;
+            cursor: pointer;
+        }
+
+        .parameter .form-control.item {
+            display: inline-block;
+            width: 80px;
+        }
+
+        .parameter .item[type="color"] {
+            width: 50px;
+        }
+
+        .parameter .item::placeholder {
+            font-size: 14px;
+        }
+
+        #app-name {
+            position: absolute;
+            top: 5px;
+            left: 50px;
+            color: white;
+            background-color: black;
+            padding: 5px 10px;
+            min-width: 100px;
+            height: 40px;
+            line-height: 25px;
+            border-radius: 8px;
+            text-align: center;
+            z-index: 999;
+        }
+
+        #analy-popup .div-popup {
+            width: min(680px, calc(100vw - 108px));
+            height: 770px;
+            top: 4vh;
+            padding-bottom: 10px;
+        }
+
+
+        .setting-tab-panel label {
+            font-size: 18px;
+            font-style: italic;
+        }
+
+        #analy-popup .setting-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin: 18px 0 12px;
+            padding: 0;
+            border-bottom: 1px solid rgba(199, 231, 244, .35);
+        }
+
+        #analy-popup .setting-tabs [role="tab"] {
+            margin: 0 0 -1px;
+            padding: 11px 18px;
+            border: 1px solid transparent;
+            border-radius: 11px 11px 0 0;
+            background: transparent;
+            color: #c4deeb;
+            font: inherit;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        #analy-popup .setting-tabs [role="tab"]:hover {
+            background: rgba(211, 237, 248, .08);
+            color: #fff;
+        }
+
+        #analy-popup .setting-tabs [aria-selected="true"] {
+            border-color: rgba(199, 231, 244, .4);
+            border-bottom-color: #7194a5;
+            background: #7194a5;
+            color: #f4fbff;
+        }
+
+        #analy-popup .setting-tabs [role="tab"]:focus-visible {
+            outline: 2px solid #b7eaff;
+            outline-offset: -4px;
+        }
+
+        #analy-popup .setting-tab-panel[hidden] {
+            display: none !important;
+        }
+
+        #analy-popup .div-popup-content > div {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 24px;
+        }
+
+        #analy-popup .parameter {
+            float: none;
+            width: auto;
+            min-width: 0;
+        }
+
+        #setting-json-dialog {
+            width: min(720px, calc(100vw - 32px));
+            max-height: calc(100dvh - 48px);
+            padding: 20px;
+            color: #eef8ff;
+            background: #2c5368;
+            border: 1px solid rgba(199, 231, 244, .4);
+            border-radius: 12px;
+            box-shadow: 0 18px 60px rgba(0, 0, 0, .4);
+        }
+
+        #setting-json-dialog::backdrop {
+            background: rgba(6, 22, 33, .48);
+        }
+
+        .setting-json-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .setting-json-header h2 {
+            margin: 0;
+            font-size: 20px;
+        }
+
+        .setting-json-label { display: block; margin-bottom: 8px; }
+
+        .setting-json-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        [data-json-copy-status] { font-size: 12px; }
+
+        #setting-json-dialog #jsonViewer {
+            width: 100%;
+            height: min(520px, 60dvh);
+            padding: 12px;
+            resize: vertical;
+            color: #e8f6ff;
+            background: #1d3e51;
+            border: 1px solid rgba(199, 231, 244, .3);
+            font: 13px/1.6 Consolas, monospace;
+            white-space: pre;
+        }
+
+        @media (max-width: 760px) {
+            #analy-popup .div-popup-content > div {
+                grid-template-columns: minmax(0, 1fr);
+            }
+            #analy-popup .setting-tabs [role="tab"] {
+                padding: 10px;
+                font-size: 14px;
+            }
+        }

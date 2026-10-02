@@ -6,7 +6,7 @@ import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSeg
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { U3dModelLayerCO } from "./U3dModelLayer.js";
+import type { U3dModelLayerCO } from "./U3dModelLayer.types.js";
 import type { UMesh } from "../core/mesh/UMesh.js";
 import type { UShpMesh } from "../core/mesh/UShpMesh.js";
 import type { U3dPOI } from "../geometry/U3dPOI.js";
@@ -567,7 +567,7 @@ import type { DeferredObject } from "../util/deferred.types.js";
     };
 
 /**
-     * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayerCO <br>
+     * ~extends U3dModelLayerCO <br>
      *
      * U3dModelShapeLayer의 초기 표시·높이·스타일 설정입니다.
      */
@@ -689,7 +689,7 @@ import type { DeferredObject } from "../util/deferred.types.js";
     };
 
 /**
-     * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayerCO <br>
+     * ~extends U3dModelLayerCO <br>
      *
      * U3dModelShapeLayer의 초기 표시·높이·스타일 설정입니다.
      */

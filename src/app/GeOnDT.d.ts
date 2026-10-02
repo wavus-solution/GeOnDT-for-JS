@@ -75,9 +75,11 @@ import type { UDEF } from "../core/UDEF.js";
 import type { UFrustum } from "../core/UFrustum.js";
 import type { UGroup } from "../core/UGroup.js";
 import type { UDRACOLoader } from "../core/loader/UDRACOLoader.js";
+import type { UFBXLoader } from "../core/loader/UFBXLoader.js";
 import type { UFileLoader } from "../core/loader/UFileLoader.js";
 import type { UGLTFLoader } from "../core/loader/UGLTFLoader.js";
 import type { UMesh } from "../core/mesh/UMesh.js";
+import type { USkinnedMesh } from "../core/mesh/USkinnedMesh.js";
 import type { UDxfParser } from "../core/parser/UDxfParser.js";
 import type { UMeshParser } from "../core/parser/UMeshParser.js";
 import type { UOBJParser } from "../core/parser/UOBJParser.js";
@@ -122,6 +124,7 @@ import type { UGroupBoundaryHelper } from "../helpers/UGroupBoundaryHelper.js";
 import type { ULandNormalDirectionHelper } from "../helpers/ULandNormalDirectionHelper.js";
 import type { ULocalENUHelper } from "../helpers/ULocalENUHelper.js";
 import type { UTerrainStamp } from "../helpers/UTerrainStamp.js";
+import type { SkeletonUtils } from "../lib/three/utils/SkeletonUtils.js";
 import type { UGPoint } from "../math/UGPoint.js";
 import type { UMathEngine } from "../math/UMathEngine.js";
 import type { U3dMessage } from "../message/U3dMessage.js";
@@ -282,6 +285,7 @@ declare class GeOnDT {
         UGLTFLoader: typeof UGLTFLoader;
         UDRACOLoader: typeof UDRACOLoader;
         UFileLoader: typeof UFileLoader;
+        UFBXLoader: typeof UFBXLoader;
     };
     /**
      * 3D지도 지면에 렌더링되는 `2D이미지` 레이어 관련 네임스페이스.
@@ -503,6 +507,7 @@ declare class GeOnDT {
     };
     static object: {
         UMesh: typeof UMesh;
+        USkinnedMesh: typeof USkinnedMesh;
         UGroup: typeof UGroup;
         U3dCustomModel: typeof U3dCustomModel;
         UGPoint: typeof UGPoint;
@@ -516,6 +521,7 @@ declare class GeOnDT {
     };
     static Object: {
         UMesh: typeof UMesh;
+        USkinnedMesh: typeof USkinnedMesh;
         UGroup: typeof UGroup;
         U3dCustomModel: typeof U3dCustomModel;
         UGPoint: typeof UGPoint;
@@ -586,6 +592,7 @@ declare class GeOnDT {
     static util: {
         SnapPointToMesh: typeof snapPointToMesh;
         SnapWorldPointToMesh: typeof snapWorldPointToMesh;
+        SkeletonUtils: typeof SkeletonUtils;
     };
     static setDracoDecoderPath(path: any): void;
     static getDracoDecoderPath(): string;

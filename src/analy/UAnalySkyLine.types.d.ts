@@ -11,6 +11,7 @@ import type { ColorLike } from "../types/global.types.js";
 
 /**
      * ~extends import('@UAnaly').UAnalyCO <br>
+     *
      * UAnalySkyLine 생성자 옵션
      */
     type UAnalySkyLineCO_Content = {
@@ -22,6 +23,7 @@ import type { ColorLike } from "../types/global.types.js";
 
 /**
      * ~extends import('@UAnaly').UAnalyCO <br>
+     *
      * UAnalySkyLine 생성자 옵션
      */
     type UAnalySkyLineCO = Omit<Omit<UAnalyCO, never> & UAnalySkyLineCO_Content, never>;

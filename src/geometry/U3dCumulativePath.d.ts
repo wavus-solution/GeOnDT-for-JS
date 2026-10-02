@@ -8,7 +8,7 @@ import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/e
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { USimpleTail } from "../effect/USimpleTail.js";
 import type { USimpleTail_Policy } from "../effect/USimpleTail.types.js";
-import type { U3dCumulativePathCO, U3dCumulativePathPositionData, U3dCumulativePathStyleFunc, U3dCumulativePath_StyleOpt } from "./U3dCumulativePath.types.js";
+import type { U3dCumulativePathCO, U3dCumulativePathPositionData, U3dCumulativePathStyleFunc, U3dCumulativePath_StyleOpt, WaypointRecord } from "./U3dCumulativePath.types.js";
 import type { WorldPosition } from "../types/global.types.js";
 
 /**
@@ -34,6 +34,22 @@ declare class U3dCumulativePath {
      */
     isAutoVisible: boolean;
     /**
+     * 최근 도착 waypoint 100개의 좌표·도착 시각 복사본입니다. 오래된 순서입니다.
+     * 렌더 노드 단순화·거리 제한과 독립적으로 보관하며 removePath/dispose 시 비웁니다.
+     * @returns {Array<WaypointRecord>}
+     */
+    get waypointHistory(): Array<WaypointRecord>;
+    /**
+     * moveSmoothly의 실제 도착 지점을 기록합니다. 경로 표시 여부와 무관합니다.
+     * @param {{x:number, y:number, z:number}} point 도착 월드 좌표
+     * @param {number} [time=Date.now()] 도착 epoch 시각(ms)
+     */
+    recordWaypoint(point: {
+        x: number;
+        y: number;
+        z: number;
+    }, time?: number): void;
+    /**
      * 다음 경로 일괄 추가 전에 기존 경로를 지워야 하는지 반환합니다.
      *
      * @returns {boolean | undefined} 기존 경로를 지워야 하면 true, 아직 판단하지 않았으면 undefined
@@ -43,7 +59,7 @@ declare class U3dCumulativePath {
      * 마지막으로 경로에 추가된 지점을 반환합니다.<br>
      * 반환 객체는 다음 갱신 때 바뀔 수 있으므로 보관하려면 clone하십시오.
      *
-     * @returns {import('three').Vector3 | undefined} drawOffset을 적용한 마지막 지점 또는 아직 지점이 없을 때 undefined
+     * @returns {import('three').Vector3 | undefined} drawOffset과 positionOffset을 적용한 마지막 지점 또는 아직 지점이 없을 때 undefined
      */
     get lastUpdatePoint(): three.Vector3 | undefined;
     /**
@@ -55,9 +71,9 @@ declare class U3dCumulativePath {
     /**
      * 마지막으로 추가한 지점까지의 누적 거리를 반환합니다.
      *
-     * @returns {number} updatePath에 마지막으로 전달한 dist 값
+     * @returns {number} 경로에 기록된 마지막 지점까지 자체 계산한 누적 거리(m)
      */
-    get cumulativeDist(): number;
+    get pathDistance(): number;
     /**
      * 생성할 때 지정한 대상 이름을 반환합니다.
      *
@@ -86,6 +102,11 @@ declare class U3dCumulativePath {
      * @param {USimpleTail_Policy} opt 단순화, 지점 용량, 페이드 방식을 지정하는 정책
      */
     setTailPolicy(opt: USimpleTail_Policy): void;
+    /**
+     * 이동이 멈춘 동안에도 사용자 fade 콜백을 다시 평가합니다.
+     * @param {number} [now=Date.now()] 현재 epoch 시각(ms)
+     */
+    updateFade(now?: number): void;
     /**
      * 경로 스타일을 한 번에 변경합니다.<br>
      * 지정한 스타일 항목만 반영하고 나머지는 유지합니다.
@@ -135,6 +156,24 @@ declare class U3dCumulativePath {
      */
     setPathOffset(offset: number): void;
     /**
+     * 이후 추가할 경로 지점을 컴포넌트의 로컬 x, y, z축으로 옮기는 오프셋을 설정합니다.<br>
+     * 컴포넌트가 회전하면 보정 방향도 함께 회전합니다.
+     *
+     * @param {import('three').Vector3 | {x:number, y:number, z:number} | undefined} offset 컴포넌트 로컬 좌표축 기준 보정값. undefined이면 (0, 0, 0)
+     */
+    setPositionOffset(offset: three.Vector3 | {
+        x: number;
+        y: number;
+        z: number;
+    } | undefined): void;
+    /**
+     * positionOffset의 로컬축을 월드축으로 변환할 기본 회전을 설정합니다.<br>
+     * updatePath 또는 초기 지점에 회전값을 지정하면 해당 값이 우선합니다.
+     *
+     * @param {import('three').QuaternionLike | undefined} quaternion 컴포넌트의 회전. undefined이면 단위 회전
+     */
+    setPositionOffsetQuaternion(quaternion: three.QuaternionLike | undefined): void;
+    /**
      * 경로 지점 사이의 급격한 꺾임을 완화할 스무딩을 설정합니다.
      *
      * @param {boolean} enable true면 스무딩을 적용할지 여부
@@ -154,18 +193,22 @@ declare class U3dCumulativePath {
     dispose(): void;
     /**
      * 현재 위치를 경로 끝에 추가합니다.<br>
-     * 숨긴 상태이거나 아직 준비되지 않았으면 지점을 보관했다가 표시할 때 순서대로 추가합니다.<br>
+     * 숨김 여부와 관계없이 경로를 갱신하고 단순화·거리 제한 정책을 적용합니다.<br>
+     * 별도 원본 입력 대기열은 만들지 않습니다.<br>
+     * drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다음 이동점이 올 때 함께 추가합니다.<br>
      * `pos`는 복사해 사용하므로 호출 뒤 같은 객체를 재사용할 수 있습니다.
      *
      * @param {WorldPosition} pos 추가할 지점이며 x, y, z가 모두 있어야 함
-     * @param {number} dist 경로 시작점부터 이 지점까지의 누적 거리이며 precision보다 작은 증가분은 추가하지 않음
      * @param {number} time 지점의 시각이며 색 계산과 위치 기록에 사용됨
+     * @param {import('three').QuaternionLike} [orientation] positionOffset을 월드축으로 변환할 컴포넌트 회전
+     * @param {number} [recordedAt=Date.now()] 지점이 이력에 추가된 epoch 시각(ms)
      */
-    updatePath(pos: WorldPosition, dist: number, time: number): void;
+    updatePath(pos: WorldPosition, time: number, orientation?: three.QuaternionLike, recordedAt?: number): void;
     /**
      * 위치 데이터 배열의 지점을 경로 끝에 한 번에 추가합니다.<br>
      * 생성 직후의 초기 경로는 생성 옵션 initPositions로 지정하십시오.<br>
      * 지점이 30,000개를 넘으면 30,000개만 골라 그립니다.<br>
+     * drawOffset이 0이 아니고 입력 지점이 모두 같은 위치이면 첫 이동점이 올 때 시작점을 추가합니다.<br>
      * 기존 경로 뒤에 지점을 추가합니다.<br>
      * `hide`후 첫 호출에서는 기존 경로를 지우고 새 경로로 표시됩니다.
      *
@@ -174,13 +217,13 @@ declare class U3dCumulativePath {
     createTrailFromPositions(positions: Array<U3dCumulativePathPositionData>): void;
     /**
      * 경로를 화면에 표시합니다.<br>
-     * 표시 전이나 숨긴 동안 `updatePath`로 추가한 지점을 순서대로 반영합니다.
+     * 숨긴 동안 갱신된 경로의 fade를 평가하고 메시를 장면에 추가합니다.
      */
     show(): void;
     /**
      * 경로를 화면에서 숨깁니다.<br>
-     * 숨긴 동안 `updatePath`로 추가한 지점은 보관합니다.<br>
-     * 다음 show에서 보관한 지점을 반영합니다.<br>
+     * 숨긴 동안에도 `updatePath`의 경로 갱신·단순화·거리 제한은 계속 적용됩니다.<br>
+     * fade 평가는 다음 show까지 보류합니다.<br>
      * 다음 `createTrailFromPositions` 호출은 기존 경로를 지우고 새 경로로 표시됩니다.
      */
     hide(): void;

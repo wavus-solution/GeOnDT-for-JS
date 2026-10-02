@@ -341,7 +341,7 @@ devToolView<span class="token punctuation">.</span><span class="token function">
 <h4 class="api-heading" id="api-19">API</h4>
 <p>UDevToolView.removeAllGraph() : 뷰에 추가된 모든 그래프를 제거합니다.</p>
 <h3 id="1-컨트롤러-값을-그래프로-추적하는-예제">1. 컨트롤러 값을 그래프로 추적하는 예제</h3>
-<p>기존 HTML 예제처럼 <code>Status</code> 탭의 <code>Bench Score</code>를 다른 탭에서 바로 추적하면 대상 탭에서 컨트롤러를 찾지 못해 그래프 생성에 실패합니다.<br>다음 예제는 사용자 컨트롤러와 그래프를 같은 탭에 만든 뒤 앱의 벤치마크 점수를 갱신합니다.</p>
+<p>그래프는 지정한 탭 안에서 추적할 컨트롤러를 찾습니다. 다른 탭의 컨트롤러 이름을 전달하면 그래프 생성에 실패합니다.<br>다음 예제는 사용자 컨트롤러와 그래프를 같은 탭에 만든 뒤 메인·하위 처리기에서 현재 실행 중인 작업 수를 갱신합니다.</p>
 <pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> devToolView <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">createDevToolView</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 
 <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>devToolView<span class="token punctuation">)</span> <span class="token punctuation">{</span>
@@ -351,32 +351,29 @@ devToolView<span class="token punctuation">.</span><span class="token function">
 devToolView<span class="token punctuation">.</span><span class="token function">addTab</span><span class="token punctuation">(</span><span class="token string">'Custom'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 devToolView<span class="token punctuation">.</span><span class="token function">addFolder</span><span class="token punctuation">(</span><span class="token string">'Stats'</span><span class="token punctuation">,</span> <span class="token string">'Custom'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 
-<span class="token keyword">const</span> <span class="token function-variable function">getBenchScore</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
-    <span class="token keyword">const</span> score <span class="token operator">=</span> <span class="token function">Number</span><span class="token punctuation">(</span>app<span class="token punctuation">.</span><span class="token function">getBenchMark</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">?.</span>totalScore<span class="token punctuation">)</span><span class="token punctuation">;</span>
-    <span class="token keyword">return</span> Number<span class="token punctuation">.</span><span class="token function">isFinite</span><span class="token punctuation">(</span>score<span class="token punctuation">)</span> <span class="token operator">?</span> score <span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> <span class="token function-variable function">getRunningTasks</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> app<span class="token punctuation">.</span><span class="token function">getProcessManager</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">?.</span><span class="token function">getWorkingCount</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">??</span> <span class="token number">0</span><span class="token punctuation">;</span>
 
-<span class="token keyword">const</span> benchController <span class="token operator">=</span> devToolView<span class="token punctuation">.</span><span class="token function">addController</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
-    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'Custom Bench Score'</span><span class="token punctuation">,</span>
-    <span class="token literal-property property">value</span><span class="token operator">:</span> <span class="token function">getBenchScore</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token keyword">const</span> taskController <span class="token operator">=</span> devToolView<span class="token punctuation">.</span><span class="token function">addController</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'Running Tasks'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">value</span><span class="token operator">:</span> <span class="token function">getRunningTasks</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
     <span class="token literal-property property">tabName</span><span class="token operator">:</span> <span class="token string">'Custom'</span><span class="token punctuation">,</span>
     <span class="token literal-property property">folderName</span><span class="token operator">:</span> <span class="token string">'Stats'</span><span class="token punctuation">,</span>
     <span class="token literal-property property">listen</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
     <span class="token literal-property property">readOnly</span><span class="token operator">:</span> <span class="token boolean">true</span>
 <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 
-<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>benchController<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>taskController<span class="token punctuation">)</span> <span class="token punctuation">{</span>
     <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'추적할 컨트롤러를 생성하지 못했습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 <span class="token punctuation">}</span>
 
 <span class="token keyword">const</span> stopUpdate <span class="token operator">=</span> devToolView<span class="token punctuation">.</span><span class="token function">onUpdate</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
-    benchController<span class="token punctuation">.</span><span class="token function">setValue</span><span class="token punctuation">(</span><span class="token function">getBenchScore</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    taskController<span class="token punctuation">.</span><span class="token function">setValue</span><span class="token punctuation">(</span><span class="token function">getRunningTasks</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 
-<span class="token keyword">const</span> graph <span class="token operator">=</span> devToolView<span class="token punctuation">.</span><span class="token function">addGraph</span><span class="token punctuation">(</span><span class="token string">'Custom Bench Score Graph'</span><span class="token punctuation">,</span> <span class="token string">'Custom Bench Score'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+<span class="token keyword">const</span> graph <span class="token operator">=</span> devToolView<span class="token punctuation">.</span><span class="token function">addGraph</span><span class="token punctuation">(</span><span class="token string">'Running Tasks Graph'</span><span class="token punctuation">,</span> <span class="token string">'Running Tasks'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
     <span class="token literal-property property">tabName</span><span class="token operator">:</span> <span class="token string">'Custom'</span><span class="token punctuation">,</span>
     <span class="token literal-property property">folderName</span><span class="token operator">:</span> <span class="token string">'Stats'</span><span class="token punctuation">,</span>
-    <span class="token literal-property property">upperValue</span><span class="token operator">:</span> <span class="token number">600</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">upperValue</span><span class="token operator">:</span> <span class="token number">128</span><span class="token punctuation">,</span>
     <span class="token literal-property property">lowerValue</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
     <span class="token literal-property property">lineColor</span><span class="token operator">:</span> <span class="token string">'#67d5b5'</span><span class="token punctuation">,</span>
     <span class="token literal-property property">maxPoints</span><span class="token operator">:</span> <span class="token number">120</span>
@@ -389,8 +386,8 @@ devToolView<span class="token punctuation">.</span><span class="token function">
 
 <span class="token comment">// 더 이상 추적하지 않을 때 실행합니다.</span>
 <span class="token function">stopUpdate</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-devToolView<span class="token punctuation">.</span><span class="token function">removeGraph</span><span class="token punctuation">(</span><span class="token string">'Custom Bench Score Graph'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-devToolView<span class="token punctuation">.</span><span class="token function">removeController</span><span class="token punctuation">(</span><span class="token string">'Custom Bench Score'</span><span class="token punctuation">,</span> <span class="token string">'Custom'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+devToolView<span class="token punctuation">.</span><span class="token function">removeGraph</span><span class="token punctuation">(</span><span class="token string">'Running Tasks Graph'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+devToolView<span class="token punctuation">.</span><span class="token function">removeController</span><span class="token punctuation">(</span><span class="token string">'Running Tasks'</span><span class="token punctuation">,</span> <span class="token string">'Custom'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 </code></pre>
 <p>컨트롤러만 제거해도 연결된 그래프는 자동으로 제거되지 않습니다.<br>개별 항목을 정리할 때는 그래프를 먼저 제거하고 컨트롤러를 제거합니다.<br>탭이나 폴더를 제거하면 그 범위의 그래프도 함께 제거됩니다.</p>
 <h2 id="6-업데이트-콜백-사용하기">6. 업데이트 콜백 사용하기</h2>

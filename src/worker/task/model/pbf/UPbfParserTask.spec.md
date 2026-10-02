@@ -52,7 +52,7 @@ UPbfParserTask 클래스 정의
         arraybuffer 응답용 공유 로더. 첫 요청에서 생성한다.
 
     static taskMap: Record<string, AbortController> = {}
-        URL 별 진행 중 요청 표식. abort() 의 대상 판정에 사용한다.
+        요청 식별자별 진행 중 요청 표식. abort() 의 대상 판정에 사용한다.
 
     static IMAGE_FLIP_Y: boolean = true
         loadPbf 캔버스 그리기에서 Y 축을 반전할지 여부
@@ -65,19 +65,19 @@ UPbfParserTask 클래스 정의
         의존:
             UMercator — 타일 경계 계산기 생성; 생성자: {new UMercator()}
 
-    static abort(url: string) -> void
-        역할: URL 의 진행 중 다운로드를 중단한다.
+    static abort(requestId: string) -> void
+        역할: 해당 요청의 AbortController 를 중단한다. 동일 URL의 다른 소비자는 유지한다.
+        처리 기준: 등록되지 않은 요청 식별자는 무시한다.
 
-        처리 기준:
-            taskMap 에 URL 이 없으면 아무 것도 하지 않는다.
-            loader 가 아직 생성되지 않은 워커에서 taskMap 항목이 있을 수 없으므로 loader 존재를 별도로 검사하지 않는다.
-
-        의존:
-            UFileLoader — URL 의 fetch 중단; 함수: {abort()}
-            Worker API — 요청별 중단 신호; 함수: {AbortController.abort()}
-
+    static runRequest(params, processData) -> Promise
+        역할: 요청별 다운로드·후속 처리·취소의 종료를 보장한다.
         동작:
-            taskMap 에 URL 이 있으면 loader.abort(url) 과 해당 AbortController.abort() 를 호출한다.
+            requestId 별 AbortController 를 등록한다. 식별자 미지정 시 기존 호출 호환을 위해 URL 을 쓴다.
+            UFileLoader.load 의 callback ID 로 requestId 를 전달한다.
+            취소 시 Promise 를 즉시 거부하고 cancelById 로 해당 소비자만 제거한다.
+            마지막 소비자가 사라지면 실제 fetch 도 중단한다.
+            다운로드와 비동기 후속 처리의 오류를 모두 호출자에게 전달한다.
+            finally 에서 자기 요청의 taskMap 항목만 정리한다.
 
     static ensureLoader() -> void
         역할: 공유 UFileLoader 를 한 번만 생성한다.
@@ -109,7 +109,7 @@ UPbfParserTask 클래스 정의
             버퍼 앞 두 바이트를 읽어 gzip 매직 넘버가 아니면 입력 버퍼를 그대로 반환한다.
             gzip 이면 응답 본문 스트림을 gzip 해제 스트림으로 통과시켜 푼 ArrayBuffer 를 반환한다.
 
-    static loadPbfFeatures(params: {url: string}) -> Promise<U3dVectorPBFDecodeResult>
+    static loadPbfFeatures(params: {url: string, requestId?: string}) -> Promise<U3dVectorPBFDecodeResult>
         역할: PBF 타일을 내려받아 디코드한 원본 피처를 캔버스 그리기 없이 반환한다.
 
         인터페이스:
@@ -127,9 +127,9 @@ UPbfParserTask 클래스 정의
 
         동작:
             공유 로더를 준비한다.
-            taskMap 에 URL 을 등록하고 다운로드를 시작한다.
-            성공 콜백에서 taskMap 항목을 지우고 gzip 이면 압축을 푼 뒤 레이어 단위로 디코드해 resolve 한다. gzip 해제·디코드 예외는 reason 'decode' 결과로 resolve 한다.
-            실패 콜백에서 taskMap 항목을 지우고 failed 플래그 결과로 resolve 한다.
+            runRequest 로 요청을 등록하고 다운로드한다.
+            gzip 해제 이후에도 취소 여부를 확인해 취소됐다면 디코드를 생략한다.
+            gzip 해제·디코드 예외는 reason 'decode', 취소·다운로드 실패는 describeLoadFailure 결과로 반환한다.
 
     static decodePbfLayers(buffer: ArrayBuffer) -> {layers: Array<U3dVectorPBFDecodedLayer>, _transferables: Array<ArrayBuffer>}
         역할: MVT 버퍼를 레이어별 extent 와 피처 목록으로 디코드하고 좌표 배열을 transferable 로 만든다.
@@ -146,17 +146,18 @@ UPbfParserTask 클래스 정의
             피처마다 id, 타입, 속성, Float64Array 좌표, ends 를 담고 좌표 buffer 를 transferable 목록에 추가한다.
             레이어 이름·extent·피처 목록을 layers 에 추가해 반환한다.
 
-    static loadPbf(params: {url: string, realUrl: string, canvas: OffscreenCanvas, styleFunctionString: string, imageSize: number, curTile: {x, y, level}, orderTile: {x, y, level}, resolutionByLevel: number}) -> Promise<ImageBitmap>
+    static loadPbf(params: {url: string, realUrl: string, requestId?: string, canvas: OffscreenCanvas, styleFunctionString: string, imageSize: number, curTile: {x, y, level}, orderTile: {x, y, level}, resolutionByLevel: number}) -> Promise<ImageBitmap | undefined>
         역할: 실제 데이터 타일(realUrl)을 내려받아 요청 타일(curTile) 영역의 면과 선을 OffscreenCanvas 에 그리고 ImageBitmap 으로 반환한다.
 
         인터페이스:
-            params.url: 요청 타일 키로 쓰는 URL 이며 taskMap 등록·abort 의 키다.
+            params.url: 표시 타일 URL. requestId 가 없을 때만 취소 식별자로 사용한다.
+            params.requestId: 다운로드 URL과 별개인 요청별 취소 식별자.
             params.realUrl: 실제 다운로드 URL. realMaxLevel 을 넘는 타일은 부모 타일 URL 이다.
             params.canvas: transfer 로 넘어온 OffscreenCanvas
             params.styleFunctionString: 메인 스레드 스타일 함수의 toString() 결과
             params.curTile, params.orderTile: 요청 타일과 실제 데이터 타일의 인덱스·레벨
             params.resolutionByLevel: 스타일 함수에 넘길 해상도
-            반환: 그리기가 끝난 캔버스의 ImageBitmap
+            반환: 그리기가 끝난 캔버스의 ImageBitmap. 취소 또는 HTTP 404(데이터 없는 타일)이면 undefined, 그 밖의 다운로드·처리 오류 시 reject. 404는 이미지 레이어의 정상 무결과 완료 경로로 전달해 로딩 카운터와 대기 작업을 정리한다.
 
         처리 기준:
             스타일 함수는 `new Function('return ' + 문자열)()` 로 복원하며, 함수가 참조하는 클로저 변수는 모듈 초기화의 self 전역 스타일 객체로 대체된다.
@@ -169,8 +170,8 @@ UPbfParserTask 클래스 정의
             스타일이 있으면 면은 첫 스타일의 fill 색으로 채우기만 하고 stroke 는 그리지 않으며, 선은 첫 스타일의 stroke 색·두께로 그리기만 한다.
             선 두께는 타일 캔버스의 픽셀 단위이며 타일 레벨로 보정하지 않는다. 스타일 함수가 resolutionByLevel 로 레벨별 두께를 결정한다.
             stroke 두께가 양수가 아니면 1 을 사용해 직전 피처의 두께가 남지 않게 한다.
-            성공 시 taskMap 항목을 제거하지 않는다. [확인 Q-003]
-            gzip 해제에 실패하면 그리기 전에 taskMap 항목을 지우고 reject 해 타일이 로딩 상태로 남지 않게 한다.
+            성공·취소·실패 모두 runRequest 의 finally 에서 taskMap 항목을 정리한다.
+            압축 해제·디코드·그리기 예외는 반환 Promise 를 거부하며, 취소만 undefined 로 정상 완료한다.
 
         의존:
             UFileLoader — PBF 다운로드; 함수: {load()}
@@ -180,14 +181,14 @@ UPbfParserTask 클래스 정의
 
         동작:
             스타일 함수를 복원하고 로더가 없으면 생성한다.
-            taskMap 에 url 을 등록하고 realUrl 다운로드를 시작한다.
-            성공 콜백에서 gzip 이면 압축을 푼다. 실패하면 taskMap 항목을 지우고 reject 한다.
+            runRequest 에 실제 다운로드 URL과 요청 식별자를 넘겨 작업을 시작한다.
+            성공 콜백에서 gzip 이면 압축을 풀고 취소 여부를 확인한다. 취소 시 이후 그리기를 생략한다.
             Y 반전과 레벨 차이에 따른 부분 영역 변환을 계산하고 캔버스를 비운 뒤 filter 'contrast(115%) saturate(80%)' 와 선 끝·이음 'round' 를 설정한다.
             버퍼를 피처 목록으로 디코드한다.
             그리는 피처마다 ends 로 나눈 각 부분을 변환 좌표로 경로에 추가하고 면만 부분마다 닫는다.
             스타일 함수 결과에 따라 건너뛰거나, 기본색 또는 첫 스타일의 색으로 면은 채우고 선은 그린다.
             캔버스를 ImageBitmap 으로 바꿔 resolve 한다.
-            실패 콜백에서 taskMap 항목을 지우고 값 없이 reject 한다.
+            실패는 오류를 보존해 reject 하며, 요청 표식은 finally 에서 정리한다.
 
     static parsePbf(buffer: ArrayBuffer) -> Array<URawFeature | null>
         역할: MVT 버퍼의 모든 레이어 피처를 하나의 목록으로 디코드한다.
@@ -441,7 +442,7 @@ UserPbfReader 클래스 정의
 
 ```spec
 이 모듈은 Web Worker 전역(self)에서만 실행되며 DOM 이 아닌 OffscreenCanvas 와 transfer 된 객체만 다룬다.
-loadPbf 와 loadPbfFeatures 는 같은 공유 UFileLoader 와 taskMap 을 사용하므로 URL 이 같은 두 요청은 하나의 다운로드를 공유하고 abort(url) 은 둘 모두에 영향을 준다.
+loadPbf 와 loadPbfFeatures 는 같은 URL의 다운로드를 공유하지만 요청 식별자는 서로 다르다. abort(requestId) 는 해당 소비자만 취소한다. 실제 부모 URL을 요청하는 경우도 같은 규칙을 적용한다. 취소 직후 재요청은 새 fetch로 시작하며 이전 fetch의 완료 콜백이 새 요청을 제거하지 않는다.
 디코드 결과 좌표는 타일 로컬(0 ~ extent, y 축 아래 방향)이며 좌표계 변환은 호출 레이어가 담당한다.
 ```
 

@@ -5,6 +5,7 @@ import {U3dLayer} from '@union3d/3dLayer/U3dLayer';
 import {defined} from '@util/defined';
 import {UDEF} from '@union3d/core/UDEF';
 import {defaultValue} from '@util/defaultValue';
+import {normalizeOptionKeys} from '@util/normalizeOptionKeys';
 import {UGroup} from '@union3d/core/UGroup';
 import {UCache} from '@union3d/core/UCache';
 import {UMesh} from '@union3d/core/mesh/UMesh';
@@ -16,25 +17,6 @@ import {INTERNAL} from '@union3d/3dLayer/U3dModelLayer.internal';
 import {U3dQuadTileWorkProcess} from '@union3d/quadtree/U3dQuadTileWorkProcess';
 
 const centroid = new THREE.Vector3();
-
-/**
- * ~extends import('@union3d/3dLayer/U3dLayer').U3dLayerCO <br>
- * U3dModelLayer 생성자 옵션
- *
- * @typedef {object} U3dModelLayerCO_Content
- * @property {boolean} [usetexture=true] 모델 텍스처 사용 여부
- * @property {boolean} [setWireframe=false] 모델 wireFrame 설정 여부
- * @property {boolean} [compressmodel=false] 모델 압축 여부 (압축 방식:gzip)
- * @property {string} [ext='.u3f'] 모델 데이터 형식
- * @property {string} [toonImgUrl] toon 이미지 데이터 URL <hidden>
- * @property {RGBColor} [emissiveColor] 모델 발광(emissive) 색상 (기본값: r=0.006, g=0.006, b=0.006)
- * @property {boolean} [useEditMode=true] 모델 편집 모드 사용 여부 <hidden>
- *
- * @memberof U3dModelLayer
- * @inner
- *
- * @typedef {Omit<U3dLayerCO, never> & U3dModelLayerCO_Content} U3dModelLayerCO
- */
 
 /**
  * 분할 편집 정보
@@ -194,9 +176,21 @@ const centroid = new THREE.Vector3();
 class U3dModelLayer extends U3dLayer {
 
     /**
-     * U3dModelLayer 생성자
-     * @param {U3dModelLayerCO} [opt={}]
+     * 부모 옵션과 모델 공통 옵션의 정규화에 사용하는 camelCase 키 목록입니다.
+     * 하위 레이어는 이 목록을 확장하여 부모 초기화에서도 자신의 옵션 표기를 사용합니다.
+     *
+     * @override
+     *
+     * @type {Array<string>}
+     *
+     * @ignore
      */
+    static OPT_KEYS = [
+        ...U3dLayer.OPT_KEYS,
+        'useTexture', 'setWireframe', 'compressModel', 'ext',
+        'toonImgUrl', 'emissiveColor', 'useEditMode'
+    ];
+
     /** @type {WorkProcess | undefined} */ _workProcess;
     /** @type {WorkProcess | undefined} */ _workProcess2;
     /** @type {WorkProcess | undefined} */ _workProcess3;
@@ -225,9 +219,15 @@ class U3dModelLayer extends U3dLayer {
     /** @type {boolean} */ _useEditMode;
 
     /**
-     * @param {U3dModelLayerCO} [opt={}]
+     * 모델 레이어의 공통 표시·압축 설정과 모델 캐시·편집 상태를 초기화합니다.
+     * 기존 소문자 옵션도 지원하며, 기본값은 undefined일 때만 적용합니다.
+     *
+     * @param {U3dModelLayerCO} [opt={}] 부모 레이어 설정과 텍스처·압축·와이어프레임·발광색·편집 모드 옵션
      */
     constructor(opt = {}) {
+        // 실제 생성되는 하위 클래스의 키도 정규화한 뒤 같은 옵션을 부모에 전달합니다.
+        // 값 자체는 바꾸지 않으므로 false·0·빈 문자열은 기본값으로 대체되지 않습니다.
+        opt = normalizeOptionKeys(opt, new.target);
         super(opt);
         const self = this;
         self._type = UDEF.LAYER_TYPE.MODEL;
@@ -248,13 +248,13 @@ class U3dModelLayer extends U3dLayer {
         self.editedEvent = {};
 
         //+ 건물 텍스처 사용여부
-        self._useTexture = defaultValue(opt.usetexture, true);
+        self._useTexture = defaultValue(opt.useTexture, true);
         //+ 건물 wireFrame 설정여부
         self._setWireframe = defaultValue(opt.setWireframe, false);
         //self._setGridTile = defaultValue(opt.setGridTile, false);
 
         //+ 모델 압축 여부(압축방식:gzip)
-        self._compressModel = defaultValue(opt.compressmodel, false);
+        self._compressModel = defaultValue(opt.compressModel, false);
 
         self._ext = defaultValue(opt.ext, '.u3f');
         if (self._compressModel) self._ext = '.u3f.gz';

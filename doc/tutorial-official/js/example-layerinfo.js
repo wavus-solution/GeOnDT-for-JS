@@ -44,6 +44,28 @@ export const TERRAIN_LAYER_PRESET = Object.freeze({
  */
 export const TERRAIN_LOCALHOST_BASEURL = '';
 
+/** 공통 모델 그룹 프리셋. 개별 모델의 생성·표시는 Runtime이 담당합니다. */
+export const MODEL_LAYER_PRESETS = Object.freeze({
+    seoul_u3f: Object.freeze({
+        name: 'seoul_u3f',
+        baseurl: 'https://3d-dev.geon.kr/data/model-2.2-webp/seoul/',
+        models: Object.freeze([
+            'dobonggu', 'dongdaemungu', 'dongjakgu', 'eunpyeonggu', 'gangbukgu', 'gangdonggu',
+            'gangnamgu', 'gangseogu', 'geumcheongu', 'gurogu', 'gwanakgu', 'gwangjingu',
+            'jungnanggu', 'mapogu', 'nowongu', 'seochogu', 'seodaemungu', 'seongbukgu',
+            'seongdonggu', 'songpagu', 'yangcheongu', 'yeongdeungpogu', 'yeouido'
+        ]),
+        options: Object.freeze({
+            minlevel: 17,
+            maxlevel: 17,
+            useproxy: false,
+            compressmodel: true,
+            isShareMaterial: false,
+            makeU3FPackage: 1
+        })
+    })
+});
+
 /**
  * localhost 요청에 CORS를 허용하지 않는 공통 데이터 서버입니다.
  *

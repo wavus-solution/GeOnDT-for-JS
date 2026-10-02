@@ -22,6 +22,7 @@ import type { U3dLayerList } from "../3dLayer/U3dLayerList.js";
 import type { U3dLayerListClassifiedLayersOption } from "../3dLayer/U3dLayerList.types.js";
 import type { U3dModelBIMObjLayer } from "../3dLayer/U3dModelBIMObjLayer.js";
 import type { U3dModelBIMObjLayerCO } from "../3dLayer/U3dModelBIMObjLayer.types.js";
+import type { U3dModelLayerCO } from "../3dLayer/U3dModelLayer.types.js";
 import type { U3dModelTdsLayer } from "../3dLayer/U3dModelTdsLayer.js";
 import type { U3dModelU3FLayer } from "../3dLayer/U3dModelU3FLayer.js";
 import type { U3dModelWFSLayer } from "../3dLayer/U3dModelWFSLayer.js";
@@ -1205,7 +1206,8 @@ declare class U3dApp extends U3dObject {
      */
     getTerrainDecalManager(): UShaderTerrainDecalManager;
     /**
-     * U3dApp를 제거하는 함수
+     * 작업 처리기와 측정을 먼저 종료한 뒤 앱이 소유한 자원을 정리합니다.
+     * 종료 콜백에서 다시 호출하거나 이미 종료된 경우에는 중복 정리를 하지 않습니다.
      */
     dispose(): void;
     getMetaData(): any;
@@ -1609,15 +1611,22 @@ declare class U3dApp extends U3dObject {
      * @param {boolean} autoClear 설정할 AutoClear 옵션
      */
     setAutoClear(autoClear: boolean): void;
-    getBenchMark(): {
-        perfRatio: string;
-        logScore: string;
-        totalScore: string;
-    };
     getDrawFps(): number;
-    setDrawFps(fps: any): void;
+    /**
+     * 일반 렌더링 FPS를 엔진 상한 이내로 설정합니다.
+     * 유한한 양수가 아니면 기존 설정을 유지합니다.
+     * @param {number} fps 설정할 초당 프레임 수
+     * @returns {void} 반환값 없음
+     */
+    setDrawFps(fps: number): void;
     getIdleDrawFps(): number;
-    setIdleDrawFps(fps: any): void;
+    /**
+     * 유휴 렌더링 FPS를 엔진 상한 이내로 설정합니다.
+     * 유한한 양수가 아니면 기존 설정을 유지합니다.
+     * @param {number} fps 설정할 초당 프레임 수
+     * @returns {void} 반환값 없음
+     */
+    setIdleDrawFps(fps: number): void;
     isIdleDraw(): boolean;
     getUpdateFps(): number;
     setUpdateFps(fps: any): void;
@@ -1677,7 +1686,7 @@ declare class U3dApp extends U3dObject {
      * 스와이프 영역에 출력 설정 된 레이어를 원복합니다.
      * @param {string} name 스와이프 영역에 출력 설정에서 제거될 레이어 이름
      * @returns {boolean} 작동 완료 여부
-    */
+     */
     removeNameSwipeLayer(name: string): boolean;
     /**
      * 스와이프 영역 출력 여부를 리턴합니다.
@@ -1698,6 +1707,7 @@ declare class U3dApp extends U3dObject {
     enableSwipe(enable?: boolean): boolean;
     /**
      * FPS 디버그 정보를 화면에 출력합니다.
+     * UDevToolView의 Draw FPS와 같은 측정값을 사용하며, 그리기 통계가 기록될 때 갱신합니다.
      * @param {boolean} [visible=true] FPS 디버그 정보 출력 여부
      * @param {number} [left=1] 화면 좌측부터의 위치 비율 (%)
      * @param {number} [top=1] 화면 상단부터의 위치 비율 (%)
@@ -1804,21 +1814,40 @@ declare class U3dApp extends U3dObject {
      */
     setMaxQuadTreeLevel(level: number, type?: string): boolean;
     /**
-     * App 환경 설정 GUI를 생성하는 메서드입니다.
-     * @returns {import('@union3d/app/UDevToolView.js').UDevToolView}
+     * 앱 설정을 실행 중에 확인하고 바꿀 수 있는 개발 도구(DevTool) 창(View)을 만들어 반환하는 메서드입니다. <br>
+     * 창은 앱의 컨테이너 Element 안에 만들어지며 만든 즉시 화면에 표시됩니다. <br>
+     * 이미 만든 창이 있으면 새로 만들지 않고 그 창을 그대로 반환합니다. <br>
+     * 앱의 컨테이너 Element가 없으면 창을 만들지 않고 undefined를 반환합니다. <br>
+     * 반환된 창은 이 앱이 관리하므로 창의 dispose를 직접 호출하지 말고 removeDevToolView로 제거하십시오.
+     *
+     * @returns {import('@union3d/app/UDevToolView.js').UDevToolView | undefined} 이 앱의 개발 도구 창, 만들 수 없으면 undefined
      */
-    createDevToolView(): UDevToolView;
-    getDevToolView(): any;
+    createDevToolView(): UDevToolView | undefined;
     /**
-     * App 환경 설정 GUI를 제거하는 메서드입니다.
+     * 이 앱에 만들어 둔 개발 도구(DevTool) 창(View)을 새로 만들지 않고 반환하는 메서드입니다. <br>
+     * 창을 아직 만들지 않았거나 removeDevToolView로 제거한 뒤에는 undefined를 반환합니다. <br>
+     * 창이 없을 때 새로 만들어야 하면 createDevToolView를 사용하십시오.
+     *
+     * @returns {import('@union3d/app/UDevToolView.js').UDevToolView | undefined} 이 앱의 개발 도구 창, 없으면 undefined
+     */
+    getDevToolView(): UDevToolView | undefined;
+    /**
+     * 이 앱의 개발 도구(DevTool) 창(View)을 해제하고 화면에서 제거하는 메서드입니다. <br>
+     * 창에 추가한 탭, 컨트롤러, 그래프와 등록한 갱신 콜백도 함께 사라집니다. <br>
+     * 제거한 뒤에는 getDevToolView가 undefined를 반환하며, 다시 필요하면 createDevToolView나 showDevToolView로 새 창을 만드십시오. <br>
+     * 창이 없으면 아무 작업도 하지 않습니다.
      */
     removeDevToolView(): void;
     /**
-     * App 환경 설정 GUI를 화면에 보여주는(show) 메서드입니다.
+     * 이 앱의 개발 도구(DevTool) 창(View)을 화면에 표시하는 메서드입니다. <br>
+     * 창이 없으면 createDevToolView와 같은 방식으로 새 창을 만든 뒤 표시합니다. <br>
+     * hideDevToolView로 숨긴 창은 숨기기 전의 구성 그대로 다시 표시합니다.
      */
     showDevToolView(): void;
     /**
-     * App 환경 설정 GUI를 화면에서 감추는(hide) 메서드입니다.
+     * 이 앱의 개발 도구(DevTool) 창(View)을 화면에서 숨기는 메서드입니다. <br>
+     * 숨긴 창은 구성과 등록한 갱신 콜백을 그대로 유지하므로 showDevToolView로 다시 표시할 수 있습니다. <br>
+     * 창이 없으면 아무 작업도 하지 않으며 새 창을 만들지도 않습니다.
      */
     hideDevToolView(): void;
     createApp(opt: any): U3dApp;
@@ -2484,14 +2513,14 @@ declare class U3dApp extends U3dObject {
      * 지형을 표시하는 레이어를 생성해 앱에 추가합니다.
      * 이미 지형 레이어가 있으면 새로 만들지 않습니다.
      *
-     * @param {import('@U3dModelLayer').U3dModelLayerCO} [opt={}] 지형 레이어 생성 옵션
+     * @param {U3dModelLayerCO} [opt={}] 지형 레이어 생성 옵션
      *
      * @example
      * app.createTerrainLayer({
      *     name: 'terrain'
      * });
      */
-    createTerrainLayer(opt?: any): void;
+    createTerrainLayer(opt?: U3dModelLayerCO): void;
     /**
      * 현재 U3dApp에 등록된 측정(Measure) 레이어를 반환하는 함수
      * @returns {import('@union3d/3dLayer/U3dShaderMeasureLayer').U3dShaderMeasureLayer | undefined} 측정 레이어
@@ -3047,8 +3076,14 @@ declare class U3dApp extends U3dObject {
      */
     setToneMappingExposure(exposure: number): void;
     /**
-     * 사용 중인 Renderer를 조회합니다.
-     * @returns {import('@URenderer').URenderer} Renderer
+     * 이 앱의 3D 지도 화면을 그리는 렌더러(renderer) 객체를 반환합니다.<br>
+     * 화면이 그려지는 canvas 요소(domElement)나 렌더링 설정을 직접 다룰 때 사용합니다.<br>
+     * WebGL 컨텍스트(context)를 잃으면 앱이 렌더러를 새로 만들어 교체하므로, 반환값을 보관해 두지 말고 필요할 때마다 이 메서드로 다시 조회하십시오.
+     *
+     * @returns {import('@URenderer').URenderer} 현재 3D 지도 화면을 그리고 있는 렌더러
+     *
+     * @example
+     * const canvas = app.getRenderer().domElement;
      */
     getRenderer(): URenderer;
     createSpreadObject(opt: any): UParticleEngine;
@@ -3714,23 +3749,55 @@ declare class U3dApp extends U3dObject {
      */
     stopFly(): void;
     /**
-     * 지도화면 Zoom 속도 설정 함수
-     * @param {number} factor Zoom 속도 설정값
-     * @returns {boolean} 정상동작 여부
+     * 휠 줌 감도를 설정합니다.<br>
+     * 입력값 자체는 검증하지 않으므로 호출 전에 유한한 양수인지 확인해야 합니다.<br>
+     * 0·NaN은 감도 계산 시 기본값으로 대체되며, 음수·Infinity는 그대로 계산에 사용될 수 있습니다.
+     * 따라서 0을 입력 비활성화 용도로 사용하지 않습니다.
+     *
+     * @param {number} [factor=1] 감도 배율. 생략하면 기본값 1로 복원합니다.
+     * @returns {boolean} 값을 저장하면 true, 지도 컨트롤러 또는 getFactor가 없으면 변경 없이 false. true는 입력값의 유효성을 보장하지 않습니다.
      */
     setZoomSpeed(factor?: number): boolean;
     /**
-     * 지도화면 Pan 속도 설정 함수
-     * @param {number} factor Pan 속도 설정값
-     * @returns {boolean} 정상동작 여부
+     * 팬 이동 감도를 설정합니다.<br>
+     * 입력값 자체는 검증하지 않으므로 호출 전에 유한한 양수인지 확인해야 합니다.<br>
+     * 0·NaN은 감도 계산 시 기본값으로 대체되며, 음수·Infinity는 그대로 계산에 사용될 수 있습니다.
+     * 따라서 0을 입력 비활성화 용도로 사용하지 않습니다.
+     *
+     * @param {number} [factor=1] 감도 배율. 생략하면 기본값 1로 복원합니다.
+     * @returns {boolean} 값을 저장하면 true, 지도 컨트롤러 또는 getFactor가 없으면 변경 없이 false. true는 입력값의 유효성을 보장하지 않습니다.
      */
     setPanSpeed(factor?: number): boolean;
     /**
-     * 지도화면 Rotate 속도 설정 함수
-     * @param {number} factor Rotate 속도 설정값
-     * @returns {boolean} 정상동작 여부
+     * 공통 회전 감도를 설정합니다.<br>
+     * 입력값 자체는 검증하지 않으므로 호출 전에 유한한 양수인지 확인해야 합니다.<br>
+     * 0·NaN은 감도 계산 시 기본값으로 대체되며, 음수·Infinity는 그대로 계산에 사용될 수 있습니다.
+     * 따라서 0을 입력 비활성화 용도로 사용하지 않습니다.
+     *
+     * @param {number} [factor=1] 감도 배율. 생략하면 기본값 1로 복원합니다.
+     * @returns {boolean} 값을 저장하면 true, 지도 컨트롤러 또는 getFactor가 없으면 변경 없이 false. true는 입력값의 유효성을 보장하지 않습니다.
      */
     setRotateSpeed(factor?: number): boolean;
+    /**
+     * 수평 입력 회전 감도를 공통 회전 감도에 곱할 배율로 설정합니다.
+     * 마우스·터치·회전 관성에 적용하며 각도 지정 및 자동 회전에는 적용하지 않습니다.<br>
+     * 음수·NaN·Infinity·숫자가 아닌 값은 예외를 던지지 않고 false를 반환하며 기존 값을 유지합니다.<br>
+     * 인자를 생략하면 해당 축만 1로 복원하며 공통 회전 감도와 다른 축의 감도는 유지합니다.
+     *
+     * @param {number} [factor=1] 유한한 0 이상 배율. 0이면 수평 입력 회전을 막습니다.
+     * @returns {boolean} 적용하면 true, 잘못된 값이거나 지도 컨트롤러가 없으면 변경 없이 false
+     */
+    setRotateHorizontalSpeed(factor?: number): boolean;
+    /**
+     * 수직 입력 회전 감도를 기존 상하 회전량에 곱할 배율로 설정합니다.
+     * 마우스·터치·회전 관성에 적용하며 각도 지정 및 자동 회전에는 적용하지 않습니다.<br>
+     * 음수·NaN·Infinity·숫자가 아닌 값은 예외를 던지지 않고 false를 반환하며 기존 값을 유지합니다.<br>
+     * 인자를 생략하면 해당 축만 1로 복원하며 공통 회전 감도와 다른 축의 감도는 유지합니다.
+     *
+     * @param {number} [factor=1] 유한한 0 이상 배율. 0이면 수직 입력 회전을 막습니다.
+     * @returns {boolean} 적용하면 true, 잘못된 값이거나 지도 컨트롤러가 없으면 변경 없이 false
+     */
+    setRotateVerticalSpeed(factor?: number): boolean;
     getUseCollison(): boolean;
     setUseCollision(value: any): void;
     setFreePolarAngle(value: any): void;

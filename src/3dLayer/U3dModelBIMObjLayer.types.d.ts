@@ -7,7 +7,7 @@ import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js"
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dModelBIMObjLayer } from "./U3dModelBIMObjLayer.js";
-import type { U3dModelLayerCO } from "./U3dModelLayer.js";
+import type { U3dModelLayerCO } from "./U3dModelLayer.types.js";
 
 /**
      * 문자열 성분을 허용하는 BIM 배치 입력입니다. 위치 적용 시 문자열 성분을 숫자로 변경합니다.
@@ -49,7 +49,7 @@ import type { U3dModelLayerCO } from "./U3dModelLayer.js";
     type U3dBIMSourceFile = Record<string, unknown> & U3dBIMSourceFile_Content;
 
 /**
-     * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayerCO <br>
+     * ~extends U3dModelLayerCO <br>
      * BIM OBJ 레이어의 생성 옵션입니다. 기존 소문자 옵션 이름을 유지합니다.
      */
     type U3dModelBIMObjLayerCO_Content = {
@@ -104,7 +104,7 @@ import type { U3dModelLayerCO } from "./U3dModelLayer.js";
     };
 
 /**
-     * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayerCO <br>
+     * ~extends U3dModelLayerCO <br>
      * BIM OBJ 레이어의 생성 옵션입니다. 기존 소문자 옵션 이름을 유지합니다.
      */
     type U3dModelBIMObjLayerCO = Omit<Omit<U3dModelLayerCO, never> & U3dModelBIMObjLayerCO_Content, never>;

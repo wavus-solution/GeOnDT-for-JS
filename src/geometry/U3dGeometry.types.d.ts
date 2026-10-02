@@ -141,9 +141,9 @@ import type { measureGroundDepthOffset } from "../util/measureGroundDepthOffset.
          */
         wireframe?: boolean;
         /**
-         * 깊이 판정을 카메라 쪽으로 당기는 보정치 (미터)
+         * 깊이 판정을 카메라 쪽으로 당기는 보정치 (미터). null은 기존 설정을 지웁니다
          */
-        depthOffset?: number;
+        depthOffset?: number | null;
         /**
          * 렌더 직전에 묻힘 정도를 재서 depthOffset을 대신할지 여부
          */

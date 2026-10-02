@@ -93,7 +93,7 @@ type TerrainDecalConfig = {
      */
     payloadSnapshotCacheMaxBytes: number;
     /**
-     * 0이 아니면 hybrid 합성 실행 경로를 켭니다. Source 안정성 분류를 전달해 정적 Feature는 offscreen 합성 texture로, 비교차 동적 Feature는 direct로 같은 terrain material에서 함께 표시합니다. 검증용 임시 손잡이이므로 기본값은 0이며, 꺼져 있으면 분류를 전달하지 않아 기존 direct·precomposed 경로만 사용합니다.
+     * 0이 아니면 hybrid 합성 실행 경로를 켭니다. Source 안정성 분류를 전달해 정적 Feature는 offscreen 합성 texture로, 비교차 동적 Feature는 direct로 같은 terrain material에서 함께 표시합니다. 기본값은 0이며 혼합 source는 기존 direct·precomposed 판정을 유지합니다. 정적 source만 있는 타일은 이 옵션과 무관하게 축소 필터를 적용하는 precomposed 경로를 사용합니다.
      */
     hybridCompositionEnabled: number;
 };

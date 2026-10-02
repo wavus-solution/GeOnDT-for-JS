@@ -207,6 +207,7 @@ declare class U3dCylinder extends U3dGeometry {
      * 재질을 바꾸려면 원기둥을 새로 만듭니다. <br>
      * 지오메트리가 새로 만들어지므로 `setRotate*FromGeometry`·`setTranslateFromGeometry`로 준 회전과 이동도 함께 사라집니다. <br>
      * 필요하면 호출 뒤에 다시 적용합니다. <br>
+     * 반지름·높이·세그먼트·각도·외곽선 옵션이 잘못되면 변경 전에 TypeError 또는 RangeError를 발생시킵니다. <br>
      *
      * @override
      *

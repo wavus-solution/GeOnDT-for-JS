@@ -132,6 +132,7 @@ import type { USpotLight } from "../view/USpotLight.js";
      */
     type SmoothAniContextExt = {
         useRotation: boolean;
+        useLookAt: boolean;
         delayCount: number;
         count: number;
         object?: UGroup;
@@ -321,20 +322,6 @@ import type { USpotLight } from "../view/USpotLight.js";
     };
 
 /**
-     * `moveSmoothly`로 실제 도착한 지점 한 건의 이력 기록
-     */
-    type WaypointRecord = {
-        /**
-         * 도착한 월드 좌표 (EPSG:3857, m)
-         */
-        point: WorldPositionVector3;
-        /**
-         * 도착 시각 (`Date.now()` 기준 epoch ms)
-         */
-        time: number;
-    };
-
-/**
      * `predictFuturePositions`가 반환하는 예측 지점 한 건
      */
     type PredictedPosition = {
@@ -377,10 +364,6 @@ import type { USpotLight } from "../view/USpotLight.js";
          * 초기화 시각
          */
         initTime: number;
-        /**
-         * 이동 기준 누적 거리
-         */
-        moveBaseDist: number;
         /**
          * 이동 시작 월드 좌표
          */
@@ -894,6 +877,10 @@ type ComponentParam = {
          */
         axis?: "absolute" | "relative";
         /**
+         * false이면 이동 방향의 lookAt을 계산하지 않고 현재 rotation을 유지합니다.
+         */
+        useLookAt?: boolean;
+        /**
          * 목표 위치까지 보간 이동할 시간(ms). 0이면 다음 프레임에 목표 위치에 도착합니다.
          * 양수이면 해당 시간 안에 도착을 보장하기 위해 이동 속도를 가변적으로 보간합니다.
          * 생략하거나 null이면 이동 거리와 설정 속도로 소요 시간을 자동 계산하여 등속 이동합니다.
@@ -902,4 +889,4 @@ type ComponentParam = {
         durationMs?: number | null;
     };
 
-export type { Box3WithCenter, CPBox3CenterExt, ComponentChildExt, ComponentChildObject3D, ComponentParam, CrowdPolygon, CrowdPolygonGeom, CumulativeInfo, CumulativeProperty, ExtendedObject3D, ExtendedObject3DExt, GooglePositionCallbackExt, GooglePositionWithCallback, InstancedComponent, LOD_Info, LOD_UpdateFunc, LightLike, LightLikeExt, MaterialableExt, MoveSmoothlyOpt, MutableMaterial, MutableMaterialExt, OverlayExt, OverlayObject, PassCallback, PassCallbackPayload, PathGeometryExt, PathGeometryGeometry, PathGeometryLike, PathGeometryOption, PickableObject3D, PickableObject3DExt, PoiLike, PredictedPosition, RotatableGroup, RotatableGroupExt, SmoothAniContext, SmoothAniContextExt, U3dComponentAnimationInfo, U3dComponentColorAdjustmentMaterialState, U3dComponentPositionCO, U3dComponentUniformLayout, U3dComponentUniformMesh, UnknownRecord, VerticesExt, WaypointRecord };
+export type { Box3WithCenter, CPBox3CenterExt, ComponentChildExt, ComponentChildObject3D, ComponentParam, CrowdPolygon, CrowdPolygonGeom, CumulativeInfo, CumulativeProperty, ExtendedObject3D, ExtendedObject3DExt, GooglePositionCallbackExt, GooglePositionWithCallback, InstancedComponent, LOD_Info, LOD_UpdateFunc, LightLike, LightLikeExt, MaterialableExt, MoveSmoothlyOpt, MutableMaterial, MutableMaterialExt, OverlayExt, OverlayObject, PassCallback, PassCallbackPayload, PathGeometryExt, PathGeometryGeometry, PathGeometryLike, PathGeometryOption, PickableObject3D, PickableObject3DExt, PoiLike, PredictedPosition, RotatableGroup, RotatableGroupExt, SmoothAniContext, SmoothAniContextExt, U3dComponentAnimationInfo, U3dComponentColorAdjustmentMaterialState, U3dComponentPositionCO, U3dComponentUniformLayout, U3dComponentUniformMesh, UnknownRecord, VerticesExt };

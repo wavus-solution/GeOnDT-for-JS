@@ -22,7 +22,7 @@ import type { ColorLike, KeyValue, Triple_Array } from "../types/global.types.js
         baseUrl?: string;
         /**
          * 타일 서버가 실제로 타일을 제공하는 마지막 레벨입니다. <br>
-         * 이 레벨보다 깊은 타일은 새로 요청하지 않고 이 레벨의 조상 타일 데이터를 잘라 쓰며, 생략하면 `maxLevel` 과 같은 값이 됩니다.
+         * 이 레벨보다 깊은 타일은 이 레벨의 조상 타일 데이터를 잘라 씁니다. 생략하면 metadata의 `maxzoom` 을 사용하고, 유효한 값이 없으면 `maxLevel` 을 사용합니다.
          */
         realMaxLevel?: number;
         /**
@@ -62,6 +62,15 @@ import type { ColorLike, KeyValue, Triple_Array } from "../types/global.types.js
          * 스타일이 원 반경을 정해 주지 않을 때 사용할 Point 원의 반경이며 단위는 월드 좌표(EPSG:3857)의 미터입니다.
          */
         pointRadius?: number;
+        /**
+         * 초기화할 때 타일셋 루트의 `metadata.json` 을 먼저 읽어 소스 레벨 범위와 영역을 보완합니다. <br>
+         * `minzoom` 은 현재 `minLevel` 보다 높을 때만 하한을 올리고(낮추지 않음), `maxzoom` 은 `realMaxLevel` 을 지정하지 않았을 때만 적용하며,
+         * `bounds` 는 `rectangle`·`extent`·`geoExtent` 를 모두 지정하지 않았을 때만 레이어 영역으로 씁니다. <br>
+         * `bounds` 는 `crs` 필드와 무관하게 위경도 `[서쪽, 남쪽, 동쪽, 북쪽]` 문자열 또는 배열로 해석합니다. <br>
+         * 메타데이터를 읽는 동안에는 타일을 요청하지 않고, 읽기가 실패하거나 10초가 지나면 생성자 옵션 값으로 계속 동작합니다.
+         * 메타데이터를 제공하지 않는 서버에서는 `needJson: false` 와 `geoExtent: [서쪽, 남쪽, 동쪽, 북쪽]` 을 지정할 수 있습니다.
+         */
+        needJson?: boolean;
     };
 
 /**
@@ -92,9 +101,13 @@ import type { ColorLike, KeyValue, Triple_Array } from "../types/global.types.js
      */
     type U3dVectorPBFSourceRequest = {
         /**
-         * 요청한 타일 주소이며 워커에 중단을 알릴 때의 식별자로도 사용합니다.
+         * 요청한 타일 주소입니다.
          */
         url: string;
+        /**
+         * 같은 URL의 다른 소비자와 취소를 분리하는 요청 식별자입니다.
+         */
+        requestId: string;
         /**
          * 이 요청의 결과를 기다리는 표시 타일 수. 0 이 되면 워커 요청을 중단합니다.
          */
@@ -216,6 +229,10 @@ import type { ColorLike, KeyValue, Triple_Array } from "../types/global.types.js
          */
         strokeSuppressed?: boolean;
         /**
+         * 폴리곤에서 분리된 외곽선이며 추가 선 단순화 없이 원본 좌표를 유지합니다.
+         */
+        terrainPolygonOutline?: boolean;
+        /**
          * 개수 상한을 적용할 때 함께 남거나 함께 빠져야 하는 묶음 이름입니다. <br>
          * 면과 그 외곽선 선 피처가 같은 값을 쓰며, 타일 피처(`U3dVectorPBFTileFeature`)로 바뀔 때 붙는 그리기 순서 식별자는 공유하지 않습니다.
          */
@@ -239,6 +256,10 @@ import type { ColorLike, KeyValue, Triple_Array } from "../types/global.types.js
          * 타일 키를 뺀 소스 피처 단위 합성 순서 identity. 부모 레이어가 합성 순서 registry key 로 사용합니다.
          */
         compositionFeatureId: string;
+        /**
+         * 폴리곤에서 분리된 외곽선이며 추가 선 단순화 없이 원본 좌표를 유지합니다.
+         */
+        terrainPolygonOutline?: boolean;
         /**
          * LOD 선별에서 함께 남거나 함께 빠져야 하는 묶음 키. 면과 그 외곽선 선 피처가 같은 값을 가집니다.
          */

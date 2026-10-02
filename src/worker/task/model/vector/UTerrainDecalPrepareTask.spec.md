@@ -640,7 +640,7 @@ UTerrainDecalPrepareTask 클래스 정의
 
         처리 기준:
             cell 크기는 fullBounds 를 grid 로 나눈 값이며 너비·높이는 1e-6 이상으로 보정한다.
-            시작·끝 cell 은 grid 범위 안으로 자르고, 외곽선 padding 은 segment bounds 와 선분 길이의 차이의 절반으로 계산하여 cell 수로 바꾼다.
+            시작·끝 cell 은 grid 범위 안으로 자르고, 외곽선 padding 은 segment bounds 와 선분 길이의 차이의 절반에 긴 cell 변 하나를 더해 계산한다. 추가 여유는 shader의 AA와 raster 두께 보정을 포함한다.
             DDA 방식으로 x·y 경계 도달 비율을 비교하며 cell 을 전진하고, 두 비율이 허용 오차 안에서 같으면(선분이 모서리를 정확히 통과) 맞닿은 두 cell 도 후보에 넣는다.
             방문 횟수는 bucket 수 + 1 을 넘지 않는다.
 
@@ -720,13 +720,14 @@ UTerrainDecalPrepareTask 클래스 정의
             전체 범위를 구하고 bucket 별 Set 에 path 순번을 등록한다.
             bucket 메타와 순번 배열을 만들어 원본 entry 목록과 함께 반환한다.
 
-    static sortByBuckets(entries: Array<object>, bucketGrid: Array<number>) -> object
+    static sortByBuckets(entries: Array<object>, bucketGrid: Array<number>, antialias: boolean = false) -> object
         역할: entry를 bounds가 겹치는 bucket 순서로 정렬하고 bucket별 행 범위를 만든다.
 
         인터페이스:
             반환: `{items, bucketMeta: [start, count, 0, 0] 배열, fullBounds}`
 
         처리 기준:
+            packAreaEntries는 antialias를 켜고 후보 bounds를 긴 cell 변 하나만큼 넓힌다. 원의 기존 정렬은 기본값 false를 유지한다.
             entry 는 bounds 가 걸치는 모든 bucket 목록에 들어가므로 여러 bucket 에 걸친 entry 는 items 에 반복된다.
             모든 bucket 의 후보 목록이 같으면 하나의 행 범위를 공유하여 모든 bucketMeta 가 `[0, 길이, 0, 0]` 이 되고 items 는 그 목록 한 벌이다.
 

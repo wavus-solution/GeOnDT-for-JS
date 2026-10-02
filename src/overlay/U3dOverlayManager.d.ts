@@ -9,6 +9,19 @@ import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/ty
 import type { U3dApp } from "../app/U3dApp.js";
 import type { U3dOverlay } from "./U3dOverlay.js";
 
+type U3dOverlay_Content = {
+    _wCached: number;
+    _hCached: number;
+    _wInit: boolean;
+    _hInit: boolean;
+    _lastTop?: number;
+    _lastLeft?: number;
+    _originDisplay: string;
+    _hidden: boolean;
+};
+
+type U3dOverlayManaged = U3dOverlay_Content & U3dOverlay;
+
 /**
  * @typedef U3dOverlay_Content
  * @property {number} _wCached
@@ -18,7 +31,6 @@ import type { U3dOverlay } from "./U3dOverlay.js";
  * @property {number} [_lastTop]
  * @property {number} [_lastLeft]
  * @property {string} _originDisplay
- * @property {number} [_rafId]
  * @property {boolean} _hidden
  *
  * @typedef {U3dOverlay_Content &  import('@union3d/overlay/U3dOverlay').U3dOverlay} U3dOverlayManaged
@@ -51,6 +63,11 @@ declare class U3dOverlayManager {
     _bottom: number;
     _top: number;
     _disposed: boolean;
+    /** @type {Set<U3dOverlayManaged>} */
+    _pendingOverlays: Set<U3dOverlayManaged>;
+    /** @type {number} */
+    _positionUpdateRafId: number;
+    _batchingPositions: boolean;
     /** @type {Array<HTMLElement | null>} */
     styleUpdateQueue: Array<HTMLElement | null>;
     /** @type {WeakSet<HTMLElement>} */
@@ -108,4 +125,4 @@ declare class U3dOverlayManager {
     #private;
 }
 
-export type { U3dOverlayManager };
+export type { U3dOverlayManaged, U3dOverlayManager, U3dOverlay_Content };

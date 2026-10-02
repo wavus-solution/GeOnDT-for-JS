@@ -20,6 +20,8 @@ declare class U3dQuadTile extends U3dObject {
         6: number;
         7: number;
         8: number;
+        17: number;
+        18: number;
     };
     static setMaxLevel: (level: any) => void;
     static getMaxLevel: () => number;

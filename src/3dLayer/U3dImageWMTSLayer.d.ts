@@ -21,8 +21,7 @@ import type { U3dOpenLayer } from "./U3dOpenLayer.js";
  */
 declare class U3dImageWMTSLayer extends U3dOpenLayer {
     /**
-     * 이 레이어가 dispatch하는 이벤트 이름 모음입니다. <br>
-     * `U3dImageWMTSLayerEMD`와 같은 객체입니다.
+     * WMTS 레이어 이벤트를 구독하는 이름 모음이며 U3dImageWMTSLayerEMD와 같은 객체입니다.
      *
      * @override
      *
@@ -43,9 +42,11 @@ declare class U3dImageWMTSLayer extends U3dOpenLayer {
         signal: AbortSignal;
     }>): Promise<OLWMTSCapabilities>;
     /**
-     * U3dImageWMTSLayer 생성자입니다.
+     * U3dImageWMTSLayer 클래스 생성자입니다. <br>
+     * 자동 구성은 앱에 추가한 뒤 ready()로 성공·실패를 확인하십시오. <br>
+     * xmlUrl·capabilities를 사용하지 않으면 부모의 layers callback으로 직접 구성합니다.
      *
-     * @param {U3dImageWMTSLayerCO} [opt={}] 생성자 옵션
+     * @param {U3dImageWMTSLayerCO} [opt={}] WMTS 문서·요청 옵션과 부모 이미지 레이어 설정
      */
     constructor(opt?: U3dImageWMTSLayerCO);
     /**
@@ -73,30 +74,33 @@ declare class U3dImageWMTSLayer extends U3dOpenLayer {
         serviceErrorReported: boolean;
     };
     /**
-     * 파싱된 WMTS Capabilities 문서를 반환합니다(`ol.format.WMTSCapabilities().read()` 결과).
+     * 파싱된 WMTS Capabilities 문서를 반환합니다(`ol.format.WMTSCapabilities().read()` 결과). <br>
+     * 원본을 공유하므로 source 옵션 구성 시 내장 OpenLayers의 격자 정렬 결과도 이 문서에 반영됩니다.
      *
-     * @returns {OLWMTSCapabilities | undefined} Capabilities 객체. `xmlUrl`/`capabilities`를 사용하지 않았거나 아직 로드 전이면 undefined
+     * @returns {OLWMTSCapabilities | undefined} 저장된 문서의 원본 참조. 구성 전이나 수동 구성에서는 undefined
      */
     getCapabilities(): OLWMTSCapabilities | undefined;
     /**
      * Capabilities에서 선택한 WMTS Layer 메타데이터(`Contents.Layer[]` 항목)를 반환합니다.
      *
-     * @returns {OLWMTSLayer | undefined} Layer 메타데이터. 로드 전이면 undefined
+     * @returns {OLWMTSLayer | undefined} 선택된 Layer의 원본 참조. 구성 전에는 undefined
      */
     getLayerMetadata(): OLWMTSLayer | undefined;
     /**
      * `ol.source.WMTS` 생성에 사용하는 최종 source 옵션을 반환합니다. <br>
-     * Capabilities 값에 생성 옵션(`urls`, `requestEncoding`, `style`, `crossOrigin`, `dimensions`)을 반영한 결과입니다.
+     * Capabilities 값에 생성 옵션(`urls`, `requestEncoding`, `style`, `crossOrigin`, `dimensions`)을 반영한 결과입니다. <br>
+     * 복사본이 아니므로 반환 객체의 변경은 이후 source 생성에도 영향을 줍니다.
      *
-     * @returns {OLWMTSSourceOptions | undefined} source 옵션. 로드 전이면 undefined
+     * @returns {OLWMTSSourceOptions | undefined} 현재 source 구성에 사용하는 원본 옵션. 구성 전에는 undefined
      */
     getSourceOptions(): OLWMTSSourceOptions | undefined;
     /**
-     * Capabilities 준비가 끝나 타일 요청이 가능한 상태인지 반환합니다. <br>
+     * WMTS Capabilities 자동 구성의 준비 완료 여부를 반환합니다. <br>
      * `xmlUrl`과 `capabilities`를 모두 지정하지 않은 수동 callback 구성에서는 생성 직후부터 true입니다. <br>
-     * Capabilities 로드나 구성이 실패하면 false로 남으며 타일을 요청하지 않습니다.
+     * 최초 준비가 끝나지 않았으면 false이며 타일 생성을 보류합니다. <br>
+     * 준비가 끝나도 해제 여부 등 부모 레이어의 생성 조건은 별도로 적용됩니다.
      *
-     * @returns {boolean} 타일 요청 가능 여부
+     * @returns {boolean} 자동 구성 준비 완료 여부 또는 수동 구성 여부
      */
     isCapabilitiesReady(): boolean;
     /**
@@ -120,7 +124,7 @@ declare class U3dImageWMTSLayer extends U3dOpenLayer {
     /**
      * WMTS Dimension 값 하나를 바꾸고 타일을 다시 요청합니다. <br>
      * 시계열(`TIME`)·고도(`ELEVATION`) 서비스에서 슬라이더 값을 반영할 때 사용합니다. <br>
-     * 진행 중인 렌더는 기존 source로 끝내고, 이후 타일부터 새 값이 적용된 source를 사용합니다. <br>
+     * 앱에 추가된 레이어는 부모 refresh()로 타일을 다시 만들며, 추가 전에는 요청 옵션만 저장합니다. <br>
      * `xmlUrl` 또는 `capabilities`로 구성한 레이어에서 Capabilities 준비가 끝난 뒤에만 호출할 수 있으며, 그 전에 호출하면 Error를 던집니다.
      *
      * @param {string} name Dimension Identifier(예: `'TIME'`)
@@ -137,6 +141,8 @@ declare class U3dImageWMTSLayer extends U3dOpenLayer {
     setDimensions(dimensions: Record<string, string | number | null>): void;
     /**
      * 타일 요청에 사용할 Style을 바꾸고 타일을 다시 요청합니다. <br>
+     * 현재와 같은 Style을 지정해도 공유 source와 전체 타일 상태를 갱신합니다. <br>
+     * 아직 앱에 추가되지 않은 레이어는 옵션만 저장하고 첫 렌더에서 반영합니다. <br>
      * 현재 Layer가 제공하지 않는 Style을 넘기면 제공 Style 목록을 담은 Error를 던지며 타일 요청은 바뀌지 않습니다. <br>
      * `xmlUrl` 또는 `capabilities`로 구성한 레이어에서 Capabilities 준비가 끝난 뒤에만 호출할 수 있으며, 그 전에 호출하면 Error를 던집니다.
      *
@@ -146,7 +152,7 @@ declare class U3dImageWMTSLayer extends U3dOpenLayer {
     /**
      * 같은 Capabilities 안의 다른 WMTS Layer로 전환하고 타일을 다시 요청합니다(예: 브이월드 Base ↔ Hybrid). <br>
      * source 옵션, 표출 level 범위(사용자 지정값 제외), 데이터 범위(사용자 지정값 제외)를 새 Layer 기준으로 다시 구성합니다. <br>
-     * 전환에 실패하면 이전 구성과 level·범위를 그대로 유지하고 예외를 던집니다. <br>
+     * 구성 검증 중 예외가 나면 level·범위를 호출 전 값으로 되돌리고 같은 예외를 던집니다. <br>
      * `xmlUrl` 또는 `capabilities`로 구성한 레이어에서 Capabilities 준비가 끝난 뒤에만 호출할 수 있으며, 그 전에 호출하면 Error를 던집니다.
      *
      * @param {string} layer 전환할 Layer Identifier

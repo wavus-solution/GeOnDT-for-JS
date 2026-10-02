@@ -47,7 +47,7 @@ declare class U3dImagePBFLayer extends U3dImageXYZLayer {
      */
     constructor(opt: U3dImagePBFLayerCO);
     /**
-     * 초기화할 때 `metadata.json` 을 읽어 레벨 범위와 경계 상자를 덮어쓸지 여부이며, 생성자의 `needJson` 옵션 값입니다.
+     * 초기화할 때 `metadata.json` 을 읽어 소스 레벨과 경계 영역을 보완할지 여부입니다. 기본으로 사용합니다.
      *
      * @type {boolean}
      */
@@ -83,11 +83,11 @@ declare class U3dImagePBFLayer extends U3dImageXYZLayer {
      */
     _mercator: UMercator;
     /**
-     * 워커에 요청을 보낸 타일의 `타일 키 → 요청 URL` 목록이며, 요청을 중단할 때 이 URL 로 워커에 알립니다.
+     * 워커에 보낸 `타일 키 → 요청 식별자` 목록입니다. 같은 URL을 쓰는 다른 레이어의 요청과 취소를 분리합니다.
      *
      * @type {Record<string, string>}
      */
-    _modelUrlMap: Record<string, string>;
+    _workerRequestIds: Record<string, string>;
     /**
      * 부모 레이어의 정리 과정을 수행한 뒤 이 레이어가 보관한 PBF 피처 캐시를 모두 비웁니다. <br>
      * 정리 후에는 이 레이어를 다시 사용할 수 없습니다.
@@ -183,14 +183,22 @@ declare class U3dImagePBFLayer extends U3dImageXYZLayer {
     readSLD(): Promise<void>;
     /**
      * 타일 주소와 같은 위치의 `metadata.json` 을 내려받아 레이어 설정에 반영합니다. <br>
-     * `minzoom`·`maxzoom` 은 이 레이어의 최소·최대 타일 레벨로, `bounds` 는 경계 상자로 덮어씁니다. <br>
-     * 세 항목 중 파일에 없는 것은 기존 값을 그대로 둡니다.
+     * `minzoom` 은 요청 최소 레벨의 하한, `maxzoom` 은 실제 소스 최대 레벨로 사용합니다. <br>
+     * 사용자가 지정한 `realMaxLevel` 및 `rectangle`·`extent`·`geoExtent` 는 유지합니다.
+     * `bounds` 는 위경도로 변환해 영역 판정에 쓰는 사각형과 경계 상자를 함께 갱신합니다. <br>
+     * 읽기가 실패하거나 10초 안에 끝나지 않으면 생성자 설정으로 계속합니다.
      *
      * @returns {Promise<void>} 내려받기와 반영이 끝나면 이행되는 Promise
-     * @throws {Error} `bounds` 가 쉼표로 구분한 네 개의 숫자가 아니면 반환한 Promise 가 이 오류로 거부되며, 이때 그 앞에서 읽은 `minzoom`·`maxzoom` 은 이미 반영된 상태입니다. <br>
-     * 파일을 내려받지 못하거나 JSON 으로 해석할 수 없을 때도 그 오류로 거부되며, 이 경우 레이어 설정은 바뀌지 않습니다.
      */
     readJson(): Promise<void>;
+    /**
+     * 텍스처가 없는 404 타일도 완료 기록을 유지해 같은 타일을 프레임마다 다시 요청하지 않게 합니다.
+     * refresh·타일 해제는 기반 레이어가 상태를 지우므로 이후에는 다시 요청할 수 있습니다.
+     * @param {import('@U3dQuadTile').U3dQuadTile} tile 완료 상태를 확인할 타일
+     * @returns {boolean} 메타데이터 처리가 끝나고 타일이 정상 완료되었으면 true
+     * @ignore
+     */
+    isTileWorkComplete(tile: U3dQuadTile): boolean;
     #private;
 }
 

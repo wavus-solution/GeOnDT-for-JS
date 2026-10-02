@@ -1353,10 +1353,11 @@ type TerrainPathSegment = {
          */
         layerName?: string;
         /**
-         * tile 객체입니다.
+         * 지형 메시와 LOD 표시 전환 대기 상태를 보유한 타일입니다.
          */
         tile?: Partial<{
             _mesh: three.Mesh;
+            _lodPresentPending: boolean;
         }>;
         /**
          * 해제 대기 layer입니다.

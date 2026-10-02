@@ -14,7 +14,7 @@
 - 모델 재질, 표시 여부, 가시 거리와 프레임 갱신 방식을 제어한다.
 - 경로 geometry 또는 이동점 목록을 주행·비행 애니메이션에 연결한다.
 - 이동 누적 정보와 누적 경로를 기록하고 조회한다.
-- moveSmoothly의 최근 도착 지점 100개를 보관하고 선택한 최근 지점의 선형 추세로 미래 위치를 예측한다.
+- moveSmoothly의 최근 도착 지점 100개를 보관하고 선택한 최근 지점의 이동 추세와 수평 회전율로 미래 위치를 예측한다.
 - 라벨 POI, 화면 overlay와 카메라 추적 대상을 컴포넌트 위치에 동기화한다.
 - 모델 animation mixer와 개별 animation controller의 재생 상태를 관리한다.
 - 책임 경계: 원본 모델 적재·복제와 컴포넌트 등록은 `U3dMultipleComponentLayer`가 담당한다. 공유 instanced mesh의 개별 instance 변환은 `U3dComponentInstancedPosition`이 담당한다.
@@ -473,33 +473,52 @@ U3dComponentPositionCO 타입 정의
 
 U3dComponentPosition 클래스 정의
 
-    #waypointHistory: Array<WaypointRecord> = 빈 배열
-        moveSmoothly로 실제 도착한 월드 좌표와 도착 시각(Date.now(), epoch ms)을 {point, time}으로 오래된 순서로 최대 100개 보관한다.
-        초기 시작점, 대기 웨이포인트, 프레임 보간점은 포함하지 않으며 이동 중지와 컨트롤러 교체에도 유지한다.
+    도착 이력 소유권: U3dCumulativePath.waypointHistory
+        실제 도착 월드 좌표와 epoch 도착 시각을 경로에 최대 100개 보관한다. 컴포넌트에는 이력 배열을 저장하지 않는다.
+        경로 표시가 꺼져 있어도 이력용 경로를 생성하며 렌더 자원은 show 시 초기화한다. 경로 제거 시 이력도 제거한다.
 
     #brightness, #contrast, #saturation: number = 1
         setter로 마지막 설정한 절대 밝기·대비·채도 배율
 
     get waypointHistory() -> Array<WorldPositionVector3>
-        동작: 이력 배열에서 좌표만 복제하여 오래된 지점부터 반환한다. 도착 시각은 노출하지 않는다.
+        동작: 경로 소유 이력의 좌표 복사본을 오래된 순서로 반환한다. 좌표와 도착 시각은 getCumulativePath().waypointHistory로 조회한다.
 
-    predictFuturePositions(count: number) -> Array<PredictedPosition> | undefined
-        인터페이스: count는 사용할 최근 이력 수이자 미래로 연장할 단계 수이며 결과는 1단계부터 count단계까지의 예측점을 순서대로 담은 {point, time} 배열이다.
+    predictFuturePositions(count: number, headingWeight: number = 1, turnWeight: number = 1) -> Array<PredictedPosition> | undefined
+        인터페이스:
+            count는 사용할 최근 이력 수이자 미래로 연장할 단계 수이며 결과는 1단계부터 count단계까지의 예측점을 순서대로 담은 {point, time} 배열이다.
+            headingWeight는 첫 단계 방향에서 현재 진행 방향(재생·일시정지 중인 이동 구간의 출발→도착 방향)이 차지하는 비율(0~1)이고, turnWeight는 이력에서 추정한 수평 회전율의 반영 비율(0~1)이다.
             point는 월드 좌표 벡터(EPSG:3857, m), time은 호출 시점부터 해당 지점 도착까지의 예상 경과 시간(ms, 0 이상 정수)이다. 평균 속도가 0이고 예측 변위가 있으면 Infinity다.
         처리 기준:
-            숫자가 아닌 count는 TypeError, 2~100 정수가 아닌 count는 RangeError로 거부한다.
-            한 예측 단계는 과거 웨이포인트 한 구간에 대응한다. 위치 예측에 곡률, 가감속과 대기 목표점은 사용하지 않는다.
+            숫자가 아닌 count는 TypeError, 2~100 정수가 아닌 count는 RangeError로 거부한다. 숫자가 아니거나 NaN인 headingWeight·turnWeight는 TypeError, 0~1 밖이면 RangeError로 거부한다.
+            한 예측 단계는 과거 웨이포인트 한 구간에 대응한다. 위치 예측은 수평(XY) 방위각의 일정 회전율과 직선 고도(z) 추세만 사용하며 가감속과 대기 목표점은 사용하지 않는다.
+            turnWeight가 0이면 회전 없는 직선 예측이고, count가 2이면 비교할 구간 쌍이 없어 회전율은 0이다.
             도착 시간은 순번 간격이 아니라 이력 구간의 평균 속도(총 이동 거리 ÷ 총 경과 시간)와 예측점까지의 거리로 구한다.
             조회는 이력과 실제 이동 상태를 변경하지 않는다.
-        의존: THREE.Vector3 — 3차원 예측 변위·거리 계산; 생성자: {new THREE.Vector3()}; 함수: {divideScalar(), length(), distanceTo(), addScaledVector()}
+        의존:
+            THREE.Vector3 — 추세 변위·거리 계산과 대체 방향의 수평 회전; 생성자: {new THREE.Vector3()}; 함수: {divideScalar(), distanceTo(), applyAxisAngle()}
+            defined — null·undefined 여부 판정; 함수: {defined()}
         동작:
             입력을 검증한 뒤 이력이 count개 미만이면 undefined를 반환한다.
-            최근 count개 기록을 선택하고 순번을 독립변수로 하는 최소제곱 직선의 축별 기울기(단계당 변위 step)를 구하며, 같은 루프에서 인접 도착점 사이 거리를 누적해 총 이동 거리를 구한다.
+            최근 count개 기록을 선택하고 순번을 독립변수로 하는 최소제곱 직선의 축별 기울기(추세 변위 step)를 구하며, 같은 루프에서 인접 도착점 사이 거리를 누적해 총 이동 거리를 구한다.
             큰 월드 좌표의 공통 오프셋으로 인한 오차를 줄이기 위해 마지막 도착점을 뺀 상대 좌표로 기울기를 계산한다.
             평균 속도(m/ms) = 총 이동 거리 ÷ (마지막 도착 시각 − 첫 도착 시각). 경과 시간이 0이면 0으로 본다.
-            k=1..count에 대해 point = 마지막 도착점 + step × k, 예측 거리 = |step| × k로 두고
-            time = max(0, round(마지막 도착 시각 + 예측 거리 ÷ 평균 속도 − 현재 시각))을 구한다. 평균 속도가 0이면 예측 거리가 0일 때 0, 아니면 Infinity로 둔다.
+            단계 거리 = 총 이동 거리 ÷ (count − 1). 곡선 이력에서는 최소제곱 기울기의 길이가 현(chord)으로 줄어 예측점이 붕괴하므로 실제 이동한 구간의 평균 길이를 사용한다.
+            첫 단계 방향을 정할 수 없으면(단계 거리 0 또는 수평 추세 상쇄) 길이가 있는 마지막 구간의 방향을 회전율만큼 세계 Z축 기준으로 회전시켜 대신 쓰고, 그것도 없으면 방향 없음으로 둔다.
+            headingWeight가 0보다 크면 현재 진행 방향을 조회한다.
+                현재 진행 방향만 있으면 그것을 첫 단계 방향으로 쓰고, 현재 진행 방향이 없으면 첫 단계 방향을 유지한다.
+            k=1..count에 대해 예측 거리 = 단계 거리 × k로 두고 time = max(0, round(마지막 도착 시각 + 예측 거리 ÷ 평균 속도 − 현재 시각))을 구한다. 평균 속도가 0이면 예측 거리가 0일 때 0, 아니면 Infinity로 둔다.
             {point, time}을 순서대로 배열에 담아 반환한다.
+
+    #getLastSegmentDirection(records: Array<WaypointRecord>) -> import('three').Vector3 | undefined
+        의존: THREE.Vector3 — 구간 벡터 계산; 생성자: {new THREE.Vector3()}; 함수: {subVectors(), lengthSq(), normalize()}
+        동작: 마지막 기록부터 거슬러 인접 두 도착점의 차 벡터를 만들고 길이 제곱이 1e-8을 초과하는 첫 구간의 단위 벡터를 반환한다. 그런 구간이 없으면 undefined를 반환한다.
+
+    #getCurrentHeadingDirection() -> import('three').Vector3 | undefined
+        의존:
+            THREE.Vector3 — 구간 벡터 계산; 생성자: {new THREE.Vector3()}; 함수: {subVectors(), lengthSq(), normalize()}
+            UAnimationController — 현재 이동 구간의 진행 상태와 출발·도착 조회; 속성 읽기: {isRunning, isPaused, from, to}
+            defined — null·undefined 여부 판정; 함수: {defined()}
+        동작: 현재 애니메이션 컨트롤러를 조회한다. 컨트롤러가 있고 isRunning 또는 isPaused이며 from과 to가 모두 정의되어 있고 to − from의 길이 제곱이 1e-8을 초과하면 그 단위 벡터를 반환한다. 그 밖에는 undefined를 반환한다.
 
     userData: KeyValue
         외부에서 자유롭게 붙이는 사용자 데이터. `verticalObjects`(Object3D 배열)가 있으면 LOD 가시화 변경 시 함께 켜지고 꺼집니다.
@@ -532,7 +551,7 @@ U3dComponentPosition 클래스 정의
     drawArg: import('@UDrawArg').UDrawArg
         앱·씬·카메라에 접근하기 위한 렌더 컨텍스트다. 생성자는 drawarg 옵션을 사용하고 undefined이면 빈 객체를 저장한다. [확인 Q-003]
     speed: number = 0
-        주행 애니메이션 이동 속도 (km/h, 기본값 700). `setSpeed`로 변경합니다.
+        주행 애니메이션 이동 속도 (km/h, 기본값 700). `setSpeed`로 변경합니다. 사용자 설정 기준값이며 durationMs 변속으로 바뀌는 실제 프레임 속도는 `currentSpeed`로 조회합니다.
     distance: number = 0
         현재 주행 경로의 총 길이(m)이며 초기값은 0이다. 경로 생성 시 갱신되고 주행 시간 산출에 사용된다. makeAnimationController는 이 값을 읽어 유한한 수가 아니면 생성 없이 종료하는 조건으로 사용한다. 외부에서 변경할 수 있다.
     duration: number = 0
@@ -624,6 +643,8 @@ U3dComponentPosition 클래스 정의
         동작: 현재 #LODMode를 반환한다.
     get animationControllers() -> Map<string, UAnimationController>
         동작: #animationControllers Map 참조를 그대로 반환한다. 정상 생성 객체는 빈 Map에서 시작하며 ID별 컨트롤러 등록·조회·해제에 같은 Map을 사용한다.
+    get currentSpeed() -> number
+        동작: 현재 동작 중인 애니메이션 컨트롤러(getAnimationNow)의 speed(km/h)를 반환한다. 컨트롤러가 없거나 dispose 상태이거나 speed가 유한한 수가 아니면 기준 속도 speed를 반환한다. `speed`는 setSpeed로 지정한 설정값이고 currentSpeed는 durationMs·경유지 누적에 따라 매 프레임 변속된 실제 값이라는 점에서 구분된다. 읽기 전용이며 컴포넌트 상태를 바꾸지 않는다.
     get cumulativeInfo() -> Array<CumulativeInfo>
         동작: 호출할 때마다 새로운 빈 배열을 반환한다. 실제 누적 기록을 읽지 않는다.
     get cumulativeProperty() -> CumulativeProperty

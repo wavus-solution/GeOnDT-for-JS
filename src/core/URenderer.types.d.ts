@@ -14,6 +14,12 @@ import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/ty
      */
     type PostProcessParam = {
         /**
+         * 후처리 렌더 타깃의 MSAA 요청 샘플 수입니다.<br>
+         * 0 이상의 안전한 정수만 허용하며 0이면 MSAA를 비활성화합니다.<br>
+         * 요청값은 보관하고 실제 적용값은 장치의 MSAA 상한으로 제한합니다. 변경은 다음 후처리 렌더 시작 시 반영됩니다.
+         */
+        composerSamples?: number;
+        /**
          * 화면 전체에서 밝은 부분과 어두운 부분의 차이를 조절하는 배율입니다.<br>
          * 1이면 원본 그대로이고 1보다 크면 차이가 커져 또렷해지며 1보다 작으면 차이가 줄어 평탄해집니다.
          */

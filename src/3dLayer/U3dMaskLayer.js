@@ -31,7 +31,7 @@ const NORTH_EAST = "northEast";
 
 
 /**
- * ~extends import('@U3dModelLayer').U3dModelLayerCO <br>
+ * ~extends U3dModelLayerCO <br>
  * U3dMaskLayer 생성자 옵션
  *
  * @memberOf U3dMaskLayer
@@ -77,7 +77,7 @@ const NORTH_EAST = "northEast";
  * DEM 데이터 기본 URL.
  * 현재 코드에서는 주석 처리되어 있지만 옵션으로 전달될 수 있는 값
  *
- * @typedef {Omit<import('@U3dModelLayer').U3dModelLayerCO, never> & U3dMaskLayerCO_Content} U3dMaskLayerCO
+ * @typedef {Omit<U3dModelLayerCO, never> & U3dMaskLayerCO_Content} U3dMaskLayerCO
  */
 
 /**
