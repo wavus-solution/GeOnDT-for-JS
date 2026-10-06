@@ -595,7 +595,6 @@ class U3dComponentPosition {
         passCallback: null,
         precision: undefined,
         lastInfo: undefined,
-        initTime: 0,
         startPosition: undefined
     };
 
@@ -1034,7 +1033,6 @@ class U3dComponentPosition {
             passCallback : null,
             precision :  opt.precision,
             lastInfo : undefined,
-            initTime : 0,
             startPosition: undefined
         }
 
@@ -1396,8 +1394,10 @@ class U3dComponentPosition {
     }
 
     /**
-     * 애니메이션 시 컴포넌트의 이동 속도를 지정하는 함수
-     * @param {number} speed 이동 속도 (km/h). 1500을 넘으면 무시됩니다. 주행 중이면 다음 프레임부터 반영됩니다
+     * 애니메이션 시 컴포넌트의 이동 속도를 지정합니다.
+     * 속도 0으로 일시 정지된 경우에도 속도 변경을 컨트롤러에 전달하여 다음 갱신에서 재개할 수 있습니다.
+     *
+     * @param {number} speed 이동 속도(km/h)입니다. 1500을 넘으면 무시됩니다. 주행 중이면 다음 프레임부터 반영됩니다.
      */
     setSpeed(speed) {
         if (speed > 1500) {
@@ -1411,6 +1411,9 @@ class U3dComponentPosition {
         if(this._animation === false) {
             this.speed = speed
             this.needToChange = false;
+        } else if (this.getAnimationNow()?.isPaused) {
+            // 일시 정지 중에는 이동 프레임에서 속도 변경을 전달할 수 없다.
+            this._applyChangeFrame();
         }
 
     }
@@ -1812,12 +1815,26 @@ class U3dComponentPosition {
         const app = this.drawArg?._app;
         if (!defined(app)) return;
 
+        const durationMs = opt.durationMs == null ? undefined : Number(opt.durationMs);
+        if (defined(durationMs) && (!Number.isFinite(durationMs) || durationMs < 0)) return;
+
         if (!defined(opt.position) || !defined(opt.position.x) || !defined(opt.position.y) || !defined(opt.position.z)) return;
         const position = opt.position;
 
         const worldPosition = app.geographicToVector3(position);
         if (!defined(worldPosition)) return;
 
+        const start = self.position.clone();
+        const end = worldPosition.clone();
+        const animationID = UDEF.COMPONENT_ANIMATION.MOVE_SMOOTHLY;
+        let animation = self.#animationControllers.get(animationID);
+
+        // 이동 중에는 현재 표시 위치가 아닌 마지막 예약 목표와 중복 여부를 비교한다.
+        // 정지 상태의 새 구간은 현재 위치에서 시작한다.
+        const previousTarget = animation && (animation.isRunning || animation.isPaused)
+            ? animation.lastScheduledTarget : start;
+        const dist = previousTarget.distanceTo(end);
+        if (!Number.isFinite(dist)) return;
 
         let useRotation = false;
         if (defined(opt.rotation)) {
@@ -1833,15 +1850,12 @@ class U3dComponentPosition {
         if (typeof complete === "function")
             this.#cumulativeProperty.passCallback = complete;
 
-        //-----  애니메이션 연산  -----//
-        const start = self.position.clone();
-        const end = worldPosition.clone();
-        const dist = start.distanceTo(end);
-        if (!Number.isFinite(dist) || dist <= 0) return;
-
-        const animationID = UDEF.COMPONENT_ANIMATION.MOVE_SMOOTHLY;
-        let animation = self.#animationControllers.get(animationID);
-        const durationMs = opt.durationMs == null ? undefined : Number(opt.durationMs);
+        // 중복 목표여도 방향 옵션은 갱신하되 이동 등록·재생 상태는 변경하지 않는다.
+        if (this.#smoothAniContext) {
+            this.#smoothAniContext.useRotation = useRotation;
+            this.#smoothAniContext.useLookAt = useLookAt;
+        }
+        if (dist <= 0) return;
 
         // -------- 애니메이션 최초 생성  --------//
         if (!defined(animation)) {
@@ -1876,7 +1890,6 @@ class U3dComponentPosition {
         }
         if (!defined(animation)) return;
 
-        if (this.#smoothAniContext) this.#smoothAniContext.useLookAt = useLookAt;
         this._animation = true;
 
         if (!animation.isRunning && !animation.isPaused) {
@@ -1902,13 +1915,14 @@ class U3dComponentPosition {
         const animation = this.makeAnimationController(
             animationID,
             /** @this {import('@union3d/analy/UAnimationController').UAnimationController} */
-            function (/** @type {number} */ deltaTime, /** @type {number} */ distanceRate) {
+            function (/** @type {number} */ deltaTime, /** @type {number} */ distanceRate, /** @type {number} */ moveDistance) {
                 moveFromTo(
                     self,
                     /** @type {UAnimationController} */(this),
                     /** @type {import('@union3d/analy/UDrivingAnimation').DrivingSmoothAniContext} */(/** @type {unknown} */ (ctx)),
                     deltaTime,
-                    distanceRate
+                    distanceRate,
+                    moveDistance
                 );
             }
         );
@@ -1918,13 +1932,14 @@ class U3dComponentPosition {
             const arrived = self.position;
             if (!self.#disposed && Number.isFinite(arrived.x) && Number.isFinite(arrived.y) && Number.isFinite(arrived.z)) {
                 // 표시가 꺼져 있어도 이력의 소유자인 경로는 생성합니다(GPU 초기화는 지연).
-                if (!self.#cumulativePath) self.#createCumulativePath(0);
+                if (!self.#cumulativePath) self.#createCumulativePath();
                 self.#cumulativePath?.recordWaypoint(arrived, Date.now());
             }
             const callback = self.#cumulativeProperty.passCallback;
             if (typeof callback !== "function") return;
 
             const data = event?.data ?? {};
+            const elapsedTime = Number(data.time);
             self.#cumulativeProperty.lastPass += 1;
 
             try {
@@ -1932,7 +1947,7 @@ class U3dComponentPosition {
                     name: self.name,
                     key: self.#cumulativeProperty.lastPass,
                     distance: Number(data.dist) || self.distance || 0,
-                    time: Number(data.time) || Date.now(),
+                    time: Number.isFinite(elapsedTime) ? elapsedTime : 0,
                     speed: Number(data.speed) || self.speed
                 });
             } catch (e) {
@@ -1944,11 +1959,10 @@ class U3dComponentPosition {
 
     /**
      * @param {WorldPositionVector3} position
-     * @param {number} time
      *
      * @ignore
      */
-    #updateCumulativePath (position, time) {
+    #updateCumulativePath (position) {
         const path = this.#cumulativePath;
         if (!defined(path)) return;
 
@@ -1960,18 +1974,16 @@ class U3dComponentPosition {
                 ? this.getPitchYaw(this.lookAt, position)
                 : this.rotation;
             TEMP_CUMULATIVE_PATH_QUATERNION.setFromEuler(rotation);
-            path.updatePath(position, time, TEMP_CUMULATIVE_PATH_QUATERNION);
+            path.updatePath(position, undefined, TEMP_CUMULATIVE_PATH_QUATERNION);
         }catch (e) {
             console.warn(`[${this.name}] U3dCumulativePath updatePath 실패:`, e);
         }
     }
 
     /**
-     * @param {number} time
-     *
      * @ignore
      */
-    #createCumulativePath(time) {
+    #createCumulativePath() {
         // return;
         if (defined(this.#cumulativePath)) return;
         const app = this.drawArg?._app;
@@ -1994,7 +2006,7 @@ class U3dComponentPosition {
             if (!defined(geoPosition)) return;
             this.#initPathPositions.push({
                 position : geoPosition,
-                time : last.time + time
+                time : Date.now()
             })
         }
         const pathColor = defined(style.color) ? style.color : this.pathColor;
@@ -2038,9 +2050,9 @@ class U3dComponentPosition {
      * 현재 위치를 누적 경로에 기록한다.
      * moveSmoothly, addMovePoint, setPosition 등 위치 변경 진입점에서 공통으로 사용한다.
      * @param {WorldPositionVector3} position 기록할 월드 좌표
-     * @param {number} [time] 애니메이션 컨트롤러 기준 누적 시간(ms)
+     * 기록 시각은 경로가 자체 생성하며 애니메이션 시간은 전달하지 않습니다.
      */
-    recordCumulativePathFrame(position, time = undefined) {
+    recordCumulativePathFrame(position) {
         if (!defined(position)) return;
 
         const x = Number(position.x);
@@ -2050,18 +2062,14 @@ class U3dComponentPosition {
 
         const path = this.#cumulativePath;
 
-        let resolvedTime = Number(time);
-        if (!Number.isFinite(resolvedTime)) resolvedTime = 0;
-
         if (defined(path) && (this.#drawCumulativePath || defined(path.getTail()))) {
             if (this.#drawCumulativePath && !defined(path.getTail())) path.show();
-            this.#updateCumulativePath(position, resolvedTime);
+            this.#updateCumulativePath(position);
         } else if (this.#drawCumulativePath) {
-            this.#createCumulativePath(resolvedTime);
-            this.#updateCumulativePath(position, resolvedTime);
+            this.#createCumulativePath();
+            this.#updateCumulativePath(position);
         }
 
-        this.#cumulativeProperty.initTime = resolvedTime;
         this.#cumulativeProperty.startPosition = {x, y, z};
 
     }
@@ -4984,7 +4992,7 @@ class U3dComponentPosition {
     /**
      * 컨포넌트에 주행 애니메이션에 대한 컨트롤러를 추가하는 함수
      * @param {string} animationID - 생성할 애니메이션 컨트롤러의 고유 ID
-     * @param {function(number, number): void} animation - 실행할 애니메이션 함수 (deltaTime, updateRate를 인자로 받음)
+     * @param {function(number, number, number): void} animation - 실행할 애니메이션 함수 (deltaTime, updateRate, moveDistance를 인자로 받음)
      * @param {number} [durtaion] - 주행 시간 (입력하면 해당 시간내로 주행을 완료하기 위해 가변 속도로 주행한다)
      * @returns {import('@union3d/analy/UAnimationController').UAnimationController|undefined} 생성된 UAnimationController 객체, 생성 실패 시 undefined 반환
      * @example
@@ -5219,13 +5227,14 @@ function createHoverUpAnimation(animateNow = true) {
     const animation = self.makeAnimationController(
         animationID,
         /** @this {import('@union3d/analy/UAnimationController').UAnimationController} */
-        function (/** @type {number} */ deltaTime, /** @type {number} */ distanceRate) {
+        function (/** @type {number} */ deltaTime, /** @type {number} */ distanceRate, /** @type {number} */ moveDistance) {
             upHoverAnimation(
                 self,
                 /** @type {UAnimationController} */(this),
                 /** @type {import('@union3d/analy/UDrivingAnimation').HoverUpContext} */(ctx),
                 deltaTime,
-                distanceRate
+                distanceRate,
+                moveDistance
             );
         }
     );
@@ -5314,13 +5323,14 @@ function createHoverDownAnimation(animateNow = false) {
     const animation = self.makeAnimationController(
         animationID,
         /** @this {import('@union3d/analy/UAnimationController').UAnimationController} */
-        function (/** @type {number} */ deltaTime, /** @type {number} */ distanceRate) {
+        function (/** @type {number} */ deltaTime, /** @type {number} */ distanceRate, /** @type {number} */ moveDistance) {
             downHoverAnimation(
                 self,
                 /** @type {UAnimationController} */(this),
                 /** @type {import('@union3d/analy/UDrivingAnimation').HoverDownContext} */(ctx),
                 deltaTime,
-                distanceRate
+                distanceRate,
+                moveDistance
             );
         }
     );
@@ -5481,13 +5491,14 @@ function createPathAnimation(animateNow = true) {
     const animation = self.makeAnimationController(
         animationID,
         /** @this {import('@union3d/analy/UAnimationController').UAnimationController} */
-        function (/** @type {number} */ deltaTime, /** @type {number} */ distanceRate) {
+        function (/** @type {number} */ deltaTime, /** @type {number} */ distanceRate, /** @type {number} */ moveDistance) {
             pathAnimation(
                 self,
                 /** @type {UAnimationController} */(this),
                 /** @type {import('@union3d/analy/UDrivingAnimation').PathAniContext} */(ctx),
                 deltaTime,
-                distanceRate
+                distanceRate,
+                moveDistance
             );
         }
     );
@@ -5686,13 +5697,14 @@ function createMovePoint (animateNow) {
     const animation = self.makeAnimationController(
         animationID,
         /** @this {import('@union3d/analy/UAnimationController').UAnimationController} */
-        function (/** @type {number} */ deltaTime, /** @type {number} */ distanceRate) {
+        function (/** @type {number} */ deltaTime, /** @type {number} */ distanceRate, /** @type {number} */ moveDistance) {
             movePointAnimation(
                 self,
                 /** @type {UAnimationController} */(this),
                 /** @type {import('@union3d/analy/UDrivingAnimation').movePointContext} */(ctx),
                 deltaTime,
-                distanceRate
+                distanceRate,
+                moveDistance
             );
         }
     );
@@ -5937,13 +5949,14 @@ function createCrowdTween(animateNow) {
     const animation = self.makeAnimationController(
         animationID,
         /** @this {import('@union3d/analy/UAnimationController').UAnimationController} */
-        function (/** @type {number} */ deltaTime, /** @type {number} */ distanceRate) {
+        function (/** @type {number} */ deltaTime, /** @type {number} */ distanceRate, /** @type {number} */ moveDistance) {
             crowdAnimation(
                 self,
                 /** @type {UAnimationController} */(this),
                 /** @type {import('@union3d/analy/UDrivingAnimation').CrowdContext} */(ctx),
                 deltaTime,
-                distanceRate
+                distanceRate,
+                moveDistance
             );
         }
     );

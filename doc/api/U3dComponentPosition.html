@@ -15,7 +15,7 @@
     <!-- 한글 본문용 가변 서체입니다. 내려받지 못해도 styles/jaguar.css의 대체 서체로 그대로 표시됩니다. -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-    <link type="text/css" rel="stylesheet" href="styles/jaguar.css?v=muq8tjf0">
+    <link type="text/css" rel="stylesheet" href="styles/jaguar.css?v=muw7iz8z">
     <script>
         // 화면이 그려지기 전에 테마를 정해 화면이 한 번 번쩍이는 것을 막습니다.
         // 상단 전환 버튼으로 직접 고른 적이 없으면 운영체제 설정을 따릅니다.
@@ -11311,6 +11311,10 @@
                     <a href="U3dOpenLayer.html#~OLLayer">OLLayer</a>
                 </li>
             
+                <li data-name="ollayerentry">
+                    <a href="U3dOpenLayer.html#~OLLayerEntry">OLLayerEntry</a>
+                </li>
+            
                 <li data-name="olmap">
                     <a href="U3dOpenLayer.html#~OLMap">OLMap</a>
                 </li>
@@ -11327,8 +11331,60 @@
                     <a href="U3dOpenLayer.html#~U3dOpenLayerCO">U3dOpenLayerCO</a>
                 </li>
             
+                <li data-name="u3dopenlayercameramovestate">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerCameraMoveState">U3dOpenLayerCameraMoveState</a>
+                </li>
+            
+                <li data-name="u3dopenlayercancellationsource">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerCancellationSource">U3dOpenLayerCancellationSource</a>
+                </li>
+            
+                <li data-name="u3dopenlayercompletionframe">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerCompletionFrame">U3dOpenLayerCompletionFrame</a>
+                </li>
+            
+                <li data-name="u3dopenlayerconsumerbundle">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerConsumerBundle">U3dOpenLayerConsumerBundle</a>
+                </li>
+            
+                <li data-name="u3dopenlayerconsumerlayer">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerConsumerLayer">U3dOpenLayerConsumerLayer</a>
+                </li>
+            
+                <li data-name="u3dopenlayerdebugsummary">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerDebugSummary">U3dOpenLayerDebugSummary</a>
+                </li>
+            
+                <li data-name="u3dopenlayerevictioncache">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerEvictionCache">U3dOpenLayerEvictionCache</a>
+                </li>
+            
+                <li data-name="u3dopenlayerframescheduler">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerFrameScheduler">U3dOpenLayerFrameScheduler</a>
+                </li>
+            
+                <li data-name="u3dopenlayerolreader">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerOLReader">U3dOpenLayerOLReader</a>
+                </li>
+            
+                <li data-name="u3dopenlayerrenderframehandle">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerRenderFrameHandle">U3dOpenLayerRenderFrameHandle</a>
+                </li>
+            
+                <li data-name="u3dopenlayerrequesttile">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerRequestTile">U3dOpenLayerRequestTile</a>
+                </li>
+            
                 <li data-name="u3dopenlayertile">
                     <a href="U3dOpenLayer.html#~U3dOpenLayerTile">U3dOpenLayerTile</a>
+                </li>
+            
+                <li data-name="u3dopenlayertilerange">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerTileRange">U3dOpenLayerTileRange</a>
+                </li>
+            
+                <li data-name="u3dopenlayertimingsummary">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerTimingSummary">U3dOpenLayerTimingSummary</a>
                 </li>
             
             </ul>
@@ -13303,6 +13359,10 @@
                     <a href="U3dCumulativePath.html#setColor">setColor</a>
                 </li>
             
+                <li data-name="setdrawfunc">
+                    <a href="U3dCumulativePath.html#setDrawFunc">setDrawFunc</a>
+                </li>
+            
                 <li data-name="setgradation">
                     <a href="U3dCumulativePath.html#setGradation">setGradation</a>
                 </li>
@@ -13347,8 +13407,8 @@
                     <a href="U3dCumulativePath.html#show">show</a>
                 </li>
             
-                <li data-name="updatefade">
-                    <a href="U3dCumulativePath.html#updateFade">updateFade</a>
+                <li data-name="updatedraw">
+                    <a href="U3dCumulativePath.html#updateDraw">updateDraw</a>
                 </li>
             
                 <li data-name="updatepath">
@@ -29572,7 +29632,7 @@ count는 2~100 사이의 정수, headingWeight와 turnWeight는 0~1 사이의 �
     <div class="nameContainer">
         <h4 class="name" id="recordCumulativePathFrame">
             
-             recordCumulativePathFrame<span class="signature">(position, <span class="optional">time</span>)</span>
+             recordCumulativePathFrame<span class="signature">(position)</span>
         </h4>
     
     </div>
@@ -29631,42 +29691,8 @@ moveSmoothly, addMovePoint, setPosition 등 위치 변경 진입점에서 공통
             
             <td class="description last">
                 
-                    
-                    
-                        
-                    
-                
-                <p>기록할 월드 좌표</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>time</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-            
-            <td class="description last">
-                
-                    
-                        <span class="optional">optional</span>
-                    
-                    
-                        
-                    
-                
-                <p>애니메이션 컨트롤러 기준 누적 시간(ms)</p></td>
+                <p>기록할 월드 좌표
+기록 시각은 경로가 자체 생성하며 애니메이션 시간은 전달하지 않습니다.</p></td>
         </tr>
 	
 	
@@ -35075,7 +35101,8 @@ moveSmoothly, addMovePoint, setPosition 등 위치 변경 진입점에서 공통
     
     
     <div class="description">
-        <p>애니메이션 시 컴포넌트의 이동 속도를 지정하는 함수</p>
+        <p>애니메이션 시 컴포넌트의 이동 속도를 지정합니다.
+속도 0으로 일시 정지된 경우에도 속도 변경을 컨트롤러에 전달하여 다음 갱신에서 재개할 수 있습니다.</p>
     </div>
     
 
@@ -35122,7 +35149,7 @@ moveSmoothly, addMovePoint, setPosition 등 위치 변경 진입점에서 공통
             
             <td class="description last">
                 
-                <p>이동 속도 (km/h). 1500을 넘으면 무시됩니다. 주행 중이면 다음 프레임부터 반영됩니다</p></td>
+                <p>이동 속도(km/h)입니다. 1500을 넘으면 무시됩니다. 주행 중이면 다음 프레임부터 반영됩니다.</p></td>
         </tr>
 	
 	
@@ -39299,29 +39326,6 @@ moveSmoothly, addMovePoint, setPosition 등 위치 변경 진입점에서 공통
 	
         <tr>
             
-                <td class="name"><code>initTime</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-            
-            
-            
-            <td class="description last"><p>초기화 시각</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
                 <td class="name"><code>startPosition</code></td>
             
             
@@ -40049,8 +40053,9 @@ moveSmoothly, addMovePoint, setPosition 등 위치 변경 진입점에서 공통
                 </td>
             
             
-            <td class="description last"><p>목표 위치까지 보간 이동할 시간(ms). 0이면 다음 프레임에 목표 위치에 도착합니다.
-양수이면 해당 시간 안에 도착을 보장하기 위해 이동 속도를 가변적으로 보간합니다.
+            <td class="description last"><p>현재 구간 시작부터 목표 위치에 도착하기까지 허용할 시간(ms, 일시정지 시간 제외). 0이면 해당 구간의 첫 갱신 프레임에 도착합니다.
+양수이면 기본 속도를 유지하되 기한 내 도착에 필요한 경우 가속합니다. 여유가 있으면 기본 속도로 먼저 도착할 수 있습니다.
+프레임 지연으로 기한을 넘기면 다음 실행 가능한 프레임에 목표 위치를 반영합니다. 대기열 구간에는 밀림 보정으로 단축된 기한이 적용될 수 있습니다.
 생략하거나 null이면 이동 거리와 설정 속도로 소요 시간을 자동 계산하여 등속 이동합니다.
 음수나 유한하지 않은 값이면 해당 목표를 등록하지 않습니다.</p></td>
         </tr>
@@ -43996,7 +44001,7 @@ moveSmoothly, addMovePoint, setPosition 등 위치 변경 진입점에서 공통
 
     </div>
 </div>
-<script src="scripts/prism.js?v=muq8tjf0"></script>
-<script src="scripts/main.js?v=muq8tjf0"></script>
+<script src="scripts/prism.js?v=muw7iz8z"></script>
+<script src="scripts/main.js?v=muw7iz8z"></script>
 </body>
 </html>

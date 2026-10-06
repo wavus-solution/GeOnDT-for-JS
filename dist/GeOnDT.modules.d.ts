@@ -1,5 +1,5 @@
 import * as three from './types/three/build/three.module.js';
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, ShaderMaterial, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from './types/three/build/three.module.js';
+import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from './types/three/build/three.module.js';
 export { three as THREE };
 import * as three_examples_jsm_lines_LineSegments2_js from './types/three/examples/jsm/lines/LineSegments2.js';
 import { LineSegments2 } from './types/three/examples/jsm/lines/LineSegments2.js';
@@ -16186,6 +16186,36 @@ declare const SIMPLE_TAIL_COLOR_FRAGMENT_VARS: string;
  * 이동 지점을 연결해 화면을 향하는 리본 궤적을 그립니다.
  */
 declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
+    static "__#31@#normalizeDrawResult"(result: any): {
+        red: number;
+        green: number;
+        blue: number;
+        opacity: any;
+        action: any;
+        width: any;
+        alpha: any;
+        from: any;
+        to: any;
+    };
+    static "__#31@#createDistanceDrawFunc"(maxDistance: any, widthFade?: number, alphaFade?: number): (node: any, newest: any, now: any, previous: any) => {
+        action: string;
+        fade: {
+            width: number;
+            alpha: number;
+        };
+        range?: undefined;
+    } | {
+        action: string;
+        range: {
+            from: number;
+            to: number;
+        };
+        fade: {
+            width: number;
+            alpha: number;
+        };
+    };
+    static "__#31@#interpolateDrawNode"(a: any, b: any, t: any): {};
     /**
      * 삼각형 한 면을 구성하는 인덱스 개수를 반환합니다.
      *
@@ -16201,7 +16231,7 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
     /**
      * 궤적 재질을 구성하는 기본 셰이더(shader) 정의입니다.
      *
-     * @type {typeof import('@union3d/effect/material/USimpleTailMaterial').USimpleTailShader} 기본 셰이더 정의 객체
+     * @type {typeof import('@union3d/effect/material/USimpleTailMaterial').USimpleTailShader}
      */
     static Shader: typeof USimpleTailShader;
     /**
@@ -16218,13 +16248,12 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      * USimpleTail 클래스 생성자입니다. <br>
      * 실제 궤적을 그리려면 initialize를 호출한 뒤 getMesh로 얻은 메시를 장면에 추가하십시오.
      *
-     * @param {USimpleTailCO} [opt={}] 궤적 식별 정보와 거리 제한·단순화 설정
+     * @param {USimpleTailCO} [opt={}] 궤적 식별 정보와 단순화 설정
      */
     constructor(opt?: USimpleTailCO);
     /**
-     * 궤적의 dispose가 이미 호출되었는지 나타냅니다.
-     *
-     * @type {boolean} 자원 해제가 시작되었으면 true
+     * 궤적의 dispose가 이미 호출되었는지 나타냅니다. 자원 해제가 시작되었으면 true
+     * @type {boolean}
      */
     _disposed: boolean;
     scene: any;
@@ -16241,21 +16270,10 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
     /** @type {number} */ maxDistance: number;
     /** @type {number} */ pathDistance: number;
     /** @type {number} */ visibleStartNode: number;
-    _virtualStartSlot: number;
-    _virtualStartNode: {
-        x: any;
-        y: any;
-        z: any;
-        colorFactor: any;
-        pathDistance: number;
-        time: any;
-        recordedAt: any;
-    };
     _drawStartNode: number;
-    /** @type {number} */ lastDistanceFadeOutBoundary: number;
     /** @type {function(object): void} */ onFadeOut: (arg0: object) => void;
-    /** @type {USimpleTailFadeEvaluator | undefined} */
-    fadeFunc: USimpleTailFadeEvaluator | undefined;
+    /** @type {USimpleTailDrawEvaluator | undefined} */
+    drawFunc: USimpleTailDrawEvaluator | undefined;
     currentLength: any;
     currentEnd: any;
     tempMatrix4: any;
@@ -16288,7 +16306,7 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      * @returns {Promise<void>} 초기화가 끝나면 완료되는 객체
      */
     initialize(material: three.ShaderMaterial, length: number, targetObject: three.Object3D, perMaxNode: number): Promise<void>;
-    length: number;
+    length: any;
     perMaxNode: number;
     targetObject: three.Object3D<three.Object3DEventMap>;
     material: any;
@@ -16327,6 +16345,10 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      * 재질·스타일·확보된 용량을 유지하므로 다시 지점을 추가할 수 있습니다.
      */
     reset(): void;
+    drawSegments: any[] | {
+        a: {};
+        b: {};
+    }[];
     lastSimplifyKm: number;
     lastMemoryCheck: number;
     _positionPool: Float32Array<ArrayBuffer>;
@@ -16335,9 +16357,9 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
     _widthFadePool: Float32Array<ArrayBuffer>;
     _alphaFadePool: Float32Array<ArrayBuffer>;
     _pathDistancePool: Float32Array<ArrayBuffer>;
-    _sidePool: Float32Array<ArrayBuffer>;
-    _startCapPool: Float32Array<ArrayBuffer>;
-    _endCapPool: Float32Array<ArrayBuffer>;
+    _sidePool: Int8Array<ArrayBuffer>;
+    _startCapPool: Uint8Array<ArrayBuffer>;
+    _endCapPool: Uint8Array<ArrayBuffer>;
     _previousPool: Float32Array<ArrayBuffer>;
     _nextPool: Float32Array<ArrayBuffer>;
     /**
@@ -16354,7 +16376,7 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      */
     rebuildFromNodeCenters(): void;
     /**
-     * 변환 행렬의 위치를 궤적 끝에 추가하고 거리 제한과 fade를 갱신합니다. <br>
+     * 변환 행렬의 위치를 궤적 끝에 추가하고 노드 draw 정책를 갱신합니다. <br>
      * 용량이 부족하면 정책에 따라 단순화·오래된 지점 제거·용량 확장을 수행합니다.
      *
      * @param {import('three').Matrix4} transformMatrix 월드 좌표(EPSG:3857) 위치를 담은 행렬
@@ -16373,20 +16395,20 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      * @param {number} [colorFactor=this.colorFactor] 색 농도 배율
      */
     updateNodeCenter(nodeIndex: number, nodeCenter: three.Vector3Like, colorFactor?: number): void;
-    /** 일괄 입력 중 fade 평가를 보류합니다. endFadeBatch와 쌍으로 사용하십시오. */
-    beginFadeBatch(): void;
-    /** 가장 바깥 일괄 입력이 끝나면 최종 경로의 fade를 한 번 평가합니다. */
-    endFadeBatch(): void;
+    /** 일괄 입력 중 draw 평가를 보류합니다. endDrawBatch와 쌍으로 사용하십시오. */
+    beginDrawBatch(): void;
+    /** 가장 바깥 일괄 입력이 끝나면 최종 경로의 draw 정책을 한 번 평가합니다. */
+    endDrawBatch(): void;
     /**
-     * 출력 범위의 지점마다 fade 콜백을 다시 평가해 너비와 불투명도를 갱신합니다. <br>
-     * maxDistance가 Infinity이면 콜백을 실행하지 않고 모든 지점의 fade 배율을 1로 복원합니다. <br>
-     * 이동이 멈춘 동안 시간 fade를 진행하려면 갱신 루프에서 호출하십시오. <br>
-     * 숫자 결과는 두 배율에 함께 적용하고 객체 결과는 width와 alpha에 각각 적용합니다. <br>
-     * 유효하지 않거나 생략된 값은 1로 처리하며 숫자는 0~1로 제한합니다.
-     *
-     * @param {number} [now=Date.now()] 평가 기준 epoch 시각(ms)
+     * 모든 보관 노드의 표시·구간·fade·폐기를 평가합니다. 숨긴 노드도 평가합니다.
+     * @param {{now?: number, totalTime?: number | null}} [context] 경로 시간은 null로 최신 입력 기준에 복귀합니다.
      */
-    updateFade(now?: number): void;
+    updateDraw(context?: {
+        now?: number;
+        totalTime?: number | null;
+    }): void;
+    /** 실제 표시 구간입니다. 피킹에도 같은 단절 경계를 적용합니다. */
+    getDrawSegments(): any;
     /**
      * 다음 좌표를 추가했을 때의 자체 누적 거리(m)를 계산합니다. 노드 제거 후에도 누적 기준을 유지합니다.
      * @param {import('three').Vector3Like} position 경로에 기록할 월드 좌표
@@ -16416,7 +16438,7 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
     setColor(color: three.ColorRepresentation): void;
     /**
      * 궤적 전체의 불투명도를 변경합니다. <br>
-     * 값이 1보다 작으면 재질의 투명 렌더링을 켭니다.
+     * 노드별 opacity와 fade를 반영할 수 있도록 투명 렌더링을 유지합니다.
      *
      * @param {number} opacity 사용할 불투명도이며 0~1 범위로 전달
      */
@@ -16435,9 +16457,9 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      */
     setWidth(width: number): void;
     /**
-     * 궤적(tail)의 거리 제한·단순화·fade 콜백을 설정합니다. <br>
-     * 생략한 항목은 유지합니다. 유한한 maxDistance는 fade 결과와 별도로 출력 범위를 제한하며 Infinity는 fade도 해제합니다. <br>
-     * 이 클래스의 fadeFunc는 지점·최신 지점·현재 시각을 받는 내부 평가 함수입니다.
+     * 궤적(tail)의 단순화·노드 draw 정책을 설정합니다. <br>
+     * 생략한 항목은 유지합니다. 사용자 drawFunc를 우선하며 없으면 maxDistance를 기본 drawFunc로 변환합니다. <br>
+     * drawFunc는 지점·최신 지점·현재 시각·직전 연결 지점·경로 시간을 받는 내부 평가 함수입니다.
      *
      * @param {USimpleTailRuntimePolicy} [policy={}] 변경할 궤적 정책
      */
@@ -16453,7 +16475,7 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
     setFade(start?: number, end?: number): void;
     /**
      * 월드 좌표(EPSG:3857) 지점을 궤적 끝에 추가합니다. <br>
-     * 새 지점을 추가하면 거리 제한과 fade 콜백 결과를 함께 반영합니다.
+     * 새 지점을 추가하면 노드 draw 정책 콜백 결과를 함께 반영합니다.
      *
      * @param {import('three').Vector3Like} worldPosition 추가할 지점의 월드 좌표(EPSG:3857)
      * @param {number} colorFactor 지점별 색 농도이며 0~1 범위로 전달
@@ -16471,7 +16493,7 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
     /**
      * 보관 중인 궤적 중심점 목록을 반환합니다. <br>
      * 복사본이 아니므로 외부 변경은 내부 이력에 직접 영향을 줍니다. <br>
-     * 거리 제한 밖이라 그려지지 않는 지점도 버퍼 재사용 전에는 포함됩니다.
+     * hide로 숨긴 노드는 포함하고 dispose된 노드는 제외합니다.
      *
      * @returns {Array<USimpleTailNode> | null} 오래된 순서의 내부 지점 배열이며 초기화 전이나 해제 후에는 null
      */
@@ -16511,8 +16533,8 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
     simplifyTrailToTarget(targetCount: number, epsilonStart?: number, epsilonStep?: number): void;
     /**
      * 시야 영역(프러스텀, frustum) 안에 있는 중심점 범위만 그리도록 제한합니다. <br>
-     * maxDistance 경계 이후 지점만 검사합니다. <br>
-     * 중심점 포함 여부로 판단하므로 양 끝점이 시야 밖인 교차 선분은 놓칠 수 있습니다.
+     * 노드 draw 정책의 비연속 구간을 유지합니다. <br>
+     * 시야 절단은 GPU에 맡겨 양 끝점이 시야 밖인 교차 선분도 보존합니다.
      *
      * @param {import('three').Frustum} frustum 월드 좌표(EPSG:3857)에서 검사할 시야 영역
      */
@@ -16542,6 +16564,14 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
  * @group geometry
  */
 declare class U3dCumulativePath {
+    /** @type {Set<U3dCumulativePath>} */
+    static "__#33@#drawPaths": Set<U3dCumulativePath>;
+    /** @type {number | undefined} */
+    static "__#33@#drawFrame": number | undefined;
+    static "__#33@#tickDraw"(): void;
+    static "__#33@#scheduleDraw"(): void;
+    /** @param {U3dCumulativePath} path @param {boolean} enabled */
+    static "__#33@#watchDraw"(path: U3dCumulativePath, enabled: boolean): void;
     /**
      * U3dCumulativePath 클래스 생성자입니다.<br>
      * app과 scene은 필수이며 둘 중 하나가 없으면 오류를 보고합니다.
@@ -16558,7 +16588,7 @@ declare class U3dCumulativePath {
     isAutoVisible: boolean;
     /**
      * 최근 도착 waypoint 100개의 좌표·도착 시각 복사본입니다. 오래된 순서입니다.
-     * 렌더 노드 단순화·거리 제한과 독립적으로 보관하며 removePath/dispose 시 비웁니다.
+     * 렌더 노드 단순화·draw 정책과 독립적으로 보관하며 removePath/dispose 시 비웁니다.
      * @returns {Array<WaypointRecord>}
      */
     get waypointHistory(): Array<WaypointRecord>;
@@ -16626,10 +16656,18 @@ declare class U3dCumulativePath {
      */
     setTailPolicy(opt: USimpleTail_Policy): void;
     /**
-     * 이동이 멈춘 동안에도 사용자 fade 콜백을 다시 평가합니다.
-     * @param {number} [now=Date.now()] 현재 epoch 시각(ms)
+     * 보관 노드의 draw 정책을 다시 평가합니다. 시간 기준을 지정할 수 있습니다.
+     * @param {{now?: number, totalTime?: number | null}} [context] 평가 시간. totalTime은 null로 최신 입력 기준 복귀
      */
-    updateFade(now?: number): void;
+    updateDraw(context?: {
+        now?: number;
+        totalTime?: number | null;
+    }): void;
+    /**
+     * 노드별 표시·구간·fade·폐기 정책을 교체합니다. null이면 maxDistance 기본 정책으로 복귀합니다.
+     * @param {U3dCumulativePathDrawFunc | null} drawFunc
+     */
+    setDrawFunc(drawFunc: U3dCumulativePathDrawFunc | null): void;
     /**
      * 경로 스타일을 한 번에 변경합니다.<br>
      * 지정한 스타일 항목만 반영하고 나머지는 유지합니다.
@@ -16716,21 +16754,21 @@ declare class U3dCumulativePath {
     dispose(): void;
     /**
      * 현재 위치를 경로 끝에 추가합니다.<br>
-     * 숨김 여부와 관계없이 경로를 갱신하고 단순화·거리 제한 정책을 적용합니다.<br>
+     * 숨김 여부와 관계없이 경로를 갱신하고 단순화·draw 정책 정책을 적용합니다.<br>
      * 별도 원본 입력 대기열은 만들지 않습니다.<br>
      * drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다음 이동점이 올 때 함께 추가합니다.<br>
      * `pos`는 복사해 사용하므로 호출 뒤 같은 객체를 재사용할 수 있습니다.
      *
      * @param {WorldPosition} pos 추가할 지점이며 x, y, z가 모두 있어야 함
-     * @param {number} time 지점의 시각이며 색 계산과 위치 기록에 사용됨
+     * @param {number} [time=Date.now()] 노드 기록 시각(epoch ms). 실시간 호출은 생략하며 경로에서 생성합니다. 이력 입력은 명시할 수 있습니다.
      * @param {import('three').QuaternionLike} [orientation] positionOffset을 월드축으로 변환할 컴포넌트 회전
-     * @param {number} [recordedAt=Date.now()] 지점이 이력에 추가된 epoch 시각(ms)
      */
-    updatePath(pos: WorldPosition, time: number, orientation?: three.QuaternionLike, recordedAt?: number): void;
+    updatePath(pos: WorldPosition, time?: number, orientation?: three.QuaternionLike): void;
     /**
      * 위치 데이터 배열의 지점을 경로 끝에 한 번에 추가합니다.<br>
      * 생성 직후의 초기 경로는 생성 옵션 initPositions로 지정하십시오.<br>
-     * 지점이 30,000개를 넘으면 30,000개만 골라 그립니다.<br>
+     * 유효한 입력 지점을 모두 전달하며 지점 축소는 tailPolicy의 단순화·draw 정책 정책에 따릅니다.<br>
+     * 자원 생성을 지연한 경우에도 호출 시 초기 경로를 먼저 반영한 뒤 입력을 추가합니다.<br>
      * drawOffset이 0이 아니고 입력 지점이 모두 같은 위치이면 첫 이동점이 올 때 시작점을 추가합니다.<br>
      * 기존 경로 뒤에 지점을 추가합니다.<br>
      * `hide`후 첫 호출에서는 기존 경로를 지우고 새 경로로 표시됩니다.
@@ -16740,13 +16778,13 @@ declare class U3dCumulativePath {
     createTrailFromPositions(positions: Array<U3dCumulativePathPositionData>): void;
     /**
      * 경로를 화면에 표시합니다.<br>
-     * 숨긴 동안 갱신된 경로의 fade를 평가하고 메시를 장면에 추가합니다.
+     * draw 정책을 평가하고 메시를 장면에 추가합니다.
      */
     show(): void;
     /**
      * 경로를 화면에서 숨깁니다.<br>
-     * 숨긴 동안에도 `updatePath`의 경로 갱신·단순화·거리 제한은 계속 적용됩니다.<br>
-     * fade 평가는 다음 show까지 보류합니다.<br>
+     * 숨긴 동안에도 `updatePath`의 경로 갱신·단순화·draw 정책은 계속 적용됩니다.<br>
+     * drawFunc 평가는 숨긴 동안에도 계속합니다.<br>
      * 다음 `createTrailFromPositions` 호출은 기존 경로를 지우고 새 경로로 표시됩니다.
      */
     hide(): void;
@@ -16798,6 +16836,13 @@ declare class UAnimationController extends UEventDispatcher {
      * @returns {WorldPositionVector3} 현재 구간의 도착 월드 위치 객체입니다. <br>
      */
     get to(): WorldPositionVector3;
+    /**
+     * 마지막으로 예약된 이동 목표의 복사본을 반환합니다. <br>
+     * 대기 경유지, 아직 적용되지 않은 구간 명령, 현재 구간 목표 순으로 확인합니다. <br>
+     *
+     * @returns {WorldPositionVector3} 마지막 예약 목표의 월드 좌표입니다. <br>
+     */
+    get lastScheduledTarget(): WorldPositionVector3;
     /**
      * 현재 이동 구간 뒤에 대기 중인 경유지(waypoint) 수를 반환합니다. <br>
      *
@@ -16955,8 +17000,8 @@ declare class UAnimationController extends UEventDispatcher {
      * @param {WorldPositionVector3} point 추가할 월드 좌표입니다. <br>
      * 호출 시 좌표를 복사하므로 이후 원본 객체를 바꿔도 경유지는 달라지지 않습니다. <br>
      * @param {number} [durationMs] `0` 이상의 유한한 기준 목표 시간(밀리초)입니다. <br>
-     * 현재 추가한 경유지로 이동을 시작할 때 그 뒤에 남은 경유지가 0개, 1개, 2개, 3개 이상이면 각각 `durationMs / 1`, `durationMs / 2`, `durationMs / 3`, `durationMs / 4`를 적용하고 최솟값은 1밀리초입니다. <br>
-     * 생략하면 해당 경유지로 이동을 시작하는 시점의 속도를 유지합니다. <br>
+     * 양수이면 구간 시작 시 뒤에 남은 경유지가 0개, 1개, 2개, 3개 이상일 때 각각 `durationMs / 1`, `durationMs / 2`, `durationMs / 3`, `durationMs / 4`를 적용합니다. 최솟값은 1밀리초지만 입력 기한보다 늘리지는 않습니다. 0이면 해당 구간의 첫 갱신에 도착합니다. <br>
+     * 생략하면 지연 보정 전의 설정 속도로 등속 이동합니다. <br>
      * @returns {boolean} 세 좌표가 모두 유한하고 목표 시간이 유효해 경유지를 추가했으면 `true`, 그렇지 않으면 `false`입니다. <br>
      */
     appendWaypoint(point: WorldPositionVector3, durationMs?: number): boolean;
@@ -16970,7 +17015,7 @@ declare class UAnimationController extends UEventDispatcher {
      * @param {WorldPositionVector3} to 새 구간의 도착 월드 좌표입니다. <br>
      * 호출 시 좌표를 복사하므로 이후 원본 객체를 바꿔도 예약된 도착점은 달라지지 않습니다. <br>
      * @param {number} [durationMs] `0` 이상의 유한한 목표 시간(밀리초)입니다. <br>
-     * 지정하면 목표 시간에 맞춰 속도를 조절하고, 생략하면 현재 속도를 유지합니다. <br>
+     * 지정하면 설정 속도를 하한으로 목표 시간 안에 도착하도록 가속하고, 생략하면 지연 보정 전의 설정 속도로 등속 이동합니다. <br>
      * @returns {boolean} 두 좌표의 각 성분과 목표 시간이 유효해 변경 명령을 추가했으면 `true`, 그렇지 않으면 `false`입니다. <br>
      */
     setSegment(from: WorldPositionVector3, to: WorldPositionVector3, durationMs?: number): boolean;
@@ -16991,6 +17036,7 @@ declare class UAnimationController extends UEventDispatcher {
      *
      * @param {number} newSpeed 새 주행 속도(킬로미터/시)입니다. <br>
      * `0`이면 일시 정지하고 양수로 바꾸면 주행을 재개합니다. <br>
+     * 일시 정지 중에도 속도 명령은 외부 갱신에서 적용하지만, 기존 속도가 양수인 일반 일시 정지는 유지합니다. <br>
      *
      * @ignore
      */
@@ -17027,6 +17073,7 @@ declare class UAnimationController extends UEventDispatcher {
     /**
      * 일시 정지한 위치와 진행 기록을 유지한 채 주행을 재개합니다. <br>
      * 일시 정지 상태가 아니면 상태를 바꾸지 않습니다. <br>
+     * 도착 콜백에서 일시 정지했다면 다음 갱신에서 도착 이벤트를 반복하지 않고 다음 구간 또는 완료 처리로 이어집니다. <br>
      */
     resume(): void;
     /**
@@ -17067,6 +17114,7 @@ declare class UAnimationController extends UEventDispatcher {
      *
      * @param {number} [nowMs=performance.now()] 현재 프레임 시각(밀리초)입니다. <br>
      * 값을 바꾸면 직전 업데이트와의 경과 시간 계산이 달라집니다. <br>
+     * 직전 기준보다 과거인 시각은 이동 계산과 기준 시각 갱신에 사용하지 않습니다. <br>
      *
      * @ignore
      */
@@ -22504,8 +22552,10 @@ declare class U3dComponentPosition {
      */
     isDisposed(): boolean;
     /**
-     * 애니메이션 시 컴포넌트의 이동 속도를 지정하는 함수
-     * @param {number} speed 이동 속도 (km/h). 1500을 넘으면 무시됩니다. 주행 중이면 다음 프레임부터 반영됩니다
+     * 애니메이션 시 컴포넌트의 이동 속도를 지정합니다.
+     * 속도 0으로 일시 정지된 경우에도 속도 변경을 컨트롤러에 전달하여 다음 갱신에서 재개할 수 있습니다.
+     *
+     * @param {number} speed 이동 속도(km/h)입니다. 1500을 넘으면 무시됩니다. 주행 중이면 다음 프레임부터 반영됩니다.
      */
     setSpeed(speed: number): void;
     /**
@@ -22622,9 +22672,9 @@ declare class U3dComponentPosition {
      * 현재 위치를 누적 경로에 기록한다.
      * moveSmoothly, addMovePoint, setPosition 등 위치 변경 진입점에서 공통으로 사용한다.
      * @param {WorldPositionVector3} position 기록할 월드 좌표
-     * @param {number} [time] 애니메이션 컨트롤러 기준 누적 시간(ms)
+     * 기록 시각은 경로가 자체 생성하며 애니메이션 시간은 전달하지 않습니다.
      */
-    recordCumulativePathFrame(position: WorldPositionVector3, time?: number): void;
+    recordCumulativePathFrame(position: WorldPositionVector3): void;
     /**
      * 컴포넌트 누적 경로를 반환하는 메서드입니다.
      * @returns {import('@union3d/geometry/U3dCumulativePath').U3dCumulativePath|undefined} 누적 경로가 없으면 undefined
@@ -23458,7 +23508,7 @@ declare class U3dComponentPosition {
     /**
      * 컨포넌트에 주행 애니메이션에 대한 컨트롤러를 추가하는 함수
      * @param {string} animationID - 생성할 애니메이션 컨트롤러의 고유 ID
-     * @param {function(number, number): void} animation - 실행할 애니메이션 함수 (deltaTime, updateRate를 인자로 받음)
+     * @param {function(number, number, number): void} animation - 실행할 애니메이션 함수 (deltaTime, updateRate, moveDistance를 인자로 받음)
      * @param {number} [durtaion] - 주행 시간 (입력하면 해당 시간내로 주행을 완료하기 위해 가변 속도로 주행한다)
      * @returns {import('@union3d/analy/UAnimationController').UAnimationController|undefined} 생성된 UAnimationController 객체, 생성 실패 시 undefined 반환
      * @example
@@ -23467,7 +23517,7 @@ declare class U3dComponentPosition {
      * });
      * @ignore
      */
-    makeAnimationController(animationID: string, animation: (arg0: number, arg1: number) => void, durtaion?: number): UAnimationController | undefined;
+    makeAnimationController(animationID: string, animation: (arg0: number, arg1: number, arg2: number) => void, durtaion?: number): UAnimationController | undefined;
     /**
      * 컴포넌트의 경로 이동 애니메이션 실행 중 강제로 위치를 이동 시키는 함수
      * @param {number} rate 이동 목표 비율. 0(시작점) ~ 1(종료점)
@@ -25040,365 +25090,14 @@ declare class UTerrainStamp {
     #private;
 }
 
-type UFrustumTerrainProjectionHelper_Fill_Content = {
-    enabled?: boolean;
-    /**
-     * 사용 중단된 기존 fill mesh 호환 옵션. 새 지형 stamp 코드는 stampMode를 사용한다.
-     */
-    mode?: "plane" | "frustum";
-    color?: ColorLike;
-    opacity?: number;
-    /**
-     * texture가 없을 때 color와 그라데이션할 두 번째 색상.
-     */
-    gradientColor?: ColorLike;
-    /**
-     * gradientColor가 있을 때 그라데이션 방향.
-     */
-    gradientDirection?: "vertical" | "horizontal";
-    /**
-     * 비지형·지면 접촉·호환 drape 형상의 프러스텀 옆면에 적용할 색상.
-     */
-    sideColor?: ColorLike;
-    /**
-     * 비지형·지면 접촉·호환 drape 형상의 프러스텀 옆면에 적용할 불투명도.
-     */
-    sideOpacity?: number;
-    depthWrite?: boolean;
-    /**
-     * 비지형 fill mesh 전용 renderOrder. 생략하면 helper line renderOrder - 1을 사용한다.
-     */
-    renderOrder?: number;
-    /**
-     * 비지형 far 면 fill mesh 이름.
-     */
-    name?: string;
-    /**
-     * 옆면 fill mesh 이름.
-     */
-    sideName?: string;
-    /**
-     * 옆면 fill mesh 전용 renderOrder. 생략하면 renderOrder, helper line renderOrder - 1 순으로 사용한다.
-     */
-    sideRenderOrder?: number;
-    /**
-     * 사용 중단된 호환 옵션. false이면 terrain stamp를 끄지만 대체 fill mesh는 생성하지 않는다.
-     */
-    terrainStamp?: boolean;
-    /**
-     * true이면 terrain 교차 far 외곽선을 stamp shader로 출력한다.
-     */
-    terrainOutlineStamp?: boolean;
-    /**
-     * stamp 외곽선 두께 단위.
-     */
-    terrainOutlineWidthUnits?: "pixels" | "meters";
-    /**
-     * 부분 교차 stamp 영역을 재구성할 far plane UV 격자 한 변의 샘플 수. 3~17의 홀수로 정규화한다.
-     */
-    terrainStampGridSize?: number;
-    /**
-     * 검출된 hit/miss 경계를 이분 정제할 횟수. 0~12 범위이며 값이 클수록 경계 정밀도와 높이 조회 비용이 증가한다.
-     */
-    terrainBoundaryRefinementSteps?: number;
-    /**
-     * hit/miss 외곽의 볼록 모서리를 나눌 단계 수. 0~2 정수로 제한하며 0이면 비활성화한다.
-     */
-    terrainBoundaryFilletSegments?: number;
-    /**
-     * 짧은 인접 edge 길이를 기준으로 한 fillet 반경 비율. 0~0.3 범위로 제한한다.
-     */
-    terrainBoundaryFilletRatio?: number;
-    /**
-     * terrain stamp 모드에서 terrain tile 하나가 검사할 stamp 최대 개수.
-     */
-    maxStampsPerTile?: number;
-    /**
-     * terrain stamp 적용 방식. mask이면 stamp 영역을 마스크로 사용한다.
-     */
-    stampMode?: "fill" | "mask";
-    /**
-     * mask stamp를 특정 terrain/image layer에만 적용할 때 사용할 대상 layer.
-     */
-    targetLayer?: object;
-    /**
-     * terrainStamp 영역에 채울 이미지 URL.
-     */
-    texture?: string;
-    /**
-     * terrainStamp texture 불투명도.
-     */
-    textureOpacity?: number;
-    /**
-     * false이면 PNG alpha를 무시하고 textureOpacity만 사용한다.
-     */
-    textureUseAlpha?: boolean;
-    /**
-     * terrainStamp texture 프레임을 중심 기준으로 확대/축소하는 배율.
-     */
-    textureScale?: number;
-    /**
-     * terrainStamp texture 매핑 방식. contain은 4점 far plane polygon에 맞춰 이미지를 찌그러뜨린다.
-     */
-    textureFit?: "stretch" | "contain";
-};
-type UFrustumTerrainProjectionHelper_ProjectionLine_Content = {
-    /**
-     * true이고 origin이 있으면 투영 중심선을 생성한다.
-     */
-    visible?: boolean;
-    /**
-     * helper 로컬 좌표계의 투영선 시작점.
-     */
-    origin?: three.Vector3 | {
-        x: number;
-        y: number;
-        z: number;
-    };
-    /**
-     * 투영선 색상. 생략하면 helper 선 색상을 사용한다.
-     */
-    color?: ColorLike;
-    /**
-     * 투영선 두께.
-     */
-    lineWidth?: number;
-    /**
-     * 투영선 불투명도. 생략하면 helper 선 불투명도를 사용한다.
-     */
-    opacity?: number;
-    /**
-     * 점선 한 구간의 길이.
-     */
-    dashSize?: number;
-    /**
-     * 점선 사이 간격.
-     */
-    gapSize?: number;
-    /**
-     * 선 두께·점선 길이의 world 단위 사용 여부. 생략하면 helper 선 설정을 사용한다.
-     */
-    worldUnits?: boolean;
-    /**
-     * depth buffer 기록 여부. 생략하면 helper 선 설정을 사용한다.
-     */
-    depthWrite?: boolean;
-    /**
-     * 투영선 객체 이름.
-     */
-    name?: string;
-    /**
-     * 투영선 renderOrder. 생략하면 helper line renderOrder + 1을 사용한다.
-     */
-    renderOrder?: number;
-};
-type UFrustumTerrainProjectionHelperCO_Content = {
-    /**
-     * terrain=true일 때 현재 렌더 지면 높이를 조회할 렌더링 컨텍스트. 조회 API가 없으면 지면 접촉을 확정할 수 없어 OOR로 숨긴다.
-     */
-    drawArg?: UDrawArg;
-    /**
-     * helper 객체 이름.
-     */
-    name?: string;
-    color?: ColorLike;
-    /**
-     * helper 선과 지면 외곽선 stamp에 함께 적용할 두께. 양수인 유한값만 사용하며 그 밖의 값은 2를 사용한다.
-     */
-    lineWidth?: number;
-    opacity?: number;
-    worldUnits?: boolean;
-    depthWrite?: boolean;
-    zOffset?: number;
-    /**
-     * 선과 mesh fragment depth에 적용할 bias. 0이면 shader 주입을 생략한다.
-     */
-    depthOffset?: number;
-    /**
-     * 호환 drape 경로의 far 외곽선을 샘플링할 월드 간격(m). 기본 지면 접촉 footprint 경로에서는 사용하지 않는다.
-     */
-    sampleSpacing?: number;
-    /**
-     * near -> far 선분의 terrain 교차 구간을 찾을 분할 수. 2~64 정수로 제한한다.
-     */
-    intersectionSteps?: number;
-    /**
-     * 렌더 중인 helper가 현재 Frustum 상태를 다시 읽을 고정 목표 주기(ms). 1ms 이상이며 실제 render가 3초 동안 없으면 갱신을 멈추고 다음 render에서 다시 시작한다.
-     */
-    updateIntervalMs?: number;
-    /**
-     * 부분 terrain stamp 영역을 재구성할 far plane UV 격자 한 변의 샘플 수. 3~17의 홀수로 정규화한다.
-     */
-    terrainStampGridSize?: number;
-    /**
-     * 검출된 hit/miss 경계를 이분 정제할 횟수. 0~12 범위.
-     */
-    terrainBoundaryRefinementSteps?: number;
-    /**
-     * 메인 카메라 밖의 helper는 terrain update와 렌더링을 건너뛴다.
-     */
-    cullByMainCamera?: boolean;
-    /**
-     * 호환 drape 경로의 외곽선 내부 샘플을 완화한다. 기본 지면 접촉 footprint 경로에서는 사용하지 않는다.
-     */
-    smoothing?: boolean;
-    /**
-     * 호환 drape 외곽선 smoothing 반복 횟수. 값이 커질수록 매끈해지지만 매 update 계산량이 증가한다.
-     */
-    smoothingIterations?: number;
-    /**
-     * 호환 drape 외곽선 샘플이 이웃 평균으로 이동할 비율. 0이면 변화 없음, 1이면 이웃 평균 위치를 바로 사용한다.
-     */
-    smoothingFactor?: number;
-    /**
-     * 고정 update 사이의 위치·회전 변화를 시간 기반으로 완화한다. terrain:true일 때 기본값은 true이다.
-     */
-    temporalStabilization?: boolean;
-    /**
-     * 시간 안정화 오차가 절반으로 줄어드는 시간(ms). 작을수록 빠르게 추종하고 클수록 떨림을 강하게 줄인다.
-     */
-    temporalHalfLifeMs?: number;
-    /**
-     * 원시 자세와 안정화 자세의 far 코너 world 거리가 이 값(m) 이하이면 이전 자세를 유지한다.
-     */
-    temporalHysteresisDistance?: number;
-    /**
-     * far 코너 오차에 따라 반감기를 추가로 늘리는 강도. 0~4 범위이며 값이 클수록 먼 면이 부드럽지만 지연이 커진다.
-     */
-    temporalFarSmoothingFactor?: number;
-    /**
-     * 이 시간보다 update 간격이 길면 과거 보간 이력을 버리는 단절 기준(ms). 250~60000 범위.
-     */
-    temporalSnapGapMs?: number;
-    /**
-     * 고정 UV별 지면 광선 결과와 hit/miss 경계를 프레임 사이에서 안정화한다. 생략하면 terrain이 true일 때만 활성화한다.
-     */
-    terrainIntersectionStabilization?: boolean;
-    /**
-     * 순간 교차점 요동을 제거할 최근 결과 개수. 1~31 홀수이며 1은 중앙값 단계를 끈다.
-     */
-    terrainIntersectionMedianWindow?: number;
-    /**
-     * 지면 교차 거리와 경계 위치가 새 결과로 수렴하는 반감기(ms). 0~60000 범위이며 0이면 시간 평균을 끈다. 실제 경계 추종이 늦어질 수 있어 20ms 이상은 권장하지 않는다.
-     */
-    terrainIntersectionHalfLifeMs?: number;
-    /**
-     * 최근 측정의 중앙값 목표가 크게 바뀔 때 경계 방향과 광선 깊이 방향에서 한 번에 이동시킬 최대 world 거리(m). 이후 시간 EMA가 적용되므로 실제 표시점의 3차원 이동량 상한은 아니다. 30m보다 큰 값은 보정 후보의 camera-ray 재투영 허용거리에도 사용한다. 0이면 접촉 위치의 중앙값·거리·시간 보정을 건너뛴다.
-     */
-    terrainIntersectionMaxLagDistance?: number;
-    /**
-     * hit/miss가 반대로 바뀐 뒤 footprint 상태를 확정하기까지 유지되어야 하는 시간(ms). 0~60000 범위이며 0이면 즉시 전환한다.
-     */
-    terrainIntersectionHitPersistenceMs?: number;
-    /**
-     * helper line 기준 renderOrder. 생략 시 fill은 -1, projectionLine은 +1이 기본값이다.
-     */
-    renderOrder?: number;
-    projectionLine?: UFrustumTerrainProjectionHelper_ProjectionLine_Content;
-    /**
-     * true이면 near→far 광선과 현재 렌더 지면의 교차점으로 실제 지면 footprint를 만든다. 조회 좌표에 고도 데이터가 없으면 기본 평면 높이 0을 사용한다.
-     */
-    terrain?: boolean;
-    /**
-     * true이면 terrain 교차 far 외곽선을 stamp shader로 그리고 비교차 구간만 LineSegments2로 남긴다.
-     */
-    terrainOutlineStamp?: boolean;
-    /**
-     * stamp 외곽선 두께 단위.
-     */
-    terrainOutlineWidthUnits?: "pixels" | "meters";
-    fill?: UFrustumTerrainProjectionHelper_Fill_Content;
-};
-type UFrustumTerrainProjectionHelperCO = UFrustumTerrainProjectionHelperCO_Content;
 /**
- * @typedef {object} UFrustumTerrainProjectionHelper_Fill_Content
- * @property {boolean} [enabled=false]
- * @property {'plane'|'frustum'} [mode='plane'] 사용 중단된 기존 fill mesh 호환 옵션. 새 지형 stamp 코드는 stampMode를 사용한다.
- * @property {ColorLike} [color]
- * @property {number} [opacity=0.12]
- * @property {ColorLike} [gradientColor] texture가 없을 때 color와 그라데이션할 두 번째 색상.
- * @property {'vertical'|'horizontal'} [gradientDirection='vertical'] gradientColor가 있을 때 그라데이션 방향.
- * @property {ColorLike} [sideColor] 비지형·지면 접촉·호환 drape 형상의 프러스텀 옆면에 적용할 색상.
- * @property {number} [sideOpacity] 비지형·지면 접촉·호환 drape 형상의 프러스텀 옆면에 적용할 불투명도.
- * @property {boolean} [depthWrite=false]
- * @property {number} [renderOrder] 비지형 fill mesh 전용 renderOrder. 생략하면 helper line renderOrder - 1을 사용한다.
- * @property {string} [name='UFrustumHelperNonTerrainFill'] 비지형 far 면 fill mesh 이름.
- * @property {string} [sideName='UFrustumHelperSideFill'] 옆면 fill mesh 이름.
- * @property {number} [sideRenderOrder] 옆면 fill mesh 전용 renderOrder. 생략하면 renderOrder, helper line renderOrder - 1 순으로 사용한다.
- * @property {boolean} [terrainStamp] 사용 중단된 호환 옵션. false이면 terrain stamp를 끄지만 대체 fill mesh는 생성하지 않는다.
- * @property {boolean} [terrainOutlineStamp=true] true이면 terrain 교차 far 외곽선을 stamp shader로 출력한다.
- * @property {'pixels'|'meters'} [terrainOutlineWidthUnits='pixels'] stamp 외곽선 두께 단위.
- * @property {number} [terrainStampGridSize=9] 부분 교차 stamp 영역을 재구성할 far plane UV 격자 한 변의 샘플 수. 3~17의 홀수로 정규화한다.
- * @property {number} [terrainBoundaryRefinementSteps=6] 검출된 hit/miss 경계를 이분 정제할 횟수. 0~12 범위이며 값이 클수록 경계 정밀도와 높이 조회 비용이 증가한다.
- * @property {number} [terrainBoundaryFilletSegments=2] hit/miss 외곽의 볼록 모서리를 나눌 단계 수. 0~2 정수로 제한하며 0이면 비활성화한다.
- * @property {number} [terrainBoundaryFilletRatio=0.15] 짧은 인접 edge 길이를 기준으로 한 fillet 반경 비율. 0~0.3 범위로 제한한다.
- * @property {number} [maxStampsPerTile=128] terrain stamp 모드에서 terrain tile 하나가 검사할 stamp 최대 개수.
- * @property {'fill'|'mask'} [stampMode='fill'] terrain stamp 적용 방식. mask이면 stamp 영역을 마스크로 사용한다.
- * @property {object} [targetLayer] mask stamp를 특정 terrain/image layer에만 적용할 때 사용할 대상 layer.
- * @property {string} [texture] terrainStamp 영역에 채울 이미지 URL.
- * @property {number} [textureOpacity=1] terrainStamp texture 불투명도.
- * @property {boolean} [textureUseAlpha=true] false이면 PNG alpha를 무시하고 textureOpacity만 사용한다.
- * @property {number} [textureScale=1] terrainStamp texture 프레임을 중심 기준으로 확대/축소하는 배율.
- * @property {'stretch'|'contain'} [textureFit='stretch'] terrainStamp texture 매핑 방식. contain은 4점 far plane polygon에 맞춰 이미지를 찌그러뜨린다.
- */
-/**
- * @typedef {object} UFrustumTerrainProjectionHelper_ProjectionLine_Content
- * @property {boolean} [visible=false] true이고 origin이 있으면 투영 중심선을 생성한다.
- * @property {import('three').Vector3|{x:number,y:number,z:number}} [origin] helper 로컬 좌표계의 투영선 시작점.
- * @property {ColorLike} [color] 투영선 색상. 생략하면 helper 선 색상을 사용한다.
- * @property {number} [lineWidth=1] 투영선 두께.
- * @property {number} [opacity] 투영선 불투명도. 생략하면 helper 선 불투명도를 사용한다.
- * @property {number} [dashSize=10] 점선 한 구간의 길이.
- * @property {number} [gapSize=6] 점선 사이 간격.
- * @property {boolean} [worldUnits] 선 두께·점선 길이의 world 단위 사용 여부. 생략하면 helper 선 설정을 사용한다.
- * @property {boolean} [depthWrite] depth buffer 기록 여부. 생략하면 helper 선 설정을 사용한다.
- * @property {string} [name='UFrustumProjectionLine'] 투영선 객체 이름.
- * @property {number} [renderOrder] 투영선 renderOrder. 생략하면 helper line renderOrder + 1을 사용한다.
- */
-/**
- * @typedef {object} UFrustumTerrainProjectionHelperCO_Content
- * @property {import('@UDrawArg').UDrawArg} [drawArg] terrain=true일 때 현재 렌더 지면 높이를 조회할 렌더링 컨텍스트. 조회 API가 없으면 지면 접촉을 확정할 수 없어 OOR로 숨긴다.
- * @property {string} [name='UFrustumTerrainProjectionHelper'] helper 객체 이름.
- * @property {ColorLike} [color=0xffff00]
- * @property {number} [lineWidth=2] helper 선과 지면 외곽선 stamp에 함께 적용할 두께. 양수인 유한값만 사용하며 그 밖의 값은 2를 사용한다.
- * @property {number} [opacity=1]
- * @property {boolean} [worldUnits=false]
- * @property {boolean} [depthWrite=false]
- * @property {number} [zOffset=0]
- * @property {number} [depthOffset=0.005] 선과 mesh fragment depth에 적용할 bias. 0이면 shader 주입을 생략한다.
- * @property {number} [sampleSpacing=10] 호환 drape 경로의 far 외곽선을 샘플링할 월드 간격(m). 기본 지면 접촉 footprint 경로에서는 사용하지 않는다.
- * @property {number} [intersectionSteps=16] near -> far 선분의 terrain 교차 구간을 찾을 분할 수. 2~64 정수로 제한한다.
- * @property {number} [updateIntervalMs=20] 렌더 중인 helper가 현재 Frustum 상태를 다시 읽을 고정 목표 주기(ms). 1ms 이상이며 실제 render가 3초 동안 없으면 갱신을 멈추고 다음 render에서 다시 시작한다.
- * @property {number} [terrainStampGridSize=9] 부분 terrain stamp 영역을 재구성할 far plane UV 격자 한 변의 샘플 수. 3~17의 홀수로 정규화한다.
- * @property {number} [terrainBoundaryRefinementSteps=6] 검출된 hit/miss 경계를 이분 정제할 횟수. 0~12 범위.
- * @property {boolean} [cullByMainCamera=true] 메인 카메라 밖의 helper는 terrain update와 렌더링을 건너뛴다.
- * @property {boolean} [smoothing=false] 호환 drape 경로의 외곽선 내부 샘플을 완화한다. 기본 지면 접촉 footprint 경로에서는 사용하지 않는다.
- * @property {number} [smoothingIterations=2] 호환 drape 외곽선 smoothing 반복 횟수. 값이 커질수록 매끈해지지만 매 update 계산량이 증가한다.
- * @property {number} [smoothingFactor=0.35] 호환 drape 외곽선 샘플이 이웃 평균으로 이동할 비율. 0이면 변화 없음, 1이면 이웃 평균 위치를 바로 사용한다.
- * @property {boolean} [temporalStabilization] 고정 update 사이의 위치·회전 변화를 시간 기반으로 완화한다. terrain:true일 때 기본값은 true이다.
- * @property {number} [temporalHalfLifeMs=40] 시간 안정화 오차가 절반으로 줄어드는 시간(ms). 작을수록 빠르게 추종하고 클수록 떨림을 강하게 줄인다.
- * @property {number} [temporalHysteresisDistance=0.5] 원시 자세와 안정화 자세의 far 코너 world 거리가 이 값(m) 이하이면 이전 자세를 유지한다.
- * @property {number} [temporalFarSmoothingFactor=0.75] far 코너 오차에 따라 반감기를 추가로 늘리는 강도. 0~4 범위이며 값이 클수록 먼 면이 부드럽지만 지연이 커진다.
- * @property {number} [temporalSnapGapMs=2000] 이 시간보다 update 간격이 길면 과거 보간 이력을 버리는 단절 기준(ms). 250~60000 범위.
- * @property {boolean} [terrainIntersectionStabilization] 고정 UV별 지면 광선 결과와 hit/miss 경계를 프레임 사이에서 안정화한다. 생략하면 terrain이 true일 때만 활성화한다.
- * @property {number} [terrainIntersectionMedianWindow=3] 순간 교차점 요동을 제거할 최근 결과 개수. 1~31 홀수이며 1은 중앙값 단계를 끈다.
- * @property {number} [terrainIntersectionHalfLifeMs=10] 지면 교차 거리와 경계 위치가 새 결과로 수렴하는 반감기(ms). 0~60000 범위이며 0이면 시간 평균을 끈다. 실제 경계 추종이 늦어질 수 있어 20ms 이상은 권장하지 않는다.
- * @property {number} [terrainIntersectionMaxLagDistance=30] 최근 측정의 중앙값 목표가 크게 바뀔 때 경계 방향과 광선 깊이 방향에서 한 번에 이동시킬 최대 world 거리(m). 이후 시간 EMA가 적용되므로 실제 표시점의 3차원 이동량 상한은 아니다. 30m보다 큰 값은 보정 후보의 camera-ray 재투영 허용거리에도 사용한다. 0이면 접촉 위치의 중앙값·거리·시간 보정을 건너뛴다.
- * @property {number} [terrainIntersectionHitPersistenceMs=50] hit/miss가 반대로 바뀐 뒤 footprint 상태를 확정하기까지 유지되어야 하는 시간(ms). 0~60000 범위이며 0이면 즉시 전환한다.
- * @property {number} [renderOrder=0] helper line 기준 renderOrder. 생략 시 fill은 -1, projectionLine은 +1이 기본값이다.
- * @property {UFrustumTerrainProjectionHelper_ProjectionLine_Content} [projectionLine]
- * @property {boolean} [terrain=false] true이면 near→far 광선과 현재 렌더 지면의 교차점으로 실제 지면 footprint를 만든다. 조회 좌표에 고도 데이터가 없으면 기본 평면 높이 0을 사용한다.
- * @property {boolean} [terrainOutlineStamp=true] true이면 terrain 교차 far 외곽선을 stamp shader로 그리고 비교차 구간만 LineSegments2로 남긴다.
- * @property {'pixels'|'meters'} [terrainOutlineWidthUnits='pixels'] stamp 외곽선 두께 단위.
- * @property {UFrustumTerrainProjectionHelper_Fill_Content} [fill]
+ * ~extends import('three/examples/jsm/lines/LineSegments2.js').LineSegments2 <br>
  *
- * @typedef {UFrustumTerrainProjectionHelperCO_Content} UFrustumTerrainProjectionHelperCO
- */
-/**
- * ~extends import('three').LineSegments2 <br>
  * 프러스텀 광선이 실제 렌더 지면과 만나는 footprint의 외곽선·옆면·채움을 그리는 helper 클래스입니다.
  * 지면과 교차하지 않는 OOR 상태에서는 지형 관련 형상을 출력하지 않습니다.
- * LineSegments2를 기반으로 선 두께를 조절할수 있는 기능을 제공합니다.
+ * LineSegments2를 기반으로 선 두께를 조절할 수 있습니다.
+ * 지면 이미지는 모든 채움 stamp가 공유하는 frame에 배치하며, 교차 영역 밖은 잘립니다.
+ * fill.textureFit의 contain도 stretch와 같은 매핑을 사용하며 이미지 전체 표시와 종횡비 유지를 보장하지 않습니다.
  *
  * @extends {LineSegments2}
  *
@@ -25452,41 +25151,46 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
     useTerrainOutlineStamp: boolean;
     terrainOutlineWidth: number;
     terrainOutlineWidthUnits: string;
-    nonTerrainFillMesh: Mesh<BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, ShaderMaterial, three.Object3DEventMap>;
-    sideFillMesh: Mesh<BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, ShaderMaterial, three.Object3DEventMap>;
+    nonTerrainFillMesh: three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.ShaderMaterial, three.Object3DEventMap>;
+    sideFillMesh: three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.ShaderMaterial, three.Object3DEventMap>;
     projectionLineOptions: UFrustumTerrainProjectionHelper_ProjectionLine_Content;
     projectionLine: LineSegments2;
     type: string;
     /**
      * 프러스텀 객체를 교체하고 현재 평면 정보로 helper geometry를 다시 만든다.
+     *
      * @param {import('three').Frustum} frustum
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setFrustum(frustum: three.Frustum): UFrustumTerrainProjectionHelper;
+    setFrustum(frustum: three.Frustum): this;
     /**
      * 렌더 중 현재 Frustum 상태를 다시 읽을 고정 목표 주기(ms)를 변경한다.
      * Helper는 이 값과 관계없이 Frustum의 상태 변경 API를 호출하지 않는다.
      * 1ms 이상의 유한한 양수만 사용하며, 잘못된 값은 현재 정상 주기를 유지한다.
      * 브라우저 timer 지연이나 지형 계산 시간이 길면 실제 주기는 설정값보다 늦어질 수 있으며,
      * 놓친 tick은 연속 실행하지 않고 다음 주기부터 다시 계산한다.
+     *
      * @param {number} updateIntervalMs
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setUpdateIntervalMs(updateIntervalMs: number): UFrustumTerrainProjectionHelper;
+    setUpdateIntervalMs(updateIntervalMs: number): this;
     /**
      * 현재 Helper 자체 갱신 목표 주기(ms)를 반환한다.
+     *
      * @returns {number}
      */
     getUpdateIntervalMs(): number;
     /**
      * near -> far 광선의 지면 교차 탐색 분할 수를 변경한다.
      * 2~64 정수로 제한하며, 값이 커질수록 깊이 방향의 최초 접점은 정밀해지지만 한 번의 지형 높이 조회량도 선형으로 증가한다.
+     *
      * @param {number} intersectionSteps
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setIntersectionSteps(intersectionSteps: number): UFrustumTerrainProjectionHelper;
+    setIntersectionSteps(intersectionSteps: number): this;
     /**
      * 현재 near -> far 지면 교차 분할 수를 반환한다.
+     *
      * @returns {number}
      */
     getIntersectionSteps(): number;
@@ -25494,18 +25198,21 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
      * far plane footprint를 분류할 정규 UV 격자의 한 변 샘플 수를 변경한다.
      * 3~17의 홀수로 정규화하며, 값이 클수록 far 면의 작은 지형 변화와 경계를 더 촘촘히 검출한다.
      * topology가 UTerrainStamp 128개 예산을 넘는 극단적 패턴은 이미 조회한 ray의 부분 집합으로 안전하게 낮춰 출력한다.
+     *
      * @param {number} terrainStampGridSize
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setTerrainStampGridSize(terrainStampGridSize: number): UFrustumTerrainProjectionHelper;
+    setTerrainStampGridSize(terrainStampGridSize: number): this;
     /**
      * 현재 footprint UV 격자의 한 변 샘플 수를 반환한다.
+     *
      * @returns {number}
      */
     getTerrainStampGridSize(): number;
     /**
      * 마지막 terrain footprint 생성에서 실제 출력 topology에 사용한 격자 크기를 반환한다.
      * 보통 요청값과 같고, 128 polygon 예산을 넘는 복잡한 패턴에서만 더 작은 값이 된다.
+     *
      * @returns {number}
      */
     getEffectiveTerrainStampGridSize(): number;
@@ -25513,24 +25220,28 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
      * hit/miss로 검출된 footprint 경계를 이분 정제할 횟수를 변경한다.
      * 0~12 정수로 제한한다. 격자나 stamp 수를 늘리지 않고 경계 구간만 좁히므로,
      * 큰 far에서도 128 stamp 제한을 유지하며 정밀도를 높일 수 있다.
+     *
      * @param {number} terrainBoundaryRefinementSteps
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setTerrainBoundaryRefinementSteps(terrainBoundaryRefinementSteps: number): UFrustumTerrainProjectionHelper;
+    setTerrainBoundaryRefinementSteps(terrainBoundaryRefinementSteps: number): this;
     /**
      * 현재 footprint 경계 이분 정제 횟수를 반환한다.
+     *
      * @returns {number}
      */
     getTerrainBoundaryRefinementSteps(): number;
     /**
      * Helper 고정 tick 사이의 자세 시간 안정화 사용 여부를 변경한다.
      * 전환 시 과거 자세를 버려, 다시 켰을 때 오래된 형상에서 현재 위치까지 따라오는 잔상을 막는다.
+     *
      * @param {boolean} temporalStabilization
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setTemporalStabilization(temporalStabilization: boolean): UFrustumTerrainProjectionHelper;
+    setTemporalStabilization(temporalStabilization: boolean): this;
     /**
      * 현재 자세 시간 안정화 사용 여부를 반환한다.
+     *
      * @returns {boolean}
      */
     getTemporalStabilization(): boolean;
@@ -25538,12 +25249,14 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
      * 시간 필터의 기본 반감기(ms)를 변경한다.
      * 큰 값은 더 부드럽지만 원시 프러스텀을 늦게 추종하고, 작은 값은 정확하게 따라가지만 떨림이 더 드러난다.
      * 유한한 양수만 사용하며, 잘못된 값은 현재 정상 반감기를 유지한다.
+     *
      * @param {number} temporalHalfLifeMs
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setTemporalHalfLifeMs(temporalHalfLifeMs: number): UFrustumTerrainProjectionHelper;
+    setTemporalHalfLifeMs(temporalHalfLifeMs: number): this;
     /**
      * 현재 시간 필터 기본 반감기(ms)를 반환한다.
+     *
      * @returns {number}
      */
     getTemporalHalfLifeMs(): number;
@@ -25551,60 +25264,70 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
      * far 코너의 작은 왕복 변화를 무시할 world 거리(m)를 변경한다.
      * 현재 자세 이력은 보존하되 hold 상태만 해제해 다음 update에서 새 임계값으로 다시 판정한다.
      * 유한한 0 이상의 값을 사용하며, 잘못된 값은 현재 정상 거리를 유지한다.
+     *
      * @param {number} temporalHysteresisDistance
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setTemporalHysteresisDistance(temporalHysteresisDistance: number): UFrustumTerrainProjectionHelper;
+    setTemporalHysteresisDistance(temporalHysteresisDistance: number): this;
     /**
      * 현재 far 코너 히스테리시스 거리(m)를 반환한다.
+     *
      * @returns {number}
      */
     getTemporalHysteresisDistance(): number;
     /**
      * far 코너 오차에 따라 기본 반감기를 추가로 늘리는 보정 강도를 변경한다.
      * 0~4 범위이며, 0은 추가 보정 없음이고 값이 클수록 긴 far 면이 자연스럽게 변하지만 현재 자세와의 시각적 지연도 커진다.
+     *
      * @param {number} temporalFarSmoothingFactor
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setTemporalFarSmoothingFactor(temporalFarSmoothingFactor: number): UFrustumTerrainProjectionHelper;
+    setTemporalFarSmoothingFactor(temporalFarSmoothingFactor: number): this;
     /**
      * 현재 far 회전 적응형 시간 보정 강도를 반환한다.
+     *
      * @returns {number}
      */
     getTemporalFarSmoothingFactor(): number;
     /**
      * 시간 안정화 이력을 즉시 현재 자세로 전환할 update 단절 기준(ms)을 변경한다.
      * 저주기 서비스에서는 호출 간격보다 크게 설정해야 반감기와 far 보정이 계속 적용된다.
+     *
      * @param {number} temporalSnapGapMs
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setTemporalSnapGapMs(temporalSnapGapMs: number): UFrustumTerrainProjectionHelper;
+    setTemporalSnapGapMs(temporalSnapGapMs: number): this;
     /**
      * 현재 시간 안정화 update 단절 기준(ms)을 반환한다.
+     *
      * @returns {number}
      */
     getTemporalSnapGapMs(): number;
     /**
      * 지면 광선 결과의 프레임 간 안정화 사용 여부를 변경한다.
      * 자세 시간 보정과 독립된 기능이며, 끄면 다음 update부터 현재 광선 결과를 그대로 사용한다.
+     *
      * @param {boolean} terrainIntersectionStabilization
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setTerrainIntersectionStabilization(terrainIntersectionStabilization: boolean): UFrustumTerrainProjectionHelper;
+    setTerrainIntersectionStabilization(terrainIntersectionStabilization: boolean): this;
     /**
      * 현재 지면 광선 결과 안정화 사용 여부를 반환한다.
+     *
      * @returns {boolean}
      */
     getTerrainIntersectionStabilization(): boolean;
     /**
      * 고정 UV ray별 최근 교차 거리에서 순간 튐을 제거할 중앙값 표본 개수를 변경한다.
      * 1~31의 홀수로 정규화하며, 1은 이력 없이 현재 결과만 사용한다.
+     *
      * @param {number} terrainIntersectionMedianWindow
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setTerrainIntersectionMedianWindow(terrainIntersectionMedianWindow: number): UFrustumTerrainProjectionHelper;
+    setTerrainIntersectionMedianWindow(terrainIntersectionMedianWindow: number): this;
     /**
      * 현재 지면 광선 교차 중앙값 표본 개수를 반환한다.
+     *
      * @returns {number}
      */
     getTerrainIntersectionMedianWindow(): number;
@@ -25612,12 +25335,14 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
      * 지면 광선 교차 거리와 정제 경계 위치의 시간 평균 반감기(ms)를 변경한다.
      * 0~60000 범위이며 0이면 중앙값 결과를 즉시 사용하고, 값이 클수록 진폭은 줄지만 지면 경계 추종이 늦어진다.
      * 20ms 이상은 실제 경계를 따라가는 동안 형상이 늘어져 보일 수 있어 권장하지 않는다.
+     *
      * @param {number} terrainIntersectionHalfLifeMs
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setTerrainIntersectionHalfLifeMs(terrainIntersectionHalfLifeMs: number): UFrustumTerrainProjectionHelper;
+    setTerrainIntersectionHalfLifeMs(terrainIntersectionHalfLifeMs: number): this;
     /**
      * 현재 지면 광선 결과 시간 평균 반감기(ms)를 반환한다.
+     *
      * @returns {number}
      */
     getTerrainIntersectionHalfLifeMs(): number;
@@ -25628,97 +25353,112 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
      * 작은 값은 큰 진폭을 더 강하게 나눠 반영하지만 실제 변화 추종이 느리고, 큰 값은 더 빠르게 추종한다.
      * 30m보다 큰 값은 보정한 지면점이 현재 camera ray에서 유효한지 검사하는 재투영 허용거리에도 사용된다.
      * 0이면 접촉 위치의 거리·시간·중앙값 보정만 건너뛰며 hit/miss 변경 확인 시간은 계속 적용된다.
+     *
      * @param {number} terrainIntersectionMaxLagDistance
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setTerrainIntersectionMaxLagDistance(terrainIntersectionMaxLagDistance: number): UFrustumTerrainProjectionHelper;
+    setTerrainIntersectionMaxLagDistance(terrainIntersectionMaxLagDistance: number): this;
     /**
      * 현재 지면 교차 결과의 경계/광선 방향별 한 번 보정 목표 제한 거리(m)를 반환한다.
+     *
      * @returns {number}
      */
     getTerrainIntersectionMaxLagDistance(): number;
     /**
      * 지면 ray의 hit/miss가 반대로 바뀐 뒤 새 상태로 확정하기까지 유지할 시간(ms)을 변경한다.
      * 0~60000 범위이며 0이면 즉시 전환하고, 값이 클수록 한두 번의 판정 요동은 줄지만 새 영역 출현·소멸이 늦어진다.
+     *
      * @param {number} terrainIntersectionHitPersistenceMs
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setTerrainIntersectionHitPersistenceMs(terrainIntersectionHitPersistenceMs: number): UFrustumTerrainProjectionHelper;
+    setTerrainIntersectionHitPersistenceMs(terrainIntersectionHitPersistenceMs: number): this;
     /**
      * 현재 지면 hit/miss 상태 확인 시간(ms)을 반환한다.
+     *
      * @returns {number}
      */
     getTerrainIntersectionHitPersistenceMs(): number;
     /**
      * 누적된 지면 광선·경계 이력을 버리고 다음 update를 현재 결과에서 다시 시작한다.
      * 카메라 정보나 지형 데이터 세트를 서비스 코드에서 교체한 직후 수동으로 호출할 수 있다.
-     * @returns {UFrustumTerrainProjectionHelper}
+     *
+     * @returns {this}
      */
-    resetTerrainIntersectionStabilization(): UFrustumTerrainProjectionHelper;
+    resetTerrainIntersectionStabilization(): this;
     /**
      * 현재 프러스텀 평면으로 외곽선을 갱신하는 메서드입니다.
-     * @returns {UFrustumTerrainProjectionHelper}
+     *
+     * @returns {this}
      */
-    update(): UFrustumTerrainProjectionHelper;
+    update(): this;
     /**
      * helper 선 색상을 변경하는 메서드입니다.
+     *
      * @param {import('three').Color|string|number} color
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setColor(color: three.Color | string | number): UFrustumTerrainProjectionHelper;
+    setColor(color: three.Color | string | number): this;
     /**
      * helper 선 두께를 변경하는 메서드입니다.
      * 유한한 양수가 아닌 값은 무시하고 마지막 정상 두께를 유지합니다.
+     *
      * @param {number} lineWidth
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setLineWidth(lineWidth: number): UFrustumTerrainProjectionHelper;
+    setLineWidth(lineWidth: number): this;
     /**
      * helper 선 투명도를 변경하는 메서드입니다.
+     *
      * @param {number} opacity
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setOpacity(opacity: number): UFrustumTerrainProjectionHelper;
+    setOpacity(opacity: number): this;
     /**
      * terrain stamp fill의 그라데이션 두 번째 색상을 변경한다.
      * texture 옵션이 있으면 shader에서는 texture가 우선되어 gradient가 적용되지 않는다.
+     *
      * @param {import('three').Color|string|number|undefined} color
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setGradientColor(color: three.Color | string | number | undefined): UFrustumTerrainProjectionHelper;
+    setGradientColor(color: three.Color | string | number | undefined): this;
     /**
      * terrain stamp fill의 그라데이션 두 번째 색상을 반환한다.
+     *
      * @returns {import('three').Color|string|number|undefined}
      */
     getGradientColor(): three.Color | string | number | undefined;
     /**
      * terrain stamp fill의 그라데이션 방향을 변경한다.
+     *
      * @param {'vertical'|'horizontal'} direction
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setGradientDirection(direction: "vertical" | "horizontal"): UFrustumTerrainProjectionHelper;
+    setGradientDirection(direction: "vertical" | "horizontal"): this;
     /**
      * terrain stamp fill의 그라데이션 방향을 반환한다.
+     *
      * @returns {'vertical'|'horizontal'|undefined}
      */
     getGradientDirection(): "vertical" | "horizontal" | undefined;
     /**
      * plane fill(비-terrain far plane mesh, terrain stamp) 색상을 변경한다.
      * terrain stamp는 update() 시 fillOptions를 다시 읽어 반영된다.
+     *
      * @param {import('three').Color|string|number|undefined} color
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setFillColor(color: three.Color | string | number | undefined): UFrustumTerrainProjectionHelper;
+    setFillColor(color: three.Color | string | number | undefined): this;
     /**
      * @returns {import('three').Color|string|number|undefined}
      */
     getFillColor(): three.Color | string | number | undefined;
     /**
      * plane fill(비-terrain far plane mesh, terrain stamp) 투명도를 변경한다.
+     *
      * @param {number|undefined} opacity
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setFillOpacity(opacity: number | undefined): UFrustumTerrainProjectionHelper;
+    setFillOpacity(opacity: number | undefined): this;
     /**
      * @returns {number|undefined}
      */
@@ -25727,10 +25467,11 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
      * 프러스텀 옆면 fill 색상을 변경한다.
      * side mesh가 아직 없고 fill이 enabled면 이 시점에 생성해서 붙인다.
      * color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.
+     *
      * @param {import('three').Color|string|number|undefined} color
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setSideColor(color: three.Color | string | number | undefined): UFrustumTerrainProjectionHelper;
+    setSideColor(color: three.Color | string | number | undefined): this;
     /**
      * @returns {import('three').Color|string|number|undefined}
      */
@@ -25739,10 +25480,11 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
      * 프러스텀 옆면 fill 투명도를 변경한다.
      * side mesh가 아직 없고 fill이 enabled면 이 시점에 생성해서 붙인다.
      * color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.
+     *
      * @param {number|undefined} opacity
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setSideOpacity(opacity: number | undefined): UFrustumTerrainProjectionHelper;
+    setSideOpacity(opacity: number | undefined): this;
     /**
      * @returns {number|undefined}
      */
@@ -25750,12 +25492,14 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
     /**
      * helper 전체 표시 상태를 변경한다.
      * false이면 외곽선, side/fill mesh, projection line, terrain stamp fill/mask를 모두 끈다.
+     *
      * @param {boolean} visible
-     * @returns {UFrustumTerrainProjectionHelper}
+     * @returns {this}
      */
-    setVisible(visible: boolean): UFrustumTerrainProjectionHelper;
+    setVisible(visible: boolean): this;
     /**
      * setVisible()로 설정한 helper 전체 표시 상태를 반환한다.
+     *
      * @returns {boolean}
      */
     getVisible(): boolean;
@@ -25790,9 +25534,9 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
      * load()로 불러온 지형 투영면 stamp를 모두 지형에서 제거하고 해제합니다.
      * 현재 프러스텀이 만드는 stamp에는 영향을 주지 않습니다.
      *
-     * @returns {UFrustumTerrainProjectionHelper} 스냅샷 stamp가 비워진 현재 helper
+     * @returns {this} 스냅샷 stamp가 비워진 현재 helper
      */
-    clearLoadedTerrainStamps(): UFrustumTerrainProjectionHelper;
+    clearLoadedTerrainStamps(): this;
     /**
      * load()로 불러와 현재 보관 중인 지형 투영면 stamp 목록을 복사해 반환합니다.
      * 배열은 복사본이지만 요소는 실제 stamp이므로 개별 stamp의 표현을 직접 바꿀 수 있습니다. 배열에서 빼거나 dispose()해도 helper의 보관 목록은 바뀌지 않으므로 지우려면 clearLoadedTerrainStamps()를 사용하십시오.
@@ -31844,10 +31588,20 @@ declare class UPatternDecal {
     commit(): UPatternDecal;
     bakingDecalCanvas(): void;
     getDecalCanvas(tileLevel: any): HTMLCanvasElement;
+    /**
+     * 현재 데칼 설정으로 해당 레벨의 패턴 캔버스를 생성합니다.
+     * opacity는 캔버스 자체가 아니라 타일 영역 합성 시 적용합니다.
+     *
+     * @param {any} tileLevel 기존의 숫자 강제 변환 입력을 제한하지 않기 위한 레벨값
+     * @returns {HTMLCanvasElement} 새 패턴 캔버스
+     */
     createDecalCanvas(tileLevel: any): HTMLCanvasElement;
     dispose(): void;
     /**
-     * CO로 입력받은 위경도 영역 좌표를 시스템 좌표로 변환하고, 바운딩 박스를 만든다.
+     * 입력 영역의 변환 좌표를 두 배열에 누적하고 경계를 확장합니다.
+     * 기존 배열·경계를 초기화하지 않으므로 재호출하면 결과가 누적됩니다.
+     * 버전 증가와 로컬 좌표 캐시 초기화는 수행하지 않습니다.
+     * 직접 생성자로 단일 점 영역을 전달한 상태에서는 TypeError가 발생할 수 있습니다.
      */
     transArea(): void;
     /**
@@ -38002,7 +37756,7 @@ declare class U3dApp extends U3dObject {
      * 기존 UFrustumHelper의 주요 스타일 인터페이스와 호환하며, terrain:true일 때 OOR 성분을 표시하지 않습니다.
      *
      * @param {import('three').Frustum} frustum
-     * @param {import('@union3d/helpers/UFrustumTerrainProjectionHelper').UFrustumTerrainProjectionHelperCO} [options]
+     * @param {UFrustumTerrainProjectionHelperCO} [options]
      * @returns {import('@union3d/helpers/UFrustumTerrainProjectionHelper').UFrustumTerrainProjectionHelper | undefined}
      */
     setFrustumTerrainProjectionHelper(frustum: three.Frustum, options?: UFrustumTerrainProjectionHelperCO): UFrustumTerrainProjectionHelper | undefined;
@@ -45878,6 +45632,14 @@ declare class U3dFault extends U3dGeometry {
      */
     _hasFaultGeometrySource(): boolean;
     /**
+     * 단층 형상을 다시 만들기 전에 기존 형상에만 속한 렌더 자원을 해제합니다. <br>
+     * 객체 자체의 `dispose()`는 최종 제거 전용이므로 여기서는 호출하지 않습니다. <br>
+     * 따라서 재생성 중에는 부모 연결, 이벤트 구독, 표시 상태와 `_disposed` 값이 유지됩니다. <br>
+     *
+     * @ignore
+     */
+    _releaseRebuildResources(): void;
+    /**
      * 초기화 함수 <br>
      *
      * @ignore
@@ -47438,7 +47200,7 @@ declare class U3dHeatManager {
      *
      * @ignore
      */
-    static "__#149@#_TMP": three.Vector3;
+    static "__#150@#_TMP": three.Vector3;
     /**
      * 임시 Quaternion (행렬 분해용) <br>
      *
@@ -47446,7 +47208,7 @@ declare class U3dHeatManager {
      *
      * @ignore
      */
-    static "__#149@#_TMP_Q": three.Quaternion;
+    static "__#150@#_TMP_Q": three.Quaternion;
     /**
      * 임시 Vector3 (스케일 추출용) <br>
      *
@@ -47454,7 +47216,7 @@ declare class U3dHeatManager {
      *
      * @ignore
      */
-    static "__#149@#_TMP_S": three.Vector3;
+    static "__#150@#_TMP_S": three.Vector3;
     /**
      * 온도 기반 팔레트를 설정하는 함수 <br>
      *
@@ -47803,12 +47565,12 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#139@#SINGLE_POSITION_TYPES": Array<string>;
+    static "__#140@#SINGLE_POSITION_TYPES": Array<string>;
     /** @type {Array<string>}
      *
      * @ignore
      */
-    static "__#139@#MULTI_POSITION_TYPES": Array<string>;
+    static "__#140@#MULTI_POSITION_TYPES": Array<string>;
     /**
      * 도형 타입에 따라 단일위치/다중위치 생성 방식을 자동으로 골라 도형을 만들고, 레이어가 주어지면 함께 추가합니다. <br>
      * 좌표를 하나만 주면 도형 하나를, 좌표 배열을 주면 여러 개를 만들어 배열로 반환합니다.
@@ -47869,7 +47631,7 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#139@#addSingle"(layer: {
+    static "__#140@#addSingle"(layer: {
         addGeometry: (geom: U3dGeometry) => void;
     } | undefined, type: GeomType, coord: Coord | Array<Coord>, params: KeyValue): U3dGeometry | Array<U3dGeometry>;
     /**
@@ -47881,7 +47643,7 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#139@#addSingleOne"(layer: {
+    static "__#140@#addSingleOne"(layer: {
         addGeometry: (geom: U3dGeometry) => void;
     } | undefined, type: GeomType, coord: Coord, params: KeyValue): U3dGeometry;
     /**
@@ -47899,7 +47661,7 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#139@#addMulti"(layer: {
+    static "__#140@#addMulti"(layer: {
         addGeometry: (geom: U3dGeometry) => void;
     } | undefined, type: GeomType, coords: Array<Coord> | Double_Array<Coord>, params: KeyValue): U3dGeometry | Array<U3dGeometry>;
     /**
@@ -47911,7 +47673,7 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#139@#addMultiOne"(layer: {
+    static "__#140@#addMultiOne"(layer: {
         addGeometry: (geom: U3dGeometry) => void;
     } | undefined, type: GeomType, coords: Array<Coord>, params: KeyValue): U3dGeometry;
     /**
@@ -47923,7 +47685,7 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#139@#buildGeom"(type: GeomType, params: KeyValue): U3dGeometry | undefined;
+    static "__#140@#buildGeom"(type: GeomType, params: KeyValue): U3dGeometry | undefined;
 }
 
 /**
@@ -49927,7 +49689,7 @@ declare class ULineGeometry extends UBufferGeometry {
      *
      * @ignore
      */
-    static "__#122@#computeVertex"(points: Array<three.Vector3>, width: number): Array<number>;
+    static "__#123@#computeVertex"(points: Array<three.Vector3>, width: number): Array<number>;
     /**
      * @param {number} start
      * @param {number} end
@@ -49935,7 +49697,7 @@ declare class ULineGeometry extends UBufferGeometry {
      *
      * @ignore
      */
-    static "__#122@#computeFace"(start: number, end: number): {
+    static "__#123@#computeFace"(start: number, end: number): {
         indices: Array<number>;
         normals: Array<number>;
     };
@@ -49945,14 +49707,14 @@ declare class ULineGeometry extends UBufferGeometry {
      *
      * @ignore
      */
-    static "__#122@#computeUV"(count: number): Array<number>;
+    static "__#123@#computeUV"(count: number): Array<number>;
     /**
      * @param {number} v
      * @returns {Array<number>}
      *
      * @ignore
      */
-    static "__#122@#getUV"(v: number): Array<number>;
+    static "__#123@#getUV"(v: number): Array<number>;
     /**
      * @param {import('three').Vector3} point1 시작 점 <br>
      * @param {import('three').Vector3} point2 끝 점 <br>
@@ -49962,7 +49724,7 @@ declare class ULineGeometry extends UBufferGeometry {
      *
      * @ignore
      */
-    static "__#122@#extractRoadPoint"(point1: three.Vector3, point2: three.Vector3, width: number, end?: boolean): Array<number>;
+    static "__#123@#extractRoadPoint"(point1: three.Vector3, point2: three.Vector3, width: number, end?: boolean): Array<number>;
     /**
      * 라인(띠) 지오메트리를 생성합니다. <br>
      * 생성 후 `addPoint`/`setPoints`로 점을 넣으시면, spline 곡선으로 이어진 일정 너비의 띠가 만들어집니다. <br>
@@ -51613,7 +51375,7 @@ declare class UAnalyRoute extends UAnaly {
      *
      * @ignore
      */
-    static "__#133@#getRightUpAxis"(direction: three.Vector3): {
+    static "__#134@#getRightUpAxis"(direction: three.Vector3): {
         right: three.Vector3;
         up: three.Vector3;
     };
@@ -51625,7 +51387,7 @@ declare class UAnalyRoute extends UAnaly {
      *
      * @ignore
      */
-    static "__#133@#rotateDirection"(axis: three.Vector3, angle: number, direction: three.Vector3): three.Vector3;
+    static "__#134@#rotateDirection"(axis: three.Vector3, angle: number, direction: three.Vector3): three.Vector3;
     /**
      * @param {UAnalyRouteCO} [options={}]
      */
@@ -56611,7 +56373,7 @@ declare class U3dNodeManager extends UEventDispatcher {
         LINK_REGISTERED: string;
         BRANCH: string;
     };
-    static "__#152@#instance": any;
+    static "__#153@#instance": any;
     static get Instance(): any;
     constructor();
     get nodes(): Map<any, any>;
@@ -58500,10 +58262,6 @@ declare global {
          */
         lastInfo: CumulativeInfo | undefined;
         /**
-         * 초기화 시각
-         */
-        initTime: number;
-        /**
          * 이동 시작 월드 좌표
          */
         startPosition: WorldPosition | undefined;
@@ -59009,8 +58767,9 @@ declare global {
          */
         useLookAt?: boolean;
         /**
-         * 목표 위치까지 보간 이동할 시간(ms). 0이면 다음 프레임에 목표 위치에 도착합니다.
-         * 양수이면 해당 시간 안에 도착을 보장하기 위해 이동 속도를 가변적으로 보간합니다.
+         * 현재 구간 시작부터 목표 위치에 도착하기까지 허용할 시간(ms, 일시정지 시간 제외). 0이면 해당 구간의 첫 갱신 프레임에 도착합니다.
+         * 양수이면 기본 속도를 유지하되 기한 내 도착에 필요한 경우 가속합니다. 여유가 있으면 기본 속도로 먼저 도착할 수 있습니다.
+         * 프레임 지연으로 기한을 넘기면 다음 실행 가능한 프레임에 목표 위치를 반영합니다. 대기열 구간에는 밀림 보정으로 단축된 기한이 적용될 수 있습니다.
          * 생략하거나 null이면 이동 거리와 설정 속도로 소요 시간을 자동 계산하여 등속 이동합니다.
          * 음수나 유한하지 않은 값이면 해당 목표를 등록하지 않습니다.
          */
@@ -64481,6 +64240,410 @@ declare global {
      * U3dOpenLayer 생성자 옵션
      */
     type U3dOpenLayerCO = Omit<Omit<U3dImageLayerCO, never> & U3dOpenLayerCO_Content, never>;
+    /**
+     * 등록 callback과 슬롯별 공유 source 소유 상태입니다.
+     * callback은 단일 layer·layer 배열·null·undefined를 반환할 수 있습니다.
+     * 사용자 확장 OL layer와 source의 구체 클래스가 서로 다르므로 callback의 동적 경계만 any로 표현합니다.
+     */
+    type OLLayerEntry = {
+        /**
+         * 등록 이름
+         */
+        name: string;
+        /**
+         * 사용자 OL layer 생성 함수
+         */
+        callback: (arg0: object, arg1: Array<any> | undefined) => any;
+        /**
+         * 등록 슬롯별 source 소유 상태
+         */
+        sharedSources: Array<OLSharedSourceState | undefined>;
+    };
+    /**
+     * 레이어 공용 frame scheduler의 취소 핸들입니다.
+     * 완료·취소 후 callback 참조를 제거하며 pending은 아직 실행할 요청인지를 나타냅니다.
+     */
+    type U3dOpenLayerRenderFrameHandle = {
+        /**
+         * 아직 실행하지 않은 렌더 함수
+         */
+        callback: undefined | ((arg0: number) => void);
+        /**
+         * 취소 여부
+         */
+        cancelled: boolean;
+        /**
+         * 실행 대기 여부
+         */
+        pending: boolean;
+    };
+    /**
+     * 카메라 관측에 재사용하는 숫자 상태입니다. Three.js 객체나 timer를 소유하지 않습니다.
+     */
+    type U3dOpenLayerCameraMoveState = {
+        /**
+         * 첫 관측을 마쳤는지 여부
+         */
+        initialized: boolean;
+        /**
+         * 마지막 위치 X
+         */
+        positionX: number;
+        /**
+         * 마지막 위치 Y
+         */
+        positionY: number;
+        /**
+         * 마지막 위치 Z
+         */
+        positionZ: number;
+        /**
+         * 마지막 회전 X
+         */
+        rotationX: number;
+        /**
+         * 마지막 회전 Y
+         */
+        rotationY: number;
+        /**
+         * 마지막 회전 Z
+         */
+        rotationZ: number;
+        /**
+         * 고해상도 시각 기준 이동 보호 종료 시각
+         */
+        movingUntil: number;
+    };
+    /**
+     * 취소 대상 선택에서 읽는 실제 OL ImageTile의 부분 타입입니다.
+     * 잘못된 좌표나 좌표가 없는 요청은 런타임 검사에서 보존합니다.
+     */
+    type U3dOpenLayerRequestTile = {
+        /**
+         * OL 타일의 zoom·X·Y 좌표
+         */
+        tileCoord?: Array<number>;
+    };
+    /**
+     * OL frame이 이미 계산한 zoom별 타일 사용 범위입니다.
+     * contains가 있는 직접 투영 범위와 좌표 경계만 제공하는 호환 범위를 모두 표현합니다.
+     */
+    type U3dOpenLayerTileRange = {
+        /**
+         * 최소 X
+         */
+        minX: number;
+        /**
+         * 최대 X
+         */
+        maxX: number;
+        /**
+         * 최소 Y
+         */
+        minY: number;
+        /**
+         * 최대 Y
+         */
+        maxY: number;
+        /**
+         * 직접 투영 좌표의 포함 판정 함수
+         */
+        contains?: (tileCoord: Array<number>) => boolean;
+    };
+    /**
+     * 취소 사용 관계 판별에 필요한 source의 읽기 전용 부분 타입입니다.
+     * cache의 entries_를 조회해도 새 tile 생성이나 LRU 순서 갱신은 수행하지 않습니다.
+     */
+    type U3dOpenLayerCancellationSource = {
+        /**
+         * source 투영 조회
+         */
+        getProjection?: undefined | (() => (object | null | undefined));
+        /**
+         * 투영별 target tile cache와 직접 조회 항목
+         */
+        tileCacheForProjection?: Record<string, Partial<{
+            entries_: Record<string, Partial<{
+                value_: Partial<{
+                    getState: () => number;
+                    sourceTiles_: Array<object>;
+                }>;
+            }>>;
+        }>>;
+    };
+    /**
+     * 다른 renderer가 동일 source를 사용하는지 판별할 때 읽는 layer 부분 타입입니다.
+     */
+    type U3dOpenLayerConsumerLayer = {
+        /**
+         * 연결된 source 조회
+         */
+        getSource?: undefined | (() => (object | undefined));
+        /**
+         * 하위 zoom 선행 로딩 수준 조회
+         */
+        getPreload?: () => number;
+    };
+    /**
+     * 취소 선택에 필요한 renderer bundle의 읽기 전용 부분 타입입니다.
+     * 레이어 전체 객체나 renderer의 변경 권한은 내부 선택 함수에 전달하지 않습니다.
+     */
+    type U3dOpenLayerConsumerBundle = {
+        /**
+         * 최종 폐기 여부
+         */
+        destroyed?: boolean;
+        /**
+         * 현재 타일 대여 여부
+         */
+        inUse?: boolean;
+        /**
+         * 현재 layer collection·frame의 사용 범위와 투영
+         */
+        map?: Partial<{
+            getLayers: () => {
+                forEach: (callback: (layer: U3dOpenLayerConsumerLayer) => void) => void;
+            };
+            frameState_: Partial<{
+                usedTiles: Record<string, Record<string, U3dOpenLayerTileRange>>;
+                viewState: Partial<{
+                    projection: object;
+                }>;
+            }>;
+        }>;
+    };
+    /**
+     * 합성 완료 판정에 사용하는 OL4 frame 부분 타입입니다.
+     * debug와 minified에서 서로 다른 큐 속성을 사용하며 빠진 필수 분기 자료의 예외는 그대로 전파합니다.
+     */
+    type U3dOpenLayerCompletionFrame = {
+        /**
+         * 애니메이션 진행 여부
+         */
+        animate: boolean;
+        /**
+         * 두 빌드 형태에서 접근하는 큐 상태
+         */
+        tileQueue: Partial<{
+            b: Array<unknown>;
+            j: number;
+            elements_: Array<unknown>;
+            tilesLoading_: number;
+        }>;
+    };
+    /**
+     * 오래된 항목의 제거 순서만 선택하는 cache 부분 타입입니다.
+     * 선택 단계에서는 cache 내용을 제거하거나 tile을 dispose하지 않습니다.
+     */
+    type U3dOpenLayerEvictionCache = {
+        /**
+         * newest-to-oldest key 목록
+         */
+        getKeys?: () => Array<string>;
+        /**
+         * oldest-to-newest 항목 순회
+         */
+        forEach: (callback: (tile: object, key: string) => void) => void;
+    };
+    /**
+     * 확장 가능한 측정 이름별 누적 시간·표본 수·최대 시간입니다.
+     */
+    type U3dOpenLayerTimingSummary = {
+        /**
+         * 누적 측정 시간
+         */
+        timingTotalsMs: Record<string, number>;
+        /**
+         * 측정 표본 수
+         */
+        timingSamples: Record<string, number>;
+        /**
+         * 최대 측정 시간
+         */
+        timingMaximumsMs: Record<string, number>;
+    };
+    /**
+     * ~extends U3dOpenLayerTimingSummary <br>
+     *
+     * 조회용 진단 계산에 필요한 숫자와 산출값의 부분 타입입니다.
+     * source·renderer·요청 객체는 포함하지 않으며 getDebugLog()의 기존 JSON 계약을 제한하지 않습니다.
+     * 계산 전에는 없는 산출 필드를 선택 속성으로 유지합니다.
+     * 합성 선언은 문서 파서의 교집합 변환이 처리할 수 있도록 한 줄로 유지합니다.
+     */
+    type U3dOpenLayerDebugSummary_Content = {
+        /**
+         * source 생성 관측 횟수
+         */
+        sourceCreatedCount: number;
+        /**
+         * source 재사용 관측 횟수
+         */
+        sourceReusedCount: number;
+        /**
+         * 타일 로드 시작 이벤트 수
+         */
+        tileLoadStartCount: number;
+        /**
+         * 타일 로드 완료 이벤트 수
+         */
+        tileLoadEndCount: number;
+        /**
+         * 타일 로드 오류 이벤트 수
+         */
+        tileLoadErrorCount: number;
+        /**
+         * HTTP 404 응답 관측 횟수
+         */
+        notFoundResponseCount: number;
+        /**
+         * 반복 404 차단으로 요청을 생략한 횟수
+         */
+        notFoundPassRequestCount: number;
+        /**
+         * renderer bundle 생성 관측 횟수
+         */
+        rendererBundleCreatedCount: number;
+        /**
+         * renderer bundle 재사용 관측 횟수
+         */
+        rendererBundleReusedCount: number;
+        /**
+         * 측정 이름별 평균 시간
+         */
+        timingAveragesMs?: Record<string, number>;
+        /**
+         * source 생성·재사용 관측 수 중 재사용 비율
+         */
+        sourceReusePercent?: number;
+        /**
+         * 완료·오류 이벤트가 집계되지 않은 로드 수
+         */
+        tileLoadUnsettledCount?: number;
+        /**
+         * 관리 중인 공유 source 수
+         */
+        managedSharedSourceCount?: number;
+        /**
+         * 공유 source의 타일별 사용 참조 수 합계
+         */
+        sharedSourceReferenceCount?: number;
+        /**
+         * 새 타일에서 사용하지 않는 공유 source 수
+         */
+        retiredSharedSourceCount?: number;
+        /**
+         * 기본 loader의 네트워크 요청 추적을 지원하는 source 수
+         */
+        networkTrackedSourceCount?: number;
+        /**
+         * 네트워크 요청 추적을 지원하지 않는 source 수
+         */
+        networkTrackingUnsupportedSourceCount?: number;
+        /**
+         * 공유 source에서 추적 중인 진행 요청 수 합계
+         */
+        networkInflightRequestCount?: number;
+        /**
+         * 공유 source의 타일 캐시 항목 수 합계
+         */
+        sourceTileCacheEntryCount?: number;
+        /**
+         * 공유 source별 중복을 제거한 타일 캐시 수 합계
+         */
+        sourceTileCacheCount?: number;
+        /**
+         * 반복 404 판정을 보관하는 URL 수
+         */
+        notFoundPassCacheEntryCount?: number;
+        /**
+         * 반복 404로 차단 중인 URL 수
+         */
+        notFoundPassBlockedUrlCount?: number;
+        /**
+         * 반복 404 차단으로 생략한 네트워크 요청 수
+         */
+        notFoundPassAvoidedNetworkRequestCount?: number;
+        /**
+         * 404 응답 관측·요청 생략 수 중 요청 생략 비율
+         */
+        notFoundPassAvoidancePercent?: number;
+        /**
+         * renderer bundle 생성·재사용 관측 수 중 재사용 비율
+         */
+        rendererBundleReusePercent?: number;
+        /**
+         * 의도적인 404 요청 생략을 제외한 로드 오류 수
+         */
+        tileLoadNetworkErrorCount?: number;
+        /**
+         * 실제 네트워크 요청 수 중 로드 오류 비율
+         */
+        tileLoadNetworkErrorPercent?: number;
+        /**
+         * 타일 로드 시작 수 중 반복 404 요청 생략 비율
+         */
+        notFoundPassRequestPercent?: number;
+    };
+    /**
+     * ~extends U3dOpenLayerTimingSummary <br>
+     *
+     * 조회용 진단 계산에 필요한 숫자와 산출값의 부분 타입입니다.
+     * source·renderer·요청 객체는 포함하지 않으며 getDebugLog()의 기존 JSON 계약을 제한하지 않습니다.
+     * 계산 전에는 없는 산출 필드를 선택 속성으로 유지합니다.
+     * 합성 선언은 문서 파서의 교집합 변환이 처리할 수 있도록 한 줄로 유지합니다.
+     */
+    type U3dOpenLayerDebugSummary = Omit<Omit<U3dOpenLayerTimingSummary, never> & U3dOpenLayerDebugSummary_Content, never>;
+    /**
+     * 레이어가 렌더 예약·취소·종료에 사용하는 scheduler 계약입니다.
+     * 내부 구현 클래스의 private 필드 대신 필요한 동작만 표현합니다.
+     */
+    type U3dOpenLayerFrameScheduler = {
+        /**
+         * 렌더 요청 예약
+         */
+        request: (callback: (frameTime: number) => void) => U3dOpenLayerRenderFrameHandle;
+        /**
+         * 대기 요청 취소
+         */
+        cancel: (arg0: U3dOpenLayerRenderFrameHandle | undefined) => void;
+        /**
+         * 모든 예약과 callback 참조 해제
+         */
+        dispose: () => void;
+    };
+    /**
+     * 외부 OL4 사본에서 내부 판별 코드가 읽는 namespace 부분 타입입니다.
+     * 라이브러리 전체를 any로 확장하지 않고 사용하는 함수·상수·생성자 집합만 표현합니다.
+     */
+    type U3dOpenLayerOLReader = {
+        /**
+         * 알려진 source 생성자 집합
+         */
+        source?: Record<string, Function>;
+        /**
+         * 객체 식별자 조회
+         */
+        getUid: (value: object) => string;
+        /**
+         * target tile key 계산
+         */
+        tilecoord: {
+            getKeyZXY: (zoom: number, x: number, y: number) => string;
+        };
+        /**
+         * 판별할 target tile 상태
+         */
+        TileState: {
+            IDLE: number;
+            LOADING: number;
+        };
+        /**
+         * 두 투영의 동등성 판별
+         */
+        proj?: {
+            equivalent: (sourceProjection: object, viewProjection: object) => boolean;
+        };
+    };
 }
 
 declare global {
@@ -64663,6 +64826,158 @@ declare global {
         app: U3dApp;
         layer: U3dPatternXYZLayer;
     };
+    /**
+     * 타일 대상 데칼 선택에 필요한 등록 목록 조회 경계입니다.
+     */
+    type U3dPatternDecalSelectionState = {
+        /**
+         * 현재 등록 데칼
+         */
+        decalInfos: Array<UPatternDecal> | null;
+    };
+    /**
+     * 기본 캔버스 합성에서 읽는 레이어 출력 설정입니다.
+     */
+    type U3dPatternLayerCanvasState = {
+        /**
+         * 레이어 투명도
+         */
+        _opacity: number;
+        /**
+         * 기본 색상
+         */
+        color: three.Color;
+        /**
+         * 기본 이미지 사용 여부
+         */
+        useBaseTexture: boolean;
+        /**
+         * 알파 이미지 사용 여부
+         */
+        useAlphaTexture: boolean;
+    };
+    /**
+     * 데칼 캔버스 합성에서 읽는 공개 설정과 이미지 조회 경계입니다.
+     */
+    type UPatternDecalCanvasState = {
+        /**
+         * 데칼 색상
+         */
+        color: three.Color;
+        /**
+         * 기본 이미지 사용 여부
+         */
+        useTexture: boolean;
+        /**
+         * 알파 이미지 사용 여부
+         */
+        useAlphaTexture: boolean;
+        /**
+         * 기본 이미지 주소
+         */
+        textureUrl: string | null;
+        /**
+         * 알파 이미지 주소
+         */
+        alphaTextureUrl: string | null;
+        /**
+         * 이미지 조회 API
+         */
+        layer: Pick<U3dPatternXYZLayer, "getDecalTexture" | "getDecalAlphaTexture">;
+    };
+    /**
+     * 데칼 패턴 크기를 계산할 때 읽는 설정입니다.
+     */
+    type UPatternDecalSizeState = {
+        /**
+         * 패턴 강도
+         */
+        patternStrength: number;
+        /**
+         * 최소 패턴 크기
+         */
+        minPatternPixel: number;
+        /**
+         * 최대 레벨 제공 경계
+         */
+        app: {
+            _maxlevel: number;
+        };
+    };
+    /**
+     * 합성 시점 데칼의 식별자와 변경 버전입니다.
+     */
+    type U3dPatternWorkLog = {
+        /**
+         * 데칼 식별자
+         */
+        uuid: string;
+        /**
+         * 데칼 변경 버전
+         */
+        version: number;
+    };
+    /**
+     * 데칼 영역 변환에서 읽는 입력과 확장하는 결과 저장소입니다.
+     * 원본 area와 앱은 조회만 하며 결과 배열·boundingBox는 기존 객체를 확장합니다.
+     */
+    type UPatternDecalAreaState = {
+        /**
+         * 원본 위경도 영역
+         */
+        area: Array<three.Vector3Like>;
+        /**
+         * 좌표 변환 API
+         */
+        app: Pick<U3dApp, "getGeographicToWorld" | "getGeographicToGoogle">;
+        /**
+         * 누적 월드 좌표(EPSG:3857)
+         */
+        _decalWorldArea: Array<three.Vector3Like>;
+        /**
+         * 누적 월드 좌표(EPSG:3857)
+         */
+        _decalGoogleArea: Array<three.Vector3Like>;
+        /**
+         * 누적 경계
+         */
+        boundingBox: three.Box3;
+    };
+    /**
+     * 타일별 기존 합성 결과와 기본 텍스처 참조입니다.
+     * 해제 경로에서 텍스처 필드는 null로 바뀔 수 있습니다.
+     */
+    type U3dPatternResourceInfo = {
+        /**
+         * 합성 순서의 이력
+         */
+        workHistory: Array<U3dPatternWorkLog>;
+        /**
+         * 합성 결과
+         */
+        decalTexture: UCanvasTexture | null;
+        /**
+         * 합성에 사용한 기본 텍스처
+         */
+        layerTexture: UCanvasTexture | null;
+    };
+    /**
+     * 다음 타일 합성의 재사용 범위입니다.
+     */
+    type U3dPatternBakeResult = {
+        /**
+         * all은 전체 합성, append는 추가 합성, none은 기존 결과 사용
+         */
+        type: string;
+        /**
+         * 합성 바탕 또는 기존 결과
+         */
+        texture: UCanvasTexture | null;
+        /**
+         * 추가 합성을 시작할 데칼 인덱스
+         */
+        startIndex: number;
+    };
 }
 
 declare global {
@@ -64735,7 +65050,7 @@ declare global {
      */
     type MeasureFeatureCollection_Content = {
         /**
-         * 측정 feature 를 레이어에 추가하고 등록된 feature 를 돌려주는 함수이며, 추가에 실패하면 예외를 던집니다.
+         * feature 등록을 시도한 뒤 입력을 그대로 돌려줍니다. 반환이 undefined일 때 예외를 던지며, 반환만으로 실제 등록 성공을 보장하지 않습니다.
          */
         addFeature?: undefined | ((arg0: unknown) => unknown);
         /**
@@ -64844,11 +65159,11 @@ declare global {
         terrainDebugTileFilter?: string | Array<string> | Set<string> | U3dShaderMeasureTerrainDebugFilter;
         /**
          * 예전 버전의 simple 렌더 경로 사용 여부입니다. <br>
-         * `measureGeometryMode` 를 함께 지정하면 그 값이 우선하고, 지정하지 않았을 때만 이 값으로 초기 방식을 정합니다.
+         * 생성자는 이 값을 보관만 하며 초기 방식은 `measureGeometryMode`의 정규화 결과로 정합니다.
          */
         useSimpleMeasure?: boolean;
         /**
-         * 초기 geometry 렌더링 방식이며, 지정하면 `useSimpleMeasure` 보다 우선합니다.
+         * 초기 geometry 렌더링 방식입니다. 생략하거나 `auto`를 주면 `basic`이며, `simple`만 직접 3D 객체 경로를 선택합니다.
          */
         measureGeometryMode?: U3dShaderMeasureGeometryMode;
         /**
@@ -64860,7 +65175,7 @@ declare global {
          */
         simpleGeometryLengthThreshold?: number;
         /**
-         * simple line 최대 point 수입니다.
+         * simple 선의 정점 샘플링 기준 개수입니다. 끝점 보존으로 결과가 기준을 초과할 수 있으며, 0은 계산 시 512로 대체됩니다.
          */
         simpleGeometryLineMaxPoints?: number;
         /**
@@ -65145,6 +65460,42 @@ declare global {
          */
         sourceErrorReason?: string;
     };
+    /**
+     * 도형·terrain 계산이 읽을 수 있는 레이어 상태와 호출 권한을 한정합니다.
+     * 원본 레이어를 그대로 전달하므로 복사나 추가 상태 저장 없이 현재 설정을 사용합니다.
+     * scene 등록, 예약, manager 교체 및 레이어 상태 대입 권한은 포함하지 않습니다.
+     */
+    type U3dShaderMeasureStyleState = Readonly<Pick<U3dShaderMeasureLayer, "_style" | "_defaultFillColor" | "_defaultStrokeColor" | "_defaultStrokeWidth" | "_defaultOpacity">>;
+    /**
+     * 도형·terrain 계산이 읽을 수 있는 레이어 상태와 호출 권한을 한정합니다.
+     * 원본 레이어를 그대로 전달하므로 복사나 추가 상태 저장 없이 현재 설정을 사용합니다.
+     * scene 등록, 예약, manager 교체 및 레이어 상태 대입 권한은 포함하지 않습니다.
+     */
+    type U3dShaderMeasureSourceIdentityState = Readonly<Pick<U3dShaderMeasureLayer, "_name">>;
+    /**
+     * 도형·terrain 계산이 읽을 수 있는 레이어 상태와 호출 권한을 한정합니다.
+     * 원본 레이어를 그대로 전달하므로 복사나 추가 상태 저장 없이 현재 설정을 사용합니다.
+     * scene 등록, 예약, manager 교체 및 레이어 상태 대입 권한은 포함하지 않습니다.
+     */
+    type U3dShaderMeasureSignatureState = Readonly<Pick<U3dShaderMeasureLayer, "_name" | "_style" | "_defaultFillColor" | "_defaultStrokeColor" | "_defaultStrokeWidth" | "_defaultOpacity" | "getFeatureByUid">>;
+    /**
+     * 도형·terrain 계산이 읽을 수 있는 레이어 상태와 호출 권한을 한정합니다.
+     * 원본 레이어를 그대로 전달하므로 복사나 추가 상태 저장 없이 현재 설정을 사용합니다.
+     * scene 등록, 예약, manager 교체 및 레이어 상태 대입 권한은 포함하지 않습니다.
+     */
+    type U3dShaderMeasurePayloadState = Readonly<Pick<U3dShaderMeasureLayer, "_name" | "_style" | "_defaultFillColor" | "_defaultStrokeColor" | "_defaultStrokeWidth" | "_defaultOpacity" | "_renderOrder" | "getFeatureMeasureVectors" | "getFeaturePointBufferRadius">>;
+    /**
+     * 도형·terrain 계산이 읽을 수 있는 레이어 상태와 호출 권한을 한정합니다.
+     * 원본 레이어를 그대로 전달하므로 복사나 추가 상태 저장 없이 현재 설정을 사용합니다.
+     * scene 등록, 예약, manager 교체 및 레이어 상태 대입 권한은 포함하지 않습니다.
+     */
+    type U3dShaderMeasureSimpleGeometryState = Readonly<Pick<U3dShaderMeasureLayer, "_style" | "_defaultFillColor" | "_defaultStrokeColor" | "_defaultStrokeWidth" | "_defaultOpacity" | "_simpleGeometryLineMaxPoints" | "_simpleGeometryCircleSegments">>;
+    /**
+     * 도형·terrain 계산이 읽을 수 있는 레이어 상태와 호출 권한을 한정합니다.
+     * 원본 레이어를 그대로 전달하므로 복사나 추가 상태 저장 없이 현재 설정을 사용합니다.
+     * scene 등록, 예약, manager 교체 및 레이어 상태 대입 권한은 포함하지 않습니다.
+     */
+    type U3dShaderMeasureTileRangeState = Readonly<Pick<U3dShaderMeasureLayer, "_mercator">>;
 }
 
 declare global {
@@ -68573,10 +68924,10 @@ declare global {
          */
         drawArg: UDrawArg;
         /**
-         * 프레임 경과 시간(밀리초)과 보간된 현재 구간 진행률(0~1)을 순서대로 받아 모델 상태를 갱신할 함수입니다. <br>
+         * 프레임 경과 시간(밀리초), 보간된 현재 구간 진행률(0~1), 프레임 이동 거리(m)을 순서대로 받아 모델 상태를 갱신할 함수입니다. <br>
          * 누락하면 초기화를 중단합니다. <br>
          */
-        animation: (arg0: number, arg1: number) => void;
+        animation: (arg0: number, arg1: number, arg2: number) => void;
         /**
          * 초기 이동 구간의 전체 거리(미터)입니다. <br>
          * 값이 커지면 같은 속도에서 도착까지 더 오래 걸립니다. <br>
@@ -71439,18 +71790,18 @@ declare global {
      */
     type USimpleTailPointMetadata = {
         /**
-         * 입력 누적 시간(ms)
+         * 노드 기록 epoch 시각(ms). 생략하면 Date.now()
          */
-        time: number;
-        /**
-         * 기록 epoch 시각(ms)
-         */
-        recordedAt?: number;
+        time?: number;
     };
     /**
      * fade 계산에 전달하는 지점의 월드 좌표(EPSG:3857)와 거리·시간 정보입니다.
      */
-    type USimpleTailFadeNode = {
+    type USimpleTailDrawNode = {
+        /**
+         * 안정적인 노드 식별자
+         */
+        nodeId: number;
         /**
          * 월드 x
          */
@@ -71468,21 +71819,14 @@ declare global {
          */
         pathDistance: number;
         /**
-         * 입력 누적 시간
+         * 노드 기록 epoch 시각(ms)
          */
-        time?: number;
-        /**
-         * 기록 epoch 시각
-         */
-        recordedAt?: number;
+        time: number;
     };
     /**
      * U3dCumulativePath가 사용자 콜백을 감싸 tail에 전달하는 내부 함수입니다.
      */
-    type USimpleTailFadeEvaluator = (node: USimpleTailFadeNode, newest: USimpleTailFadeNode, now: number) => number | Partial<{
-        width: number;
-        alpha: number;
-    }>;
+    type USimpleTailDrawEvaluator = (node: USimpleTailDrawNode, newest: USimpleTailDrawNode, now: number, previous: USimpleTailDrawNode | null, totalTime: number) => U3dCumulativePathDrawResult | void;
     /**
      * ~extends SimplifyPolicy_Option <br>
      *
@@ -71506,23 +71850,23 @@ declare global {
          */
         perMaxNode?: number;
         /**
-         * 최신 위치부터 출력할 최대 경로 거리(m). 범위 밖은 렌더링에서 제외하고 버퍼 부족 시 오래된 범위 밖 노드를 재사용합니다. Infinity이면 거리 제한과 fade를 모두 해제하고 fade 배율을 1로 유지합니다. 유한한 값일 때 fadeFunc를 적용하며 fade가 0인 것만으로 노드를 제거하지 않습니다.
+         * 사용자 drawFunc가 없으면 최신 위치부터 이 거리(m)만 표시하는 기본 drawFunc를 생성합니다. Infinity·0 이하·비정상 값은 제한 해제. 노드를 삭제하지 않습니다.
          */
         maxDistance?: number;
         /**
-         * 이전 거리 fade의 호환 저장값이며 현재 화면에는 적용하지 않습니다.
+         * 기본 거리 draw 정책에서 폭을 줄일 오래된 끝부분의 비율(0~1). 0은 폭 fade 해제. 사용자 drawFunc가 있으면 적용하지 않습니다.
          */
         widthFade?: number;
         /**
-         * 이전 거리 fade의 호환 저장값이며 현재 화면에는 적용하지 않습니다.
+         * 기본 거리 draw 정책에서 투명하게 할 오래된 끝부분의 비율(0~1). 0은 투명도 fade 해제. 사용자 drawFunc가 있으면 적용하지 않습니다.
          */
         alphaFade?: number;
         /**
-         * U3dCumulativePath에서 지점별 폭·불투명도를 계산할 함수이며 null이면 fade를 해제합니다.
+         * 노드 표시·부분 구간·fade·폐기 함수. null이면 maxDistance 기본 정책으로 복귀합니다.
          */
-        fadeFunc?: U3dCumulativePathFadeFunc | null;
+        drawFunc?: U3dCumulativePathDrawFunc | null;
         /**
-         * 거리 제한 경계가 앞으로 이동할 때 경계 정보로 호출할 함수
+         * 사용하지 않는 이전 옵션
          */
         onFadeOut?: (arg0: object) => void;
         /**
@@ -71549,7 +71893,7 @@ declare global {
      */
     type SimplifyPolicy_Option = {
         /**
-         * 자동 단순화 사용 여부이며 false이면 자동으로 지점을 줄이지 않습니다.
+         * 자동 단순화 사용 여부. drawFunc 사용 중이거나 폐기로 단절이 있으면 노드 정책 보존을 위해 단순화를 수행하지 않습니다.
          */
         simplify?: boolean;
         /**
@@ -71574,23 +71918,23 @@ declare global {
         cornerProtectNodes?: number;
     };
     /**
-     * ~extends USimpleTailFadeNode <br>
+     * ~extends USimpleTailDrawNode <br>
      *
      * 색 농도를 포함해 보관하는 궤적 중심점입니다.
      */
-    type USimpleTailNode = USimpleTailFadeNode & Partial<{
+    type USimpleTailNode = USimpleTailDrawNode & Partial<{
         colorFactor: number;
     }>;
     /**
-     * ~extends Omit<USimpleTail_Policy, 'fadeFunc'> <br>
+     * ~extends Omit<USimpleTail_Policy, 'drawFunc'> <br>
      *
-     * USimpleTail에 직접 전달할 정책이며 fadeFunc는 렌더 지점 평가 함수를 받습니다.
+     * USimpleTail에 직접 전달할 정책이며 drawFunc는 렌더 지점 평가 함수를 받습니다.
      */
     type USimpleTailRuntimePolicy_Content = {
         /**
-         * 지점·최신 지점·현재 시각을 받아 남길 폭과 불투명도를 반환하는 함수
+         * 노드·최신 노드·현재 시각·직전 연결 노드·경로 시간을 받아 draw 결정을 반환하는 함수
          */
-        fadeFunc?: USimpleTailFadeEvaluator | null;
+        drawFunc?: USimpleTailDrawEvaluator | null;
         /**
          * 카메라 근접 너비 fade의 시작 거리
          */
@@ -71601,11 +71945,11 @@ declare global {
         fadeEnd?: number;
     };
     /**
-     * ~extends Omit<USimpleTail_Policy, 'fadeFunc'> <br>
+     * ~extends Omit<USimpleTail_Policy, 'drawFunc'> <br>
      *
-     * USimpleTail에 직접 전달할 정책이며 fadeFunc는 렌더 지점 평가 함수를 받습니다.
+     * USimpleTail에 직접 전달할 정책이며 drawFunc는 렌더 지점 평가 함수를 받습니다.
      */
-    type USimpleTailRuntimePolicy = Omit<USimpleTail_Policy, "fadeFunc"> & USimpleTailRuntimePolicy_Content;
+    type USimpleTailRuntimePolicy = Omit<USimpleTail_Policy, "drawFunc"> & USimpleTailRuntimePolicy_Content;
     /**
      * ~extends SimplifyPolicy_Option <br>
      *
@@ -71665,7 +72009,7 @@ declare global {
          */
         precision?: number;
         /**
-         * 최신 위치부터 출력할 최대 경로 거리(m)
+         * 사용자 drawFunc가 없으면 최신 위치부터 이 거리(m)만 표시하는 기본 drawFunc를 생성합니다. Infinity·0 이하·비정상 값은 제한 해제. 노드를 삭제하지 않습니다.
          */
         maxDistance?: number;
         /**
@@ -71681,11 +72025,11 @@ declare global {
          */
         depthWidthScale?: boolean;
         /**
-         * 이전 거리 fade의 호환 저장값이며 화면에 적용하지 않습니다.
+         * 기본 거리 draw 정책에서 폭을 줄일 오래된 끝부분의 비율(0~1). 0은 폭 fade 해제. 사용자 drawFunc가 있으면 적용하지 않습니다.
          */
         widthFade?: number;
         /**
-         * 이전 거리 fade의 호환 저장값이며 화면에 적용하지 않습니다.
+         * 기본 거리 draw 정책에서 투명하게 할 오래된 끝부분의 비율(0~1). 0은 투명도 fade 해제. 사용자 drawFunc가 있으면 적용하지 않습니다.
          */
         alphaFade?: number;
     };
@@ -72314,16 +72658,43 @@ declare global {
         time: number;
     };
     /**
-     * 출력 범위의 경로 지점별로 호출되는 fade 함수. 일괄 입력은 마지막에, 숨긴 경로는 show 시 평가합니다. this는 U3dCumulativePath입니다.
-     * 숫자 0~1은 폭과 불투명도에 함께 적용됩니다(0: 숨김, 1: 유지).
-     * {width, alpha}로 각각 지정할 수 있습니다. 생략/비정상 값은 1, 범위 밖 값은 0~1로 제한합니다.
-     * 노드 사이 값은 보간됩니다. 0을 반환해도 이력을 삭제하지 않습니다.
+     * 노드별 표시·부분 구간·fade·폐기 정책. this는 U3dCumulativePath입니다.
+     * 숨긴 노드도 평가하며 예외 시 이전 결정을 유지합니다. 입력 객체를 변경해도 내부 노드는 바뀌지 않습니다.
      */
-    type U3dCumulativePathFadeFunc = (info: U3dCumulativePathFadeInfo) => number | {
-        width?: number;
-        alpha?: number;
+    type U3dCumulativePathDrawFunc = (info: U3dCumulativePathDrawInfo) => U3dCumulativePathDrawResult | void;
+    type U3dCumulativePathDrawResult = {
+        /**
+         * 노드 색상. 생략하면 기본 색상과 기존 colorGradation을 사용하며 지정하면 기존 색 농도를 대체합니다. 노드 사이에서 보간합니다.
+         */
+        color?: three.ColorRepresentation;
+        /**
+         * 노드 불투명도(0~1). 생략/비정상 값은 기본 opacity. 노드 사이에서 보간한 뒤 fade.alpha와 곱합니다.
+         */
+        opacity?: number;
+        /**
+         * hide는 보관, dispose는 복구 불가능한 제거와 버퍼 회수
+         */
+        action?: "draw" | "hide" | "dispose";
+        /**
+         * 폭·불투명도 배율(0~1). 생략/비정상 값은 1. 0도 삭제를 뜻하지 않습니다.
+         */
+        fade?: {
+            width?: number;
+            alpha?: number;
+        };
+        /**
+         * 직전 연결 노드→현재 노드 구간의 표시 비율. 기본 0~1. from>=to면 표시하지 않습니다.
+         */
+        range?: {
+            from?: number;
+            to?: number;
+        };
     };
-    type U3dCumulativePathFadeInfo = {
+    type U3dCumulativePathDrawInfo = {
+        /**
+         * 버퍼 이동·삭제에도 유지되는 식별자
+         */
+        nodeId: number;
         /**
          * 보정 후 월드 좌표
          */
@@ -72333,35 +72704,39 @@ declare global {
             z: number;
         };
         /**
-         * 경로가 자체 계산한 누적 거리(m)
+         * 경로 시작부터 누적 거리(m)
          */
         dist: number;
         /**
-         * 입력 누적 시간(ms). epoch 시각이 아닐 수 있습니다.
+         * 실시간 노드 기록 epoch 시각(ms). 경로가 자체 생성하며 애니메이션 누적 시간과 무관합니다. 명시적 이력 입력은 그 time을 사용합니다.
          */
         time: number;
         /**
-         * 이력에 추가된 epoch 시각(ms)
+         * 평가 경로 시간(ms). 기본 최신 입력 시간
          */
-        recordedAt: number;
+        totalTime: number;
         /**
-         * 최신 지점까지 실제 경로 거리(m)
+         * 최신 입력까지 전체 누적 경로 거리(m). totalDist - dist가 이 노드부터 최신 입력까지의 거리입니다.
          */
-        distance: number;
+        totalDist: number;
         /**
-         * 최신 지점의 time과 해당 지점 time의 차이(ms)
-         */
-        elapsedTime: number;
-        /**
-         * 현재 시각에서 recordedAt까지 지난 시간(ms)
-         */
-        ageMs: number;
-        /**
-         * 평가 기준 epoch 시각(ms)
+         * 평가 epoch 시각(ms)
          */
         now: number;
         /**
-         * 경로가 소유한 최근 도착 waypoint 이력의 복사본. 접근할 때 복사합니다.
+         * 직전 연결 노드. 첫 노드·단절 뒤에는 null
+         */
+        previous: {
+            nodeId: number;
+            position: {
+                x: number;
+                y: number;
+                z: number;
+            };
+            time: number;
+        } | null;
+        /**
+         * 별도 도착 이력의 복사본. 접근할 때 복사합니다.
          */
         waypointHistory: Array<WaypointRecord>;
     };
@@ -72434,9 +72809,13 @@ declare global {
             z: number;
         };
         /**
-         * maxDistance 경계가 앞으로 이동해 경로 앞부분이 완전히 투명해질 때 호출되는 콜백 <br>
+         * 사용하지 않는 이전 옵션. drawFunc로 표시와 수명을 제어합니다. <br>
          */
         onFadeOut?: (arg0: object) => void;
+        /**
+         * 노드 표시·구간·fade·폐기를 결정하는 함수. 지정하면 maxDistance보다 우선하며 null이면 거리 기본 정책으로 복귀
+         */
+        drawFunc?: U3dCumulativePathDrawFunc | null;
         /**
          * 궤적의 단순화·확보 지점 수·페이드 정책 <br>
          */
@@ -72456,13 +72835,9 @@ declare global {
             z: number;
         };
         /**
-         * 그 지점이 기록된 시각. `styleFunc`에 그대로 전달됩니다 <br>
+         * 노드 기록 epoch 시각(ms). 생략하면 입력 시 Date.now(). `styleFunc`에도 같은 시각을 전달합니다 <br>
          */
-        time: number;
-        /**
-         * 이력에 추가된 epoch 시각(ms). 생략하면 경로 입력 시 Date.now()를 저장합니다.
-         */
-        recordedAt?: number;
+        time?: number;
         /**
          * 해당 지점에서 컴포넌트 로컬축을 월드축으로 변환할 회전값 <br>
          */
@@ -72473,7 +72848,11 @@ declare global {
      */
     type U3dCumulativePathCO = {
         /**
-         * 첫 show 또는 updatePath까지 경로 자원 생성을 지연합니다. recordWaypoint만 호출하면 자원을 생성하지 않습니다.
+         * 노드 draw 정책. pathStyle.drawFunc보다 우선합니다.
+         */
+        drawFunc?: U3dCumulativePathDrawFunc | null;
+        /**
+         * 첫 show, updatePath 또는 비어 있지 않은 createTrailFromPositions 호출까지 경로 자원 생성을 지연합니다. recordWaypoint만 호출하면 자원을 생성하지 않습니다.
          */
         initializeTrailOnShow?: boolean;
         /**
@@ -72497,7 +72876,7 @@ declare global {
          */
         initTime?: number;
         /**
-         * 만들자마자 그려 둘 지점 목록. 이미 지나온 경로를 한 번에 복원할 때 사용합니다 <br>
+         * 초기 경로 지점 목록. 지연 초기화 시 자원 생성 때 반영하며, 처리 후 원본 배열 참조를 해제합니다. 입력 배열 자체는 변경하지 않습니다. <br>
          */
         initPositions?: Array<U3dCumulativePathPositionData>;
         /**
@@ -75710,6 +76089,291 @@ declare global {
          */
         visible?: boolean;
     };
+}
+
+declare global {
+    /**
+     * 지면 투영 Helper의 설정 계약입니다.
+     */
+    type UFrustumTerrainProjectionHelper_Fill_Content = {
+        enabled?: boolean;
+        /**
+         * 사용 중단된 기존 fill mesh 호환 옵션. 새 지형 stamp 코드는 stampMode를 사용한다.
+         */
+        mode?: "plane" | "frustum";
+        color?: ColorLike;
+        opacity?: number;
+        /**
+         * texture가 없을 때 color와 그라데이션할 두 번째 색상.
+         */
+        gradientColor?: ColorLike;
+        /**
+         * gradientColor가 있을 때 그라데이션 방향.
+         */
+        gradientDirection?: "vertical" | "horizontal";
+        /**
+         * 비지형·지면 접촉·호환 drape 형상의 프러스텀 옆면에 적용할 색상.
+         */
+        sideColor?: ColorLike;
+        /**
+         * 비지형·지면 접촉·호환 drape 형상의 프러스텀 옆면에 적용할 불투명도.
+         */
+        sideOpacity?: number;
+        depthWrite?: boolean;
+        /**
+         * 비지형 fill mesh 전용 renderOrder. 생략하면 helper line renderOrder - 1을 사용한다.
+         */
+        renderOrder?: number;
+        /**
+         * 비지형 far 면 fill mesh 이름.
+         */
+        name?: string;
+        /**
+         * 옆면 fill mesh 이름.
+         */
+        sideName?: string;
+        /**
+         * 옆면 fill mesh 전용 renderOrder. 생략하면 renderOrder, helper line renderOrder - 1 순으로 사용한다.
+         */
+        sideRenderOrder?: number;
+        /**
+         * 사용 중단된 호환 옵션. false이면 terrain stamp를 끄지만 대체 fill mesh는 생성하지 않는다.
+         */
+        terrainStamp?: boolean;
+        /**
+         * true이면 terrain 교차 far 외곽선을 stamp shader로 출력한다.
+         */
+        terrainOutlineStamp?: boolean;
+        /**
+         * stamp 외곽선 두께 단위.
+         */
+        terrainOutlineWidthUnits?: "pixels" | "meters";
+        /**
+         * 부분 교차 stamp 영역을 재구성할 far plane UV 격자 한 변의 샘플 수. 3~17의 홀수로 정규화한다.
+         */
+        terrainStampGridSize?: number;
+        /**
+         * 검출된 hit/miss 경계를 이분 정제할 횟수. 0~12 범위이며 값이 클수록 경계 정밀도와 높이 조회 비용이 증가한다.
+         */
+        terrainBoundaryRefinementSteps?: number;
+        /**
+         * hit/miss 외곽의 볼록 모서리를 나눌 단계 수. 0~2 정수로 제한하며 0이면 비활성화한다.
+         */
+        terrainBoundaryFilletSegments?: number;
+        /**
+         * 짧은 인접 edge 길이를 기준으로 한 fillet 반경 비율. 0~0.3 범위로 제한한다.
+         */
+        terrainBoundaryFilletRatio?: number;
+        /**
+         * terrain stamp 모드에서 terrain tile 하나가 검사할 stamp 최대 개수.
+         */
+        maxStampsPerTile?: number;
+        /**
+         * terrain stamp 적용 방식. mask이면 stamp 영역을 마스크로 사용한다.
+         */
+        stampMode?: "fill" | "mask";
+        /**
+         * mask stamp를 특정 terrain/image layer에만 적용할 때 사용할 대상 layer.
+         */
+        targetLayer?: object;
+        /**
+         * terrainStamp 영역에 채울 이미지 URL.
+         */
+        texture?: string;
+        /**
+         * terrainStamp texture 불투명도.
+         */
+        textureOpacity?: number;
+        /**
+         * false이면 PNG alpha를 무시하고 textureOpacity만 사용한다.
+         */
+        textureUseAlpha?: boolean;
+        /**
+         * terrainStamp texture 프레임을 중심 기준으로 확대/축소하는 배율.
+         */
+        textureScale?: number;
+        /**
+         * 지면 이미지 매핑 요청값. contain도 stretch와 같은 공통 frame 매핑을 사용하며 교차 영역 밖은 잘립니다. 이미지 전체 표시와 종횡비 유지를 보장하지 않습니다.
+         */
+        textureFit?: "stretch" | "contain";
+    };
+    /**
+     * 지면 투영 Helper의 설정 계약입니다.
+     */
+    type UFrustumTerrainProjectionHelper_ProjectionLine_Content = {
+        /**
+         * true이고 origin이 있으면 투영 중심선을 생성한다.
+         */
+        visible?: boolean;
+        /**
+         * helper 로컬 좌표계의 투영선 시작점.
+         */
+        origin?: three.Vector3 | {
+            x: number;
+            y: number;
+            z: number;
+        };
+        /**
+         * 투영선 색상. 생략하면 helper 선 색상을 사용한다.
+         */
+        color?: ColorLike;
+        /**
+         * 투영선 두께.
+         */
+        lineWidth?: number;
+        /**
+         * 투영선 불투명도. 생략하면 helper 선 불투명도를 사용한다.
+         */
+        opacity?: number;
+        /**
+         * 점선 한 구간의 길이.
+         */
+        dashSize?: number;
+        /**
+         * 점선 사이 간격.
+         */
+        gapSize?: number;
+        /**
+         * 선 두께·점선 길이의 world 단위 사용 여부. 생략하면 helper 선 설정을 사용한다.
+         */
+        worldUnits?: boolean;
+        /**
+         * depth buffer 기록 여부. 생략하면 helper 선 설정을 사용한다.
+         */
+        depthWrite?: boolean;
+        /**
+         * 투영선 객체 이름.
+         */
+        name?: string;
+        /**
+         * 투영선 renderOrder. 생략하면 helper line renderOrder + 1을 사용한다.
+         */
+        renderOrder?: number;
+    };
+    /**
+     * 지면 투영 Helper의 설정 계약입니다.
+     */
+    type UFrustumTerrainProjectionHelperCO_Content = {
+        /**
+         * terrain=true일 때 현재 렌더 지면 높이를 조회할 렌더링 컨텍스트. 조회 API가 없으면 지면 접촉을 확정할 수 없어 OOR로 숨긴다.
+         */
+        drawArg?: UDrawArg;
+        /**
+         * helper 객체 이름.
+         */
+        name?: string;
+        color?: ColorLike;
+        /**
+         * helper 선과 지면 외곽선 stamp에 함께 적용할 두께. 양수인 유한값만 사용하며 그 밖의 값은 2를 사용한다.
+         */
+        lineWidth?: number;
+        opacity?: number;
+        worldUnits?: boolean;
+        depthWrite?: boolean;
+        zOffset?: number;
+        /**
+         * 선과 mesh fragment depth에 적용할 bias. 0이면 shader 주입을 생략한다.
+         */
+        depthOffset?: number;
+        /**
+         * 호환 drape 경로의 far 외곽선을 샘플링할 월드 간격(m). 기본 지면 접촉 footprint 경로에서는 사용하지 않는다.
+         */
+        sampleSpacing?: number;
+        /**
+         * near -> far 선분의 terrain 교차 구간을 찾을 분할 수. 2~64 정수로 제한한다.
+         */
+        intersectionSteps?: number;
+        /**
+         * 렌더 중인 helper가 현재 Frustum 상태를 다시 읽을 고정 목표 주기(ms). 1ms 이상이며 실제 render가 3초 동안 없으면 갱신을 멈추고 다음 render에서 다시 시작한다.
+         */
+        updateIntervalMs?: number;
+        /**
+         * 부분 terrain stamp 영역을 재구성할 far plane UV 격자 한 변의 샘플 수. 3~17의 홀수로 정규화한다.
+         */
+        terrainStampGridSize?: number;
+        /**
+         * 검출된 hit/miss 경계를 이분 정제할 횟수. 0~12 범위.
+         */
+        terrainBoundaryRefinementSteps?: number;
+        /**
+         * 메인 카메라 밖의 helper는 terrain update와 렌더링을 건너뛴다.
+         */
+        cullByMainCamera?: boolean;
+        /**
+         * 호환 drape 경로의 외곽선 내부 샘플을 완화한다. 기본 지면 접촉 footprint 경로에서는 사용하지 않는다.
+         */
+        smoothing?: boolean;
+        /**
+         * 호환 drape 외곽선 smoothing 반복 횟수. 값이 커질수록 매끈해지지만 매 update 계산량이 증가한다.
+         */
+        smoothingIterations?: number;
+        /**
+         * 호환 drape 외곽선 샘플이 이웃 평균으로 이동할 비율. 0이면 변화 없음, 1이면 이웃 평균 위치를 바로 사용한다.
+         */
+        smoothingFactor?: number;
+        /**
+         * 고정 update 사이의 위치·회전 변화를 시간 기반으로 완화한다. terrain:true일 때 기본값은 true이다.
+         */
+        temporalStabilization?: boolean;
+        /**
+         * 시간 안정화 오차가 절반으로 줄어드는 시간(ms). 작을수록 빠르게 추종하고 클수록 떨림을 강하게 줄인다.
+         */
+        temporalHalfLifeMs?: number;
+        /**
+         * 원시 자세와 안정화 자세의 far 코너 world 거리가 이 값(m) 이하이면 이전 자세를 유지한다.
+         */
+        temporalHysteresisDistance?: number;
+        /**
+         * far 코너 오차에 따라 반감기를 추가로 늘리는 강도. 0~4 범위이며 값이 클수록 먼 면이 부드럽지만 지연이 커진다.
+         */
+        temporalFarSmoothingFactor?: number;
+        /**
+         * 이 시간보다 update 간격이 길면 과거 보간 이력을 버리는 단절 기준(ms). 250~60000 범위.
+         */
+        temporalSnapGapMs?: number;
+        /**
+         * 고정 UV별 지면 광선 결과와 hit/miss 경계를 프레임 사이에서 안정화한다. 생략하면 terrain이 true일 때만 활성화한다.
+         */
+        terrainIntersectionStabilization?: boolean;
+        /**
+         * 순간 교차점 요동을 제거할 최근 결과 개수. 1~31 홀수이며 1은 중앙값 단계를 끈다.
+         */
+        terrainIntersectionMedianWindow?: number;
+        /**
+         * 지면 교차 거리와 경계 위치가 새 결과로 수렴하는 반감기(ms). 0~60000 범위이며 0이면 시간 평균을 끈다. 실제 경계 추종이 늦어질 수 있어 20ms 이상은 권장하지 않는다.
+         */
+        terrainIntersectionHalfLifeMs?: number;
+        /**
+         * 최근 측정의 중앙값 목표가 크게 바뀔 때 경계 방향과 광선 깊이 방향에서 한 번에 이동시킬 최대 world 거리(m). 이후 시간 EMA가 적용되므로 실제 표시점의 3차원 이동량 상한은 아니다. 30m보다 큰 값은 보정 후보의 camera-ray 재투영 허용거리에도 사용한다. 0이면 접촉 위치의 중앙값·거리·시간 보정을 건너뛴다.
+         */
+        terrainIntersectionMaxLagDistance?: number;
+        /**
+         * hit/miss가 반대로 바뀐 뒤 footprint 상태를 확정하기까지 유지되어야 하는 시간(ms). 0~60000 범위이며 0이면 즉시 전환한다.
+         */
+        terrainIntersectionHitPersistenceMs?: number;
+        /**
+         * helper line 기준 renderOrder. 생략 시 fill은 -1, projectionLine은 +1이 기본값이다.
+         */
+        renderOrder?: number;
+        projectionLine?: UFrustumTerrainProjectionHelper_ProjectionLine_Content;
+        /**
+         * true이면 near→far 광선과 현재 렌더 지면의 교차점으로 실제 지면 footprint를 만든다. 조회 좌표에 고도 데이터가 없으면 기본 평면 높이 0을 사용한다.
+         */
+        terrain?: boolean;
+        /**
+         * true이면 terrain 교차 far 외곽선을 stamp shader로 그리고 비교차 구간만 LineSegments2로 남긴다.
+         */
+        terrainOutlineStamp?: boolean;
+        /**
+         * stamp 외곽선 두께 단위.
+         */
+        terrainOutlineWidthUnits?: "pixels" | "meters";
+        fill?: UFrustumTerrainProjectionHelper_Fill_Content;
+    };
+    /**
+     * 지면 투영 Helper의 설정 계약입니다.
+     */
+    type UFrustumTerrainProjectionHelperCO = UFrustumTerrainProjectionHelperCO_Content;
 }
 
 declare global {
@@ -81476,6 +82140,7 @@ export type { OLFill };
 export type { OLGeometry };
 export type { OLImageStyle };
 export type { OLLayer };
+export type { OLLayerEntry };
 export type { OLMap };
 export type { OLSharedSourceState };
 export type { OLStroke };
@@ -81852,8 +82517,9 @@ export type { U3dComponentUniformLayout };
 export type { U3dComponentUniformMesh };
 export type { U3dCumulativePath_StyleOpt };
 export type { U3dCumulativePathCO };
-export type { U3dCumulativePathFadeFunc };
-export type { U3dCumulativePathFadeInfo };
+export type { U3dCumulativePathDrawFunc };
+export type { U3dCumulativePathDrawInfo };
+export type { U3dCumulativePathDrawResult };
 export type { U3dCumulativePathPositionData };
 export type { U3dCumulativePathStyleFunc };
 export type { U3dCustomModelGroup };
@@ -82058,10 +82724,24 @@ export type { U3dMultipleComponentMeshSource };
 export type { U3dMultipleComponentModelInfo };
 export type { U3dObjectCO };
 export type { U3dObjectCO_Content };
+export type { U3dOpenLayerCameraMoveState };
+export type { U3dOpenLayerCancellationSource };
 export type { U3dOpenLayerCO };
 export type { U3dOpenLayerCO_Content };
+export type { U3dOpenLayerCompletionFrame };
+export type { U3dOpenLayerConsumerBundle };
+export type { U3dOpenLayerConsumerLayer };
+export type { U3dOpenLayerDebugSummary };
+export type { U3dOpenLayerDebugSummary_Content };
+export type { U3dOpenLayerEvictionCache };
+export type { U3dOpenLayerFrameScheduler };
+export type { U3dOpenLayerOLReader };
+export type { U3dOpenLayerRenderFrameHandle };
+export type { U3dOpenLayerRequestTile };
 export type { U3dOpenLayerTile };
 export type { U3dOpenLayerTileInternal };
+export type { U3dOpenLayerTileRange };
+export type { U3dOpenLayerTimingSummary };
 export type { U3dOutlineAliasCO };
 export type { U3dOverlay_Content };
 export type { U3dOverlayCO };
@@ -82075,6 +82755,11 @@ export type { U3dPathGeometryParam };
 export type { U3dPathGeometryParam_Content };
 export type { U3dPathGeometrySetParam };
 export type { U3dPathGeometrySetParam_Content };
+export type { U3dPatternBakeResult };
+export type { U3dPatternDecalSelectionState };
+export type { U3dPatternLayerCanvasState };
+export type { U3dPatternResourceInfo };
+export type { U3dPatternWorkLog };
 export type { U3dPatternXYZLayerCO };
 export type { U3dPatternXYZLayerCO_Content };
 export type { U3dPipeCO };
@@ -82121,10 +82806,16 @@ export type { U3dShaderMeasureLayerCO_Content };
 export type { U3dShaderMeasureLayerRenderStyle };
 export type { U3dShaderMeasureLayerStyle };
 export type { U3dShaderMeasureOLFeature };
+export type { U3dShaderMeasurePayloadState };
+export type { U3dShaderMeasureSignatureState };
+export type { U3dShaderMeasureSimpleGeometryState };
+export type { U3dShaderMeasureSourceIdentityState };
 export type { U3dShaderMeasureSourceRevisionState };
 export type { U3dShaderMeasureStrokeStyle };
+export type { U3dShaderMeasureStyleState };
 export type { U3dShaderMeasureTerrainDebugFilter };
 export type { U3dShaderMeasureTileBound };
+export type { U3dShaderMeasureTileRangeState };
 export type { U3dSphereCO };
 export type { U3dSphereCO_Content };
 export type { U3dStats };
@@ -82420,7 +83111,10 @@ export type { UParticleEngineParam };
 export type { UPassInfo };
 export type { UPassInfoCO };
 export type { UPatternDecal };
+export type { UPatternDecalAreaState };
+export type { UPatternDecalCanvasState };
 export type { UPatternDecalCO };
+export type { UPatternDecalSizeState };
 export type { UPhysicalFlowSimulation };
 export type { UPlaneBufferGeometry };
 export type { UPlaneCustomBox };
@@ -82450,8 +83144,8 @@ export type { USimpleTail_Policy };
 export type { USimpleTail_Policy_Content };
 export type { USimpleTailCO };
 export type { USimpleTailCO_Content };
-export type { USimpleTailFadeEvaluator };
-export type { USimpleTailFadeNode };
+export type { USimpleTailDrawEvaluator };
+export type { USimpleTailDrawNode };
 export type { USimpleTailNode };
 export type { USimpleTailPointMetadata };
 export type { USimpleTailRuntimePolicy };

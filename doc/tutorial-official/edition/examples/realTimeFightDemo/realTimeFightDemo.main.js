@@ -52,7 +52,9 @@ const MAX_LOCATION_FAILURE_COUNT = 3;
  */
 export async function initialize(context) {
     const app = context.app;
-    const THREE = Union3D.THREE;
+    app.debugFps();
+
+    const THREE = GeOnDT.THREE;
     const {createFlightRouteHistory, normalizeRoutePoint} = context.modules.flightRouteHistory;
     const {createDebugBoxPool} = context.modules.debugBoxPool;
 
@@ -421,21 +423,18 @@ export async function initialize(context) {
 
     /**
      * 누적 경로 도착 시점마다 통과 구간 정보를 전달합니다.
+     * 통과시간은 화면에서 목표점에 도착한 콜백 시각이며 서버의 좌표 측정 시각과는 다릅니다.
      * 엔진이 컴포넌트를 `this`로 호출하므로 화살표 함수로 작성하지 않습니다.
      * @param {{name: string, distance: number, time: number, speed: number}} arrived 도착 정보
      */
-    function handleComponentArrived({name, distance, time, speed}) {
+    function handleComponentArrived({name, distance, speed}) {
         const component = this;
         if (!component.isTrace) return;
 
+        // 거리/현재 속도로 추정한 시각은 속도 변경이나 보정 이동 시 미래가 될 수 있다.
+        const passTime = new Date();
         const passInfo = routeHistory.project(name, component.getVectorPosition());
         const planeInfo = planeList.get(name);
-        const elapsedTime = Number(passInfo?.time ?? time);
-        const passTime = Number.isFinite(passInfo?.absoluteTime)
-            ? new Date(passInfo.absoluteTime)
-            : (planeInfo?.takeoffTime instanceof Date && Number.isFinite(elapsedTime)
-                ? new Date(planeInfo.takeoffTime.getTime() + elapsedTime)
-                : new Date());
 
         emit('pass', {
             name,
@@ -545,7 +544,7 @@ export async function initialize(context) {
             if (!airport || !airport.code) continue;
             airportInfo[airport.code] = airport;
             // @example-code:start airport.poi
-            const poi = new Union3D.geom.U3dPOI({
+            const poi = new GeOnDT.geom.U3dPOI({
                 position: app.geographicToVector3({x: airport.lon, y: airport.lat, z: airport.height}),
                 image: context.runtime.resolveAsset('assets/airport-mark.png'),
                 label: airport.name,
@@ -701,7 +700,7 @@ export async function initialize(context) {
         .catch(error => console.warn('[realTimeFightDemo] 항공기 레이어를 표시하지 못했습니다.', error));
 
     // @example-code:start select.create
-    selector = new Union3D.select.U3dSelect({
+    selector = new GeOnDT.select.U3dSelect({
         targetLayer: [componentLayer.getName()],
         selectType: 'color'
     });

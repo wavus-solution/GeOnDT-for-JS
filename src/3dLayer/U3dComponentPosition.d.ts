@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, ShaderMaterial, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -830,8 +830,10 @@ declare class U3dComponentPosition {
      */
     isDisposed(): boolean;
     /**
-     * 애니메이션 시 컴포넌트의 이동 속도를 지정하는 함수
-     * @param {number} speed 이동 속도 (km/h). 1500을 넘으면 무시됩니다. 주행 중이면 다음 프레임부터 반영됩니다
+     * 애니메이션 시 컴포넌트의 이동 속도를 지정합니다.
+     * 속도 0으로 일시 정지된 경우에도 속도 변경을 컨트롤러에 전달하여 다음 갱신에서 재개할 수 있습니다.
+     *
+     * @param {number} speed 이동 속도(km/h)입니다. 1500을 넘으면 무시됩니다. 주행 중이면 다음 프레임부터 반영됩니다.
      */
     setSpeed(speed: number): void;
     /**
@@ -948,9 +950,9 @@ declare class U3dComponentPosition {
      * 현재 위치를 누적 경로에 기록한다.
      * moveSmoothly, addMovePoint, setPosition 등 위치 변경 진입점에서 공통으로 사용한다.
      * @param {WorldPositionVector3} position 기록할 월드 좌표
-     * @param {number} [time] 애니메이션 컨트롤러 기준 누적 시간(ms)
+     * 기록 시각은 경로가 자체 생성하며 애니메이션 시간은 전달하지 않습니다.
      */
-    recordCumulativePathFrame(position: WorldPositionVector3, time?: number): void;
+    recordCumulativePathFrame(position: WorldPositionVector3): void;
     /**
      * 컴포넌트 누적 경로를 반환하는 메서드입니다.
      * @returns {import('@union3d/geometry/U3dCumulativePath').U3dCumulativePath|undefined} 누적 경로가 없으면 undefined
@@ -1784,7 +1786,7 @@ declare class U3dComponentPosition {
     /**
      * 컨포넌트에 주행 애니메이션에 대한 컨트롤러를 추가하는 함수
      * @param {string} animationID - 생성할 애니메이션 컨트롤러의 고유 ID
-     * @param {function(number, number): void} animation - 실행할 애니메이션 함수 (deltaTime, updateRate를 인자로 받음)
+     * @param {function(number, number, number): void} animation - 실행할 애니메이션 함수 (deltaTime, updateRate, moveDistance를 인자로 받음)
      * @param {number} [durtaion] - 주행 시간 (입력하면 해당 시간내로 주행을 완료하기 위해 가변 속도로 주행한다)
      * @returns {import('@union3d/analy/UAnimationController').UAnimationController|undefined} 생성된 UAnimationController 객체, 생성 실패 시 undefined 반환
      * @example
@@ -1793,7 +1795,7 @@ declare class U3dComponentPosition {
      * });
      * @ignore
      */
-    makeAnimationController(animationID: string, animation: (arg0: number, arg1: number) => void, durtaion?: number): UAnimationController | undefined;
+    makeAnimationController(animationID: string, animation: (arg0: number, arg1: number, arg2: number) => void, durtaion?: number): UAnimationController | undefined;
     /**
      * 컴포넌트의 경로 이동 애니메이션 실행 중 강제로 위치를 이동 시키는 함수
      * @param {number} rate 이동 목표 비율. 0(시작점) ~ 1(종료점)
@@ -2172,10 +2174,6 @@ declare class U3dComponentPosition {
          * 초기 경로의 마지막 누적 정보
          */
         lastInfo: CumulativeInfo | undefined;
-        /**
-         * 초기화 시각
-         */
-        initTime: number;
         /**
          * 이동 시작 월드 좌표
          */
@@ -2693,8 +2691,9 @@ type ComponentParam = {
          */
         useLookAt?: boolean;
         /**
-         * 목표 위치까지 보간 이동할 시간(ms). 0이면 다음 프레임에 목표 위치에 도착합니다.
-         * 양수이면 해당 시간 안에 도착을 보장하기 위해 이동 속도를 가변적으로 보간합니다.
+         * 현재 구간 시작부터 목표 위치에 도착하기까지 허용할 시간(ms, 일시정지 시간 제외). 0이면 해당 구간의 첫 갱신 프레임에 도착합니다.
+         * 양수이면 기본 속도를 유지하되 기한 내 도착에 필요한 경우 가속합니다. 여유가 있으면 기본 속도로 먼저 도착할 수 있습니다.
+         * 프레임 지연으로 기한을 넘기면 다음 실행 가능한 프레임에 목표 위치를 반영합니다. 대기열 구간에는 밀림 보정으로 단축된 기한이 적용될 수 있습니다.
          * 생략하거나 null이면 이동 거리와 설정 속도로 소요 시간을 자동 계산하여 등속 이동합니다.
          * 음수나 유한하지 않은 값이면 해당 목표를 등록하지 않습니다.
          */

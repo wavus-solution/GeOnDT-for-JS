@@ -341,6 +341,7 @@ export async function initialize(context) {
         let isHeightLegendVisible = false;
         let isContourVisible = false;
         let isDisposed = false;
+        let disposeFpsMonitor;
         // 이동 정지 중에도 timer와 방향 화살표 culling은 유지하되, 비행 좌표 상태는 진행시키지 않는다.
         window.pauseDroneMovement = false;
 
@@ -382,7 +383,8 @@ export async function initialize(context) {
             // containername은 실제 3D 지도가 들어갈 DOM id와 일치해야 한다.
             app = context.app;
             window.app = app;
-            app.debugFps(false); // 필요하면 true로 바꿔 렌더링 FPS를 확인할 수 있다.
+            app.debugFps(false); // 전용 패널에서 실제 렌더 FPS와 측정 구간 통계를 함께 표시한다.
+            disposeFpsMonitor = initializeFpsMonitor();
 
             // 로딩 바 생성 및 시작
             app.createloadingBar('load');
@@ -986,14 +988,21 @@ export async function initialize(context) {
             });
         }
 
-    // 초기화 시 서로 겹치지 않는 테스트 좌표에 드론 3대를 배치한다.
+        // 드론 10대와 각 지면 투영 Helper의 성능을 비교할 수 있도록 서로 다른 출발점을 사용한다.
         const DIRECTION_CAPTURE_POSITIONS = [
             {x: 127.94650345667147, y: 37.34919793475747, z: 1000},
             {x: 127.94277569936673, y: 37.34393675801265, z: 1000},
-            {x: 127.93975373690674, y: 37.34733103904163, z: 1000}
+            {x: 127.93975373690674, y: 37.34733103904163, z: 1000},
+            {x: 127.9430, y: 37.3495, z: 1000},
+            {x: 127.9465, y: 37.3460, z: 1000},
+            {x: 127.9395, y: 37.3440, z: 1000},
+            {x: 127.9365, y: 37.3465, z: 1000},
+            {x: 127.9365, y: 37.3495, z: 1000},
+            {x: 127.9395, y: 37.3520, z: 1000},
+            {x: 127.9430, y: 37.3520, z: 1000}
         ];
 
-        // 모델 레이어 준비가 끝난 뒤 예제에서 처음 보여 줄 드론 세 대를 생성한다.
+        // 모델 로딩 완료 후 목록 전체를 생성해 최초 진입부터 드론 10대에 같은 기본 설정을 적용한다.
         function addInitialDroneComponents() {
             DIRECTION_CAPTURE_POSITIONS.forEach(function (position) {
                 // 모든 초기 드론이 UI 기본 Pitch 10°로 시작해 같은 조건에서 지면 투영 Helper를 비교할 수 있게 한다.
@@ -1420,9 +1429,294 @@ export async function initialize(context) {
             positionInterval = undefined;
         }
 
+        /**
+         * 실제 지도 렌더를 세어 최근 FPS와 사용자가 시작한 측정 구간을 표시합니다.
+         * UI는 초당 한 번 갱신하며 탭이 숨겨진 동안은 렌더 수와 시간을 모두 제외합니다.
+         * 구간 평균은 전체 프레임 수/전체 시간으로 계산하고, 저하 비율은 1초 표본의 시간 비율입니다.
+         *
+         * @returns {function(): void} 렌더 콜백·예약·DOM 이벤트를 해제하는 함수
+         */
+        function initializeFpsMonitor() {
+            const element = id => document.getElementById(id);
+            const panel = element('drone-fps-monitor');
+            const heading = panel.querySelector('.fps-heading');
+            const live = element('fps-live');
+            const average = element('fps-average');
+            const minimum = element('fps-minimum');
+            const below = element('fps-below');
+            const elapsed = element('fps-elapsed');
+            const status = element('fps-status');
+            const start = element('fps-start');
+            const stop = element('fps-stop');
+            const save = element('fps-export');
+            const duration = element('fps-duration');
+            const canvas = element('fps-chart');
+            const chart = canvas.getContext('2d');
+            const callbackKey = 'animationComponents.fpsMonitor';
+            const history = [];
+            let frames = 0;
+            let previousFrames = 0;
+            let previousTime = performance.now();
+            let browserFrame = 0;
+            let recordedBrowserFrame = -1;
+            let frameRequest = 0;
+            let measuring = false;
+            let report;
+            let disposed = false;
+            let drag;
+
+            let hasDragged = false;
+
+            // 편집기 상태는 기존 페이지가 관리한다. 실제 편집기 경계만 읽고 예제의 배치는 별도로 제한한다.
+            // 기본 위치는 CSS가 남은 지도 영역의 하단 중앙에 맞추며, 직접 옮긴 위치만 픽셀로 보존한다.
+            function panelBounds() {
+                const parent = panel.offsetParent;
+                const rect = parent?.getBoundingClientRect();
+                const width = parent?.clientWidth || window.innerWidth;
+                const height = parent?.clientHeight || window.innerHeight;
+                const editor = document.getElementById('example-editor');
+                let inset = 0;
+                if (document.body.classList.contains('example-editor-open')) {
+                    const editorRight = editor && !editor.hidden ? editor.getBoundingClientRect().right : undefined;
+                    const configuredWidth = parseFloat(getComputedStyle(document.body).getPropertyValue('--editor-pane-width'));
+                    inset = editorRight === undefined
+                        ? (Number.isFinite(configuredWidth) ? configuredWidth : Math.min(window.innerWidth * .4, 600))
+                        : editorRight - (rect?.left || 0);
+                }
+                return {left: rect?.left || 0, top: rect?.top || 0, width, height, inset: Math.max(0, inset)};
+            }
+            function positionPanel(left, top) {
+                const bounds = panelBounds();
+                panel.style.transform = 'none';
+                panel.style.bottom = 'auto';
+                panel.style.left = Math.max(bounds.inset + 8, Math.min(left, bounds.width - panel.offsetWidth - 8)) + 'px';
+                panel.style.top = Math.max(8, Math.min(top, bounds.height - panel.offsetHeight - 8)) + 'px';
+            }
+            function beginDrag(event) {
+                if (event.button !== 0 || drag) return;
+                const rect = panel.getBoundingClientRect();
+                const bounds = panelBounds();
+                drag = {pointerId: event.pointerId, x: event.clientX, y: event.clientY, left: rect.left - bounds.left, top: rect.top - bounds.top};
+                hasDragged = true;
+                heading.setPointerCapture(event.pointerId);
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            function moveDrag(event) {
+                if (!drag || drag.pointerId !== event.pointerId) return;
+                positionPanel(drag.left + event.clientX - drag.x, drag.top + event.clientY - drag.y);
+                event.stopPropagation();
+            }
+            function endDrag(event) {
+                if (!drag || drag.pointerId !== event.pointerId) return;
+                drag = undefined;
+                if (heading.hasPointerCapture(event.pointerId)) heading.releasePointerCapture(event.pointerId);
+            }
+            function containPanel() {
+                if (!hasDragged) return;
+                const rect = panel.getBoundingClientRect();
+                const bounds = panelBounds();
+                positionPanel(rect.left - bounds.left, rect.top - bounds.top);
+            }
+
+            // 코드 패널의 열림·폭 변경은 window resize 없이도 발생하므로 기존 body 상태와 패널 크기만 관찰한다.
+            // 매 프레임 레이아웃을 읽는 폴링은 하지 않으며 예제가 끝날 때 관찰자를 함께 해제한다.
+            const editorObserver = new MutationObserver(containPanel);
+            editorObserver.observe(document.body, {attributes: true, attributeFilter: ['class', 'style']});
+            const panelObserver = new ResizeObserver(containPanel);
+            panelObserver.observe(panel);
+
+            // 스와이프의 두 draw를 한 화면 프레임으로 합친다. rAF 자체를 FPS 표본으로 세지는 않는다.
+            function advanceBrowserFrame() {
+                if (disposed) return;
+                browserFrame++;
+                frameRequest = requestAnimationFrame(advanceBrowserFrame);
+            }
+            function recordRender(renderer, scene, camera) {
+                if (disposed || document.hidden || camera !== app.getCamera() || recordedBrowserFrame === browserFrame) return;
+                recordedBrowserFrame = browserFrame;
+                frames++;
+            }
+
+            // 목록과 DOM을 매 프레임 순회하지 않고 UI 갱신·결과 저장 시에만 측정 조건을 읽는다.
+            function readScenario() {
+                let terrainHelpers = 0;
+                for (const component of droneComponents) {
+                    const debug = component.userData?.[DRONE_CAMERA_DEBUG_KEY];
+                    if (debug?.helperMode === 'terrain' && debug.helper?.getVisible()) terrainHelpers++;
+                }
+                return {
+                    drones: droneComponents.length,
+                    terrainHelpers,
+                    moving: !window.pauseDroneMovement,
+                    captureStyle: element('capture-area-style').value,
+                    settingsSignature: JSON.stringify(droneComponents.map(component => component.userData?.[DRONE_FRUSTUM_SETTINGS_KEY]))
+                };
+            }
+
+            function drawChart() {
+                if (!chart) return;
+                const width = canvas.width;
+                const height = canvas.height;
+                chart.clearRect(0, 0, width, height);
+                chart.strokeStyle = '#ffbd79';
+                chart.setLineDash([4, 4]);
+                chart.beginPath();
+                chart.moveTo(0, height / 2);
+                chart.lineTo(width, height / 2);
+                chart.stroke();
+                chart.setLineDash([]);
+                chart.strokeStyle = '#65dec1';
+                chart.beginPath();
+                for (let i = 0; i < history.length; i++) {
+                    const x = (60 - history.length + i) * width / 59;
+                    const y = height - Math.min(history[i], 100) * height / 100;
+                    if (i === 0) chart.moveTo(x, y);
+                    else chart.lineTo(x, y);
+                }
+                chart.stroke();
+            }
+
+            function displayReport() {
+                if (!report || report.activeMs === 0) return;
+                average.textContent = (report.frames * 1000 / report.activeMs).toFixed(1) + ' FPS';
+                minimum.textContent = Number.isFinite(report.minimumFps) ? report.minimumFps.toFixed(1) : '—';
+                below.textContent = (report.belowTargetMs * 100 / report.activeMs).toFixed(1) + '%';
+                elapsed.textContent = (report.activeMs / 1000).toFixed(1) + '초';
+            }
+
+            // 마지막 짧은 구간도 평균에 포함한다. 설정 변경은 표본에 기록하고 판정 조건도 함께 확인한다.
+            function sample(includeHidden = false) {
+                const now = performance.now();
+                const delta = now - previousTime;
+                const count = frames - previousFrames;
+                previousTime = now;
+                previousFrames = frames;
+                if ((!includeHidden && document.hidden) || delta <= 0) return;
+                const fps = count * 1000 / delta;
+                const current = readScenario();
+                live.textContent = fps.toFixed(1);
+                live.style.color = fps >= 50 ? '#65dec1' : '#ffbd79';
+                if (delta >= 500) {
+                    history.push(fps);
+                    if (history.length > 60) history.shift();
+                    drawChart();
+                }
+                if (!measuring) return;
+                report.activeMs += delta;
+                report.frames += count;
+                if (fps < 50) report.belowTargetMs += delta;
+                // 종료 버튼의 순간적인 부분 구간을 '최저 1초' 표본에 섞지 않는다.
+                if (delta >= 500) report.minimumFps = Math.min(report.minimumFps, fps);
+                if (JSON.stringify(current) !== JSON.stringify(report.initialScenario)) report.conditionsChanged = true;
+                report.samples.push({elapsedMs: report.activeMs, durationMs: delta, frames: count, fps, scenario: current});
+                displayReport();
+                if (report.activeMs >= report.requestedSeconds * 1000) finishMeasurement();
+            }
+
+            function finishMeasurement() {
+                measuring = false;
+                start.disabled = false;
+                duration.disabled = false;
+                stop.disabled = true;
+                save.disabled = !report || report.activeMs === 0;
+                if (!report || report.activeMs === 0) {
+                    status.textContent = '측정 표본이 없습니다. 다시 시작하세요.';
+                    return;
+                }
+                report.averageFps = report.frames * 1000 / report.activeMs;
+                report.finishedAt = new Date().toISOString();
+                report.targetMet = report.averageFps >= 50;
+                const eligible = report.initialScenario.drones === 10 && report.initialScenario.terrainHelpers === 10 && !report.conditionsChanged;
+                status.dataset.result = eligible ? (report.targetMet ? 'pass' : 'fail') : '';
+                status.textContent = eligible
+                    ? `측정 완료 · 평균 50 FPS ${report.targetMet ? '달성' : '미달'}`
+                    : '측정 완료 · 10대/Helper 10개 또는 동일 조건을 확인하세요.';
+                if (!Number.isFinite(report.minimumFps)) { report.minimumFps = null; minimum.textContent = '—'; }
+            }
+
+            function beginMeasurement() {
+                report = {
+                    targetFps: 50, requestedSeconds: Number(duration.value), startedAt: new Date().toISOString(),
+                    initialScenario: readScenario(), conditionsChanged: false, activeMs: 0, frames: 0,
+                    minimumFps: Infinity, belowTargetMs: 0, samples: []
+                };
+                previousTime = performance.now();
+                previousFrames = frames;
+                measuring = true;
+                start.disabled = true;
+                duration.disabled = true;
+                stop.disabled = false;
+                save.disabled = true;
+                average.textContent = minimum.textContent = below.textContent = '—';
+                elapsed.textContent = '0.0초';
+                status.dataset.result = '';
+                status.textContent = '측정 중 · 평균은 구간 전체 기준입니다.';
+            }
+
+            function stopMeasurement() { if (measuring) { sample(); if (measuring) finishMeasurement(); } }
+            function visibilityChanged() {
+                // 숨김 경계까지의 마지막 부분 구간을 반영하고 재개 기준을 새로 잡아 긴 공백을 제외한다.
+                if (document.hidden) sample(true);
+                previousTime = performance.now();
+                previousFrames = frames;
+                if (document.hidden) {
+                    live.textContent = '—';
+                    if (measuring) status.textContent = '탭 숨김 · 측정 일시 중지';
+                } else if (measuring) status.textContent = '측정 중 · 탭 복귀 후 재개';
+            }
+
+            function exportReport() {
+                if (!report || measuring || report.activeMs === 0) return;
+                const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], {type: 'application/json'}));
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'animationComponents-fps.json';
+                link.click();
+                URL.revokeObjectURL(url);
+            }
+
+            start.addEventListener('click', beginMeasurement);
+            heading.addEventListener('pointerdown', beginDrag);
+            heading.addEventListener('pointermove', moveDrag);
+            heading.addEventListener('pointerup', endDrag);
+            heading.addEventListener('pointercancel', endDrag);
+            heading.addEventListener('lostpointercapture', endDrag);
+            window.addEventListener('resize', containPanel);
+            stop.addEventListener('click', stopMeasurement);
+            save.addEventListener('click', exportReport);
+            document.addEventListener('visibilitychange', visibilityChanged);
+            app.setRenderAfter(callbackKey, recordRender);
+            frameRequest = requestAnimationFrame(advanceBrowserFrame);
+            const interval = setInterval(sample, 1000);
+            drawChart();
+            return () => {
+                if (disposed) return;
+                disposed = true;
+                editorObserver.disconnect();
+                panelObserver.disconnect();
+                if (drag && heading.hasPointerCapture(drag.pointerId)) heading.releasePointerCapture(drag.pointerId);
+                drag = undefined;
+                heading.removeEventListener('pointerdown', beginDrag);
+                heading.removeEventListener('pointermove', moveDrag);
+                heading.removeEventListener('pointerup', endDrag);
+                heading.removeEventListener('pointercancel', endDrag);
+                heading.removeEventListener('lostpointercapture', endDrag);
+                window.removeEventListener('resize', containPanel);
+                clearInterval(interval);
+                cancelAnimationFrame(frameRequest);
+                app.removeRenderAfter(callbackKey);
+                start.removeEventListener('click', beginMeasurement);
+                stop.removeEventListener('click', stopMeasurement);
+                save.removeEventListener('click', exportReport);
+                document.removeEventListener('visibilitychange', visibilityChanged);
+            };
+        }
+
         function cleanupDemo() {
             if (isDisposed) return;
             isDisposed = true;
+            disposeFpsMonitor?.();
 
             stopRandomPositionUpdate();
             clearInterval(futurePositionInterval);
@@ -2908,8 +3202,8 @@ export async function initialize(context) {
                     textureOpacity: captureAreaStyle.textureOpacity ?? 1,
                     // true이면 PNG 등 이미지 자체 alpha를 반영하고, false이면 textureOpacity만 alpha로 사용한다.
                     textureUseAlpha: captureAreaStyle.textureUseAlpha ?? true,
-                    // contain은 채움영역에 이미지가 맞도록 늘려서 배치한다.
-                    // stretch는 stamp 기본 프레임 기준으로 매핑한 뒤 영역 밖을 잘라낸다.
+                    // 지면 투영 Helper는 contain도 stretch와 같은 공통 frame에 매핑하고 교차 영역 밖은 잘라낸다.
+                    // 사다리꼴 변형과 이미지 전체 표시를 보장하지 않아 추가 warp 계산을 하지 않는다.
                     textureFit: captureAreaStyle.textureFit ?? 'stretch',
                 }
             });

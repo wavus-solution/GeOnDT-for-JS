@@ -1729,6 +1729,8 @@
       "summary": "드론을 50Hz 간격으로 이동시키며 촬영 영역과 누적 경로를 확인하고, 고도 범례와 등고선을 지도에 겹쳐 지형 높이를 비교하는 예제입니다.",
       "tags": [],
       "apis": [
+        "setRenderAfter",
+        "removeRenderAfter",
         "createloadingBar",
         "createMultipleComponentLayer",
         "debugFps",

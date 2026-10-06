@@ -142,9 +142,9 @@ export function initializeUI(context, example) {
     /** 현재 노선 선택에 맞춰 출발 공항 목록을 다시 만듭니다. */
     function renderAirportOptions() {
         if (!airportSelect) return;
-        const isDomestic = routeTypeSelect?.value === 'DOMESTIC';
+        const routeType = routeTypeSelect?.value ?? 'ALL';
         const options = example.getAirports()
-            .filter(airport => (isDomestic ? airport.type === 'DOMESTIC' : airport.type !== 'DOMESTIC'))
+            .filter(airport => routeType === 'ALL' || (routeType === 'DOMESTIC' ? airport.type === 'DOMESTIC' : airport.type !== 'DOMESTIC'))
             .map(airport => `<option value="${airport.code}">${airport.name} (${airport.code})</option>`)
             .join('');
         airportSelect.innerHTML = `<option value="ALL">전체</option>${options}`;
@@ -156,12 +156,12 @@ export function initializeUI(context, example) {
      * @returns {Array<Record<string, unknown>>} 표시할 항공기 목록
      */
     function getFilteredPlanes() {
-        const routeType = routeTypeSelect?.value === 'DOMESTIC' ? 'DOMESTIC' : 'INTERNATIONAL';
+        const routeType = routeTypeSelect?.value ?? 'ALL';
         const airport = airportSelect?.value || 'ALL';
         return example.getPlanes().filter(plane => {
-            const routeMatched = routeType === 'DOMESTIC'
+            const routeMatched = routeType === 'ALL' || (routeType === 'DOMESTIC'
                 ? plane.routeType === 'DOMESTIC'
-                : plane.routeType !== 'DOMESTIC';
+                : plane.routeType !== 'DOMESTIC');
             return routeMatched && (airport === 'ALL' || plane.origin === airport);
         });
     }
@@ -239,7 +239,7 @@ export function initializeUI(context, example) {
         if (sectionPanel) sectionPanel.hidden = mode !== 'section';
         if (cameraBar) cameraBar.hidden = mode !== 'trace';
         if (mode !== 'trace' && passLogElement) passLogElement.innerHTML = '';
-        highlightSelectedPlane(mode === 'trace' ? undefined : name);
+        highlightSelectedPlane(name);
 
         const progressPercent = (calculateProgress(info.takeoffTime, info.etaTime) * 100).toFixed(1);
         const progressBar = element('#flight-progress-bar');
@@ -276,7 +276,7 @@ export function initializeUI(context, example) {
     }
 
     /**
-     * 통과 구간 정보를 로그에 추가합니다.
+     * 최신 통과 구간 정보를 로그의 맨 위에 추가합니다.
      * @param {{name: string, cumulativeDist: number, passTime: Date, height: number, speed: number}} pass 통과 정보
      */
     function appendPassLog(pass) {
@@ -290,7 +290,7 @@ export function initializeUI(context, example) {
             <span>통과시간 : ${formatTime(pass.passTime)}</span>
             <span>고도 : 해발 ${pass.height.toFixed(0)} m</span>
             <span>속도 : ${Number.isFinite(pass.speed) ? pass.speed : '-'} km/h</span>`;
-        passLogElement.append(entry);
+        passLogElement.prepend(entry);
     }
 
     /**

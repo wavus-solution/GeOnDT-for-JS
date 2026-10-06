@@ -713,7 +713,12 @@ U3dComponentPosition 클래스 정의
     isDisposed() -> boolean
         동작: #disposed 상태를 반환한다. 이 조회 자체가 다른 API의 실행을 차단하지 않으며 생성 실패 시에는 부분 초기화 상태를 나타낸다.
     setSpeed(speed: number) -> void
-        동작: 애니메이션 시 컴포넌트의 이동 속도를 지정하는 함수
+        동작:
+            speed가 1500보다 크면 안내를 출력하고 반환한다.
+            새 속도를 newSpeed에 저장하고 needToChange를 true로 설정한다.
+            _animation이 false이면 speed를 즉시 저장하고 needToChange를 false로 되돌린다.
+            그 외에는 현재 컨트롤러가 일시 정지 상태인지 확인하고, 정지 중이면 대기 중인 변경을 즉시 전달한다. 이동 프레임이 없어도 속도 0 정지에서 재개 명령이 전달된다.
+            나머지는 다음 이동 프레임에서 변경을 적용한다.
     getSpeed() -> number
         동작: 애니메이션 시 컴포넌트의 이동속도를 반환하는 함수
     getObject() -> import('three').Object3D | undefined
@@ -766,7 +771,7 @@ U3dComponentPosition 클래스 정의
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
         동작: 현재 위치에서 목표 위경도 좌표까지 직선 구간을 매 프레임 보간하여 이동한다. drawCumulativePath 옵션이 true이면 보간된 이동 위치를 누적 경로(궤적)로 기록한다.
-    recordCumulativePathFrame(position: WorldPositionVector3, dist: number = undefined, time: number = undefined, speed: number = undefined, moveDistance: number = undefined) -> void
+    recordCumulativePathFrame(position: WorldPositionVector3) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
         동작: 현재 위치를 누적 경로에 기록한다. moveSmoothly, addMovePoint, setPosition 등 위치 변경 진입점에서 공통으로 사용한다.

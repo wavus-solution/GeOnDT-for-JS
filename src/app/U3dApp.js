@@ -9313,7 +9313,7 @@ class U3dApp extends U3dObject {
      * 기존 UFrustumHelper의 주요 스타일 인터페이스와 호환하며, terrain:true일 때 OOR 성분을 표시하지 않습니다.
      *
      * @param {import('three').Frustum} frustum
-     * @param {import('@union3d/helpers/UFrustumTerrainProjectionHelper').UFrustumTerrainProjectionHelperCO} [options]
+     * @param {UFrustumTerrainProjectionHelperCO} [options]
      * @returns {import('@union3d/helpers/UFrustumTerrainProjectionHelper').UFrustumTerrainProjectionHelper | undefined}
      */
     setFrustumTerrainProjectionHelper(frustum, options = {}) {

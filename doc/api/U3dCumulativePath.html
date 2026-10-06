@@ -15,7 +15,7 @@
     <!-- 한글 본문용 가변 서체입니다. 내려받지 못해도 styles/jaguar.css의 대체 서체로 그대로 표시됩니다. -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-    <link type="text/css" rel="stylesheet" href="styles/jaguar.css?v=muq8tjf0">
+    <link type="text/css" rel="stylesheet" href="styles/jaguar.css?v=muw7iz8z">
     <script>
         // 화면이 그려지기 전에 테마를 정해 화면이 한 번 번쩍이는 것을 막습니다.
         // 상단 전환 버튼으로 직접 고른 적이 없으면 운영체제 설정을 따릅니다.
@@ -11311,6 +11311,10 @@
                     <a href="U3dOpenLayer.html#~OLLayer">OLLayer</a>
                 </li>
             
+                <li data-name="ollayerentry">
+                    <a href="U3dOpenLayer.html#~OLLayerEntry">OLLayerEntry</a>
+                </li>
+            
                 <li data-name="olmap">
                     <a href="U3dOpenLayer.html#~OLMap">OLMap</a>
                 </li>
@@ -11327,8 +11331,60 @@
                     <a href="U3dOpenLayer.html#~U3dOpenLayerCO">U3dOpenLayerCO</a>
                 </li>
             
+                <li data-name="u3dopenlayercameramovestate">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerCameraMoveState">U3dOpenLayerCameraMoveState</a>
+                </li>
+            
+                <li data-name="u3dopenlayercancellationsource">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerCancellationSource">U3dOpenLayerCancellationSource</a>
+                </li>
+            
+                <li data-name="u3dopenlayercompletionframe">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerCompletionFrame">U3dOpenLayerCompletionFrame</a>
+                </li>
+            
+                <li data-name="u3dopenlayerconsumerbundle">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerConsumerBundle">U3dOpenLayerConsumerBundle</a>
+                </li>
+            
+                <li data-name="u3dopenlayerconsumerlayer">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerConsumerLayer">U3dOpenLayerConsumerLayer</a>
+                </li>
+            
+                <li data-name="u3dopenlayerdebugsummary">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerDebugSummary">U3dOpenLayerDebugSummary</a>
+                </li>
+            
+                <li data-name="u3dopenlayerevictioncache">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerEvictionCache">U3dOpenLayerEvictionCache</a>
+                </li>
+            
+                <li data-name="u3dopenlayerframescheduler">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerFrameScheduler">U3dOpenLayerFrameScheduler</a>
+                </li>
+            
+                <li data-name="u3dopenlayerolreader">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerOLReader">U3dOpenLayerOLReader</a>
+                </li>
+            
+                <li data-name="u3dopenlayerrenderframehandle">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerRenderFrameHandle">U3dOpenLayerRenderFrameHandle</a>
+                </li>
+            
+                <li data-name="u3dopenlayerrequesttile">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerRequestTile">U3dOpenLayerRequestTile</a>
+                </li>
+            
                 <li data-name="u3dopenlayertile">
                     <a href="U3dOpenLayer.html#~U3dOpenLayerTile">U3dOpenLayerTile</a>
+                </li>
+            
+                <li data-name="u3dopenlayertilerange">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerTileRange">U3dOpenLayerTileRange</a>
+                </li>
+            
+                <li data-name="u3dopenlayertimingsummary">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerTimingSummary">U3dOpenLayerTimingSummary</a>
                 </li>
             
             </ul>
@@ -13303,6 +13359,10 @@
                     <a href="U3dCumulativePath.html#setColor">setColor</a>
                 </li>
             
+                <li data-name="setdrawfunc">
+                    <a href="U3dCumulativePath.html#setDrawFunc">setDrawFunc</a>
+                </li>
+            
                 <li data-name="setgradation">
                     <a href="U3dCumulativePath.html#setGradation">setGradation</a>
                 </li>
@@ -13347,8 +13407,8 @@
                     <a href="U3dCumulativePath.html#show">show</a>
                 </li>
             
-                <li data-name="updatefade">
-                    <a href="U3dCumulativePath.html#updateFade">updateFade</a>
+                <li data-name="updatedraw">
+                    <a href="U3dCumulativePath.html#updateDraw">updateDraw</a>
                 </li>
             
                 <li data-name="updatepath">
@@ -18819,7 +18879,7 @@ app과 scene은 필수이며 둘 중 하나가 없으면 오류를 보고합니�
     
     <div class="description">
         <p>최근 도착 waypoint 100개의 좌표·도착 시각 복사본입니다. 오래된 순서입니다.
-렌더 노드 단순화·거리 제한과 독립적으로 보관하며 removePath/dispose 시 비웁니다.</p>
+렌더 노드 단순화·draw 정책과 독립적으로 보관하며 removePath/dispose 시 비웁니다.</p>
     </div>
     
     
@@ -18879,7 +18939,8 @@ app과 scene은 필수이며 둘 중 하나가 없으면 오류를 보고합니�
     <div class="description">
         <p>위치 데이터 배열의 지점을 경로 끝에 한 번에 추가합니다.<br>
 생성 직후의 초기 경로는 생성 옵션 initPositions로 지정하십시오.<br>
-지점이 30,000개를 넘으면 30,000개만 골라 그립니다.<br>
+유효한 입력 지점을 모두 전달하며 지점 축소는 tailPolicy의 단순화·draw 정책 정책에 따릅니다.<br>
+자원 생성을 지연한 경우에도 호출 시 초기 경로를 먼저 반영한 뒤 입력을 추가합니다.<br>
 drawOffset이 0이 아니고 입력 지점이 모두 같은 위치이면 첫 이동점이 올 때 시작점을 추가합니다.<br>
 기존 경로 뒤에 지점을 추가합니다.<br>
 <code>hide</code>후 첫 호출에서는 기존 경로를 지우고 새 경로로 표시됩니다.</p>
@@ -19418,8 +19479,8 @@ getTail과 같은 값을 반환합니다.</p>
     
     <div class="description">
         <p>경로를 화면에서 숨깁니다.<br>
-숨긴 동안에도 <code>updatePath</code>의 경로 갱신·단순화·거리 제한은 계속 적용됩니다.<br>
-fade 평가는 다음 show까지 보류합니다.<br>
+숨긴 동안에도 <code>updatePath</code>의 경로 갱신·단순화·draw 정책은 계속 적용됩니다.<br>
+drawFunc 평가는 숨긴 동안에도 계속합니다.<br>
 다음 <code>createTrailFromPositions</code> 호출은 기존 경로를 지우고 새 경로로 표시됩니다.</p>
     </div>
     
@@ -19759,6 +19820,120 @@ fade 평가는 다음 show까지 보류합니다.<br>
             <td class="description last">
                 
                 <p>적용할 Three.js 색상 표현</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table>
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="setDrawFunc">
+            
+             setDrawFunc<span class="signature">(drawFunc)</span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>노드별 표시·구간·fade·폐기 정책을 교체합니다. null이면 maxDistance 기본 정책으로 복귀합니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
+        
+
+<table class="params">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>drawFunc</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#U3dCumulativePathDrawFunc">U3dCumulativePathDrawFunc</a></span>
+|
+
+<span class="param-type">null</span>
+
+
+            
+            </td>
+            
+            
+            
+            <td class="description last">
+                
+                </td>
         </tr>
 	
 	
@@ -21000,7 +21175,7 @@ undefined를 지정하면 기본 계산을 사용합니다.</p>
     
     <div class="description">
         <p>경로를 화면에 표시합니다.<br>
-숨긴 동안 갱신된 경로의 fade를 평가하고 메시를 장면에 추가합니다.</p>
+draw 정책을 평가하고 메시를 장면에 추가합니다.</p>
     </div>
     
 
@@ -21053,9 +21228,9 @@ undefined를 지정하면 기본 계산을 사용합니다.</p>
             
 <dt>
     <div class="nameContainer">
-        <h4 class="name" id="updateFade">
+        <h4 class="name" id="updateDraw">
             
-             updateFade<span class="signature">(<span class="optional">now</span>)</span>
+             updateDraw<span class="signature">(<span class="optional">context</span>)</span>
         </h4>
     
     </div>
@@ -21066,7 +21241,7 @@ undefined를 지정하면 기본 계산을 사용합니다.</p>
     
     
     <div class="description">
-        <p>이동이 멈춘 동안에도 사용자 fade 콜백을 다시 평가합니다.</p>
+        <p>보관 노드의 draw 정책을 다시 평가합니다. 시간 기준을 지정할 수 있습니다.</p>
     </div>
     
 
@@ -21087,8 +21262,6 @@ undefined를 지정하면 기본 계산을 사용합니다.</p>
 		<th>Type</th>
 		
 		
-		<th>Default</th>
-		
 		
 		<th class="last">Description</th>
 	</tr>
@@ -21099,24 +21272,18 @@ undefined를 지정하면 기본 계산을 사용합니다.</p>
 	
         <tr>
             
-                <td class="name"><code>now</code></td>
+                <td class="name"><code>context</code></td>
             
             
             <td class="type">
             
                 
-<span class="param-type">number</span>
+<span class="param-type"><a href="Object.html">Object</a></span>
 
 
             
             </td>
             
-            
-                <td class="default">
-                
-                    Date.now()
-                
-                </td>
             
             
             <td class="description last">
@@ -21128,7 +21295,7 @@ undefined를 지정하면 기본 계산을 사용합니다.</p>
                         
                     
                 
-                <p>현재 epoch 시각(ms)</p></td>
+                <p>평가 시간. totalTime은 null로 최신 입력 기준 복귀</p></td>
         </tr>
 	
 	
@@ -21181,7 +21348,7 @@ undefined를 지정하면 기본 계산을 사용합니다.</p>
     <div class="nameContainer">
         <h4 class="name" id="updatePath">
             
-             updatePath<span class="signature">(pos, time, <span class="optional">orientation</span>, <span class="optional">recordedAt</span>)</span>
+             updatePath<span class="signature">(pos, <span class="optional">time</span>, <span class="optional">orientation</span>)</span>
         </h4>
     
     </div>
@@ -21193,7 +21360,7 @@ undefined를 지정하면 기본 계산을 사용합니다.</p>
     
     <div class="description">
         <p>현재 위치를 경로 끝에 추가합니다.<br>
-숨김 여부와 관계없이 경로를 갱신하고 단순화·거리 제한 정책을 적용합니다.<br>
+숨김 여부와 관계없이 경로를 갱신하고 단순화·draw 정책 정책을 적용합니다.<br>
 별도 원본 입력 대기열은 만들지 않습니다.<br>
 drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다음 이동점이 올 때 함께 추가합니다.<br>
 <code>pos</code>는 복사해 사용하므로 호출 뒤 같은 객체를 재사용할 수 있습니다.</p>
@@ -21276,17 +21443,21 @@ drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다�
             
                 <td class="default">
                 
+                    Date.now()
+                
                 </td>
             
             
             <td class="description last">
                 
                     
+                        <span class="optional">optional</span>
+                    
                     
                         
                     
                 
-                <p>지점의 시각이며 색 계산과 위치 기록에 사용됨</p></td>
+                <p>노드 기록 시각(epoch ms). 실시간 호출은 생략하며 경로에서 생성합니다. 이력 입력은 명시할 수 있습니다.</p></td>
         </tr>
 	
 	
@@ -21321,42 +21492,6 @@ drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다�
                     
                 
                 <p>positionOffset을 월드축으로 변환할 컴포넌트 회전</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>recordedAt</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-                <td class="default">
-                
-                    Date.now()
-                
-                </td>
-            
-            
-            <td class="description last">
-                
-                    
-                        <span class="optional">optional</span>
-                    
-                    
-                        
-                    
-                
-                <p>지점이 이력에 추가된 epoch 시각(ms)</p></td>
         </tr>
 	
 	
@@ -21460,6 +21595,44 @@ drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다�
 	
         <tr>
             
+                <td class="name"><code>drawFunc</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#U3dCumulativePathDrawFunc">U3dCumulativePathDrawFunc</a></span>
+|
+
+<span class="param-type">null</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>노드 draw 정책. pathStyle.drawFunc보다 우선합니다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
                 <td class="name"><code>initializeTrailOnShow</code></td>
             
             
@@ -21490,7 +21663,7 @@ drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다�
                 </td>
             
             
-            <td class="description last"><p>첫 show 또는 updatePath까지 경로 자원 생성을 지연합니다. recordWaypoint만 호출하면 자원을 생성하지 않습니다.</p></td>
+            <td class="description last"><p>첫 show, updatePath 또는 비어 있지 않은 createTrailFromPositions 호출까지 경로 자원 생성을 지연합니다. recordWaypoint만 호출하면 자원을 생성하지 않습니다.</p></td>
         </tr>
 	
 	
@@ -21702,7 +21875,7 @@ drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다�
                 </td>
             
             
-            <td class="description last"><p>만들자마자 그려 둘 지점 목록. 이미 지나온 경로를 한 번에 복원할 때 사용합니다 <br></p></td>
+            <td class="description last"><p>초기 경로 지점 목록. 지연 초기화 시 자원 생성 때 반영하며, 처리 후 원본 배열 참조를 해제합니다. 입력 배열 자체는 변경하지 않습니다. <br></p></td>
         </tr>
 	
 	
@@ -21978,35 +22151,6 @@ drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다�
             
                 <td class="attributes">
                 
-                    
-                
-                </td>
-            
-            
-            
-            
-            <td class="description last"><p>그 지점이 기록된 시각. <code>styleFunc</code>에 그대로 전달됩니다 <br></p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>recordedAt</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-                <td class="attributes">
-                
                     &lt;optional><br>
                 
                     
@@ -22016,7 +22160,7 @@ drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다�
             
             
             
-            <td class="description last"><p>이력에 추가된 epoch 시각(ms). 생략하면 경로 입력 시 Date.now()를 저장합니다.</p></td>
+            <td class="description last"><p>노드 기록 epoch 시각(ms). 생략하면 입력 시 Date.now(). <code>styleFunc</code>에도 같은 시각을 전달합니다 <br></p></td>
         </tr>
 	
 	
@@ -22832,7 +22976,45 @@ drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다�
                 </td>
             
             
-            <td class="description last"><p>maxDistance 경계가 앞으로 이동해 경로 앞부분이 완전히 투명해질 때 호출되는 콜백 <br></p></td>
+            <td class="description last"><p>사용하지 않는 이전 옵션. drawFunc로 표시와 수명을 제어합니다. <br></p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>drawFunc</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#U3dCumulativePathDrawFunc">U3dCumulativePathDrawFunc</a></span>
+|
+
+<span class="param-type">null</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>노드 표시·구간·fade·폐기를 결정하는 함수. 지정하면 maxDistance보다 우선하며 null이면 거리 기본 정책으로 복귀</p></td>
         </tr>
 	
 	
@@ -23036,7 +23218,7 @@ drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다�
 
     </div>
 </div>
-<script src="scripts/prism.js?v=muq8tjf0"></script>
-<script src="scripts/main.js?v=muq8tjf0"></script>
+<script src="scripts/prism.js?v=muw7iz8z"></script>
+<script src="scripts/main.js?v=muw7iz8z"></script>
 </body>
 </html>

@@ -15,7 +15,7 @@
     <!-- 한글 본문용 가변 서체입니다. 내려받지 못해도 styles/jaguar.css의 대체 서체로 그대로 표시됩니다. -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-    <link type="text/css" rel="stylesheet" href="styles/jaguar.css?v=muq8tjf0">
+    <link type="text/css" rel="stylesheet" href="styles/jaguar.css?v=muw7iz8z">
     <script>
         // 화면이 그려지기 전에 테마를 정해 화면이 한 번 번쩍이는 것을 막습니다.
         // 상단 전환 버튼으로 직접 고른 적이 없으면 운영체제 설정을 따릅니다.
@@ -11311,6 +11311,10 @@
                     <a href="U3dOpenLayer.html#~OLLayer">OLLayer</a>
                 </li>
             
+                <li data-name="ollayerentry">
+                    <a href="U3dOpenLayer.html#~OLLayerEntry">OLLayerEntry</a>
+                </li>
+            
                 <li data-name="olmap">
                     <a href="U3dOpenLayer.html#~OLMap">OLMap</a>
                 </li>
@@ -11327,8 +11331,60 @@
                     <a href="U3dOpenLayer.html#~U3dOpenLayerCO">U3dOpenLayerCO</a>
                 </li>
             
+                <li data-name="u3dopenlayercameramovestate">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerCameraMoveState">U3dOpenLayerCameraMoveState</a>
+                </li>
+            
+                <li data-name="u3dopenlayercancellationsource">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerCancellationSource">U3dOpenLayerCancellationSource</a>
+                </li>
+            
+                <li data-name="u3dopenlayercompletionframe">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerCompletionFrame">U3dOpenLayerCompletionFrame</a>
+                </li>
+            
+                <li data-name="u3dopenlayerconsumerbundle">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerConsumerBundle">U3dOpenLayerConsumerBundle</a>
+                </li>
+            
+                <li data-name="u3dopenlayerconsumerlayer">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerConsumerLayer">U3dOpenLayerConsumerLayer</a>
+                </li>
+            
+                <li data-name="u3dopenlayerdebugsummary">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerDebugSummary">U3dOpenLayerDebugSummary</a>
+                </li>
+            
+                <li data-name="u3dopenlayerevictioncache">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerEvictionCache">U3dOpenLayerEvictionCache</a>
+                </li>
+            
+                <li data-name="u3dopenlayerframescheduler">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerFrameScheduler">U3dOpenLayerFrameScheduler</a>
+                </li>
+            
+                <li data-name="u3dopenlayerolreader">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerOLReader">U3dOpenLayerOLReader</a>
+                </li>
+            
+                <li data-name="u3dopenlayerrenderframehandle">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerRenderFrameHandle">U3dOpenLayerRenderFrameHandle</a>
+                </li>
+            
+                <li data-name="u3dopenlayerrequesttile">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerRequestTile">U3dOpenLayerRequestTile</a>
+                </li>
+            
                 <li data-name="u3dopenlayertile">
                     <a href="U3dOpenLayer.html#~U3dOpenLayerTile">U3dOpenLayerTile</a>
+                </li>
+            
+                <li data-name="u3dopenlayertilerange">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerTileRange">U3dOpenLayerTileRange</a>
+                </li>
+            
+                <li data-name="u3dopenlayertimingsummary">
+                    <a href="U3dOpenLayer.html#~U3dOpenLayerTimingSummary">U3dOpenLayerTimingSummary</a>
                 </li>
             
             </ul>
@@ -13303,6 +13359,10 @@
                     <a href="U3dCumulativePath.html#setColor">setColor</a>
                 </li>
             
+                <li data-name="setdrawfunc">
+                    <a href="U3dCumulativePath.html#setDrawFunc">setDrawFunc</a>
+                </li>
+            
                 <li data-name="setgradation">
                     <a href="U3dCumulativePath.html#setGradation">setGradation</a>
                 </li>
@@ -13347,8 +13407,8 @@
                     <a href="U3dCumulativePath.html#show">show</a>
                 </li>
             
-                <li data-name="updatefade">
-                    <a href="U3dCumulativePath.html#updateFade">updateFade</a>
+                <li data-name="updatedraw">
+                    <a href="U3dCumulativePath.html#updateDraw">updateDraw</a>
                 </li>
             
                 <li data-name="updatepath">
@@ -18394,10 +18454,12 @@
     UFrustumTerrainProjectionHelper
     </h2>
     
-        <div class="class-description"><p>~extends <a href="global.html#LineSegments2">LineSegments2</a> <br>
-프러스텀 광선이 실제 렌더 지면과 만나는 footprint의 외곽선·옆면·채움을 그리는 helper 클래스입니다.
+        <div class="class-description"><p>~extends <a href="LineSegments2.js.html#~LineSegments2">LineSegments2.js~LineSegments2</a> <br></p>
+<p>프러스텀 광선이 실제 렌더 지면과 만나는 footprint의 외곽선·옆면·채움을 그리는 helper 클래스입니다.
 지면과 교차하지 않는 OOR 상태에서는 지형 관련 형상을 출력하지 않습니다.
-LineSegments2를 기반으로 선 두께를 조절할수 있는 기능을 제공합니다.</p></div>
+LineSegments2를 기반으로 선 두께를 조절할 수 있습니다.
+지면 이미지는 모든 채움 stamp가 공유하는 frame에 배치하며, 교차 영역 밖은 잘립니다.
+fill.textureFit의 contain도 stretch와 같은 매핑을 사용하며 이미지 전체 표시와 종횡비 유지를 보장하지 않습니다.</p></div>
     
 </header>  
 
@@ -18490,7 +18552,7 @@ LineSegments2를 기반으로 선 두께를 조절할수 있는 기능을 제공
             <td class="type">
             
                 
-<span class="param-type"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelperCO">UFrustumTerrainProjectionHelper~UFrustumTerrainProjectionHelperCO</a></span>
+<span class="param-type"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelperCO">UFrustumTerrainProjectionHelperCO</a></span>
 
 
             
@@ -18598,7 +18660,7 @@ scene.add(helper);</code></pre>
     <div class="nameContainer">
         <h4 class="name" id="clearLoadedTerrainStamps">
             
-             clearLoadedTerrainStamps<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             clearLoadedTerrainStamps<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -18673,7 +18735,7 @@ scene.add(helper);</code></pre>
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -21167,7 +21229,7 @@ helper가 장면에서 빠지거나 렌더가 멈춰 stamp를 app에서 분리�
     <div class="nameContainer">
         <h4 class="name" id="resetTerrainIntersectionStabilization">
             
-             resetTerrainIntersectionStabilization<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             resetTerrainIntersectionStabilization<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -21242,7 +21304,7 @@ helper가 장면에서 빠지거나 렌더가 멈춰 stamp를 app에서 분리�
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -21426,7 +21488,7 @@ load()로 불러온 스냅샷 stamp는 저장 대상이 아니며 현재 프러�
     <div class="nameContainer">
         <h4 class="name" id="setColor">
             
-             setColor<span class="signature">(color)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setColor<span class="signature">(color)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -21551,7 +21613,7 @@ load()로 불러온 스냅샷 stamp는 저장 대상이 아니며 현재 프러�
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -21572,7 +21634,7 @@ load()로 불러온 스냅샷 stamp는 저장 대상이 아니며 현재 프러�
     <div class="nameContainer">
         <h4 class="name" id="setFillColor">
             
-             setFillColor<span class="signature">(color)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setFillColor<span class="signature">(color)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -21701,7 +21763,7 @@ terrain stamp는 update() 시 fillOptions를 다시 읽어 반영된다.</p>
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -21722,7 +21784,7 @@ terrain stamp는 update() 시 fillOptions를 다시 읽어 반영된다.</p>
     <div class="nameContainer">
         <h4 class="name" id="setFillOpacity">
             
-             setFillOpacity<span class="signature">(opacity)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setFillOpacity<span class="signature">(opacity)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -21844,7 +21906,7 @@ terrain stamp는 update() 시 fillOptions를 다시 읽어 반영된다.</p>
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -21865,7 +21927,7 @@ terrain stamp는 update() 시 fillOptions를 다시 읽어 반영된다.</p>
     <div class="nameContainer">
         <h4 class="name" id="setFrustum">
             
-             setFrustum<span class="signature">(frustum)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setFrustum<span class="signature">(frustum)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -21984,7 +22046,7 @@ terrain stamp는 update() 시 fillOptions를 다시 읽어 반영된다.</p>
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -22005,7 +22067,7 @@ terrain stamp는 update() 시 fillOptions를 다시 읽어 반영된다.</p>
     <div class="nameContainer">
         <h4 class="name" id="setGradientColor">
             
-             setGradientColor<span class="signature">(color)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setGradientColor<span class="signature">(color)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -22134,7 +22196,7 @@ texture 옵션이 있으면 shader에서는 texture가 우선되어 gradient가 
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -22155,7 +22217,7 @@ texture 옵션이 있으면 shader에서는 texture가 우선되어 gradient가 
     <div class="nameContainer">
         <h4 class="name" id="setGradientDirection">
             
-             setGradientDirection<span class="signature">(direction)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setGradientDirection<span class="signature">(direction)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -22277,7 +22339,7 @@ texture 옵션이 있으면 shader에서는 texture가 우선되어 gradient가 
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -22298,7 +22360,7 @@ texture 옵션이 있으면 shader에서는 texture가 우선되어 gradient가 
     <div class="nameContainer">
         <h4 class="name" id="setIntersectionSteps">
             
-             setIntersectionSteps<span class="signature">(intersectionSteps)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setIntersectionSteps<span class="signature">(intersectionSteps)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -22418,7 +22480,7 @@ texture 옵션이 있으면 shader에서는 texture가 우선되어 gradient가 
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -22439,7 +22501,7 @@ texture 옵션이 있으면 shader에서는 texture가 우선되어 gradient가 
     <div class="nameContainer">
         <h4 class="name" id="setLineWidth">
             
-             setLineWidth<span class="signature">(lineWidth)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setLineWidth<span class="signature">(lineWidth)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -22559,7 +22621,7 @@ texture 옵션이 있으면 shader에서는 texture가 우선되어 gradient가 
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -22580,7 +22642,7 @@ texture 옵션이 있으면 shader에서는 texture가 우선되어 gradient가 
     <div class="nameContainer">
         <h4 class="name" id="setOpacity">
             
-             setOpacity<span class="signature">(opacity)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setOpacity<span class="signature">(opacity)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -22699,7 +22761,7 @@ texture 옵션이 있으면 shader에서는 texture가 우선되어 gradient가 
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -22720,7 +22782,7 @@ texture 옵션이 있으면 shader에서는 texture가 우선되어 gradient가 
     <div class="nameContainer">
         <h4 class="name" id="setSideColor">
             
-             setSideColor<span class="signature">(color)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setSideColor<span class="signature">(color)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -22850,7 +22912,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -22871,7 +22933,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
     <div class="nameContainer">
         <h4 class="name" id="setSideOpacity">
             
-             setSideOpacity<span class="signature">(opacity)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setSideOpacity<span class="signature">(opacity)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -22995,7 +23057,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -23016,7 +23078,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
     <div class="nameContainer">
         <h4 class="name" id="setTemporalFarSmoothingFactor">
             
-             setTemporalFarSmoothingFactor<span class="signature">(temporalFarSmoothingFactor)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setTemporalFarSmoothingFactor<span class="signature">(temporalFarSmoothingFactor)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -23136,7 +23198,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -23157,7 +23219,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
     <div class="nameContainer">
         <h4 class="name" id="setTemporalHalfLifeMs">
             
-             setTemporalHalfLifeMs<span class="signature">(temporalHalfLifeMs)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setTemporalHalfLifeMs<span class="signature">(temporalHalfLifeMs)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -23278,7 +23340,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -23299,7 +23361,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
     <div class="nameContainer">
         <h4 class="name" id="setTemporalHysteresisDistance">
             
-             setTemporalHysteresisDistance<span class="signature">(temporalHysteresisDistance)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setTemporalHysteresisDistance<span class="signature">(temporalHysteresisDistance)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -23420,7 +23482,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -23441,7 +23503,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
     <div class="nameContainer">
         <h4 class="name" id="setTemporalSnapGapMs">
             
-             setTemporalSnapGapMs<span class="signature">(temporalSnapGapMs)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setTemporalSnapGapMs<span class="signature">(temporalSnapGapMs)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -23561,7 +23623,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -23582,7 +23644,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
     <div class="nameContainer">
         <h4 class="name" id="setTemporalStabilization">
             
-             setTemporalStabilization<span class="signature">(temporalStabilization)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setTemporalStabilization<span class="signature">(temporalStabilization)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -23702,7 +23764,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -23723,7 +23785,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
     <div class="nameContainer">
         <h4 class="name" id="setTerrainBoundaryRefinementSteps">
             
-             setTerrainBoundaryRefinementSteps<span class="signature">(terrainBoundaryRefinementSteps)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setTerrainBoundaryRefinementSteps<span class="signature">(terrainBoundaryRefinementSteps)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -23844,7 +23906,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -23865,7 +23927,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
     <div class="nameContainer">
         <h4 class="name" id="setTerrainIntersectionHalfLifeMs">
             
-             setTerrainIntersectionHalfLifeMs<span class="signature">(terrainIntersectionHalfLifeMs)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setTerrainIntersectionHalfLifeMs<span class="signature">(terrainIntersectionHalfLifeMs)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -23986,7 +24048,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -24007,7 +24069,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
     <div class="nameContainer">
         <h4 class="name" id="setTerrainIntersectionHitPersistenceMs">
             
-             setTerrainIntersectionHitPersistenceMs<span class="signature">(terrainIntersectionHitPersistenceMs)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setTerrainIntersectionHitPersistenceMs<span class="signature">(terrainIntersectionHitPersistenceMs)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -24127,7 +24189,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -24148,7 +24210,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
     <div class="nameContainer">
         <h4 class="name" id="setTerrainIntersectionMaxLagDistance">
             
-             setTerrainIntersectionMaxLagDistance<span class="signature">(terrainIntersectionMaxLagDistance)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setTerrainIntersectionMaxLagDistance<span class="signature">(terrainIntersectionMaxLagDistance)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -24272,7 +24334,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -24293,7 +24355,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
     <div class="nameContainer">
         <h4 class="name" id="setTerrainIntersectionMedianWindow">
             
-             setTerrainIntersectionMedianWindow<span class="signature">(terrainIntersectionMedianWindow)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setTerrainIntersectionMedianWindow<span class="signature">(terrainIntersectionMedianWindow)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -24413,7 +24475,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -24434,7 +24496,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
     <div class="nameContainer">
         <h4 class="name" id="setTerrainIntersectionStabilization">
             
-             setTerrainIntersectionStabilization<span class="signature">(terrainIntersectionStabilization)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setTerrainIntersectionStabilization<span class="signature">(terrainIntersectionStabilization)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -24554,7 +24616,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -24575,7 +24637,7 @@ color와 opacity가 모두 undefined가 되면 side mesh를 제거한다.</p>
     <div class="nameContainer">
         <h4 class="name" id="setTerrainStampGridSize">
             
-             setTerrainStampGridSize<span class="signature">(terrainStampGridSize)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setTerrainStampGridSize<span class="signature">(terrainStampGridSize)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -24696,7 +24758,7 @@ topology가 UTerrainStamp 128개 예산을 넘는 극단적 패턴은 이미 조
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -24717,7 +24779,7 @@ topology가 UTerrainStamp 128개 예산을 넘는 극단적 패턴은 이미 조
     <div class="nameContainer">
         <h4 class="name" id="setUpdateIntervalMs">
             
-             setUpdateIntervalMs<span class="signature">(updateIntervalMs)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setUpdateIntervalMs<span class="signature">(updateIntervalMs)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -24840,7 +24902,7 @@ Helper는 이 값과 관계없이 Frustum의 상태 변경 API를 호출하지 �
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -24861,7 +24923,7 @@ Helper는 이 값과 관계없이 Frustum의 상태 변경 API를 호출하지 �
     <div class="nameContainer">
         <h4 class="name" id="setVisible">
             
-             setVisible<span class="signature">(visible)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             setVisible<span class="signature">(visible)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -24981,7 +25043,7 @@ false이면 외곽선, side/fill mesh, projection line, terrain stamp fill/mask�
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -25002,7 +25064,7 @@ false이면 외곽선, side/fill mesh, projection line, terrain stamp fill/mask�
     <div class="nameContainer">
         <h4 class="name" id="update">
             
-             update<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a></span>
+             update<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a></span>
         </h4>
     
     </div>
@@ -25076,7 +25138,7 @@ false이면 외곽선, side/fill mesh, projection line, terrain stamp fill/mask�
             
             <td class="type">
             
-                        <a href="UFrustumTerrainProjectionHelper.html#~UFrustumTerrainProjectionHelper">UFrustumTerrainProjectionHelper</a>
+                        <a href="UFrustumTerrainProjectionHelper.html">UFrustumTerrainProjectionHelper</a>
                         
                     
             </td>
@@ -25216,6 +25278,2923 @@ terrain stamp는 다음 tick까지 남아 서로 어긋나므로 여기서는 �
     
     
     
+        <h3 class="subsection-title">Type Definitions</h3>
+        
+        <dl>
+                    
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="~UFrustumTerrainProjectionHelperCO">UFrustumTerrainProjectionHelperCO<span class="type-signature type object"><a href="object_.html">object</a></span> </h4>
+    </div>
+    
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        <p>지면 투영 Helper의 설정 계약입니다.</p>
+    </div>
+    
+    
+    
+<dl class="details">
+    
+        
+        <h5 class="subsection-title">Properties:</h5>
+        
+        <dl>
+
+<table class="props">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		<th>Argument</th>
+		
+		
+		
+		<th>Default</th>
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>drawArg</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="UDrawArg.html#~UDrawArg">UDrawArg</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>terrain=true일 때 현재 렌더 지면 높이를 조회할 렌더링 컨텍스트. 조회 API가 없으면 지면 접촉을 확정할 수 없어 OOR로 숨긴다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    'UFrustumTerrainProjectionHelper'
+                
+                </td>
+            
+            
+            <td class="description last"><p>helper 객체 이름.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>color</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#ColorLike">ColorLike</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    0xffff00
+                
+                </td>
+            
+            
+            <td class="description last"></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>lineWidth</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    2
+                
+                </td>
+            
+            
+            <td class="description last"><p>helper 선과 지면 외곽선 stamp에 함께 적용할 두께. 양수인 유한값만 사용하며 그 밖의 값은 2를 사용한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>opacity</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    1
+                
+                </td>
+            
+            
+            <td class="description last"></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>worldUnits</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    false
+                
+                </td>
+            
+            
+            <td class="description last"></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>depthWrite</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    false
+                
+                </td>
+            
+            
+            <td class="description last"></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>zOffset</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    0
+                
+                </td>
+            
+            
+            <td class="description last"></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>depthOffset</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    0.005
+                
+                </td>
+            
+            
+            <td class="description last"><p>선과 mesh fragment depth에 적용할 bias. 0이면 shader 주입을 생략한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>sampleSpacing</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    10
+                
+                </td>
+            
+            
+            <td class="description last"><p>호환 drape 경로의 far 외곽선을 샘플링할 월드 간격(m). 기본 지면 접촉 footprint 경로에서는 사용하지 않는다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>intersectionSteps</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    16
+                
+                </td>
+            
+            
+            <td class="description last"><p>near -&gt; far 선분의 terrain 교차 구간을 찾을 분할 수. 2~64 정수로 제한한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>updateIntervalMs</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    20
+                
+                </td>
+            
+            
+            <td class="description last"><p>렌더 중인 helper가 현재 Frustum 상태를 다시 읽을 고정 목표 주기(ms). 1ms 이상이며 실제 render가 3초 동안 없으면 갱신을 멈추고 다음 render에서 다시 시작한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>terrainStampGridSize</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    9
+                
+                </td>
+            
+            
+            <td class="description last"><p>부분 terrain stamp 영역을 재구성할 far plane UV 격자 한 변의 샘플 수. 3~17의 홀수로 정규화한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>terrainBoundaryRefinementSteps</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    6
+                
+                </td>
+            
+            
+            <td class="description last"><p>검출된 hit/miss 경계를 이분 정제할 횟수. 0~12 범위.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>cullByMainCamera</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    true
+                
+                </td>
+            
+            
+            <td class="description last"><p>메인 카메라 밖의 helper는 terrain update와 렌더링을 건너뛴다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>smoothing</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    false
+                
+                </td>
+            
+            
+            <td class="description last"><p>호환 drape 경로의 외곽선 내부 샘플을 완화한다. 기본 지면 접촉 footprint 경로에서는 사용하지 않는다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>smoothingIterations</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    2
+                
+                </td>
+            
+            
+            <td class="description last"><p>호환 drape 외곽선 smoothing 반복 횟수. 값이 커질수록 매끈해지지만 매 update 계산량이 증가한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>smoothingFactor</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    0.35
+                
+                </td>
+            
+            
+            <td class="description last"><p>호환 drape 외곽선 샘플이 이웃 평균으로 이동할 비율. 0이면 변화 없음, 1이면 이웃 평균 위치를 바로 사용한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>temporalStabilization</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>고정 update 사이의 위치·회전 변화를 시간 기반으로 완화한다. terrain:true일 때 기본값은 true이다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>temporalHalfLifeMs</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    40
+                
+                </td>
+            
+            
+            <td class="description last"><p>시간 안정화 오차가 절반으로 줄어드는 시간(ms). 작을수록 빠르게 추종하고 클수록 떨림을 강하게 줄인다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>temporalHysteresisDistance</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    0.5
+                
+                </td>
+            
+            
+            <td class="description last"><p>원시 자세와 안정화 자세의 far 코너 world 거리가 이 값(m) 이하이면 이전 자세를 유지한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>temporalFarSmoothingFactor</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    0.75
+                
+                </td>
+            
+            
+            <td class="description last"><p>far 코너 오차에 따라 반감기를 추가로 늘리는 강도. 0~4 범위이며 값이 클수록 먼 면이 부드럽지만 지연이 커진다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>temporalSnapGapMs</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    2000
+                
+                </td>
+            
+            
+            <td class="description last"><p>이 시간보다 update 간격이 길면 과거 보간 이력을 버리는 단절 기준(ms). 250~60000 범위.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>terrainIntersectionStabilization</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>고정 UV별 지면 광선 결과와 hit/miss 경계를 프레임 사이에서 안정화한다. 생략하면 terrain이 true일 때만 활성화한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>terrainIntersectionMedianWindow</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    3
+                
+                </td>
+            
+            
+            <td class="description last"><p>순간 교차점 요동을 제거할 최근 결과 개수. 1~31 홀수이며 1은 중앙값 단계를 끈다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>terrainIntersectionHalfLifeMs</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    10
+                
+                </td>
+            
+            
+            <td class="description last"><p>지면 교차 거리와 경계 위치가 새 결과로 수렴하는 반감기(ms). 0~60000 범위이며 0이면 시간 평균을 끈다. 실제 경계 추종이 늦어질 수 있어 20ms 이상은 권장하지 않는다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>terrainIntersectionMaxLagDistance</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    30
+                
+                </td>
+            
+            
+            <td class="description last"><p>최근 측정의 중앙값 목표가 크게 바뀔 때 경계 방향과 광선 깊이 방향에서 한 번에 이동시킬 최대 world 거리(m). 이후 시간 EMA가 적용되므로 실제 표시점의 3차원 이동량 상한은 아니다. 30m보다 큰 값은 보정 후보의 camera-ray 재투영 허용거리에도 사용한다. 0이면 접촉 위치의 중앙값·거리·시간 보정을 건너뛴다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>terrainIntersectionHitPersistenceMs</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    50
+                
+                </td>
+            
+            
+            <td class="description last"><p>hit/miss가 반대로 바뀐 뒤 footprint 상태를 확정하기까지 유지되어야 하는 시간(ms). 0~60000 범위이며 0이면 즉시 전환한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>renderOrder</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    0
+                
+                </td>
+            
+            
+            <td class="description last"><p>helper line 기준 renderOrder. 생략 시 fill은 -1, projectionLine은 +1이 기본값이다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>projectionLine</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="UFrustumTerrainProjectionHelper.types.html#~UFrustumTerrainProjectionHelper_ProjectionLine_Content">UFrustumTerrainProjectionHelper.types~UFrustumTerrainProjectionHelper_ProjectionLine_Content</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>terrain</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    false
+                
+                </td>
+            
+            
+            <td class="description last"><p>true이면 near→far 광선과 현재 렌더 지면의 교차점으로 실제 지면 footprint를 만든다. 조회 좌표에 고도 데이터가 없으면 기본 평면 높이 0을 사용한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>terrainOutlineStamp</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    true
+                
+                </td>
+            
+            
+            <td class="description last"><p>true이면 terrain 교차 far 외곽선을 stamp shader로 그리고 비교차 구간만 LineSegments2로 남긴다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>terrainOutlineWidthUnits</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">'pixels'</span>
+|
+
+<span class="param-type">'meters'</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    'pixels'
+                
+                </td>
+            
+            
+            <td class="description last"><p>stamp 외곽선 두께 단위.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>fill</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="UFrustumTerrainProjectionHelper.types.html#~UFrustumTerrainProjectionHelper_Fill_Content">UFrustumTerrainProjectionHelper.types~UFrustumTerrainProjectionHelper_Fill_Content</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"></td>
+        </tr>
+	
+	
+	</tbody>
+</table></dl>
+        
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+</dd>
+
+                
+                    
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="~UFrustumTerrainProjectionHelper_Fill_Content">UFrustumTerrainProjectionHelper_Fill_Content<span class="type-signature type object"><a href="object_.html">object</a></span> </h4>
+    </div>
+    
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        <p>지면 투영 Helper의 설정 계약입니다.</p>
+    </div>
+    
+    
+    
+<dl class="details">
+    
+        
+        <h5 class="subsection-title">Properties:</h5>
+        
+        <dl>
+
+<table class="props">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		<th>Argument</th>
+		
+		
+		
+		<th>Default</th>
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>enabled</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    false
+                
+                </td>
+            
+            
+            <td class="description last"></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>mode</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">'plane'</span>
+|
+
+<span class="param-type">'frustum'</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    'plane'
+                
+                </td>
+            
+            
+            <td class="description last"><p>사용 중단된 기존 fill mesh 호환 옵션. 새 지형 stamp 코드는 stampMode를 사용한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>color</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#ColorLike">ColorLike</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>opacity</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    0.12
+                
+                </td>
+            
+            
+            <td class="description last"></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>gradientColor</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#ColorLike">ColorLike</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>texture가 없을 때 color와 그라데이션할 두 번째 색상.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>gradientDirection</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">'vertical'</span>
+|
+
+<span class="param-type">'horizontal'</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    'vertical'
+                
+                </td>
+            
+            
+            <td class="description last"><p>gradientColor가 있을 때 그라데이션 방향.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>sideColor</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#ColorLike">ColorLike</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>비지형·지면 접촉·호환 drape 형상의 프러스텀 옆면에 적용할 색상.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>sideOpacity</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>비지형·지면 접촉·호환 drape 형상의 프러스텀 옆면에 적용할 불투명도.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>depthWrite</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    false
+                
+                </td>
+            
+            
+            <td class="description last"></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>renderOrder</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>비지형 fill mesh 전용 renderOrder. 생략하면 helper line renderOrder - 1을 사용한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    'UFrustumHelperNonTerrainFill'
+                
+                </td>
+            
+            
+            <td class="description last"><p>비지형 far 면 fill mesh 이름.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>sideName</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    'UFrustumHelperSideFill'
+                
+                </td>
+            
+            
+            <td class="description last"><p>옆면 fill mesh 이름.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>sideRenderOrder</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>옆면 fill mesh 전용 renderOrder. 생략하면 renderOrder, helper line renderOrder - 1 순으로 사용한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>terrainStamp</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>사용 중단된 호환 옵션. false이면 terrain stamp를 끄지만 대체 fill mesh는 생성하지 않는다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>terrainOutlineStamp</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    true
+                
+                </td>
+            
+            
+            <td class="description last"><p>true이면 terrain 교차 far 외곽선을 stamp shader로 출력한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>terrainOutlineWidthUnits</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">'pixels'</span>
+|
+
+<span class="param-type">'meters'</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    'pixels'
+                
+                </td>
+            
+            
+            <td class="description last"><p>stamp 외곽선 두께 단위.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>terrainStampGridSize</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    9
+                
+                </td>
+            
+            
+            <td class="description last"><p>부분 교차 stamp 영역을 재구성할 far plane UV 격자 한 변의 샘플 수. 3~17의 홀수로 정규화한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>terrainBoundaryRefinementSteps</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    6
+                
+                </td>
+            
+            
+            <td class="description last"><p>검출된 hit/miss 경계를 이분 정제할 횟수. 0~12 범위이며 값이 클수록 경계 정밀도와 높이 조회 비용이 증가한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>terrainBoundaryFilletSegments</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    2
+                
+                </td>
+            
+            
+            <td class="description last"><p>hit/miss 외곽의 볼록 모서리를 나눌 단계 수. 0~2 정수로 제한하며 0이면 비활성화한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>terrainBoundaryFilletRatio</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    0.15
+                
+                </td>
+            
+            
+            <td class="description last"><p>짧은 인접 edge 길이를 기준으로 한 fillet 반경 비율. 0~0.3 범위로 제한한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>maxStampsPerTile</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    128
+                
+                </td>
+            
+            
+            <td class="description last"><p>terrain stamp 모드에서 terrain tile 하나가 검사할 stamp 최대 개수.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>stampMode</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">'fill'</span>
+|
+
+<span class="param-type">'mask'</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    'fill'
+                
+                </td>
+            
+            
+            <td class="description last"><p>terrain stamp 적용 방식. mask이면 stamp 영역을 마스크로 사용한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>targetLayer</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="object_.html">object</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>mask stamp를 특정 terrain/image layer에만 적용할 때 사용할 대상 layer.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>texture</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>terrainStamp 영역에 채울 이미지 URL.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>textureOpacity</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    1
+                
+                </td>
+            
+            
+            <td class="description last"><p>terrainStamp texture 불투명도.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>textureUseAlpha</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    true
+                
+                </td>
+            
+            
+            <td class="description last"><p>false이면 PNG alpha를 무시하고 textureOpacity만 사용한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>textureScale</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    1
+                
+                </td>
+            
+            
+            <td class="description last"><p>terrainStamp texture 프레임을 중심 기준으로 확대/축소하는 배율.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>textureFit</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">'stretch'</span>
+|
+
+<span class="param-type">'contain'</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    'stretch'
+                
+                </td>
+            
+            
+            <td class="description last"><p>지면 이미지 매핑 요청값. contain도 stretch와 같은 공통 frame 매핑을 사용하며 교차 영역 밖은 잘립니다. 이미지 전체 표시와 종횡비 유지를 보장하지 않습니다.</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table></dl>
+        
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+</dd>
+
+                
+                    
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="~UFrustumTerrainProjectionHelper_ProjectionLine_Content">UFrustumTerrainProjectionHelper_ProjectionLine_Content<span class="type-signature type object"><a href="object_.html">object</a></span> </h4>
+    </div>
+    
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        <p>지면 투영 Helper의 설정 계약입니다.</p>
+    </div>
+    
+    
+    
+<dl class="details">
+    
+        
+        <h5 class="subsection-title">Properties:</h5>
+        
+        <dl>
+
+<table class="props">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		<th>Argument</th>
+		
+		
+		
+		<th>Default</th>
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>visible</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    false
+                
+                </td>
+            
+            
+            <td class="description last"><p>true이고 origin이 있으면 투영 중심선을 생성한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>origin</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#Vector3">Vector3</a></span>
+|
+
+<span class="param-type"><a href="Object.html">Object</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>helper 로컬 좌표계의 투영선 시작점.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>color</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#ColorLike">ColorLike</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>투영선 색상. 생략하면 helper 선 색상을 사용한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>lineWidth</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    1
+                
+                </td>
+            
+            
+            <td class="description last"><p>투영선 두께.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>opacity</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>투영선 불투명도. 생략하면 helper 선 불투명도를 사용한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>dashSize</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    10
+                
+                </td>
+            
+            
+            <td class="description last"><p>점선 한 구간의 길이.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>gapSize</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    6
+                
+                </td>
+            
+            
+            <td class="description last"><p>점선 사이 간격.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>worldUnits</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>선 두께·점선 길이의 world 단위 사용 여부. 생략하면 helper 선 설정을 사용한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>depthWrite</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>depth buffer 기록 여부. 생략하면 helper 선 설정을 사용한다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    'UFrustumProjectionLine'
+                
+                </td>
+            
+            
+            <td class="description last"><p>투영선 객체 이름.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>renderOrder</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>투영선 renderOrder. 생략하면 helper line renderOrder + 1을 사용한다.</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table></dl>
+        
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+</dd>
+
+                </dl>
+    
     
     
 </article>
@@ -25230,7 +28209,7 @@ terrain stamp는 다음 tick까지 남아 서로 어긋나므로 여기서는 �
 
     </div>
 </div>
-<script src="scripts/prism.js?v=muq8tjf0"></script>
-<script src="scripts/main.js?v=muq8tjf0"></script>
+<script src="scripts/prism.js?v=muw7iz8z"></script>
+<script src="scripts/main.js?v=muw7iz8z"></script>
 </body>
 </html>

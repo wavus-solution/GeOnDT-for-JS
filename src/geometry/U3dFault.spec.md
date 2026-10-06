@@ -136,9 +136,9 @@ U3dFault extends U3dGeometry 클래스 정의
 
     _initFault() -> void
         역할: 현재 좌표와 형상 파라미터로 정점·지오메트리·재질·외곽선을 다시 만든다.
+        처리 기준: 객체가 최종 해제된 상태이면 새 렌더 자원을 만들지 않고 종료한다.
         의존:
             defined — 깊이와 지오메트리 속성 존재 확인; 함수: {defined()}
-            UDEF — 기존 렌더 자원과 자식 외곽선 해제; 함수: {disposeObject3D()}
             U3dFaultGeometry — 단층 면 지오메트리 생성; 생성자: {new U3dFaultGeometry()}
             U3dGeometry — 월드 정점을 상대 좌표로 변환; 함수: {setRelativePosition()}
             UMathEngine — 위도별 Google 월드 스케일 조회; 정적 함수: {getRealScaleAtGeographic()}
@@ -147,10 +147,18 @@ U3dFault extends U3dGeometry 클래스 정의
             복수 좌표 객체가 이미 좌표 변경을 받았으면 상속 좌표를 상단 좌표의 새 복사본으로 사용한다.
             applyHeight가 false이면 모든 상단 높이를 현재 축척이 적용된 음수 dtop으로 맞춘다.
             상단 좌표 수에 맞는 월드 정점 배열을 만든다.
-            정점이 있으면 기존 렌더 자원을 해제하고 그라디언트 재질과 단층 지오메트리를 새로 만든다.
+            정점이 있으면 객체의 수명 상태를 유지한 채 기존 형상 전용 렌더 자원을 해제하고 그라디언트 재질과 단층 지오메트리를 새로 만든다.
             지오메트리를 상대 좌표로 바꾸고 폭과 위도 스케일에 따른 중심 보정을 적용한다.
             최종 로컬 지오메트리의 높이 범위로 그라디언트 색상 경계를 다시 맞춘다.
-            기존 자식 외곽선을 해제하고, 외곽선 옵션이 켜져 있으면 내부 분할선을 제외한 새 외곽 테두리를 추가한다.
+            외곽선 옵션이 켜져 있으면 내부 분할선을 제외한 새 외곽 테두리를 추가한다.
+
+    _releaseRebuildResources() -> void
+        역할: 단층 형상 재생성 전에 U3dFault가 소유한 기존 geometry, material, texture와 외곽선 자원만 해제한다.
+        의존: UDEF — 기존 외곽선 자원 해제; 함수: {disposeObject3D()}
+        동작:
+            현재 재질과 재질이 소유한 map/_oriMap 텍스처를 중복 없이 해제하고 geometry를 해제한다.
+            U3dFault가 직접 소유한 _edgeLine만 해제·제거하며 사용자가 추가한 다른 자식은 유지한다.
+            루트 객체의 dispose()를 호출하지 않으므로 부모 연결, 이벤트 구독, 표시 상태와 _disposed 값은 변경하지 않는다.
 
     _getVertices() -> Array<THREE.Vector3> | undefined
         역할: 상단 좌표 수에 맞는 단층 정점 생성 경로를 선택한다.
@@ -178,7 +186,8 @@ U3dFault extends U3dGeometry 클래스 정의
             LineSegments2 — 굵은 외곽선 객체 생성; 생성자: {new LineSegments2()}
         동작:
             외곽 경계 지오메트리가 없으면 undefined를 반환하고, 있으면 현재 선 색상과 화면 픽셀 기준 입력 두께를 적용한다.
-            LineSegments2가 렌더 직전에 현재 viewport로 material resolution을 자동 갱신한다.
+            최초 렌더 전에 raycast가 실행되어도 화면 픽셀 굵기가 정확하도록 생성 시 현재 renderer viewport를 material resolution에 설정한다.
+            화면 크기가 바뀐 뒤에는 LineSegments2가 렌더 직전에 현재 viewport로 material resolution을 자동 갱신한다.
 
     _updateExternalFaultEdge() -> void
         역할: 현재 geometry와 외곽선 옵션을 기준으로 외곽 테두리 자원을 갱신한다.
@@ -316,7 +325,7 @@ U3dFault extends U3dGeometry 클래스 정의
             UDEF — 렌더 자원 해제; 함수: {disposeResource()}
         동작:
             이미 해제했으면 종료한다. 해제 상태를 확정한 뒤 THREE.Mesh의 dispose를 현재 객체에 적용한다.
-            현재 객체의 렌더 자원을 해제하고 removed 이벤트를 전달한다.
+            현재 객체의 렌더 자원을 해제한 직후, 이벤트 구독을 정리하기 전에 removed 이벤트를 한 번 전달한다.
 
     setScaleRatio(ratio: number) -> void
         동작: 입력 축척을 저장하고 표시 여부를 보존한 채 단층 형상을 다시 생성한다.

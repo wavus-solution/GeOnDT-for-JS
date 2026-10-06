@@ -1,3 +1,68 @@
+.drone-fps-monitor {
+    --fps-editor-inset: 0px;
+    position: absolute;
+    bottom: 16px;
+    left: calc((100% + var(--fps-editor-inset)) / 2);
+    transform: translateX(-50%);
+    z-index: 90;
+    box-sizing: border-box;
+    width: min(720px, calc(100% - var(--fps-editor-inset) - 32px));
+    max-height: calc(100vh - 32px);
+    overflow: auto;
+    container-type: inline-size;
+    padding: 10px 12px;
+    border: 1px solid #3b5063;
+    border-radius: 10px;
+    background: rgba(12, 23, 35, .94);
+    color: #edf4fa;
+    font: 11px/1.4 system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
+}
+/* 코드 편집기와 같은 폭 변수를 사용해 남은 지도 영역의 하단 중앙에 배치한다. */
+.example-editor-open .drone-fps-monitor { --fps-editor-inset: var(--editor-pane-width, min(40vw, 600px)); }
+.fps-layout { display: grid; grid-template-columns: 100px minmax(100px, 1fr) 180px 138px; align-items: center; gap: 10px; }
+.fps-layout > * { min-width: 0; }
+.fps-heading, .fps-chart-label { display: flex; justify-content: space-between; gap: 6px; }
+.fps-heading { cursor: move; user-select: none; touch-action: none; flex-wrap: wrap; }
+.fps-heading strong { white-space: nowrap; }
+.fps-heading strong { font-size: 12px; }
+.fps-chart-label, .fps-note { color: #a7bbc9; }
+.fps-primary { display: flex; align-items: baseline; gap: 6px; margin: 3px 0; }
+#fps-live { font-size: 28px; font-weight: 700; line-height: 1.2; color: #65dec1; }
+#fps-chart { display: block; width: 100%; height: 48px; background: #10202e; border-radius: 5px; }
+.fps-chart-label { font-size: 10px; margin-top: 3px; }
+.fps-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 10px; margin: 0; }
+.fps-metrics div { display: flex; flex-direction: column; }
+.fps-metrics dt { font-weight: 400; color: #a7bbc9; }
+.fps-metrics dd { margin: 0; font-size: 14px; font-weight: 600; }
+.fps-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.fps-actions button, .fps-actions select {
+    min-width: 0; min-height: 27px; padding: 3px 4px; border: 1px solid #496277; border-radius: 5px;
+    background: #223c50; color: #edf4fa; font: inherit;
+}
+.fps-actions button { cursor: pointer; }
+.fps-actions button:disabled { opacity: .45; cursor: default; }
+.fps-actions button:focus-visible, .fps-actions select:focus-visible { outline: 2px solid #65dec1; outline-offset: 2px; }
+#fps-start { background: #176a58; }
+.fps-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 3px 12px; margin-top: 6px; }
+#fps-status, .fps-note { margin: 0; font-size: 10px; }
+#fps-status[data-result="pass"] { color: #65dec1; }
+#fps-status[data-result="fail"] { color: #ffbd79; }
+/* 창 너비가 아니라 편집기를 제외한 패널의 실제 너비를 기준으로 줄바꿈한다. */
+@container (max-width: 620px) {
+    .fps-layout { grid-template-columns: 100px minmax(0, 1fr); gap: 8px 10px; }
+    .fps-metrics { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); }
+    .fps-controls { grid-column: 1 / -1; }
+    .fps-actions { grid-template-columns: repeat(4, 1fr); }
+}
+@container (max-width: 360px) {
+    .fps-layout { grid-template-columns: 100px minmax(0, 1fr); }
+    .fps-metrics { grid-template-columns: 1fr 1fr; }
+    .fps-actions { grid-template-columns: 1fr 1fr; }
+    .fps-chart-label { flex-wrap: wrap; }
+}
+
 html, body {
             height: 100%;
         }

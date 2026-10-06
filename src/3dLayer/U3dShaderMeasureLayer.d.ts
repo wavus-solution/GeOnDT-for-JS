@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, ShaderMaterial, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -643,7 +643,7 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
      */
     type MeasureFeatureCollection_Content = {
         /**
-         * 측정 feature 를 레이어에 추가하고 등록된 feature 를 돌려주는 함수이며, 추가에 실패하면 예외를 던집니다.
+         * feature 등록을 시도한 뒤 입력을 그대로 돌려줍니다. 반환이 undefined일 때 예외를 던지며, 반환만으로 실제 등록 성공을 보장하지 않습니다.
          */
         addFeature?: undefined | ((arg0: unknown) => unknown);
         /**
@@ -758,11 +758,11 @@ type U3dShaderMeasureTerrainDebugFilter = (tileKey: string) => boolean;
         terrainDebugTileFilter?: string | Array<string> | Set<string> | U3dShaderMeasureTerrainDebugFilter;
         /**
          * 예전 버전의 simple 렌더 경로 사용 여부입니다. <br>
-         * `measureGeometryMode` 를 함께 지정하면 그 값이 우선하고, 지정하지 않았을 때만 이 값으로 초기 방식을 정합니다.
+         * 생성자는 이 값을 보관만 하며 초기 방식은 `measureGeometryMode`의 정규화 결과로 정합니다.
          */
         useSimpleMeasure?: boolean;
         /**
-         * 초기 geometry 렌더링 방식이며, 지정하면 `useSimpleMeasure` 보다 우선합니다.
+         * 초기 geometry 렌더링 방식입니다. 생략하거나 `auto`를 주면 `basic`이며, `simple`만 직접 3D 객체 경로를 선택합니다.
          */
         measureGeometryMode?: U3dShaderMeasureGeometryMode;
         /**
@@ -774,7 +774,7 @@ type U3dShaderMeasureTerrainDebugFilter = (tileKey: string) => boolean;
          */
         simpleGeometryLengthThreshold?: number;
         /**
-         * simple line 최대 point 수입니다.
+         * simple 선의 정점 샘플링 기준 개수입니다. 끝점 보존으로 결과가 기준을 초과할 수 있으며, 0은 계산 시 512로 대체됩니다.
          */
         simpleGeometryLineMaxPoints?: number;
         /**
@@ -1075,4 +1075,46 @@ type terminalSourceState = {
         sourceErrorReason?: string;
     };
 
-export type { MeasureFeatureCollection, MeasureFeatureCollection_Content, MeasureTerrainClearOption, MeasureTerrainFeaturePayload, MeasureTerrainSyncOption, U3dShaderMeasureExtent, U3dShaderMeasureFeatureRef, U3dShaderMeasureFeatureStyleTarget, U3dShaderMeasureFillStyle, U3dShaderMeasureGeometryMode, U3dShaderMeasureLayer, U3dShaderMeasureLayerAddFeatureCO, U3dShaderMeasureLayerCO, U3dShaderMeasureLayerCO_Content, U3dShaderMeasureLayerRenderStyle, U3dShaderMeasureLayerStyle, U3dShaderMeasureOLFeature, U3dShaderMeasureSourceRevisionState, U3dShaderMeasureStrokeStyle, U3dShaderMeasureTerrainDebugFilter, U3dShaderMeasureTileBound, UFeatureIDExtent, terminalSourceState };
+/**
+     * 도형·terrain 계산이 읽을 수 있는 레이어 상태와 호출 권한을 한정합니다.
+     * 원본 레이어를 그대로 전달하므로 복사나 추가 상태 저장 없이 현재 설정을 사용합니다.
+     * scene 등록, 예약, manager 교체 및 레이어 상태 대입 권한은 포함하지 않습니다.
+     */
+    type U3dShaderMeasureStyleState = Readonly<Pick<U3dShaderMeasureLayer, "_style" | "_defaultFillColor" | "_defaultStrokeColor" | "_defaultStrokeWidth" | "_defaultOpacity">>;
+
+/**
+     * 도형·terrain 계산이 읽을 수 있는 레이어 상태와 호출 권한을 한정합니다.
+     * 원본 레이어를 그대로 전달하므로 복사나 추가 상태 저장 없이 현재 설정을 사용합니다.
+     * scene 등록, 예약, manager 교체 및 레이어 상태 대입 권한은 포함하지 않습니다.
+     */
+    type U3dShaderMeasureSourceIdentityState = Readonly<Pick<U3dShaderMeasureLayer, "_name">>;
+
+/**
+     * 도형·terrain 계산이 읽을 수 있는 레이어 상태와 호출 권한을 한정합니다.
+     * 원본 레이어를 그대로 전달하므로 복사나 추가 상태 저장 없이 현재 설정을 사용합니다.
+     * scene 등록, 예약, manager 교체 및 레이어 상태 대입 권한은 포함하지 않습니다.
+     */
+    type U3dShaderMeasureSignatureState = Readonly<Pick<U3dShaderMeasureLayer, "_name" | "_style" | "_defaultFillColor" | "_defaultStrokeColor" | "_defaultStrokeWidth" | "_defaultOpacity" | "getFeatureByUid">>;
+
+/**
+     * 도형·terrain 계산이 읽을 수 있는 레이어 상태와 호출 권한을 한정합니다.
+     * 원본 레이어를 그대로 전달하므로 복사나 추가 상태 저장 없이 현재 설정을 사용합니다.
+     * scene 등록, 예약, manager 교체 및 레이어 상태 대입 권한은 포함하지 않습니다.
+     */
+    type U3dShaderMeasurePayloadState = Readonly<Pick<U3dShaderMeasureLayer, "_name" | "_style" | "_defaultFillColor" | "_defaultStrokeColor" | "_defaultStrokeWidth" | "_defaultOpacity" | "_renderOrder" | "getFeatureMeasureVectors" | "getFeaturePointBufferRadius">>;
+
+/**
+     * 도형·terrain 계산이 읽을 수 있는 레이어 상태와 호출 권한을 한정합니다.
+     * 원본 레이어를 그대로 전달하므로 복사나 추가 상태 저장 없이 현재 설정을 사용합니다.
+     * scene 등록, 예약, manager 교체 및 레이어 상태 대입 권한은 포함하지 않습니다.
+     */
+    type U3dShaderMeasureSimpleGeometryState = Readonly<Pick<U3dShaderMeasureLayer, "_style" | "_defaultFillColor" | "_defaultStrokeColor" | "_defaultStrokeWidth" | "_defaultOpacity" | "_simpleGeometryLineMaxPoints" | "_simpleGeometryCircleSegments">>;
+
+/**
+     * 도형·terrain 계산이 읽을 수 있는 레이어 상태와 호출 권한을 한정합니다.
+     * 원본 레이어를 그대로 전달하므로 복사나 추가 상태 저장 없이 현재 설정을 사용합니다.
+     * scene 등록, 예약, manager 교체 및 레이어 상태 대입 권한은 포함하지 않습니다.
+     */
+    type U3dShaderMeasureTileRangeState = Readonly<Pick<U3dShaderMeasureLayer, "_mercator">>;
+
+export type { MeasureFeatureCollection, MeasureFeatureCollection_Content, MeasureTerrainClearOption, MeasureTerrainFeaturePayload, MeasureTerrainSyncOption, U3dShaderMeasureExtent, U3dShaderMeasureFeatureRef, U3dShaderMeasureFeatureStyleTarget, U3dShaderMeasureFillStyle, U3dShaderMeasureGeometryMode, U3dShaderMeasureLayer, U3dShaderMeasureLayerAddFeatureCO, U3dShaderMeasureLayerCO, U3dShaderMeasureLayerCO_Content, U3dShaderMeasureLayerRenderStyle, U3dShaderMeasureLayerStyle, U3dShaderMeasureOLFeature, U3dShaderMeasurePayloadState, U3dShaderMeasureSignatureState, U3dShaderMeasureSimpleGeometryState, U3dShaderMeasureSourceIdentityState, U3dShaderMeasureSourceRevisionState, U3dShaderMeasureStrokeStyle, U3dShaderMeasureStyleState, U3dShaderMeasureTerrainDebugFilter, U3dShaderMeasureTileBound, U3dShaderMeasureTileRangeState, UFeatureIDExtent, terminalSourceState };

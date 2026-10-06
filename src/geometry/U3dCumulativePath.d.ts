@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, ShaderMaterial, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -18,6 +18,14 @@ import type { WorldPosition, WorldPositionVector3 } from "../types/global.js";
  * @group geometry
  */
 declare class U3dCumulativePath {
+    /** @type {Set<U3dCumulativePath>} */
+    static "__#33@#drawPaths": Set<U3dCumulativePath>;
+    /** @type {number | undefined} */
+    static "__#33@#drawFrame": number | undefined;
+    static "__#33@#tickDraw"(): void;
+    static "__#33@#scheduleDraw"(): void;
+    /** @param {U3dCumulativePath} path @param {boolean} enabled */
+    static "__#33@#watchDraw"(path: U3dCumulativePath, enabled: boolean): void;
     /**
      * U3dCumulativePath 클래스 생성자입니다.<br>
      * app과 scene은 필수이며 둘 중 하나가 없으면 오류를 보고합니다.
@@ -34,7 +42,7 @@ declare class U3dCumulativePath {
     isAutoVisible: boolean;
     /**
      * 최근 도착 waypoint 100개의 좌표·도착 시각 복사본입니다. 오래된 순서입니다.
-     * 렌더 노드 단순화·거리 제한과 독립적으로 보관하며 removePath/dispose 시 비웁니다.
+     * 렌더 노드 단순화·draw 정책과 독립적으로 보관하며 removePath/dispose 시 비웁니다.
      * @returns {Array<WaypointRecord>}
      */
     get waypointHistory(): Array<WaypointRecord>;
@@ -102,10 +110,18 @@ declare class U3dCumulativePath {
      */
     setTailPolicy(opt: USimpleTail_Policy): void;
     /**
-     * 이동이 멈춘 동안에도 사용자 fade 콜백을 다시 평가합니다.
-     * @param {number} [now=Date.now()] 현재 epoch 시각(ms)
+     * 보관 노드의 draw 정책을 다시 평가합니다. 시간 기준을 지정할 수 있습니다.
+     * @param {{now?: number, totalTime?: number | null}} [context] 평가 시간. totalTime은 null로 최신 입력 기준 복귀
      */
-    updateFade(now?: number): void;
+    updateDraw(context?: {
+        now?: number;
+        totalTime?: number | null;
+    }): void;
+    /**
+     * 노드별 표시·구간·fade·폐기 정책을 교체합니다. null이면 maxDistance 기본 정책으로 복귀합니다.
+     * @param {U3dCumulativePathDrawFunc | null} drawFunc
+     */
+    setDrawFunc(drawFunc: U3dCumulativePathDrawFunc | null): void;
     /**
      * 경로 스타일을 한 번에 변경합니다.<br>
      * 지정한 스타일 항목만 반영하고 나머지는 유지합니다.
@@ -192,21 +208,21 @@ declare class U3dCumulativePath {
     dispose(): void;
     /**
      * 현재 위치를 경로 끝에 추가합니다.<br>
-     * 숨김 여부와 관계없이 경로를 갱신하고 단순화·거리 제한 정책을 적용합니다.<br>
+     * 숨김 여부와 관계없이 경로를 갱신하고 단순화·draw 정책 정책을 적용합니다.<br>
      * 별도 원본 입력 대기열은 만들지 않습니다.<br>
      * drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다음 이동점이 올 때 함께 추가합니다.<br>
      * `pos`는 복사해 사용하므로 호출 뒤 같은 객체를 재사용할 수 있습니다.
      *
      * @param {WorldPosition} pos 추가할 지점이며 x, y, z가 모두 있어야 함
-     * @param {number} time 지점의 시각이며 색 계산과 위치 기록에 사용됨
+     * @param {number} [time=Date.now()] 노드 기록 시각(epoch ms). 실시간 호출은 생략하며 경로에서 생성합니다. 이력 입력은 명시할 수 있습니다.
      * @param {import('three').QuaternionLike} [orientation] positionOffset을 월드축으로 변환할 컴포넌트 회전
-     * @param {number} [recordedAt=Date.now()] 지점이 이력에 추가된 epoch 시각(ms)
      */
-    updatePath(pos: WorldPosition, time: number, orientation?: three.QuaternionLike, recordedAt?: number): void;
+    updatePath(pos: WorldPosition, time?: number, orientation?: three.QuaternionLike): void;
     /**
      * 위치 데이터 배열의 지점을 경로 끝에 한 번에 추가합니다.<br>
      * 생성 직후의 초기 경로는 생성 옵션 initPositions로 지정하십시오.<br>
-     * 지점이 30,000개를 넘으면 30,000개만 골라 그립니다.<br>
+     * 유효한 입력 지점을 모두 전달하며 지점 축소는 tailPolicy의 단순화·draw 정책 정책에 따릅니다.<br>
+     * 자원 생성을 지연한 경우에도 호출 시 초기 경로를 먼저 반영한 뒤 입력을 추가합니다.<br>
      * drawOffset이 0이 아니고 입력 지점이 모두 같은 위치이면 첫 이동점이 올 때 시작점을 추가합니다.<br>
      * 기존 경로 뒤에 지점을 추가합니다.<br>
      * `hide`후 첫 호출에서는 기존 경로를 지우고 새 경로로 표시됩니다.
@@ -216,13 +232,13 @@ declare class U3dCumulativePath {
     createTrailFromPositions(positions: Array<U3dCumulativePathPositionData>): void;
     /**
      * 경로를 화면에 표시합니다.<br>
-     * 숨긴 동안 갱신된 경로의 fade를 평가하고 메시를 장면에 추가합니다.
+     * draw 정책을 평가하고 메시를 장면에 추가합니다.
      */
     show(): void;
     /**
      * 경로를 화면에서 숨깁니다.<br>
-     * 숨긴 동안에도 `updatePath`의 경로 갱신·단순화·거리 제한은 계속 적용됩니다.<br>
-     * fade 평가는 다음 show까지 보류합니다.<br>
+     * 숨긴 동안에도 `updatePath`의 경로 갱신·단순화·draw 정책은 계속 적용됩니다.<br>
+     * drawFunc 평가는 숨긴 동안에도 계속합니다.<br>
      * 다음 `createTrailFromPositions` 호출은 기존 경로를 지우고 새 경로로 표시됩니다.
      */
     hide(): void;
@@ -251,17 +267,45 @@ declare class U3dCumulativePath {
     };
 
 /**
-     * 출력 범위의 경로 지점별로 호출되는 fade 함수. 일괄 입력은 마지막에, 숨긴 경로는 show 시 평가합니다. this는 U3dCumulativePath입니다.
-     * 숫자 0~1은 폭과 불투명도에 함께 적용됩니다(0: 숨김, 1: 유지).
-     * {width, alpha}로 각각 지정할 수 있습니다. 생략/비정상 값은 1, 범위 밖 값은 0~1로 제한합니다.
-     * 노드 사이 값은 보간됩니다. 0을 반환해도 이력을 삭제하지 않습니다.
+     * 노드별 표시·부분 구간·fade·폐기 정책. this는 U3dCumulativePath입니다.
+     * 숨긴 노드도 평가하며 예외 시 이전 결정을 유지합니다. 입력 객체를 변경해도 내부 노드는 바뀌지 않습니다.
      */
-    type U3dCumulativePathFadeFunc = (info: U3dCumulativePathFadeInfo) => number | {
-        width?: number;
-        alpha?: number;
+    type U3dCumulativePathDrawFunc = (info: U3dCumulativePathDrawInfo) => U3dCumulativePathDrawResult | void;
+
+type U3dCumulativePathDrawResult = {
+        /**
+         * 노드 색상. 생략하면 기본 색상과 기존 colorGradation을 사용하며 지정하면 기존 색 농도를 대체합니다. 노드 사이에서 보간합니다.
+         */
+        color?: three.ColorRepresentation;
+        /**
+         * 노드 불투명도(0~1). 생략/비정상 값은 기본 opacity. 노드 사이에서 보간한 뒤 fade.alpha와 곱합니다.
+         */
+        opacity?: number;
+        /**
+         * hide는 보관, dispose는 복구 불가능한 제거와 버퍼 회수
+         */
+        action?: "draw" | "hide" | "dispose";
+        /**
+         * 폭·불투명도 배율(0~1). 생략/비정상 값은 1. 0도 삭제를 뜻하지 않습니다.
+         */
+        fade?: {
+            width?: number;
+            alpha?: number;
+        };
+        /**
+         * 직전 연결 노드→현재 노드 구간의 표시 비율. 기본 0~1. from>=to면 표시하지 않습니다.
+         */
+        range?: {
+            from?: number;
+            to?: number;
+        };
     };
 
-type U3dCumulativePathFadeInfo = {
+type U3dCumulativePathDrawInfo = {
+        /**
+         * 버퍼 이동·삭제에도 유지되는 식별자
+         */
+        nodeId: number;
         /**
          * 보정 후 월드 좌표
          */
@@ -271,35 +315,39 @@ type U3dCumulativePathFadeInfo = {
             z: number;
         };
         /**
-         * 경로가 자체 계산한 누적 거리(m)
+         * 경로 시작부터 누적 거리(m)
          */
         dist: number;
         /**
-         * 입력 누적 시간(ms). epoch 시각이 아닐 수 있습니다.
+         * 실시간 노드 기록 epoch 시각(ms). 경로가 자체 생성하며 애니메이션 누적 시간과 무관합니다. 명시적 이력 입력은 그 time을 사용합니다.
          */
         time: number;
         /**
-         * 이력에 추가된 epoch 시각(ms)
+         * 평가 경로 시간(ms). 기본 최신 입력 시간
          */
-        recordedAt: number;
+        totalTime: number;
         /**
-         * 최신 지점까지 실제 경로 거리(m)
+         * 최신 입력까지 전체 누적 경로 거리(m). totalDist - dist가 이 노드부터 최신 입력까지의 거리입니다.
          */
-        distance: number;
+        totalDist: number;
         /**
-         * 최신 지점의 time과 해당 지점 time의 차이(ms)
-         */
-        elapsedTime: number;
-        /**
-         * 현재 시각에서 recordedAt까지 지난 시간(ms)
-         */
-        ageMs: number;
-        /**
-         * 평가 기준 epoch 시각(ms)
+         * 평가 epoch 시각(ms)
          */
         now: number;
         /**
-         * 경로가 소유한 최근 도착 waypoint 이력의 복사본. 접근할 때 복사합니다.
+         * 직전 연결 노드. 첫 노드·단절 뒤에는 null
+         */
+        previous: {
+            nodeId: number;
+            position: {
+                x: number;
+                y: number;
+                z: number;
+            };
+            time: number;
+        } | null;
+        /**
+         * 별도 도착 이력의 복사본. 접근할 때 복사합니다.
          */
         waypointHistory: Array<WaypointRecord>;
     };
@@ -374,9 +422,13 @@ type U3dCumulativePathFadeInfo = {
             z: number;
         };
         /**
-         * maxDistance 경계가 앞으로 이동해 경로 앞부분이 완전히 투명해질 때 호출되는 콜백 <br>
+         * 사용하지 않는 이전 옵션. drawFunc로 표시와 수명을 제어합니다. <br>
          */
         onFadeOut?: (arg0: object) => void;
+        /**
+         * 노드 표시·구간·fade·폐기를 결정하는 함수. 지정하면 maxDistance보다 우선하며 null이면 거리 기본 정책으로 복귀
+         */
+        drawFunc?: U3dCumulativePathDrawFunc | null;
         /**
          * 궤적의 단순화·확보 지점 수·페이드 정책 <br>
          */
@@ -397,13 +449,9 @@ type U3dCumulativePathFadeInfo = {
             z: number;
         };
         /**
-         * 그 지점이 기록된 시각. `styleFunc`에 그대로 전달됩니다 <br>
+         * 노드 기록 epoch 시각(ms). 생략하면 입력 시 Date.now(). `styleFunc`에도 같은 시각을 전달합니다 <br>
          */
-        time: number;
-        /**
-         * 이력에 추가된 epoch 시각(ms). 생략하면 경로 입력 시 Date.now()를 저장합니다.
-         */
-        recordedAt?: number;
+        time?: number;
         /**
          * 해당 지점에서 컴포넌트 로컬축을 월드축으로 변환할 회전값 <br>
          */
@@ -415,7 +463,11 @@ type U3dCumulativePathFadeInfo = {
      */
     type U3dCumulativePathCO = {
         /**
-         * 첫 show 또는 updatePath까지 경로 자원 생성을 지연합니다. recordWaypoint만 호출하면 자원을 생성하지 않습니다.
+         * 노드 draw 정책. pathStyle.drawFunc보다 우선합니다.
+         */
+        drawFunc?: U3dCumulativePathDrawFunc | null;
+        /**
+         * 첫 show, updatePath 또는 비어 있지 않은 createTrailFromPositions 호출까지 경로 자원 생성을 지연합니다. recordWaypoint만 호출하면 자원을 생성하지 않습니다.
          */
         initializeTrailOnShow?: boolean;
         /**
@@ -439,7 +491,7 @@ type U3dCumulativePathFadeInfo = {
          */
         initTime?: number;
         /**
-         * 만들자마자 그려 둘 지점 목록. 이미 지나온 경로를 한 번에 복원할 때 사용합니다 <br>
+         * 초기 경로 지점 목록. 지연 초기화 시 자원 생성 때 반영하며, 처리 후 원본 배열 참조를 해제합니다. 입력 배열 자체는 변경하지 않습니다. <br>
          */
         initPositions?: Array<U3dCumulativePathPositionData>;
         /**
@@ -465,4 +517,4 @@ type U3dCumulativePathFadeInfo = {
         precision?: number;
     };
 
-export type { U3dCumulativePath, U3dCumulativePathCO, U3dCumulativePathFadeFunc, U3dCumulativePathFadeInfo, U3dCumulativePathPositionData, U3dCumulativePathStyleFunc, U3dCumulativePath_StyleOpt, WaypointRecord };
+export type { U3dCumulativePath, U3dCumulativePathCO, U3dCumulativePathDrawFunc, U3dCumulativePathDrawInfo, U3dCumulativePathDrawResult, U3dCumulativePathPositionData, U3dCumulativePathStyleFunc, U3dCumulativePath_StyleOpt, WaypointRecord };

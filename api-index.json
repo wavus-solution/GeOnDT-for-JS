@@ -33,7 +33,8 @@
   {
     "name": "AnimationController",
     "kind": "type",
-    "declaration": "src/analy/UAnimationManager.d.ts"
+    "declaration": "src/analy/UAnimationManager.d.ts",
+    "spec": "src/analy/UAnimationManager.spec.md"
   },
   {
     "name": "AnyCallBack",
@@ -348,6 +349,7 @@
     "name": "DebugSourceState",
     "kind": "type",
     "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
     "spec": "src/3dLayer/U3dOpenLayer.spec.md"
   },
   {
@@ -371,7 +373,9 @@
   {
     "name": "DecalOption",
     "kind": "type",
-    "declaration": "src/3dLayer/U3dPatternXYZLayer.d.ts"
+    "declaration": "src/3dLayer/U3dPatternXYZLayer.d.ts",
+    "source": "src/3dLayer/U3dPatternXYZLayer.js",
+    "spec": "src/3dLayer/U3dPatternXYZLayer.spec.md"
   },
   {
     "name": "DEFAULT_CONTROL_FACTOR",
@@ -1098,12 +1102,14 @@
     "name": "MeasureFeatureCollection",
     "kind": "type",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
     "name": "MeasureFeatureCollection_Content",
     "kind": "type",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
@@ -1135,18 +1141,21 @@
     "name": "MeasureTerrainClearOption",
     "kind": "type",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
     "name": "MeasureTerrainFeaturePayload",
     "kind": "type",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
     "name": "MeasureTerrainSyncOption",
     "kind": "type",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
@@ -1398,18 +1407,28 @@
     "name": "OLLayer",
     "kind": "type",
     "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
+    "spec": "src/3dLayer/U3dOpenLayer.spec.md"
+  },
+  {
+    "name": "OLLayerEntry",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
     "spec": "src/3dLayer/U3dOpenLayer.spec.md"
   },
   {
     "name": "OLMap",
     "kind": "type",
     "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
     "spec": "src/3dLayer/U3dOpenLayer.spec.md"
   },
   {
     "name": "OLSharedSourceState",
     "kind": "type",
     "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
     "spec": "src/3dLayer/U3dOpenLayer.spec.md"
   },
   {
@@ -1441,6 +1460,7 @@
     "name": "OLView",
     "kind": "type",
     "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
     "spec": "src/3dLayer/U3dOpenLayer.spec.md"
   },
   {
@@ -2086,6 +2106,7 @@
     "name": "terminalSourceState",
     "kind": "type",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
@@ -3676,12 +3697,17 @@
     "declaration": "src/geometry/U3dCumulativePath.d.ts"
   },
   {
-    "name": "U3dCumulativePathFadeFunc",
+    "name": "U3dCumulativePathDrawFunc",
     "kind": "type",
     "declaration": "src/geometry/U3dCumulativePath.d.ts"
   },
   {
-    "name": "U3dCumulativePathFadeInfo",
+    "name": "U3dCumulativePathDrawInfo",
+    "kind": "type",
+    "declaration": "src/geometry/U3dCumulativePath.d.ts"
+  },
+  {
+    "name": "U3dCumulativePathDrawResult",
     "kind": "type",
     "declaration": "src/geometry/U3dCumulativePath.d.ts"
   },
@@ -4573,6 +4599,7 @@
     "name": "U3dMeasureLayer",
     "kind": "value",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
@@ -5285,30 +5312,133 @@
     "name": "U3dOpenLayer",
     "kind": "value",
     "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
+    "spec": "src/3dLayer/U3dOpenLayer.spec.md"
+  },
+  {
+    "name": "U3dOpenLayerCameraMoveState",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
+    "spec": "src/3dLayer/U3dOpenLayer.spec.md"
+  },
+  {
+    "name": "U3dOpenLayerCancellationSource",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
     "spec": "src/3dLayer/U3dOpenLayer.spec.md"
   },
   {
     "name": "U3dOpenLayerCO",
     "kind": "type",
     "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
     "spec": "src/3dLayer/U3dOpenLayer.spec.md"
   },
   {
     "name": "U3dOpenLayerCO_Content",
     "kind": "type",
     "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
+    "spec": "src/3dLayer/U3dOpenLayer.spec.md"
+  },
+  {
+    "name": "U3dOpenLayerCompletionFrame",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
+    "spec": "src/3dLayer/U3dOpenLayer.spec.md"
+  },
+  {
+    "name": "U3dOpenLayerConsumerBundle",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
+    "spec": "src/3dLayer/U3dOpenLayer.spec.md"
+  },
+  {
+    "name": "U3dOpenLayerConsumerLayer",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
+    "spec": "src/3dLayer/U3dOpenLayer.spec.md"
+  },
+  {
+    "name": "U3dOpenLayerDebugSummary",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
+    "spec": "src/3dLayer/U3dOpenLayer.spec.md"
+  },
+  {
+    "name": "U3dOpenLayerDebugSummary_Content",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
+    "spec": "src/3dLayer/U3dOpenLayer.spec.md"
+  },
+  {
+    "name": "U3dOpenLayerEvictionCache",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
+    "spec": "src/3dLayer/U3dOpenLayer.spec.md"
+  },
+  {
+    "name": "U3dOpenLayerFrameScheduler",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
+    "spec": "src/3dLayer/U3dOpenLayer.spec.md"
+  },
+  {
+    "name": "U3dOpenLayerOLReader",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
+    "spec": "src/3dLayer/U3dOpenLayer.spec.md"
+  },
+  {
+    "name": "U3dOpenLayerRenderFrameHandle",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
+    "spec": "src/3dLayer/U3dOpenLayer.spec.md"
+  },
+  {
+    "name": "U3dOpenLayerRequestTile",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
     "spec": "src/3dLayer/U3dOpenLayer.spec.md"
   },
   {
     "name": "U3dOpenLayerTile",
     "kind": "type",
     "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
     "spec": "src/3dLayer/U3dOpenLayer.spec.md"
   },
   {
     "name": "U3dOpenLayerTileInternal",
     "kind": "type",
     "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
+    "spec": "src/3dLayer/U3dOpenLayer.spec.md"
+  },
+  {
+    "name": "U3dOpenLayerTileRange",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
+    "spec": "src/3dLayer/U3dOpenLayer.spec.md"
+  },
+  {
+    "name": "U3dOpenLayerTimingSummary",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dOpenLayer.d.ts",
+    "source": "src/3dLayer/U3dOpenLayer.js",
     "spec": "src/3dLayer/U3dOpenLayer.spec.md"
   },
   {
@@ -5387,19 +5517,60 @@
     "declaration": "src/geometry/U3dPathGeometry.d.ts"
   },
   {
+    "name": "U3dPatternBakeResult",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dPatternXYZLayer.d.ts",
+    "source": "src/3dLayer/U3dPatternXYZLayer.js",
+    "spec": "src/3dLayer/U3dPatternXYZLayer.spec.md"
+  },
+  {
+    "name": "U3dPatternDecalSelectionState",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dPatternXYZLayer.d.ts",
+    "source": "src/3dLayer/U3dPatternXYZLayer.js",
+    "spec": "src/3dLayer/U3dPatternXYZLayer.spec.md"
+  },
+  {
+    "name": "U3dPatternLayerCanvasState",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dPatternXYZLayer.d.ts",
+    "source": "src/3dLayer/U3dPatternXYZLayer.js",
+    "spec": "src/3dLayer/U3dPatternXYZLayer.spec.md"
+  },
+  {
+    "name": "U3dPatternResourceInfo",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dPatternXYZLayer.d.ts",
+    "source": "src/3dLayer/U3dPatternXYZLayer.js",
+    "spec": "src/3dLayer/U3dPatternXYZLayer.spec.md"
+  },
+  {
+    "name": "U3dPatternWorkLog",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dPatternXYZLayer.d.ts",
+    "source": "src/3dLayer/U3dPatternXYZLayer.js",
+    "spec": "src/3dLayer/U3dPatternXYZLayer.spec.md"
+  },
+  {
     "name": "U3dPatternXYZLayer",
     "kind": "value",
-    "declaration": "src/3dLayer/U3dPatternXYZLayer.d.ts"
+    "declaration": "src/3dLayer/U3dPatternXYZLayer.d.ts",
+    "source": "src/3dLayer/U3dPatternXYZLayer.js",
+    "spec": "src/3dLayer/U3dPatternXYZLayer.spec.md"
   },
   {
     "name": "U3dPatternXYZLayerCO",
     "kind": "type",
-    "declaration": "src/3dLayer/U3dPatternXYZLayer.d.ts"
+    "declaration": "src/3dLayer/U3dPatternXYZLayer.d.ts",
+    "source": "src/3dLayer/U3dPatternXYZLayer.js",
+    "spec": "src/3dLayer/U3dPatternXYZLayer.spec.md"
   },
   {
     "name": "U3dPatternXYZLayerCO_Content",
     "kind": "type",
-    "declaration": "src/3dLayer/U3dPatternXYZLayer.d.ts"
+    "declaration": "src/3dLayer/U3dPatternXYZLayer.d.ts",
+    "source": "src/3dLayer/U3dPatternXYZLayer.js",
+    "spec": "src/3dLayer/U3dPatternXYZLayer.spec.md"
   },
   {
     "name": "U3dPipe",
@@ -5601,96 +5772,154 @@
     "name": "U3dShaderMeasureExtent",
     "kind": "type",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
     "name": "U3dShaderMeasureFeatureRef",
     "kind": "type",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
     "name": "U3dShaderMeasureFeatureStyleTarget",
     "kind": "type",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
     "name": "U3dShaderMeasureFillStyle",
     "kind": "type",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
     "name": "U3dShaderMeasureGeometryMode",
     "kind": "type",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
     "name": "U3dShaderMeasureLayer",
     "kind": "value",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
     "name": "U3dShaderMeasureLayerAddFeatureCO",
     "kind": "type",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
     "name": "U3dShaderMeasureLayerCO",
     "kind": "type",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
     "name": "U3dShaderMeasureLayerCO_Content",
     "kind": "type",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
     "name": "U3dShaderMeasureLayerRenderStyle",
     "kind": "type",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
     "name": "U3dShaderMeasureLayerStyle",
     "kind": "type",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
     "name": "U3dShaderMeasureOLFeature",
     "kind": "type",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
+    "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
+  },
+  {
+    "name": "U3dShaderMeasurePayloadState",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
+    "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
+  },
+  {
+    "name": "U3dShaderMeasureSignatureState",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
+    "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
+  },
+  {
+    "name": "U3dShaderMeasureSimpleGeometryState",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
+    "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
+  },
+  {
+    "name": "U3dShaderMeasureSourceIdentityState",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
     "name": "U3dShaderMeasureSourceRevisionState",
     "kind": "type",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
     "name": "U3dShaderMeasureStrokeStyle",
     "kind": "type",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
+    "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
+  },
+  {
+    "name": "U3dShaderMeasureStyleState",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
     "name": "U3dShaderMeasureTerrainDebugFilter",
     "kind": "type",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
     "name": "U3dShaderMeasureTileBound",
     "kind": "type",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
+    "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
+  },
+  {
+    "name": "U3dShaderMeasureTileRangeState",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
@@ -5728,6 +5957,7 @@
     "name": "U3dTerrainLayer",
     "kind": "value",
     "declaration": "src/3dLayer/U3dTerrainLayer.d.ts",
+    "source": "src/3dLayer/U3dTerrainLayer.js",
     "spec": "src/3dLayer/U3dTerrainLayer.spec.md"
   },
   {
@@ -6521,32 +6751,38 @@
   {
     "name": "UAnimationController",
     "kind": "type",
-    "declaration": "src/analy/UAnimationController.d.ts"
+    "declaration": "src/analy/UAnimationController.d.ts",
+    "spec": "src/analy/UAnimationController.spec.md"
   },
   {
     "name": "UAnimationControllerCO",
     "kind": "type",
-    "declaration": "src/analy/UAnimationController.d.ts"
+    "declaration": "src/analy/UAnimationController.d.ts",
+    "spec": "src/analy/UAnimationController.spec.md"
   },
   {
     "name": "UAnimationControllerCO_Content",
     "kind": "type",
-    "declaration": "src/analy/UAnimationController.d.ts"
+    "declaration": "src/analy/UAnimationController.d.ts",
+    "spec": "src/analy/UAnimationController.spec.md"
   },
   {
     "name": "UAnimationControllerEMI",
     "kind": "type",
-    "declaration": "src/analy/UAnimationController.d.ts"
+    "declaration": "src/analy/UAnimationController.d.ts",
+    "spec": "src/analy/UAnimationController.spec.md"
   },
   {
     "name": "UAnimationManager",
     "kind": "type",
-    "declaration": "src/analy/UAnimationManager.d.ts"
+    "declaration": "src/analy/UAnimationManager.d.ts",
+    "spec": "src/analy/UAnimationManager.spec.md"
   },
   {
     "name": "UAnimationNextFrameCommand",
     "kind": "type",
-    "declaration": "src/analy/UAnimationController.d.ts"
+    "declaration": "src/analy/UAnimationController.d.ts",
+    "spec": "src/analy/UAnimationController.spec.md"
   },
   {
     "name": "UAppCommand",
@@ -6944,6 +7180,7 @@
     "name": "UFeatureIDExtent",
     "kind": "type",
     "declaration": "src/3dLayer/U3dShaderMeasureLayer.d.ts",
+    "source": "src/3dLayer/U3dShaderMeasureLayer.js",
     "spec": "src/3dLayer/U3dShaderMeasureLayer.spec.md"
   },
   {
@@ -7122,30 +7359,35 @@
     "name": "UFrustumTerrainProjectionHelper",
     "kind": "value",
     "declaration": "src/helpers/UFrustumTerrainProjectionHelper.d.ts",
+    "source": "src/helpers/UFrustumTerrainProjectionHelper.js",
     "spec": "src/helpers/UFrustumTerrainProjectionHelper.spec.md"
   },
   {
     "name": "UFrustumTerrainProjectionHelper_Fill_Content",
     "kind": "type",
     "declaration": "src/helpers/UFrustumTerrainProjectionHelper.d.ts",
+    "source": "src/helpers/UFrustumTerrainProjectionHelper.js",
     "spec": "src/helpers/UFrustumTerrainProjectionHelper.spec.md"
   },
   {
     "name": "UFrustumTerrainProjectionHelper_ProjectionLine_Content",
     "kind": "type",
     "declaration": "src/helpers/UFrustumTerrainProjectionHelper.d.ts",
+    "source": "src/helpers/UFrustumTerrainProjectionHelper.js",
     "spec": "src/helpers/UFrustumTerrainProjectionHelper.spec.md"
   },
   {
     "name": "UFrustumTerrainProjectionHelperCO",
     "kind": "type",
     "declaration": "src/helpers/UFrustumTerrainProjectionHelper.d.ts",
+    "source": "src/helpers/UFrustumTerrainProjectionHelper.js",
     "spec": "src/helpers/UFrustumTerrainProjectionHelper.spec.md"
   },
   {
     "name": "UFrustumTerrainProjectionHelperCO_Content",
     "kind": "type",
     "declaration": "src/helpers/UFrustumTerrainProjectionHelper.d.ts",
+    "source": "src/helpers/UFrustumTerrainProjectionHelper.js",
     "spec": "src/helpers/UFrustumTerrainProjectionHelper.spec.md"
   },
   {
@@ -7710,12 +7952,37 @@
   {
     "name": "UPatternDecal",
     "kind": "type",
-    "declaration": "src/3dLayer/U3dPatternXYZLayer.d.ts"
+    "declaration": "src/3dLayer/U3dPatternXYZLayer.d.ts",
+    "source": "src/3dLayer/U3dPatternXYZLayer.js",
+    "spec": "src/3dLayer/U3dPatternXYZLayer.spec.md"
+  },
+  {
+    "name": "UPatternDecalAreaState",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dPatternXYZLayer.d.ts",
+    "source": "src/3dLayer/U3dPatternXYZLayer.js",
+    "spec": "src/3dLayer/U3dPatternXYZLayer.spec.md"
+  },
+  {
+    "name": "UPatternDecalCanvasState",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dPatternXYZLayer.d.ts",
+    "source": "src/3dLayer/U3dPatternXYZLayer.js",
+    "spec": "src/3dLayer/U3dPatternXYZLayer.spec.md"
   },
   {
     "name": "UPatternDecalCO",
     "kind": "type",
-    "declaration": "src/3dLayer/U3dPatternXYZLayer.d.ts"
+    "declaration": "src/3dLayer/U3dPatternXYZLayer.d.ts",
+    "source": "src/3dLayer/U3dPatternXYZLayer.js",
+    "spec": "src/3dLayer/U3dPatternXYZLayer.spec.md"
+  },
+  {
+    "name": "UPatternDecalSizeState",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dPatternXYZLayer.d.ts",
+    "source": "src/3dLayer/U3dPatternXYZLayer.js",
+    "spec": "src/3dLayer/U3dPatternXYZLayer.spec.md"
   },
   {
     "name": "UPhysicalFlowSimulation",
@@ -7885,12 +8152,12 @@
     "declaration": "src/effect/USimpleTail.d.ts"
   },
   {
-    "name": "USimpleTailFadeEvaluator",
+    "name": "USimpleTailDrawEvaluator",
     "kind": "type",
     "declaration": "src/effect/USimpleTail.d.ts"
   },
   {
-    "name": "USimpleTailFadeNode",
+    "name": "USimpleTailDrawNode",
     "kind": "type",
     "declaration": "src/effect/USimpleTail.d.ts"
   },

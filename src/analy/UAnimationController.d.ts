@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, ShaderMaterial, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -48,6 +48,13 @@ declare class UAnimationController extends UEventDispatcher {
      * @returns {WorldPositionVector3} 현재 구간의 도착 월드 위치 객체입니다. <br>
      */
     get to(): WorldPositionVector3;
+    /**
+     * 마지막으로 예약된 이동 목표의 복사본을 반환합니다. <br>
+     * 대기 경유지, 아직 적용되지 않은 구간 명령, 현재 구간 목표 순으로 확인합니다. <br>
+     *
+     * @returns {WorldPositionVector3} 마지막 예약 목표의 월드 좌표입니다. <br>
+     */
+    get lastScheduledTarget(): WorldPositionVector3;
     /**
      * 현재 이동 구간 뒤에 대기 중인 경유지(waypoint) 수를 반환합니다. <br>
      *
@@ -205,8 +212,8 @@ declare class UAnimationController extends UEventDispatcher {
      * @param {WorldPositionVector3} point 추가할 월드 좌표입니다. <br>
      * 호출 시 좌표를 복사하므로 이후 원본 객체를 바꿔도 경유지는 달라지지 않습니다. <br>
      * @param {number} [durationMs] `0` 이상의 유한한 기준 목표 시간(밀리초)입니다. <br>
-     * 현재 추가한 경유지로 이동을 시작할 때 그 뒤에 남은 경유지가 0개, 1개, 2개, 3개 이상이면 각각 `durationMs / 1`, `durationMs / 2`, `durationMs / 3`, `durationMs / 4`를 적용하고 최솟값은 1밀리초입니다. <br>
-     * 생략하면 해당 경유지로 이동을 시작하는 시점의 속도를 유지합니다. <br>
+     * 양수이면 구간 시작 시 뒤에 남은 경유지가 0개, 1개, 2개, 3개 이상일 때 각각 `durationMs / 1`, `durationMs / 2`, `durationMs / 3`, `durationMs / 4`를 적용합니다. 최솟값은 1밀리초지만 입력 기한보다 늘리지는 않습니다. 0이면 해당 구간의 첫 갱신에 도착합니다. <br>
+     * 생략하면 지연 보정 전의 설정 속도로 등속 이동합니다. <br>
      * @returns {boolean} 세 좌표가 모두 유한하고 목표 시간이 유효해 경유지를 추가했으면 `true`, 그렇지 않으면 `false`입니다. <br>
      */
     appendWaypoint(point: WorldPositionVector3, durationMs?: number): boolean;
@@ -220,7 +227,7 @@ declare class UAnimationController extends UEventDispatcher {
      * @param {WorldPositionVector3} to 새 구간의 도착 월드 좌표입니다. <br>
      * 호출 시 좌표를 복사하므로 이후 원본 객체를 바꿔도 예약된 도착점은 달라지지 않습니다. <br>
      * @param {number} [durationMs] `0` 이상의 유한한 목표 시간(밀리초)입니다. <br>
-     * 지정하면 목표 시간에 맞춰 속도를 조절하고, 생략하면 현재 속도를 유지합니다. <br>
+     * 지정하면 설정 속도를 하한으로 목표 시간 안에 도착하도록 가속하고, 생략하면 지연 보정 전의 설정 속도로 등속 이동합니다. <br>
      * @returns {boolean} 두 좌표의 각 성분과 목표 시간이 유효해 변경 명령을 추가했으면 `true`, 그렇지 않으면 `false`입니다. <br>
      */
     setSegment(from: WorldPositionVector3, to: WorldPositionVector3, durationMs?: number): boolean;
@@ -241,6 +248,7 @@ declare class UAnimationController extends UEventDispatcher {
      *
      * @param {number} newSpeed 새 주행 속도(킬로미터/시)입니다. <br>
      * `0`이면 일시 정지하고 양수로 바꾸면 주행을 재개합니다. <br>
+     * 일시 정지 중에도 속도 명령은 외부 갱신에서 적용하지만, 기존 속도가 양수인 일반 일시 정지는 유지합니다. <br>
      *
      * @ignore
      */
@@ -277,6 +285,7 @@ declare class UAnimationController extends UEventDispatcher {
     /**
      * 일시 정지한 위치와 진행 기록을 유지한 채 주행을 재개합니다. <br>
      * 일시 정지 상태가 아니면 상태를 바꾸지 않습니다. <br>
+     * 도착 콜백에서 일시 정지했다면 다음 갱신에서 도착 이벤트를 반복하지 않고 다음 구간 또는 완료 처리로 이어집니다. <br>
      */
     resume(): void;
     /**
@@ -317,6 +326,7 @@ declare class UAnimationController extends UEventDispatcher {
      *
      * @param {number} [nowMs=performance.now()] 현재 프레임 시각(밀리초)입니다. <br>
      * 값을 바꾸면 직전 업데이트와의 경과 시간 계산이 달라집니다. <br>
+     * 직전 기준보다 과거인 시각은 이동 계산과 기준 시각 갱신에 사용하지 않습니다. <br>
      *
      * @ignore
      */
@@ -340,10 +350,10 @@ declare class UAnimationController extends UEventDispatcher {
          */
         drawArg: UDrawArg;
         /**
-         * 프레임 경과 시간(밀리초)과 보간된 현재 구간 진행률(0~1)을 순서대로 받아 모델 상태를 갱신할 함수입니다. <br>
+         * 프레임 경과 시간(밀리초), 보간된 현재 구간 진행률(0~1), 프레임 이동 거리(m)을 순서대로 받아 모델 상태를 갱신할 함수입니다. <br>
          * 누락하면 초기화를 중단합니다. <br>
          */
-        animation: (arg0: number, arg1: number) => void;
+        animation: (arg0: number, arg1: number, arg2: number) => void;
         /**
          * 초기 이동 구간의 전체 거리(미터)입니다. <br>
          * 값이 커지면 같은 속도에서 도착까지 더 오래 걸립니다. <br>

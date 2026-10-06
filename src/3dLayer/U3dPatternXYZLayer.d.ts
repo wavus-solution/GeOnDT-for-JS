@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, ShaderMaterial, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -9,6 +9,7 @@ import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/ty
 import type { U3dImageLayer, U3dImageLayerCO } from "./U3dImageLayer.js";
 import type { U3dApp } from "../app/U3dApp.js";
 import type { UTerrainMesh } from "../core/mesh/UTerrainMesh.js";
+import type { UCanvasTexture } from "../core/texture/UCanvasTexture.js";
 import type { UGPoint } from "../math/UGPoint.js";
 import type { UGeoRect } from "../math/UGeoRect.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
@@ -266,10 +267,20 @@ declare class UPatternDecal {
     commit(): UPatternDecal;
     bakingDecalCanvas(): void;
     getDecalCanvas(tileLevel: any): HTMLCanvasElement;
+    /**
+     * 현재 데칼 설정으로 해당 레벨의 패턴 캔버스를 생성합니다.
+     * opacity는 캔버스 자체가 아니라 타일 영역 합성 시 적용합니다.
+     *
+     * @param {any} tileLevel 기존의 숫자 강제 변환 입력을 제한하지 않기 위한 레벨값
+     * @returns {HTMLCanvasElement} 새 패턴 캔버스
+     */
     createDecalCanvas(tileLevel: any): HTMLCanvasElement;
     dispose(): void;
     /**
-     * CO로 입력받은 위경도 영역 좌표를 시스템 좌표로 변환하고, 바운딩 박스를 만든다.
+     * 입력 영역의 변환 좌표를 두 배열에 누적하고 경계를 확장합니다.
+     * 기존 배열·경계를 초기화하지 않으므로 재호출하면 결과가 누적됩니다.
+     * 버전 증가와 로컬 좌표 캐시 초기화는 수행하지 않습니다.
+     * 직접 생성자로 단일 점 영역을 전달한 상태에서는 TypeError가 발생할 수 있습니다.
      */
     transArea(): void;
     /**
@@ -467,4 +478,164 @@ declare class UPatternDecal {
         layer: U3dPatternXYZLayer;
     };
 
-export type { DecalOption, U3dPatternXYZLayer, U3dPatternXYZLayerCO, U3dPatternXYZLayerCO_Content, UPatternDecal, UPatternDecalCO };
+/**
+     * 타일 대상 데칼 선택에 필요한 등록 목록 조회 경계입니다.
+     */
+    type U3dPatternDecalSelectionState = {
+        /**
+         * 현재 등록 데칼
+         */
+        decalInfos: Array<UPatternDecal> | null;
+    };
+
+/**
+     * 기본 캔버스 합성에서 읽는 레이어 출력 설정입니다.
+     */
+    type U3dPatternLayerCanvasState = {
+        /**
+         * 레이어 투명도
+         */
+        _opacity: number;
+        /**
+         * 기본 색상
+         */
+        color: three.Color;
+        /**
+         * 기본 이미지 사용 여부
+         */
+        useBaseTexture: boolean;
+        /**
+         * 알파 이미지 사용 여부
+         */
+        useAlphaTexture: boolean;
+    };
+
+/**
+     * 데칼 캔버스 합성에서 읽는 공개 설정과 이미지 조회 경계입니다.
+     */
+    type UPatternDecalCanvasState = {
+        /**
+         * 데칼 색상
+         */
+        color: three.Color;
+        /**
+         * 기본 이미지 사용 여부
+         */
+        useTexture: boolean;
+        /**
+         * 알파 이미지 사용 여부
+         */
+        useAlphaTexture: boolean;
+        /**
+         * 기본 이미지 주소
+         */
+        textureUrl: string | null;
+        /**
+         * 알파 이미지 주소
+         */
+        alphaTextureUrl: string | null;
+        /**
+         * 이미지 조회 API
+         */
+        layer: Pick<U3dPatternXYZLayer, "getDecalTexture" | "getDecalAlphaTexture">;
+    };
+
+/**
+     * 데칼 패턴 크기를 계산할 때 읽는 설정입니다.
+     */
+    type UPatternDecalSizeState = {
+        /**
+         * 패턴 강도
+         */
+        patternStrength: number;
+        /**
+         * 최소 패턴 크기
+         */
+        minPatternPixel: number;
+        /**
+         * 최대 레벨 제공 경계
+         */
+        app: {
+            _maxlevel: number;
+        };
+    };
+
+/**
+     * 합성 시점 데칼의 식별자와 변경 버전입니다.
+     */
+    type U3dPatternWorkLog = {
+        /**
+         * 데칼 식별자
+         */
+        uuid: string;
+        /**
+         * 데칼 변경 버전
+         */
+        version: number;
+    };
+
+/**
+     * 데칼 영역 변환에서 읽는 입력과 확장하는 결과 저장소입니다.
+     * 원본 area와 앱은 조회만 하며 결과 배열·boundingBox는 기존 객체를 확장합니다.
+     */
+    type UPatternDecalAreaState = {
+        /**
+         * 원본 위경도 영역
+         */
+        area: Array<three.Vector3Like>;
+        /**
+         * 좌표 변환 API
+         */
+        app: Pick<U3dApp, "getGeographicToWorld" | "getGeographicToGoogle">;
+        /**
+         * 누적 월드 좌표(EPSG:3857)
+         */
+        _decalWorldArea: Array<three.Vector3Like>;
+        /**
+         * 누적 월드 좌표(EPSG:3857)
+         */
+        _decalGoogleArea: Array<three.Vector3Like>;
+        /**
+         * 누적 경계
+         */
+        boundingBox: three.Box3;
+    };
+
+/**
+     * 타일별 기존 합성 결과와 기본 텍스처 참조입니다.
+     * 해제 경로에서 텍스처 필드는 null로 바뀔 수 있습니다.
+     */
+    type U3dPatternResourceInfo = {
+        /**
+         * 합성 순서의 이력
+         */
+        workHistory: Array<U3dPatternWorkLog>;
+        /**
+         * 합성 결과
+         */
+        decalTexture: UCanvasTexture | null;
+        /**
+         * 합성에 사용한 기본 텍스처
+         */
+        layerTexture: UCanvasTexture | null;
+    };
+
+/**
+     * 다음 타일 합성의 재사용 범위입니다.
+     */
+    type U3dPatternBakeResult = {
+        /**
+         * all은 전체 합성, append는 추가 합성, none은 기존 결과 사용
+         */
+        type: string;
+        /**
+         * 합성 바탕 또는 기존 결과
+         */
+        texture: UCanvasTexture | null;
+        /**
+         * 추가 합성을 시작할 데칼 인덱스
+         */
+        startIndex: number;
+    };
+
+export type { DecalOption, U3dPatternBakeResult, U3dPatternDecalSelectionState, U3dPatternLayerCanvasState, U3dPatternResourceInfo, U3dPatternWorkLog, U3dPatternXYZLayer, U3dPatternXYZLayerCO, U3dPatternXYZLayerCO_Content, UPatternDecal, UPatternDecalAreaState, UPatternDecalCO, UPatternDecalCanvasState, UPatternDecalSizeState };

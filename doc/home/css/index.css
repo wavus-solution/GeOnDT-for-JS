@@ -1098,7 +1098,7 @@ details .list {
     text-align: center;
 }
 
-#explanation .markdown-document .document-image img {
+#explanation .markdown-document .document-image :is(img, video) {
     display: block;
     max-width: 100%;
     height: auto;
@@ -1130,7 +1130,7 @@ details .list {
     grid-template-columns: minmax(0, 1fr);
 }
 
-#explanation .markdown-document .document-image-grid[data-columns="1"] .document-image img {
+#explanation .markdown-document .document-image-grid[data-columns="1"] .document-image :is(img, video) {
     aspect-ratio: auto;
 }
 
@@ -1163,7 +1163,7 @@ details .list {
     box-sizing: border-box;
 }
 
-#explanation .markdown-document .document-image-grid .document-image img {
+#explanation .markdown-document .document-image-grid .document-image :is(img, video) {
     width: 100%;
     aspect-ratio: 16 / 9;
     object-fit: contain;
@@ -1242,7 +1242,7 @@ details .list {
     text-align: left;
 }
 
-#explanation .markdown-document .document-thumbnail .document-image img {
+#explanation .markdown-document .document-thumbnail .document-image :is(img, video) {
     width: 100%;
     aspect-ratio: 16 / 9;
     object-fit: cover;

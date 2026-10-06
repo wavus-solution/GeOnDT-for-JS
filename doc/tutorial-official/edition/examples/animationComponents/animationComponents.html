@@ -1,3 +1,30 @@
+<aside id="drone-fps-monitor" class="drone-fps-monitor" aria-label="렌더링 성능 모니터">
+    <div class="fps-layout">
+        <div class="fps-overview">
+            <div class="fps-heading" title="제목을 드래그하여 패널을 이동할 수 있습니다"><strong>렌더링 성능 ⠿</strong></div>
+            <div class="fps-primary"><span id="fps-live">—</span><small>FPS</small></div>
+        </div>
+        <div class="fps-history">
+            <canvas id="fps-chart" width="300" height="70" role="img" aria-label="최근 60개 표본의 FPS 그래프, 점선은 목표 50 FPS"></canvas>
+            <div class="fps-chart-label"><span>최근 60개 표본</span><span>점선 50 FPS</span></div>
+        </div>
+        <dl class="fps-metrics">
+            <div><dt>구간 평균</dt><dd id="fps-average">—</dd></div>
+            <div><dt>최저 1초 FPS</dt><dd id="fps-minimum">—</dd></div>
+            <div><dt>50 미만 시간</dt><dd id="fps-below">—</dd></div>
+            <div><dt>측정 시간</dt><dd id="fps-elapsed">0.0초</dd></div>
+        </dl>
+        <div class="fps-controls">
+            <div class="fps-actions">
+                <select id="fps-duration" aria-label="측정 구간 길이"><option value="30">30초</option><option value="60" selected>60초</option><option value="120">120초</option></select>
+                <button id="fps-start" type="button">측정 시작</button>
+                <button id="fps-stop" type="button" disabled>종료</button>
+                <button id="fps-export" type="button" disabled>결과 저장</button>
+            </div>
+        </div>
+    </div>
+    <div class="fps-footer"><p id="fps-status" role="status">로딩이 끝난 뒤 측정을 시작하세요.</p><p class="fps-note">실제 지도 렌더 · 숨겨진 탭 제외 · 같은 조건에서 비교</p></div>
+</aside>
 <nav class="animationComponents-rail" data-example-rail aria-label="animationComponents 도구">
     <button id="analy-bnt" class="rail-button" type="button" data-legacy-toggle-state aria-pressed="false">
         <span class="rail-icon">▦</span><span>분석</span>
