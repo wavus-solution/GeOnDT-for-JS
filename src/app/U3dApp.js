@@ -25,7 +25,6 @@ import {UGeoRect} from '@union3d/math/UGeoRect';
 import {U3dLayerList} from '@union3d/3dLayer/U3dLayerList';
 import {U3dImageXYZLayer} from '@union3d/3dLayer/U3dImageXYZLayer';
 import {U3dImagePBFLayer} from '@union3d/3dLayer/U3dImagePBFLayer';
-import {U3dVideoLayer} from '@union3d/3dLayer/U3dVideoLayer';
 import {U3dModelTdsLayer} from '@union3d/3dLayer/U3dModelTdsLayer';
 import {U3dImageWMSLayer} from '@union3d/3dLayer/U3dImageWMSLayer';
 import {U3dImageWMTSLayer} from '@union3d/3dLayer/U3dImageWMTSLayer';
@@ -140,6 +139,7 @@ const VIEW_MODE = {
     TWO_D: '2d',
     THREE_D: '3d'
 };
+/** @type {{GEOGRAPHIC: 'GEOGRAPHIC', WORLD: 'WORLD'}} */
 const CAMERA_STATE_TYPE = {
     GEOGRAPHIC: 'GEOGRAPHIC',
     WORLD: 'WORLD'
@@ -506,6 +506,8 @@ const WORLD_SIZE = UDEF.HALF_WORLD * 2;
  * 기본값은 기기 성능에 따라 결정됩니다.
  * @property {'SD' | 'HD' | 'FHD' | 'QHD' | 'UHD' | Array<number>} [pixelResolution] 렌더링에 사용할 해상도이며 사전 정의된 이름 또는 [가로, 세로] 픽셀 배열로 입력합니다.<br>
  * 예: 'FHD' 또는 [1122, 840]이며, 기본값은 기기 성능에 따라 결정됩니다.
+ * @property {boolean} [logarithmicDepthBuffer=true] 로그 깊이 버퍼 사용 여부입니다.<br>
+ * logarithmicDepthBuffer 속성을 생략하면 기본값 true를 사용합니다.
  * @property {number} [pixelRatio=1.0] 해상도에 곱해지는 픽셀 밀도 배율이며 값이 클수록 선명해지고 연산량이 늘어남
  * @property {boolean} [usePostProcess] 렌더링 결과에 후처리 효과를 적용할지 여부이며, 기본값은 기기 성능에 따라 결정
  * @property {PostProcessParam} [postOption] 후처리 효과의 세부 설정이며 생략하면 각 효과의 기본 설정 사용
@@ -625,8 +627,11 @@ class U3dApp extends U3dObject {
 
         drawMaxFps: 60,
         drawFps: 60,
-        drawFrameUnit: Math.floor((1000 / 60)),
+        drawFrameUnit: 1000 / 60,
         drawFrameTime: 0,
+        drawNextFrameTime: 0,
+        drawScheduleStartTime: 0,
+        drawScheduleFrameUnit: 0,
 
         drawReadyFrame: 0,
         drawReadyList: [],
@@ -1699,7 +1704,7 @@ class U3dApp extends U3dObject {
     /**
      * 나중에 다시 불러올 카메라 상태를 저장합니다.
      *
-     * @param {import('@union3d/core/UCameraState').UCameraState} cameraStateInfo 저장할 카메라 상태
+     * @param {import('@union3d/core/UCameraState').UCameraState | UCameraStateJSON} cameraStateInfo 저장할 카메라 상태 또는 직렬화 상태
      *
      * @example
      * app.setSavedCameraState(app.getCameraState());
@@ -1713,7 +1718,7 @@ class U3dApp extends U3dObject {
      * 저장된 카메라 상태를 반환합니다.
      * 저장된 상태가 없으면 `undefined`를 반환합니다.
      *
-     * @returns {import('@union3d/core/UCameraState').UCameraState | undefined} 저장된 카메라 상태
+     * @returns {import('@union3d/core/UCameraState').UCameraState | UCameraStateJSON | undefined} 저장된 카메라 상태 또는 직렬화 상태
      *
      * @example
      * const state = app.getSavedCameraState();
@@ -1729,14 +1734,17 @@ class U3dApp extends U3dObject {
     };
 
     /**
-     * Renderer를 생성하는 함수
+     * 렌더러를 생성하며 재생성할 때는 기존 렌더러의 MSAA 요청값을 유지합니다.
+     *
      * @param {HTMLElement} container 3dMap div 객체
-     * @return {import('@union3d/core/URenderer').URenderer} renderer 객체
+     * @returns {import('@union3d/core/URenderer').URenderer} 렌더러 객체
      *
      * @ignore
      */
     createRenderer(container) {
         const self = this;
+        // MSAA는 postOption에 속하지 않으므로 후처리 사용 여부와 무관하게 별도로 넘깁니다.
+        const msaaSamples = self._renderer?.getMsaaSamples();
 
         if (defined(self._renderer)) {
             self._renderer.clear();
@@ -1753,6 +1761,7 @@ class U3dApp extends U3dObject {
             preserveDrawingBuffer: self._preserveDrawingBuffer,   // required to support .toDataURL()
             powerPreference: 'high-performance',
             usePostProcess: self.isPostProcess(),
+            msaaSamples,
             postOption: self.getPostOption()
         };
 
@@ -2285,6 +2294,7 @@ class U3dApp extends U3dObject {
 
     /**
      * 시간에 따른 태양 정보(위치/일조량 등)를 설정하는 함수
+     * 카메라 타겟 좌표가 없으면 태양 위치 갱신을 생략합니다.
      * @param {Date} date 설정 시간
      * @ignore
      */
@@ -2300,6 +2310,7 @@ class U3dApp extends U3dObject {
         const light = self.getLight();
         if (light && sky) {
             const geo = self.getCameraGeographicTargetPoint();
+            if (!defined(geo)) return;
             sky.setTime(date, geo.x, geo.y);
         }
     };
@@ -2728,13 +2739,16 @@ class U3dApp extends U3dObject {
     };
 
     /**
-     * 오버뷰를 생성하는 함수
-     * @param {import('@union3d/core/U3dOverviewMap').U3dOverviewMap} idoverview 오버뷰 아이디
-     * @returns {boolean}
+     * 기존 오버뷰를 해제하고 지정한 DOM 컨테이너에 오버뷰를 생성합니다.
+     * @param {string} idoverview 오버뷰 컨테이너의 DOM ID
+     * @returns {boolean} 오버뷰 생성 요청 처리 여부
      */
     createOverviewMap(idoverview) {
         if (!defined(idoverview))
             return false;
+
+        if (defined(this._overviewmap))
+            this._overviewmap.dispose();
 
         this._overviewmap = new U3dOverviewMap({
             app: this,
@@ -2893,7 +2907,7 @@ class U3dApp extends U3dObject {
         self.#frame.drawReadyFrame = 0;
         self.#frame.drawReadyList = [];
 
-        // 애니메이션·동영상·환경 효과의 준비 작업을 등록한다. 작업은 실행 시점의 앱 상태를 참조한다.
+        // 애니메이션·환경 효과의 준비 작업을 등록한다. 작업은 실행 시점의 앱 상태를 참조한다.
         INTERNAL.configureDrawReadyStages(self.#frame, self, clock2);
     }
 
@@ -2927,6 +2941,13 @@ class U3dApp extends U3dObject {
         return true;
     };
 
+    /**
+     * 애니메이션 루프의 시각에 맞춰 갱신 작업을 진행하고, 그리기 시점이면 한 프레임을 그립니다.
+     * 그리기를 건너뛰어도 준비 작업은 진행하며, 중지·해제·미초기화 상태에서는 실행하지 않습니다.
+     *
+     * @param {number} delta 애니메이션 루프가 전달한 시각(ms)
+     * @returns {false | undefined} 그리기 간격을 기다리는 경우 false이며 그 밖에는 반환값 없음
+     */
     renderFrame(delta) {
         const self = this;
         self._rStats.update(1000, true);
@@ -2946,6 +2967,10 @@ class U3dApp extends U3dObject {
 
         // 이번 프레임의 그리기 여부·모드를 판정하고, 선택된 모드의 공개 관찰 상태는 여기서 반영한다.
         const drawMode = INTERNAL.getDrawFrameMode(this.#frame, delta);
+        // 그림자·준비·그리기 콜백이 설정을 바꾸기 전에 이번 판정에 사용한 간격을 보관한다.
+        // 변경된 설정은 다음 호출에서 적용되어 이전 간격의 대기 시간을 이어받지 않는다.
+        const drawFrameUnit = drawMode === 'active'
+            ? self.#frame.drawFrameUnit : self.#frame.drawIdleFrameUnit;
         if (drawMode === 'active') {
             self.#frame.drawIdleFrame--;
             self.#frame.isIdleDraw = false;
@@ -2969,7 +2994,8 @@ class U3dApp extends U3dObject {
         self.draw();
 
         self.#frame.drawReadyFrame = 0;
-        self.#frame.drawFrameTime = delta;
+        // 실제 그리기가 성공한 뒤에만 다음 일정을 진행하여 초과 대기의 누적 손실을 막는다.
+        INTERNAL.finishDrawFrame(self.#frame, delta, drawFrameUnit);
 
         self._dStats.update(1000, self.isIdleDraw(), self.#domFpsFrame);
 
@@ -7254,14 +7280,6 @@ class U3dApp extends U3dObject {
     }
 
     /**
-     * U3dApp에 있는 비디오 모델 레이어들을 반환하는 함수
-     * @returns {Array<import('@U3dLayer').U3dLayer>} 비디오 모델 레이어 목록
-     */
-    getInstanceVideoLayers() {
-        return this._layerlist.getInstanceVideoLayers();
-    }
-
-    /**
      * U3dApp에 있는 애니매이션 모델 레이어들을 반환하는 함수
      * @returns {Array<import('@U3dLayer').U3dLayer>} 애니매이션 모델 레이어 목록
      */
@@ -8389,6 +8407,7 @@ class U3dApp extends U3dObject {
     /**
      * 카메라 상태를 반환하는 함수 (위경도 좌표)
      * @returns {import('@union3d/core/UCameraState').UCameraState} 카메라 상태 객체
+     * @throws {Error} 카메라 또는 타겟 좌표가 없어 완전한 상태를 조회할 수 없는 경우
      * @example
      * return {
      *              camera: {x: 126.78771616171915, y: 37.64258233377268, z: 69.07397201920645},   // 카메라 위경도 좌표
@@ -8402,12 +8421,15 @@ class U3dApp extends U3dObject {
      */
     getCameraState() {
         const self = this;
-        const distance = self.getResolution();
-
         const position = self.getCameraGeographicPosition();
         const target = self.getCameraGeographicTargetPoint();
+        if (!defined(position) || !defined(target))
+            throw new Error('카메라 또는 타겟 좌표가 없어 카메라 상태를 조회할 수 없습니다.');
+
+        const distance = self.getResolution();
         const azimuth = self._mapControl.getAzimuthalAngle();
         const polar = self._mapControl.getPolarAngle();
+        /** @type {UCameraStateCO} */
         const info = {
             camera: position,
             center: target,
@@ -8427,7 +8449,7 @@ class U3dApp extends U3dObject {
      * 현재 카메라 상태를 저장하는 함수
      * 이후에 loadSavedCameraState API 를 사용 하여 현재의 위치와 각도로 불러오는 방식으로 사용 가능
      *
-     * @returns {import('@union3d/core/UCameraState').UCameraState | undefined} 저장된 카메라 상태
+     * @returns {import('@union3d/core/UCameraState').UCameraState | UCameraStateJSON | undefined} 저장된 카메라 상태
      *
      * @example
      * const info = app.saveCameraState();
@@ -8445,7 +8467,7 @@ class U3dApp extends U3dObject {
     /**
      * saveCameraState API를 통해서 저장된 카메라 상태로 이동 및 회전 하는 함수
      *
-     * @param {import('@union3d/core/UCameraState').UCameraState} [info] 이전에 저장한 카메라 상태 정보.
+     * @param {import('@union3d/core/UCameraState').UCameraState | UCameraStateJSON} [info] 이전에 저장한 카메라 상태 정보.
      * 생략하면 saveCameraState로 저장한 상태를 사용하며, toJSON 결과와 같은 평문 상태 객체도 받는다.
      * @param {number} [duration] 이동 및 회전 완료까지 시간 (밀리초)
      * @returns {undefined | Promise<boolean>} 이동 완료 시점의 Promise. 사용할 카메라 상태가 없거나 형식이 올바르지 않으면 `undefined`
@@ -8467,7 +8489,7 @@ class U3dApp extends U3dObject {
                 let cameraState = state;
                 if (!(cameraState instanceof UCameraState)) {
                     // 평문 상태 객체는 UCameraState로 승격해야 좌표계 변환에 필요한 app 참조를 갖는다.
-                    const option = /** @type {any} */ (cameraState);
+                    const option = /** @type {UCameraStateCO} */ (cameraState);
                     if (!option.app) option.app = self;
 
                     cameraState = new UCameraState(option);
@@ -8517,6 +8539,7 @@ class U3dApp extends U3dObject {
         const azimuth = self._mapControl.getAzimuthalAngle();
         const polar = self._mapControl.getPolarAngle();
 
+        /** @type {UCameraStateCO} */
         const info = {
             camera: position,
             center: target,
@@ -8548,13 +8571,15 @@ class U3dApp extends U3dObject {
     }
 
     /**
-     * 카메라의 위경도 위치를 반환하는 함수
-     * @returns {GeoPosition|null} 카메라의 위경도 위치 좌표
+     * 카메라의 위경도 위치를 반환합니다.
+     * @returns {GeoPosition | null} 위경도 위치. 초기화·해제 중 조회 자원이나 좌표가 없으면 null
      */
     getCameraGeographicPosition() {
-        const cameraPosition = this._drawArg.getCameraPosition();
+        const drawArg = this._drawArg;
+        if (!defined(drawArg)) return null;
+        const cameraPosition = drawArg.getCameraPosition();
         if (defined(cameraPosition)) {
-            const geoPosition = this._drawArg.getWorldToGeographic(cameraPosition.x, cameraPosition.y, cameraPosition.z);
+            const geoPosition = drawArg.getWorldToGeographic(cameraPosition.x, cameraPosition.y, cameraPosition.z);
             if (defined(geoPosition)) {
                 return geoPosition;
             }
@@ -8583,12 +8608,16 @@ class U3dApp extends U3dObject {
     }
 
     /**
-     * 카메라 타겟의 위경도 좌표를 반환하는 함수
-     * @returns {GeoPosition} 타겟의 위경도 좌표
+     * 카메라 타겟의 위경도 좌표를 반환합니다. 카메라 위치나 기본 좌표로 대체하지 않습니다.
+     * @returns {GeoPosition | null} 타겟의 위경도 좌표. 컨트롤, 타겟, 변환 자원 또는 변환 결과가 없으면 null
+     * @throws {Error} 타겟 복제 또는 좌표 변환에서 발생한 예외는 호출자에게 전달됩니다.
      */
     getCameraGeographicTargetPoint() {
-        const position = this._mapControl.target.clone();
-        return this.vector3ToGeoGraphic(position);
+        const target = this._mapControl?.target;
+        if (!defined(target) || !defined(this._drawArg)) return null;
+
+        const geoPosition = this.vector3ToGeoGraphic(target.clone());
+        return defined(geoPosition) ? geoPosition : null;
     }
 
     /**
@@ -9560,26 +9589,6 @@ class U3dApp extends U3dObject {
 
     isUpdateFrame() {
         return this._appUpdate3d;
-    }
-
-    createVideoLayer(opt) {
-        var self = this;
-        if (!defined(opt)) {
-            console.info('opt is null! ');
-            return false;
-        }
-
-        if (self._layerlist.getLayer(opt.name)) {
-            //    console.log('layer is existed!! failure!');
-            return false;
-        }
-
-        var layer = new U3dVideoLayer(opt);
-        if (defined(layer)) {
-            self.addLayer(layer);
-        }
-
-        return layer;
     }
 
     /**

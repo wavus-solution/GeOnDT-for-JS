@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -38,6 +38,18 @@ declare class U3dLine extends U3dGeometry {
      * @param {U3dLineCO} [opt={}] 색상(또는 그라디언트 색상 배열)·두께·두께 단위·표본 간격과 좌표를 지정하는 생성 옵션 <br>
      */
     constructor(opt?: U3dLineCO);
+    /**
+     * 도형 표시 여부입니다. 기본값은 true입니다. <br>
+     *
+     * @type {import('three').Object3D['visible']}
+     */
+    visible: three.Object3D["visible"];
+    /**
+     * 렌더링 정렬 순서입니다. 값이 작을수록 먼저 그리며, 깊이 검사를 비활성화하지는 않습니다. <br>
+     *
+     * @type {import('three').Object3D['renderOrder']}
+     */
+    renderOrder: three.Object3D["renderOrder"];
     /**
      * 사용자가 지정한 선 두께입니다. <br>
      * 기본값은 1입니다. <br>
@@ -134,6 +146,15 @@ declare class U3dLine extends U3dGeometry {
      */
     _initLine(): void;
     /**
+     * 점선 표시에 사용하는 선분별 누적 거리를 계산합니다. <br>
+     * 좌표를 설정해 instanceStart·instanceEnd 버퍼가 생성된 후 호출하며, 좌표 변경 후에는 다시 계산해야 합니다. <br>
+     * 계산 결과를 geometry의 instanceDistanceStart·instanceDistanceEnd 속성에 저장합니다. <br>
+     *
+     * @returns {this} 거리 계산을 마친 현재 선 객체 <br>
+     * @throws {TypeError} 지오메트리 또는 필요한 좌표 버퍼가 없으면 발생합니다 <br>
+     */
+    computeLineDistances(): this;
+    /**
      * 재질에 적용된 선 두께를 반환합니다. <br>
      * `worldUnits`가 `true`이고 위경도 좌표가 있으면 위도 환산 배율이 곱해진 값이므로 `linewidth`와 다를 수 있습니다. <br>
      *
@@ -194,9 +215,9 @@ declare class U3dLine extends U3dGeometry {
      *
      * @override
      *
-     * @param {U3dLineCO} [param] 변경할 속성. 도형 공통 속성과 `linewidth`(또는 `lineWidth`)·`divisions`·`closed`·`worldUnits` <br>
+     * @param {U3dLineSetParam} [param] 변경할 속성. 도형 공통 속성과 `linewidth`(또는 `lineWidth`)·`divisions`·`closed`·`worldUnits` <br>
      */
-    override setParam(param?: U3dLineCO): void;
+    override setParam(param?: U3dLineSetParam): void;
     /**
      * 현재 도형 공통 속성과 선 고유 속성을 반환합니다. <br>
      * `linewidth`는 재질에 적용된 두께(`getLineWidth` 값)이므로, `worldUnits`가 `true`이고 위경도 좌표가 있으면 지정한 두께에 위도 환산 배율이 곱해진 값입니다. <br>
@@ -229,7 +250,7 @@ declare class U3dLine extends U3dGeometry {
 /**
      * ~extends import('@U3dGeometry').U3dGeometryCO <br>
      *
-     * `U3dLine` 생성자와 `setParam`에 전달하는 옵션입니다. <br>
+     * `U3dLine` 생성자에 전달하는 옵션입니다. <br>
      * 도형 공통 옵션은 `U3dGeometryCO`에 정의되어 있으며, 이 타입은 선 고유 옵션과 주요 공통 옵션을 함께 설명합니다. <br>
      */
     type U3dLineCO_Content = {
@@ -291,10 +312,10 @@ declare class U3dLine extends U3dGeometry {
 /**
      * ~extends import('@U3dGeometry').U3dGeometryCO <br>
      *
-     * `U3dLine` 생성자와 `setParam`에 전달하는 옵션입니다. <br>
+     * `U3dLine` 생성자에 전달하는 옵션입니다. <br>
      * 도형 공통 옵션은 `U3dGeometryCO`에 정의되어 있으며, 이 타입은 선 고유 옵션과 주요 공통 옵션을 함께 설명합니다. <br>
      */
-    type U3dLineCO = Omit<Omit<U3dGeometryCO, never> & U3dLineCO_Content, never>;
+    type U3dLineCO = Omit<U3dGeometryCO, keyof U3dLineCO_Content> & U3dLineCO_Content;
 
 /**
      * ~extends U3dGeometryStyleParam <br>
@@ -370,4 +391,10 @@ declare class U3dLine extends U3dGeometry {
         missCount: number;
     };
 
-export type { U3dLine, U3dLineCO, U3dLineCO_Content, U3dLineDrapeOnSurfaceOptions, U3dLineDrapeOnSurfaceResult, U3dLineParam, U3dLineParam_Content };
+/**
+     * 선의 변경 파라미터입니다. 공통 스타일은 생성 옵션보다 변경 API의 계약을 우선합니다. <br>
+     * depthOffset의 null 해제를 지원하며, 색상 배열 변경은 setColor를 사용합니다. <br>
+     */
+    type U3dLineSetParam = Omit<U3dLineCO, keyof U3dGeometryStyleParam> & U3dGeometryStyleParam;
+
+export type { U3dLine, U3dLineCO, U3dLineCO_Content, U3dLineDrapeOnSurfaceOptions, U3dLineDrapeOnSurfaceResult, U3dLineParam, U3dLineParam_Content, U3dLineSetParam };

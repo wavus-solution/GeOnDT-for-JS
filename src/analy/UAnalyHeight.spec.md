@@ -34,7 +34,7 @@
 - 저장된 스타일은 입력 객체의 복사본이며 이후 호출자가 원본을 수정해도 적용 스타일이 바뀌어서는 안 된다.
 - 범례를 끌 때 등고선(isTopo)이 켜져 있으면 공유 HEIGHT 패스를 비활성화해서는 안 된다.
 - 제외 목록에 등록된 대상은 범례 색상과 등고선이 적용되지 않고 본연의 색상으로 표시되어야 한다. Object3D는 하위 전체가, 컴포넌트 포지션은 그 컴포넌트만(일반 메쉬 타입은 복제 형상, 인스턴스 타입은 공유 InstancedMesh 중 해당 인스턴스만) 제외되어야 한다.
-- 패스가 생성되기 전에 등록된 제외 목록도 setHeightVisible(true) 시점에 패스로 전달되어야 한다.
+- 패스 생성 전 또는 해제 후 보관한 제외 목록도 현재 패스에 setHeightVisible(true)를 적용할 때 전달되어야 한다.
 ```
 
 ## 3. 정규 자연어 수도코드
@@ -107,16 +107,20 @@ UAnalyHeight extends UAnaly 클래스 정의
             UAnaly — 상위 활성화와 앱 참조; 함수: {active()}; 속성 읽기: {_app}
             U3dApp(_app) — 이벤트 등록·해제와 모드 전환; 함수: {on(), unkey()}; 속성 쓰기: {_mode}; 속성 읽기: {_sceneComment}
             UDEF — 높이 측정 모드 상수; 상수: {APP_MODE._HEIGHT}
+            defined — 기존 클릭 이벤트 ID의 null·undefined 제외 판정; 함수: {defined()}
         동작:
             상위 분석을 활성화한다.
-            기존 클릭 등록이 있으면 해제하고 앱 모드를 높이 측정으로 바꾼다.
-            클릭 callback을 등록하고 POI 그룹을 주석 장면에 추가한다.
+            _app이 falsy이면 종료한다.
+            _app이 truthy이면 다음을 수행한다.
+                기존 클릭 등록이 있으면 해제하고 앱 모드를 높이 측정으로 바꾼다.
+                분석 객체를 this로 고정한 클릭 callback을 등록하고 POI 그룹을 주석 장면에 추가한다.
 
     override deactive() -> void
         처리 기준: 활성 상태가 아니면 아무것도 하지 않는다.
         의존:
             UAnaly — 상위 비활성화와 상태 읽기; 함수: {deactive()}; 속성 읽기: {_isActive, _app}
             U3dApp(_app) — 클릭 이벤트 해제; 함수: {unkey()}
+            defined — 해제할 클릭 이벤트 ID의 null·undefined 제외 판정; 함수: {defined()}
         동작:
             상위 분석을 비활성화한다.
             앱이 있으면 등록된 클릭 이벤트를 해제하고 이벤트 ID를 비운다.
@@ -127,7 +131,7 @@ UAnalyHeight extends UAnaly 클래스 정의
             U3dApp(_app) — 갱신 시각 변경; 함수: {setUpdateDate()}
         동작: 상위 분석 정리를 수행하고 앱이 있으면 갱신 시각을 변경한다.
 
-    drawHeight(val) -> void
+    drawHeight(val: boolean) -> void
         역할: 폐기 예정 별칭이며 setHeightVisible() 사용을 권장한다.
         동작: 입력 값으로 높이 색상 가시화를 설정한다.
 
@@ -143,10 +147,11 @@ UAnalyHeight extends UAnaly 클래스 정의
             URenderer — 패스 조회와 활성화; 함수: {getPass(), activePass()}
             UDEF — HEIGHT 패스 이름; 상수: {POSTPASS.HEIGHT}
             __GError__ — 패스 부재 오류 보고; 함수: {__GError__()}
+            defined — 조회한 패스의 null·undefined 제외 판정; 함수: {defined()}
         동작:
             패스 uniforms의 isApply에 입력 값을 기록한다.
             끄는 경우 등고선 uniform(isTopo)이 꺼져 있을 때만 HEIGHT 패스를 비활성화하고 true를 반환한다.
-            켜는 경우 저장된 스타일이 없으면 기본 스타일을 dirty 상태로 채우고, 스타일 uniform과 패스 생성 전에 등록된 제외 목록을 반영한 뒤 HEIGHT 패스를 활성화하고 true를 반환한다.
+            켜는 경우 저장된 스타일이 없으면 기본 스타일을 dirty 상태로 채우고, 스타일 uniform과 저장된 제외 목록을 반영한 뒤 HEIGHT 패스를 활성화하고 true를 반환한다. 빈 제외 목록도 전달한다.
 
     isHeightVisible() -> boolean
         인터페이스: 반환은 현재 HEIGHT 패스에 범례 적용(isApply)이 켜져 있는지 여부다.
@@ -162,9 +167,11 @@ UAnalyHeight extends UAnaly 클래스 정의
         인터페이스: style의 mode 키는 "band" 또는 "mix", 숫자 문자열 키는 기준 고도, 값은 rgba()/css 색상 문자열이다.
         처리 기준:
             객체가 아니거나 배열이면 false를 반환한다.
-            mode가 band·mix 밖의 값이면 경고 후 false를 반환한다.
+            mode가 null·undefined가 아니면서 band·mix 밖의 값이면 경고 후 false를 반환한다.
             숫자 키 항목이 MAX_STYLE_ENTRIES를 초과하면 경고 후 false를 반환하며 0개는 허용한다.
-        의존: U3dMessage — 잘못된 스타일 경고; 정적 함수: {warn()}
+        의존:
+            U3dMessage — 잘못된 스타일 경고; 정적 함수: {warn()}
+            defined — mode의 null·undefined 제외 판정; 함수: {defined()}
         동작: 입력을 얕은 복사로 저장하고 dirty 표시 후 즉시 uniform 반영을 시도하고 true를 반환한다.
 
     getUserStyle() -> Record<string, string> | undefined
@@ -179,7 +186,7 @@ UAnalyHeight extends UAnaly 클래스 정의
         의존: U3dMessage — 잘못된 인수 경고; 정적 함수: {warn()}
         동작:
             모든 항목의 허용 여부를 배열 every 판정 callback으로 확인한다.
-            제외 집합을 비우고 입력 대상들로 다시 채운 뒤 패스에 동기화하고 true를 반환한다.
+            제외 집합을 비우고 입력 대상들로 다시 채운 뒤 패스에 동기화하고 true를 반환한다. 빈 배열도 공유 패스의 제외 상태를 해제하도록 전달한다.
 
     addExceptObject(object: Object3D | U3dComponentPosition) -> boolean
         처리 기준: 허용 대상이 아니면 경고 후 false를 반환한다.
@@ -200,16 +207,23 @@ UAnalyHeight extends UAnaly 클래스 정의
         인터페이스: 반환 배열은 복사본이며 수정해도 실제 목록은 바뀌지 않는다.
         동작: 제외 집합의 항목을 배열로 복사해 반환한다.
 
-    #syncExceptObjects() -> void
+    _syncExceptObjects(preserveCurrentIfEmpty: boolean = false) -> void
         역할: 제외 집합 참조를 HEIGHT 패스에 전달하고 다시 그리기를 요청한다.
-        처리 기준: 앱·렌더러·패스가 아직 없으면 전달을 건너뛰며 이후 setHeightVisible(true)에서 다시 동기화된다.
+        인터페이스: 자식 클래스에서도 사용하는 protected 메서드이며, preserveCurrentIfEmpty는 빈 목록으로 현재 공유 제외 상태를 덮어쓰지 않을지 지정한다.
+        처리 기준:
+            고도 색상·등고선 표시 상태를 변경하거나 패스를 생성하지 않는다.
+            앱·렌더러·패스가 없으면 목록 전달을 건너뛰고 저장된 집합은 유지한다.
         의존:
             UAnaly — 앱 참조; 속성 읽기: {_app}
             U3dApp(_app) — 렌더러 조회와 갱신 시각 변경; 함수: {getRenderer(), setUpdateDate()}
             URenderer — 패스 조회; 함수: {getPass()}
             HeightPass — 제외 루트 집합 등록; 함수: {_setExceptObjects()}
             UDEF — HEIGHT 패스 이름; 상수: {POSTPASS.HEIGHT}
-        동작: 렌더러의 HEIGHT 패스 인스턴스에 제외 집합 참조를 전달하고 앱 갱신 시각을 변경한다.
+        동작:
+            렌더러에서 현재 HEIGHT 패스 인스턴스를 조회한다.
+            preserveCurrentIfEmpty가 false이거나 저장된 제외 집합 크기가 0보다 크면, 패스의 _setExceptObjects가 있는 경우 집합 참조를 전달한다.
+            preserveCurrentIfEmpty가 true이고 집합이 비어 있으면 현재 패스의 제외 목록을 유지한다.
+            목록 전달 여부와 관계없이 연결 앱의 setUpdateDate가 있으면 호출한다.
 
     #updateStyleUniforms() -> void
         역할: 저장된 스타일을 HEIGHT 패스의 스타일 uniform과 텍스처로 반영한다.
@@ -220,19 +234,21 @@ UAnalyHeight extends UAnaly 클래스 정의
             URenderer — 패스 조회; 함수: {getPass()}
             DataTexture(previousTexture) — 교체된 이전 스타일 텍스처 처분; 함수: {dispose()}
         동작:
-            스타일에서 정렬된 고도·색 항목을 얻는다.
-            styleMode uniform에 band이면 1, 아니면 0을 기록한다.
-            styleCount uniform에 항목 수를 0개 그대로 포함해 기록한다.
-            새 스타일 텍스처를 만들어 userStyleData uniform을 교체하고 이전 텍스처를 처분한다.
-            dirty를 해제하고 앱 갱신 시각을 변경한다.
+            pass.uniforms가 falsy이면 dirty를 유지하고 종료한다.
+            pass.uniforms가 truthy이면 다음을 수행한다.
+                스타일에서 정렬된 고도·색 항목을 얻는다.
+                uniforms.styleMode가 truthy이면 band일 때 1, 아니면 0을 기록한다.
+                uniforms.styleCount가 truthy이면 항목 수를 0개 그대로 포함해 기록한다.
+                uniforms.userStyleData가 truthy이면 새 스타일 텍스처로 교체하고 이전 텍스처에 dispose가 있으면 호출한다.
+                개별 uniform 존재 여부와 관계없이 dirty를 해제하고 앱 갱신 시각을 변경한다.
 
     #createStyleTexture(entries: Array<{height: number, color: string}>) -> DataTexture
         역할: 정렬된 스타일 항목을 GHeightShader의 2행 스타일 텍스처 계약으로 변환한다.
         처리 기준: rgba() 색상은 알파를 분리해 0~1로 clamp하고 알파가 없거나 숫자가 아니면 1을 사용한다.
         의존:
-            Color — css 색상 문자열 해석; 생성자: {new THREE.Color()}
-            MathUtils — 투명도 clamp; 정적 함수: {clamp()}
-            DataTexture — 스타일 텍스처 생성; 생성자: {new THREE.DataTexture()}
+            THREE.Color — css 색상 문자열 해석; 생성자: {new THREE.Color()}
+            THREE.MathUtils — 투명도 clamp; 정적 함수: {clamp()}
+            THREE.DataTexture — 스타일 텍스처 생성; 생성자: {new THREE.DataTexture()}
             RGBAFormat — 포맷 상수; 상수: {THREE.RGBAFormat}
             FloatType — 픽셀 타입 상수; 상수: {THREE.FloatType}
         동작:
@@ -245,6 +261,7 @@ UAnalyHeight extends UAnaly 클래스 정의
             UAnaly — 모델·지형 교차 조회, 앱 참조와 분석 갱신; 함수: {intersectModel(), intersectTerrain(), update()}; 속성 읽기: {_app}
             UMathEngine — EPSG:3857 실축척 환산; 정적 함수: {getRealScaleAtGoogle()}
             U3dBilboard — 높이 텍스트 POI 생성; 정적 함수: {makeBilboard()}
+            defined — 모델 POI 생성 여부의 null·undefined 제외 판정; 함수: {defined()}
             UGroup(_poiGroup) — POI 보관; 함수: {add()}
             U3dApp(_app) — 장면 갱신 요청과 주석 장면 접근; 함수: {draw(), setUpdateDate()}; 속성 읽기: {_sceneComment}
         동작:
@@ -264,6 +281,8 @@ UAnalyHeight extends UAnaly 클래스 정의
 
 ```spec
 - HEIGHT 패스 uniform 접근은 항상 렌더러의 현재 패스 인스턴스(getPass().instance)를 통해 수행하며, 패스와 이 분석은 uniforms 객체를 공유 상태로 사용한다.
+- Height와 Contour는 각각 제외 집합을 보관하지만 패스가 받는 집합은 하나이며 자동 병합하지 않는다. 실제로 마지막 전달된 집합을 사용한다.
+- Height의 켜기는 빈 목록도 전달하고, Contour의 켜기는 빈 목록이면 현재 공유 목록을 유지한다. 상속된 제외 목록 변경 API는 두 클래스 모두 기본 동기화를 사용하므로 setExceptObjects([])는 명시적 전체 해제다.
 - 스타일 텍스처의 2행 레이아웃(0행 색, 1행 고도)은 GHeightShader의 텍스처 계약과 함께 변경해야 한다.
 ```
 

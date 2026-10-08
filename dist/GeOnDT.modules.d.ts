@@ -1,5 +1,5 @@
 import * as three from './types/three/build/three.module.js';
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from './types/three/build/three.module.js';
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from './types/three/build/three.module.js';
 export { three as THREE };
 import * as three_examples_jsm_lines_LineSegments2_js from './types/three/examples/jsm/lines/LineSegments2.js';
 import { LineSegments2 } from './types/three/examples/jsm/lines/LineSegments2.js';
@@ -599,6 +599,12 @@ type Listeners = Record<string, Array<EventCallBack>>;
  */
 declare class UEventDispatcher {
     /**
+     * @type {Array<string>}
+     *
+     * @ignore
+     */
+    static OPT_KEYS: Array<string>;
+    /**
      * @param {UEventDispatcherCO} [opt = {}]
      */
     constructor(opt?: UEventDispatcherCO);
@@ -747,7 +753,6 @@ type U3dObjectCO = Omit<Omit<UEventDispatcherCO, never> & U3dObjectCO_Content, n
  * @extends {UEventDispatcher}
  */
 declare class U3dObject extends UEventDispatcher {
-    static OPT_KEYS: string[];
     /**
      * @param {U3dObjectCO} [opt = {}]
      */
@@ -1064,6 +1069,15 @@ declare class U3dGroupLayer extends U3dLayer {
  * @ignore
  */
 declare class UCache {
+    /**
+     * 항목 추가·교체·제거 세대입니다. 내부 소비자는 이 값으로 목록 재열거를 생략합니다.
+     * 저장된 객체 내부의 변경은 포함하지 않으므로 그 객체의 값은 조회 시 직접 읽어야 합니다.
+     *
+     * @type {number}
+     *
+     * @ignore
+     */
+    _revision: number;
     /** @type {boolean} */
     _enabled: boolean;
     /** @type {Record<string, any>} */
@@ -1206,6 +1220,15 @@ declare class ULight {
  */
 declare class U3dQuadSet extends U3dObject {
     constructor(minx: any, maxx: any, miny: any, maxy: any, level: any, layers: any, drawArg: any, scene: any);
+    /**
+     * 현재 동기 순회에 한정된 공통 분화 판단 값입니다.
+     * 비동기 작업과 다음 갱신으로 전달하지 않으며 중첩 갱신 뒤에는 이전 범위를 복원합니다.
+     *
+     * @type {U3dQuadTileLodContext | undefined}
+     *
+     * @ignore
+     */
+    _lodUpdateContext: U3dQuadTileLodContext | undefined;
     _scene: any;
     _layers: any;
     _drawArg: any;
@@ -1509,8 +1532,9 @@ declare class UFrustum extends three.Frustum {
      * setTarget은 target만 저장하고 즉시 행렬을 갱신하지 않습니다.
      * 애니메이션 프레임 등 원하는 시점에 `updateTarget()`을 호출해 실제 갱신 시점을 제어합니다. (`update(camera)`는 카메라 기준 갱신으로 별개입니다.)
      * 이전과 다른 target을 등록하면 자세 연속성 계산에 쓰던 직전 자세 기록이 초기화됩니다. null·undefined는 무시됩니다.
+     * 추적을 중단하려면 targetObject를 undefined로 설정합니다. 마지막 행렬은 유지됩니다.
      *
-     * @param {UFrustumTarget} target 추적할 컴포넌트 또는 Object3D 유사 객체. 위치(`getVectorPosition()` 또는 `position`)와 자세(`lookAt` 좌표 또는 `quaternion`)를 제공해야 합니다
+     * @param {UFrustumTarget} target 추적할 컴포넌트 또는 Object3D 유사 객체. 위치(`getVectorPosition()` 또는 `position`)는 Vector3 또는 x/y/z 객체입니다. 자세는 `lookAt` 좌표 또는 isQuaternion이 true인 정규화된 회전 성분으로 제공합니다
      * @returns {this} 체이닝을 위한 자기 자신
      */
     setTarget(target: UFrustumTarget): this;
@@ -1518,6 +1542,7 @@ declare class UFrustum extends three.Frustum {
      * 등록된 target의 현재 위치·자세로 프러스텀의 월드 행렬(`matrix`)을 다시 계산합니다. <br>
      * 위치는 target 월드 위치에 `position` offset을 더한 값이고, 자세는 target 진행 방향과 `axis`·항공 자세(pitch/yaw/roll)로 만든 quaternion 뒤에 `rotation`을 합성한 값입니다.
      * target이 없거나 target에서 위치를 얻을 수 없으면 아무 것도 바꾸지 않고 반환합니다.
+     * 좌표형 lookAt은 quaternion보다 우선하며, 자세가 없거나 유효한 방향을 만들 수 없으면 기본 전방축을 사용합니다.
      * @param {Partial<{emitChange: boolean}>} [options={}] `emitChange`가 false이면 행렬만 갱신하고 변경 리스너를 호출하지 않습니다. 기본 true
      * @returns {this} 체이닝을 위한 자기 자신
      */
@@ -2895,6 +2920,20 @@ declare class U3dLayer extends U3dObject {
     #private;
 }
 
+declare class UTileMesh extends UMesh {
+    static DEFAULT_BASIC_MATERIAL: MeshPhongMaterial;
+    constructor(tile: any);
+    _utype: any;
+    _isUTileMesh: boolean;
+    userData: {};
+    renderOrder: any;
+    set boundingSphere(value: any);
+    get boundingSphere(): any;
+    changeGeometry(geometry: any): void;
+    computeBoundingSphere(tile?: U3dQuadTile): void;
+    #private;
+}
+
 /**
  * @extends {U3dObject}
  */
@@ -2906,6 +2945,7 @@ declare class U3dQuadTile extends U3dObject {
         6: number;
         7: number;
         8: number;
+        16: number;
         17: number;
         18: number;
     };
@@ -2953,17 +2993,17 @@ declare class U3dQuadTile extends U3dObject {
     _center: three.Vector3;
     _LongitudeSpan: number;
     _LatitudeSpan: number;
-    _rectangle: any;
-    _rectangle3d: any;
-    _x: any;
-    _y: any;
-    _key: any;
-    _meshname: any;
+    _rectangle: UGeoRect;
+    _rectangle3d: UGeoRect;
+    _x: number;
+    _y: number;
+    _key: string;
+    _meshname: string;
     _rsize: number;
     _zsize: number;
     _boundingbox: three.Box3;
     _sphere: three.Sphere;
-    _mesh: any;
+    _mesh: UTileMesh;
     _northWestChild: any;
     _southWestChild: any;
     _northEastChild: any;
@@ -2972,8 +3012,8 @@ declare class U3dQuadTile extends U3dObject {
     _disposed: boolean;
     distance_: number;
     _visible: boolean;
-    _processed: any;
-    _worked: any;
+    _processed: string;
+    _worked: string;
     _waitWork: Map<any, any>;
     _endWork: Map<any, any>;
     _workState: any;
@@ -2993,6 +3033,23 @@ declare class U3dQuadTile extends U3dObject {
      */
     getHeightByXY(x: number, y: number): number;
     changeGeometry(geometry: any): void;
+    /**
+     * FrameState의 표시 전환 검사에 필요한 집계 결과를 반환합니다.
+     *
+     * 상세 조회를 재정의한 타일은 기존 메서드를 인수 없이 호출하여 확장 동작을 보존합니다.
+     * 표준 구현만 레이어별 상세 객체 생성을 생략하며, 판정 값은 호출할 때마다 다시 계산합니다.
+     *
+     * @returns {U3dQuadTilePresentationSummary} 현재 표시 준비 집계
+     *
+     * @ignore
+     */
+    _getPresentationSummary(): U3dQuadTilePresentationSummary;
+    /**
+     * 고정 기준 화면의 투영 배율, 가시 영역 거리와 원자료의 유효 레벨로 추가 분화 여부를 판단합니다.
+     * 특수 모드와 검색 위치 보정 경로는 기존 거리 판정을 유지합니다.
+     *
+     * @returns {boolean} 자식 레벨의 콘텐츠가 필요하면 true
+     */
     updatePossible(): boolean;
     /**
      * 현재 LOD 전환 판단과 작업 상태를 반환합니다.
@@ -3009,7 +3066,7 @@ declare class U3dQuadTile extends U3dObject {
         waitWorkNames: Array<string>;
         endWorkNames: Array<string>;
     };
-    getMesh(): any;
+    getMesh(): UTileMesh;
     getWaitWork(workName: any): any;
     setWaitWork(work: any): void;
     isWait(): boolean;
@@ -3036,12 +3093,12 @@ declare class U3dQuadTile extends U3dObject {
     isInitialized(): boolean;
     setInitialized(initialized: any): void;
     info(): {
-        x: any;
-        y: any;
+        x: number;
+        y: number;
         level: any;
-        rectangle: any;
-        rectangle3d: any;
-        key: any;
+        rectangle: UGeoRect;
+        rectangle3d: UGeoRect;
+        key: string;
     };
     intersect(vecx: any, vecy: any, vecz: any): boolean;
     computeChild(minX: any, maxX: any, minY: any, maxY: any, level: any, scene: any, drawArg: any, type: any, parent: any, startlevel: any, quadindex: any, quadset: any): any;
@@ -3070,19 +3127,12 @@ declare class U3dQuadTile extends U3dObject {
      *
      * Parent/Child 계층은 탐색하지 않으며 호출 시점의 단일 타일 상태만 계산합니다.
      *
-     * @returns {{layerStates: Array<{layer: import('@U3dLayer').U3dLayer, participant: boolean, renderReady: boolean, attached: boolean, retainedPresentationSafe: boolean, confirmedEmpty: boolean}>, renderReady: boolean, attached: boolean, retainedPresentationSafe: boolean, handoffReady: boolean}} 현재 타일의 Presentation snapshot입니다.
+     * @returns {{layerStates: Array<U3dQuadTilePresentationLayerState>, renderReady: boolean, attached: boolean, retainedPresentationSafe: boolean, handoffReady: boolean}} 현재 타일의 Presentation snapshot입니다.
      *
      * @ignore
      */
     getPresentationSnapshot(): {
-        layerStates: Array<{
-            layer: U3dLayer;
-            participant: boolean;
-            renderReady: boolean;
-            attached: boolean;
-            retainedPresentationSafe: boolean;
-            confirmedEmpty: boolean;
-        }>;
+        layerStates: Array<U3dQuadTilePresentationLayerState>;
         renderReady: boolean;
         attached: boolean;
         retainedPresentationSafe: boolean;
@@ -3115,8 +3165,8 @@ declare class U3dQuadTile extends U3dObject {
     getTileSize(): any;
     traverse(callback: any): void;
     update(drawArg: any, frameState: any, force?: boolean): boolean;
-    getProcessStep(): any;
-    getWorkStep(): any;
+    getProcessStep(): string;
+    getWorkStep(): string;
     disposeDetail(): void;
     dispose(callback: any): void;
     createMesh(material: any, drawArg?: any): boolean;
@@ -7605,13 +7655,6 @@ declare class U2dGeometry {
 }
 
 /**
- * @template [T=unknown]
- * @param {Partial<DeferredObject<T>>} [scope={}]
- * @return {DeferredObject<T>}
- */
-declare function deferred<T = unknown>(scope?: Partial<DeferredObject<T>>): DeferredObject<T>;
-
-/**
  * Debug JSON 에 담는, tile 캐시에 들어 있는 mesh 하나의 상태입니다.
  */
 type DebugTileStateCacheMesh = {
@@ -8561,12 +8604,13 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     /**
      * 이 레이어가 쓰던 terrain 합성 등록, WFS 요청과 응답 캐시, Feature 와 셰이더 자원을 모두 정리합니다. <br>
      * 정리 후에는 이 레이어를 다시 사용할 수 없습니다.
+     * 기존 호출부의 ready·done·resolve 사용을 보존하기 위해 공개 반환형에도 Deferred 객체를 유지합니다.
      *
      * @override
      *
-     * @returns {ReturnType<typeof deferred>} 정리가 끝나면 `true` 로 이행되는 Promise 호환 객체
+     * @returns {DeferredObject<boolean>} 정리가 끝나면 true로 완료되는 Deferred 객체
      */
-    override dispose(): ReturnType<typeof deferred>;
+    override dispose(): DeferredObject<boolean>;
     /**
      * 위경도 좌표계(EPSG:4326) 위치를 받아 그 지점에 걸치는 Feature 를 모두 찾아 목록으로 반환합니다. <br>
      * 최소·최대 타일 레벨 사이의 타일 캐시에서 찾으므로 아직 그려지지 않은 영역의 Feature 는 나오지 않습니다.
@@ -11290,10 +11334,11 @@ declare class URaycaster extends Raycaster {
 
 /**
  * ~extends import('@UEventDispatcher').UEventDispatcher <br>
- * `3D분석` 관련 최상위 클래스 <br>
- * 분석 클래스들은 기본으로 생성되어 `U3dApp`에 등록됩니다.
- * @group analysis
  *
+ * 3차원 분석의 활성 상태·앱 연결·교차 조회와 하이라이트를 제공하는 기반 클래스입니다. <br>
+ * 하위 분석 클래스는 이벤트 처리와 측정 기능을 확장합니다.
+ *
+ * @group analysis
  * @extends {UEventDispatcher}
  *
  * @example
@@ -11301,220 +11346,278 @@ declare class URaycaster extends Raycaster {
  * analysis.active();
  */
 declare class UAnaly extends UEventDispatcher {
-    static OPT_KEYS: string[];
     /**
-     * @param {UAnalyCO} [opt={}]
+     * UAnaly 클래스 생성자입니다. <br>
+     * 분석 결과용 장면과 표출 그룹을 만들며 앱은 setApp()으로 별도 연결합니다.
+     *
+     * @param {UAnalyCO} [opt={}] 분석 타입을 지정하는 생성 옵션
      */
     constructor(opt?: UAnalyCO);
     /**
+     * 생성 옵션으로 설정한 분석 타입입니다.
+     *
      * @type {string}
      *
      * @ignore
      */
     _type: string;
     /**
-     *  @type {string}
+     * 클래스 식별 문자열입니다.
      *
-     *  @ignore
+     * @type {string}
+     *
+     * @ignore
      */
     _classtype: string;
     /**
+     * 분석 결과 객체를 담는 장면(scene)입니다.
+     *
      * @type {import('@UScene').UScene}
      *
      * @ignore
      */
     _scene: UScene;
     /**
+     * 분석 객체에 연결한 지도 앱입니다.
+     *
      * @type {import('@U3dApp').U3dApp | undefined}
      *
      * @ignore
      */
     _app: U3dApp | undefined;
     /**
+     * 연결한 앱의 카메라·장면 조회에 사용하는 렌더링 실행 인자입니다.
+     *
      * @type {import('@UDrawArg').UDrawArg | undefined}
      *
      * @ignore
      */
     _drawArg: UDrawArg | undefined;
     /**
+     * 연결한 앱의 주석 장면(scene) 참조입니다.
+     *
      * @type {import('@UScene').UScene | undefined}
      *
      * @ignore
      */
     _sceneComment: UScene | undefined;
     /**
+     * 하이라이트를 적용한 메시(mesh)의 목록이며 중복 항목을 허용합니다.
+     *
      * @type {Array<Ananlysis_Mesh>}
      *
      * @ignore
      */
     _selectedList: Array<Ananlysis_Mesh>;
     /**
-     * 분석 모드 활성화 여부
+     * 분석 기능의 활성 상태이며 생성 직후에는 false입니다.
+     *
      * @type {boolean}
      */
     _isActive: boolean;
     _poiGroup: UGroup;
     _targetLayerName: string;
     /**
-     * 분석 기능 활성화 함수
+     * 분석 기능을 활성 상태로 설정합니다.
      */
     active(): void;
     /**
-     * 분석 기능 활성화 여부 반환
-     * @return {boolean}
+     * 분석 기능의 현재 활성 상태를 반환합니다.
+     *
+     * @returns {boolean} 활성 상태이면 true
      */
     isActive(): boolean;
     /**
-     * 분석 기능 비활성화 함수
+     * 분석 기능을 비활성 상태로 설정하고 이 객체에 등록한 이벤트를 모두 해제합니다.
      */
     deactive(): void;
     /**
-     * 분석 작업 내용 초기화 함수 <br>
-     * 그리기, 3D객체 등 분석 작업으로 지도에 표출된 내용들을 초기화한다.
+     * 분석 결과 표출 그룹의 자식을 정리하고 앱의 주석 장면에서 그룹을 분리합니다. <br>
+     * 앱이 연결되지 않았으면 아무 작업도 하지 않으며 하이라이트 선택 목록은 비우지 않습니다.
      */
     clear(): void;
     /**
-     * 분석 모드 이벤트를 끄는 메서드
-     * @override
-     *
-     * @param {string} [type]
-     * @param {function} [listener]
-     */
-    override off(type?: string, listener?: Function): void;
-    /**
-     * 분석모드 업데이트 함수
+     * 연결한 앱에 분석 결과의 화면 갱신을 요청합니다.
      */
     update(): void;
+    /**
+     * 하위 클래스가 분석 설정 조회를 구현하는 확장 지점입니다. <br>
+     * 기반 구현은 아무 작업도 하지 않고 undefined로 종료합니다.
+     */
     getAnalysisOption(): void;
+    /**
+     * 하위 클래스가 분석 설정 적용을 구현하는 확장 지점입니다. <br>
+     * 기반 구현은 아무 작업도 하지 않습니다.
+     */
     setAnalysisOption(): void;
     /**
-     * 분석 모드의 Scene을 반환하는 함수
-     * @return {import('@UScene').UScene}
+     * 분석 객체의 장면(scene)을 반환합니다.
+     *
+     * @returns {import('@UScene').UScene} 분석 결과를 담는 원본 장면 참조
      */
     getScene(): UScene;
     /**
-     * 분석모드에 app을 세팅하는 함수
-     * @param {import('@U3dApp').U3dApp} app U3dApp
+     * 분석 객체에 지도 앱을 연결하고 카메라 조회 인자와 주석 장면 참조를 저장합니다.
+     *
+     * @param {import('@U3dApp').U3dApp} app 분석 객체를 사용할 지도 앱
      */
     setApp(app: U3dApp): void;
     /**
-     * 클릭 위치 검출에 사용할 대상 레이어이름을 설정합니다.
-     * 미설정시 지형에 한정하지 않고 현재 표시 중인 전체 레이어를 대상으로 합니다.
-     * @param {string | undefined} layerName 대상 레이어 이름
+     * 클릭 위치 측정에 사용할 대상 레이어(layer) 이름을 설정합니다. <br>
+     * undefined이면 지형을, 빈 문자열이면 앱이 제공하는 모델·지형 장면을, 그 밖에는 지정 레이어를 사용합니다.
+     *
+     * @param {string | undefined} layerName 교차 조회 대상 레이어 이름
      */
     setTargetLayerName(layerName: string | undefined): void;
     /**
-     * 클릭 위치 검출에 사용할 대상 레이어의 이름을 반환합니다.
-     * @returns {string | undefined} 대상 레이어 이름
+     * 클릭 위치 측정 대상으로 설정한 레이어(layer) 이름을 반환합니다.
+     *
+     * @returns {string | undefined} 대상 이름이며 undefined는 지형, 빈 문자열은 모델·지형 장면
      */
     getTargetLayerName(): string | undefined;
     /**
-     * 사용자 이벤트(클릭)에 교차(intersect)되는 3D 모델을 반환하는 함수
-     * @param {import('@U3dMouseEvent').U3dMouseEvent} e 사용자 클릭 이벤트
-     * @returns {Array<import('three').Intersection>}
+     * 클릭한 화면 위치와 교차(intersect)하는 모델 목록을 가까운 순서로 반환합니다. <br>
+     * 카메라 또는 정규화 화면 좌표가 없으면 빈 배열을 반환합니다.
+     *
+     * @param {import('@U3dMouseEvent').U3dMouseEvent} e 정규화 화면 좌표를 가진 사용자 이벤트
+     * @returns {Array<import('three').Intersection>} 모델 교차 결과 목록
      */
     intersectModel(e: U3dMouseEvent): Array<three.Intersection>;
     /**
-     * 사용자 이벤트(클릭)에 교차(intersect)되는 지점(point)를 반환하는 함수
-     * @param {import('@U3dMouseEvent').U3dMouseEvent | {normalizedX: *, normalizedY: *}} e 사용자 이벤트
-     * @return {import('three').Vector3 | undefined} 교차 지점
+     * 클릭 위치의 측정 대상과 교차(intersect)하는 가장 가까운 점을 반환합니다. <br>
+     * 대상은 setTargetLayerName() 설정을 따르며 교차점 높이가 NaN이거나 음수이면 원본 점의 z를 0으로 변경합니다. <br>
+     * 기존 좌표 호환 입력의 값 타입은 유지하며 별도의 숫자 변환이나 유한값 검사는 하지 않습니다.
+     *
+     * @param {import('@U3dMouseEvent').U3dMouseEvent | {normalizedX: any, normalizedY: any}} e 사용자 이벤트 또는 기존 호환 화면 좌표 입력
+     * @returns {import('three').Vector3 | undefined} 교차점 원본 참조이며 카메라·좌표·교차가 없으면 undefined
      */
     intersectTerrain(e: U3dMouseEvent | {
         normalizedX: any;
         normalizedY: any;
     }): three.Vector3 | undefined;
     /**
-     * 현재 측정 대상 설정에 맞는 교차 객체 목록을 반환합니다.
-     * @param {import('@URaycaster').URaycaster} raycaster Raycaster
-     * @returns {Array<import('three').Intersection>}
+     * 측정 대상 설정에 맞는 교차(intersect) 목록을 조회합니다.
+     *
+     * @param {import('@URaycaster').URaycaster} raycaster 교차 조회에 사용할 광선
+     * @returns {Array<import('three').Intersection>} 대상 장면의 교차 결과
      *
      * @ignore
      */
     getIntersectsForMeasure(raycaster: URaycaster): Array<three.Intersection>;
     /**
-     * raycaster와 교차되는 지형 타일을 반환하는 함수
-     * @param {import('@URaycaster').URaycaster} raycaster
-     * @param {boolean} [recursive=true] 재귀여부
-     * @returns {Array<import('three').Intersection>}
+     * 광선과 교차(intersect)하는 지형 결과를 가까운 순서로 반환합니다.
+     *
+     * @param {import('@URaycaster').URaycaster} raycaster 교차 조회에 사용할 광선
+     * @param {boolean} [recursive=true] 하위 객체까지 조회할지 여부이며 null도 기본값 처리
+     * @returns {Array<import('three').Intersection>} 지형 교차 목록이며 렌더링 실행 인자가 없으면 빈 배열
      *
      * @ignore
      */
     getIntersectsFromTerrain(raycaster: URaycaster, recursive?: boolean): Array<three.Intersection>;
     /**
-     * raycaster와 교차되는 3D 모델을 반환하는 함수
-     * @param {import('@URaycaster').URaycaster} raycaster
-     * @param {boolean} [recursive=true] 재귀여부
-     * @return {Array<import('three').Intersection>}
+     * 모델 장면(scene)의 교차 결과를 조회합니다.
+     *
+     * @param {import('@URaycaster').URaycaster} raycaster 교차 조회에 사용할 광선
+     * @param {boolean} [recursive=true] 하위 객체까지 조회할지 여부
+     * @returns {Array<import('three').Intersection>} 모델 교차 목록이며 렌더링 실행 인자가 없으면 빈 배열
      *
      * @ignore
      */
     getIntersectsFromModel(raycaster: URaycaster, recursive?: boolean): Array<three.Intersection>;
     /**
-     * raycaster와 교차되는 모든 객체를 반환하는 함수
-     * @param {import('@URaycaster').URaycaster} raycaster
-     * @param {boolean} [recursive=true] 재귀여부
-     * @return {Array<import('three').Intersection>}
+     * 앱의 전체 장면(scene)에서 교차 결과를 조회합니다.
+     *
+     * @param {import('@URaycaster').URaycaster} raycaster 교차 조회에 사용할 광선
+     * @param {boolean} [recursive=true] 하위 객체까지 조회할지 여부
+     * @returns {Array<import('three').Intersection>} 전체 교차 목록이며 렌더링 실행 인자가 없으면 빈 배열
      *
      * @ignore
      */
     getIntersectsFromAll(raycaster: URaycaster, recursive?: boolean): Array<three.Intersection>;
     /**
-     * raycaster와 교차되는 특정 레이어 객체를 반환하는 함수
-     * @param {import('@URaycaster').URaycaster} raycaster
-     * @param {string} layerName 대상 레이어 이름
-     * @param {boolean} [recursive=true] 재귀여부
-     * @return {Array<import('three').Intersection>}
+     * 지정한 레이어(layer) 장면의 교차 결과를 조회합니다.
+     *
+     * @param {import('@URaycaster').URaycaster} raycaster 교차 조회에 사용할 광선
+     * @param {string} layerName 조회할 레이어 이름
+     * @param {boolean} [recursive=true] 하위 객체까지 조회할지 여부
+     * @returns {Array<import('three').Intersection>} 교차 목록이며 앱·레이어·장면이 없으면 빈 배열
      *
      * @ignore
      */
     getIntersectsFromLayerName(raycaster: URaycaster, layerName: string, recursive?: boolean): Array<three.Intersection>;
     /**
-     * 입력 받은 씬에서 raycaster와 교차되는 객체를 반환하는 함수
-     * @param {import('@URaycaster').URaycaster} raycaster
-     * @param {Array<import('@UScene').UScene>} scenes 타겟 씬
-     * @param {boolean} [recursive=true] 재귀여부
-     * @return {Array<import('three').Intersection>}
+     * 여러 장면(scene)의 교차 결과를 모아 가까운 순서로 반환합니다. <br>
+     * 병합 모델의 분할 가능한 교차 후보는 분할 객체로 다시 조회합니다.
+     *
+     * @param {import('@URaycaster').URaycaster} raycaster 교차 조회에 사용할 광선
+     * @param {Array<import('@UScene').UScene>} scenes 순서대로 조회할 장면 목록
+     * @param {boolean} [recursive=true] 하위 객체까지 조회할지 여부
+     * @returns {Array<import('three').Intersection>} 병합 모델 재조회가 반영된 거리순 교차 목록
      *
      * @ignore
      */
     getIntersectsFromScenes(raycaster: URaycaster, scenes: Array<UScene>, recursive?: boolean): Array<three.Intersection>;
     /**
-     * @return {string}
+     * 기반 분석의 저장 식별 문자열을 반환합니다.
+     *
+     * @returns {string} 기반 구현의 고정 문자열 'Object'
      *
      * @ignore
      */
     save(): string;
     /**
-     * @param {any} [data]
+     * 하위 클래스가 저장 데이터를 복원하는 확장 지점입니다. <br>
+     * 기반 구현은 전달한 데이터를 사용하지 않습니다.
+     *
+     * @param {any} [data] 하위 클래스가 정의하는 저장 데이터이며 기반 클래스는 구조를 제한하지 않음
      *
      * @ignore
      */
     load(data?: any): void;
+    /**
+     * 하위 클래스가 분석 타입 조회를 구현하는 확장 지점입니다. <br>
+     * 기반 구현은 _type을 조회하지 않고 undefined로 종료합니다.
+     */
     getType(): void;
     /**
-     * @param {string} type
+     * 하위 클래스가 분석 타입 설정을 구현하는 확장 지점입니다. <br>
+     * 기반 구현은 전달한 값을 저장하지 않습니다.
+     *
+     * @param {string} type 하위 클래스가 처리할 분석 타입
      *
      * @ignore
      */
     setType(type: string): void;
+    /**
+     * 하위 클래스가 기본 이벤트 등록을 구현하는 확장 지점입니다. <br>
+     * 기반 구현은 이벤트를 등록하지 않습니다.
+     */
     addDefaultEvent(): void;
     /**
-     * object에 하이라이트(Highlight)를 설정하는 함수
-     * @param {import('three').Object3D} object
-     * @param {import('three').ColorRepresentation} [color]
+     * 객체와 하위 메시(mesh)에 하이라이트(highlight) 색상을 적용합니다. <br>
+     * 적용한 메시를 선택 목록에 추가하고 앱에 화면 갱신을 요청합니다. <br>
+     * 같은 객체를 다시 적용해도 선택 목록의 중복 항목을 제거하지 않습니다.
+     *
+     * @param {import('three').Object3D} object 하이라이트를 적용할 객체와 그 하위 객체
+     * @param {import('three').ColorRepresentation} [color=0x7f0000] 강조 색상이며 null도 기본값 처리
      *
      * @ignore
      */
     setHighlight(object: three.Object3D, color?: three.ColorRepresentation): void;
     /**
-     * 오브젝트에 설정된 하이라이트를 제거하는 함수
-     * @param {Ananlysis_Mesh} object
+     * 선택 목록에 등록된 객체의 하이라이트(highlight) 색상을 복원합니다. <br>
+     * 같은 객체의 선택 등록은 첫 항목만 제거하고 앱에 화면 갱신을 요청합니다. <br>
+     * 하이라이트 적용으로 바뀐 투명도와 재질 업로드 표시는 복원하지 않습니다.
+     *
+     * @param {Ananlysis_Mesh} object 색상을 복원하고 첫 선택 등록을 제거할 메시
      *
      * @ignore
      */
     removeHighlight(object: Ananlysis_Mesh): void;
     /**
-     * 전체 하이라이트를 제거하는 함수
+     * 선택한 객체와 그 하위 메시(mesh)의 하이라이트(highlight) 색상을 복원합니다. <br>
+     * 선택 목록을 새 빈 배열로 교체하고 앱에 화면 갱신을 요청합니다. <br>
+     * 하이라이트 적용으로 바뀐 투명도와 재질 업로드 표시는 복원하지 않습니다.
      *
      * @ignore
      */
@@ -12937,7 +13040,13 @@ declare class UFrameState {
     _disposed: boolean;
     dispose(): void;
     getType(): any;
-    addUpdate(tile: any, force: any): void;
+    /**
+     * 현재 뷰에 필요한 자식 레이어 작업을 수집하고 실행합니다.
+     *
+     * @param {import('@U3dQuadTile').U3dQuadTile} tile 작업을 집계할 부모 타일
+     * @param {boolean} force 강제 갱신 여부
+     */
+    addUpdate(tile: U3dQuadTile, force: boolean): void;
     /**
      * 부모 Presentation을 먼저 복구한 뒤 자식 branch를 폐기합니다.
      *
@@ -14587,16 +14696,14 @@ declare class UDEF {
     };
     static POSTPASS: {
         RENDER: any;
-        POST: any;
         GTAO: any;
-        OUT: any;
+        OUTPUT_POST: any;
         BLOOM: any;
         SKYLINE: any;
         SUNAMOUNT: any;
         HEIGHT: any;
         DRAW_OVERLAY: any;
-        FXAA: any;
-        DITHER: any;
+        FXAA_DITHER: any;
         UNKNOWN: any;
         BLITL: any;
         OUTLINE: any;
@@ -15144,6 +15251,7 @@ declare class UDEF {
  * 등록한 뒤에 켜고 끄는 것은 activePass()만 사용하며, 이 메서드가 켜짐 상태를 바꾸면서 composer에 넣거나 빼 줍니다.<br>
  * pass는 등록한 순서가 아니라 각자 가진 순서 값대로 실행되므로 새 pass를 넣을 때는 순서 값을 먼저 정해야 합니다.<br>
  * setPostProcess(false)로 후처리를 끄면 화면 품질용 pass만 꺼지고 화면 출력과 분석·유틸 pass는 그대로 남습니다.
+ * 이때 통합 출력 pass는 밝기·대비만 생략하고 톤 매핑과 출력 색 변환을 유지합니다.
  *
  * @group core
  */
@@ -15195,7 +15303,13 @@ declare class URenderer extends three.WebGLRenderer {
      * @type {boolean}
      */
     static DEFAULT_USE_DITHER: boolean;
-    constructor(opt?: {});
+    /**
+     * WebGL 렌더러를 생성하고 MSAA와 후처리 보정 설정을 각각 초기화합니다.
+     *
+     * @param {URendererCO} [opt={}] WebGL 생성 옵션과 렌더러 품질 설정
+     * @throws {RangeError} msaaSamples가 0 이상의 안전한 정수가 아닌 경우
+     */
+    constructor(opt?: URendererCO);
     _classtpye: string;
     __setSize: any;
     __setDrawingBufferSize: any;
@@ -15223,28 +15337,34 @@ declare class URenderer extends three.WebGLRenderer {
      */
     getPostOption(): PostProcessParam;
     /**
-     * 후처리 렌더 타깃의 MSAA 요청 샘플 수를 저장합니다.<br>
+     * 렌더러에 설정한 MSAA 요청 샘플 수를 반환합니다.<br>
+     * 장치 상한으로 제한하기 전 요청값이며 기본값은 2입니다.
+     *
+     * @returns {number} MSAA 요청 샘플 수이며 0이면 비활성화
+     */
+    getMsaaSamples(): number;
+    /**
+     * 렌더러의 MSAA 요청 샘플 수를 설정합니다.<br>
+     * 기본값은 2이며 환경의 성능과 화질에 맞게 0·2·4·8 등을 선택하십시오.<br>
+     * 값을 높이면 얇은 선과 원거리 경계를 부드럽게 하지만 GPU 비용도 늘어납니다.<br>
      * 실제 적용값은 장치 상한으로 제한하며, 이미 생성된 타깃은 다음 후처리 렌더 시작 시 갱신합니다.<br>
-     * 다른 후처리 pass의 활성 상태는 변경하지 않습니다.
-     * @param {number} samples 0 이상의 안전한 정수이며 0이면 MSAA를 비활성화합니다.
-     * @returns {void} 반환값 없음
+     * 후처리 보정 사용 여부와 독립적으로 적용하며 다른 pass의 활성 상태는 변경하지 않습니다.
+     *
+     * @param {number} msaaSamples 0 이상의 안전한 정수이며 0이면 MSAA 비활성화
      * @throws {RangeError} 샘플 수가 0 이상의 안전한 정수가 아닌 경우
      */
-    setComposerSamples(samples: number): void;
-    _postOption: {};
+    setMsaaSamples(msaaSamples: number): void;
     /**
      * 후처리 설정을 갱신하고 그 값을 각 pass에 반영합니다.<br>
      * 넘기지 않은 항목은 기존 값을 유지하고, 기존 값도 없으면 정적 기본값을 사용합니다.<br>
      * AO와 Bloom의 기본값은 호출할 때마다 기기 성능 판정값으로 먼저 덮어쓰므로, 저사양 기기에서는 지정하지 않은 항목이 꺼진 채로 시작합니다.<br>
-     * 화면 품질용 pass를 모두 켠 뒤 대비·밝기를 적용하고, AO·Bloom·Dither는 설정값에 따라 개별로 켜고 끕니다.<br>
+     * 화면 품질용 pass를 켠 뒤 대비·밝기를 적용하고, AO·Bloom과 통합 FXAA의 Dither 효과는 설정값을 따릅니다.<br>
      * composer가 아직 없으면 등록된 pass가 없어 설정 저장까지만 이뤄집니다.
-     * composerSamples는 기본 4이며 변경 시 다음 후처리 렌더 시작에 반영됩니다.
      *
      * @param {Partial<PostProcessParam>} [option={}] 바꿀 항목만 담은 설정이며, 생략한 항목은 기존 값 또는 기본값을 사용
-     * @returns {void} 반환값 없음
-     * @throws {RangeError} composerSamples가 0 이상의 안전한 정수가 아닌 경우
      */
     setPostOption(option?: Partial<PostProcessParam>): void;
+    _postOption: {};
     /**
      * 현재 화면 크기를 composer와 크기에 민감한 pass들에 다시 알려 줍니다.<br>
      * 감싼 setSize()와 setDrawingBufferSize()가 자동으로 부르므로 보통 직접 호출할 필요는 없습니다.<br>
@@ -15306,7 +15426,7 @@ declare class URenderer extends three.WebGLRenderer {
      * 등록 시점의 켜짐 상태가 그대로 반영되어, 켜져 있는 pass만 composer에 들어가고 꺼진 pass는 이름만 등록된 채 대기합니다.<br>
      * 기본으로 켜지는 것은 장면 렌더·화면 출력·대비 밝기 보정·계단 현상 완화이고, AO와 Bloom과 Dither는 후처리 설정을 따릅니다.<br>
      * 스카이라인·일조량·높이·오버레이·복사·외곽선 pass는 꺼진 채 등록되므로 필요할 때 activePass()로 켭니다.<br>
-     * 실행 순서는 등록 순서가 아니라 각 pass가 가진 순서 값을 따르며, 장면 렌더에서 시작해 화면 출력을 지나 계단 현상 완화와 Dither가 마지막에 옵니다.<br>
+     * AO 뒤에서 밝기·대비와 출력을 함께 처리하고, 뒤쪽에서 FXAA와 선택적 Dither를 함께 처리합니다.<br>
      * 후처리를 꺼 둔 상태로 등록하면 화면 품질용 pass는 등록과 동시에 꺼집니다.<br>
      * renderComposer()가 composer가 없을 때 대신 호출하므로 보통 직접 부르지 않습니다.
      *
@@ -15319,9 +15439,10 @@ declare class URenderer extends three.WebGLRenderer {
      */
     disposeComposer(): void;
     /**
-     * 켜져 있는 pass들에 지금 사용할 camera를 알려 줍니다.<br>
+     * 사용하도록 설정된 pass들에 지금 사용할 camera를 알려 줍니다.<br>
      * camera를 바꿔 가며 같은 composer로 여러 번 그릴 때 각 pass가 옛 camera를 붙들지 않게 합니다.<br>
-     * camera를 받아 갱신하는 수단을 가진 pass만 대상이 됩니다.
+     * camera 제한으로 일시 중단된 pass도 갱신하여, 지원하는 camera로 돌아오면 복구합니다.<br>
+     * 사용자가 끄거나 후처리 전체 설정으로 차단된 pass는 갱신하지 않습니다.
      *
      * @param {import("three").Camera} camera 이번 그리기에 사용할 camera
      */
@@ -15351,7 +15472,7 @@ declare class URenderer extends three.WebGLRenderer {
     _captureToBlobPromises: any[];
     /**
      * 후처리 composer로 한 프레임을 화면에 그립니다.<br>
-     * composer가 아직 없으면 이 시점에 만들고, 이미 있으면 켜져 있는 pass에 camera만 갱신합니다.<br>
+     * composer가 아직 없으면 이 시점에 만들며, 첫 그리기부터 pass의 camera 상태를 갱신합니다.<br>
      * 자동 지우기를 끄고 그리므로 이전에 그려 둔 내용 위에 겹쳐집니다.
      *
      * @param {import("three").Camera} camera 이번 프레임에 사용할 camera
@@ -15437,6 +15558,7 @@ declare class URenderer extends three.WebGLRenderer {
      * pass를 켜거나 끄고 그 결과를 composer에도 반영합니다.<br>
      * 등록된 pass의 켜짐 상태를 바꾸는 방법은 이 메서드뿐이며, 켜면 자기 순서 자리에 끼워 넣고 끄면 composer에서 빼냅니다.<br>
      * 후처리가 꺼져 있으면 화면 품질용과 선택 품질용 pass는 true를 넘겨도 꺼진 상태로 남습니다.<br>
+     * 사용 요청은 camera에 따른 일시 중단과 별도로 저장하여 다음 그리기에서 재판정합니다.<br>
      * 등록되어 있지 않은 pass를 넘기면 아무것도 하지 않습니다.
      *
      * @param {import("@UPassInfo").UPassInfo | string} name 바꿀 pass 정보 또는 pass 이름
@@ -16186,7 +16308,7 @@ declare const SIMPLE_TAIL_COLOR_FRAGMENT_VARS: string;
  * 이동 지점을 연결해 화면을 향하는 리본 궤적을 그립니다.
  */
 declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
-    static "__#31@#normalizeDrawResult"(result: any): {
+    static "__#32@#normalizeDrawResult"(result: any): {
         red: number;
         green: number;
         blue: number;
@@ -16197,25 +16319,7 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
         from: any;
         to: any;
     };
-    static "__#31@#createDistanceDrawFunc"(maxDistance: any, widthFade?: number, alphaFade?: number): (node: any, newest: any, now: any, previous: any) => {
-        action: string;
-        fade: {
-            width: number;
-            alpha: number;
-        };
-        range?: undefined;
-    } | {
-        action: string;
-        range: {
-            from: number;
-            to: number;
-        };
-        fade: {
-            width: number;
-            alpha: number;
-        };
-    };
-    static "__#31@#interpolateDrawNode"(a: any, b: any, t: any): {};
+    static "__#32@#interpolateDrawNode"(a: any, b: any, t: any): Pick<USimpleTailNode, "x" | "y" | "time" | "z" | "colorFactor" | "pathDistance">;
     /**
      * 삼각형 한 면을 구성하는 인덱스 개수를 반환합니다.
      *
@@ -16245,6 +16349,17 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      */
     static createMaterial(vertexShader?: string, fragmentShader?: string, customUniforms?: Record<string, three.IUniform>): three.ShaderMaterial;
     /**
+     * @param {USimpleTailCommonPolicy} previous
+     * @param {USimpleTailCommonPolicy} patch
+     * @returns {{limitMode: 'none' | 'time' | 'age' | 'distance', limitValue: number, limitAction: 'hide' | 'dispose'}}
+     * @ignore
+     */
+    static normalizeRetention(previous: USimpleTailCommonPolicy, patch: USimpleTailCommonPolicy): {
+        limitMode: "none" | "time" | "age" | "distance";
+        limitValue: number;
+        limitAction: "hide" | "dispose";
+    };
+    /**
      * USimpleTail 클래스 생성자입니다. <br>
      * 실제 궤적을 그리려면 initialize를 호출한 뒤 getMesh로 얻은 메시를 장면에 추가하십시오.
      *
@@ -16256,24 +16371,28 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      * @type {boolean}
      */
     _disposed: boolean;
+    /** @type {USimpleTailDrawEvaluator | undefined} */
+    drawFunc: USimpleTailDrawEvaluator | undefined;
+    set nodeCenters(nodes: USimpleTailNode[]);
+    /** Retained nodes only. Materialize the CPU list on public access, without rewriting GPU data. */
+    get nodeCenters(): USimpleTailNode[];
     scene: any;
     name: any;
     geometry: any;
     mesh: any;
-    nodeCenters: any;
     lastNodeCenter: any;
     currentNodeCenter: any;
     nodeIDs: any;
     currentNodeID: any;
     /** @type {number} */ maxLength: number;
     /** @type {number} */ expandStepLength: number;
-    /** @type {number} */ maxDistance: number;
+    limitMode: "time" | "distance" | "none" | "age";
+    limitValue: number;
+    limitAction: "dispose" | "hide";
     /** @type {number} */ pathDistance: number;
     /** @type {number} */ visibleStartNode: number;
     _drawStartNode: number;
-    /** @type {function(object): void} */ onFadeOut: (arg0: object) => void;
-    /** @type {USimpleTailDrawEvaluator | undefined} */
-    drawFunc: USimpleTailDrawEvaluator | undefined;
+    /** @type {USimpleTailFadeOutCallback | undefined} */ onFadeOut: USimpleTailFadeOutCallback | undefined;
     currentLength: any;
     currentEnd: any;
     tempMatrix4: any;
@@ -16285,9 +16404,6 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
     colorFactor: number;
     precision: any;
     fixedCapacity: boolean;
-    fadeStart: any;
-    fadeEnd: any;
-    depthWidthScale: boolean;
     widthFade: any;
     alphaFade: any;
     simplifyPolicy: SimplifyPolicy_Option;
@@ -16309,6 +16425,10 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
     length: any;
     perMaxNode: number;
     targetObject: three.Object3D<three.Object3DEventMap>;
+    drawSegments: any[] | {
+        a: any;
+        b: any;
+    }[];
     material: any;
     /**
      * 화면을 향하는 리본 궤적의 지점당 정점 수와 면 수를 설정합니다. <br>
@@ -16345,18 +16465,11 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      * 재질·스타일·확보된 용량을 유지하므로 다시 지점을 추가할 수 있습니다.
      */
     reset(): void;
-    drawSegments: any[] | {
-        a: {};
-        b: {};
-    }[];
     lastSimplifyKm: number;
     lastMemoryCheck: number;
     _positionPool: Float32Array<ArrayBuffer>;
     _indexPool: Uint32Array<ArrayBuffer>;
     _colorPool: Float32Array<ArrayBuffer>;
-    _widthFadePool: Float32Array<ArrayBuffer>;
-    _alphaFadePool: Float32Array<ArrayBuffer>;
-    _pathDistancePool: Float32Array<ArrayBuffer>;
     _sidePool: Int8Array<ArrayBuffer>;
     _startCapPool: Uint8Array<ArrayBuffer>;
     _endCapPool: Uint8Array<ArrayBuffer>;
@@ -16376,7 +16489,7 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      */
     rebuildFromNodeCenters(): void;
     /**
-     * 변환 행렬의 위치를 궤적 끝에 추가하고 노드 draw 정책를 갱신합니다. <br>
+     * 변환 행렬의 위치를 궤적 끝에 추가하고 GPU 기준값을 갱신합니다. <br>
      * 용량이 부족하면 정책에 따라 단순화·오래된 지점 제거·용량 확장을 수행합니다.
      *
      * @param {import('three').Matrix4} transformMatrix 월드 좌표(EPSG:3857) 위치를 담은 행렬
@@ -16407,8 +16520,11 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
         now?: number;
         totalTime?: number | null;
     }): void;
-    /** 실제 표시 구간입니다. 피킹에도 같은 단절 경계를 적용합니다. */
-    getDrawSegments(): any;
+    /** 피킹을 요청할 때만 limit에 맞춘 구간을 계산합니다. 렌더 프레임에서는 호출하지 않습니다. */
+    getDrawSegments(): {
+        a: any;
+        b: any;
+    }[];
     /**
      * 다음 좌표를 추가했을 때의 자체 누적 거리(m)를 계산합니다. 노드 제거 후에도 누적 기준을 유지합니다.
      * @param {import('three').Vector3Like} position 경로에 기록할 월드 좌표
@@ -16444,38 +16560,33 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      */
     setOpacity(opacity: number): void;
     /**
-     * 지점별 색 농도로 궤적 색상을 달리 표현할지 설정합니다.
-     *
-     * @param {boolean} enabled true면 지점의 colorFactor를 색상에 반영
+     * 지점별 색 농도를 궤적 색상에 적용합니다.
+     * @param {boolean} enabled true면 colorFactor를 반영
      */
     setGradation(enabled: boolean): void;
     /**
      * 궤적(trail)의 기본 너비를 변경합니다. <br>
-     * 카메라 깊이 보정과 fade가 적용되면 실제 표시 너비는 달라질 수 있습니다.
+     * fade가 적용되면 실제 표시 너비는 달라질 수 있습니다.
      *
      * @param {number} width 기본 화면 너비 값이며 유한한 숫자만 반영
      */
     setWidth(width: number): void;
     /**
-     * 궤적(tail)의 단순화·노드 draw 정책을 설정합니다. <br>
-     * 생략한 항목은 유지합니다. 사용자 drawFunc를 우선하며 없으면 maxDistance를 기본 drawFunc로 변환합니다. <br>
-     * drawFunc는 지점·최신 지점·현재 시각·직전 연결 지점·경로 시간을 받는 내부 평가 함수입니다.
-     *
-     * @param {USimpleTailRuntimePolicy} [policy={}] 변경할 궤적 정책
+     * 노드별 콜백을 정책과 독립적으로 등록하거나 해제합니다.
+     * @param {USimpleTailDrawEvaluator | null | undefined} drawFunc
      */
-    setTailPolicy(policy?: USimpleTailRuntimePolicy): void;
+    setDrawFunc(drawFunc: USimpleTailDrawEvaluator | null | undefined): void;
     /**
-     * 카메라 근접 구간에서 궤적 너비를 줄이는 fade 거리를 설정합니다. <br>
-     * 경로의 경과 시간이나 누적 거리 fade와는 별개입니다. <br>
-     * 종료 거리가 시작 거리보다 크면 시작 거리 이내에서 너비가 0이며 종료 거리부터 원래 너비입니다.
+     * 궤적(tail)의 단순화·제한·fade 정책을 설정합니다. <br>
+     * 생략한 항목은 유지합니다. 스타일과 독립적으로 제한 범위·숨김 또는 제거·fade를 적용합니다. <br>
+     * 노드별 콜백은 setDrawFunc로 별도 설정합니다.
      *
-     * @param {number} [start] 카메라 깊이 기준 너비가 0인 거리이며 유한한 0 이상 값만 반영
-     * @param {number} [end] 원래 너비로 돌아오는 거리이며 start보다 작으면 start로 보정
+     * @param {Omit<USimpleTail_Policy, 'initLength' | 'recordIntervalMs'>} [policy={}] 변경할 궤적 정책
      */
-    setFade(start?: number, end?: number): void;
+    setTailPolicy(policy?: Omit<USimpleTail_Policy, "initLength" | "recordIntervalMs">): void;
     /**
      * 월드 좌표(EPSG:3857) 지점을 궤적 끝에 추가합니다. <br>
-     * 새 지점을 추가하면 노드 draw 정책 콜백 결과를 함께 반영합니다.
+     * 새 지점을 추가하면 GPU 표시 효과의 기준 시간·거리를 함께 갱신합니다.
      *
      * @param {import('three').Vector3Like} worldPosition 추가할 지점의 월드 좌표(EPSG:3857)
      * @param {number} colorFactor 지점별 색 농도이며 0~1 범위로 전달
@@ -16493,21 +16604,30 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
     /**
      * 보관 중인 궤적 중심점 목록을 반환합니다. <br>
      * 복사본이 아니므로 외부 변경은 내부 이력에 직접 영향을 줍니다. <br>
-     * hide로 숨긴 노드는 포함하고 dispose된 노드는 제외합니다.
+     * GPU에서 숨긴 구간의 노드도 포함합니다.<br>
+     * time은 drawFunc(info).time과 같은 기록 epoch 시각(ms),
+     * pathDistance는 drawFunc(info).dist와 같은 경로 시작부터 누적 거리(m)입니다.
      *
      * @returns {Array<USimpleTailNode> | null} 오래된 순서의 내부 지점 배열이며 초기화 전이나 해제 후에는 null
      */
     getNodeCenters(): Array<USimpleTailNode> | null;
     /**
+     * 최신 입력 또는 updateDraw에서 지정한 평가 경로 시간(epoch ms)을 반환합니다.
+     * @returns {number | undefined} 아직 기록하지 않았으면 undefined
+     */
+    getTotalTime(): number | undefined;
+    /**
      * 선분에서 멀리 떨어진 지점을 남기는 RDP 방식으로 중심점 목록을 줄입니다. <br>
      * 양 끝점과 정책에서 지정한 꺾임 주변 지점을 보호합니다.
      *
-     * @template {import('three').Vector3Like} T
+     * @template {import('three').Vector3Like & {breakBefore?: boolean}} T
      * @param {Array<T>} points 순서대로 연결된 중심점 목록
      * @param {number} epsilon 선분에서 지점까지 허용할 거리이며 0 이상 값으로 전달
      * @returns {Array<T>} 원본 지점 객체의 참조를 담은 새 배열
      */
-    simplifyRDP<T extends three.Vector3Like>(points: Array<T>, epsilon: number): Array<T>;
+    simplifyRDP<T extends three.Vector3Like & {
+        breakBefore?: boolean;
+    }>(points: Array<T>, epsilon: number): Array<T>;
     /**
      * 입력 지점까지 포함하도록 궤적의 경계 구 크기를 늘립니다.
      *
@@ -16533,7 +16653,7 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
     simplifyTrailToTarget(targetCount: number, epsilonStart?: number, epsilonStep?: number): void;
     /**
      * 시야 영역(프러스텀, frustum) 안에 있는 중심점 범위만 그리도록 제한합니다. <br>
-     * 노드 draw 정책의 비연속 구간을 유지합니다. <br>
+     * 보관된 연속 경로의 정점 데이터를 이동합니다. <br>
      * 시야 절단은 GPU에 맡겨 양 끝점이 시야 밖인 교차 선분도 보존합니다.
      *
      * @param {import('three').Frustum} frustum 월드 좌표(EPSG:3857)에서 검사할 시야 영역
@@ -16565,13 +16685,26 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
  */
 declare class U3dCumulativePath {
     /** @type {Set<U3dCumulativePath>} */
-    static "__#33@#drawPaths": Set<U3dCumulativePath>;
+    static "__#34@#drawPaths": Set<U3dCumulativePath>;
     /** @type {number | undefined} */
-    static "__#33@#drawFrame": number | undefined;
-    static "__#33@#tickDraw"(): void;
-    static "__#33@#scheduleDraw"(): void;
+    static "__#34@#drawFrame": number | undefined;
+    static "__#34@#tickDraw"(): void;
+    static "__#34@#scheduleDraw"(): void;
     /** @param {U3dCumulativePath} path @param {boolean} enabled */
-    static "__#33@#watchDraw"(path: U3dCumulativePath, enabled: boolean): void;
+    static "__#34@#watchDraw"(path: U3dCumulativePath, enabled: boolean): void;
+    /**
+     * @param {U3dCumulativePathStyleFunc | null | undefined} value
+     * @returns {U3dCumulativePathStyleFunc | null | undefined}
+     * @ignore
+     */
+    static validateStyleFunc(value: U3dCumulativePathStyleFunc | null | undefined): U3dCumulativePathStyleFunc | null | undefined;
+    /**
+     * @param {USimpleTail_Policy | undefined} previous
+     * @param {USimpleTail_Policy} patch
+     * @returns {USimpleTail_Policy}
+     * @ignore
+     */
+    static mergeTailPolicy(previous: USimpleTail_Policy | undefined, patch: USimpleTail_Policy): USimpleTail_Policy;
     /**
      * U3dCumulativePath 클래스 생성자입니다.<br>
      * app과 scene은 필수이며 둘 중 하나가 없으면 오류를 보고합니다.
@@ -16649,6 +16782,14 @@ declare class U3dCumulativePath {
      */
     getTail(): USimpleTail | undefined;
     /**
+     * 보관 중인 노드를 오래된 순서로 drawFunc(info)와 같은 구조로 조회합니다.<br>
+     * 숨긴 노드는 포함하고 제거·단순화된 노드는 제외합니다. 콜백 평가나 렌더링 갱신은 하지 않습니다.<br>
+     * 좌표와 이전 노드 정보는 복사본이며, now와 전체 시간·거리는 조회 시점 기준입니다.
+     * waypointHistory는 조회 시점의 도착 이력을 접근할 때마다 복사합니다.
+     * @returns {Array<U3dCumulativePathDrawInfo>} 미초기화·해제 후에는 빈 배열
+     */
+    getNodes(): Array<U3dCumulativePathDrawInfo>;
+    /**
      * 궤적의 지점 단순화, 용량, 페이드 방식을 설정합니다.<br>
      * 지정하지 않은 항목은 현재 정책을 유지합니다.
      *
@@ -16656,7 +16797,14 @@ declare class U3dCumulativePath {
      */
     setTailPolicy(opt: USimpleTail_Policy): void;
     /**
-     * 보관 노드의 draw 정책을 다시 평가합니다. 시간 기준을 지정할 수 있습니다.
+     * 기본값과 입력값 정규화가 반영된 현재 궤적 정책의 복사본을 반환합니다.
+     * 반환 객체를 변경해도 내부 정책은 바뀌지 않습니다. 변경은 setTailPolicy를 사용합니다.
+     * 콜백은 등록된 함수 참조를 그대로 반환합니다.
+     * @returns {USimpleTail_Policy} 현재 궤적 정책
+     */
+    getTailPolicy(): USimpleTail_Policy;
+    /**
+     * GPU 기준 시간을 갱신하고, drawFunc가 있으면 노드를 평가합니다.
      * @param {{now?: number, totalTime?: number | null}} [context] 평가 시간. totalTime은 null로 최신 입력 기준 복귀
      */
     updateDraw(context?: {
@@ -16664,7 +16812,7 @@ declare class U3dCumulativePath {
         totalTime?: number | null;
     }): void;
     /**
-     * 노드별 표시·구간·fade·폐기 정책을 교체합니다. null이면 maxDistance 기본 정책으로 복귀합니다.
+     * 노드별 제어 콜백을 교체합니다. null이면 CPU 평가를 해제합니다.
      * @param {U3dCumulativePathDrawFunc | null} drawFunc
      */
     setDrawFunc(drawFunc: U3dCumulativePathDrawFunc | null): void;
@@ -16694,20 +16842,16 @@ declare class U3dCumulativePath {
      */
     setOpacity(opacity: number): void;
     /**
-     * 경로 지점별 색 농도 그라데이션을 켜거나 끕니다.<br>
-     * 그라데이션을 켜면 styleFunc 또는 기본 계산 결과를 사용합니다.<br>
-     * 끄면 단색으로 표시됩니다.
-     *
-     * @param {boolean} colorGradation true면 지점별 색 농도를 적용하고 false면 단색으로 그릴지 여부
+     * 기록된 지점의 colorFactor를 색 농도에 적용할지 설정합니다.
+     * @param {boolean} colorGradation true면 styleFunc 또는 기본 높이 기반 색 농도를 적용
      */
     setGradation(colorGradation: boolean): void;
     /**
-     * 지점별 색 농도(그라데이션 값) 계산 함수를 설정합니다.<br>
-     * undefined를 지정하면 기본 계산을 사용합니다.
-     *
-     * @param {U3dCumulativePathStyleFunc | undefined} styleFunc 지점별 색 농도를 반환하는 콜백 또는 기본 계산을 사용할 undefined
+     * 지점 기록 시 색 농도를 반환하는 함수를 등록합니다. 등록 시에는 실행하지 않습니다.
+     * null 또는 undefined는 기본 높이 기반 계산으로 복원합니다.
+     * @param {U3dCumulativePathStyleFunc | null | undefined} styleFunc
      */
-    setStyleFunc(styleFunc: U3dCumulativePathStyleFunc | undefined): void;
+    setStyleFunc(styleFunc: U3dCumulativePathStyleFunc | null | undefined): void;
     /**
      * 이후 추가할 경로 지점을 진행 방향 기준으로 앞뒤로 옮기는 오프셋을 설정합니다.<br>
      * 양수면 경로가 진행 방향 앞쪽에 표시됩니다.<br>
@@ -16754,7 +16898,7 @@ declare class U3dCumulativePath {
     dispose(): void;
     /**
      * 현재 위치를 경로 끝에 추가합니다.<br>
-     * 숨김 여부와 관계없이 경로를 갱신하고 단순화·draw 정책 정책을 적용합니다.<br>
+     * 숨김 여부와 관계없이 경로를 갱신하고 단순화·GPU 표시 설정을 적용합니다.<br>
      * 별도 원본 입력 대기열은 만들지 않습니다.<br>
      * drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다음 이동점이 올 때 함께 추가합니다.<br>
      * `pos`는 복사해 사용하므로 호출 뒤 같은 객체를 재사용할 수 있습니다.
@@ -16767,7 +16911,7 @@ declare class U3dCumulativePath {
     /**
      * 위치 데이터 배열의 지점을 경로 끝에 한 번에 추가합니다.<br>
      * 생성 직후의 초기 경로는 생성 옵션 initPositions로 지정하십시오.<br>
-     * 유효한 입력 지점을 모두 전달하며 지점 축소는 tailPolicy의 단순화·draw 정책 정책에 따릅니다.<br>
+     * 유효한 입력 지점을 모두 전달하며 지점 축소는 tailPolicy의 단순화·GPU 표시 설정에 따릅니다.<br>
      * 자원 생성을 지연한 경우에도 호출 시 초기 경로를 먼저 반영한 뒤 입력을 추가합니다.<br>
      * drawOffset이 0이 아니고 입력 지점이 모두 같은 위치이면 첫 이동점이 올 때 시작점을 추가합니다.<br>
      * 기존 경로 뒤에 지점을 추가합니다.<br>
@@ -16778,13 +16922,13 @@ declare class U3dCumulativePath {
     createTrailFromPositions(positions: Array<U3dCumulativePathPositionData>): void;
     /**
      * 경로를 화면에 표시합니다.<br>
-     * draw 정책을 평가하고 메시를 장면에 추가합니다.
+     * GPU 기준값을 갱신하고 메시를 장면에 추가합니다.
      */
     show(): void;
     /**
      * 경로를 화면에서 숨깁니다.<br>
      * 숨긴 동안에도 `updatePath`의 경로 갱신·단순화·draw 정책은 계속 적용됩니다.<br>
-     * drawFunc 평가는 숨긴 동안에도 계속합니다.<br>
+     * 다시 표시할 때 최신 시간·거리 기준으로 GPU 효과를 적용합니다.<br>
      * 다음 `createTrailFromPositions` 호출은 기존 경로를 지우고 새 경로로 표시됩니다.
      */
     hide(): void;
@@ -17627,6 +17771,27 @@ declare class U3dQuadTileWork {
     setActive(active: any): void;
 }
 
+declare class U3dQuadTileTask {
+    constructor(opt?: {});
+    type: any;
+    name: any;
+    scope: any;
+    fnc: any;
+    item: any;
+    force: any;
+    active: any;
+    uuid: any;
+    info: {};
+    msg: any;
+    setMsg(msg: any): void;
+    getMsg(): any;
+    getInfo(key: any): any;
+    setInfo(key: any, value: any): void;
+    deleteInfo(key: any): void;
+    dispose(): void;
+    isActive(): any;
+}
+
 declare class U3dProcess extends U3dObject {
     constructor(opt?: {});
     _classtype: string;
@@ -17644,13 +17809,45 @@ declare class U3dProcess extends U3dObject {
     _queueBuffer: any;
     _remainProcess: number;
     _dispose: boolean;
+    /**
+     * 지면 작업이 없을 때 호출자가 제공한 빈 배열을 반환합니다.
+     *
+     * 표준 getWork만 빈 결과 배열을 공유합니다. 인스턴스·prototype에서 getWork를 재정의했다면
+     * 기존 다섯 인수와 receiver로 호출하고 반환 배열을 그대로 사용합니다. 결과 배열은
+     * 처리기에 저장하지 않으므로 레이어 훅이 같은 처리기로 재진입해도 서로 섞이지 않습니다.
+     *
+     * @param {import('@U3dQuadTile').U3dQuadTile} item 작업 대상 타일
+     * @param {unknown} force 작업에 전달할 강제 갱신 입력
+     * @param {import('@U3dQuadTile').U3dQuadTile} completedWorkTile 완료 기록을 소유한 부모 타일
+     * @param {Array<import('@union3d/quadtree/U3dQuadTileTask').U3dQuadTileTask>} emptyResult 작업이 없을 때만 반환할 빈 배열
+     * @returns {Array<import('@union3d/quadtree/U3dQuadTileTask').U3dQuadTileTask> | undefined} 수집 배열 또는 잘못된 타일 입력의 undefined
+     *
+     * @ignore
+     */
+    _getTerrainWork(item: U3dQuadTile, force: unknown, completedWorkTile: U3dQuadTile, emptyResult: Array<U3dQuadTileTask>): Array<U3dQuadTileTask> | undefined;
     dispose(): void;
     getMaxProcess(): any;
     setMaxProcess(maxProcess?: any): void;
     getLayer(): any;
     add(item: any, force: any, isOnly: any, scope: any): number;
     enqueueWork(work: any, tile: any): void;
-    getWork(item: any, force: any, isOnly: any, scope: any): any[];
+    /**
+     * 레이어 조건을 만족하고 진행 중인 동일 작업이 없는 타일 작업을 수집합니다.
+     * 완료 기록을 전달한 영상·고도 수집에서는 기존 캐시 확인을 생성 전에 수행하여,
+     * 곧바로 제외할 작업의 콜백 배열과 UUID를 만들지 않습니다. 생략 시 기존 수집을 유지합니다.
+     *
+     * @param {import('@U3dQuadTile').U3dQuadTile} item 작업 대상 타일
+     * @param {unknown} [force] 생성할 작업에 그대로 전달할 강제 갱신 입력
+     * @param {unknown} [isOnly] 지정 레이어로 수집을 제한할 참 값
+     * @param {Partial<{getName: () => string}>} [scope] 이름을 비교할 레이어
+     * @param {import('@U3dQuadTile').U3dQuadTile} [completedWorkTile] 완료 작업 기록을 소유한 부모 타일
+     * @returns {Array<import('@union3d/quadtree/U3dQuadTileTask').U3dQuadTileTask> | undefined} 작업 후보 배열 또는 잘못된 타일 입력의 undefined
+     *
+     * @this {import('@union3d/core/U3dProcess').U3dProcess}
+     */
+    getWork(this: U3dProcess, item: U3dQuadTile, force?: unknown, isOnly?: unknown, scope?: Partial<{
+        getName: () => string;
+    }>, completedWorkTile?: U3dQuadTile): Array<U3dQuadTileTask> | undefined;
     getWorking(): boolean;
     getWorkingCount(): number;
     getWorkingLevel2(): any;
@@ -17698,9 +17895,6 @@ declare class U3dQuadTileWorkProcess extends U3dProcess {
      * @ignore
      */
     _discard(work: U3dQuadTileWork): void;
-    _checkTime: any;
-    _refineCount: number;
-    _index: number;
     /**
      * 준비된 작업 하나를 큐에 넣습니다. 부모 U3dProcess.add가 타일에서 작업 목록을 만들어 넣는 것과 달리 만들어진 work를 직접 받습니다.
      * customIndex가 있으면 그 결과를 큐 인덱스로 쓰고, 없으면 타일과 카메라 거리로 인덱스를 정합니다.
@@ -18472,25 +18666,6 @@ declare class U3dModelLayer extends U3dLayer {
     #private;
 }
 
-declare class U3dVideoLayer extends U3dModelLayer {
-    constructor(opt?: {});
-    _video: any;
-    _videoUrl: any;
-    _videoCanvas: any;
-    _videoImageContext: any;
-    _movieGeometry: any;
-    _movieScreen: any;
-    _videoTexture: any;
-    _position: any;
-    _backgroundColor: any;
-    _location: any;
-    _scale: any;
-    _rotation: any;
-    _mesh: any;
-    update(): void;
-    show(show: any): void;
-}
-
 /**
  * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayer <br>
  * OBJ·3DS·FBX·GLB와 이미지 자료의 로딩·배치를 연결하는 기본 모델 레이어입니다.
@@ -18527,7 +18702,6 @@ declare class U3dModelBasicLayer extends U3dModelLayer {
     _isLoaded: boolean;
     _objectCenter: three.Vector3;
     _isGroup: boolean;
-    _hasVideoTexture: boolean;
     _object: ModelObject3D;
     _drawObject: UGroup;
     /**@type {Array<ModelObject3D>} */
@@ -18550,8 +18724,6 @@ declare class U3dModelBasicLayer extends U3dModelLayer {
     _useU3f: any;
     _u3fUrl: any;
     _xmlUrl: any;
-    /**@type {Array<import('@union3d/3dLayer/U3dVideoLayer').U3dVideoLayer>} */
-    _videoLayer: Array<U3dVideoLayer>;
     _containMetaData: any;
     _usePositionOffset: any;
     modelType: {
@@ -19812,11 +19984,11 @@ declare class U3dGeometry extends UEventDispatcher {
      */
     _properties: KeyValue;
     /**
-     * @type {import('@union3d/core/geometry/UBufferGeometry').UBufferGeometry}
+     * @type {import('three').BufferGeometry | undefined}
      *
      * @ignore
      */
-    geometry: UBufferGeometry;
+    geometry: three.BufferGeometry | undefined;
     /**
      * @type {boolean}
      *
@@ -19921,15 +20093,15 @@ declare class U3dGeometry extends UEventDispatcher {
     /**
      * 이 도형이 사용하는 BufferGeometry 객체를 반환합니다. <br>
      *
-     * @returns {import('@union3d/core/geometry/UBufferGeometry').UBufferGeometry} 정점·법선 같은 형상 데이터를 담은 지오메트리. 이 도형이 쓰고 있는 객체이므로 고치면 화면에도 반영됩니다 <br>
+     * @returns {import('three').BufferGeometry | undefined} 해제 후에는 undefined이며, 정점·법선 같은 형상 데이터를 담은 지오메트리. 이 도형이 쓰고 있는 객체이므로 고치면 화면에도 반영됩니다 <br>
      */
-    getGeometry(): UBufferGeometry;
+    getGeometry(): three.BufferGeometry | undefined;
     /**
      * 이 도형의 BufferGeometry 객체를 교체합니다. <br>
      *
-     * @param {import('@union3d/core/geometry/UBufferGeometry').UBufferGeometry} geometry 새로 사용할 지오메트리. 이전 지오메트리는 자동으로 해제되지 않습니다 <br>
+     * @param {import('three').BufferGeometry} geometry 새로 사용할 지오메트리. 이전 지오메트리는 자동으로 해제되지 않습니다 <br>
      */
-    setGeometry(geometry: UBufferGeometry): void;
+    setGeometry(geometry: three.BufferGeometry): void;
     /**
      * 도형의 위경도 좌표 배열을 반환합니다. <br>
      * 복사본이 아니라 도형이 쓰는 배열 그대로이므로, 원소를 고치면 도형의 좌표도 함께 바뀝니다. <br>
@@ -20149,21 +20321,23 @@ declare class U3dGeometry extends UEventDispatcher {
     /**
      * `dynamicDepthOffset`이 true일 때 매 프레임 지형 묻힘 정도를 측정하는 데 사용할 함수를 설정합니다. <br>
      * 측정 함수는 `{drawArg, object, camPos, size, cameraDistance}`를 인자로 받아 미터 단위 depthOffset을 돌려줍니다. <br>
-     * 함수가 아닌 값은 등록하지 않고 지금 설정을 유지합니다. <br>
+     * 위치·크기·카메라 거리는 월드 단위이며, 반환값은 엔진이 미터에서 월드 단위로 환산합니다. <br>
+     * undefined·음수·유한하지 않은 반환값은 보정 0으로 처리하며 기본 측정으로 대체하지 않습니다. <br>
+     * 함수가 아닌 값은 등록하지 않고 지금 설정을 유지합니다. null·undefined로 해제할 수 없습니다. <br>
      * 설정한 적이 없으면 기본 측정 함수(`measureGroundDepthOffset`)를 사용합니다. <br>
      *
-     * @param {function} func 깊이 보정치를 재는 함수. `{drawArg, object, camPos, size, cameraDistance}`를 받아 미터 단위 값을 반환합니다 <br>
+     * @param {U3dDepthOffsetFunction} func 깊이 보정치를 재는 함수. `{drawArg, object, camPos, size, cameraDistance}`를 받아 미터 단위 값을 반환합니다 <br>
      *
      * @example
      * disc.setDepthOffsetFunction(({cameraDistance}) => cameraDistance * 0.001);
      */
-    setDepthOffsetFunction(func: Function): void;
+    setDepthOffsetFunction(func: U3dDepthOffsetFunction): void;
     /**
      * 현재 설정된 depthOffset 측정 함수를 반환합니다(`setDepthOffsetFunction`과 짝을 이룹니다). <br>
      *
-     * @returns {function | undefined} 설정해 둔 측정 함수. 설정한 적이 없으면 `undefined`이며 이때는 기본 측정 함수를 사용합니다 <br>
+     * @returns {U3dDepthOffsetFunction | undefined} 설정해 둔 측정 함수. 설정한 적이 없으면 `undefined`이며 이때는 기본 측정 함수를 사용합니다 <br>
      */
-    getDepthOffsetFunction(): Function | undefined;
+    getDepthOffsetFunction(): U3dDepthOffsetFunction | undefined;
     /**
      * 도형의 색상을 설정합니다. <br>
      * 올바르지 않은 색상 값은 TypeError 또는 RangeError를 발생시키며 기존 색상을 유지합니다. <br>
@@ -20225,6 +20399,7 @@ declare class U3dGeometry extends UEventDispatcher {
      * 도형의 중심점을 반환합니다(지오메트리 경계 상자의 중심 기준). <br>
      *
      * @returns {import('three').Vector3} 도형 로컬 좌표 기준 중심점. 호출할 때마다 새 벡터를 만들어 돌려줍니다 <br>
+     * @throws {TypeError} 해제 등으로 지오메트리가 없으면 발생합니다 <br>
      */
     getCenter(): three.Vector3;
     /**
@@ -20453,6 +20628,18 @@ declare class U3dSphere extends U3dGeometry {
      */
     constructor(opt?: U3dSphereCO);
     /**
+     * 도형 표시 여부입니다. 기본값은 true입니다. <br>
+     *
+     * @type {import('three').Object3D['visible']}
+     */
+    visible: three.Object3D["visible"];
+    /**
+     * 렌더링 정렬 순서입니다. 값이 작을수록 먼저 그리며, 깊이 검사를 비활성화하지는 않습니다. <br>
+     *
+     * @type {import('three').Object3D['renderOrder']}
+     */
+    renderOrder: three.Object3D["renderOrder"];
+    /**
      * @type {import('three').Vector3}
      *
      * @ignore
@@ -20634,27 +20821,27 @@ declare class U3dAdaptedGeometry extends U3dSphere {
      */
     static override EVENT: U3dAdaptedGeometryEMI;
     /** @type {import("three").Vector3} */
-    static "__#15@#TEMP_POSITION": three.Vector3;
+    static "__#16@#TEMP_POSITION": three.Vector3;
     /** @type {import("three").Quaternion} */
-    static "__#15@#TEMP_ROTATION": three.Quaternion;
+    static "__#16@#TEMP_ROTATION": three.Quaternion;
     /** @type {import("three").Vector3} */
-    static "__#15@#TEMP_SCALE": three.Vector3;
+    static "__#16@#TEMP_SCALE": three.Vector3;
     /** @type {import("three").Matrix4} */
-    static "__#15@#TEMP_MAT4": three.Matrix4;
+    static "__#16@#TEMP_MAT4": three.Matrix4;
     /** @type {import("three").Sphere} */
-    static "__#15@#TEMP_SPHERE": three.Sphere;
+    static "__#16@#TEMP_SPHERE": three.Sphere;
     /** @type {import("three").Vector3} */
-    static "__#15@#TEMP_VECTOR": three.Vector3;
+    static "__#16@#TEMP_VECTOR": three.Vector3;
     /** @type {import("three").Vector3} */
-    static "__#15@#TEMP_VECTOR2": three.Vector3;
+    static "__#16@#TEMP_VECTOR2": three.Vector3;
     /** @type {import("three").Vector3} */
-    static "__#15@#TEMP_CENTER": three.Vector3;
+    static "__#16@#TEMP_CENTER": three.Vector3;
     /** @type {import("three").Box3} */
-    static "__#15@#TEMP_BOX": three.Box3;
+    static "__#16@#TEMP_BOX": three.Box3;
     /** @type {import("three").Vector3} */
-    static "__#15@#LINE_DIRECTION": three.Vector3;
+    static "__#16@#LINE_DIRECTION": three.Vector3;
     /** @type {import("three").Vector3} */
-    static "__#15@#TEMP_DIR": three.Vector3;
+    static "__#16@#TEMP_DIR": three.Vector3;
     /**
      * 어댑터 도형을 생성합니다. <br>
      * 인지 범위 배율(`buffer`), 연결선 색상·굵기(`lineColor`/`lineThick`), 범위 강조 색상(`boundColor`) 등을 옵션으로 지정할 수 있습니다. <br>
@@ -21124,6 +21311,124 @@ declare class UAnalyGizmoModel extends UAnaly {
 }
 
 /**
+ * ~extends import('@union3d/core/geometry/UBufferGeometry') <br>
+ *
+ * Shape(2D 외곽선)를 지정한 깊이만큼 압출(extrude)해 3D 입체 지오메트리를 만드는 Buffer Geometry 클래스입니다. <br>
+ *
+ * @extends {UBufferGeometry}
+ */
+declare class UExtrudeBufferGeometry extends UBufferGeometry {
+    /**
+     * Shape를 압출(extrude)해 3D 지오메트리를 생성합니다. <br>
+     *
+     * @param {import("three").Shape | Array<import("three").Shape>} shapes 압출할 Shape 또는 Shape 배열 <br>
+     * @param {UExtrudeBufferGeometryCO} options 압출 옵션 (깊이·베벨·스텝 등) <br>
+     */
+    constructor(shapes: three.Shape | Array<three.Shape>, options: UExtrudeBufferGeometryCO);
+    /**
+     * @type {{ shapes: import("three").Shape | Array<import("three").Shape>, options: UExtrudeBufferGeometryCO }}
+     *
+     * @ignore
+     */
+    parameters: {
+        shapes: three.Shape | Array<three.Shape>;
+        options: UExtrudeBufferGeometryCO;
+    };
+    /**
+     * @type {number}
+     *
+     * @ignore
+     */
+    _topDrawCount: number;
+    type: string;
+    /**
+     * 저장된 shapes·options로 동일한 지오메트리를 새로 만들어 반환합니다. <br>
+     *
+     * @override
+     *
+     * @returns {this} 복제된 지오메트리 <br>
+     */
+    override clone(): this;
+}
+
+/**
+ * UExtrudeGeometry 생성 옵션 <br>
+ */
+type UExtrudeGeometryOptions = {
+    /**
+     * 커브 세그먼트 수 <br>
+     */
+    curveSegments?: number;
+    /**
+     * 압출 방향 세그먼트 수 <br>
+     */
+    steps?: number;
+    /**
+     * 압출 깊이 <br>
+     */
+    depth?: number;
+    /**
+     * 베벨 활성화 여부 <br>
+     */
+    bevelEnabled?: boolean;
+    /**
+     * 베벨 두께 <br>
+     */
+    bevelThickness?: number;
+    /**
+     * 베벨 크기 <br>
+     */
+    bevelSize?: number;
+    /**
+     * 베벨 세그먼트 수 <br>
+     */
+    bevelSegments?: number;
+    /**
+     * 압출 경로 커브 <br>
+     */
+    extrudePath?: three.Curve<three.Vector3>;
+    /**
+     * UV 생성기 <br>
+     */
+    UVGenerator?: UVGeneratorType;
+};
+/**
+ * UExtrudeGeometry 생성 옵션 <br>
+ *
+ * @memberof UExtrudeGeometry
+ * @inner
+ *
+ * @typedef {object} UExtrudeGeometryOptions
+ * @property {number} [curveSegments=12] 커브 세그먼트 수 <br>
+ * @property {number} [steps=1] 압출 방향 세그먼트 수 <br>
+ * @property {number} [depth=100] 압출 깊이 <br>
+ * @property {boolean} [bevelEnabled=true] 베벨 활성화 여부 <br>
+ * @property {number} [bevelThickness=6] 베벨 두께 <br>
+ * @property {number} [bevelSize] 베벨 크기 <br>
+ * @property {number} [bevelSegments=3] 베벨 세그먼트 수 <br>
+ * @property {import('three').Curve<import('three').Vector3>} [extrudePath] 압출 경로 커브 <br>
+ * @property {UVGeneratorType} [UVGenerator] UV 생성기 <br>
+ */
+/**
+ * ~extends import('@UExtrudeBufferGeometry') <br>
+ *
+ * 2D 형상(Shape)을 지정한 깊이만큼 밀어 올려 입체로 만드는 `압출(Extrude) 지오메트리` 클래스입니다. <br>
+ * three.js의 `ExtrudeGeometry`와 유사하게, 형상과 압출 옵션(깊이·베벨·경로 등)을 받아 3D 지오메트리를 생성합니다. <br>
+ *
+ * @extends {UExtrudeBufferGeometry}
+ */
+declare class UExtrudeGeometry extends UExtrudeBufferGeometry {
+    /**
+     * 형상(Shape)을 압출해 3D 지오메트리를 생성합니다. <br>
+     * 단일 형상 또는 형상 배열을 받으며, `options.depth`만큼 밀어 올려 입체를 만듭니다. <br>
+     *
+     * @param {import('three').Shape | Array<import('three').Shape>} shapes 압출할 2D 형상 (또는 형상 배열) <br>
+     * @param {UExtrudeGeometryOptions} options 압출 옵션 (깊이·베벨·세그먼트·경로 등) <br>
+     */
+    constructor(shapes: three.Shape | Array<three.Shape>, options: UExtrudeGeometryOptions);
+}
+
+/**
  * ~extends import('@U3dGeometry') <br>
  *
  * 여러 좌표를 곡선으로 연결하고, 곡선을 따라 폭과 세로 두께를 가진 띠 형태로 표시하는 경로(항로) 도형입니다. <br>
@@ -21154,6 +21459,20 @@ declare class U3dPathGeometry extends U3dGeometry {
      * @param {U3dPathGeometryCO} [options={}] 너비·높이·곡선 장력·분할 수·외곽선 등 경로 기본값을 지정하는 생성 옵션 <br>
      */
     constructor(options?: U3dPathGeometryCO);
+    /**
+     * 초기에는 기본 재질이며, 경로 생성 옵션에 따라 기본 재질 또는 셰이더 재질로 교체됩니다. 해제 후에는 undefined입니다. <br>
+     *
+     * @override
+     * @type {PathMaterial | undefined}
+     */
+    override material: PathMaterial | undefined;
+    /**
+     * 초기 버퍼, 경로 메타데이터가 있는 버퍼 또는 돌출 형상입니다. 해제 후에는 undefined입니다. <br>
+     *
+     * @override
+     * @type {import('@union3d/core/geometry/UBufferGeometry').UBufferGeometry | RoadBufferGeometry | import('@union3d/geometry/UExtrudeGeometry').UExtrudeGeometry | undefined}
+     */
+    override geometry: UBufferGeometry | RoadBufferGeometry | UExtrudeGeometry | undefined;
     /**
      * subExtends(UMesh)로 믹싱되는 THREE.Object3D 프로퍼티 <br>
      *
@@ -24288,6 +24607,36 @@ type UTerrainStampRenderUniforms = {
         value: number;
     };
     /**
+     * 현재 타일 전체에 동일한 합성색을 적용할 수 있는지 여부입니다.
+     */
+    compositeEnabled: {
+        value: boolean;
+    };
+    /**
+     * 현재 타일의 premultiplied RGB와 누적 alpha입니다.
+     */
+    compositeColor: {
+        value: three.Vector4;
+    };
+    /**
+     * 단색 전용 program의 후보 상한이며, 0이면 범용 경로입니다.
+     */
+    plainRowLimit: {
+        value: number;
+    };
+    /**
+     * 현재 타일의 row별 경계·내부·외부 판정입니다.
+     */
+    rowCoverage: {
+        value: Float32Array;
+    };
+    /**
+     * 단색 후보의 색상과 유효 알파입니다.
+     */
+    rowFill: {
+        value: Float32Array;
+    };
+    /**
      * 지금 그리는 지형 타일의 원점과, 도장 좌표를 기록할 때 쓴 공통 기준점 사이의 차이이며 단위는 미터입니다.<br>
      * 큰 좌표를 그대로 다룰 때 생기는 어긋남을 줄이기 위해 사용합니다.
      */
@@ -24439,7 +24788,7 @@ type UTerrainStampParam = {
      */
     visible?: boolean;
     /**
-     * 지형 타일 하나가 한 번에 검사할 도장 개수의 상한입니다.
+     * 지형 타일 하나가 검사할 도장 개수의 상한입니다. 정밀 출력과 단색 내부 합성에 같은 상한을 적용합니다.
      */
     maxStampsPerTile?: number;
     /**
@@ -24474,8 +24823,21 @@ type UTerrainStampSetParamOption = {
  * 다각형(polygon), 원(circle), 선(polyline) 중 한 가지 도형을 정해 색이나 이미지로 채웁니다.<br>
  * 가림(mask) 도장으로 지정하면 채우는 대신 대상 영상 레이어를 그 영역에서 보이지 않게 합니다.<br>
  * 인스턴스 메서드는 도형·표현·표시 여부를 바꾸고, 정적 메서드는 지형을 그리는 쪽에서 표시 상태를 조회합니다.
+ * 지면 경계·외곽선·이미지는 화면 해상도에서 정밀하게 판정합니다.<br>
+ * 타일 전체가 동일한 단색일 때만 합성색을 재사용합니다. 경계가 있는 단색 후보도 지원 범위에서는 전용 셰이더로 그립니다.<br>
+ * 도형이 변경된 범위의 타일 후보를 갱신하며, 같은 후보·이미지 atlas 상태의 메타데이터는 재업로드하지 않습니다.<br>
+ * 확정된 타일 내부/외부만 재사용하고 경계·화면 픽셀 선폭은 원래 정밀도로 판정합니다. 반투명 순서와 타일별 도장 상한은 유지합니다.
  */
 declare class UTerrainStamp {
+    /**
+     * 지형 재질에 상수색·단색 후보·범용 후보 중 현재 타일에 맞는 정밀 합성 경로를 연결합니다.
+     *
+     * @param {import('three').WebGLProgramParametersWithUniforms} shader 컴파일할 셰이더입니다.
+     * @param {object} uniforms 레이어가 소유하는 uniform binding입니다.
+     *
+     * @ignore
+     */
+    static _addCompositeShader(shader: three.WebGLProgramParametersWithUniforms, uniforms: object): void;
     /**
      * 모든 도장이 함께 쓰는 이미지 보관소에 등록할 수 있는 이미지 주소의 최대 개수를 바꿉니다.
      *
@@ -24518,11 +24880,13 @@ declare class UTerrainStamp {
      * 지형 타일 하나를 그리기 직전에 해당 영상 레이어의 표시 상태 값을 현재 타일 기준으로 갱신합니다.
      *
      * 도장이 한 번도 등록된 적 없는 레이어이면 아무 것도 하지 않습니다.
+     * 단색 내부 타일이면 합성색을 재사용하고, 경계·이미지·선이 있는 타일이면 정밀 도형 판정을 사용합니다.
      *
      * @param {import('@U3dLayer').U3dLayer} layer 갱신할 영상 레이어입니다.
      * @param {Partial<{object: import('three').Object3D, renderer: import('three').WebGLRenderer}> & Record<string, any>} [renderContext] 지금 그리는 대상에 대한 정보이며 아래 두 값만 사용합니다.<br>
      * object는 지금 그리는 지형 타일이며, 이 타일과 겹치는 도장만 남깁니다.<br>
-     * renderer는 화면 배율을 제공하며, 없으면 배율 1을 사용합니다.<br>
+     * renderer는 화면 배율과 렌더 프레임 번호를 제공합니다. 없으면 배율 1과 최대 256개 조합 보관을 사용합니다.<br>
+     * 프레임 번호가 있으면 현재·직전 프레임의 후보 조합을 보호하여 256개를 넘는 활성 화면도 재사용합니다.<br>
      * object를 넘기지 않으면 타일별로 걸러 내지 않고 이 레이어에 등록된 도장 전체를 그대로 사용합니다.
      */
     static updateRenderUniforms(layer: U3dLayer, renderContext?: Partial<{
@@ -24536,6 +24900,28 @@ declare class UTerrainStamp {
      * @returns {boolean} 적용 대상 레이어가 바뀐 도장이 하나라도 있으면 true, 바뀐 도장이 없거나 연결된 도장이 없으면 false입니다.
      */
     static refreshAppLayerStates(app: U3dApp): boolean;
+    /**
+     * Helper가 소유한 도장만 한 동기 작업으로 묶어 마지막 상태를 registry에 반영합니다.
+     *
+     * callback 중 새 도장은 include로 먼저 포함해야 합니다. 포함하지 않은 일반 도장은
+     * 평소처럼 즉시 동작합니다. callback 안에서는 await나 중간 렌더를 실행하지 않습니다.
+     * 도장별 마지막 변경 순서를 지켜 공유 상한을 반영하며, 예외가 나도 이미 바뀐 상태를
+     * 정리하고 배치 문맥을 복구합니다. 이 메서드는 호출 결과를 되돌리는 transaction은 아닙니다.
+     * retire는 독점 소유 texture만 전달받습니다. 정상 반환한 뒤에는 호출자가 정확히 한 번
+     * dispose해야 하며, 받을 수 없으면 소유권을 저장하기 전에 예외를 던져야 합니다.
+     * onStampError는 도장별 commit 실패의 소유자를 관찰하는 용도이며 도장을 변경하지 않습니다.
+     * 통지는 기존 오류 전파를 대신하지 않습니다. 통지 함수의 오류도 수집하여 나머지 commit을 마칩니다.
+     *
+     * @template T
+     * @param {Iterable<import('@union3d/helpers/UTerrainStamp').UTerrainStamp>} stamps 함께 처리할 Helper 소유 도장입니다.
+     * @param {function(function(import('@union3d/helpers/UTerrainStamp').UTerrainStamp): import('@union3d/helpers/UTerrainStamp').UTerrainStamp): T} callback 도장 변경을 수행하는 동기 함수입니다.
+     * @param {function(import('three').DataTexture): void} [retire] 마지막 사용이 끝난 texture의 정리 소유권을 받을 함수이며, 생략하면 즉시 해제합니다.
+     * @param {function(import('@union3d/helpers/UTerrainStamp').UTerrainStamp, unknown): void} [onStampError] 검색·등록에 실패한 도장과 원래 오류를 관찰할 내부 함수입니다.
+     * @returns {T} callback의 반환값입니다.
+     *
+     * @ignore
+     */
+    static _withHelperBatch<T>(stamps: Iterable<UTerrainStamp>, callback: (arg0: (arg0: UTerrainStamp) => UTerrainStamp) => T, retire?: (arg0: three.DataTexture) => void, onStampError?: (arg0: UTerrainStamp, arg1: unknown) => void): T;
     /**
      * getParam()이 돌려준 값으로 새 도장을 만듭니다.
      *
@@ -24583,7 +24969,7 @@ declare class UTerrainStamp {
      * @param {import('@U3dLayer').U3dLayer} [opt.targetLayer] 가림 대상으로 삼을 영상 레이어이며, 지정하면 이 레이어보다 위에 그려지는 레이어에만 도장이 적용됩니다.
      * @param {string|number} [opt.mode] 채울지 가릴지 정하며 fill 또는 mask를 넣습니다.<br>
      * 생략하거나 그 밖의 값을 넣으면 targetLayer가 있을 때 가림, 없을 때 채움으로 동작합니다.
-     * @param {number} [opt.maxStampsPerTile=128] 지형 타일 하나가 한 번에 검사할 도장 개수의 상한이며 1 이상 128 이하로 제한됩니다.<br>
+     * @param {number} [opt.maxStampsPerTile=128] 지형 타일 하나가 검사할 도장 개수의 상한이며 1 이상 128 이하로 제한됩니다. 정밀 출력과 단색 내부 합성에 동일하게 적용합니다.<br>
      * 같은 영상 레이어에 등록된 도장들이 이 값을 공유하므로 마지막으로 반영된 값이 그 레이어에 적용됩니다.
      * @param {number} [opt.renderOrder=0] 다른 도장과 겹칠 때 그리는 순서이며 값이 클수록 위에 그려집니다.<br>
      * 값이 같으면 먼저 만든 도장이 아래에 그려지고, 숫자가 아니면 0을 사용합니다.
@@ -25017,16 +25403,17 @@ declare class UTerrainStamp {
      */
     getTextureFit(): "stretch" | "contain";
     /**
-     * 지형 타일 하나가 한 번에 검사할 도장 개수의 상한을 바꿉니다.
+     * 지형 타일 하나가 검사할 도장 개수의 상한을 바꿉니다.
      *
      * 이 값은 도장 하나가 아니라 이 도장이 적용된 영상 레이어 전체에 적용되므로, 같은 레이어의 도장이 서로 다른 값을 넣으면 마지막으로 반영된 값이 남습니다.<br>
      * 한 타일에 겹치는 도장이 상한을 넘으면 타일 중심에서 가까운 도장부터 남기고 나머지는 그 타일에서 그려지지 않습니다.
+     * 단색 내부 합성도 정밀 출력과 동일한 타일 후보 및 상한을 적용합니다.
      *
      * @param {number} value 타일 하나가 검사할 도장 개수의 상한이며 소수점 아래는 버립니다.<br>
      * 128을 넘으면 128로 줄이고, 0 이하이거나 숫자가 아니면 기본값인 128을 사용합니다.
-     * @returns {UTerrainStamp} 이어서 호출할 수 있도록 이 도장 자신을 반환합니다.
+     * @returns {this} 이어서 호출할 수 있도록 이 도장 자신을 반환합니다.
      */
-    setMaxStampsPerTile(value: number): UTerrainStamp;
+    setMaxStampsPerTile(value: number): this;
     /**
      * 지형 타일 하나가 한 번에 검사할 도장 개수의 상한으로 이 도장이 지정한 값을 반환합니다.
      *
@@ -25098,6 +25485,14 @@ declare class UTerrainStamp {
  * LineSegments2를 기반으로 선 두께를 조절할 수 있습니다.
  * 지면 이미지는 모든 채움 stamp가 공유하는 frame에 배치하며, 교차 영역 밖은 잘립니다.
  * fill.textureFit의 contain도 stretch와 같은 매핑을 사용하며 이미지 전체 표시와 종횡비 유지를 보장하지 않습니다.
+ * 기본 지면 외곽선은 지형 stamp로 밀착 출력합니다. terrainOutlineStamp가 false이면 접촉 외곽선을 생략합니다.
+ * 화면에서 전체 frustum이 96px보다 작으면 지면 격자를 최대 5×5로 줄이고, 128px 이상이면 요청 격자로 복귀합니다.
+ * cullByMainCamera가 true이면 단색 지면의 개별 UV 영역도 메인 카메라 기준으로 선택합니다.
+ * 화면 밖 영역은 계산·Stamp 생성을 생략하며, 원거리 LOD는 외곽선을 보존하고 내부 분할점만 줄입니다.
+ * 작게 보이는 인접 원거리 Stamp는 외피 점을 유지할 수 있을 때만 두 개씩 합칩니다.
+ * 이 정책은 이 Helper가 생성하는 지면 형상에만 적용하며 공용 UTerrainStamp나 load()로 복원한 Stamp에는 적용하지 않습니다.
+ * 최초 표시와 재표시는 여러 Helper 사이에서 분산되므로 몇 프레임 뒤에 나타날 수 있습니다.
+ * dispose()는 즉시 갱신·출력을 중지하고 소유 렌더 자원의 실제 반납은 나누어 수행합니다.
  *
  * @extends {LineSegments2}
  *
@@ -25131,6 +25526,7 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
     terrainBoundaryRefinementSteps: number;
     terrainBoundaryFilletSegments: number;
     terrainBoundaryFilletRatio: number;
+    /** 전체 Helper 및 단색 지면 영역의 카메라 선택·원거리 내부 LOD 사용 여부입니다. */
     cullByMainCamera: boolean;
     smoothing: boolean;
     smoothingIterations: number;
@@ -25387,6 +25783,10 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
     resetTerrainIntersectionStabilization(): this;
     /**
      * 현재 프러스텀 평면으로 외곽선을 갱신하는 메서드입니다.
+     * 표준 지형에서 자세·실제 격자·설정·의존 타일이 같고 교차 필터가 완전히 수렴했으면
+     * 직전 footprint 계산 결과를 재사용합니다. 표시 스타일과 앱 연결은 계속 반영합니다.
+     * 카메라 이동으로 개별 UV 영역 선택이 바뀌면 재계산하고, 새로 진입한 영역의 낡은 교차 이력은 버립니다.
+     * 내용이 같은 선·옆면 버퍼와 지면 stamp는 GPU 갱신을 생략하며 출력 해상도는 유지합니다.
      *
      * @returns {this}
      */
@@ -25510,6 +25910,8 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
      * UFrustumHelper의 save()와 같은 형식이므로 두 helper가 저장한 스냅샷을 서로 불러올 수 있습니다.
      * 지형 투영 모드(생성 옵션 terrain이 true)가 아니거나 지금 지형에 그려진 stamp가 없으면 안내 메시지를 남기고 undefined를 반환합니다.
      * load()로 불러온 스냅샷 stamp는 저장 대상이 아니며 현재 프러스텀이 만든 stamp만 담습니다.
+     * 카메라 선택이 켜져 있으면 현재 선택된 영역만 저장합니다. 전체 footprint가 필요하면 cullByMainCamera를 false로 바꾸고 update()한 뒤 저장합니다.
+     * 기본 지면 외곽선도 stamp로 저장합니다. 영상 레이어 부재나 stamp 예산 부족으로 선 geometry를 사용하는 구간은 저장되지 않습니다.
      *
      * @param {UFrustumHelperSaveOption} [options={}] 저장 범위를 정하는 옵션
      * @returns {UFrustumHelperTerrainStampSnapshot|undefined} 현재 지형 투영면 스냅샷이며, 저장할 수 없으면 undefined입니다.
@@ -31658,11 +32060,15 @@ declare class U3dOpenLayer extends U3dImageLayer {
     /** @type {Array<number> | undefined} */ _resolutions: Array<number> | undefined;
     /** @type {import('three').ColorRepresentation | null} */ _tileBackgroundColor: three.ColorRepresentation | null;
     /**
-     * 타일 데이터의 픽셀 정보가 없을 시, 기본으로 적용될 색상을 설정합니다. null입력시 투명처리
-     * @param {import('three').ColorRepresentation} color=null
+     * 타일 데이터의 픽셀 정보가 없는 영역에 적용할 배경색을 설정합니다.
+     * @param {import('three').ColorRepresentation | null} color 배경색. null이면 배경색을 해제합니다.
      */
-    setTileBackgroundColor(color: three.ColorRepresentation): void;
-    getTileBackgroundColor(): three.ColorRepresentation;
+    setTileBackgroundColor(color: three.ColorRepresentation | null): void;
+    /**
+     * 설정된 타일 배경색을 반환합니다.
+     * @returns {import('three').ColorRepresentation | null} 배경색. 해제 상태이면 null입니다.
+     */
+    getTileBackgroundColor(): three.ColorRepresentation | null;
     /**
      * 동일 비동기 구간이 여러 frame/TileQueue 호출에서 관측되더라도 최초 시각만 보존합니다.
      * 반환값으로 이번 호출에서 실제 mark가 생성됐는지 알려 주어, 시작 대기 시간 같은 1회성 값이 후속 frame에서
@@ -32171,7 +32577,15 @@ declare class U3dOverviewMap {
     _layer: any;
     _mode: any;
     getId(): any;
+    /**
+     * 오버뷰 지도와 뷰를 해제하고 앱 및 렌더링 자원 참조를 정리합니다.
+     * 이미 해제한 오버뷰에 다시 호출해도 안전합니다.
+     */
     dispose(): void;
+    /**
+     * OL 지도를 생성하고 사용 가능한 앱의 카메라 위치와 중심을 동기화합니다.
+     * @returns {boolean} 오버뷰 초기화 성공 여부
+     */
     initialize(): boolean;
     offmouseend(): void;
     onmouseend(): void;
@@ -32207,27 +32621,6 @@ declare class UTestManager {
     private getTestMethodObject;
 }
 
-declare class U3dQuadTileTask {
-    constructor(opt?: {});
-    type: any;
-    name: any;
-    scope: any;
-    fnc: any;
-    item: any;
-    force: any;
-    active: any;
-    uuid: any;
-    info: {};
-    msg: any;
-    setMsg(msg: any): void;
-    getMsg(): any;
-    getInfo(key: any): any;
-    setInfo(key: any, value: any): void;
-    deleteInfo(key: any): void;
-    dispose(): void;
-    isActive(): any;
-}
-
 declare class U3dQuadTileProcess extends U3dProcess {
     /**
      * @type {Set<() => void>}
@@ -32235,6 +32628,15 @@ declare class U3dQuadTileProcess extends U3dProcess {
      * @ignore
      */
     _runningTasks: Set<() => void>;
+    /**
+     * 관리자 소유의 이동 정책을 조회합니다. 정책 조회 실패 때문에 큐를 멈추지 않습니다.
+     *
+     * @param {boolean} [reserve=false] 유효 작업을 시작할 때만 간격 예약
+     * @returns {number} 시작까지 남은 밀리초
+     *
+     * @ignore
+     */
+    _getStartDelay(reserve?: boolean): number;
     /**
      * 작업 상태의 측정만 관리자에 전달합니다.
      * 측정 실패가 큐 등록·실행·슬롯 반납과 완료 알림을 중단하지 않도록 격리합니다.
@@ -32267,16 +32669,13 @@ declare class U3dQuadTileProcess extends U3dProcess {
      * @ignore
      */
     _discard(work: U3dQuadTileTask): void;
-    _refineCount: number;
-    _index: number;
-    _checkTime: any;
     /**
      * 타일 작업을 등록하며 등록 예외나 폐기 상태에서도 실패 통지를 시도합니다.
      *
      * @override
      *
      * @param {import('@union3d/quadtree/U3dQuadTileTask').U3dQuadTileTask} work 등록할 작업
-     * @param {import('@union3d/quadtree/U3dQuadTile').U3dQuadTile} tile 거리별 큐를 선택할 기준 타일
+     * @param {import('@U3dQuadTile').U3dQuadTile} tile 거리별 큐를 선택할 기준 타일
      */
     override enqueueWork(work: U3dQuadTileTask, tile: U3dQuadTile): void;
     getWorkingInDistance(opt: any): any;
@@ -32301,11 +32700,19 @@ declare class U3dQuadTileProcess extends U3dProcess {
      * 다음 작업의 시작은 완료 콜백에서 비동기 예약으로 요청합니다.
      *
      * @param {import('@union3d/quadtree/U3dQuadTileTask').U3dQuadTileTask} obj 실행할 작업
-     * @param {import('@union3d/quadtree/U3dQuadTile').U3dQuadTile} tile 작업 대상 타일
+     * @param {import('@U3dQuadTile').U3dQuadTile} tile 작업 대상 타일
      */
     execute(obj: U3dQuadTileTask, tile: U3dQuadTile): void;
     update(): number;
     #private;
+}
+
+declare class UCustomProcess {
+    constructor(opt: any);
+    _works: any[];
+    push(uCustomWork: any): void;
+    process(curTime: any): void;
+    remove(workName: any): void;
 }
 
 declare class UProcessManager {
@@ -32315,12 +32722,12 @@ declare class UProcessManager {
     _app: any;
     _drawArg: any;
     _maxProcess: any;
-    _userProcess: any;
-    _imageProcess: any;
-    _heightProcess: any;
-    _modelProcess: any;
-    _modelWorkProcesses: any[];
-    _customProcess: any;
+    _userProcess: U3dQuadTileProcess;
+    _imageProcess: U3dQuadTileProcess;
+    _heightProcess: U3dQuadTileProcess;
+    _modelProcess: U3dQuadTileProcess;
+    _modelWorkProcesses: U3dQuadTileWorkProcess[];
+    _customProcess: UCustomProcess;
     _workingProcessLog: Map<any, any>;
     /**
      * 처리기의 큐 등록·실행 시작·첫 종결을 측정 상태에 반영합니다.
@@ -32343,7 +32750,7 @@ declare class UProcessManager {
     getTaskTimingState(): Array<UProcessTaskTimingState>;
     /**
      * RAF 호출 시각을 기록하고 관찰 구간이 끝났을 때 작업 한도를 조절합니다.
-     * U3dApp의 실제 렌더 루프에서 호출하며 별도의 RAF나 타이머를 등록하지 않습니다.
+     * U3dApp의 실제 렌더 루프에서 호출하며 RAF 측정용 반복 실행을 따로 등록하지 않습니다.
      *
      * @param {number} timestamp RAF가 전달한 밀리초 시각
      *
@@ -32351,7 +32758,7 @@ declare class UProcessManager {
      */
     _recordFrame(timestamp: number): void;
     /**
-     * RAF 간격 안정화를 위한 자동 작업 조절을 설정합니다.
+     * RAF 간격 안정화와 화면 이동에 따른 자동 작업 조절을 설정합니다.
      * RAF 호출 빈도를 제한하거나 앱의 실제 그리기 주기를 변경하지 않습니다.
      * 설정을 바꾸면 측정 이력을 초기화하고 사용자 지정 작업 한도를 다시 적용합니다.
      *
@@ -32394,18 +32801,29 @@ declare class UProcessManager {
      * @ignore
      */
     _disposeFrameMonitoring(): void;
-    getWorkingCount(): any;
+    /**
+     * 메인 처리기의 다음 시작까지 남은 시간을 반환합니다.
+     * 유효 작업을 꺼낸 경우에만 reserve로 시작 간격을 소비하고 Work는 항상 즉시 허용합니다.
+     *
+     * @param {import('@union3d/core/U3dProcess').U3dProcess} process 시작할 처리기
+     * @param {boolean} [reserve=false] 유효 작업의 실제 시작 예약 여부
+     * @returns {number} 남은 대기 시간, 밀리초
+     *
+     * @ignore
+     */
+    _getProcessStartDelay(process: U3dProcess, reserve?: boolean): number;
+    getWorkingCount(): number;
     getWorkingLevel2(): any;
     getWorkingLevel3(): any;
     logProcess(task: any): void;
     deleteLog(task: any): void;
     getLog(): Map<any, any>;
-    initUserProcess(): any;
-    initImageProcess(): any;
-    initHeightProcess(): any;
-    initModelProcess(): any;
-    initModelWorkProcess(): any[];
-    getWorkLimitList(maxProcess?: any): any[];
+    initUserProcess(): U3dQuadTileProcess;
+    initImageProcess(): U3dQuadTileProcess;
+    initHeightProcess(): U3dQuadTileProcess;
+    initModelProcess(): U3dQuadTileProcess;
+    initModelWorkProcess(): U3dQuadTileWorkProcess[];
+    getWorkLimitList(maxProcess?: number): number[];
     /**
      * 사용자가 지정한 동시 작업 수를 자동 조절의 상한으로 적용합니다.
      * 측정 이력을 비워 이전 설정에서 얻은 부하 판단이 새 설정에 영향을 주지 않게 합니다.
@@ -32414,12 +32832,12 @@ declare class UProcessManager {
      * @param {number} [maxProcess=UDEF.DEFAULT_MAX_PROCESS] 처리기별 기준 최대 동시 작업 수
      */
     applyMaxProcess(maxProcess?: number): void;
-    getUserProcess(): any;
-    getImageProcess(): any;
-    getHeightProcess(): any;
-    getModelProcess(): any;
-    getModelWorkProcesses(): any[];
-    getCustomProcess(): any;
+    getUserProcess(): U3dQuadTileProcess;
+    getImageProcess(): U3dQuadTileProcess;
+    getHeightProcess(): U3dQuadTileProcess;
+    getModelProcess(): U3dQuadTileProcess;
+    getModelWorkProcesses(): U3dQuadTileWorkProcess[];
+    getCustomProcess(): UCustomProcess;
     #private;
 }
 
@@ -32526,37 +32944,50 @@ declare class USky extends Sky {
     currentSunDate: any;
 }
 
+/**
+ * 카메라 위치와 타겟, 각도 및 저장 좌표계를 보관합니다.
+ */
 declare class UCameraState {
-    constructor(options?: {});
-    camera: any;
-    center: any;
-    distance: any;
-    azimuth: any;
-    polar: any;
-    homePosition: any;
-    height: any;
-    type: any;
-    _app: any;
-    toJSON(): {
-        camera: {
-            x: any;
-            y: any;
-            z: any;
-        };
-        center: {
-            x: any;
-            y: any;
-            z: any;
-        };
-        distance: any;
-        azimuth: any;
-        polar: any;
-        homePosition: any;
-        type: any;
-        height: any;
-    };
-    getPosition(): any;
-    getPositionTarget(): any;
+    /**
+     * @param {UCameraStateCO} [options={}] 카메라 상태 생성 옵션
+     */
+    constructor(options?: UCameraStateCO);
+    /** @type {GeoPosition | WorldPosition | undefined} */
+    camera: GeoPosition | WorldPosition | undefined;
+    /** @type {GeoPosition | WorldPosition | undefined} */
+    center: GeoPosition | WorldPosition | undefined;
+    /** @type {number | undefined} */
+    distance: number | undefined;
+    /** @type {number | undefined} */
+    azimuth: number | undefined;
+    /** @type {number | undefined} */
+    polar: number | undefined;
+    /** @type {[number, number, number, number, number] | undefined} */
+    homePosition: [number, number, number, number, number] | undefined;
+    /** @type {number | undefined} */
+    height: number | undefined;
+    /** @type {'GEOGRAPHIC' | 'WORLD'} */
+    type: "GEOGRAPHIC" | "WORLD";
+    /** @type {import('@U3dApp').U3dApp | undefined} */
+    _app: U3dApp | undefined;
+    /**
+     * 앱 참조와 메서드를 제외한 평문 상태를 반환합니다.
+     * @returns {UCameraStateJSON} 저장·복원에 사용할 상태
+     * @throws {TypeError} 카메라 또는 타겟 좌표가 없는 경우
+     */
+    toJSON(): UCameraStateJSON;
+    /**
+     * 카메라 위치를 월드 좌표로 반환합니다. WORLD 상태는 보관한 객체를 그대로 반환합니다.
+     * @returns {WorldPosition | ReturnType<import('@U3dApp').U3dApp['geographicToVector3']> | undefined} 월드 좌표. 위치가 없으면 undefined
+     * @throws {TypeError} GEOGRAPHIC 상태에 위치는 있지만 변환할 앱이 없는 경우
+     */
+    getPosition(): WorldPosition | ReturnType<U3dApp["geographicToVector3"]> | undefined;
+    /**
+     * 타겟 위치를 월드 좌표로 반환합니다. WORLD 상태는 보관한 객체를 그대로 반환합니다.
+     * @returns {WorldPosition | ReturnType<import('@U3dApp').U3dApp['geographicToVector3']> | undefined} 월드 좌표. 타겟이 없으면 undefined
+     * @throws {TypeError} GEOGRAPHIC 상태에 타겟은 있지만 변환할 앱이 없는 경우
+     */
+    getPositionTarget(): WorldPosition | ReturnType<U3dApp["geographicToVector3"]> | undefined;
 }
 
 type MixerController = UComponentMixerController;
@@ -32841,13 +33272,6 @@ declare class U3dLayerList {
      * @return {Array<import('@U3dLayer').U3dLayer>} VectorTile 레이어 배열
      */
     getInstanceVectorTileLayers(): Array<U3dLayer>;
-    /**
-     * 클래스 종류가 video인 레이어를 등록 목록 순서로 조회합니다.
-     * 목록을 변경하지 않으며, 원본 레이어 객체를 담은 새 배열을 반환합니다.
-     *
-     * @returns {Array<import('@U3dLayer').U3dLayer>} 일치하는 비디오 레이어의 새 배열
-     */
-    getInstanceVideoLayers(): Array<U3dLayer>;
     /**
      * 클래스 종류가 animation인 레이어를 등록 목록 순서로 조회합니다.
      * 목록을 변경하지 않으며, 원본 레이어 객체를 담은 새 배열을 반환합니다.
@@ -34989,6 +35413,11 @@ type U3dAppCO = {
      */
     pixelResolution?: "SD" | "HD" | "FHD" | "QHD" | "UHD" | Array<number>;
     /**
+     * 로그 깊이 버퍼 사용 여부입니다.<br>
+     * logarithmicDepthBuffer 속성을 생략하면 기본값 true를 사용합니다.
+     */
+    logarithmicDepthBuffer?: boolean;
+    /**
      * 해상도에 곱해지는 픽셀 밀도 배율이며 값이 클수록 선명해지고 연산량이 늘어남
      */
     pixelRatio?: number;
@@ -35507,26 +35936,27 @@ declare class U3dApp extends U3dObject {
     /**
      * 나중에 다시 불러올 카메라 상태를 저장합니다.
      *
-     * @param {import('@union3d/core/UCameraState').UCameraState} cameraStateInfo 저장할 카메라 상태
+     * @param {import('@union3d/core/UCameraState').UCameraState | UCameraStateJSON} cameraStateInfo 저장할 카메라 상태 또는 직렬화 상태
      *
      * @example
      * app.setSavedCameraState(app.getCameraState());
      */
-    setSavedCameraState(cameraStateInfo: UCameraState): void;
+    setSavedCameraState(cameraStateInfo: UCameraState | UCameraStateJSON): void;
     /**
      * 저장된 카메라 상태를 반환합니다.
      * 저장된 상태가 없으면 `undefined`를 반환합니다.
      *
-     * @returns {import('@union3d/core/UCameraState').UCameraState | undefined} 저장된 카메라 상태
+     * @returns {import('@union3d/core/UCameraState').UCameraState | UCameraStateJSON | undefined} 저장된 카메라 상태 또는 직렬화 상태
      *
      * @example
      * const state = app.getSavedCameraState();
      */
-    getSavedCameraState(): UCameraState | undefined;
+    getSavedCameraState(): UCameraState | UCameraStateJSON | undefined;
     /**
-     * Renderer를 생성하는 함수
+     * 렌더러를 생성하며 재생성할 때는 기존 렌더러의 MSAA 요청값을 유지합니다.
+     *
      * @param {HTMLElement} container 3dMap div 객체
-     * @return {import('@union3d/core/URenderer').URenderer} renderer 객체
+     * @returns {import('@union3d/core/URenderer').URenderer} 렌더러 객체
      *
      * @ignore
      */
@@ -35672,6 +36102,7 @@ declare class U3dApp extends U3dObject {
     getSegVertex(): number;
     /**
      * 시간에 따른 태양 정보(위치/일조량 등)를 설정하는 함수
+     * 카메라 타겟 좌표가 없으면 태양 위치 갱신을 생략합니다.
      * @param {Date} date 설정 시간
      * @ignore
      */
@@ -35825,11 +36256,11 @@ declare class U3dApp extends U3dObject {
      */
     getOverviewMap(): U3dOverviewMap;
     /**
-     * 오버뷰를 생성하는 함수
-     * @param {import('@union3d/core/U3dOverviewMap').U3dOverviewMap} idoverview 오버뷰 아이디
-     * @returns {boolean}
+     * 기존 오버뷰를 해제하고 지정한 DOM 컨테이너에 오버뷰를 생성합니다.
+     * @param {string} idoverview 오버뷰 컨테이너의 DOM ID
+     * @returns {boolean} 오버뷰 생성 요청 처리 여부
      */
-    createOverviewMap(idoverview: U3dOverviewMap): boolean;
+    createOverviewMap(idoverview: string): boolean;
     /**
      * AutoClear 설정을 반환하는 함수
      * @returns {boolean} AutoClear 여부
@@ -35896,7 +36327,14 @@ declare class U3dApp extends U3dObject {
     rotationX_: number;
     rotationY_: number;
     rotationZ_: number;
-    renderFrame(delta: any): boolean;
+    /**
+     * 애니메이션 루프의 시각에 맞춰 갱신 작업을 진행하고, 그리기 시점이면 한 프레임을 그립니다.
+     * 그리기를 건너뛰어도 준비 작업은 진행하며, 중지·해제·미초기화 상태에서는 실행하지 않습니다.
+     *
+     * @param {number} delta 애니메이션 루프가 전달한 시각(ms)
+     * @returns {false | undefined} 그리기 간격을 기다리는 경우 false이며 그 밖에는 반환값 없음
+     */
+    renderFrame(delta: number): false | undefined;
     updateFrame(delta: any): void;
     tweenFrame(delta: any): void;
     /**
@@ -37084,11 +37522,6 @@ declare class U3dApp extends U3dObject {
     getInstanceModelLayers(): any[];
     getInstanceModelAndGroupLayers(): U3dLayer[];
     /**
-     * U3dApp에 있는 비디오 모델 레이어들을 반환하는 함수
-     * @returns {Array<import('@U3dLayer').U3dLayer>} 비디오 모델 레이어 목록
-     */
-    getInstanceVideoLayers(): Array<U3dLayer>;
-    /**
      * U3dApp에 있는 애니매이션 모델 레이어들을 반환하는 함수
      * @returns {Array<import('@U3dLayer').U3dLayer>} 애니매이션 모델 레이어 목록
      */
@@ -37429,6 +37862,7 @@ declare class U3dApp extends U3dObject {
     /**
      * 카메라 상태를 반환하는 함수 (위경도 좌표)
      * @returns {import('@union3d/core/UCameraState').UCameraState} 카메라 상태 객체
+     * @throws {Error} 카메라 또는 타겟 좌표가 없어 완전한 상태를 조회할 수 없는 경우
      * @example
      * return {
      *              camera: {x: 126.78771616171915, y: 37.64258233377268, z: 69.07397201920645},   // 카메라 위경도 좌표
@@ -37445,16 +37879,16 @@ declare class U3dApp extends U3dObject {
      * 현재 카메라 상태를 저장하는 함수
      * 이후에 loadSavedCameraState API 를 사용 하여 현재의 위치와 각도로 불러오는 방식으로 사용 가능
      *
-     * @returns {import('@union3d/core/UCameraState').UCameraState | undefined} 저장된 카메라 상태
+     * @returns {import('@union3d/core/UCameraState').UCameraState | UCameraStateJSON | undefined} 저장된 카메라 상태
      *
      * @example
      * const info = app.saveCameraState();
      */
-    saveCameraState(): UCameraState | undefined;
+    saveCameraState(): UCameraState | UCameraStateJSON | undefined;
     /**
      * saveCameraState API를 통해서 저장된 카메라 상태로 이동 및 회전 하는 함수
      *
-     * @param {import('@union3d/core/UCameraState').UCameraState} [info] 이전에 저장한 카메라 상태 정보.
+     * @param {import('@union3d/core/UCameraState').UCameraState | UCameraStateJSON} [info] 이전에 저장한 카메라 상태 정보.
      * 생략하면 saveCameraState로 저장한 상태를 사용하며, toJSON 결과와 같은 평문 상태 객체도 받는다.
      * @param {number} [duration] 이동 및 회전 완료까지 시간 (밀리초)
      * @returns {undefined | Promise<boolean>} 이동 완료 시점의 Promise. 사용할 카메라 상태가 없거나 형식이 올바르지 않으면 `undefined`
@@ -37463,7 +37897,7 @@ declare class U3dApp extends U3dObject {
      * app.saveCameraState();
      * await app.loadCameraState(undefined, 3000);
      */
-    loadCameraState(info?: UCameraState, duration?: number): undefined | Promise<boolean>;
+    loadCameraState(info?: UCameraState | UCameraStateJSON, duration?: number): undefined | Promise<boolean>;
     /**
      * 카메라 상태를 반환하는 함수(3D world 좌표)
      * @returns {import('@union3d/core/UCameraState').UCameraState} 카메라 상태 객체
@@ -37489,8 +37923,8 @@ declare class U3dApp extends U3dObject {
      */
     getCameraTargetPosition(): WorldPosition;
     /**
-     * 카메라의 위경도 위치를 반환하는 함수
-     * @returns {GeoPosition|null} 카메라의 위경도 위치 좌표
+     * 카메라의 위경도 위치를 반환합니다.
+     * @returns {GeoPosition | null} 위경도 위치. 초기화·해제 중 조회 자원이나 좌표가 없으면 null
      */
     getCameraGeographicPosition(): GeoPosition | null;
     /**
@@ -37504,10 +37938,11 @@ declare class U3dApp extends U3dObject {
      */
     getCameraHeight(): number;
     /**
-     * 카메라 타겟의 위경도 좌표를 반환하는 함수
-     * @returns {GeoPosition} 타겟의 위경도 좌표
+     * 카메라 타겟의 위경도 좌표를 반환합니다. 카메라 위치나 기본 좌표로 대체하지 않습니다.
+     * @returns {GeoPosition | null} 타겟의 위경도 좌표. 컨트롤, 타겟, 변환 자원 또는 변환 결과가 없으면 null
+     * @throws {Error} 타겟 복제 또는 좌표 변환에서 발생한 예외는 호출자에게 전달됩니다.
      */
-    getCameraGeographicTargetPoint(): GeoPosition;
+    getCameraGeographicTargetPoint(): GeoPosition | null;
     /**
      * 카메라 타겟의 좌표를 반환하는 함수
      * @returns {WorldPosition} 타켓의 좌표
@@ -37831,7 +38266,6 @@ declare class U3dApp extends U3dObject {
     getCollapsePosition(vec: any, scenes: any): any;
     getWalkCollapsePosition(vec: any, scenes: any): any;
     isUpdateFrame(): boolean;
-    createVideoLayer(opt: any): false | U3dVideoLayer;
     /**
      * 3D 애니메이션 모델 레이어를 생성해 앱에 추가합니다. <br>
      * 3ds 파일 시퀀스를 불러와 애니메이션으로 재생하는 레이어입니다. <br>
@@ -39054,6 +39488,13 @@ declare class Gradient {
 }
 
 /**
+ * @template [T=unknown]
+ * @param {Partial<DeferredObject<T>>} [scope={}]
+ * @return {DeferredObject<T>}
+ */
+declare function deferred<T = unknown>(scope?: Partial<DeferredObject<T>>): DeferredObject<T>;
+
+/**
  * @classdesc
  * @description `umesh` 파일을 생성하는 클래스
  * @memberOf GeOnDT.writer
@@ -39264,7 +39705,11 @@ declare class UGLTFLoader {
     static ktx2Loader: any;
     static g_useWebWorker: boolean;
     static g_taskProcessor: any;
-    constructor(manager: any);
+    /**
+     * GLTF 로더를 생성합니다.
+     * @param {import('three').LoadingManager} [manager] 로딩 관리자. 생략하면 기본 관리자를 사용합니다.
+     */
+    constructor(manager?: three.LoadingManager);
     _classtype: string;
     dracoLoader: any;
     ktx2Loader: any;
@@ -39275,12 +39720,12 @@ declare class UGLTFLoader {
      * @param {string} path 외부 리소스 기준 경로
      * @param {Function} onLoad 파싱 완료 콜백
      * @param {Function} onError 파싱 실패 콜백
-     * @param {object} layer 기존 호출 호환용 레이어 인자
+     * @param {object | null} layer 기존 호출 호환용 레이어 인자. 레이어 없이 파싱하면 null을 전달합니다.
      * @param {number} [byteOffset=0] data가 ArrayBuffer일 때 GLB/glTF가 시작되는 위치
      * @param {number} [byteLength] data 안에서 파싱할 GLB/glTF 길이
      * @param {{skipAnimations?: boolean, skipCameras?: boolean}} [parseOptions] 3D Tiles처럼 animation/camera 결과를 쓰지 않는 경로의 선택 최적화 옵션
      */
-    parse(data: string | ArrayBuffer | object, path: string, onLoad: Function, onError: Function, layer: object, byteOffset?: number, byteLength?: number, parseOptions?: {
+    parse(data: string | ArrayBuffer | object, path: string, onLoad: Function, onError: Function, layer: object | null, byteOffset?: number, byteLength?: number, parseOptions?: {
         skipAnimations?: boolean;
         skipCameras?: boolean;
     }): Promise<void>;
@@ -41348,10 +41793,12 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
 }
 
 /**
- * ~extends import('/union3d/3dLayer/U3dModelTilesLayer.js').U3dModelTilesLayer <br>
- * `3D VectorTile` 레이어 클래스
+ * ~extends import('@union3d/3dLayer/U3dModelTilesLayer').U3dModelTilesLayer <br>
+ *
+ * VCTR 타일의 포인트와 레이블을 표시하는 레이어입니다.
+ *
  * @group 3dLayer
- * @extends U3dModelTilesLayer
+ * @extends {U3dModelTilesLayer}
  *
  * @example
  *   var modellayer = new Union3D.model.U3dVectorTileLayer({
@@ -41433,14 +41880,17 @@ declare class U3dVectorTileLayer extends U3dModelTilesLayer {
      */
     override addGroup(tile: U3DTileset, updateId?: string | number): void;
     /**
-     * POI를 가시 상태 맵에 등록하고 중복 위치의 경우 숨김 처리
+     * POI를 위치별 후보에 등록합니다.
+     * 같은 키의 첫 후보와 자식은 표시하고, 새 중복 후보와 자식은 숨깁니다.
+     * 이미 등록된 후보의 표시 상태는 변경하지 않습니다.
      *
      * @param {import('@union3d/geometry/U3dPOI').U3dPOI} mesh 등록할 POI 객체
-     * @return {boolean} 등록 성공 여부
+     * @returns {boolean} 등록 성공 여부이며 입력이 없으면 false
      */
     addVisibleState(mesh: U3dPOI): boolean;
     /**
-     * POI를 가시 상태 맵에서 제거하고 다음 후보를 가시화
+     * POI와 자식을 숨기고 위치별 후보에서 제거합니다.
+     * 제거 전에 표시 중이던 POI라면 남은 후보 중 첫 U3dPOI와 자식을 표시합니다.
      *
      * @param {import('@union3d/geometry/U3dPOI').U3dPOI} mesh 제거할 POI 객체
      */
@@ -41456,12 +41906,13 @@ declare class U3dVectorTileLayer extends U3dModelTilesLayer {
         position: three.Vector3 | undefined;
     }>;
     /**
-     * VCTR 포인트의 업데이트 가시화 여부를 판단
+     * VCTR 포인트가 프러스텀과 거리 조건을 만족하는지 판정합니다.
+     * 입력이 없거나 저장된 구가 프러스텀 밖이면 false를 반환합니다.
      *
      * @param {import('@union3d/geometry/U3dPOI').U3dPOI} vctr POI 객체
      * @param {import('@U3DTileset').U3DTileset} tile 소속 타일 정보
      * @param {import('three').Vector3} campos 카메라 위치
-     * @return {boolean} 업데이트(가시화) 여부
+     * @returns {boolean} 업데이트(가시화) 여부
      */
     isUpdateVCTRPoint(vctr: U3dPOI, tile: U3DTileset, campos: three.Vector3): boolean;
     /**
@@ -42643,10 +43094,13 @@ declare class U3dVectorLayer extends U3dLayer {
      */
     setDynamicUpdate(val: boolean): void;
     /**
+     * 타일 이탈에 따라 더 이상 표시할 타일이 없는 도형을 숨깁니다.
+     * 레벨 범위 밖의 타일은 해당 도형을 숨기는 기존 처리를 따릅니다.
+     *
      * @override
      *
-     * @param {import('@U3dQuadTile').U3dQuadTile} tile
-     * @returns {undefined}
+     * @param {import('@U3dQuadTile').U3dQuadTile} tile 장면에서 이탈한 타일
+     * @returns {undefined} 별도 완료값 없음
      *
      * @ignore
      */
@@ -42719,7 +43173,9 @@ declare class U3dVectorLayer extends U3dLayer {
      * 같은 이름(`param.name`)의 도형이 이미 있으면 경고를 남기고 해당 항목을 건너뜁니다. <br>
      * 항목이 처리될 때마다 LOAD 이벤트가 발생합니다. <br>
      * 모든 항목을 동시에 처리하므로 호출 순서대로 끝난다고 가정하지 마십시오. <br>
-     * `callback`이 실패하면 반환한 Promise 전체가 실패하며, 그때까지 등록된 도형은 레이어에 남습니다. <br>
+     * `callback`이 동기 예외를 던지면 이 호출에서 직접 전파되며 완료 Promise를 반환하지 않습니다. <br>
+     * `callback`이 반환한 Promise가 거절되면 전체 완료 Promise도 거절되며, 그때까지 등록한 도형은 남습니다. <br>
+     * LOAD 이벤트는 별도 성공 처리에서 발생하므로 이벤트 리스너 예외는 반환한 완료 Promise에 합쳐지지 않습니다. <br>
      *
      * @param {Partial<{type: string, param: Record<string, unknown>}> | Array<Partial<{type: string, param: Record<string, unknown>}>>} savedData `saveWork` 결과의 `geometries` 항목 하나 또는 그 배열 <br>
      * @param {function(Partial<{type: string, param: Record<string, unknown>}>): *} callback 저장 항목 하나를 받아 도형을 만들고 `addGeometry`로 등록하는 사용자 콜백 함수 <br>
@@ -43105,7 +43561,7 @@ declare class U3dPoint extends U3dGeometry {
      *
      * @type {Record<string, number>}
      */
-    static "__#18@#scaleList": Record<string, number>;
+    static "__#19@#scaleList": Record<string, number>;
     /**
      * 캐시된 Point 재질(materialList)과 그 텍스처를 모두 정리(dispose)합니다. <br>
      * 캐시 텍스처는 살아있는 U3dPoint 인스턴스들이 공유하므로, 앱 종료나 전체 리셋 시점에만 호출해야 합니다. <br>
@@ -43117,7 +43573,7 @@ declare class U3dPoint extends U3dGeometry {
      * @param {import('three').Texture | null | undefined} texture
      * @returns {boolean}
      */
-    static "__#18@#isCachedTexture"(texture: three.Texture | null | undefined): boolean;
+    static "__#19@#isCachedTexture"(texture: three.Texture | null | undefined): boolean;
     /**
      * 이미지 URL과 offset으로 재질 캐시 키를 만듭니다. <br>
      *
@@ -43125,7 +43581,7 @@ declare class U3dPoint extends U3dGeometry {
      * @param {import('three').Vector3Like | undefined} offset
      * @returns {string}
      */
-    static "__#18@#cacheKey"(url: string, offset: three.Vector3Like | undefined): string;
+    static "__#19@#cacheKey"(url: string, offset: three.Vector3Like | undefined): string;
     /**
      * 두 offset이 같은 보정값인지 비교합니다. <br>
      *
@@ -43133,7 +43589,7 @@ declare class U3dPoint extends U3dGeometry {
      * @param {import('three').Vector3Like | undefined} b
      * @returns {boolean}
      */
-    static "__#18@#sameOffset"(a: three.Vector3Like | undefined, b: three.Vector3Like | undefined): boolean;
+    static "__#19@#sameOffset"(a: three.Vector3Like | undefined, b: three.Vector3Like | undefined): boolean;
     /**
      * 포인트 도형을 생성합니다. <br>
      * 색상·크기·이미지(`img`) 등을 옵션으로 지정할 수 있으며, 좌표는 생성 후 `setVertex`(월드)나 `setPositions`(위경도)로 넣습니다. <br>
@@ -43141,6 +43597,31 @@ declare class U3dPoint extends U3dGeometry {
      * @param {U3dPointCO} [opt = {}] 생성 옵션 <br>
      */
     constructor(opt?: U3dPointCO);
+    /**
+     * 점 재질입니다. 이미지 캐시 적용 시 복제 재질로 교체되며, 해제 후에는 undefined입니다. <br>
+     *
+     * @override
+     * @type {import('three').PointsMaterial | undefined}
+     */
+    override material: three.PointsMaterial | undefined;
+    /**
+     * 사용자가 부여하는 메타데이터입니다. THREE.Points 생성 시 객체별로 초기화됩니다. <br>
+     *
+     * @type {import('three').Object3D['userData']}
+     */
+    userData: three.Object3D["userData"];
+    /**
+     * 도형 표시 여부입니다. 기본값은 true입니다. <br>
+     *
+     * @type {import('three').Object3D['visible']}
+     */
+    visible: three.Object3D["visible"];
+    /**
+     * 렌더링 정렬 순서입니다. 값이 작을수록 먼저 그리며, 깊이 검사를 비활성화하지는 않습니다. <br>
+     *
+     * @type {import('three').Object3D['renderOrder']}
+     */
+    renderOrder: three.Object3D["renderOrder"];
     /**
      * 해제 여부. `dispose` 이후 도착하는 비동기 콜백을 무시하는 데 사용합니다. <br>
      *
@@ -43201,6 +43682,20 @@ declare class U3dPoint extends U3dGeometry {
      * @ignore
      */
     texture: UTexture | three.Texture | undefined;
+    /**
+     * 현재 점 재질을 반환합니다. 이미지 캐시 적용으로 재질이 교체되면 다시 조회하십시오. <br>
+     *
+     * @override
+     * @returns {import('three').PointsMaterial | undefined} 현재 재질. 해제 후에는 undefined <br>
+     */
+    override getMaterial(): three.PointsMaterial | undefined;
+    /**
+     * 점 재질을 교체합니다. 이전 재질과 텍스처는 자동으로 해제하지 않습니다. <br>
+     *
+     * @override
+     * @param {import('three').PointsMaterial | undefined} material 새 점 재질. undefined이면 재질 참조를 제거합니다 <br>
+     */
+    override setMaterial(material: three.PointsMaterial | undefined): void;
     /**
      * 포인트의 실제 표시 크기를 반환합니다(요청 크기 `size` × offset 확장 배율). <br>
      *
@@ -43372,6 +43867,18 @@ declare class U3dLine extends U3dGeometry {
      */
     constructor(opt?: U3dLineCO);
     /**
+     * 도형 표시 여부입니다. 기본값은 true입니다. <br>
+     *
+     * @type {import('three').Object3D['visible']}
+     */
+    visible: three.Object3D["visible"];
+    /**
+     * 렌더링 정렬 순서입니다. 값이 작을수록 먼저 그리며, 깊이 검사를 비활성화하지는 않습니다. <br>
+     *
+     * @type {import('three').Object3D['renderOrder']}
+     */
+    renderOrder: three.Object3D["renderOrder"];
+    /**
      * 사용자가 지정한 선 두께입니다. <br>
      * 기본값은 1입니다. <br>
      * `worldUnits`가 `true`이면 미터, `false`이면 화면 픽셀 단위입니다. <br>
@@ -43467,6 +43974,15 @@ declare class U3dLine extends U3dGeometry {
      */
     _initLine(): void;
     /**
+     * 점선 표시에 사용하는 선분별 누적 거리를 계산합니다. <br>
+     * 좌표를 설정해 instanceStart·instanceEnd 버퍼가 생성된 후 호출하며, 좌표 변경 후에는 다시 계산해야 합니다. <br>
+     * 계산 결과를 geometry의 instanceDistanceStart·instanceDistanceEnd 속성에 저장합니다. <br>
+     *
+     * @returns {this} 거리 계산을 마친 현재 선 객체 <br>
+     * @throws {TypeError} 지오메트리 또는 필요한 좌표 버퍼가 없으면 발생합니다 <br>
+     */
+    computeLineDistances(): this;
+    /**
      * 재질에 적용된 선 두께를 반환합니다. <br>
      * `worldUnits`가 `true`이고 위경도 좌표가 있으면 위도 환산 배율이 곱해진 값이므로 `linewidth`와 다를 수 있습니다. <br>
      *
@@ -43527,9 +44043,9 @@ declare class U3dLine extends U3dGeometry {
      *
      * @override
      *
-     * @param {U3dLineCO} [param] 변경할 속성. 도형 공통 속성과 `linewidth`(또는 `lineWidth`)·`divisions`·`closed`·`worldUnits` <br>
+     * @param {U3dLineSetParam} [param] 변경할 속성. 도형 공통 속성과 `linewidth`(또는 `lineWidth`)·`divisions`·`closed`·`worldUnits` <br>
      */
-    override setParam(param?: U3dLineCO): void;
+    override setParam(param?: U3dLineSetParam): void;
     /**
      * 현재 도형 공통 속성과 선 고유 속성을 반환합니다. <br>
      * `linewidth`는 재질에 적용된 두께(`getLineWidth` 값)이므로, `worldUnits`가 `true`이고 위경도 좌표가 있으면 지정한 두께에 위도 환산 배율이 곱해진 값입니다. <br>
@@ -46705,7 +47221,7 @@ declare class U3dBilboard {
      *
      * @ignore
      */
-    static "__#9@#uuid": string;
+    static "__#10@#uuid": string;
     /**
      * UUID 카운터 <br>
      *
@@ -46713,7 +47229,7 @@ declare class U3dBilboard {
      *
      * @ignore
      */
-    static "__#9@#count": number;
+    static "__#10@#count": number;
     /**
      * 생성된 빌보드 목록 <br>
      *
@@ -46741,7 +47257,7 @@ declare class U3dBilboard {
      *
      * @ignore
      */
-    static "__#9@#deleteGroup"(group: UGroup): void;
+    static "__#10@#deleteGroup"(group: UGroup): void;
     /**
      * 기본 빌보드(`bilboard` 타입)를 만들어 반환합니다. <br>
      * 씬에 추가하지 않고 객체만 만들어 반환하므로, 반환값을 직접 씬/그룹에 추가해야 합니다. <br>
@@ -47200,7 +47716,7 @@ declare class U3dHeatManager {
      *
      * @ignore
      */
-    static "__#150@#_TMP": three.Vector3;
+    static "__#153@#_TMP": three.Vector3;
     /**
      * 임시 Quaternion (행렬 분해용) <br>
      *
@@ -47208,7 +47724,7 @@ declare class U3dHeatManager {
      *
      * @ignore
      */
-    static "__#150@#_TMP_Q": three.Quaternion;
+    static "__#153@#_TMP_Q": three.Quaternion;
     /**
      * 임시 Vector3 (스케일 추출용) <br>
      *
@@ -47216,7 +47732,7 @@ declare class U3dHeatManager {
      *
      * @ignore
      */
-    static "__#150@#_TMP_S": three.Vector3;
+    static "__#153@#_TMP_S": three.Vector3;
     /**
      * 온도 기반 팔레트를 설정하는 함수 <br>
      *
@@ -47565,12 +48081,12 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#140@#SINGLE_POSITION_TYPES": Array<string>;
+    static "__#143@#SINGLE_POSITION_TYPES": Array<string>;
     /** @type {Array<string>}
      *
      * @ignore
      */
-    static "__#140@#MULTI_POSITION_TYPES": Array<string>;
+    static "__#143@#MULTI_POSITION_TYPES": Array<string>;
     /**
      * 도형 타입에 따라 단일위치/다중위치 생성 방식을 자동으로 골라 도형을 만들고, 레이어가 주어지면 함께 추가합니다. <br>
      * 좌표를 하나만 주면 도형 하나를, 좌표 배열을 주면 여러 개를 만들어 배열로 반환합니다.
@@ -47631,7 +48147,7 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#140@#addSingle"(layer: {
+    static "__#143@#addSingle"(layer: {
         addGeometry: (geom: U3dGeometry) => void;
     } | undefined, type: GeomType, coord: Coord | Array<Coord>, params: KeyValue): U3dGeometry | Array<U3dGeometry>;
     /**
@@ -47643,7 +48159,7 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#140@#addSingleOne"(layer: {
+    static "__#143@#addSingleOne"(layer: {
         addGeometry: (geom: U3dGeometry) => void;
     } | undefined, type: GeomType, coord: Coord, params: KeyValue): U3dGeometry;
     /**
@@ -47661,7 +48177,7 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#140@#addMulti"(layer: {
+    static "__#143@#addMulti"(layer: {
         addGeometry: (geom: U3dGeometry) => void;
     } | undefined, type: GeomType, coords: Array<Coord> | Double_Array<Coord>, params: KeyValue): U3dGeometry | Array<U3dGeometry>;
     /**
@@ -47673,7 +48189,7 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#140@#addMultiOne"(layer: {
+    static "__#143@#addMultiOne"(layer: {
         addGeometry: (geom: U3dGeometry) => void;
     } | undefined, type: GeomType, coords: Array<Coord>, params: KeyValue): U3dGeometry;
     /**
@@ -47685,40 +48201,17 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#140@#buildGeom"(type: GeomType, params: KeyValue): U3dGeometry | undefined;
+    static "__#143@#buildGeom"(type: GeomType, params: KeyValue): U3dGeometry | undefined;
 }
 
 /**
- * ~extends import('@UAnaly').UAnalyCO <br>
- * UAnalyArea 생성자 옵션
- */
-type UAnalyAreaCO_Content = {
-    /**
-     * 분석 클래스 이름
-     */
-    name?: string;
-};
-/**
- * ~extends import('@UAnaly').UAnalyCO <br>
- * UAnalyArea 생성자 옵션
- */
-type UAnalyAreaCO = Omit<Omit<UAnalyCO, never> & UAnalyAreaCO_Content, never>;
-/**
- * ~extends import('@UAnaly').UAnalyCO <br>
- * UAnalyArea 생성자 옵션
- * @memberof UAnalyArea
- * @inner
- *
- * @typedef {object} UAnalyAreaCO_Content
- * @property {string} [name='Area'] 분석 클래스 이름
- *
- * @typedef {Omit<UAnalyCO, never> & UAnalyAreaCO_Content} UAnalyAreaCO
- */
-/**
  * ~extends import('@UAnaly').UAnaly <br>
- * `면적`(Area)를 측정하는 클래스
+ *
+ * 클릭 또는 WGS84 위경도 좌표계(EPSG:4326)의 좌표 배열로 면적을 측정하고 결과를 라벨로 표시합니다.
+ * 측정점 추가와 실제 면적 계산은 연결 앱의 측정 계층에 위임합니다.
+ *
  * @group analysis
- * @extends UAnaly
+ * @extends {UAnaly}
  *
  * @example
  * let analy = app.activeAnalysis('Area');
@@ -47726,78 +48219,106 @@ type UAnalyAreaCO = Omit<Omit<UAnalyCO, never> & UAnalyAreaCO_Content, never>;
  * @see https://3d.geon.kr/doc/tutorial-official/measure.html
  */
 declare class UAnalyArea extends UAnaly {
-    /** @param {UAnalyAreaCO} [opt={}] */
+    /**
+     * 면적 분석의 이름·라벨 그룹·입력 연결 상태를 초기화합니다.
+     * 앱은 상속 setApp()으로 별도 연결하며 opt는 부모 생성자에 전달하지 않습니다.
+     *
+     * @param {UAnalyAreaCO} [opt={}] 분석 이름을 지정하는 생성 옵션
+     */
     constructor(opt?: UAnalyAreaCO);
     /**
+     * 앱에 등록한 클릭 이벤트의 식별자입니다.
+     *
      * @type {string | null | undefined}
      *
      * @ignore
      */ _clickId: string | null | undefined;
     /**
+     * 앱에 등록한 더블클릭 이벤트의 식별자입니다.
+     *
      * @type {string | null | undefined}
      *
      * @ignore
      */ _dblClickId: string | null | undefined;
     /**
+     * 이 분석에서 확정한 측정 피처의 원본 참조 목록입니다.
+     *
      * @type {Array<import('@UMeasureFeature').UMeasureFeature>}
      *
      * @ignore
      */ _features: Array<UMeasureFeature>;
     /**
+     * 마우스 이동에 따라 마지막 가이드 점을 갱신할지 나타냅니다.
+     *
      * @type {boolean}
      *
      * @ignore
      */ _setMouseMove: boolean;
     /**
+     * 현재 측정의 라벨 참조이며 확정 시 참조만 비웁니다.
+     *
      * @type {import('@union3d/annotation/UCssBilboard').UCssBilboard | undefined}
      *
      * @ignore
      */ _poi: UCssBilboard | undefined;
     /**
+     * DOM 등록·해제에 함께 사용하는 인스턴스 바인딩 마우스 이동 함수입니다.
+     *
      * @type {(e: MouseEvent) => void}
      *
      * @ignore
      */ _boundMouseMove: (e: MouseEvent) => void;
     name: any;
     /**
-     * 좌표 면적을 그리고 해당 면적(m²)을 측정하는 함수
-     * @param {Array<import('@UGPoint').UGPoint>} coordList 좌표 리스트
+     * 위경도 좌표 배열을 측정점으로 추가하고 면적 라벨을 표시한 뒤 측정을 확정합니다. <br>
+     * 입력 배열을 교체하지 않으며 면적 수치를 반환하지 않습니다.
+     *
+     * @param {Array<import('@UGPoint').UGPoint>} coordList WGS84 위경도 좌표계(EPSG:4326)의 x는 경도(도), y는 위도(도), z는 실제 높이(m)인 측정점 배열
      */
     drawArea(coordList: Array<UGPoint>): void;
     /**
-     * 클릭 이벤트 핸들러
+     * 클릭 교차점을 지리 좌표로 추가하고 라벨을 갱신합니다.
+     * 첫 클릭에서는 같은 좌표 참조를 가이드 끝점으로 한 번 더 추가합니다.
+     *
      * @param {import('@U3dMouseEvent').U3dMouseEvent} e 사용자 클릭 이벤트
      *
      * @ignore
      */
     onClick(e: U3dMouseEvent): void;
     /**
-     * 마우스 이동 이벤트 핸들러
+     * 활성 분석의 가이드 끝점을 마우스 교차점으로 갱신합니다.
+     * 측정 레이어가 없어 끝점 갱신을 생략해도 교차점이 있으면 라벨 갱신은 수행합니다.
+     *
      * @param {MouseEvent} e 마우스 이벤트
      *
      * @ignore
      */
     _onMouseMove(e: MouseEvent): void;
     /**
-     * 더블클릭 이벤트 핸들러
+     * 마우스 가이드를 먼저 종료하고 현재 측정점을 피처로 확정합니다.
      *
      * @ignore
      */
     onDblClick(): void;
     /**
-     * 면적 측정 결과 텍스트 라벨을 그리는 함수
+     * 현재 측정 위치에 면적 라벨을 만들거나 기존 라벨을 갱신합니다.
+     * 카메라·위치가 없으면 종료하며 userData.value에는 단위 변환 전 측정값을 보관합니다.
+     * 라벨 생성·배치 중 발생한 예외는 호출자에게 전달합니다.
      *
      * @ignore
      */
     drawTextLabel(): void;
     /**
-     * 측정 피처를 모두 제거하는 함수
+     * 진행 중인 측정을 먼저 확정한 뒤 보관한 피처를 등록 순서대로 제거합니다.
+     * 모든 제거가 정상 종료한 경우에만 보관 목록을 새 빈 배열로 교체합니다.
      *
      * @ignore
      */
     _clearMeasureFeature(): void;
     /**
-     * 현재 측정 포인트를 피처로 확정하는 함수
+     * 현재 라벨 참조를 비우고 앱에서 확정한 측정 피처를 보관합니다.
+     * 측정 레이어 부재를 나타내는 false와 피처가 없는 null·undefined는 보관하지 않습니다.
+     * 라벨 객체 자체를 그룹에서 제거하지 않으며 앱 확정의 예외는 전달합니다.
      *
      * @ignore
      */
@@ -48083,6 +48604,18 @@ declare class UAnalyHeight extends UAnaly {
      * @returns {Array<import('three').Object3D | import('@union3d/3dLayer/U3dComponentPosition').U3dComponentPosition>} 제외 목록에 등록된 대상들의 배열 <br>
      */
     getExceptObjects(): Array<three.Object3D | U3dComponentPosition>;
+    /**
+     * 제외 목록을 HEIGHT 패스에 전달하고 다시 그리기를 요청한다.
+     * 고도 색상이나 등고선의 표시 상태는 변경하지 않으며, 패스가 없으면 생성하지 않는다.
+     * 패스 생성 전에 저장한 목록은 각 분석의 setHeightVisible(true)에서 다시 동기화한다.
+     *
+     * @protected
+     *
+     * @param {boolean} [preserveCurrentIfEmpty=false] 빈 목록이면 다른 분석이 적용한 공유 제외 목록을 유지할지 여부. 명시적 목록 변경에는 false를 사용한다.
+     *
+     * @ignore
+     */
+    protected _syncExceptObjects(preserveCurrentIfEmpty?: boolean): void;
     #private;
 }
 
@@ -48184,7 +48717,10 @@ type UAnalyContourCO = Omit<Omit<UAnalyHeightCO, never> & UAnalyContourCO_Conten
  */
 /**
  * ~extends import('@union3d/analy/UAnalyHeight').UAnalyHeight <br>
- * `고도`의 등고선을 출력하는 분석 클래스
+ * `고도`의 등고선을 출력하는 분석 클래스 <br>
+ * setHeightVisible(boolean)는 등고선만 제어하고 성공 여부를 반환합니다. 기존 버전의 상속 동작과 달리 고도 색상은 변경하지 않으므로, 고도 색상 제어에는 Height 분석을 사용하십시오. <br>
+ * 앱 미연결·해제 후 또는 패스 미준비 상태에서는 OFF에 true, ON에 false를 반환하며 로그 출력·패스 생성·자동 재시도는 하지 않습니다. boolean이 아닌 입력은 변경 없이 false를 반환합니다. <br>
+ * drawHeight(boolean)는 같은 등고선 처리를 수행하되 반환값이 없는 호환 메서드입니다. 등고선 상태는 isTopoVisible(), 고도 색상 상태는 상속된 isHeightVisible()로 조회합니다. <br>
  * @group analysis
  * @extends UAnalyHeight
  *
@@ -49583,37 +50119,50 @@ declare class UAnalyObjectInfo extends UAnaly {
 
 /**
  * ~extends import('@union3d/analy/UAnalyGizmoModel').UAnalyGizmoModel <br>
- * `정렬(Align)` 편집 분석 클래스 <br/>
- * 정렬(Align) 기능을 이용한 3d 모델 왼쪽, 오른쪽, 가운데 정렬 및 기준 정렬 편집기능을 제공한다.
+ *
+ * 정렬(Align) 컨트롤을 분석 API에 연결하는 모델 편집 클래스입니다. <br>
+ * 앱을 연결하고 분석을 활성화한 뒤 기준 모델·대상 목록과 정렬 모드·간격을 지정합니다.
+ *
  * @group analysis
  * @extends {UAnalyGizmoModel}
  *
  * @example
- * let analy = app.activeAnalysis('GizmoModel');
+ * const analy = app.activeAnalysis('AlignModel');
  * @tutorial {@link http://geon.kr:14144/doc/tutorial-official/componentControlAtIndoor.html}
  */
 declare class UAnalyAlignModel extends UAnalyGizmoModel {
-    /** @type {Array<import('three').Object3D>} */
+    /**
+     * 컨트롤에서 조회한 정렬 대상 목록의 원본 참조입니다.
+     *
+     * @type {Array<import('three').Object3D>}
+     */
     _targetList: Array<three.Object3D>;
-    /** @type {import('three').Object3D | undefined} */
+    /**
+     * 컨트롤에서 조회한 정렬 기준 대상의 원본 참조입니다.
+     *
+     * @type {import('three').Object3D | undefined}
+     */
     _reference: three.Object3D | undefined;
     /**
-     * 기준 대상과 정렬 대상 목록들을 지정하는 함수
+     * 활성 분석의 정렬 기준 모델과 대상 목록을 컨트롤에 등록합니다. <br>
+     * 비활성 상태 또는 컨트롤 미연결 상태이면 등록하지 않습니다.
+     * 등록 후에는 입력 대신 컨트롤이 보고하는 기준·목록 참조를 저장합니다.
      *
      * @param {import('three').Object3D} reference 기준 대상
      * @param {Array<import('three').Object3D>} targets 정렬 대상 목록
      */
     setObjects(reference: three.Object3D, targets: Array<three.Object3D>): void;
     /**
-     * 정렬 간격을 설정하는 함수
+     * 연결된 컨트롤에 정렬 간격을 전달하고 분석 화면·핸들을 갱신합니다. <br>
+     * 컨트롤이 없으면 생성하지 않고 종료하며 활성 여부나 간격 범위를 별도로 검사하지 않습니다.
      *
-     * @param {number} spacing 정렬 간격
+     * @param {number} spacing 컨트롤에 그대로 전달할 정렬 간격
      */
     setSpacing(spacing: number): void;
     /**
-     * 현재의 정렬 간격을 반환하는 함수
+     * 컨트롤의 현재 정렬 간격을 반환하며 새 컨트롤을 생성하지 않습니다.
      *
-     * @return {number | undefined} 정렬 간격
+     * @returns {number | undefined} 현재 정렬 간격 또는 컨트롤 미연결 상태의 undefined
      */
     getSpacing(): number | undefined;
 }
@@ -49689,7 +50238,7 @@ declare class ULineGeometry extends UBufferGeometry {
      *
      * @ignore
      */
-    static "__#123@#computeVertex"(points: Array<three.Vector3>, width: number): Array<number>;
+    static "__#126@#computeVertex"(points: Array<three.Vector3>, width: number): Array<number>;
     /**
      * @param {number} start
      * @param {number} end
@@ -49697,7 +50246,7 @@ declare class ULineGeometry extends UBufferGeometry {
      *
      * @ignore
      */
-    static "__#123@#computeFace"(start: number, end: number): {
+    static "__#126@#computeFace"(start: number, end: number): {
         indices: Array<number>;
         normals: Array<number>;
     };
@@ -49707,14 +50256,14 @@ declare class ULineGeometry extends UBufferGeometry {
      *
      * @ignore
      */
-    static "__#123@#computeUV"(count: number): Array<number>;
+    static "__#126@#computeUV"(count: number): Array<number>;
     /**
      * @param {number} v
      * @returns {Array<number>}
      *
      * @ignore
      */
-    static "__#123@#getUV"(v: number): Array<number>;
+    static "__#126@#getUV"(v: number): Array<number>;
     /**
      * @param {import('three').Vector3} point1 시작 점 <br>
      * @param {import('three').Vector3} point2 끝 점 <br>
@@ -49724,7 +50273,7 @@ declare class ULineGeometry extends UBufferGeometry {
      *
      * @ignore
      */
-    static "__#123@#extractRoadPoint"(point1: three.Vector3, point2: three.Vector3, width: number, end?: boolean): Array<number>;
+    static "__#126@#extractRoadPoint"(point1: three.Vector3, point2: three.Vector3, width: number, end?: boolean): Array<number>;
     /**
      * 라인(띠) 지오메트리를 생성합니다. <br>
      * 생성 후 `addPoint`/`setPoints`로 점을 넣으시면, spline 곡선으로 이어진 일정 너비의 띠가 만들어집니다. <br>
@@ -50954,10 +51503,11 @@ declare class UAnalyRoad extends UAnaly {
 
 /**
  * ~extends import('@UAnaly').UAnaly <br>
- * `사용자 건물`(모델 생성) 클래스 <br>
- * 사용자 건물 생성(그리기), 삭제, 수정 등의 기능을 제공합니다.
+ *
+ * 선택점을 이용한 사용자 건물의 생성·조회·병합·삭제를 제공합니다.
+ *
  * @group analysis
- * @extends UAnaly
+ * @extends {UAnaly}
  *
  * @example
  * let analy = app.activeAnalysis('CustomModel');
@@ -50967,10 +51517,12 @@ declare class UAnalyCustomModel extends UAnaly {
     /**
      * @param {object} [opt={}] 생성자 옵션
      * @param {string} [opt.name='CustomModel'] 분석 클래스 이름
-     * @param {string} [opt.linecolor3d='#ff0000'] 건물 영역을 그릴 때 선의 색상
+     * @param {string} [opt.lineColor3d='#ff0000'] 저장할 선 색상(현재 선 표출에는 적용되지 않음)
+     * @param {string} [opt.linecolor3d] 이전 소문자 옵션
      */
     constructor(opt?: {
         name?: string;
+        lineColor3d?: string;
         linecolor3d?: string;
     });
     /** @type {string} */ name: string;
@@ -50978,105 +51530,135 @@ declare class UAnalyCustomModel extends UAnaly {
      * @type {string | undefined}
      *
      * @ignore
-     */ _clickId: string | undefined;
+     */
+    _clickId: string | undefined;
     /**
      * @type {string | undefined}
      *
      * @ignore
-     */ _dblClickId: string | undefined;
+     */
+    _dblClickId: string | undefined;
     /**
      * @type {Array<CustomModelEntry>}
      *
      * @ignore
-     */ _modelList: Array<CustomModelEntry>;
+     */
+    _modelList: Array<CustomModelEntry>;
     /**
      * @type {Array<import('three').Vector3>}
      *
      * @ignore
-     */ _pickList: Array<three.Vector3>;
+     */
+    _pickList: Array<three.Vector3>;
     /**
      * @type {string}
      *
      * @ignore
-     */ _drawType: string;
+     */
+    _drawType: string;
     /**
      * @type {string}
      *
      * @ignore
-     */ _linecolor3d: string;
+     */
+    _lineColor3d: string;
     /**
      * @type {import('@union3d/geometry/U3dLine').U3dLine | undefined}
      *
      * @ignore
-     */ _line3D: U3dLine | undefined;
+     */
+    _line3D: U3dLine | undefined;
     /**
      * @type {Array<import('three').Vector3>}
      *
      * @ignore
-     */ _vertextlist3D: Array<three.Vector3>;
+     */
+    _vertexList3D: Array<three.Vector3>;
     /**
      * @type {boolean | undefined}
      *
      * @ignore
-     */ _endPoint: boolean | undefined;
+     */
+    _endPoint: boolean | undefined;
     /**
-     * 사용자 건물 생성 타입을 반환하는 함수
-     * @return {string} 건물 생성 타입 `object` | `ground`
+     * 현재 선택 모드를 반환합니다.
+     *
+     * @returns {string} 건물 생성 타입 `object` | `ground`
      */
     getDrawType(): string;
     /**
-     * 사용자 건물 생성 타입을 설정하는 함수
+     * 선택 모드를 저장합니다. 입력값을 검증하거나 즉시 앱 모드를 전환하지 않습니다.
+     *
      * @param {string} type 건물 생성 타입
      */
     setDrawType(type: string): void;
     /**
-     * 생성된 사용자 건물에 대한 상태 및 파라미터 정보들을 리스트로 반환하는 함수
-     * @return {Array<object>} 사용자 건물 생성 파라미터 객체 배열
+     * 각 모델의 저장 파라미터를 목록 순서대로 새 배열에 담아 반환합니다.
+     * 개별 파라미터 객체의 복사 여부는 해당 모델의 구현에 따릅니다.
+     *
+     * @returns {Array<object>} 사용자 건물 생성 파라미터 객체 배열
      *
      * @example
      * // Parameter: { center, extrudeheight, labeltext, landHeight, modeltype, name, position, rotation, scale, style, textureUrl, version, vertex }
      */
     getParam(): Array<object>;
     /**
-     * 사용자 건물과 건물을 병합하는 함수
+     * 메시를 병합하여 addCustomModel()에 다시 전달할 생성 옵션을 반환합니다.
+     * 버퍼와 위치는 결과 메시의 원본 참조이며, 결과의 geometry·단일 material은 해제합니다.
+     * 병합할 다른 메시가 없어 기준 메시가 반환되는 경우에도 같은 해제를 수행합니다.
+     *
      * @param {string} name 건물 이름
      * @param {import('three').Mesh} meshBase 기준 건물 mesh
      * @param {import('three').Mesh | Array<import('three').Mesh>} meshes 병합할 건물 mesh 목록
-     * @param {boolean} [useDelete=true] 기존 건물 데이터 삭제 여부
-     * @return {object | undefined}
+     * @param {boolean} [useDelete=true] 기존 모델 삭제 여부(null·undefined이면 true)
+     * @returns {object | undefined} 재입력 옵션. 이름 중복이면 undefined
      *
-     * @ignore
+     * @throws {Error} 병합 결과가 없는 경우
      */
     merge(name: string, meshBase: three.Mesh, meshes: three.Mesh | Array<three.Mesh>, useDelete?: boolean): object | undefined;
     /**
-     * 사용자 건물 mesh를 병합하는 함수
+     * 입력 순서대로 메시를 병합하고 필요하면 기존 모델을 삭제합니다.
+     * 병합 결과가 없으면 기준 메시를 반환하며 삭제하지 않습니다.
+     * 두 번째 병합부터 이전 중간 결과의 dispose()를 호출하므로 그 메서드가 필요합니다.
+     *
      * @param {import('three').Mesh} meshBase 기준 mesh
      * @param {import('three').Mesh | Array<import('three').Mesh>} meshes 병합할 mesh 리스트
-     * @param {boolean} [useDelete=true] 기존 mesh 데이터 삭제 여부
-     * @return {import('three').Mesh} 병합된 건물 mesh
+     * @param {boolean} [useDelete=true] 기존 모델 삭제 여부(null·undefined이면 true)
+     * @returns {import('three').Mesh} 병합된 건물 mesh
      */
     mergeMesh(meshBase: three.Mesh, meshes: three.Mesh | Array<three.Mesh>, useDelete?: boolean): three.Mesh;
     /**
-     * 사용자 건물을 생성하는 함수
+     * 단일 옵션 또는 옵션 배열에서 사용자 모델을 생성합니다.
+     * name은 필수이며 배열의 이름 누락은 건너뛰고 중복 이름은 이후 처리를 중단합니다.
+     * 종류가 불완전하면 원본 modeltype을 EXTRUDE로 보완합니다. GEOMETRY는 원본 mesh·drawarg도 설정합니다.
+     * 돌출 입력은 vertex 또는 points와 extrudeheight를 사용하며, falsy labeltext는 빈 문자열로 전달합니다.
+     * rotation·scale·style은 모델 생성 뒤 순서대로 적용하고 성공한 모델만 등록합니다.
+     * GROUP은 중첩 배열을 펼치고 하위 그룹은 직접 항목만 펼칩니다. 자식 생성 종류는 상위 옵션을 따릅니다.
+     * 생성 중 예외는 전달하며 앞서 성공한 모델을 롤백하지 않습니다.
+     *
      * @param {object | Array<object>} option 사용자 건물 생성 옵션 (단일 옵션 객체 또는 배열)
-     * @return {Array<CustomModelEntry>} 생성된 사용자 건물 배열
+     * @returns {Array<CustomModelEntry>} 생성된 사용자 건물 배열
      *
      * @example
      * analy.addCustomModel({ extrudeheight: 55, name: "building1", vertex: [{x,y,z},...] });
      */
     addCustomModel(option: object | Array<object>): Array<CustomModelEntry>;
     /**
-     * 건물 이름을 입력받아 이미 존재하는 건물 이름인지 여부를 반환하는 함수
+     * 최상위 모델 목록에 같은 이름이 있는지 엄격 비교로 확인합니다.
+     *
      * @param {string} name 건물 이름
-     * @return {boolean} 이름 중복 여부
+     * @returns {boolean} 이름 중복 여부
      */
     isExistModelName(name: string): boolean;
     /**
-     * @ignore
+     * 기존 호환용 메서드이며 현재는 아무 작업도 하지 않습니다.
+     *
      */
     isPolygon(): void;
     /**
-     * 사용자 건물 생성 옵션 값을 입력 받아 새 사용자 건물을 추가하는 함수
+     * 기존 point·buldheight·landheight 입력으로 모델을 생성합니다.
+     * 기존 호출 순서대로 등록 직후 clear()를 수행하므로 새 모델을 포함한 모든 모델이 해제됩니다.
+     *
      * @param {object} option 사용자 건물 생성 옵션 값
      * @param {string} [option.name] 건물 이름. 미입력 시 자동 생성.
      * @param {number} option.buldheight 건물 높이
@@ -51096,44 +51678,55 @@ declare class UAnalyCustomModel extends UAnaly {
         labeltext?: string;
     }): void;
     /**
-     * 생성된 사용자 건물을 반환하는 함수
-     * @return {Array<CustomModelEntry>} 생성된 사용자 건물 목록
+     * 생성된 모델 목록의 원본 배열을 반환합니다. 배열 변경은 후속 조회·삭제에 반영됩니다.
+     *
+     * @returns {Array<CustomModelEntry>} 생성된 사용자 건물 목록
      */
     getCustomModels(): Array<CustomModelEntry>;
     /**
-     * 사용자 건물 이름을 입력받아 해당하는 건물을 검색하는 함수
+     * 이름이 일치하는 첫 모델을 반환합니다.
+     * 그룹은 자신의 이름이 아니라 직접 자식의 이름을 검색하고 그룹 자체를 반환합니다.
+     *
      * @param {string} name 사용자 건물의 이름
-     * @return {CustomModelEntry | undefined}
+     * @returns {CustomModelEntry | undefined} 첫 일치 모델. 없으면 undefined
      */
     getModelByName(name: string): CustomModelEntry | undefined;
     /**
-     * uid를 입력받아 해당하는 사용자 건물을 반환하는 함수
+     * 입력 UID와 모델 UID를 각각 문자열로 변환하여 첫 일치 모델을 반환합니다.
+     *
      * @param {string} uid 사용자 건물 uid
-     * @return {CustomModelEntry | undefined}
+     * @returns {CustomModelEntry | undefined}
      */
     getModelByUid(uid: string): CustomModelEntry | undefined;
     /**
-     * 생성된 모든 사용자 건물을 삭제하는 함수
+     * 모든 모델을 순서대로 해제한 뒤 목록을 새 빈 배열로 교체합니다.
+     * 해제 중 예외가 발생하면 이후 해제와 목록 교체는 실행하지 않습니다.
      */
     removeAll(): void;
     /**
-     * 라벨을 가시화/비가시화 하는 함수
+     * 장면의 Mesh 하위 객체에 저장된 라벨을 주석 장면에 등록하거나 분리합니다.
+     * 라벨을 하나라도 찾으면 앱의 데이터 갱신을 한 번 요청합니다.
+     *
      * @param {boolean} visible 가시화/비가시화 여부
      */
     showLabel(visible: boolean): void;
     /**
-     * 해당 uid의 사용자 건물을 삭제하는 함수
+     * UID가 엄격히 일치하는 첫 모델을 해제한 뒤 목록에서 삭제합니다.
+     * getModelByUid()와 달리 UID를 문자열로 변환하지 않습니다.
+     *
      * @param {string} uid 제거할 건물의 uid
-     * @return {boolean}
+     * @returns {boolean} 삭제 성공 여부
      */
     removeModelByUid(uid: string): boolean;
     /**
-     * 입력 받은 사용자 건물을 삭제하는 함수
+     * 같은 UID의 등록 모델을 삭제하고, 없으면 입력 모델을 직접 해제합니다.
+     *
      * @param {CustomModelEntry} model 제거할 사용자 건물
      */
     removeModel(model: CustomModelEntry): void;
     /**
-     * 해당 사용자 건물의 특정 Mesh를 삭제하는 함수
+     * 직접 자식에 입력 메시가 포함된 첫 모델을 삭제합니다. 중첩 자손은 검색하지 않습니다.
+     *
      * @param {import('three').Mesh} mesh 건물의 Mesh
      */
     removeModelByMesh(mesh: three.Mesh): void;
@@ -51375,7 +51968,7 @@ declare class UAnalyRoute extends UAnaly {
      *
      * @ignore
      */
-    static "__#134@#getRightUpAxis"(direction: three.Vector3): {
+    static "__#137@#getRightUpAxis"(direction: three.Vector3): {
         right: three.Vector3;
         up: three.Vector3;
     };
@@ -51387,7 +51980,7 @@ declare class UAnalyRoute extends UAnaly {
      *
      * @ignore
      */
-    static "__#134@#rotateDirection"(axis: three.Vector3, angle: number, direction: three.Vector3): three.Vector3;
+    static "__#137@#rotateDirection"(axis: three.Vector3, angle: number, direction: three.Vector3): three.Vector3;
     /**
      * @param {UAnalyRouteCO} [options={}]
      */
@@ -51767,9 +52360,14 @@ declare class UAnalyAverageHeight extends UAnaly {
         height: number;
     }> | undefined;
     /**
-     * 선택된 모델들의 평균 높이를 계산해 반환하는 함수
-     * @param {import('@union3d/select/U3dSelect').U3dSelect} [u3dSelect] 입력시 해당 객체의 선택 모델들로 계산
-     * @return {number | undefined} 평균 높이
+     * 선택 모델의 높이를 ID 중복 없이 집계한 평균을 반환합니다. <br>
+     * 내부 선택기가 없으면 외부 선택기를 전달해도 undefined를 반환합니다.
+     * 내부 선택기가 있으면 외부 선택 목록을 사용할 수 있으며 빈 목록의 평균은 0입니다.
+     * 일반 메시의 높이는 월드 축 정렬 경계의 Z축 길이이며 getModelHeight() 재정의를 호출하지 않습니다.
+     * 병합 모델의 높이 조회에는 현재 분석의 선택 범위를 사용하며 조회·기하 오류는 그대로 전파합니다.
+     *
+     * @param {import('@union3d/select/U3dSelect').U3dSelect} [u3dSelect] 내부 선택기 대신 계산할 선택 목록의 제공자
+     * @returns {number | undefined} 평균 높이 또는 내부 선택기가 없으면 undefined
      */
     getAverageHeight(u3dSelect?: U3dSelect): number | undefined;
     /**
@@ -51782,19 +52380,13 @@ declare class UAnalyAverageHeight extends UAnaly {
      */
     getModelHeight(model: UMesh | U3DTilesMesh): number;
     /**
-     * 평균 높이 계산 결과 반환값
-     * @memberof UAnalyAverageHeight
-     * @inner
+     * 선택된 메시를 레이어별로 묶어 평균 높이와 함께 반환합니다. <br>
+     * 외부 선택기는 레이어별 메시 목록에만 사용하고 각 평균은 내부 전체 선택으로 다시 계산합니다.
+     * 내부 선택기가 없으면 평균은 0이며 반환 목록의 메시들은 원본 참조입니다.
+     * 선택 조회·집계 오류는 그대로 전파합니다.
      *
-     * @typedef {Object} LayerHeightInfo
-     * @property {string} layerName 레이어 이름
-     * @property {Array<import('@UMesh').UMesh | import('@U3DTilesMesh').U3DTilesMesh>} list 검사한 대상 객체 목록
-     * @property {number} averageHeight 평균 높이
-     */
-    /**
-     * 선택된 모델의 평균높이 계산 결과를 반환하는 함수
-     * @param {import('@union3d/select/U3dSelect').U3dSelect} [u3dSelect] 입력 시 해당 객체의 선택 객체들로 계산
-     * @return {Array<LayerHeightInfo>} 평균 높이 계산 결과
+     * @param {import('@union3d/select/U3dSelect').U3dSelect} [u3dSelect] 레이어별 메시 목록을 제공할 외부 선택기
+     * @returns {Array<LayerHeightInfo>} 레이어별 메시 목록과 내부 전체 선택의 평균
      *
      * @example
      *  return [{
@@ -51803,20 +52395,7 @@ declare class UAnalyAverageHeight extends UAnaly {
      *     averageHeight: 12.5
      *  }]
      */
-    getCalcResult(u3dSelect?: U3dSelect): Array<{
-        /**
-         * 레이어 이름
-         */
-        layerName: string;
-        /**
-         * 검사한 대상 객체 목록
-         */
-        list: Array<UMesh | U3DTilesMesh>;
-        /**
-         * 평균 높이
-         */
-        averageHeight: number;
-    }>;
+    getCalcResult(u3dSelect?: U3dSelect): Array<LayerHeightInfo>;
     /**
      * 선택된 모델을 key 기반으로 반환하는 함수
      * @param {import('@union3d/select/U3dSelect').U3dSelect} [u3dSelect] 입력시 해당 객체의 선택 모델들로 반환
@@ -52699,6 +53278,7 @@ declare class UAnalyClipping extends UAnaly {
 
 /**
  * ~extends import('@UAnaly').UAnaly <br>
+ *
  * `Alarm 기능` 추가 클래스 <br>
  * poi 알람, model 알람, 생성된 알람 편집/설정 등의 기능을 제공합니다.
  *
@@ -52708,7 +53288,11 @@ declare class UAnalyClipping extends UAnaly {
  * @tutorial {@link https://3d.geon.kr/doc/tutorial-official/analysisAlarm.html}
  */
 declare class UAnalyAlarm extends UAnaly {
-    /** @param {UAnalyAlarmCO} [opt={}] */
+    /**
+     * 알람 목록과 선택·프레임 상태를 초기화합니다. 앱은 setApp()으로 별도 연결합니다.
+     *
+     * @param {UAnalyAlarmCO} [opt={}]
+     */
     constructor(opt?: UAnalyAlarmCO);
     /**
      * @type {string | undefined}
@@ -52841,24 +53425,28 @@ declare class UAnalyAlarm extends UAnaly {
      */ _measureFeature: UMeasureFeature | undefined;
     name: any;
     /**
-     * @return {import('@union3d/select/U3dSelect').U3dSelect | undefined}
+     * 현재 알람에 연결된 선택기를 반환합니다.
+     *
+     * @returns {import('@union3d/select/U3dSelect').U3dSelect | undefined}
      */
     getSelecter(): U3dSelect | undefined;
     /**
-     * 여러개 알람을 동시에 수행할 수 있는 MultiMode를 켜는 함수
+     * 여러 객체를 그룹으로 등록하는 다각형 입력 모드를 켭니다.
      */
     onMultiMode(): void;
     /**
-     * 여러개 알람을 동시에 수행할 수 있는 MultiMode를 끄는 함수
+     * 다중 입력 이벤트와 등록된 모델 로딩 리스너를 해제합니다.
      */
     offMultiMode(): void;
     /**
-     * cursor 타입 알람시 세부 정보 id를 추가하는 함수
+     * 커서 세부 설정 대상 ID를 등록하고 click 이벤트를 발생시킵니다.
+     *
      * @param {string | number} id 세부 정보 추가 POI ID
      */
     addDetailList(id: string | number): void;
     /**
-     * 알람을 설정 할 POI 객체를 추가하는 함수
+     * 자식이 있는 UGroup을 알람 POI 목록에 추가합니다.
+     *
      * @param {import('@UGroup').UGroup} poi 알람을 추가하려는 POI 객체
      *
      * @example
@@ -52868,7 +53456,8 @@ declare class UAnalyAlarm extends UAnaly {
      */
     addPOI(poi: UGroup): void;
     /**
-     * 알람을 설정 할 model 객체를 추가하는 함수
+     * UMesh를 소유 레이어가 있는 모델 알람 목록에 추가합니다.
+     *
      * @param {import('@union3d/core/mesh/UMesh').UMesh} model 알람을 추가하려는 model 객체
      *
      * @example
@@ -52877,28 +53466,33 @@ declare class UAnalyAlarm extends UAnaly {
      */
     addModel(model: UMesh): void;
     /**
-     * poiGroup의 Children을 반환하는 함수
-     * @return {Array<import('@UCssBilboard').UCssBilboard>} addPOI 로 추가된 객체들을 반환합니다.
+     * 등록한 POI 그룹의 원본 children 배열을 반환합니다.
+     *
+     * @returns {Array<import('@UCssBilboard').UCssBilboard>} addPOI 로 추가된 객체들을 반환합니다.
      */
     getPOIGroupChildren(): Array<UCssBilboard>;
     /**
-     * modelGroup의 Children을 반환하는 함수
-     * @return {Array<import('@union3d/core/UGroup').UGroup | import('@union3d/core/mesh/UMesh').UMesh>} addModel 로 추가된 model 객체들을 반환합니다.
+     * 등록한 모델·그룹의 원본 배열을 반환합니다.
+     *
+     * @returns {Array<import('@union3d/core/UGroup').UGroup | import('@union3d/core/mesh/UMesh').UMesh>} addModel 로 추가된 model 객체들을 반환합니다.
      */
     getModelGroupChildren(): Array<UGroup | UMesh>;
     /**
-     * cursor 세부 정보를 설정한 DetailList를 반환하는 함수
-     * @return {Array<string | number>} cursorMode 시 세부정보를 설정 하려는 POI의 ID들의 배열을 반환합니다.
+     * 커서 세부 설정 대상 ID의 원본 배열을 반환합니다.
+     *
+     * @returns {Array<string | number>} cursorMode 시 세부정보를 설정 하려는 POI의 ID들의 배열을 반환합니다.
      */
     getDetailList(): Array<string | number>;
     /**
-     * id를 입력 받아 해당 객체의 타입을 반환하는 함수 `POI` `model`
+     * 등록한 ID가 POI·model·group 중 어느 타입인지 조회합니다.
+     *
      * @param {string | number} id 현재 편집목록에 추가된 객체 중 타입 정보를 알고 싶은 객체의 ID
-     * @return {string | undefined} `POI` / `model` / `group`
+     * @returns {string | undefined} `POI` / `model` / `group`
      */
     getInstanceType(id: string | number): string | undefined;
     /**
-     * id를 입력 받아 해당 POI의 cursor 세부정보를 설정하는 함수
+     * POI ID의 커서 이미지·크기·높이 차를 설정합니다.
+     *
      * @param {string} id cursor 알람시 설정하고 싶은 객체의 ID
      * @param {number} [xsize=40] 설정한 이미지의 x사이즈 크기
      * @param {number} [ysize=40] 설정한 이미지의 y사이즈 크기
@@ -52907,24 +53501,28 @@ declare class UAnalyAlarm extends UAnaly {
      */
     addDetailOpt(id: string, xsize?: number, ysize?: number, height?: number, image?: string): void;
     /**
-     * id를 입력 받아 해당 POI의 cursor 세부정보를 삭제하는 함수
+     * 일치하는 세부 설정 ID와 해당 옵션을 제거합니다.
+     *
      * @param {string} id cursorMode 알람 시 세부정보를 삭제하고 싶은 객체의 ID
      */
     removeDetailList(id: string): void;
     /**
-     * POI 객체 id 또는 POI 객체 id가 담긴 List를 입력 받아 해당 POI를 반환하는 함수
+     * 등록한 POI를 조회합니다. 배열 입력은 각 ID를 객체 또는 undefined로 덮어쓰며 같은 배열을 반환합니다.
+     *
      * @param {Array<string | number>} idList 찾으려는 POI 객체의 ID 또는 ID 배열
-     * @return {Array<import('@union3d/core/UGroup').UGroup> | import('@union3d/core/UGroup').UGroup | undefined} 찾은 POI List 반환
+     * @returns {Array<import('@union3d/core/UGroup').UGroup> | import('@union3d/core/UGroup').UGroup | undefined} 찾은 POI List 반환
      */
     findPOI(idList: Array<string | number>): Array<UGroup> | UGroup | undefined;
     /**
-     * model 객체 id 또는 model 객체 id가 담긴 List를 입력 받아 해당 model을 반환하는 함수
+     * 등록 모델 또는 그룹을 조회하고 현재 교차 모델로 복원합니다. 단일 그룹은 원본 그룹의 children을 교체합니다.
+     *
      * @param {Array<string | number> | string | number} idList 찾으려는 model 객체의 ID 또는 ID 배열
-     * @return {import('@union3d/core/UGroup').UGroup | import('@union3d/core/mesh/UMesh').UMesh | undefined} 찾은 model List 반환
+     * @returns {import('@union3d/core/UGroup').UGroup | import('@union3d/core/mesh/UMesh').UMesh | undefined} 찾은 model List 반환
      */
     findModel(idList: Array<string | number> | string | number): UGroup | UMesh | undefined;
     /**
-     * 알람을 추가하려는 POI의 설정 값을 받아 알람 유형 별로 동작하는 함수
+     * 등록 ID의 기존 알람을 중지한 뒤 지정한 POI 모드 또는 모델 깜박임을 실행합니다.
+     *
      * @param {string} id 알람을 추가하려는 POI 객체의 ID
      * @param {number} count 알람 횟수
      * @param {number} speed 알람 속도
@@ -52937,12 +53535,14 @@ declare class UAnalyAlarm extends UAnaly {
      */
     alarmSetData(id: string, count: number, speed: number, type?: string, color?: number | string): void;
     /**
-     * Model 객체 알람 실행 중 dispose 됐을 경우 이후에 Model 객체가 create 될때 이전 알람을 이어서 실행하는 함수.
+     * 모델 해제 시 저장한 남은 알람 설정을 조회하여 다시 실행합니다.
+     *
      * @param {import('@union3d/core/mesh/UMesh').UMesh} model 알람 도중 dispose된 Model 객체
      */
     disposedStopModelAlarm(model: UMesh): void;
     /**
-     * model 객체 알람 추가 시 필요한 정보를 입력 받아 설정하는 함수
+     * 단일 모델 또는 배열의 모델 깜박임을 시작합니다.
+     *
      * @param {import('@union3d/core/mesh/UMesh').UMesh | Array<import('@union3d/core/mesh/UMesh').UMesh>} model 알람을 설정하려는 model 객체
      * @param {number} count 알람 횟수
      * @param {number} speed 알람 속도
@@ -52950,7 +53550,9 @@ declare class UAnalyAlarm extends UAnaly {
      */
     modelFlickerMode(model: UMesh | Array<UMesh>, count: number, speed: number, color?: number | string): void;
     /**
-     * Model 객체 알람 추가 시 필요한 정보를 입력 받아 알람을 시작하는 함수.
+     * 모델의 기존 예약과 선택 색상 상태를 정리한 뒤 깜박임을 예약합니다.
+     * 정상 반복 종료에는 복원 색상을 적용하고 해당 ID의 예약 기록을 제거합니다.
+     *
      * @param {import('@union3d/core/mesh/UMesh').UMesh} model 알람 대상 Model 객체
      * @param {number} count 알람 횟수
      * @param {number} speed 알람 속도
@@ -52962,29 +53564,33 @@ declare class UAnalyAlarm extends UAnaly {
      */
     modelFlickerModeInit(model: UMesh, count: number, speed: number, color?: number | string): void;
     /**
-     * POI 객체 알람 추가 시 필요한 정보를 입력 받아 설정하는 함수
+     * 단일 POI 또는 배열의 표시·숨김 알람을 시작합니다.
+     *
      * @param {import('@UCssBilboard').UCssBilboard | Array<import('@UCssBilboard').UCssBilboard>} poi 알람을 설정하려는 POI 객체
      * @param {number} count 알람 횟수
      * @param {number} speed 알람 속도
      */
     flickerMode(poi: UCssBilboard | Array<UCssBilboard>, count: number, speed: number): void;
     /**
-     * 전달 받은 값으로 POI flickerMode Animation 실행
+     * POI의 기존 예약을 취소한 뒤 표시·숨김 알람을 예약합니다.
+     * 정상 반복 종료에는 visible을 true로 복원하고 해당 ID의 예약 기록을 제거합니다.
+     *
      * @param {import('@UCssBilboard').UCssBilboard} poi 알람을 설정하려는 POI 객체
      * @param {number} count 알람 횟수
      * @param {number} speed 알람 속도
      */
     flickerModeAnimation(poi: UCssBilboard, count: number, speed: number): void;
     /**
-     * POI 객체 알람 추가 시 필요한 정보를 입력 받아 설정하는 함수.
-     * sizeMode : 객체 크기 확대 / 축소 모드
+     * POI 크기 알람을 시작합니다. 단일 입력은 기본 크기로 복원하지만 배열 입력은 현재 크기를 유지합니다.
+     *
      * @param {import('@UCssBilboard').UCssBilboard | Array<import('@UCssBilboard').UCssBilboard>} poi 알람을 설정하려는 POI 객체
      * @param {number} count 알람 횟수
      * @param {number} speed 알람 속도
      */
     sizeMode(poi: UCssBilboard | Array<UCssBilboard>, count: number, speed: number): void;
     /**
-     * 전달 받은 값으로 POI sizeMode Animation 실행
+     * POI 크기 알람을 예약합니다. 종료는 반복 기준과 원래 크기의 일치를 함께 따르며 종료 뒤 예약 기록은 남습니다.
+     *
      * @param {import('@UCssBilboard').UCssBilboard} poi 알람을 설정하려는 POI 객체
      * @param {number} speed 알람 속도
      * @param {number} count 알람 횟수
@@ -52992,98 +53598,118 @@ declare class UAnalyAlarm extends UAnaly {
      */
     sizeModeAnimaition(poi: UCssBilboard, speed: number, count: number, oriSize?: number): void;
     /**
-     * 전달 받은 값으로 POI cursor 타입 알람 실행시 횟수와 속도를 입력받아 실행하는 함수
+     * 단일 POI 또는 배열의 커서 이동 알람을 시작합니다.
+     *
      * @param {import('@UCssBilboard').UCssBilboard | Array<import('@UCssBilboard').UCssBilboard>} poi 알람 대상 POI 객체
      * @param {number} count 알람 횟수
      * @param {number} speed 알람 속도
      */
     cursorMode(poi: UCssBilboard | Array<UCssBilboard>, count: number, speed: number): void;
     /**
-     * 전달 받은 값으로 POI cursorMode Animation 실행
+     * 기존 커서와 예약을 정리하고 이미지 커서의 이동을 예약합니다. 텍스처 완료를 기다리지 않으며 정상 종료 뒤 커서 객체는 남습니다.
+     * 세부 옵션에 image가 없으면 진단을 출력하고 새 커서를 만들지 않습니다.
+     *
      * @param {import('@UCssBilboard').UCssBilboard} poi 알람을 설정하려는 POI 객체
      * @param {number} speed 알람 속도
      * @param {number} count 알람 횟수
      */
     cursorModeAnimation(poi: UCssBilboard, speed: number, count: number): void;
     /**
-     * model의 알람 동작 중 Dispose 되어 사라진 model의 정지 된 알람을 다시 동작 시키기 위한 함수
+     * 원래 모델 타일이 사용 가능하면 해제 시 보관한 알람의 재개를 검사합니다.
+     *
      * @param {import('@union3d/core/mesh/UMesh').UMesh} model dispose 되어 정지된 알람의 대상 객체
      */
     isDisposedStopModel(model: UMesh): void;
     /**
-     * 알람 목록에서 찾고 싶은 Model의 id를 입력 받아 해당 id의 좌표값을 담고 있는 modelObject의 정보를 참고하여 해당 지점의 Model을 반환합니다.
+     * 등록 주소의 현재 모델을 조회하고 모델이 없으면 조건에 맞는 편집 모델을 조회합니다.
+     *
      * @param {string} id 찾고 싶은 model의 id
-     * @return {import('@union3d/core/mesh/UMesh').UMesh | undefined} selectedObject 결과 Model 반환
+     * @returns {import('@union3d/core/mesh/UMesh').UMesh | undefined} selectedObject 결과 Model 반환
      */
     getIntersectModel(id: string): UMesh | undefined;
     /**
-     * 알람이 추가된 목록을 전부 중지 하고 삭제 합니다.
-     * @return {object}
+     * 모든 모델 알람을 제거하고 정리 결과를 반환합니다.
+     *
+     * @returns {object}
      */
     removeAllAlarm(): object;
     /**
-     * cursor Mode 시 필요한 세부정보의 목록을 전부 삭제 합니다.
+     * 세부 설정 대상과 옵션을 모두 비우고 click 이벤트를 발생시킵니다.
      */
     removeAllDetailOpt(): void;
     /**
-     * 삭제하려는 목록의 ID를 받아 해당 알람을 삭제합니다
+     * 등록 ID의 POI 또는 모델 알람을 제거하고 전체 선택을 해제합니다.
+     *
      * @param {string | number} id 삭제 대상 ID
      */
     removeAlarm(id: string | number): void;
     /**
-     * 중지하려는 알람 목록의 ID를 받아 해당 알람을 중지합니다.
+     * ID의 예약을 취소하고 POI 또는 모델의 표시 상태를 복원합니다.
+     *
      * @param {string | number} id 삭제 대상 ID
      */
     stopAlarmById(id: string | number): void;
     /**
-     * 전체 알람을 일시 중지하며, 각 객체들의 상태를 초기화합니다.
+     * 등록한 POI·모델의 알람을 중지하고 기본 표시 상태를 적용합니다.
      */
     stopAllAlarm(): void;
     /**
-     * 실행중인 알람의 객체 ID를 전달 받아 알람을 중지합니다.
+     * ID별 프레임 예약을 취소합니다. 객체의 가시성·색상·크기·커서 자원은 변경하지 않습니다.
+     *
      * @param {string | number} id 삭제 대상 ID
      */
     stopActiveAlarm(id: string | number): void;
     /**
-     * 다중 선택 하여 그린 POLYGON 내 영역 안의 해당하는 model 객체를 추가하는 함수
+     * 모델 또는 배열을 다중 선택에 추가하고 화면 갱신을 요청합니다.
+     *
      * @param {import('@union3d/core/mesh/UMesh').UMesh | Array<import('@union3d/core/mesh/UMesh').UMesh>} object 영역 안에 해당하여 추가하려는 객체
      */
     addSelected(object: UMesh | Array<UMesh>): void;
     /**
-     * 다중 객체 선택하여, 영역 그리기 시 나타난 polygon 삭제, 선택된 model 비우기를 실행하는 함수.
+     * 선택 색상을 복원하고 선택 저장소와 다중 표출 연결을 정리합니다.
+     *
      * @param {boolean} [isChecked=false] mesh-loaded event 삭제 여부
      */
     clearSelect(isChecked?: boolean): void;
     /**
-     * 원하는 클릭이벤트를 전달 받아 해당 분석 기능에서 사용하기 위한 함수.
+     * 분석 이벤트에 사용자 함수를 등록합니다. 이벤트 함수의 this는 이 분석 객체입니다.
+     *
      * @param {EventCallBack} func Click 이벤트 함수
      * @param {string} [event] 이벤트 타입
      */
     passToClickEvent(func: EventCallBack, event?: string): void;
     /**
-     * addSelected로 추가된 객체 삭제
+     * 선택된 모델의 선택 색상을 복원하고 화면 갱신을 요청합니다.
+     *
      * @param {import('@union3d/core/mesh/UMesh').UMesh} object 삭제하려는 객체
      */
     removeSelected(object: UMesh): void;
     /**
-     * cursor 타입시에 생성될 이미지 url
+     * 이후 생성할 커서 이미지 URL을 저장합니다.
+     *
      * @param {string} url 이미지 파일 경로
      */
     setCursorImage(url: string): void;
     /**
+     * 클릭 위치에 POI를 추가하고 목록 변경·화면 갱신을 전달합니다.
+     *
      * @param {import('@U3dMouseEvent').U3dMouseEvent} e
      *
      * @ignore
      */
     _click(e: U3dMouseEvent): void;
     /**
+     * 다각형 입력점을 등록하고 모델 경계와 다중 선택 지원 여부를 검사합니다.
+     *
      * @param {import('@U3dMouseEvent').U3dMouseEvent} e
-     * @return {boolean | undefined}
+     * @returns {boolean | undefined}
      *
      * @ignore
      */
     _polygonClick(e: U3dMouseEvent): boolean | undefined;
     /**
+     * 선택 키의 색상을 복원하고 조건에 따라 모델 로딩 리스너를 해제합니다.
+     *
      * @param {string} key
      * @param {boolean} [isChecked=false]
      *
@@ -53091,6 +53717,8 @@ declare class UAnalyAlarm extends UAnaly {
      */
     _removeSelectedByKey(key: string, isChecked?: boolean): void;
     /**
+     * 소유 레이어의 모델 선택과 로딩 재연결 정보를 등록합니다.
+     *
      * @param {string} layerName
      * @param {string | number} id
      *
@@ -53098,65 +53726,99 @@ declare class UAnalyAlarm extends UAnaly {
      */
     _addSelected_(layerName: string, id: string | number): void;
     /**
+     * 소유 레이어가 없는 모델의 선택 색상과 선택 기록을 적용합니다.
+     *
      * @param {import('@union3d/core/mesh/UMesh').UMesh} object
      *
      * @ignore
      */
     _addSelectedNotLayer_(object: UMesh): void;
     /**
+     * 지정 레이어에서 ID의 현재 모델을 조회합니다.
+     *
      * @param {string} layerName
      * @param {string | number} id
-     * @return {import('@union3d/core/mesh/UMesh').UMesh | undefined}
+     * @returns {import('@union3d/core/mesh/UMesh').UMesh | undefined}
      *
      * @ignore
      */
     _findModelSelect(layerName: string, id: string | number): UMesh | undefined;
     /**
+     * 입력한 그룹명으로 선택 그룹을 등록하고 측정 결과를 정리합니다.
+     *
      * @param {import('@U3dMouseEvent').U3dMouseEvent} e
      *
      * @ignore
      */
     _polygonDblclick(e: U3dMouseEvent): void;
-    /** @ignore */
+    /**
+     * 앱의 측정 레이어 참조를 반환합니다.
+     *
+     * @ignore
+     */
     _getSelectLayer(): any;
     /**
+     * 레이어 이름별로 모델 재로딩 리스너를 등록합니다.
+     *
      * @param {ModelLayerLike} layer
      *
      * @ignore
      */
     _addLoadedListener(layer: ModelLayerLike): any;
-    /** @ignore */
+    /**
+     * 저장한 로딩 리스너를 레이어에서 해제합니다. 저장소의 키는 유지합니다.
+     *
+     * @ignore
+     */
     _removeAllLoadedListener(): void;
     /**
+     * 재로딩된 선택 모델에 선택 색상을 적용하고 선택 참조를 교체합니다.
+     *
      * @param {import('@UEventDispatcher').DispatchInputEvent} e
      *
      * @ignore
      */
     _loadedListener(e: DispatchInputEvent): void;
     /**
+     * 객체의 선택 키가 저장돼 있는지 반환합니다.
+     *
      * @param {import('@union3d/core/mesh/UMesh').UMesh} object
-     * @return {boolean}
+     * @returns {boolean}
      *
      * @ignore
      */
     _isSelected(object: UMesh): boolean;
-    /** @ignore */
+    /**
+     * 측정점을 확정하고 선택기의 측정 피처가 있으면 앱에서 제거합니다.
+     *
+     * @ignore
+     */
     _clearMeasureFeature(): void;
-    /** @ignore */
+    /**
+     * 현재 측정점의 확정 결과가 있으면 분석의 피처 참조로 보관합니다.
+     *
+     * @ignore
+     */
     _commitFeature(): void;
     /**
+     * 선택 모드와 이벤트 중계를 연결하고 선택기를 활성화합니다.
+     *
      * @param {string} type
      *
      * @ignore
      */
     _addSelectMode(type: string): void;
     /**
+     * 선택기의 모델·리스너 정보를 알람 목록과 다음 선택 그룹에 반영합니다.
+     *
      * @param {import('@UEventDispatcher').DispatchInputEvent} e
      *
      * @ignore
      */
     _selectEvent(e: DispatchInputEvent): void;
     /**
+     * POI에 연결한 커서 자원을 해제하고 부모에서 분리합니다. Sprite의 공용 geometry와 userData 참조는 유지합니다.
+     *
      * @param {import('@UCssBilboard').UCssBilboard} poi
      *
      * @ignore
@@ -55653,7 +56315,7 @@ declare class ULocalENUHelper extends UGroup {
  * @group helpers
  */
 declare class UBox3Helper extends LineSegments<BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> {
-    /** @type {WeakMap<import('three').BufferGeometry, number>} */ static "__#59@#geometryReferences": WeakMap<three.BufferGeometry, number>;
+    /** @type {WeakMap<import('three').BufferGeometry, number>} */ static "__#60@#geometryReferences": WeakMap<three.BufferGeometry, number>;
     /**
      * 색상 키별 공유 재질 저장소다.
      * 기존 공개 Map에는 외부에서 임의의 키·값을 넣을 수 있으므로 기존 any 계약을 유지한다.
@@ -55714,7 +56376,7 @@ declare class UBox3Helper extends LineSegments<BufferGeometry<three.NormalBuffer
      *
      * @ignore
      */
-    static "__#59@#releaseMaterial"(colorKey: number, material: three.Material | Array<three.Material>): void;
+    static "__#60@#releaseMaterial"(colorKey: number, material: three.Material | Array<three.Material>): void;
     /**
      * 표시할 box와 공유 재질을 연결한다. 색상 변환 등의 오류는 호출자에게 전달한다.
      *
@@ -56373,7 +57035,7 @@ declare class U3dNodeManager extends UEventDispatcher {
         LINK_REGISTERED: string;
         BRANCH: string;
     };
-    static "__#153@#instance": any;
+    static "__#156@#instance": any;
     static get Instance(): any;
     constructor();
     get nodes(): Map<any, any>;
@@ -56683,7 +57345,6 @@ declare class GeOnDT {
         U3dModelBasicLayer: typeof U3dModelBasicLayer;
         U3dModelWFSLayer: typeof U3dModelWFSLayer;
         U3dModelU3FLayer: typeof U3dModelU3FLayer;
-        U3dVideoLayer: typeof U3dVideoLayer;
         U3dModelShapeLayer: typeof U3dModelShapeLayer;
         U3dModelDxfLayer: typeof U3dModelDxfLayer;
         U3dModelTilesLayer: typeof U3dModelTilesLayer;
@@ -61904,124 +62565,6 @@ declare class UShpMesh extends UModelMesh {
     _center: any;
 }
 
-/**
- * ~extends import('@union3d/core/geometry/UBufferGeometry') <br>
- *
- * Shape(2D 외곽선)를 지정한 깊이만큼 압출(extrude)해 3D 입체 지오메트리를 만드는 Buffer Geometry 클래스입니다. <br>
- *
- * @extends {UBufferGeometry}
- */
-declare class UExtrudeBufferGeometry extends UBufferGeometry {
-    /**
-     * Shape를 압출(extrude)해 3D 지오메트리를 생성합니다. <br>
-     *
-     * @param {import("three").Shape | Array<import("three").Shape>} shapes 압출할 Shape 또는 Shape 배열 <br>
-     * @param {UExtrudeBufferGeometryCO} options 압출 옵션 (깊이·베벨·스텝 등) <br>
-     */
-    constructor(shapes: three.Shape | Array<three.Shape>, options: UExtrudeBufferGeometryCO);
-    /**
-     * @type {{ shapes: import("three").Shape | Array<import("three").Shape>, options: UExtrudeBufferGeometryCO }}
-     *
-     * @ignore
-     */
-    parameters: {
-        shapes: three.Shape | Array<three.Shape>;
-        options: UExtrudeBufferGeometryCO;
-    };
-    /**
-     * @type {number}
-     *
-     * @ignore
-     */
-    _topDrawCount: number;
-    type: string;
-    /**
-     * 저장된 shapes·options로 동일한 지오메트리를 새로 만들어 반환합니다. <br>
-     *
-     * @override
-     *
-     * @returns {this} 복제된 지오메트리 <br>
-     */
-    override clone(): this;
-}
-
-/**
- * UExtrudeGeometry 생성 옵션 <br>
- */
-type UExtrudeGeometryOptions = {
-    /**
-     * 커브 세그먼트 수 <br>
-     */
-    curveSegments?: number;
-    /**
-     * 압출 방향 세그먼트 수 <br>
-     */
-    steps?: number;
-    /**
-     * 압출 깊이 <br>
-     */
-    depth?: number;
-    /**
-     * 베벨 활성화 여부 <br>
-     */
-    bevelEnabled?: boolean;
-    /**
-     * 베벨 두께 <br>
-     */
-    bevelThickness?: number;
-    /**
-     * 베벨 크기 <br>
-     */
-    bevelSize?: number;
-    /**
-     * 베벨 세그먼트 수 <br>
-     */
-    bevelSegments?: number;
-    /**
-     * 압출 경로 커브 <br>
-     */
-    extrudePath?: three.Curve<three.Vector3>;
-    /**
-     * UV 생성기 <br>
-     */
-    UVGenerator?: UVGeneratorType;
-};
-/**
- * UExtrudeGeometry 생성 옵션 <br>
- *
- * @memberof UExtrudeGeometry
- * @inner
- *
- * @typedef {object} UExtrudeGeometryOptions
- * @property {number} [curveSegments=12] 커브 세그먼트 수 <br>
- * @property {number} [steps=1] 압출 방향 세그먼트 수 <br>
- * @property {number} [depth=100] 압출 깊이 <br>
- * @property {boolean} [bevelEnabled=true] 베벨 활성화 여부 <br>
- * @property {number} [bevelThickness=6] 베벨 두께 <br>
- * @property {number} [bevelSize] 베벨 크기 <br>
- * @property {number} [bevelSegments=3] 베벨 세그먼트 수 <br>
- * @property {import('three').Curve<import('three').Vector3>} [extrudePath] 압출 경로 커브 <br>
- * @property {UVGeneratorType} [UVGenerator] UV 생성기 <br>
- */
-/**
- * ~extends import('@UExtrudeBufferGeometry') <br>
- *
- * 2D 형상(Shape)을 지정한 깊이만큼 밀어 올려 입체로 만드는 `압출(Extrude) 지오메트리` 클래스입니다. <br>
- * three.js의 `ExtrudeGeometry`와 유사하게, 형상과 압출 옵션(깊이·베벨·경로 등)을 받아 3D 지오메트리를 생성합니다. <br>
- *
- * @extends {UExtrudeBufferGeometry}
- */
-declare class UExtrudeGeometry extends UExtrudeBufferGeometry {
-    /**
-     * 형상(Shape)을 압출해 3D 지오메트리를 생성합니다. <br>
-     * 단일 형상 또는 형상 배열을 받으며, `options.depth`만큼 밀어 올려 입체를 만듭니다. <br>
-     *
-     * @param {import('three').Shape | Array<import('three').Shape>} shapes 압출할 2D 형상 (또는 형상 배열) <br>
-     * @param {UExtrudeGeometryOptions} options 압출 옵션 (깊이·베벨·세그먼트·경로 등) <br>
-     */
-    constructor(shapes: three.Shape | Array<three.Shape>, options: UExtrudeGeometryOptions);
-}
-
 declare global {
     /**
      * `getParam()`이 반환하는 SHP 모델 레이어의 저장 가능한 설정입니다. <br>
@@ -65559,6 +66102,41 @@ declare global {
      * U3dVectorLayer가 발생시키는 이벤트 이름 모음입니다. <br>
      */
     type U3dVectorLayerEMI = Omit<Omit<U3dLayerEMI, never> & U3dVectorLayerEMI_Content, never>;
+    /**
+     * 타일 색인과 표시 판단에 필요한 레이어의 제한된 상태입니다.
+     * 상태 스냅샷이 아니라 원본 레이어의 필드에 접근하는 계약입니다.
+     * _workBuffer는 기반 클래스의 선언과 호환되는 타입이며 이 단위에서는 Set으로 사용합니다.
+     */
+    type U3dVectorTileIndexState = {
+        /**
+         * 등록된 도형
+         */
+        _geomList: Map<string, U3dGeometry>;
+        /**
+         * 타일별 도형 ID
+         */
+        _modelAtTile: Map<string, Set<string>>;
+        /**
+         * 도형별 타일 표시 상태
+         */
+        _indexAtModel: Map<string, Map<string, boolean>>;
+        /**
+         * 타일 작업 키를 보관하는 실제 Set의 기반 선언
+         */
+        _workBuffer: Record<string, unknown>;
+        /**
+         * 표시 최소 레벨
+         */
+        _minlevel: number;
+        /**
+         * 표시 최대 레벨
+         */
+        _maxlevel: number;
+        /**
+         * 동적 색인용 투영 계산기
+         */
+        _mercator: UMercator | undefined;
+    };
 }
 
 declare global {
@@ -66018,6 +66596,38 @@ declare global {
         complete?: boolean;
     };
     type VctrTile = U3DTileset & VctrTile_Content;
+    /**
+     * POI 위치 그룹 계산에서 읽는 레이어 설정입니다.
+     */
+    type U3dVectorTileClusterState = {
+        /**
+         * 위치 그룹 크기
+         */
+        _clusterRadius: number;
+    };
+    /**
+     * POI 거리 판정에서 읽는 레이어 설정입니다.
+     * 함수형 배율도 기존 저장 상태 그대로 전달하며, 이 타입은 실행을 지시하지 않습니다.
+     */
+    type U3dVectorTileDistanceState = {
+        /**
+         * 저장된 거리 배율 또는 기존 함수 참조
+         */
+        _viewSizeOffset?: number | Function;
+    };
+    /**
+     * POI와 그 자식의 표시 상태를 반영하는 함수입니다.
+     */
+    type U3dVectorTileVisibilitySetter = (poi: three.Object3D, visible: boolean) => any;
+    /**
+     * 구 반경 보조 계산에 필요한 앱 계약입니다.
+     */
+    type U3dVectorTileVolumeState = {
+        /**
+         * 카메라와 출력 크기 제공자
+         */
+        _app: Pick<U3dApp, "_camera" | "getDrawBufferHeight" | "getDrawBufferWidth">;
+    };
 }
 
 declare global {
@@ -66270,7 +66880,8 @@ declare global {
 declare global {
     /**
      * ~extends import('@UEventDispatcher').UEventDispatcherCO <br>
-     * UAnaly 생성자 옵션
+     *
+     * 분석 기반 객체의 생성 옵션입니다.
      */
     type UAnalyCO_Content = {
         /**
@@ -66280,22 +66891,51 @@ declare global {
     };
     /**
      * ~extends import('@UEventDispatcher').UEventDispatcherCO <br>
-     * UAnaly 생성자 옵션
+     *
+     * 분석 기반 객체의 생성 옵션입니다.
      */
     type UAnalyCO = Omit<Omit<UEventDispatcherCO, never> & UAnalyCO_Content, never>;
+    /**
+     * ~extends Common_Mesh <br>
+     *
+     * 분석 하이라이트(highlight)의 선택 상태를 함께 보관하는 메시(mesh) 타입입니다.
+     */
     type Ananlysis_Mesh_Content = {
         /**
-         * mesh 선택 플래그
+         * 하이라이트 적용 상태이며 해제하면 undefined
          */
         _isPicked?: boolean;
     };
+    /**
+     * ~extends Common_Mesh <br>
+     *
+     * 분석 하이라이트(highlight)의 선택 상태를 함께 보관하는 메시(mesh) 타입입니다.
+     */
     type Ananlysis_Mesh = Common_Mesh & Ananlysis_Mesh_Content;
+    /**
+     * ~extends import('@U3dLayer').U3dLayer <br>
+     *
+     * 병합 메시(mesh)의 분할 함수를 제공할 수 있는 레이어의 내부 연계 타입입니다.
+     */
+    type UAnalyMergedMeshLayer_Content = {
+        /**
+         * 병합 객체를 분할하는 함수이며 레이어를 this로 사용
+         */
+        mergedMeshDivision: undefined | ((arg0: three.Object3D) => (Array<three.Object3D> | undefined));
+    };
+    /**
+     * ~extends import('@U3dLayer').U3dLayer <br>
+     *
+     * 병합 메시(mesh)의 분할 함수를 제공할 수 있는 레이어의 내부 연계 타입입니다.
+     */
+    type UAnalyMergedMeshLayer = U3dLayer & UAnalyMergedMeshLayer_Content;
 }
 
 declare global {
     /**
-     * ~extends import('@union3d/analy/UAnaly').UAnalyCO <br>
-     * UAnalyAlarm 생성자 옵션
+     * ~extends UAnalyCO <br>
+     *
+     * UAnalyAlarm의 분석 이름·등록 타입·하이라이트 저장 색상을 지정하는 생성 옵션입니다.
      */
     type UAnalyAlarmCO_Content = {
         /**
@@ -66312,8 +66952,9 @@ declare global {
         _type?: string;
     };
     /**
-     * ~extends import('@union3d/analy/UAnaly').UAnalyCO <br>
-     * UAnalyAlarm 생성자 옵션
+     * ~extends UAnalyCO <br>
+     *
+     * UAnalyAlarm의 분석 이름·등록 타입·하이라이트 저장 색상을 지정하는 생성 옵션입니다.
      */
     type UAnalyAlarmCO = Omit<Omit<UAnalyCO, never> & UAnalyAlarmCO_Content, never>;
     /**
@@ -66331,14 +66972,28 @@ declare global {
     };
     type ModelLayerLike = {
         getName?: () => string;
-        getModelById: (arg0: string | number, arg1: boolean | undefined) => (UMesh | undefined);
+        /**
+         * ID 모델 조회
+         */
+        getModelById: UAnalyAlarmModelLookup;
         editedList?: Array<string | number>;
         editedEvent?: Record<string, ModelEditInfo>;
         off?: (arg0: string, arg1: Function) => void;
         addEventListener?: (arg0: string, arg1: Function, arg2: boolean | undefined, arg3: string | undefined) => void;
         removeEventListener?: (arg0: string, arg1: Function) => void;
-        getEditedEventById?: (arg0: string) => (ModelEditInfo | undefined);
+        /**
+         * ID 편집 정보 조회
+         */
+        getEditedEventById?: UAnalyAlarmEditedLookup;
     };
+    /**
+     * 모델 레이어의 ID 조회 함수입니다. 미발견 결과는 undefined입니다.
+     */
+    type UAnalyAlarmModelLookup = (id: string | number, create?: boolean) => UMesh | undefined;
+    /**
+     * 모델 레이어의 편집 이벤트 조회 함수입니다. 미발견 결과는 undefined입니다.
+     */
+    type UAnalyAlarmEditedLookup = (id: string) => ModelEditInfo | undefined;
     /**
      * POI cursor 알람 세부 옵션
      */
@@ -66347,6 +67002,28 @@ declare global {
         ysize?: number;
         height?: number;
         image?: string;
+    };
+    /**
+     * 알람 예약 구현에 전달하는 프레임 상태와 취소·재개 기능입니다.
+     * 공개 메서드를 대체하지 않고 원래 인스턴스의 상태와 호출 결과를 그대로 사용합니다.
+     */
+    type UAnalyAlarmAnimationOwner = Pick<UAnalyAlarm, "_activeAnimaition" | "_infoActiveAlarm" | "_disposedAlarmInfo" | "stopActiveAlarm" | "isDisposedStopModel">;
+    /**
+     * 모델 그룹 복원·경계 검사에서 사용하는 선택 상태와 조회 기능입니다.
+     */
+    type UAnalyAlarmSelectionOwner = Pick<UAnalyAlarm, "_selected" | "getIntersectModel" | "_isSelected">;
+    /**
+     * 커서 조립 결과와 애니메이션 복원 기준의 위치 참조입니다.
+     */
+    type UAnalyAlarmCursorResult = {
+        /**
+         * POI에 연결한 새 커서 스프라이트
+         */
+        sprite: three.Sprite;
+        /**
+         * POI position의 원본 참조이며 이동 후 복원에도 현재 값을 사용
+         */
+        poiPosition: three.Vector3;
     };
 }
 
@@ -66424,8 +67101,10 @@ declare class UAlignControls extends UGizmoControls {
 
 declare global {
     /**
-     * ~extends import('@union3d/analy/UAnalyGizmoModel').UAnalyGizmoModelCO <br>
-     * UAnalyAlignModel 생성자 옵션
+     * ~extends UAnalyGizmoModelCO <br>
+     *
+     * 모델 정렬 분석의 생성 옵션입니다. <br>
+     * 현재 생성자는 name만 사용하며 상속 옵션 객체를 부모에게 전달하지 않습니다.
      */
     type UAnalyAlignModelCO_Content = {
         /**
@@ -66434,21 +67113,85 @@ declare global {
         name?: string;
     };
     /**
-     * ~extends import('@union3d/analy/UAnalyGizmoModel').UAnalyGizmoModelCO <br>
-     * UAnalyAlignModel 생성자 옵션
+     * ~extends UAnalyGizmoModelCO <br>
+     *
+     * 모델 정렬 분석의 생성 옵션입니다. <br>
+     * 현재 생성자는 name만 사용하며 상속 옵션 객체를 부모에게 전달하지 않습니다.
      */
     type UAnalyAlignModelCO = Omit<Omit<UAnalyGizmoModelCO, never> & UAnalyAlignModelCO_Content, never>;
     /**
-     * UAlignControls에 EventDispatcher / TransformControls 상속 멤버를 추가한 확장 타입 <br>
+     * ~extends import('@union3d/mode/UAlignControls').UAlignControls <br>
+     *
+     * 이벤트·모드 연결에 사용하는 컨트롤의 국소 타입 단언입니다. <br>
+     * 구현 내 단언용이며 getControl의 공개 반환 타입을 대체하지 않으므로 문서에서는 제외합니다.
      */
     type AlignControlTC_Content = {
+        /**
+         * 이벤트 이름과 실행 함수를 연결하는 함수
+         */
         addEventListener: (arg0: string, arg1: Function) => void;
+        /**
+         * 컨트롤의 실제 모드 문자열을 반환하는 함수
+         */
         getMode: () => string;
     };
     /**
-     * UAlignControls에 EventDispatcher / TransformControls 상속 멤버를 추가한 확장 타입 <br>
+     * ~extends import('@union3d/mode/UAlignControls').UAlignControls <br>
+     *
+     * 이벤트·모드 연결에 사용하는 컨트롤의 국소 타입 단언입니다. <br>
+     * 구현 내 단언용이며 getControl의 공개 반환 타입을 대체하지 않으므로 문서에서는 제외합니다.
      */
     type AlignControlTC = UAlignControls & AlignControlTC_Content;
+}
+
+declare global {
+    /**
+     * ~extends UAnalyCO <br>
+     *
+     * 면적 분석의 생성 옵션입니다.
+     * 상속 type 옵션은 현재 생성자에서 부모에게 전달하지 않습니다.
+     */
+    type UAnalyAreaCO_Content = {
+        /**
+         * 앱의 분석 등록·조회에 사용하는 이름
+         */
+        name?: string;
+    };
+    /**
+     * ~extends UAnalyCO <br>
+     *
+     * 면적 분석의 생성 옵션입니다.
+     * 상속 type 옵션은 현재 생성자에서 부모에게 전달하지 않습니다.
+     */
+    type UAnalyAreaCO = Omit<Omit<UAnalyCO, never> & UAnalyAreaCO_Content, never>;
+}
+
+declare global {
+    /**
+     * 레이어별 선택 메시와 내부 전체 선택의 평균 높이입니다.
+     * 기존 결과 타입 이름을 유지하며 list에는 메시 원본 참조를 보관합니다.
+     */
+    type LayerHeightInfo = {
+        /**
+         * 레이어 이름
+         */
+        layerName: string;
+        /**
+         * 검사한 대상 메시 목록
+         */
+        list: Array<UMesh | U3DTilesMesh>;
+        /**
+         * 내부 전체 선택의 평균 높이
+         */
+        averageHeight: number;
+    };
+    /**
+     * 현재 분석 상태로 병합 모델의 높이 목록을 조회합니다.
+     */
+    type UAnalyAverageHeightMergedHeightLookup = (mesh: UMesh) => Array<{
+        id: string;
+        height: number;
+    }> | undefined;
 }
 
 declare global {
@@ -66911,10 +67654,107 @@ declare class U3dCustomModelGroup extends UEventDispatcher {
 
 declare global {
     /**
-     * 사용자 건물 항목. 단일 모델(U3dCustomModel), 그룹(U3dCustomModelGroup),
-     * 메쉬 모델(U3dCustomModelMesh) 중 하나를 가리킨다.
+     * 단일 모델·그룹·메시 모델 중 하나인 사용자 건물 항목입니다.
      */
     type CustomModelEntry = U3dCustomModel | U3dCustomModelGroup | U3dCustomModelMesh;
+    /**
+     * 모델 조립에 사용하는 입력 구조입니다. 공개 addCustomModel()은 기존의
+     * 단일 object·Array<object> 계약을 유지하고 종류별 입력 검사를 별도로 수행합니다.
+     * 외부 모델의 기존 데이터 스키마이므로 modeltype·extrudeheight 등의 키는 보존합니다.
+     */
+    type UAnalyCustomModelInput = {
+        /**
+         * 모델 이름
+         */
+        name?: string;
+        /**
+         * 모델 종류
+         */
+        modeltype?: string;
+        /**
+         * 그룹 항목
+         */
+        models?: Array<object>;
+        /**
+         * 돌출 꼭짓점 또는 메시 위치 버퍼
+         */
+        vertex?: Array<three.Vector3> | ArrayLike<number>;
+        /**
+         * 메시 UV 버퍼
+         */
+        uv?: ArrayLike<number>;
+        /**
+         * 메시 위치
+         */
+        position?: three.Vector3;
+        /**
+         * 돌출 모델의 지리 좌표
+         */
+        points?: Array<GeoPosition>;
+        /**
+         * Number로 변환할 돌출 깊이
+         */
+        extrudeheight?: number | string;
+        /**
+         * 모델 높이 보정
+         */
+        zoffset?: number;
+        /**
+         * 라벨 문자열
+         */
+        labeltext?: string;
+        /**
+         * 모델 중심
+         */
+        center?: three.Vector3;
+        /**
+         * 모델 색상
+         */
+        color?: ColorLike;
+        /**
+         * 모델 불투명도
+         */
+        opacity?: number;
+        /**
+         * 모델의 회전 설정
+         */
+        rotation?: object;
+        /**
+         * 모델의 축척 설정
+         */
+        scale?: object;
+        /**
+         * 외부 모델이 해석하는 스타일 속성
+         */
+        style?: KeyValue;
+        /**
+         * 조립 후 원본에 저장하는 메시
+         */
+        mesh?: three.Mesh;
+        /**
+         * 원본에 저장하는 실행 인수
+         */
+        drawarg?: UDrawArg;
+    };
+    /**
+     * 외부 사용자 모델 구현이 제공하는 초기 설정 호출 계약입니다.
+     * 기존 선언의 필수 인수와 달리 실제 구현은 undefined·null 입력에서 설정을 생략합니다.
+     * 분석의 넓은 입력 계약을 유지하기 위한 국소 호출 view이며 모델 반환 타입을 대신하지 않습니다.
+     */
+    type UAnalyCustomModelSetup = {
+        /**
+         * 회전 설정
+         */
+        setRotate: (arg0: object | undefined) => void;
+        /**
+         * 축척 설정
+         */
+        setScale: (arg0: object | undefined) => void;
+        /**
+         * 스타일 설정
+         */
+        setStyle: (arg0: KeyValue | undefined) => void;
+    };
 }
 
 declare global {
@@ -69616,6 +70456,18 @@ declare global {
          */
         drawFrameTime: number;
         /**
+         * 다음 그리기 예정 시각(ms)
+         */
+        drawNextFrameTime: number;
+        /**
+         * 현재 그리기 간격이 시작된 기준 시각(ms)
+         */
+        drawScheduleStartTime: number;
+        /**
+         * 현재 일정에 적용된 그리기 간격(ms)
+         */
+        drawScheduleFrameUnit: number;
+        /**
          * 준비 중인 그리기 프레임 수
          */
         drawReadyFrame: number;
@@ -69787,7 +70639,10 @@ declare global {
      * 공통 콜백 맵 타입
      */
     type U3dAppCameraStateStore = {
-        savedInfo: UCameraState | undefined;
+        /**
+         * 저장된 클래스 또는 직렬화 상태
+         */
+        savedInfo: UCameraState | UCameraStateJSON | undefined;
     };
     /**
      * 공통 콜백 맵 타입
@@ -69934,7 +70789,7 @@ declare global {
      * 프레임 준비 작업이 조회·호출하는 앱 멤버만 지정한 인터페이스입니다.
      * 앱 객체 자체를 참조하여 콜백 실행 전에 교체된 멤버도 조회합니다.
      */
-    type U3dAppDrawReadySource = Pick<U3dApp, "_animationManager" | "_mixerManager" | "_freeFlyControl" | "getInstanceVideoLayers" | "_drawArg" | "_fires" | "_particles" | "getAnalysis" | "getSky" | "getLight">;
+    type U3dAppDrawReadySource = Pick<U3dApp, "_animationManager" | "_mixerManager" | "_freeFlyControl" | "_drawArg" | "_fires" | "_particles" | "getAnalysis" | "getSky" | "getLight">;
     /**
      * 절단면 계산에 필요한 초기화된 카메라·지도 컨트롤의 최소 상태입니다.
      */
@@ -70218,6 +71073,10 @@ declare global {
          * 후처리 옵션
          */
         postOption?: PostProcessParam;
+        /**
+         * 렌더러의 독립 MSAA 요청 샘플 수이며 초기 설정 복원에 사용합니다. 0이면 비활성화하며 후처리 사용 여부와 무관하게 적용합니다.
+         */
+        msaaSamples?: number;
         /**
          * 접촉부와 틈을 어둡게 표현하는 Ambient Occlusion 사용 여부를 담아 두는 자리이며, Settings 탭은 이 값을 앱에 적용하지 않고 postOption의 useAO로 전달합니다.
          */
@@ -70856,6 +71715,64 @@ declare global {
 
 declare global {
     /**
+     * 카메라 상태 생성 옵션입니다. 빈 옵션을 허용하며 좌표계는 기본 WORLD입니다.
+     * GeoPosition과 WorldPosition은 구조가 같으므로 좌표계의 의미는 type에 따라 해석합니다.
+     */
+    type UCameraStateCO = {
+        /**
+         * type 좌표계의 카메라 위치
+         */
+        camera?: GeoPosition | WorldPosition;
+        /**
+         * type 좌표계의 타겟 위치
+         */
+        center?: GeoPosition | WorldPosition;
+        /**
+         * 앱 getResolution()의 저장값. 실제 두 좌표로부터 다시 계산하지 않습니다.
+         */
+        distance?: number;
+        /**
+         * 방위각(라디안)
+         */
+        azimuth?: number;
+        /**
+         * 극각(라디안)
+         */
+        polar?: number;
+        /**
+         * 중심 x·y, distance, 방위각(도), 극각(도) 순서
+         */
+        homePosition?: [number, number, number, number, number];
+        /**
+         * 해발 기준 카메라 높이(미터). 월드 상태 조회에서는 생략됩니다.
+         */
+        height?: number;
+        /**
+         * 저장 좌표계
+         */
+        type?: "GEOGRAPHIC" | "WORLD";
+        /**
+         * 위경도 좌표를 월드 좌표로 변환할 앱
+         */
+        app?: U3dApp;
+    };
+    /**
+     * 앱 참조와 메서드를 제외한 직렬화 상태입니다. 좌표계에 따라 좌표의 의미를 구분합니다.
+     * 카메라와 타겟이 있는 상태의 toJSON()이 반환하며, 나머지 선택 필드는 생략될 수 있습니다.
+     */
+    type UCameraStateJSON = Omit<UCameraStateCO, "app" | "camera" | "center" | "type"> & ({
+        type: "GEOGRAPHIC";
+        camera: GeoPosition;
+        center: GeoPosition;
+    } | {
+        type: "WORLD";
+        camera: WorldPosition;
+        center: WorldPosition;
+    });
+}
+
+declare global {
+    /**
      * ~extends EventCallBack <br>
      *
      * 식별 이름과 일회 실행 표식을 가진 이벤트 콜백 함수입니다.
@@ -71003,27 +71920,34 @@ declare global {
         isEuler?: boolean;
     };
     /**
+     * 프러스텀 추적에 사용하는 정규화된 회전 성분입니다. THREE.Quaternion 또는 같은 성분을 가진 객체를 받습니다. <br>
+     * 기존 판정 방식에 따라 isQuaternion이 true여야 회전값으로 사용합니다. <br>
+     */
+    type UFrustumTargetQuaternion = three.QuaternionLike & {
+        readonly isQuaternion: true;
+    };
+    /**
      * UFrustum이 위치·자세를 추적할 target 객체의 최소 계약입니다.
      * U3dComponentPosition처럼 lookAt 좌표를 가진 컴포넌트와 import('three').Object3D 유사 객체를 모두 받습니다.
      * lookAt이 함수가 아닌 좌표값이면 quaternion보다 우선해 시선 방향으로 사용합니다.
      */
     type UFrustumTarget = {
         /**
-         * 월드 위치를 반환하는 함수. 있으면 position보다 우선한다.
+         * 월드 위치를 반환하는 함수. 반환값이 없으면 position을 사용한다.
          */
-        getVectorPosition?: () => three.Vector3;
+        getVectorPosition?: () => (three.Vector3Like | undefined);
         /**
-         * 월드 위치.
+         * 월드 위치. 실제 Vector3와 평문 x/y/z 객체를 모두 받는다.
          */
-        position?: three.Vector3;
+        position?: three.Vector3Like;
         /**
          * 회전 quaternion.
          */
-        quaternion?: three.Quaternion;
+        quaternion?: UFrustumTargetQuaternion;
         /**
          * quaternion 대신 사용할 내부 회전 quaternion.
          */
-        _quaternion?: three.Quaternion;
+        _quaternion?: UFrustumTargetQuaternion;
         /**
          * 회전 Euler. 현재 UFrustum은 자세 계산에 이 값을 사용하지 않으며(`quaternion`·`lookAt`만 사용) 타입 호환을 위해 허용합니다.
          */
@@ -71031,7 +71955,7 @@ declare global {
         /**
          * 바라보는 월드 좌표. Object3D의 lookAt 메서드는 좌표값으로 취급하지 않는다.
          */
-        lookAt?: three.Vector3 | three.Vector3Like | Array<number> | ((arg0: three.Vector3 | number, arg1: number | undefined, arg2: number | undefined) => void);
+        lookAt?: three.Vector3 | three.Vector3Like | Array<number> | three.Object3D["lookAt"];
     };
     /**
      * UFrustum이 갱신에 사용하는 카메라입니다. 원근 카메라는 BASIC, 직교 카메라는 ORTHO 타입 프러스텀과 함께 사용합니다.
@@ -71122,12 +72046,6 @@ declare global {
      */
     type PostProcessParam = {
         /**
-         * 후처리 렌더 타깃의 MSAA 요청 샘플 수입니다.<br>
-         * 0 이상의 안전한 정수만 허용하며 0이면 MSAA를 비활성화합니다.<br>
-         * 요청값은 보관하고 실제 적용값은 장치의 MSAA 상한으로 제한합니다. 변경은 다음 후처리 렌더 시작 시 반영됩니다.
-         */
-        composerSamples?: number;
-        /**
          * 화면 전체에서 밝은 부분과 어두운 부분의 차이를 조절하는 배율입니다.<br>
          * 1이면 원본 그대로이고 1보다 크면 차이가 커져 또렷해지며 1보다 작으면 차이가 줄어 평탄해집니다.
          */
@@ -71165,6 +72083,34 @@ declare global {
          */
         useDither?: boolean;
     };
+    /**
+     * ~extends import('three').WebGLRendererParameters <br>
+     *
+     * 렌더러의 품질 설정입니다. MSAA는 후처리 보정 옵션과 독립적으로 관리합니다.
+     */
+    type URendererCO_Content = {
+        /**
+         * MSAA 요청 샘플 수이며 0이면 비활성화합니다.<br>
+         * 0 이상의 안전한 정수를 받으며 실제 적용값은 장치 상한으로 제한합니다. 환경의 성능과 화질에 맞게 0·2·4·8 등을 선택하십시오.<br>
+         * 높은 값은 얇은 선과 원경의 경계를 부드럽게 하지만 GPU 비용도 늘어납니다. 생성 후 getMsaaSamples()와 setMsaaSamples()로 조회·변경합니다.<br>
+         * usePostProcess가 false여도 MSAA는 계속 적용됩니다.
+         */
+        msaaSamples?: number;
+        /**
+         * 대비·밝기·AO·Bloom·FXAA·Dither 등 후처리 보정 사용 여부
+         */
+        usePostProcess?: boolean;
+        /**
+         * 개별 후처리 보정 설정이며 생략한 항목은 기본값 사용
+         */
+        postOption?: Partial<PostProcessParam>;
+    };
+    /**
+     * ~extends import('three').WebGLRendererParameters <br>
+     *
+     * 렌더러의 품질 설정입니다. MSAA는 후처리 보정 옵션과 독립적으로 관리합니다.
+     */
+    type URendererCO = Omit<Omit<three.WebGLRendererParameters, never> & URendererCO_Content, never>;
 }
 
 declare global {
@@ -71786,6 +72732,41 @@ declare global {
 
 declare global {
     /**
+     * U3dCumulativePath가 사용자 콜백을 감싸 tail에 전달하는 내부 함수입니다.
+     */
+    type USimpleTailDrawEvaluator = (node: USimpleTailDrawNode, newest: USimpleTailDrawNode, now: number, previous: USimpleTailDrawNode | null, totalTime: number) => USimpleTailDrawResult | void;
+    /**
+     * 누적 경로와 내부 렌더러가 공유하는 노드별 표시 결정입니다.
+     */
+    type USimpleTailDrawResult = {
+        /**
+         * 노드 색상. 생략하면 기본 색상을 사용하며 지정하면 해당 색상을 대체합니다. 노드 사이에서 보간합니다.
+         */
+        color?: three.ColorRepresentation;
+        /**
+         * 노드 불투명도(0~1). 생략/비정상 값은 기본 opacity. 노드 사이에서 보간한 뒤 fade.alpha와 곱합니다.
+         */
+        opacity?: number;
+        /**
+         * hide는 보관, dispose는 복구 불가능한 노드 제거. 버퍼는 사용량이 용량의 절반 이하일 때 축소하며 전체 제거 시 즉시 해제합니다.
+         */
+        action?: "draw" | "hide" | "dispose";
+        /**
+         * 폭·불투명도 배율(0~1). 생략/비정상 값은 1. 0도 삭제를 뜻하지 않습니다.
+         */
+        fade?: {
+            width?: number;
+            alpha?: number;
+        };
+        /**
+         * 직전 연결 노드→현재 노드 구간의 표시 비율. 기본 0~1. from>=to면 표시하지 않습니다.
+         */
+        range?: {
+            from?: number;
+            to?: number;
+        };
+    };
+    /**
      * 렌더 노드에 보관하는 경로 기록 정보입니다.
      */
     type USimpleTailPointMetadata = {
@@ -71799,7 +72780,7 @@ declare global {
      */
     type USimpleTailDrawNode = {
         /**
-         * 안정적인 노드 식별자
+         * 버퍼 이동·삭제에도 유지되는 식별자
          */
         nodeId: number;
         /**
@@ -71815,20 +72796,61 @@ declare global {
          */
         z: number;
         /**
-         * 실제 중심점 사이에서 누적한 경로 거리(m)
+         * 경로 시작부터 누적 거리(m). U3dCumulativePathDrawInfo.dist와 같은 값
          */
         pathDistance: number;
         /**
-         * 노드 기록 epoch 시각(ms)
+         * 노드 기록 epoch 시각(ms). 실시간 기록은 경로가 자체 생성하며 애니메이션 누적 시간과 무관합니다. 명시적 이력 입력은 그 time을 사용합니다.
          */
         time: number;
+        /**
+         * 직전 노드와 연결이 끊어졌는지 여부
+         */
+        breakBefore?: boolean;
     };
     /**
-     * U3dCumulativePath가 사용자 콜백을 감싸 tail에 전달하는 내부 함수입니다.
+     * ~extends SimplifyPolicy_Option <br>
+     *
+     * 생성 옵션과 정책 변경에서 공유하는 단순화·제한·fade 설정입니다.
      */
-    type USimpleTailDrawEvaluator = (node: USimpleTailDrawNode, newest: USimpleTailDrawNode, now: number, previous: USimpleTailDrawNode | null, totalTime: number) => U3dCumulativePathDrawResult | void;
+    type USimpleTailCommonPolicy_Content = {
+        /**
+         * 용량 확장 배율이며 현재 지점 용량에 곱해 확장 단위를 정합니다.
+         */
+        precision?: number;
+        /**
+         * none은 제한·정책 fade 해제. distance는 m, time은 최신 기록 기준 ms, age는 현재 시각 기준 ms
+         */
+        limitMode?: "none" | "distance" | "time" | "age";
+        /**
+         * 제한 범위. 범위 이상이면 limitAction을 적용합니다. null/Infinity는 제한 해제, 0은 전체 숨김 또는 제거
+         */
+        limitValue?: number | null;
+        /**
+         * hide는 노드를 보관하고 GPU에서 숨김·fade 처리, dispose는 만료 노드를 제거. hide에서도 단순화나 drawFunc의 제거는 별도 적용
+         */
+        limitAction?: "hide" | "dispose";
+        /**
+         * 제거 예정(deprecated) 옵션. 대신 `limitMode: 'distance'`와 `limitValue`를 사용하세요.
+         */
+        maxDistance?: number;
+        /**
+         * 보관 범위의 오래된 끝부분에서 폭을 줄일 비율(0~1). 0은 fade 해제. distance·time·age 모드의 유한한 제한 범위에 적용합니다.
+         */
+        widthFade?: number;
+        /**
+         * 보관 범위의 오래된 끝부분에서 불투명도를 줄일 비율(0~1). 0은 fade 해제. 스타일 불투명도와 곱합니다.
+         */
+        alphaFade?: number;
+    };
     /**
      * ~extends SimplifyPolicy_Option <br>
+     *
+     * 생성 옵션과 정책 변경에서 공유하는 단순화·제한·fade 설정입니다.
+     */
+    type USimpleTailCommonPolicy = SimplifyPolicy_Option & USimpleTailCommonPolicy_Content;
+    /**
+     * ~extends USimpleTailCommonPolicy <br>
      *
      * U3dCumulativePath에서 사용할 단순화·표시 정책입니다.
      */
@@ -71838,10 +72860,6 @@ declare global {
          */
         initLength?: number;
         /**
-         * 용량 확장 배율이며 현재 지점 용량에 곱해 확장 단위를 정합니다.
-         */
-        precision?: number;
-        /**
          * U3dCumulativePath의 실시간 지점 기록 최소 간격(ms)이며 0이면 제한하지 않습니다.
          */
         recordIntervalMs?: number;
@@ -71850,50 +72868,77 @@ declare global {
          */
         perMaxNode?: number;
         /**
-         * 사용자 drawFunc가 없으면 최신 위치부터 이 거리(m)만 표시하는 기본 drawFunc를 생성합니다. Infinity·0 이하·비정상 값은 제한 해제. 노드를 삭제하지 않습니다.
+         * 제한 경계가 전진할 때 호출합니다. hide·dispose 모두 적용하며 null로 해제합니다.
          */
-        maxDistance?: number;
-        /**
-         * 기본 거리 draw 정책에서 폭을 줄일 오래된 끝부분의 비율(0~1). 0은 폭 fade 해제. 사용자 drawFunc가 있으면 적용하지 않습니다.
-         */
-        widthFade?: number;
-        /**
-         * 기본 거리 draw 정책에서 투명하게 할 오래된 끝부분의 비율(0~1). 0은 투명도 fade 해제. 사용자 drawFunc가 있으면 적용하지 않습니다.
-         */
-        alphaFade?: number;
-        /**
-         * 노드 표시·부분 구간·fade·폐기 함수. null이면 maxDistance 기본 정책으로 복귀합니다.
-         */
-        drawFunc?: U3dCumulativePathDrawFunc | null;
-        /**
-         * 사용하지 않는 이전 옵션
-         */
-        onFadeOut?: (arg0: object) => void;
-        /**
-         * 호환 입력값으로 보관하며 현재 궤적 재질에는 반영하지 않습니다.
-         */
-        nearWidthFadeStart?: number;
-        /**
-         * 호환 입력값으로 보관하며 현재 궤적 재질에는 반영하지 않습니다.
-         */
-        nearWidthFadeEnd?: number;
-        /**
-         * 카메라 깊이에 따라 화면 너비를 보정할지 여부
-         */
-        depthWidthScale?: boolean;
+        onFadeOut?: USimpleTailFadeOutCallback | null;
     };
     /**
-     * ~extends SimplifyPolicy_Option <br>
+     * ~extends USimpleTailCommonPolicy <br>
      *
      * U3dCumulativePath에서 사용할 단순화·표시 정책입니다.
      */
-    type USimpleTail_Policy = SimplifyPolicy_Option & USimpleTail_Policy_Content;
+    type USimpleTail_Policy = USimpleTailCommonPolicy & USimpleTail_Policy_Content;
+    /**
+     * 제한 범위를 벗어나는 경계 알림입니다. 개별 노드 삭제나 fade 시작 알림은 아닙니다.
+     * 경계가 전진할 때 평가당 한 번 호출하며 none·무한 제한에서는 호출하지 않습니다.
+     */
+    type USimpleTailFadeOutCallback = (this: USimpleTail, event: USimpleTailFadeOutEvent) => void;
+    type USimpleTailFadeOutEvent = {
+        /**
+         * 대상 궤적. name으로 경로를 구분합니다.
+         */
+        target: USimpleTail;
+        /**
+         * 제한 기준
+         */
+        limitMode: "distance" | "time" | "age";
+        /**
+         * 제한 범위(m 또는 ms)
+         */
+        limitValue: number;
+        /**
+         * 제한 범위 밖의 처리 방식
+         */
+        limitAction: "hide" | "dispose";
+        /**
+         * 경로 시작부터 경계까지 누적 거리(m). 시간 순서가 뒤섞인 time·age 모드에서는 제공하지 않습니다.
+         */
+        boundaryDistance?: number;
+        /**
+         * time·age 모드의 제한 경계 epoch 시각(ms)
+         */
+        boundaryTime?: number;
+        /**
+         * 거리 모드에서만 제공하는 기존 호환 값. limitValue와 같습니다.
+         */
+        maxDistance?: number;
+        /**
+         * 경계 직전 또는 경계에 위치한 노드
+         */
+        previousNode?: USimpleTailNode;
+        /**
+         * 경계 다음 노드. 모두 범위를 벗어나면 생략합니다.
+         */
+        nextNode?: USimpleTailNode;
+        /**
+         * 보관 중인 마지막 노드
+         */
+        newestNode: USimpleTailNode;
+        /**
+         * 연결된 구간의 경계 보간점. 단절 구간에서는 생략합니다.
+         */
+        virtualPoint?: Pick<USimpleTailDrawNode, "x" | "y" | "z" | "pathDistance" | "time">;
+        /**
+         * previousNode에서 nextNode까지 경계 보간 비율(0~1)
+         */
+        t?: number;
+    };
     /**
      * 오래된 궤적 지점을 줄이고 최근 지점과 꺾임을 보호하는 정책입니다.
      */
     type SimplifyPolicy_Option = {
         /**
-         * 자동 단순화 사용 여부. drawFunc 사용 중이거나 폐기로 단절이 있으면 노드 정책 보존을 위해 단순화를 수행하지 않습니다.
+         * 자동 단순화 사용 여부. drawFunc 사용 중에는 단순화하지 않습니다. 폐기로 단절된 경로는 단절 경계를 보존하며 구간별로 단순화합니다.
          */
         simplify?: boolean;
         /**
@@ -71926,32 +72971,7 @@ declare global {
         colorFactor: number;
     }>;
     /**
-     * ~extends Omit<USimpleTail_Policy, 'drawFunc'> <br>
-     *
-     * USimpleTail에 직접 전달할 정책이며 drawFunc는 렌더 지점 평가 함수를 받습니다.
-     */
-    type USimpleTailRuntimePolicy_Content = {
-        /**
-         * 노드·최신 노드·현재 시각·직전 연결 노드·경로 시간을 받아 draw 결정을 반환하는 함수
-         */
-        drawFunc?: USimpleTailDrawEvaluator | null;
-        /**
-         * 카메라 근접 너비 fade의 시작 거리
-         */
-        fadeStart?: number;
-        /**
-         * 카메라 근접 너비 fade의 종료 거리
-         */
-        fadeEnd?: number;
-    };
-    /**
-     * ~extends Omit<USimpleTail_Policy, 'drawFunc'> <br>
-     *
-     * USimpleTail에 직접 전달할 정책이며 drawFunc는 렌더 지점 평가 함수를 받습니다.
-     */
-    type USimpleTailRuntimePolicy = Omit<USimpleTail_Policy, "drawFunc"> & USimpleTailRuntimePolicy_Content;
-    /**
-     * ~extends SimplifyPolicy_Option <br>
+     * ~extends USimpleTailCommonPolicy <br>
      *
      * USimpleTail 생성 옵션이며 실제 그리기 자원은 initialize에서 준비합니다.
      */
@@ -71965,7 +72985,7 @@ declare global {
          */
         name?: string;
         /**
-         * initialize에서 재사용할 기존 geometry
+         * initialize에서 해제하고 새로 생성할 기존 geometry
          */
         geometry?: three.BufferGeometry | null;
         /**
@@ -72004,41 +73024,13 @@ declare global {
          * 지점 추가에 재사용할 변환 행렬
          */
         tempMatrix4?: three.Matrix4;
-        /**
-         * 용량 확장 배율
-         */
-        precision?: number;
-        /**
-         * 사용자 drawFunc가 없으면 최신 위치부터 이 거리(m)만 표시하는 기본 drawFunc를 생성합니다. Infinity·0 이하·비정상 값은 제한 해제. 노드를 삭제하지 않습니다.
-         */
-        maxDistance?: number;
-        /**
-         * 카메라 근접 너비 fade의 시작 거리
-         */
-        fadeStart?: number;
-        /**
-         * 카메라 근접 너비 fade의 종료 거리
-         */
-        fadeEnd?: number;
-        /**
-         * 카메라 깊이에 따라 너비를 보정할지 여부
-         */
-        depthWidthScale?: boolean;
-        /**
-         * 기본 거리 draw 정책에서 폭을 줄일 오래된 끝부분의 비율(0~1). 0은 폭 fade 해제. 사용자 drawFunc가 있으면 적용하지 않습니다.
-         */
-        widthFade?: number;
-        /**
-         * 기본 거리 draw 정책에서 투명하게 할 오래된 끝부분의 비율(0~1). 0은 투명도 fade 해제. 사용자 drawFunc가 있으면 적용하지 않습니다.
-         */
-        alphaFade?: number;
     };
     /**
-     * ~extends SimplifyPolicy_Option <br>
+     * ~extends USimpleTailCommonPolicy <br>
      *
      * USimpleTail 생성 옵션이며 실제 그리기 자원은 initialize에서 준비합니다.
      */
-    type USimpleTailCO = Omit<Omit<SimplifyPolicy_Option, never> & USimpleTailCO_Content, never>;
+    type USimpleTailCO = Omit<Omit<USimpleTailCommonPolicy, never> & USimpleTailCO_Content, never>;
 }
 
 declare global {
@@ -72645,72 +73637,23 @@ declare global {
 
 declare global {
     /**
-     * `moveSmoothly`로 실제 도착한 지점 한 건의 이력 기록
-     */
-    type WaypointRecord = {
-        /**
-         * 도착한 월드 좌표 (EPSG:3857, m)
-         */
-        point: WorldPositionVector3;
-        /**
-         * 도착 시각 (`Date.now()` 기준 epoch ms)
-         */
-        time: number;
-    };
-    /**
      * 노드별 표시·부분 구간·fade·폐기 정책. this는 U3dCumulativePath입니다.
      * 숨긴 노드도 평가하며 예외 시 이전 결정을 유지합니다. 입력 객체를 변경해도 내부 노드는 바뀌지 않습니다.
      */
-    type U3dCumulativePathDrawFunc = (info: U3dCumulativePathDrawInfo) => U3dCumulativePathDrawResult | void;
-    type U3dCumulativePathDrawResult = {
-        /**
-         * 노드 색상. 생략하면 기본 색상과 기존 colorGradation을 사용하며 지정하면 기존 색 농도를 대체합니다. 노드 사이에서 보간합니다.
-         */
-        color?: three.ColorRepresentation;
-        /**
-         * 노드 불투명도(0~1). 생략/비정상 값은 기본 opacity. 노드 사이에서 보간한 뒤 fade.alpha와 곱합니다.
-         */
-        opacity?: number;
-        /**
-         * hide는 보관, dispose는 복구 불가능한 제거와 버퍼 회수
-         */
-        action?: "draw" | "hide" | "dispose";
-        /**
-         * 폭·불투명도 배율(0~1). 생략/비정상 값은 1. 0도 삭제를 뜻하지 않습니다.
-         */
-        fade?: {
-            width?: number;
-            alpha?: number;
-        };
-        /**
-         * 직전 연결 노드→현재 노드 구간의 표시 비율. 기본 0~1. from>=to면 표시하지 않습니다.
-         */
-        range?: {
-            from?: number;
-            to?: number;
-        };
-    };
-    type U3dCumulativePathDrawInfo = {
-        /**
-         * 버퍼 이동·삭제에도 유지되는 식별자
-         */
-        nodeId: number;
+    type U3dCumulativePathDrawFunc = (this: U3dCumulativePath, info: U3dCumulativePathDrawInfo) => USimpleTailDrawResult | void;
+    /**
+     * 노드 식별자와 기록 시각은 USimpleTailDrawNode 선언을 공유합니다.
+     * position/dist는 공개 조회 API의 이름이며 내부 x·y·z/pathDistance에서 변환합니다.
+     */
+    type U3dCumulativePathDrawInfo_Content = {
         /**
          * 보정 후 월드 좌표
          */
-        position: {
-            x: number;
-            y: number;
-            z: number;
-        };
+        position: Pick<USimpleTailDrawNode, "x" | "y" | "z">;
         /**
          * 경로 시작부터 누적 거리(m)
          */
-        dist: number;
-        /**
-         * 실시간 노드 기록 epoch 시각(ms). 경로가 자체 생성하며 애니메이션 누적 시간과 무관합니다. 명시적 이력 입력은 그 time을 사용합니다.
-         */
-        time: number;
+        dist: USimpleTailDrawNode["pathDistance"];
         /**
          * 평가 경로 시간(ms). 기본 최신 입력 시간
          */
@@ -72726,26 +73669,35 @@ declare global {
         /**
          * 직전 연결 노드. 첫 노드·단절 뒤에는 null
          */
-        previous: {
-            nodeId: number;
-            position: {
-                x: number;
-                y: number;
-                z: number;
-            };
-            time: number;
-        } | null;
+        previous: Pick<U3dCumulativePathDrawInfo, "nodeId" | "position" | "time"> | null;
         /**
          * 별도 도착 이력의 복사본. 접근할 때 복사합니다.
          */
         waypointHistory: Array<WaypointRecord>;
     };
     /**
-     * 경로의 각 지점에서 색을 얼마나 진하게 칠할지 정하는 콜백입니다. <br>
-     * `setStyleFunc`이나 스타일 옵션의 `styleFunc`으로 등록하며, 등록하면 기본 그라데이션 대신 이 함수의 결과를 사용합니다. <br>
-     * 호출 시 `this`는 경로 인스턴스(`U3dCumulativePath`)입니다. <br>
+     * 노드 식별자와 기록 시각은 USimpleTailDrawNode 선언을 공유합니다.
+     * position/dist는 공개 조회 API의 이름이며 내부 x·y·z/pathDistance에서 변환합니다.
      */
-    type U3dCumulativePathStyleFunc = (pos: three.Vector3, dist: number, time: number) => number;
+    type U3dCumulativePathDrawInfo = Pick<USimpleTailDrawNode, "nodeId" | "time"> & U3dCumulativePathDrawInfo_Content;
+    /**
+     * `moveSmoothly`로 실제 도착한 지점 한 건의 이력 기록
+     */
+    type WaypointRecord = {
+        /**
+         * 도착한 월드 좌표 (EPSG:3857, m)
+         */
+        point: WorldPositionVector3;
+        /**
+         * 도착 시각 (`Date.now()` 기준 epoch ms)
+         */
+        time: number;
+    };
+    /**
+     * colorGradation이 true일 때 지점 기록 시 색 농도를 계산합니다. this는 현재 경로입니다.
+     * 등록하거나 렌더링할 때 기존 노드 전체를 재평가하지 않습니다.
+     */
+    type U3dCumulativePathStyleFunc = (this: U3dCumulativePath, position: three.Vector3, dist: number, time: number) => number;
     /**
      * 경로를 그리는 방식을 정하는 스타일 옵션입니다. <br>
      * 생성 옵션 `pathStyle`과 `setPathStyle`의 입력으로 사용합니다. <br>
@@ -72769,17 +73721,17 @@ declare global {
          */
         opacity?: number;
         /**
-         * 경로 굵기. 화면 픽셀 기준 값이며, 기본 설정(`depthWidthScale`)에서는 카메라와의 거리에 따라 보정됩니다 <br>
+         * 경로 반폭(px). 직선의 전체 폭은 약 2배이며, 폭 fade가 적용되면 줄어듭니다 <br>
          */
         width?: number;
         /**
-         * 지점별 색 농도 그라데이션 사용 여부. 켜면 `styleFunc`(없으면 지점 높이 z 기준의 기본 함수)가 정한 농도로 칠하고, 끄면 단색으로 그립니다 <br>
+         * true면 지점 기록 시 styleFunc 또는 기본 높이 기반 색 농도를 적용합니다 <br>
          */
         colorGradation?: boolean;
         /**
-         * 지점별 색 농도를 직접 정하는 함수. 넣으면 `colorGradation`의 기본 계산 대신 이 함수를 씁니다 <br>
+         * 지점별 colorFactor(0~1)를 반환하는 함수. colorGradation이 true일 때 적용하며 null은 기본 높이 계산 사용
          */
-        styleFunc?: U3dCumulativePathStyleFunc;
+        styleFunc?: U3dCumulativePathStyleFunc | null;
         /**
          * 제거 예정(deprecated) 옵션. 현재 구현에서 읽지 않으며 아무 효과가 없습니다 <br>
          */
@@ -72809,11 +73761,11 @@ declare global {
             z: number;
         };
         /**
-         * 사용하지 않는 이전 옵션. drawFunc로 표시와 수명을 제어합니다. <br>
+         * tailPolicy.onFadeOut과 같은 제한 경계 콜백. null로 해제합니다. <br>
          */
-        onFadeOut?: (arg0: object) => void;
+        onFadeOut?: USimpleTailFadeOutCallback | null;
         /**
-         * 노드 표시·구간·fade·폐기를 결정하는 함수. 지정하면 maxDistance보다 우선하며 null이면 거리 기본 정책으로 복귀
+         * 노드별 CPU 제어 콜백. 지정한 경로만 매 프레임 순회하며 null로 해제. styleFunc와 함께 사용 가능
          */
         drawFunc?: U3dCumulativePathDrawFunc | null;
         /**
@@ -72825,7 +73777,7 @@ declare global {
      * 경로 지점 하나의 위치·거리·시각 묶음입니다. <br>
      * 생성 옵션 `initPositions`와 `createTrailFromPositions`의 입력으로 사용합니다. <br>
      */
-    type U3dCumulativePathPositionData = {
+    type U3dCumulativePathPositionData_Content = {
         /**
          * 그 지점의 위경도 좌표 (EPSG:4326). `initPositions`·`createTrailFromPositions`로 넘기면 월드 좌표로 변환되어 그려지므로 직접 변환하지 않습니다 <br>
          */
@@ -72835,20 +73787,21 @@ declare global {
             z: number;
         };
         /**
-         * 노드 기록 epoch 시각(ms). 생략하면 입력 시 Date.now(). `styleFunc`에도 같은 시각을 전달합니다 <br>
-         */
-        time?: number;
-        /**
          * 해당 지점에서 컴포넌트 로컬축을 월드축으로 변환할 회전값 <br>
          */
         orientation?: three.QuaternionLike;
     };
     /**
+     * 경로 지점 하나의 위치·거리·시각 묶음입니다. <br>
+     * 생성 옵션 `initPositions`와 `createTrailFromPositions`의 입력으로 사용합니다. <br>
+     */
+    type U3dCumulativePathPositionData = USimpleTailPointMetadata & U3dCumulativePathPositionData_Content;
+    /**
      * U3dCumulativePath 생성자 옵션 <br>
      */
     type U3dCumulativePathCO = {
         /**
-         * 노드 draw 정책. pathStyle.drawFunc보다 우선합니다.
+         * 노드별 CPU 제어 콜백. pathStyle.drawFunc보다 우선합니다.
          */
         drawFunc?: U3dCumulativePathDrawFunc | null;
         /**
@@ -73601,6 +74554,13 @@ declare function measureGroundDepthOffset(offsetParam: measureGroundDepthOffsetP
 
 declare global {
     /**
+     * 사용자 깊이 보정 함수입니다. 위치·크기·카메라 거리는 월드 단위이며, 반환값은 미터 단위입니다. <br>
+     * 엔진이 반환값을 월드 단위로 환산한 뒤 카메라 거리의 90% 이내로 제한합니다. <br>
+     * undefined·음수·유한하지 않은 값은 보정 0으로 처리하며 기본 측정 함수를 대신 호출하지 않습니다. <br>
+     * 기본 measureGroundDepthOffset은 월드 단위를 반환하므로 사용자 콜백과 반환 단위가 다릅니다. <br>
+     */
+    type U3dDepthOffsetFunction = (arg0: Parameters<typeof measureGroundDepthOffset>[0]) => (number | undefined);
+    /**
      * ~extends import('@UEventDispatcher').UEventDispatcherCO <br>
      *
      * U3dGeometry 생성자 옵션 입니다. <br>
@@ -73639,7 +74599,7 @@ declare global {
         /**
          * dynamicDepthOffset이 true일 때, depthOffset을 동적으로 측정하는 데 사용되는 함수. <br>
          */
-        depthOffsetFunction?: typeof measureGroundDepthOffset;
+        depthOffsetFunction?: U3dDepthOffsetFunction;
         /**
          * 꼭짓점의 월드 좌표(EPSG:3857) 배열 <br>
          */
@@ -73738,7 +74698,7 @@ declare global {
         /**
          * `dynamicDepthOffset`이 켜져 있을 때 보정치를 재는 함수
          */
-        depthOffsetFunction?: Function;
+        depthOffsetFunction?: U3dDepthOffsetFunction;
         /**
          * 도형이 놓인 위치. `x`는 경도, `y`는 위도 (위경도 좌표계(EPSG:4326)), `z`는 높이 (미터)입니다. <br>
          *  좌표가 하나인 도형에만 적용하며, 좌표가 여러 개인 도형은 `getParam`에서 `undefined`입니다
@@ -74068,7 +75028,7 @@ declare global {
     /**
      * ~extends import('@U3dGeometry').U3dGeometryCO <br>
      *
-     * `U3dLine` 생성자와 `setParam`에 전달하는 옵션입니다. <br>
+     * `U3dLine` 생성자에 전달하는 옵션입니다. <br>
      * 도형 공통 옵션은 `U3dGeometryCO`에 정의되어 있으며, 이 타입은 선 고유 옵션과 주요 공통 옵션을 함께 설명합니다. <br>
      */
     type U3dLineCO_Content = {
@@ -74129,10 +75089,10 @@ declare global {
     /**
      * ~extends import('@U3dGeometry').U3dGeometryCO <br>
      *
-     * `U3dLine` 생성자와 `setParam`에 전달하는 옵션입니다. <br>
+     * `U3dLine` 생성자에 전달하는 옵션입니다. <br>
      * 도형 공통 옵션은 `U3dGeometryCO`에 정의되어 있으며, 이 타입은 선 고유 옵션과 주요 공통 옵션을 함께 설명합니다. <br>
      */
-    type U3dLineCO = Omit<Omit<U3dGeometryCO, never> & U3dLineCO_Content, never>;
+    type U3dLineCO = Omit<U3dGeometryCO, keyof U3dLineCO_Content> & U3dLineCO_Content;
     /**
      * ~extends U3dGeometryStyleParam <br>
      *
@@ -74203,14 +75163,19 @@ declare global {
          */
         missCount: number;
     };
+    /**
+     * 선의 변경 파라미터입니다. 공통 스타일은 생성 옵션보다 변경 API의 계약을 우선합니다. <br>
+     * depthOffset의 null 해제를 지원하며, 색상 배열 변경은 setColor를 사용합니다. <br>
+     */
+    type U3dLineSetParam = Omit<U3dLineCO, keyof U3dGeometryStyleParam> & U3dGeometryStyleParam;
 }
 
 declare global {
     /**
-     * ~extends import('@union3d/geometry/UExtrudeGeometry').UExtrudeGeometry <br>
+     * ~extends import('three').BufferGeometry <br>
      *
      * 경로 형상에 사용하는 지오메트리 타입입니다. <br>
-     * `UExtrudeGeometry`에 곡선·분할·단면 정보를 담는 속성을 더한 형식입니다. <br>
+     * `BufferGeometry`에 곡선·분할·단면 정보를 더한 형식입니다. 경로 생성·갱신이 완료된 버퍼를 나타내며, 초기 지오메트리와 돌출 형상에는 이 속성이 없습니다. <br>
      */
     type RoadBufferGeometry_Content = {
         /**
@@ -74232,23 +75197,23 @@ declare global {
         /**
          * 면별 생성 여부 <br>
          */
-        sides?: Array<boolean>;
+        sides: Array<boolean>;
         /**
          * 면별 단면 정점 수 <br>
          */
-        _sideSizes?: Array<number>;
+        _sideSizes: Array<number>;
         /**
          * 면별 폭 방향 분할 수 <br>
          */
-        _widthSize?: Array<number>;
+        _widthSize: Array<number>;
         /**
          * 길이 방향 분할 수 <br>
          */
-        _lengthSegments?: number;
+        _lengthSegments: number;
         /**
          * 길이 방향 정점 수 (`_lengthSegments` + 1) <br>
          */
-        lss?: number;
+        lss: number;
         /**
          * 제어점 좌표를 `[x, y, z, ...]` 순서로 나열한 배열 <br>
          */
@@ -74264,11 +75229,11 @@ declare global {
         /**
          * 곡선 전체 길이 (월드 좌표 길이) <br>
          */
-        len?: number;
+        len: number;
         /**
          * 표본 지점별 누적 길이 목록 <br>
          */
-        lenList?: Array<number>;
+        lenList: Array<number>;
         /**
          * 표본 지점별 수평 법선 벡터 <br>
          */
@@ -74276,7 +75241,7 @@ declare global {
         /**
          * 경로 형상 지오메트리 여부 <br>
          */
-        isPath?: boolean;
+        isPath: true;
         /**
          * 삼각형 면 수 <br>
          */
@@ -74303,18 +75268,18 @@ declare global {
         _pathPivot?: three.Vector3;
     };
     /**
-     * ~extends import('@union3d/geometry/UExtrudeGeometry').UExtrudeGeometry <br>
+     * ~extends import('three').BufferGeometry <br>
      *
      * 경로 형상에 사용하는 지오메트리 타입입니다. <br>
-     * `UExtrudeGeometry`에 곡선·분할·단면 정보를 담는 속성을 더한 형식입니다. <br>
+     * `BufferGeometry`에 곡선·분할·단면 정보를 더한 형식입니다. 경로 생성·갱신이 완료된 버퍼를 나타내며, 초기 지오메트리와 돌출 형상에는 이 속성이 없습니다. <br>
      */
-    type RoadBufferGeometry = UExtrudeGeometry & RoadBufferGeometry_Content;
+    type RoadBufferGeometry = three.BufferGeometry & RoadBufferGeometry_Content;
     /**
      * ~extends import('three').ShaderMaterial <br>
      * ~extends import('three').MeshBasicMaterial <br>
      *
      * 경로 재질 타입입니다. <br>
-     * 셰이더 재질과 기본 재질의 속성에 색상·불투명도 복원용 원래 값을 더한 형식입니다. <br>
+     * 셰이더 재질 또는 기본 재질에 색상·불투명도 복원용 원래 값을 더한 형식입니다. <br>
      */
     type PathMaterial_Content = {
         /**
@@ -74331,9 +75296,9 @@ declare global {
      * ~extends import('three').MeshBasicMaterial <br>
      *
      * 경로 재질 타입입니다. <br>
-     * 셰이더 재질과 기본 재질의 속성에 색상·불투명도 복원용 원래 값을 더한 형식입니다. <br>
+     * 셰이더 재질 또는 기본 재질에 색상·불투명도 복원용 원래 값을 더한 형식입니다. <br>
      */
-    type PathMaterial = three.ShaderMaterial & three.MeshBasicMaterial & PathMaterial_Content;
+    type PathMaterial = (PathShaderMaterial | three.MeshBasicMaterial) & PathMaterial_Content;
     /**
      * ~extends import('@U3dSphere').U3dSphere <br>
      *
@@ -74651,6 +75616,33 @@ declare global {
      * 도형 공통 속성(`U3dGeometryStyleParam`)에 경로 고유 속성을 더한 형식이며, 형상이 생성된 경로의 `setParam`에 전달할 수 있습니다. <br>
      */
     type U3dPathGeometryParam = U3dPathGeometryParam_Content & U3dGeometryStyleParam;
+    /**
+     * 경로 셰이더가 기본으로 제공하는 uniform입니다. 점선 등 프로젝트 확장 uniform은 포함하지 않습니다. <br>
+     */
+    type PathShaderUniforms = {
+        /**
+         * 경로 색상 <br>
+         */
+        color: three.IUniform<three.Color>;
+        /**
+         * 불투명도 <br>
+         */
+        opacity: three.IUniform<number>;
+        /**
+         * 외곽선 두께 <br>
+         */
+        thickness: three.IUniform<number>;
+        /**
+         * 깊이 보정값 <br>
+         */
+        depthOffset: three.IUniform<number>;
+    };
+    /**
+     * 경로 셰이더가 기본으로 제공하는 uniform입니다. 점선 등 프로젝트 확장 uniform은 포함하지 않습니다. <br>
+     */
+    type PathShaderMaterial = three.ShaderMaterial & {
+        uniforms: PathShaderUniforms;
+    };
 }
 
 declare global {
@@ -76141,7 +77133,7 @@ declare global {
          */
         terrainStamp?: boolean;
         /**
-         * true이면 terrain 교차 far 외곽선을 stamp shader로 출력한다.
+         * 지형 표면에 밀착한 stamp 외곽선을 그립니다. false이면 접촉 외곽선을 생략합니다. 영상 레이어 부재나 stamp 예산 부족 시 접점을 잇는 선으로 대체합니다.
          */
         terrainOutlineStamp?: boolean;
         /**
@@ -76149,7 +77141,7 @@ declare global {
          */
         terrainOutlineWidthUnits?: "pixels" | "meters";
         /**
-         * 부분 교차 stamp 영역을 재구성할 far plane UV 격자 한 변의 샘플 수. 3~17의 홀수로 정규화한다.
+         * 부분 교차 stamp 영역을 재구성할 far plane UV 격자 한 변의 최대 샘플 수입니다. 3~17의 홀수로 정규화하며 전체 frustum이 화면에서 96px보다 작으면 최대 5로 줄이고 128px 이상이면 복귀합니다.
          */
         terrainStampGridSize?: number;
         /**
@@ -76165,7 +77157,7 @@ declare global {
          */
         terrainBoundaryFilletRatio?: number;
         /**
-         * terrain stamp 모드에서 terrain tile 하나가 검사할 stamp 최대 개수.
+         * terrain tile 하나가 검사할 stamp 최대 개수입니다. 정밀 출력과 단색 내부 합성에 같은 상한을 적용합니다.
          */
         maxStampsPerTile?: number;
         /**
@@ -76288,7 +77280,7 @@ declare global {
          */
         updateIntervalMs?: number;
         /**
-         * 부분 terrain stamp 영역을 재구성할 far plane UV 격자 한 변의 샘플 수. 3~17의 홀수로 정규화한다.
+         * 부분 terrain stamp 영역을 재구성할 far plane UV 격자 한 변의 최대 샘플 수입니다. 3~17의 홀수로 정규화하며 전체 frustum이 화면에서 96px보다 작으면 최대 5로 줄이고 128px 이상이면 복귀합니다.
          */
         terrainStampGridSize?: number;
         /**
@@ -76296,7 +77288,7 @@ declare global {
          */
         terrainBoundaryRefinementSteps?: number;
         /**
-         * 메인 카메라 밖의 helper는 terrain update와 렌더링을 건너뛴다.
+         * 메인 카메라 밖의 Helper와 단색 지면의 개별 UV 영역은 계산·Stamp 생성을 생략합니다. 화면 가장자리 여유를 두고 지형 높이 범위까지 검사합니다. 원거리에서는 외곽선을 보존하고 공유 내부 분할점만 0.35 CSS px 이내로 줄입니다. 개별 영역 정책은 표준 지형·9 이하 격자에 적용하며 이미지·그라데이션·mask·미터 단위 선·예산 fallback은 전체 계산을 유지합니다. 공용 TerrainStamp와 load()로 복원한 Stamp에는 적용하지 않습니다. false이면 이 카메라 선택 정책을 끕니다.
          */
         cullByMainCamera?: boolean;
         /**
@@ -76361,7 +77353,7 @@ declare global {
          */
         terrain?: boolean;
         /**
-         * true이면 terrain 교차 far 외곽선을 stamp shader로 그리고 비교차 구간만 LineSegments2로 남긴다.
+         * 지형 표면에 밀착한 stamp 외곽선을 그립니다. false이면 접촉 외곽선을 생략합니다. 영상 레이어 부재나 stamp 예산 부족 시 접점을 잇는 선으로 대체합니다.
          */
         terrainOutlineStamp?: boolean;
         /**
@@ -76374,6 +77366,130 @@ declare global {
      * 지면 투영 Helper의 설정 계약입니다.
      */
     type UFrustumTerrainProjectionHelperCO = UFrustumTerrainProjectionHelperCO_Content;
+    /**
+     * Helper가 렌더에서 분리한 뒤 정리 큐에 소유권을 넘기는 자원입니다.
+     */
+    type UFrustumTerrainProjectionRetiredResource = {
+        /**
+         * 소유 자원 해제
+         */
+        dispose: () => void;
+        /**
+         * 자식까지 공통 Object3D 정리 경로로 해제할지 여부
+         */
+        isObject3D?: boolean;
+    };
+    /**
+     * 최초 활성화 예약의 실행과 취소를 묶은 내부 작업입니다.
+     */
+    type UFrustumTerrainProjectionLifecycleJob = {
+        /**
+         * 재진입 작업을 다음 회차로 넘기기 위한 접수 순서
+         */
+        sequence: number;
+        /**
+         * 현재 입력으로 활성화 실행
+         */
+        run: () => void;
+        /**
+         * 소유자의 대기 참조 제거
+         */
+        cancel: () => void;
+    };
+    /**
+     * 같은 활성화 묶음의 계산이 끝날 때까지 숨겨 보관하는 출력입니다.
+     */
+    type UFrustumTerrainProjectionLifecyclePublication = {
+        /**
+         * 공개할 live 채움·외곽선 Stamp
+         */
+        stamps: Array<UTerrainStamp>;
+        /**
+         * 현재 표시·앱 자격을 확인하고 준비 결과 표시
+         */
+        publish: () => void;
+        /**
+         * 배치 확정 뒤 정상 timer 또는 오류 backoff 시작
+         */
+        finish: (arg0: unknown | undefined) => void;
+        /**
+         * 처분·Scene 종료 시 대기 참조 제거
+         */
+        cancel: () => void;
+        /**
+         * 개별 공개 과정의 오류
+         */
+        error?: unknown;
+    };
+    /**
+     * 앱 객체 밖에서 Helper 모듈이 공유하는 활성화·자원 반납 상태입니다.
+     */
+    type UFrustumTerrainProjectionLifecycleQueue = {
+        /**
+         * 앱 또는 렌더 인자별 격리 key
+         */
+        key: object;
+        /**
+         * 중지·종료 확인 대상
+         */
+        app: U3dApp | undefined;
+        /**
+         * 중복을 합친 활성화 요청
+         */
+        pending: Map<object, UFrustumTerrainProjectionLifecycleJob>;
+        /**
+         * 계산을 마치고 같은 묶음의 공개를 기다리는 출력
+         */
+        ready: Map<object, UFrustumTerrainProjectionLifecyclePublication>;
+        /**
+         * 렌더에서 분리된 소유 자원
+         */
+        resources: Set<UFrustumTerrainProjectionRetiredResource>;
+        /**
+         * 마지막 접수 순서
+         */
+        sequence: number;
+        /**
+         * 첫 회차에서 고정한 묶음의 마지막 접수 순서
+         */
+        cohortSequence: number | undefined;
+        /**
+         * 회차별 활성화 개수 한도
+         */
+        activationLimit: number;
+        /**
+         * 회차별 자원 반납 개수 한도
+         */
+        releaseLimit: number;
+        /**
+         * 예약한 브라우저 RAF
+         */
+        frame: number | undefined;
+        /**
+         * 렌더 중단 시 정리 예약
+         */
+        cleanupTimer: ReturnType<typeof setTimeout> | undefined;
+        /**
+         * 현재 실행 중인지 여부
+         */
+        flushing: boolean;
+        /**
+         * Scene 종료로 큐를 폐쇄했는지 여부
+         */
+        closed: boolean;
+        /**
+         * 종료 알림을 연결한 장면
+         */
+        scene: UScene | undefined;
+        /**
+         * 종료 알림 처리
+         */
+        onSceneDispose: undefined | (() => void);
+        /**
+         * 소유 자원 반납 접수
+         */
+        retire: undefined | ((arg0: UFrustumTerrainProjectionRetiredResource) => void);
+    };
 }
 
 declare global {
@@ -78766,9 +79882,9 @@ declare global {
          */
         handoffResidues?: Map<U3dImageLayer, Array<three.Object3D>>;
         /**
-         * terrain mesh입니다.
+         * 지형 메시입니다. 미생성 타일을 조회해 저장한 경우 null일 수 있습니다.
          */
-        mesh?: three.Mesh;
+        mesh?: three.Mesh | null;
         /**
          * terrain material입니다.
          */
@@ -78782,10 +79898,10 @@ declare global {
          */
         layerName?: string;
         /**
-         * 지형 메시와 LOD 표시 전환 대기 상태를 보유한 타일입니다.
+         * 지형 메시와 LOD 표시 전환 대기 상태를 보유한 타일입니다. 메시 생성 전에는 _mesh가 null일 수 있습니다.
          */
         tile?: Partial<{
-            _mesh: three.Mesh;
+            _mesh: three.Mesh | null;
             _lodPresentPending: boolean;
         }>;
         /**
@@ -78966,10 +80082,10 @@ declare global {
          */
         mesh?: three.Mesh;
         /**
-         * tile 객체입니다.
+         * 타일 객체입니다. 메시 생성 전에는 _mesh가 null일 수 있습니다.
          */
         tile?: Partial<{
-            _mesh: three.Mesh;
+            _mesh: three.Mesh | null;
         }>;
         /**
          * 표시 여부입니다.
@@ -79280,10 +80396,10 @@ declare global {
          */
         mesh?: three.Mesh;
         /**
-         * tile 객체입니다.
+         * 타일 객체입니다. 메시 생성 전에는 _mesh가 null일 수 있습니다.
          */
         tile?: Partial<{
-            _mesh: three.Mesh;
+            _mesh: three.Mesh | null;
         }>;
         /**
          * 소유 레이어입니다.
@@ -80402,6 +81518,14 @@ declare global {
          */
         effectiveMaxProcess: number;
         /**
+         * 이동 제한과 합성하기 전 RAF 제어가 정한 메인 한도
+         */
+        rafMaxProcess: number;
+        /**
+         * 카메라 이동에 따른 신규 작업 유입 제어 상태
+         */
+        motion: UProcessMotionState;
+        /**
          * 하위 작업에 적용한 기준 한도. 단계별 배율 적용 전 값
          */
         effectiveWorkMaxProcess: number;
@@ -80509,6 +81633,36 @@ declare global {
          * 마지막 한도 변경 또는 폐기 사유. initial, configured, enabled, disabled, pressure-decrease, severe-decrease, task-decrease, response-recovery, stable-recovery, queue-recovery, recovery-brake, capacity-release, idle-recovery, disposed 중 하나
          */
         reason: string;
+    };
+    /**
+     * 카메라 이동에 따른 메인 동시 실행 수와 시작 간격 제어의 조회 결과입니다.
+     * 계수는 측정 이력 초기화 이후의 누적값이며 객체 참조를 포함하지 않습니다.
+     */
+    type UProcessMotionState = {
+        /**
+         * 감쇠 후 이동 압력이 남아 있는지 여부. 실제 한도 감소나 시작 간격 적용을 뜻하지는 않음
+         */
+        active: boolean;
+        /**
+         * 0~1 이동 압력. 정지 뒤 경과 시간에 따라 감쇠
+         */
+        strength: number;
+        /**
+         * 마지막 관측 이동 속도, 화면 높이 비율/초
+         */
+        screenSpeed: number;
+        /**
+         * 마지막 관측 사이의 화면 높이 대비 변화 비율
+         */
+        screenDelta: number;
+        /**
+         * 메인 처리기별 유효 작업 시작 간격, 밀리초
+         */
+        startIntervalMs: number;
+        /**
+         * 이동 제한 중 간격을 예약하고 시작한 메인 작업 수
+         */
+        pacedStartCount: number;
     };
     /**
      * 같은 레이어 인스턴스·처리 단계·작업 종류의 소요 시간 통계입니다.
@@ -80998,6 +82152,108 @@ declare global {
          * 줌 이동시, 앵커를 생성할때, 앵커 좌표를 계산하기위한 객체 검색 제외 반경, 카메라 기준 이값 이내의 객체들을 앵커를 생성하기 위한 검색에 제외된다. 기준값=2
          */
         nearExceptionRange: number;
+    };
+}
+
+declare global {
+    /**
+     * 한 번의 동기 타일 순회에서 공유하는 카메라·레이어 판단 값입니다.
+     * 타일별 거리, 가시성, 레벨별 배율과 분화 이력은 포함하지 않습니다.
+     */
+    type U3dQuadTileLodParameters = {
+        /**
+         * 현재 카메라
+         */
+        camera: three.Camera;
+        /**
+         * 특수 모드 보정을 적용한 카메라 위치 사본
+         */
+        cameraPosition: three.Vector3;
+        /**
+         * 공통 타일 품질 비율
+         */
+        tileSizeRatio: number;
+        /**
+         * 특수 모드 또는 검색 위치 보정 경로 여부
+         */
+        useLegacyMetric: boolean;
+        /**
+         * 고정 1440 높이의 세로 투영 배율
+         */
+        projectionScale: number;
+        /**
+         * 추가 분화가 유효한 최대 자료 레벨, 제한하지 않으면 Infinity
+         */
+        refinementMaxLevel: number;
+    };
+    /**
+     * 동기 타일 순회 중에만 존재하는 지연 초기화 저장소입니다.
+     * 순회가 반환하거나 예외로 끝나면 소유자가 이전 저장소를 복원합니다.
+     */
+    type U3dQuadTileLodContext = {
+        /**
+         * 값을 공유하는 그리기 인수
+         */
+        drawArg: UDrawArg;
+        /**
+         * 최초 가시 타일에서 계산한 공통 값
+         */
+        parameters?: U3dQuadTileLodParameters;
+    };
+    /**
+     * 상세 조회에서 반환하는 단일 레이어의 표시 준비 상태입니다.
+     */
+    type U3dQuadTilePresentationLayerState = {
+        /**
+         * 검사한 레이어
+         */
+        layer: U3dLayer;
+        /**
+         * 표시 준비 판정 참여 여부
+         */
+        participant: boolean;
+        /**
+         * 렌더링 준비 완료 여부
+         */
+        renderReady: boolean;
+        /**
+         * 현재 표시 부착 완료 여부
+         */
+        attached: boolean;
+        /**
+         * 기존 적용본의 표시 안전성
+         */
+        retainedPresentationSafe: boolean;
+        /**
+         * 빈 결과 확인 여부
+         */
+        confirmedEmpty: boolean;
+    };
+    /**
+     * 부모·자식 표시 전환에서 사용하는 호출별 준비 상태 집계입니다.
+     * 상세 조회 재정의의 결과도 수용하므로 차단 레이어 목록은 선택 속성입니다.
+     */
+    type U3dQuadTilePresentationSummary = {
+        /**
+         * 모든 참여 레이어의 준비 완료 여부
+         */
+        renderReady: boolean;
+        /**
+         * 모든 참여 레이어의 부착 완료 여부
+         */
+        attached: boolean;
+        /**
+         * 모든 참여 레이어의 기존 표시 안전성
+         */
+        retainedPresentationSafe: boolean;
+        /**
+         * 준비와 부착이 모두 완료되었는지 여부
+         */
+        handoffReady: boolean;
+        /**
+         * 수집을 요청했고 차단이 있을 때만 생성하는 레이어 목록
+         */
+        blockingLayers?: Array<U3dLayer>;
     };
 }
 
@@ -81907,7 +83163,7 @@ declare namespace SLDParser {
     };
 }
 
-export { CONTROL_CASE, CONTROL_TYPE, DEFAULT_CONTROL_FACTOR, GeOnDT, Gradient, SLDParser, SkeletonUtils, snapPointToMesh as SnapPointToMesh, snapWorldPointToMesh as SnapWorldPointToMesh, U2dDxfLayer, U2dGeometry, U2dLine, U2dPoint, U2dPolygon, U2dShpLayer, U2dVectorShaderLayer as U2dVectorLayer, U2dVectorShaderLayer, U3dApp as U3dAPP, U3dAdaptedGeometry, U3dBilboard, U3dBox, U3dCircle, U3dCumulativePath, U3dCustomModel, U3dCylinder, U3dEvent, U3dFault, U3dFaultGeometry, U3dFlowPipe, U3dGeometry, U3dGeometryFactory, U3dGeometryUtil, U3dGridTileLayer, U3dHeatGeometry, U3dHeightLayer, U3dHeightXYZLayer, U3dImageLayer, U3dImagePBFLayer, U3dImageWMSLayer, U3dImageWMTSLayer, U3dImageXYZLayer, U3dLayer, U3dLine, U3dLodComponentLayer, U3dMaskLayer, U3dShaderMeasureLayer as U3dMeasureLayer, U3dMessage, U3dModelBIMObjLayer, U3dModelBasicLayer, U3dModelDxfLayer, U3dModelI3FLayer, U3dModelKmlLayer, U3dModelLayer, U3dModelShapeLayer, U3dModelStaticLayer, U3dModelTilesLayer, U3dModelU3FLayer, U3dModelWFSLayer, U3dMouseEvent, U3dMultipleComponentLayer, U3dNodeManager, U3dObject, U3dObjectBarrier, U3dOpenLayer, U3dOverlay, U3dPOI, U3dPathGeometry, U3dPatternXYZLayer, U3dPipe, U3dPoint, U3dPolygonLoftGeometry, U3dSelect, U3dShaderMeasureLayer, U3dSimpleView, U3dSphere, U3dTerrainLayer, U3dUserGeometry, U3dVectorLayer, U3dVectorPBFLayer, U3dVectorTileLayer, U3dVideoLayer, U3dView, U3dViewLight, UAnaly, UAnalyAlarm, UAnalyAlignModel, UAnalyArea, UAnalyAverageHeight, UAnalyClipping, UAnalyContour, UAnalyCustomLand, UAnalyCustomModel, UAnalyDepth, UAnalyDistance, UAnalyGizmoModel, UAnalyHeight, UAnalyHeightLimit, UAnalyLandScape, UAnalyMultipleComponent, UAnalyObjectInfo, UAnalyParticle, UAnalyPhysicalFlow, UAnalyRoad, UAnalyRoute, UAnalySection, UAnalySkyLine, UAnalySlope, UAnalySlopeAspect, UAnalySun, UAnalySurfaceVolume, UAnalyViewCone, UBox3Helper, UBufferGeometry, UClipModelFilter, UCollider, UCollisionAdapter, UCollisionManager, UControls, UDEF, UDRACOLoader, UDefaultSource, UDirectionArrowGroup, UDraw, UDxfParser, UEventDispatcher, UFBXLoader, UFileLoader, UFlyControls, UFrustum, UFrustumTerrainProjectionHelper, UGLTFLoader, UGPoint, UGroup, UGroupBoundaryHelper, UImageWriter, UIndoorLight, ULandNormalDirectionHelper, ULocalENUHelper, UMTLWriter, UMapControlBase, UMapControls, UMathEngine, UMesh, UMeshParser, UMeshWriter, UOBJParser, UOBJWriter, UParticle, UParticleEngine, UPolygonCollider, UShpParser, USkinnedMesh, USpeedModelFilter, USphereCollider, USpotLight, UTerrainStamp, UWalkControls, UWater, computeBoundingIntersectionRatio, computeIntersectionRatio, deferred };
+export { CONTROL_CASE, CONTROL_TYPE, DEFAULT_CONTROL_FACTOR, GeOnDT, Gradient, SLDParser, SkeletonUtils, snapPointToMesh as SnapPointToMesh, snapWorldPointToMesh as SnapWorldPointToMesh, U2dDxfLayer, U2dGeometry, U2dLine, U2dPoint, U2dPolygon, U2dShpLayer, U2dVectorShaderLayer as U2dVectorLayer, U2dVectorShaderLayer, U3dApp as U3dAPP, U3dAdaptedGeometry, U3dBilboard, U3dBox, U3dCircle, U3dCumulativePath, U3dCustomModel, U3dCylinder, U3dEvent, U3dFault, U3dFaultGeometry, U3dFlowPipe, U3dGeometry, U3dGeometryFactory, U3dGeometryUtil, U3dGridTileLayer, U3dHeatGeometry, U3dHeightLayer, U3dHeightXYZLayer, U3dImageLayer, U3dImagePBFLayer, U3dImageWMSLayer, U3dImageWMTSLayer, U3dImageXYZLayer, U3dLayer, U3dLine, U3dLodComponentLayer, U3dMaskLayer, U3dShaderMeasureLayer as U3dMeasureLayer, U3dMessage, U3dModelBIMObjLayer, U3dModelBasicLayer, U3dModelDxfLayer, U3dModelI3FLayer, U3dModelKmlLayer, U3dModelLayer, U3dModelShapeLayer, U3dModelStaticLayer, U3dModelTilesLayer, U3dModelU3FLayer, U3dModelWFSLayer, U3dMouseEvent, U3dMultipleComponentLayer, U3dNodeManager, U3dObject, U3dObjectBarrier, U3dOpenLayer, U3dOverlay, U3dPOI, U3dPathGeometry, U3dPatternXYZLayer, U3dPipe, U3dPoint, U3dPolygonLoftGeometry, U3dSelect, U3dShaderMeasureLayer, U3dSimpleView, U3dSphere, U3dTerrainLayer, U3dUserGeometry, U3dVectorLayer, U3dVectorPBFLayer, U3dVectorTileLayer, U3dView, U3dViewLight, UAnaly, UAnalyAlarm, UAnalyAlignModel, UAnalyArea, UAnalyAverageHeight, UAnalyClipping, UAnalyContour, UAnalyCustomLand, UAnalyCustomModel, UAnalyDepth, UAnalyDistance, UAnalyGizmoModel, UAnalyHeight, UAnalyHeightLimit, UAnalyLandScape, UAnalyMultipleComponent, UAnalyObjectInfo, UAnalyParticle, UAnalyPhysicalFlow, UAnalyRoad, UAnalyRoute, UAnalySection, UAnalySkyLine, UAnalySlope, UAnalySlopeAspect, UAnalySun, UAnalySurfaceVolume, UAnalyViewCone, UBox3Helper, UBufferGeometry, UClipModelFilter, UCollider, UCollisionAdapter, UCollisionManager, UControls, UDEF, UDRACOLoader, UDefaultSource, UDirectionArrowGroup, UDraw, UDxfParser, UEventDispatcher, UFBXLoader, UFileLoader, UFlyControls, UFrustum, UFrustumTerrainProjectionHelper, UGLTFLoader, UGPoint, UGroup, UGroupBoundaryHelper, UImageWriter, UIndoorLight, ULandNormalDirectionHelper, ULocalENUHelper, UMTLWriter, UMapControlBase, UMapControls, UMathEngine, UMesh, UMeshParser, UMeshWriter, UOBJParser, UOBJWriter, UParticle, UParticleEngine, UPolygonCollider, UShpParser, USkinnedMesh, USpeedModelFilter, USphereCollider, USpotLight, UTerrainStamp, UWalkControls, UWater, computeBoundingIntersectionRatio, computeIntersectionRatio, deferred };
 
 export type { AddInstancesCallback };
 export type { Alarm_DetailOpt };
@@ -82075,6 +83331,7 @@ export type { KmlStyleContext };
 export type { KmlStyleFunction };
 export type { KmlStyleFunctionResult };
 export type { LabelFn };
+export type { LayerHeightInfo };
 export type { LightAnalyOption };
 export type { LightLike };
 export type { LightLikeExt };
@@ -82179,6 +83436,8 @@ export type { PathGeometryLike };
 export type { PathGeometryOption };
 export type { PathMaterial };
 export type { PathMaterial_Content };
+export type { PathShaderMaterial };
+export type { PathShaderUniforms };
 export type { PathSphere };
 export type { PathSphere_Content };
 export type { PBFStyleFunction };
@@ -82519,8 +83778,9 @@ export type { U3dCumulativePath_StyleOpt };
 export type { U3dCumulativePathCO };
 export type { U3dCumulativePathDrawFunc };
 export type { U3dCumulativePathDrawInfo };
-export type { U3dCumulativePathDrawResult };
+export type { U3dCumulativePathDrawInfo_Content };
 export type { U3dCumulativePathPositionData };
+export type { U3dCumulativePathPositionData_Content };
 export type { U3dCumulativePathStyleFunc };
 export type { U3dCustomModelGroup };
 export type { U3dCustomModelMesh };
@@ -82528,6 +83788,7 @@ export type { U3dCylinderCO };
 export type { U3dCylinderCO_Content };
 export type { U3dCylinderParam };
 export type { U3dCylinderParam_Content };
+export type { U3dDepthOffsetFunction };
 export type { U3dDxfData };
 export type { U3dDxfEntity };
 export type { U3dDxfLabelGetter };
@@ -82624,6 +83885,7 @@ export type { U3dLineDrapeOnSurfaceOptions };
 export type { U3dLineDrapeOnSurfaceResult };
 export type { U3dLineParam };
 export type { U3dLineParam_Content };
+export type { U3dLineSetParam };
 export type { U3dLodComponentCameraSnapshot };
 export type { U3dLodComponentChildSearch };
 export type { U3dLodComponentCullingContext };
@@ -82780,6 +84042,10 @@ export type { U3dProcess };
 export type { U3dQuadModelTile };
 export type { U3dQuadSet };
 export type { U3dQuadTile };
+export type { U3dQuadTileLodContext };
+export type { U3dQuadTileLodParameters };
+export type { U3dQuadTilePresentationLayerState };
+export type { U3dQuadTilePresentationSummary };
 export type { U3dQuadTileProcess };
 export type { U3dQuadTileTask };
 export type { U3dQuadTileWork };
@@ -82843,8 +84109,13 @@ export type { U3dVectorPBFSourceRequest };
 export type { U3dVectorPBFStyleFunction };
 export type { U3dVectorPBFStyleState };
 export type { U3dVectorPBFTileFeature };
+export type { U3dVectorTileClusterState };
+export type { U3dVectorTileDistanceState };
+export type { U3dVectorTileIndexState };
 export type { U3dVectorTileLayerCO };
 export type { U3dVectorTileLayerCO_Content };
+export type { U3dVectorTileVisibilitySetter };
+export type { U3dVectorTileVolumeState };
 export type { U3dViewCamera };
 export type { U3dViewCO };
 export type { U3dViewCO_Content };
@@ -82871,14 +84142,20 @@ export type { U3FRestoreModelMeshesOwner };
 export type { U3FSetGroupsDivisionRefineOwner };
 export type { U3FValidationMeshInfoOwner };
 export type { UAlignControls };
+export type { UAnalyAlarmAnimationOwner };
 export type { UAnalyAlarmCO };
 export type { UAnalyAlarmCO_Content };
+export type { UAnalyAlarmCursorResult };
+export type { UAnalyAlarmEditedLookup };
+export type { UAnalyAlarmModelLookup };
+export type { UAnalyAlarmSelectionOwner };
 export type { UAnalyAlignModelCO };
 export type { UAnalyAlignModelCO_Content };
 export type { UAnalyAreaCO };
 export type { UAnalyAreaCO_Content };
 export type { UAnalyAverageHeightCO };
 export type { UAnalyAverageHeightCO_Content };
+export type { UAnalyAverageHeightMergedHeightLookup };
 export type { UAnalyClippingCO };
 export type { UAnalyClippingCO_Content };
 export type { UAnalyClippingFilterParam };
@@ -82889,6 +84166,8 @@ export type { UAnalyContourCO_Content };
 export type { UAnalyContourStyleEntry };
 export type { UAnalyCustomLandCO };
 export type { UAnalyCustomLandCO_Content };
+export type { UAnalyCustomModelInput };
+export type { UAnalyCustomModelSetup };
 export type { UAnalyDepthCO };
 export type { UAnalyDepthCO_Content };
 export type { UAnalyDepthPointData };
@@ -82904,6 +84183,8 @@ export type { UAnalyHeightLimitCO_Content };
 export type { UAnalyLandScapeAnimateCO };
 export type { UAnalyLandScapeCO };
 export type { UAnalyLandScapeCO_Content };
+export type { UAnalyMergedMeshLayer };
+export type { UAnalyMergedMeshLayer_Content };
 export type { UAnalyMultipleComponentCO };
 export type { UAnalyMultipleComponentCO_Content };
 export type { UAnalyObjectInfoCO };
@@ -82945,6 +84226,8 @@ export type { UCamera };
 export type { UCameraCO };
 export type { UCameraCO_Content };
 export type { UCameraState };
+export type { UCameraStateCO };
+export type { UCameraStateJSON };
 export type { UCanvasTexture };
 export type { UCatmullRomCurve3 };
 export type { UCharacterControls };
@@ -82963,6 +84246,7 @@ export type { UCollisionJstsGeometry };
 export type { UComponentMixerController };
 export type { UComputeFloorCO };
 export type { UCssBilboard };
+export type { UCustomProcess };
 export type { UDevToolGraphSeriesInfo };
 export type { UDevToolGraphSeriesOpt };
 export type { UDevToolMapControlField };
@@ -83024,10 +84308,15 @@ export type { UFrustumHelperTerrainStampSnapshotMeta };
 export type { UFrustumHelperUpdateTargetMatrixOption };
 export type { UFrustumInnerCache };
 export type { UFrustumTarget };
+export type { UFrustumTargetQuaternion };
 export type { UFrustumTerrainProjectionHelper_Fill_Content };
 export type { UFrustumTerrainProjectionHelper_ProjectionLine_Content };
 export type { UFrustumTerrainProjectionHelperCO };
 export type { UFrustumTerrainProjectionHelperCO_Content };
+export type { UFrustumTerrainProjectionLifecycleJob };
+export type { UFrustumTerrainProjectionLifecyclePublication };
+export type { UFrustumTerrainProjectionLifecycleQueue };
+export type { UFrustumTerrainProjectionRetiredResource };
 export type { UGeoRect };
 export type { UGizmoControls };
 export type { UGizmoControlsCO };
@@ -83127,10 +84416,13 @@ export type { UPolygonColliderCO_Content };
 export type { UProcessAdaptiveState };
 export type { UProcessDebugLog };
 export type { UProcessManager };
+export type { UProcessMotionState };
 export type { UProcessTaskTimingState };
 export type { URaycaster };
 export type { URaycasterCO };
 export type { URenderer };
+export type { URendererCO };
+export type { URendererCO_Content };
 export type { UScene };
 export type { USceneCO };
 export type { USceneCO_Content };
@@ -83144,12 +84436,15 @@ export type { USimpleTail_Policy };
 export type { USimpleTail_Policy_Content };
 export type { USimpleTailCO };
 export type { USimpleTailCO_Content };
+export type { USimpleTailCommonPolicy };
+export type { USimpleTailCommonPolicy_Content };
 export type { USimpleTailDrawEvaluator };
 export type { USimpleTailDrawNode };
+export type { USimpleTailDrawResult };
+export type { USimpleTailFadeOutCallback };
+export type { USimpleTailFadeOutEvent };
 export type { USimpleTailNode };
 export type { USimpleTailPointMetadata };
-export type { USimpleTailRuntimePolicy };
-export type { USimpleTailRuntimePolicy_Content };
 export type { USimpleTailShader };
 export type { USky };
 export type { USpeedModelFilterCO };
@@ -83200,6 +84495,7 @@ export type { UTerrainWorkerSchedulerTaskOption };
 export type { UTestManager };
 export type { UTexture };
 export type { UTextureLoader };
+export type { UTileMesh };
 export type { UTween };
 export type { UTweenChain };
 export type { UUnderground };

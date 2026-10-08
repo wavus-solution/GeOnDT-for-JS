@@ -45,6 +45,8 @@ const DEBUG = /** @type {boolean} */ (( /** @type {KeyValue} */( /** @type {unkn
 class U3dModelBasicLayer extends U3dModelLayer {
     /**
      * @override
+     *
+     * @ignore
      */
     static OPT_KEYS = [
         ...U3dModelLayer.OPT_KEYS, 'drawLine', 'needTexture', 'needXml', 'listModel',
@@ -80,7 +82,6 @@ class U3dModelBasicLayer extends U3dModelLayer {
         // 하위 레이어가 로딩 후 재사용하는 중심·상태 보관 공간입니다.
         self._objectCenter = new THREE.Vector3();
         self._isGroup = false;
-        self._hasVideoTexture = false;
         self._visible = false;
         self._initialized = false;
         self._name = defaultValue(opt.name, '');
@@ -139,8 +140,6 @@ class U3dModelBasicLayer extends U3dModelLayer {
         self._u3fUrl = defaultValue(opt.u3fUrl, undefined);
         // opt.object = self._object;
         self._xmlUrl = defaultValue(opt.xmlUrl, undefined);
-        /**@type {Array<import('@union3d/3dLayer/U3dVideoLayer').U3dVideoLayer>} */
-        self._videoLayer = [];
         self._containMetaData = defaultValue(opt.containMetaData, false);
         self._usePositionOffset = defaultValue(opt.usePositionOffset, false);
         self.modelType = {
@@ -2043,7 +2042,7 @@ function load3DS(model, textureUrl) {
 }
 
 /**
- * 3DS 메시의 비디오·중심·재질·배치와 메타데이터 연결을 반영합니다.
+ * 3DS 메시의 중심·재질·배치와 메타데이터 연결을 반영합니다.
  * 전달받은 완료 객체와 후처리 완료 객체는 서로 다른 결과로 종결합니다.
  *
  * @this {U3dModelBasicLayer}
@@ -2068,16 +2067,6 @@ function afterLoad3DS(promise, model, object) {
             object.name = model.name;
             object.traverse(function (/** @type {ModelMesh} */ child) {
                 if (child instanceof THREE.Mesh) {
-                    if (defined(model.videourl)) {
-                        const app = self._drawArg._app;
-                        self._videoLayer.push(app.createVideoLayer({
-                            videourl: model.videourl,
-                            mesh: child,
-                            rotation: self._rotation,
-                            scale: self._scale,
-                            location: self._location
-                        }));
-                    }
                     /** @type {ModelMesh} */ (child)._ulayername = self._name;
                     /** @type {ModelMesh} */ (child)._utype = UDEF.UMESH_TYPE._complexBuilding;
                     const fileName = model.fileName.split('.')[0];

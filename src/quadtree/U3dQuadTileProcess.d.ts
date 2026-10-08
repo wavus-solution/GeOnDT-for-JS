@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -17,6 +17,15 @@ declare class U3dQuadTileProcess extends U3dProcess {
      * @ignore
      */
     _runningTasks: Set<() => void>;
+    /**
+     * 관리자 소유의 이동 정책을 조회합니다. 정책 조회 실패 때문에 큐를 멈추지 않습니다.
+     *
+     * @param {boolean} [reserve=false] 유효 작업을 시작할 때만 간격 예약
+     * @returns {number} 시작까지 남은 밀리초
+     *
+     * @ignore
+     */
+    _getStartDelay(reserve?: boolean): number;
     /**
      * 작업 상태의 측정만 관리자에 전달합니다.
      * 측정 실패가 큐 등록·실행·슬롯 반납과 완료 알림을 중단하지 않도록 격리합니다.
@@ -49,16 +58,13 @@ declare class U3dQuadTileProcess extends U3dProcess {
      * @ignore
      */
     _discard(work: U3dQuadTileTask): void;
-    _refineCount: number;
-    _index: number;
-    _checkTime: any;
     /**
      * 타일 작업을 등록하며 등록 예외나 폐기 상태에서도 실패 통지를 시도합니다.
      *
      * @override
      *
      * @param {import('@union3d/quadtree/U3dQuadTileTask').U3dQuadTileTask} work 등록할 작업
-     * @param {import('@union3d/quadtree/U3dQuadTile').U3dQuadTile} tile 거리별 큐를 선택할 기준 타일
+     * @param {import('@U3dQuadTile').U3dQuadTile} tile 거리별 큐를 선택할 기준 타일
      */
     override enqueueWork(work: U3dQuadTileTask, tile: U3dQuadTile): void;
     getWorkingInDistance(opt: any): any;
@@ -83,7 +89,7 @@ declare class U3dQuadTileProcess extends U3dProcess {
      * 다음 작업의 시작은 완료 콜백에서 비동기 예약으로 요청합니다.
      *
      * @param {import('@union3d/quadtree/U3dQuadTileTask').U3dQuadTileTask} obj 실행할 작업
-     * @param {import('@union3d/quadtree/U3dQuadTile').U3dQuadTile} tile 작업 대상 타일
+     * @param {import('@U3dQuadTile').U3dQuadTile} tile 작업 대상 타일
      */
     execute(obj: U3dQuadTileTask, tile: U3dQuadTile): void;
     update(): number;

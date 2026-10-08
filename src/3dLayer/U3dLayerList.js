@@ -459,17 +459,6 @@ class U3dLayerList {
     }
 
     /**
-     * 클래스 종류가 video인 레이어를 등록 목록 순서로 조회합니다.
-     * 목록을 변경하지 않으며, 원본 레이어 객체를 담은 새 배열을 반환합니다.
-     *
-     * @returns {Array<import('@U3dLayer').U3dLayer>} 일치하는 비디오 레이어의 새 배열
-     */
-    getInstanceVideoLayers() {
-        // 비디오 선택 기준은 공개로 유지하고, 원본 객체를 담은 별도 배열만 얻는다.
-        return INTERNAL.filterLayersByClassType(this._listmap, "video");
-    }
-
-    /**
      * 클래스 종류가 animation인 레이어를 등록 목록 순서로 조회합니다.
      * 목록을 변경하지 않으며, 원본 레이어 객체를 담은 새 배열을 반환합니다.
      *

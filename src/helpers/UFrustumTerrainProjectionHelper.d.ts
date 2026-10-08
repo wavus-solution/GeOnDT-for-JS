@@ -1,12 +1,14 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
+import type { U3dApp } from "../app/U3dApp.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
+import type { UScene } from "../core/UScene.js";
 import type { UFrustumHelperLoadOption, UFrustumHelperSaveOption, UFrustumHelperTerrainStampSnapshot } from "./UFrustumHelper.js";
 import type { UTerrainStamp } from "./UTerrainStamp.js";
 import type { ColorLike } from "../types/global.js";
@@ -19,6 +21,14 @@ import type { ColorLike } from "../types/global.js";
  * LineSegments2를 기반으로 선 두께를 조절할 수 있습니다.
  * 지면 이미지는 모든 채움 stamp가 공유하는 frame에 배치하며, 교차 영역 밖은 잘립니다.
  * fill.textureFit의 contain도 stretch와 같은 매핑을 사용하며 이미지 전체 표시와 종횡비 유지를 보장하지 않습니다.
+ * 기본 지면 외곽선은 지형 stamp로 밀착 출력합니다. terrainOutlineStamp가 false이면 접촉 외곽선을 생략합니다.
+ * 화면에서 전체 frustum이 96px보다 작으면 지면 격자를 최대 5×5로 줄이고, 128px 이상이면 요청 격자로 복귀합니다.
+ * cullByMainCamera가 true이면 단색 지면의 개별 UV 영역도 메인 카메라 기준으로 선택합니다.
+ * 화면 밖 영역은 계산·Stamp 생성을 생략하며, 원거리 LOD는 외곽선을 보존하고 내부 분할점만 줄입니다.
+ * 작게 보이는 인접 원거리 Stamp는 외피 점을 유지할 수 있을 때만 두 개씩 합칩니다.
+ * 이 정책은 이 Helper가 생성하는 지면 형상에만 적용하며 공용 UTerrainStamp나 load()로 복원한 Stamp에는 적용하지 않습니다.
+ * 최초 표시와 재표시는 여러 Helper 사이에서 분산되므로 몇 프레임 뒤에 나타날 수 있습니다.
+ * dispose()는 즉시 갱신·출력을 중지하고 소유 렌더 자원의 실제 반납은 나누어 수행합니다.
  *
  * @extends {LineSegments2}
  *
@@ -52,6 +62,7 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
     terrainBoundaryRefinementSteps: number;
     terrainBoundaryFilletSegments: number;
     terrainBoundaryFilletRatio: number;
+    /** 전체 Helper 및 단색 지면 영역의 카메라 선택·원거리 내부 LOD 사용 여부입니다. */
     cullByMainCamera: boolean;
     smoothing: boolean;
     smoothingIterations: number;
@@ -308,6 +319,10 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
     resetTerrainIntersectionStabilization(): this;
     /**
      * 현재 프러스텀 평면으로 외곽선을 갱신하는 메서드입니다.
+     * 표준 지형에서 자세·실제 격자·설정·의존 타일이 같고 교차 필터가 완전히 수렴했으면
+     * 직전 footprint 계산 결과를 재사용합니다. 표시 스타일과 앱 연결은 계속 반영합니다.
+     * 카메라 이동으로 개별 UV 영역 선택이 바뀌면 재계산하고, 새로 진입한 영역의 낡은 교차 이력은 버립니다.
+     * 내용이 같은 선·옆면 버퍼와 지면 stamp는 GPU 갱신을 생략하며 출력 해상도는 유지합니다.
      *
      * @returns {this}
      */
@@ -431,6 +446,8 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
      * UFrustumHelper의 save()와 같은 형식이므로 두 helper가 저장한 스냅샷을 서로 불러올 수 있습니다.
      * 지형 투영 모드(생성 옵션 terrain이 true)가 아니거나 지금 지형에 그려진 stamp가 없으면 안내 메시지를 남기고 undefined를 반환합니다.
      * load()로 불러온 스냅샷 stamp는 저장 대상이 아니며 현재 프러스텀이 만든 stamp만 담습니다.
+     * 카메라 선택이 켜져 있으면 현재 선택된 영역만 저장합니다. 전체 footprint가 필요하면 cullByMainCamera를 false로 바꾸고 update()한 뒤 저장합니다.
+     * 기본 지면 외곽선도 stamp로 저장합니다. 영상 레이어 부재나 stamp 예산 부족으로 선 geometry를 사용하는 구간은 저장되지 않습니다.
      *
      * @param {UFrustumHelperSaveOption} [options={}] 저장 범위를 정하는 옵션
      * @returns {UFrustumHelperTerrainStampSnapshot|undefined} 현재 지형 투영면 스냅샷이며, 저장할 수 없으면 undefined입니다.
@@ -517,7 +534,7 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
          */
         terrainStamp?: boolean;
         /**
-         * true이면 terrain 교차 far 외곽선을 stamp shader로 출력한다.
+         * 지형 표면에 밀착한 stamp 외곽선을 그립니다. false이면 접촉 외곽선을 생략합니다. 영상 레이어 부재나 stamp 예산 부족 시 접점을 잇는 선으로 대체합니다.
          */
         terrainOutlineStamp?: boolean;
         /**
@@ -525,7 +542,7 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
          */
         terrainOutlineWidthUnits?: "pixels" | "meters";
         /**
-         * 부분 교차 stamp 영역을 재구성할 far plane UV 격자 한 변의 샘플 수. 3~17의 홀수로 정규화한다.
+         * 부분 교차 stamp 영역을 재구성할 far plane UV 격자 한 변의 최대 샘플 수입니다. 3~17의 홀수로 정규화하며 전체 frustum이 화면에서 96px보다 작으면 최대 5로 줄이고 128px 이상이면 복귀합니다.
          */
         terrainStampGridSize?: number;
         /**
@@ -541,7 +558,7 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
          */
         terrainBoundaryFilletRatio?: number;
         /**
-         * terrain stamp 모드에서 terrain tile 하나가 검사할 stamp 최대 개수.
+         * terrain tile 하나가 검사할 stamp 최대 개수입니다. 정밀 출력과 단색 내부 합성에 같은 상한을 적용합니다.
          */
         maxStampsPerTile?: number;
         /**
@@ -666,7 +683,7 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
          */
         updateIntervalMs?: number;
         /**
-         * 부분 terrain stamp 영역을 재구성할 far plane UV 격자 한 변의 샘플 수. 3~17의 홀수로 정규화한다.
+         * 부분 terrain stamp 영역을 재구성할 far plane UV 격자 한 변의 최대 샘플 수입니다. 3~17의 홀수로 정규화하며 전체 frustum이 화면에서 96px보다 작으면 최대 5로 줄이고 128px 이상이면 복귀합니다.
          */
         terrainStampGridSize?: number;
         /**
@@ -674,7 +691,7 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
          */
         terrainBoundaryRefinementSteps?: number;
         /**
-         * 메인 카메라 밖의 helper는 terrain update와 렌더링을 건너뛴다.
+         * 메인 카메라 밖의 Helper와 단색 지면의 개별 UV 영역은 계산·Stamp 생성을 생략합니다. 화면 가장자리 여유를 두고 지형 높이 범위까지 검사합니다. 원거리에서는 외곽선을 보존하고 공유 내부 분할점만 0.35 CSS px 이내로 줄입니다. 개별 영역 정책은 표준 지형·9 이하 격자에 적용하며 이미지·그라데이션·mask·미터 단위 선·예산 fallback은 전체 계산을 유지합니다. 공용 TerrainStamp와 load()로 복원한 Stamp에는 적용하지 않습니다. false이면 이 카메라 선택 정책을 끕니다.
          */
         cullByMainCamera?: boolean;
         /**
@@ -739,7 +756,7 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
          */
         terrain?: boolean;
         /**
-         * true이면 terrain 교차 far 외곽선을 stamp shader로 그리고 비교차 구간만 LineSegments2로 남긴다.
+         * 지형 표면에 밀착한 stamp 외곽선을 그립니다. false이면 접촉 외곽선을 생략합니다. 영상 레이어 부재나 stamp 예산 부족 시 접점을 잇는 선으로 대체합니다.
          */
         terrainOutlineStamp?: boolean;
         /**
@@ -754,4 +771,132 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
      */
     type UFrustumTerrainProjectionHelperCO = UFrustumTerrainProjectionHelperCO_Content;
 
-export type { UFrustumTerrainProjectionHelper, UFrustumTerrainProjectionHelperCO, UFrustumTerrainProjectionHelperCO_Content, UFrustumTerrainProjectionHelper_Fill_Content, UFrustumTerrainProjectionHelper_ProjectionLine_Content };
+/**
+     * Helper가 렌더에서 분리한 뒤 정리 큐에 소유권을 넘기는 자원입니다.
+     */
+    type UFrustumTerrainProjectionRetiredResource = {
+        /**
+         * 소유 자원 해제
+         */
+        dispose: () => void;
+        /**
+         * 자식까지 공통 Object3D 정리 경로로 해제할지 여부
+         */
+        isObject3D?: boolean;
+    };
+
+/**
+     * 최초 활성화 예약의 실행과 취소를 묶은 내부 작업입니다.
+     */
+    type UFrustumTerrainProjectionLifecycleJob = {
+        /**
+         * 재진입 작업을 다음 회차로 넘기기 위한 접수 순서
+         */
+        sequence: number;
+        /**
+         * 현재 입력으로 활성화 실행
+         */
+        run: () => void;
+        /**
+         * 소유자의 대기 참조 제거
+         */
+        cancel: () => void;
+    };
+
+/**
+     * 같은 활성화 묶음의 계산이 끝날 때까지 숨겨 보관하는 출력입니다.
+     */
+    type UFrustumTerrainProjectionLifecyclePublication = {
+        /**
+         * 공개할 live 채움·외곽선 Stamp
+         */
+        stamps: Array<UTerrainStamp>;
+        /**
+         * 현재 표시·앱 자격을 확인하고 준비 결과 표시
+         */
+        publish: () => void;
+        /**
+         * 배치 확정 뒤 정상 timer 또는 오류 backoff 시작
+         */
+        finish: (arg0: unknown | undefined) => void;
+        /**
+         * 처분·Scene 종료 시 대기 참조 제거
+         */
+        cancel: () => void;
+        /**
+         * 개별 공개 과정의 오류
+         */
+        error?: unknown;
+    };
+
+/**
+     * 앱 객체 밖에서 Helper 모듈이 공유하는 활성화·자원 반납 상태입니다.
+     */
+    type UFrustumTerrainProjectionLifecycleQueue = {
+        /**
+         * 앱 또는 렌더 인자별 격리 key
+         */
+        key: object;
+        /**
+         * 중지·종료 확인 대상
+         */
+        app: U3dApp | undefined;
+        /**
+         * 중복을 합친 활성화 요청
+         */
+        pending: Map<object, UFrustumTerrainProjectionLifecycleJob>;
+        /**
+         * 계산을 마치고 같은 묶음의 공개를 기다리는 출력
+         */
+        ready: Map<object, UFrustumTerrainProjectionLifecyclePublication>;
+        /**
+         * 렌더에서 분리된 소유 자원
+         */
+        resources: Set<UFrustumTerrainProjectionRetiredResource>;
+        /**
+         * 마지막 접수 순서
+         */
+        sequence: number;
+        /**
+         * 첫 회차에서 고정한 묶음의 마지막 접수 순서
+         */
+        cohortSequence: number | undefined;
+        /**
+         * 회차별 활성화 개수 한도
+         */
+        activationLimit: number;
+        /**
+         * 회차별 자원 반납 개수 한도
+         */
+        releaseLimit: number;
+        /**
+         * 예약한 브라우저 RAF
+         */
+        frame: number | undefined;
+        /**
+         * 렌더 중단 시 정리 예약
+         */
+        cleanupTimer: ReturnType<typeof setTimeout> | undefined;
+        /**
+         * 현재 실행 중인지 여부
+         */
+        flushing: boolean;
+        /**
+         * Scene 종료로 큐를 폐쇄했는지 여부
+         */
+        closed: boolean;
+        /**
+         * 종료 알림을 연결한 장면
+         */
+        scene: UScene | undefined;
+        /**
+         * 종료 알림 처리
+         */
+        onSceneDispose: undefined | (() => void);
+        /**
+         * 소유 자원 반납 접수
+         */
+        retire: undefined | ((arg0: UFrustumTerrainProjectionRetiredResource) => void);
+    };
+
+export type { UFrustumTerrainProjectionHelper, UFrustumTerrainProjectionHelperCO, UFrustumTerrainProjectionHelperCO_Content, UFrustumTerrainProjectionHelper_Fill_Content, UFrustumTerrainProjectionHelper_ProjectionLine_Content, UFrustumTerrainProjectionLifecycleJob, UFrustumTerrainProjectionLifecyclePublication, UFrustumTerrainProjectionLifecycleQueue, UFrustumTerrainProjectionRetiredResource };

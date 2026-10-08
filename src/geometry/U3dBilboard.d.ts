@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -102,7 +102,7 @@ declare class U3dBilboard {
      *
      * @ignore
      */
-    static "__#9@#uuid": string;
+    static "__#10@#uuid": string;
     /**
      * UUID 카운터 <br>
      *
@@ -110,7 +110,7 @@ declare class U3dBilboard {
      *
      * @ignore
      */
-    static "__#9@#count": number;
+    static "__#10@#count": number;
     /**
      * 생성된 빌보드 목록 <br>
      *
@@ -138,7 +138,7 @@ declare class U3dBilboard {
      *
      * @ignore
      */
-    static "__#9@#deleteGroup"(group: UGroup): void;
+    static "__#10@#deleteGroup"(group: UGroup): void;
     /**
      * 기본 빌보드(`bilboard` 타입)를 만들어 반환합니다. <br>
      * 씬에 추가하지 않고 객체만 만들어 반환하므로, 반환값을 직접 씬/그룹에 추가해야 합니다. <br>

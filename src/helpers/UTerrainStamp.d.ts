@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -58,6 +58,36 @@ type UTerrainStampRenderUniforms = {
      */
     count: {
         value: number;
+    };
+    /**
+     * 현재 타일 전체에 동일한 합성색을 적용할 수 있는지 여부입니다.
+     */
+    compositeEnabled: {
+        value: boolean;
+    };
+    /**
+     * 현재 타일의 premultiplied RGB와 누적 alpha입니다.
+     */
+    compositeColor: {
+        value: three.Vector4;
+    };
+    /**
+     * 단색 전용 program의 후보 상한이며, 0이면 범용 경로입니다.
+     */
+    plainRowLimit: {
+        value: number;
+    };
+    /**
+     * 현재 타일의 row별 경계·내부·외부 판정입니다.
+     */
+    rowCoverage: {
+        value: Float32Array;
+    };
+    /**
+     * 단색 후보의 색상과 유효 알파입니다.
+     */
+    rowFill: {
+        value: Float32Array;
     };
     /**
      * 지금 그리는 지형 타일의 원점과, 도장 좌표를 기록할 때 쓴 공통 기준점 사이의 차이이며 단위는 미터입니다.<br>
@@ -214,7 +244,7 @@ type UTerrainStampParam = {
      */
     visible?: boolean;
     /**
-     * 지형 타일 하나가 한 번에 검사할 도장 개수의 상한입니다.
+     * 지형 타일 하나가 검사할 도장 개수의 상한입니다. 정밀 출력과 단색 내부 합성에 같은 상한을 적용합니다.
      */
     maxStampsPerTile?: number;
     /**
@@ -252,8 +282,21 @@ type UTerrainStampSetParamOption = {
  * 다각형(polygon), 원(circle), 선(polyline) 중 한 가지 도형을 정해 색이나 이미지로 채웁니다.<br>
  * 가림(mask) 도장으로 지정하면 채우는 대신 대상 영상 레이어를 그 영역에서 보이지 않게 합니다.<br>
  * 인스턴스 메서드는 도형·표현·표시 여부를 바꾸고, 정적 메서드는 지형을 그리는 쪽에서 표시 상태를 조회합니다.
+ * 지면 경계·외곽선·이미지는 화면 해상도에서 정밀하게 판정합니다.<br>
+ * 타일 전체가 동일한 단색일 때만 합성색을 재사용합니다. 경계가 있는 단색 후보도 지원 범위에서는 전용 셰이더로 그립니다.<br>
+ * 도형이 변경된 범위의 타일 후보를 갱신하며, 같은 후보·이미지 atlas 상태의 메타데이터는 재업로드하지 않습니다.<br>
+ * 확정된 타일 내부/외부만 재사용하고 경계·화면 픽셀 선폭은 원래 정밀도로 판정합니다. 반투명 순서와 타일별 도장 상한은 유지합니다.
  */
 declare class UTerrainStamp {
+    /**
+     * 지형 재질에 상수색·단색 후보·범용 후보 중 현재 타일에 맞는 정밀 합성 경로를 연결합니다.
+     *
+     * @param {import('three').WebGLProgramParametersWithUniforms} shader 컴파일할 셰이더입니다.
+     * @param {object} uniforms 레이어가 소유하는 uniform binding입니다.
+     *
+     * @ignore
+     */
+    static _addCompositeShader(shader: three.WebGLProgramParametersWithUniforms, uniforms: object): void;
     /**
      * 모든 도장이 함께 쓰는 이미지 보관소에 등록할 수 있는 이미지 주소의 최대 개수를 바꿉니다.
      *
@@ -296,11 +339,13 @@ declare class UTerrainStamp {
      * 지형 타일 하나를 그리기 직전에 해당 영상 레이어의 표시 상태 값을 현재 타일 기준으로 갱신합니다.
      *
      * 도장이 한 번도 등록된 적 없는 레이어이면 아무 것도 하지 않습니다.
+     * 단색 내부 타일이면 합성색을 재사용하고, 경계·이미지·선이 있는 타일이면 정밀 도형 판정을 사용합니다.
      *
      * @param {import('@U3dLayer').U3dLayer} layer 갱신할 영상 레이어입니다.
      * @param {Partial<{object: import('three').Object3D, renderer: import('three').WebGLRenderer}> & Record<string, any>} [renderContext] 지금 그리는 대상에 대한 정보이며 아래 두 값만 사용합니다.<br>
      * object는 지금 그리는 지형 타일이며, 이 타일과 겹치는 도장만 남깁니다.<br>
-     * renderer는 화면 배율을 제공하며, 없으면 배율 1을 사용합니다.<br>
+     * renderer는 화면 배율과 렌더 프레임 번호를 제공합니다. 없으면 배율 1과 최대 256개 조합 보관을 사용합니다.<br>
+     * 프레임 번호가 있으면 현재·직전 프레임의 후보 조합을 보호하여 256개를 넘는 활성 화면도 재사용합니다.<br>
      * object를 넘기지 않으면 타일별로 걸러 내지 않고 이 레이어에 등록된 도장 전체를 그대로 사용합니다.
      */
     static updateRenderUniforms(layer: U3dLayer, renderContext?: Partial<{
@@ -314,6 +359,28 @@ declare class UTerrainStamp {
      * @returns {boolean} 적용 대상 레이어가 바뀐 도장이 하나라도 있으면 true, 바뀐 도장이 없거나 연결된 도장이 없으면 false입니다.
      */
     static refreshAppLayerStates(app: U3dApp): boolean;
+    /**
+     * Helper가 소유한 도장만 한 동기 작업으로 묶어 마지막 상태를 registry에 반영합니다.
+     *
+     * callback 중 새 도장은 include로 먼저 포함해야 합니다. 포함하지 않은 일반 도장은
+     * 평소처럼 즉시 동작합니다. callback 안에서는 await나 중간 렌더를 실행하지 않습니다.
+     * 도장별 마지막 변경 순서를 지켜 공유 상한을 반영하며, 예외가 나도 이미 바뀐 상태를
+     * 정리하고 배치 문맥을 복구합니다. 이 메서드는 호출 결과를 되돌리는 transaction은 아닙니다.
+     * retire는 독점 소유 texture만 전달받습니다. 정상 반환한 뒤에는 호출자가 정확히 한 번
+     * dispose해야 하며, 받을 수 없으면 소유권을 저장하기 전에 예외를 던져야 합니다.
+     * onStampError는 도장별 commit 실패의 소유자를 관찰하는 용도이며 도장을 변경하지 않습니다.
+     * 통지는 기존 오류 전파를 대신하지 않습니다. 통지 함수의 오류도 수집하여 나머지 commit을 마칩니다.
+     *
+     * @template T
+     * @param {Iterable<import('@union3d/helpers/UTerrainStamp').UTerrainStamp>} stamps 함께 처리할 Helper 소유 도장입니다.
+     * @param {function(function(import('@union3d/helpers/UTerrainStamp').UTerrainStamp): import('@union3d/helpers/UTerrainStamp').UTerrainStamp): T} callback 도장 변경을 수행하는 동기 함수입니다.
+     * @param {function(import('three').DataTexture): void} [retire] 마지막 사용이 끝난 texture의 정리 소유권을 받을 함수이며, 생략하면 즉시 해제합니다.
+     * @param {function(import('@union3d/helpers/UTerrainStamp').UTerrainStamp, unknown): void} [onStampError] 검색·등록에 실패한 도장과 원래 오류를 관찰할 내부 함수입니다.
+     * @returns {T} callback의 반환값입니다.
+     *
+     * @ignore
+     */
+    static _withHelperBatch<T>(stamps: Iterable<UTerrainStamp>, callback: (arg0: (arg0: UTerrainStamp) => UTerrainStamp) => T, retire?: (arg0: three.DataTexture) => void, onStampError?: (arg0: UTerrainStamp, arg1: unknown) => void): T;
     /**
      * getParam()이 돌려준 값으로 새 도장을 만듭니다.
      *
@@ -361,7 +428,7 @@ declare class UTerrainStamp {
      * @param {import('@U3dLayer').U3dLayer} [opt.targetLayer] 가림 대상으로 삼을 영상 레이어이며, 지정하면 이 레이어보다 위에 그려지는 레이어에만 도장이 적용됩니다.
      * @param {string|number} [opt.mode] 채울지 가릴지 정하며 fill 또는 mask를 넣습니다.<br>
      * 생략하거나 그 밖의 값을 넣으면 targetLayer가 있을 때 가림, 없을 때 채움으로 동작합니다.
-     * @param {number} [opt.maxStampsPerTile=128] 지형 타일 하나가 한 번에 검사할 도장 개수의 상한이며 1 이상 128 이하로 제한됩니다.<br>
+     * @param {number} [opt.maxStampsPerTile=128] 지형 타일 하나가 검사할 도장 개수의 상한이며 1 이상 128 이하로 제한됩니다. 정밀 출력과 단색 내부 합성에 동일하게 적용합니다.<br>
      * 같은 영상 레이어에 등록된 도장들이 이 값을 공유하므로 마지막으로 반영된 값이 그 레이어에 적용됩니다.
      * @param {number} [opt.renderOrder=0] 다른 도장과 겹칠 때 그리는 순서이며 값이 클수록 위에 그려집니다.<br>
      * 값이 같으면 먼저 만든 도장이 아래에 그려지고, 숫자가 아니면 0을 사용합니다.
@@ -795,16 +862,17 @@ declare class UTerrainStamp {
      */
     getTextureFit(): "stretch" | "contain";
     /**
-     * 지형 타일 하나가 한 번에 검사할 도장 개수의 상한을 바꿉니다.
+     * 지형 타일 하나가 검사할 도장 개수의 상한을 바꿉니다.
      *
      * 이 값은 도장 하나가 아니라 이 도장이 적용된 영상 레이어 전체에 적용되므로, 같은 레이어의 도장이 서로 다른 값을 넣으면 마지막으로 반영된 값이 남습니다.<br>
      * 한 타일에 겹치는 도장이 상한을 넘으면 타일 중심에서 가까운 도장부터 남기고 나머지는 그 타일에서 그려지지 않습니다.
+     * 단색 내부 합성도 정밀 출력과 동일한 타일 후보 및 상한을 적용합니다.
      *
      * @param {number} value 타일 하나가 검사할 도장 개수의 상한이며 소수점 아래는 버립니다.<br>
      * 128을 넘으면 128로 줄이고, 0 이하이거나 숫자가 아니면 기본값인 128을 사용합니다.
-     * @returns {UTerrainStamp} 이어서 호출할 수 있도록 이 도장 자신을 반환합니다.
+     * @returns {this} 이어서 호출할 수 있도록 이 도장 자신을 반환합니다.
      */
-    setMaxStampsPerTile(value: number): UTerrainStamp;
+    setMaxStampsPerTile(value: number): this;
     /**
      * 지형 타일 하나가 한 번에 검사할 도장 개수의 상한으로 이 도장이 지정한 값을 반환합니다.
      *

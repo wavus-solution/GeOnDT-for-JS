@@ -196,6 +196,8 @@ Instance 방식의 다중 시설물 레이어를 만들고 UAM 모델을 등록�
 
 출발 공항 색상과 누적 경로 스타일을 지정해 항공기 하나를 컴포넌트로 등록합니다.
 
+`colorGradation: true`일 때 `styleFunc(position, dist, time)`이 지점 기록 시 색 농도(0~1)를 반환합니다. 예제는 기록 시각의 시간대에 따라 농도를 정합니다. 값은 노드에 저장되며, 프레임마다 재계산하거나 오래된 노드의 색을 계속 바꾸지는 않습니다.
+
 {{example-code:component.create}}
 
 ## 실시간 위치 이동

@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -183,6 +183,18 @@ declare class UAnalyHeight extends UAnaly {
      * @returns {Array<import('three').Object3D | import('@union3d/3dLayer/U3dComponentPosition').U3dComponentPosition>} 제외 목록에 등록된 대상들의 배열 <br>
      */
     getExceptObjects(): Array<three.Object3D | U3dComponentPosition>;
+    /**
+     * 제외 목록을 HEIGHT 패스에 전달하고 다시 그리기를 요청한다.
+     * 고도 색상이나 등고선의 표시 상태는 변경하지 않으며, 패스가 없으면 생성하지 않는다.
+     * 패스 생성 전에 저장한 목록은 각 분석의 setHeightVisible(true)에서 다시 동기화한다.
+     *
+     * @protected
+     *
+     * @param {boolean} [preserveCurrentIfEmpty=false] 빈 목록이면 다른 분석이 적용한 공유 제외 목록을 유지할지 여부. 명시적 목록 변경에는 false를 사용한다.
+     *
+     * @ignore
+     */
+    protected _syncExceptObjects(preserveCurrentIfEmpty?: boolean): void;
     #private;
 }
 

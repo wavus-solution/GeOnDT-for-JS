@@ -174,7 +174,7 @@ U3dQuadSet extends U3dObject 클래스 정의
             UDrawArg — 카메라 조회; 함수: {getCameraPosition(), getCamera()}; 속성 읽기: {_app}
             THREE — 갱신 기준 생성; 생성자: {new Vector3(), new Quaternion(), new Matrix4()}
             THREE.Vector3 / THREE.Quaternion / THREE.Matrix4 — 갱신 기준 저장; 함수: {copy()}
-            U3dApp — 갱신 대상 레이어와 작업 실행기 조회; 함수: {getInstanceImageLayers(), getInstanceModelLayers(), getInstanceTerrainLayers(), getInstanceUserLayers()}; 속성 읽기: {_imageProcess, _heightProcess, _modelProcess}
+            U3dApp — 갱신 대상 레이어와 작업 실행기 조회; 함수: {getInstanceImageLayers(), getInstanceHeightLayers(), getInstanceModelLayers(), getInstanceTerrainLayers(), getInstanceUserLayers()}; 속성 읽기: {_imageProcess, _heightProcess, _modelProcess}
             U3dLayer — 레이어 표시 여부; 함수: {getVisible()}
             U3dQuadTile / U3dQuadModelTile — 루트 초기화와 갱신; 함수: {isInitialized(), createMesh(), getType(), update()}
             UDEF — 루트 종류; 상수: {TILE_TYPE.TERRAIN, TILE_TYPE.MODEL}
@@ -184,14 +184,20 @@ U3dQuadSet extends U3dObject 클래스 정의
             _drawArg 또는 앱이 없으면 종료한다.
             change 또는 force가 truthy이면 판별을 생략하고, 그 밖에는 민감도에 따른 업데이트 필요 여부를 구한다.
             갱신이 필요하지 않으면 종료한다. layername, type, e는 갱신 범위 선택에 사용하지 않는다.
+            기존 _lodUpdateContext를 보관한다. 카메라 기준·레이어 목록 준비부터 정상 종료와 예외 모두 복원·무효화 처리를 보장한다.
             _curPostion에 현재 카메라 위치를 복사한다.
             이전 위치가 없으면 위치·회전·투영 행렬 저장 객체를 만들고 현재 값을 모두 복사한다.
             이전 위치가 있으면 세 저장 객체에 현재 값을 복사한다. 회전이나 외부 change만으로 갱신해도 세 기준을 함께 저장한다.
             표시된 이미지·모델 레이어만 _imageLayers·_modelLayers에 모으고 지형·사용자 레이어 목록을 _terrainLayer·_otherLayers에 저장한다.
+            고도 레이어 목록을 _heightLayers에 저장하여 타일이 영상과 고도의 원자료 상세화 요구를 별도로 판단하게 한다.
+            자료 목록을 준비한 뒤 현재 drawArg의 빈 공통 값 저장소로 교체한다. 중첩 갱신도 독립된 저장소를 만든다.
             각 루트가 초기화되지 않았으면 createMesh(null, _drawArg)를 호출한다.
             지형 루트는 공유 _visibleState와 이미지·높이 실행기로 UFrameState를 필요할 때 생성하여 _frameStates에 먼저 등록한다.
             모델 루트는 표시된 모델 레이어가 있을 때만 UModelFrameState를 필요할 때 생성하여 먼저 등록한다.
             해당 루트의 update에 _drawArg, 루트별 상태와 force를 전달한다.
+            카메라 기준·자료 준비 또는 루트 순회의 정상 반환과 예외 모두 이전 저장소가 있으면 parameters를 undefined로 무효화하고 _lodUpdateContext를 이전 저장소로 복원한다.
+            복귀한 바깥 순회의 다음 가시 표준 타일은 최신 상태로 공통 값을 다시 계산하고 이후 타일들이 재사용한다. 타일별 변경 검사나 추가 갱신 예약은 하지 않는다.
+            실행을 생략한 갱신은 기존 저장소를 무효화하지 않는다. 공통 값은 비동기 작업 완료 시점까지 유지하지 않는다.
             루트 전달을 마치면 검색 완료 처리를 실행한다.
 
     updateModel(box3) -> void

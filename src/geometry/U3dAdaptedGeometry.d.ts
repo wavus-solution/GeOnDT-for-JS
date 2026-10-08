@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -33,27 +33,27 @@ declare class U3dAdaptedGeometry extends U3dSphere {
      */
     static override EVENT: U3dAdaptedGeometryEMI;
     /** @type {import("three").Vector3} */
-    static "__#15@#TEMP_POSITION": three.Vector3;
+    static "__#16@#TEMP_POSITION": three.Vector3;
     /** @type {import("three").Quaternion} */
-    static "__#15@#TEMP_ROTATION": three.Quaternion;
+    static "__#16@#TEMP_ROTATION": three.Quaternion;
     /** @type {import("three").Vector3} */
-    static "__#15@#TEMP_SCALE": three.Vector3;
+    static "__#16@#TEMP_SCALE": three.Vector3;
     /** @type {import("three").Matrix4} */
-    static "__#15@#TEMP_MAT4": three.Matrix4;
+    static "__#16@#TEMP_MAT4": three.Matrix4;
     /** @type {import("three").Sphere} */
-    static "__#15@#TEMP_SPHERE": three.Sphere;
+    static "__#16@#TEMP_SPHERE": three.Sphere;
     /** @type {import("three").Vector3} */
-    static "__#15@#TEMP_VECTOR": three.Vector3;
+    static "__#16@#TEMP_VECTOR": three.Vector3;
     /** @type {import("three").Vector3} */
-    static "__#15@#TEMP_VECTOR2": three.Vector3;
+    static "__#16@#TEMP_VECTOR2": three.Vector3;
     /** @type {import("three").Vector3} */
-    static "__#15@#TEMP_CENTER": three.Vector3;
+    static "__#16@#TEMP_CENTER": three.Vector3;
     /** @type {import("three").Box3} */
-    static "__#15@#TEMP_BOX": three.Box3;
+    static "__#16@#TEMP_BOX": three.Box3;
     /** @type {import("three").Vector3} */
-    static "__#15@#LINE_DIRECTION": three.Vector3;
+    static "__#16@#LINE_DIRECTION": three.Vector3;
     /** @type {import("three").Vector3} */
-    static "__#15@#TEMP_DIR": three.Vector3;
+    static "__#16@#TEMP_DIR": three.Vector3;
     /**
      * 어댑터 도형을 생성합니다. <br>
      * 인지 범위 배율(`buffer`), 연결선 색상·굵기(`lineColor`/`lineThick`), 범위 강조 색상(`boundColor`) 등을 옵션으로 지정할 수 있습니다. <br>

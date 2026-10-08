@@ -46,6 +46,17 @@ U3dQuadTileProcess extends U3dProcess 클래스 정의
     #dispatchPending: boolean = false
         아직 처리하지 않은 시작 메시지가 있는지 나타내며 중복 예약을 막는다.
 
+    #dispatchTimer: number | undefined
+        메시지 대신 시작 간격을 기다리는 처리기 소유 타이머다.
+
+    _getStartDelay(reserve: boolean = false) -> number
+        의존:
+            U3dProcess — 그리기 인자; 속성 읽기: {_drawArg}
+            U3dApp — 관리자 조회; 함수: {getProcessManager()}
+            UProcessManager — 시작 간격 조회; 함수: {_getProcessStartDelay()}
+            __GError__ — 조회 오류 기록; 함수: {__GError__()}
+        동작: 관리자와 메서드가 있으면 자신과 reserve로 조회한다. 없거나 결과가 nullish이면 0이며 예외를 기록한 경우에도 0으로 반환하여 큐를 계속한다.
+
     _notifyTaskTiming(task: object, phase: string, immediate: boolean = false) -> void
         인터페이스: phase는 queued·started·succeeded·failed·cancelled·timeout·discarded 중 하나이며 immediate는 실행 호출과 완료 연결이 반환되기 전 종결 여부다.
         의존:
@@ -63,13 +74,14 @@ U3dQuadTileProcess extends U3dProcess 클래스 정의
             Web API — 브라우저 태스크 예약; 생성자: {MessageChannel}; 함수: {MessagePort.postMessage()}; 속성 쓰기: {MessagePort.onmessage}
         동작:
             처리기가 폐기되었거나 메시지가 예약되어 있거나 그리기 인자가 없거나 큐가 비었거나 실행 수가 한도보다 작지 않으면 종료한다.
+            시작 대기가 양수이면 예약 표식을 설정하고 올림한 밀리초의 타이머 하나를 둔다. 만료 시 타이머와 표식을 지우고 다시 예약 조건을 확인하며 이번에는 메시지를 보내지 않는다.
             채널이 없으면 생성하고 메시지 수신 시 예약 표식을 지운 뒤 한 번 디큐하도록 등록한다. 디큐가 종료하거나 예외를 던져도 finally에서 다음 예약 조건을 확인하도록 연결한다.
             예약 표식을 설정하고 null 메시지 하나를 보낸다. 작업 데이터는 메시지로 전달하지 않는다.
 
     #cancelDispatch() -> void
         의존: Web API — 소유 포트 해제; 함수: {MessagePort.close()}; 속성 쓰기: {MessagePort.onmessage}
         동작:
-            채널이 있으면 수신 콜백을 해제하고 두 포트를 닫은 뒤 채널을 null로 만든다. 예약 표식은 false로 초기화한다.
+            시작 타이머를 해제하고 undefined로 지운다. 채널이 있으면 수신 콜백을 해제하고 두 포트를 닫은 뒤 채널을 null로 만든다. 예약 표식은 false로 초기화한다.
 
     override dispose() -> void
         의존: U3dProcess — 기반 수명 상태; 속성 쓰기: {_dispose, _layer}
@@ -93,14 +105,12 @@ U3dQuadTileProcess extends U3dProcess 클래스 정의
             U3dProcess — 공통 상태 초기화; 생성자: {constructor()}
             defined — 옵션 존재 검사; 함수: {defined()}
             UDEF — 기본 실행 한도; 상수: {DEFAULT_MAX_PROCESS}
-            UCheckTime — 시간 측정 객체; 생성자: {constructor()}
         동작:
             opt를 기반 생성자에 전달하고 maxprocess가 정의되어 있으면 그대로 한도로 저장하며 아니면 기본 한도를 사용한다.
-            큐 정리 주기를 5, 호출 인덱스를 0으로 초기화하고 시간 측정 객체를 보관한다.
 
     override enqueueWork(work: U3dQuadTileTask, tile: U3dQuadTile) -> void
         의존:
-            U3dProcess — 기반 상태와 등록; 속성 읽기: {_dispose, _drawArg, _queueBuffer}; 함수: {enqueueWork()}
+            U3dProcess — 기반 상태와 등록; 속성 읽기: {_dispose, _drawArg, _queueBuffer}; 함수: {prototype.enqueueWork.call()}
             defined — 작업 존재 검사; 함수: {defined()}
             U3dApp — 전체 로딩 수 증가; 함수: {addTotalProcessLoading()}
             U3dQueue — 폐기 중 등록된 항목 회수; 함수: {remove()}
@@ -141,18 +151,13 @@ U3dQuadTileProcess extends U3dProcess 클래스 정의
 
     process(curTime?: number) -> number
         의존:
-            U3dProcess — 기반 처리 상태; 속성 읽기·쓰기: {_queueBuffer, _remainProcess, _drawArg, _dispose}
-            defined — 그리기 인자 존재 검사; 함수: {defined()}
-            U3dQueue — 큐 검사와 정리; 속성 읽기: {length}; 함수: {traverse(), removeFind()}
-            U3dQuadTileTask — 활성 상태와 작업 이름; 함수: {isActive()}; 속성 읽기: {scope, item, name}
-            work.scope — 표시 상태 검사; 함수: {getVisible()}
-            U3dQuadTile — 폐기와 부모 작업 상태; 속성 읽기: {_disposed}; 함수: {getParent(), isWaitWork()}
-            __GError__ — 엔진 표준 오류 보고; 함수: {__GError__()}
+            U3dProcess — 기반 상태; 속성 읽기: {_dispose, _drawArg, _queueBuffer, _remainProcess}
+            U3dQueue — 대기 개수; 속성 읽기: {length}
+            defined — 그리기 인자 검사; 함수: {defined()}
         동작:
-            curTime은 사용하지 않는다. 처리기가 폐기되었거나 그리기 인자가 없으면 0을 반환한다. 대기 큐가 비었으면 실행 중인 작업 수를 반환한다.
-            인덱스가 정리 주기와 같으면 인덱스를 먼저 0으로 만들고 대기 항목의 참조 목록을 복사한다. 복사 목록에서 비활성·숨김·폐기·부모 대기 해제 작업과 검사 중 예외가 난 작업을 제외 후보로 수집하며 예외는 엔진 오류 로그로 기록한다. 그 외 호출에서는 인덱스를 증가시킨다.
-            실제 큐에 남아 있는 제외 후보만 제거하고 제거된 항목을 별도 목록에 보관한다. 큐 제거가 끝난 뒤 각 항목을 종결하여 알림 콜백의 큐 초기화나 신규 등록이 제거 순회에 개입하지 않게 한다. 상태 조회 중 이미 제거된 항목도 중복 종결하지 않는다.
-            한도 이상이 이미 실행 중이면 실행 수를 반환한다. 그 외에는 다음 시작을 예약하고 현재 실행 수를 반환한다. 반환값은 이번 호출에서 시작한 작업 개수가 아니다.
+            curTime은 사용하지 않는다. 폐기 또는 그리기 인자 없음이면 0을, 빈 큐이면 현재 점유 수를 반환한다.
+            전체 큐를 복사·순회하지 않는다. 유효성 확인과 제외 통지는 이후 디큐의 비동기 경계에서 항목마다 수행한다.
+            한도 이상 점유이면 현재 수를 즉시 반환한다. 그 밖에는 시작을 예약하고 현재 점유 수를 반환한다.
 
     dequeueBuffer() -> boolean
         의존:
@@ -163,9 +168,9 @@ U3dQuadTileProcess extends U3dProcess 클래스 정의
             U3dQuadTileTask — 실행 함수·scope·활성 상태; 속성 읽기: {item, fnc, scope, name}; 함수: {isActive()}
             __GError__ — 엔진 표준 오류 보고; 함수: {__GError__()}
         동작:
-            폐기되었거나 그리기 인자가 없거나 실행 수가 현재 한도보다 작지 않으면 false를 반환한다. 큐 항목 하나를 꺼내고 없으면 false를 반환한다.
-            item이 U3dQuadTile이 아니거나 fnc가 함수가 아니거나 scope가 없거나 타일 폐기·비활성·부모 대기 해제이면 제외 작업을 종결하고 false를 반환한다. 검사나 실행 시작에서 예외가 나도 기록하고 제외 처리 후 false를 반환한다.
-            유효한 작업을 실행 경로에 전달하고 true를 반환한다.
+            폐기되었거나 그리기 인자가 없거나 실행 수가 현재 한도보다 작지 않으면 false를 반환한다. 시작 대기가 양수이면 다음 시작을 예약하고 큐를 꺼내지 않은 채 false를 반환한다. 나머지는 큐 항목 하나를 꺼내고 없으면 false를 반환한다.
+            item이 U3dQuadTile이 아니거나 fnc가 함수가 아니거나 scope가 없거나 타일 폐기·비활성·부모 대기 해제 또는 checkQueue가 false이면 제외 작업을 종결하고 false를 반환한다. 검사나 실행 시작에서 예외가 나도 기록하고 제외 처리 후 false를 반환한다.
+            유효한 작업의 시작 간격을 reserve=true로 예약한 뒤 실행 경로에 전달하고 true를 반환한다.
 
     execute(obj: U3dQuadTileTask, tile: U3dQuadTile) -> void
         의존:

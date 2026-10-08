@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -29,6 +29,7 @@ import type { DeferredObject } from "../util/deferred.js";
  * 등록한 뒤에 켜고 끄는 것은 activePass()만 사용하며, 이 메서드가 켜짐 상태를 바꾸면서 composer에 넣거나 빼 줍니다.<br>
  * pass는 등록한 순서가 아니라 각자 가진 순서 값대로 실행되므로 새 pass를 넣을 때는 순서 값을 먼저 정해야 합니다.<br>
  * setPostProcess(false)로 후처리를 끄면 화면 품질용 pass만 꺼지고 화면 출력과 분석·유틸 pass는 그대로 남습니다.
+ * 이때 통합 출력 pass는 밝기·대비만 생략하고 톤 매핑과 출력 색 변환을 유지합니다.
  *
  * @group core
  */
@@ -80,7 +81,13 @@ declare class URenderer extends three.WebGLRenderer {
      * @type {boolean}
      */
     static DEFAULT_USE_DITHER: boolean;
-    constructor(opt?: {});
+    /**
+     * WebGL 렌더러를 생성하고 MSAA와 후처리 보정 설정을 각각 초기화합니다.
+     *
+     * @param {URendererCO} [opt={}] WebGL 생성 옵션과 렌더러 품질 설정
+     * @throws {RangeError} msaaSamples가 0 이상의 안전한 정수가 아닌 경우
+     */
+    constructor(opt?: URendererCO);
     _classtpye: string;
     __setSize: any;
     __setDrawingBufferSize: any;
@@ -108,28 +115,34 @@ declare class URenderer extends three.WebGLRenderer {
      */
     getPostOption(): PostProcessParam;
     /**
-     * 후처리 렌더 타깃의 MSAA 요청 샘플 수를 저장합니다.<br>
+     * 렌더러에 설정한 MSAA 요청 샘플 수를 반환합니다.<br>
+     * 장치 상한으로 제한하기 전 요청값이며 기본값은 2입니다.
+     *
+     * @returns {number} MSAA 요청 샘플 수이며 0이면 비활성화
+     */
+    getMsaaSamples(): number;
+    /**
+     * 렌더러의 MSAA 요청 샘플 수를 설정합니다.<br>
+     * 기본값은 2이며 환경의 성능과 화질에 맞게 0·2·4·8 등을 선택하십시오.<br>
+     * 값을 높이면 얇은 선과 원거리 경계를 부드럽게 하지만 GPU 비용도 늘어납니다.<br>
      * 실제 적용값은 장치 상한으로 제한하며, 이미 생성된 타깃은 다음 후처리 렌더 시작 시 갱신합니다.<br>
-     * 다른 후처리 pass의 활성 상태는 변경하지 않습니다.
-     * @param {number} samples 0 이상의 안전한 정수이며 0이면 MSAA를 비활성화합니다.
-     * @returns {void} 반환값 없음
+     * 후처리 보정 사용 여부와 독립적으로 적용하며 다른 pass의 활성 상태는 변경하지 않습니다.
+     *
+     * @param {number} msaaSamples 0 이상의 안전한 정수이며 0이면 MSAA 비활성화
      * @throws {RangeError} 샘플 수가 0 이상의 안전한 정수가 아닌 경우
      */
-    setComposerSamples(samples: number): void;
-    _postOption: {};
+    setMsaaSamples(msaaSamples: number): void;
     /**
      * 후처리 설정을 갱신하고 그 값을 각 pass에 반영합니다.<br>
      * 넘기지 않은 항목은 기존 값을 유지하고, 기존 값도 없으면 정적 기본값을 사용합니다.<br>
      * AO와 Bloom의 기본값은 호출할 때마다 기기 성능 판정값으로 먼저 덮어쓰므로, 저사양 기기에서는 지정하지 않은 항목이 꺼진 채로 시작합니다.<br>
-     * 화면 품질용 pass를 모두 켠 뒤 대비·밝기를 적용하고, AO·Bloom·Dither는 설정값에 따라 개별로 켜고 끕니다.<br>
+     * 화면 품질용 pass를 켠 뒤 대비·밝기를 적용하고, AO·Bloom과 통합 FXAA의 Dither 효과는 설정값을 따릅니다.<br>
      * composer가 아직 없으면 등록된 pass가 없어 설정 저장까지만 이뤄집니다.
-     * composerSamples는 기본 4이며 변경 시 다음 후처리 렌더 시작에 반영됩니다.
      *
      * @param {Partial<PostProcessParam>} [option={}] 바꿀 항목만 담은 설정이며, 생략한 항목은 기존 값 또는 기본값을 사용
-     * @returns {void} 반환값 없음
-     * @throws {RangeError} composerSamples가 0 이상의 안전한 정수가 아닌 경우
      */
     setPostOption(option?: Partial<PostProcessParam>): void;
+    _postOption: {};
     /**
      * 현재 화면 크기를 composer와 크기에 민감한 pass들에 다시 알려 줍니다.<br>
      * 감싼 setSize()와 setDrawingBufferSize()가 자동으로 부르므로 보통 직접 호출할 필요는 없습니다.<br>
@@ -191,7 +204,7 @@ declare class URenderer extends three.WebGLRenderer {
      * 등록 시점의 켜짐 상태가 그대로 반영되어, 켜져 있는 pass만 composer에 들어가고 꺼진 pass는 이름만 등록된 채 대기합니다.<br>
      * 기본으로 켜지는 것은 장면 렌더·화면 출력·대비 밝기 보정·계단 현상 완화이고, AO와 Bloom과 Dither는 후처리 설정을 따릅니다.<br>
      * 스카이라인·일조량·높이·오버레이·복사·외곽선 pass는 꺼진 채 등록되므로 필요할 때 activePass()로 켭니다.<br>
-     * 실행 순서는 등록 순서가 아니라 각 pass가 가진 순서 값을 따르며, 장면 렌더에서 시작해 화면 출력을 지나 계단 현상 완화와 Dither가 마지막에 옵니다.<br>
+     * AO 뒤에서 밝기·대비와 출력을 함께 처리하고, 뒤쪽에서 FXAA와 선택적 Dither를 함께 처리합니다.<br>
      * 후처리를 꺼 둔 상태로 등록하면 화면 품질용 pass는 등록과 동시에 꺼집니다.<br>
      * renderComposer()가 composer가 없을 때 대신 호출하므로 보통 직접 부르지 않습니다.
      *
@@ -204,9 +217,10 @@ declare class URenderer extends three.WebGLRenderer {
      */
     disposeComposer(): void;
     /**
-     * 켜져 있는 pass들에 지금 사용할 camera를 알려 줍니다.<br>
+     * 사용하도록 설정된 pass들에 지금 사용할 camera를 알려 줍니다.<br>
      * camera를 바꿔 가며 같은 composer로 여러 번 그릴 때 각 pass가 옛 camera를 붙들지 않게 합니다.<br>
-     * camera를 받아 갱신하는 수단을 가진 pass만 대상이 됩니다.
+     * camera 제한으로 일시 중단된 pass도 갱신하여, 지원하는 camera로 돌아오면 복구합니다.<br>
+     * 사용자가 끄거나 후처리 전체 설정으로 차단된 pass는 갱신하지 않습니다.
      *
      * @param {import("three").Camera} camera 이번 그리기에 사용할 camera
      */
@@ -236,7 +250,7 @@ declare class URenderer extends three.WebGLRenderer {
     _captureToBlobPromises: any[];
     /**
      * 후처리 composer로 한 프레임을 화면에 그립니다.<br>
-     * composer가 아직 없으면 이 시점에 만들고, 이미 있으면 켜져 있는 pass에 camera만 갱신합니다.<br>
+     * composer가 아직 없으면 이 시점에 만들며, 첫 그리기부터 pass의 camera 상태를 갱신합니다.<br>
      * 자동 지우기를 끄고 그리므로 이전에 그려 둔 내용 위에 겹쳐집니다.
      *
      * @param {import("three").Camera} camera 이번 프레임에 사용할 camera
@@ -322,6 +336,7 @@ declare class URenderer extends three.WebGLRenderer {
      * pass를 켜거나 끄고 그 결과를 composer에도 반영합니다.<br>
      * 등록된 pass의 켜짐 상태를 바꾸는 방법은 이 메서드뿐이며, 켜면 자기 순서 자리에 끼워 넣고 끄면 composer에서 빼냅니다.<br>
      * 후처리가 꺼져 있으면 화면 품질용과 선택 품질용 pass는 true를 넘겨도 꺼진 상태로 남습니다.<br>
+     * 사용 요청은 camera에 따른 일시 중단과 별도로 저장하여 다음 그리기에서 재판정합니다.<br>
      * 등록되어 있지 않은 pass를 넘기면 아무것도 하지 않습니다.
      *
      * @param {import("@UPassInfo").UPassInfo | string} name 바꿀 pass 정보 또는 pass 이름
@@ -423,12 +438,6 @@ declare class URenderer extends three.WebGLRenderer {
      */
     type PostProcessParam = {
         /**
-         * 후처리 렌더 타깃의 MSAA 요청 샘플 수입니다.<br>
-         * 0 이상의 안전한 정수만 허용하며 0이면 MSAA를 비활성화합니다.<br>
-         * 요청값은 보관하고 실제 적용값은 장치의 MSAA 상한으로 제한합니다. 변경은 다음 후처리 렌더 시작 시 반영됩니다.
-         */
-        composerSamples?: number;
-        /**
          * 화면 전체에서 밝은 부분과 어두운 부분의 차이를 조절하는 배율입니다.<br>
          * 1이면 원본 그대로이고 1보다 크면 차이가 커져 또렷해지며 1보다 작으면 차이가 줄어 평탄해집니다.
          */
@@ -467,4 +476,34 @@ declare class URenderer extends three.WebGLRenderer {
         useDither?: boolean;
     };
 
-export type { PostProcessParam, URenderer };
+/**
+     * ~extends import('three').WebGLRendererParameters <br>
+     *
+     * 렌더러의 품질 설정입니다. MSAA는 후처리 보정 옵션과 독립적으로 관리합니다.
+     */
+    type URendererCO_Content = {
+        /**
+         * MSAA 요청 샘플 수이며 0이면 비활성화합니다.<br>
+         * 0 이상의 안전한 정수를 받으며 실제 적용값은 장치 상한으로 제한합니다. 환경의 성능과 화질에 맞게 0·2·4·8 등을 선택하십시오.<br>
+         * 높은 값은 얇은 선과 원경의 경계를 부드럽게 하지만 GPU 비용도 늘어납니다. 생성 후 getMsaaSamples()와 setMsaaSamples()로 조회·변경합니다.<br>
+         * usePostProcess가 false여도 MSAA는 계속 적용됩니다.
+         */
+        msaaSamples?: number;
+        /**
+         * 대비·밝기·AO·Bloom·FXAA·Dither 등 후처리 보정 사용 여부
+         */
+        usePostProcess?: boolean;
+        /**
+         * 개별 후처리 보정 설정이며 생략한 항목은 기본값 사용
+         */
+        postOption?: Partial<PostProcessParam>;
+    };
+
+/**
+     * ~extends import('three').WebGLRendererParameters <br>
+     *
+     * 렌더러의 품질 설정입니다. MSAA는 후처리 보정 옵션과 독립적으로 관리합니다.
+     */
+    type URendererCO = Omit<Omit<three.WebGLRendererParameters, never> & URendererCO_Content, never>;
+
+export type { PostProcessParam, URenderer, URendererCO, URendererCO_Content };

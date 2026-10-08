@@ -61,6 +61,9 @@ containCheckSphere: Three.js Sphere = 새 Sphere
 
 UCache 클래스 정의
 
+    _revision: number = 0
+        항목 추가·교체·제거와 clear의 변경 세대이며, 저장 객체 내부의 변경은 포함하지 않는다.
+
     _enabled: boolean = true
         add(), get(), delete(), deleteAll()의 활성 실행 여부를 제어하는 상태 [확인 Q-002]
 
@@ -130,7 +133,10 @@ UCache 클래스 정의
 
     add(key: string, item: any) -> void
         처리 기준: cache 사용 상태가 비활성이면 저장소를 바꾸지 않는다. [확인 Q-002]
-        동작: 활성 상태이면 일반 객체 속성 쓰기로 key의 기존 값을 item으로 추가하거나 교체한다. [확인 Q-005]
+        동작:
+            비활성 상태이면 종료한다.
+            소유 key가 없거나 기존 값과 item의 identity가 다르면 _revision을 증가시킨다.
+            일반 객체 속성 쓰기로 key의 기존 값을 item으로 추가하거나 교체한다. [확인 Q-005]
 
     get(key: string) -> any | undefined
         처리 기준: cache 사용 상태가 비활성이면 저장된 값이 있어도 undefined를 반환한다. [확인 Q-002]
@@ -145,10 +151,12 @@ UCache 클래스 정의
         동작: cache 사용 상태와 관계없이 현재 항목 저장소의 key를 새 배열로 반환한다. [확인 Q-002]
 
     remove(key: string) -> void
-        동작: cache 사용 상태와 관계없이 key의 항목을 저장소에서 제거한다. [확인 Q-002]
+        동작:
+            cache 사용 상태와 관계없이 소유 key가 있으면 _revision을 증가시킨다.
+            key의 항목을 저장소에서 제거한다. [확인 Q-002]
 
     clear() -> void
-        동작: cache 사용 상태와 관계없이 항목 저장소를 새 빈 객체로 교체한다. [확인 Q-002]
+        동작: cache 사용 상태와 관계없이 항목 저장소를 새 빈 객체로 교체하고 _revision을 증가시킨다. [확인 Q-002]
 
     delete(self: any, key: string, func?: Function) -> void
         인터페이스:
@@ -166,7 +174,7 @@ UCache 클래스 정의
         동작:
             활성 상태이고 self가 정의되어 있으며 key의 값이 존재하는지 확인한다.
             func가 있으면 self를 this로 고정하고 삭제할 항목만 인수로 전달하여 실행한다.
-            callback이 정상 종료하거나 callback이 없으면 key의 항목을 저장소에서 제거한다.
+            callback이 정상 종료하거나 callback이 없으면 key의 항목을 저장소에서 제거하고 _revision을 증가시킨다.
 
     deleteAll(self: any, func?: Function) -> void
         인터페이스:

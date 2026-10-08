@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -9,6 +9,7 @@ import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/ty
 import type { U3dApp } from "../app/U3dApp.js";
 import type { U3dObject } from "../core/U3dObject.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
+import type { U3dQuadTileLodContext } from "./U3dQuadTile.js";
 
 /**
  * ~extends import('@U3dObject').U3dObject
@@ -26,6 +27,15 @@ import type { UDrawArg } from "../core/UDrawArg.js";
  */
 declare class U3dQuadSet extends U3dObject {
     constructor(minx: any, maxx: any, miny: any, maxy: any, level: any, layers: any, drawArg: any, scene: any);
+    /**
+     * 현재 동기 순회에 한정된 공통 분화 판단 값입니다.
+     * 비동기 작업과 다음 갱신으로 전달하지 않으며 중첩 갱신 뒤에는 이전 범위를 복원합니다.
+     *
+     * @type {U3dQuadTileLodContext | undefined}
+     *
+     * @ignore
+     */
+    _lodUpdateContext: U3dQuadTileLodContext | undefined;
     _scene: any;
     _layers: any;
     _drawArg: any;

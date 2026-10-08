@@ -68,7 +68,11 @@ class U3dOpenLayer extends U3dImageLayer {
         rotationZ: 0,
         movingUntil: 0
     };
-    /** @override */
+    /**
+     * @override
+     *
+     * @ignore
+     */
     static OPT_KEYS = [
         ...U3dImageLayer.OPT_KEYS,
         'reverseX', 'reverseY', 'layers', 'oldebug',
@@ -197,14 +201,18 @@ class U3dOpenLayer extends U3dImageLayer {
     }
 
     /**
-     * 타일 데이터의 픽셀 정보가 없을 시, 기본으로 적용될 색상을 설정합니다. null입력시 투명처리
-     * @param {import('three').ColorRepresentation} color=null
+     * 타일 데이터의 픽셀 정보가 없는 영역에 적용할 배경색을 설정합니다.
+     * @param {import('three').ColorRepresentation | null} color 배경색. null이면 배경색을 해제합니다.
      */
     setTileBackgroundColor(color){
         this._tileBackgroundColor = color;
         this.refresh();
     }
 
+    /**
+     * 설정된 타일 배경색을 반환합니다.
+     * @returns {import('three').ColorRepresentation | null} 배경색. 해제 상태이면 null입니다.
+     */
     getTileBackgroundColor(){
         return this._tileBackgroundColor;
     }

@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -228,8 +228,9 @@ declare class UFrustum extends three.Frustum {
      * setTarget은 target만 저장하고 즉시 행렬을 갱신하지 않습니다.
      * 애니메이션 프레임 등 원하는 시점에 `updateTarget()`을 호출해 실제 갱신 시점을 제어합니다. (`update(camera)`는 카메라 기준 갱신으로 별개입니다.)
      * 이전과 다른 target을 등록하면 자세 연속성 계산에 쓰던 직전 자세 기록이 초기화됩니다. null·undefined는 무시됩니다.
+     * 추적을 중단하려면 targetObject를 undefined로 설정합니다. 마지막 행렬은 유지됩니다.
      *
-     * @param {UFrustumTarget} target 추적할 컴포넌트 또는 Object3D 유사 객체. 위치(`getVectorPosition()` 또는 `position`)와 자세(`lookAt` 좌표 또는 `quaternion`)를 제공해야 합니다
+     * @param {UFrustumTarget} target 추적할 컴포넌트 또는 Object3D 유사 객체. 위치(`getVectorPosition()` 또는 `position`)는 Vector3 또는 x/y/z 객체입니다. 자세는 `lookAt` 좌표 또는 isQuaternion이 true인 정규화된 회전 성분으로 제공합니다
      * @returns {this} 체이닝을 위한 자기 자신
      */
     setTarget(target: UFrustumTarget): this;
@@ -237,6 +238,7 @@ declare class UFrustum extends three.Frustum {
      * 등록된 target의 현재 위치·자세로 프러스텀의 월드 행렬(`matrix`)을 다시 계산합니다. <br>
      * 위치는 target 월드 위치에 `position` offset을 더한 값이고, 자세는 target 진행 방향과 `axis`·항공 자세(pitch/yaw/roll)로 만든 quaternion 뒤에 `rotation`을 합성한 값입니다.
      * target이 없거나 target에서 위치를 얻을 수 없으면 아무 것도 바꾸지 않고 반환합니다.
+     * 좌표형 lookAt은 quaternion보다 우선하며, 자세가 없거나 유효한 방향을 만들 수 없으면 기본 전방축을 사용합니다.
      * @param {Partial<{emitChange: boolean}>} [options={}] `emitChange`가 false이면 행렬만 갱신하고 변경 리스너를 호출하지 않습니다. 기본 true
      * @returns {this} 체이닝을 위한 자기 자신
      */
@@ -388,27 +390,35 @@ declare class UFrustum extends three.Frustum {
     };
 
 /**
+     * 프러스텀 추적에 사용하는 정규화된 회전 성분입니다. THREE.Quaternion 또는 같은 성분을 가진 객체를 받습니다. <br>
+     * 기존 판정 방식에 따라 isQuaternion이 true여야 회전값으로 사용합니다. <br>
+     */
+    type UFrustumTargetQuaternion = three.QuaternionLike & {
+        readonly isQuaternion: true;
+    };
+
+/**
      * UFrustum이 위치·자세를 추적할 target 객체의 최소 계약입니다.
      * U3dComponentPosition처럼 lookAt 좌표를 가진 컴포넌트와 import('three').Object3D 유사 객체를 모두 받습니다.
      * lookAt이 함수가 아닌 좌표값이면 quaternion보다 우선해 시선 방향으로 사용합니다.
      */
     type UFrustumTarget = {
         /**
-         * 월드 위치를 반환하는 함수. 있으면 position보다 우선한다.
+         * 월드 위치를 반환하는 함수. 반환값이 없으면 position을 사용한다.
          */
-        getVectorPosition?: () => three.Vector3;
+        getVectorPosition?: () => (three.Vector3Like | undefined);
         /**
-         * 월드 위치.
+         * 월드 위치. 실제 Vector3와 평문 x/y/z 객체를 모두 받는다.
          */
-        position?: three.Vector3;
+        position?: three.Vector3Like;
         /**
          * 회전 quaternion.
          */
-        quaternion?: three.Quaternion;
+        quaternion?: UFrustumTargetQuaternion;
         /**
          * quaternion 대신 사용할 내부 회전 quaternion.
          */
-        _quaternion?: three.Quaternion;
+        _quaternion?: UFrustumTargetQuaternion;
         /**
          * 회전 Euler. 현재 UFrustum은 자세 계산에 이 값을 사용하지 않으며(`quaternion`·`lookAt`만 사용) 타입 호환을 위해 허용합니다.
          */
@@ -416,7 +426,7 @@ declare class UFrustum extends three.Frustum {
         /**
          * 바라보는 월드 좌표. Object3D의 lookAt 메서드는 좌표값으로 취급하지 않는다.
          */
-        lookAt?: three.Vector3 | three.Vector3Like | Array<number> | ((arg0: three.Vector3 | number, arg1: number | undefined, arg2: number | undefined) => void);
+        lookAt?: three.Vector3 | three.Vector3Like | Array<number> | three.Object3D["lookAt"];
     };
 
 /**
@@ -455,4 +465,4 @@ declare class UFrustum extends three.Frustum {
         sphere: three.Sphere | null;
     };
 
-export type { UFrustum, UFrustumCO, UFrustumCamera, UFrustumCameraInfo, UFrustumChangeListener, UFrustumEulerLike, UFrustumInnerCache, UFrustumTarget };
+export type { UFrustum, UFrustumCO, UFrustumCamera, UFrustumCameraInfo, UFrustumChangeListener, UFrustumEulerLike, UFrustumInnerCache, UFrustumTarget, UFrustumTargetQuaternion };

@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -109,7 +109,10 @@ type UAnalyContourCO = Omit<Omit<UAnalyHeightCO, never> & UAnalyContourCO_Conten
  */
 /**
  * ~extends import('@union3d/analy/UAnalyHeight').UAnalyHeight <br>
- * `고도`의 등고선을 출력하는 분석 클래스
+ * `고도`의 등고선을 출력하는 분석 클래스 <br>
+ * setHeightVisible(boolean)는 등고선만 제어하고 성공 여부를 반환합니다. 기존 버전의 상속 동작과 달리 고도 색상은 변경하지 않으므로, 고도 색상 제어에는 Height 분석을 사용하십시오. <br>
+ * 앱 미연결·해제 후 또는 패스 미준비 상태에서는 OFF에 true, ON에 false를 반환하며 로그 출력·패스 생성·자동 재시도는 하지 않습니다. boolean이 아닌 입력은 변경 없이 false를 반환합니다. <br>
+ * drawHeight(boolean)는 같은 등고선 처리를 수행하되 반환값이 없는 호환 메서드입니다. 등고선 상태는 isTopoVisible(), 고도 색상 상태는 상속된 isHeightVisible()로 조회합니다. <br>
  * @group analysis
  * @extends UAnalyHeight
  *

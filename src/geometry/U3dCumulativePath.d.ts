@@ -1,13 +1,13 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dApp } from "../app/U3dApp.js";
-import type { USimpleTail, USimpleTail_Policy } from "../effect/USimpleTail.js";
+import type { USimpleTail, USimpleTailDrawNode, USimpleTailDrawResult, USimpleTailFadeOutCallback, USimpleTailPointMetadata, USimpleTail_Policy } from "../effect/USimpleTail.js";
 import type { WorldPosition, WorldPositionVector3 } from "../types/global.js";
 
 /**
@@ -19,13 +19,26 @@ import type { WorldPosition, WorldPositionVector3 } from "../types/global.js";
  */
 declare class U3dCumulativePath {
     /** @type {Set<U3dCumulativePath>} */
-    static "__#33@#drawPaths": Set<U3dCumulativePath>;
+    static "__#34@#drawPaths": Set<U3dCumulativePath>;
     /** @type {number | undefined} */
-    static "__#33@#drawFrame": number | undefined;
-    static "__#33@#tickDraw"(): void;
-    static "__#33@#scheduleDraw"(): void;
+    static "__#34@#drawFrame": number | undefined;
+    static "__#34@#tickDraw"(): void;
+    static "__#34@#scheduleDraw"(): void;
     /** @param {U3dCumulativePath} path @param {boolean} enabled */
-    static "__#33@#watchDraw"(path: U3dCumulativePath, enabled: boolean): void;
+    static "__#34@#watchDraw"(path: U3dCumulativePath, enabled: boolean): void;
+    /**
+     * @param {U3dCumulativePathStyleFunc | null | undefined} value
+     * @returns {U3dCumulativePathStyleFunc | null | undefined}
+     * @ignore
+     */
+    static validateStyleFunc(value: U3dCumulativePathStyleFunc | null | undefined): U3dCumulativePathStyleFunc | null | undefined;
+    /**
+     * @param {USimpleTail_Policy | undefined} previous
+     * @param {USimpleTail_Policy} patch
+     * @returns {USimpleTail_Policy}
+     * @ignore
+     */
+    static mergeTailPolicy(previous: USimpleTail_Policy | undefined, patch: USimpleTail_Policy): USimpleTail_Policy;
     /**
      * U3dCumulativePath 클래스 생성자입니다.<br>
      * app과 scene은 필수이며 둘 중 하나가 없으면 오류를 보고합니다.
@@ -103,6 +116,14 @@ declare class U3dCumulativePath {
      */
     getTail(): USimpleTail | undefined;
     /**
+     * 보관 중인 노드를 오래된 순서로 drawFunc(info)와 같은 구조로 조회합니다.<br>
+     * 숨긴 노드는 포함하고 제거·단순화된 노드는 제외합니다. 콜백 평가나 렌더링 갱신은 하지 않습니다.<br>
+     * 좌표와 이전 노드 정보는 복사본이며, now와 전체 시간·거리는 조회 시점 기준입니다.
+     * waypointHistory는 조회 시점의 도착 이력을 접근할 때마다 복사합니다.
+     * @returns {Array<U3dCumulativePathDrawInfo>} 미초기화·해제 후에는 빈 배열
+     */
+    getNodes(): Array<U3dCumulativePathDrawInfo>;
+    /**
      * 궤적의 지점 단순화, 용량, 페이드 방식을 설정합니다.<br>
      * 지정하지 않은 항목은 현재 정책을 유지합니다.
      *
@@ -110,7 +131,14 @@ declare class U3dCumulativePath {
      */
     setTailPolicy(opt: USimpleTail_Policy): void;
     /**
-     * 보관 노드의 draw 정책을 다시 평가합니다. 시간 기준을 지정할 수 있습니다.
+     * 기본값과 입력값 정규화가 반영된 현재 궤적 정책의 복사본을 반환합니다.
+     * 반환 객체를 변경해도 내부 정책은 바뀌지 않습니다. 변경은 setTailPolicy를 사용합니다.
+     * 콜백은 등록된 함수 참조를 그대로 반환합니다.
+     * @returns {USimpleTail_Policy} 현재 궤적 정책
+     */
+    getTailPolicy(): USimpleTail_Policy;
+    /**
+     * GPU 기준 시간을 갱신하고, drawFunc가 있으면 노드를 평가합니다.
      * @param {{now?: number, totalTime?: number | null}} [context] 평가 시간. totalTime은 null로 최신 입력 기준 복귀
      */
     updateDraw(context?: {
@@ -118,7 +146,7 @@ declare class U3dCumulativePath {
         totalTime?: number | null;
     }): void;
     /**
-     * 노드별 표시·구간·fade·폐기 정책을 교체합니다. null이면 maxDistance 기본 정책으로 복귀합니다.
+     * 노드별 제어 콜백을 교체합니다. null이면 CPU 평가를 해제합니다.
      * @param {U3dCumulativePathDrawFunc | null} drawFunc
      */
     setDrawFunc(drawFunc: U3dCumulativePathDrawFunc | null): void;
@@ -148,20 +176,16 @@ declare class U3dCumulativePath {
      */
     setOpacity(opacity: number): void;
     /**
-     * 경로 지점별 색 농도 그라데이션을 켜거나 끕니다.<br>
-     * 그라데이션을 켜면 styleFunc 또는 기본 계산 결과를 사용합니다.<br>
-     * 끄면 단색으로 표시됩니다.
-     *
-     * @param {boolean} colorGradation true면 지점별 색 농도를 적용하고 false면 단색으로 그릴지 여부
+     * 기록된 지점의 colorFactor를 색 농도에 적용할지 설정합니다.
+     * @param {boolean} colorGradation true면 styleFunc 또는 기본 높이 기반 색 농도를 적용
      */
     setGradation(colorGradation: boolean): void;
     /**
-     * 지점별 색 농도(그라데이션 값) 계산 함수를 설정합니다.<br>
-     * undefined를 지정하면 기본 계산을 사용합니다.
-     *
-     * @param {U3dCumulativePathStyleFunc | undefined} styleFunc 지점별 색 농도를 반환하는 콜백 또는 기본 계산을 사용할 undefined
+     * 지점 기록 시 색 농도를 반환하는 함수를 등록합니다. 등록 시에는 실행하지 않습니다.
+     * null 또는 undefined는 기본 높이 기반 계산으로 복원합니다.
+     * @param {U3dCumulativePathStyleFunc | null | undefined} styleFunc
      */
-    setStyleFunc(styleFunc: U3dCumulativePathStyleFunc | undefined): void;
+    setStyleFunc(styleFunc: U3dCumulativePathStyleFunc | null | undefined): void;
     /**
      * 이후 추가할 경로 지점을 진행 방향 기준으로 앞뒤로 옮기는 오프셋을 설정합니다.<br>
      * 양수면 경로가 진행 방향 앞쪽에 표시됩니다.<br>
@@ -208,7 +232,7 @@ declare class U3dCumulativePath {
     dispose(): void;
     /**
      * 현재 위치를 경로 끝에 추가합니다.<br>
-     * 숨김 여부와 관계없이 경로를 갱신하고 단순화·draw 정책 정책을 적용합니다.<br>
+     * 숨김 여부와 관계없이 경로를 갱신하고 단순화·GPU 표시 설정을 적용합니다.<br>
      * 별도 원본 입력 대기열은 만들지 않습니다.<br>
      * drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다음 이동점이 올 때 함께 추가합니다.<br>
      * `pos`는 복사해 사용하므로 호출 뒤 같은 객체를 재사용할 수 있습니다.
@@ -221,7 +245,7 @@ declare class U3dCumulativePath {
     /**
      * 위치 데이터 배열의 지점을 경로 끝에 한 번에 추가합니다.<br>
      * 생성 직후의 초기 경로는 생성 옵션 initPositions로 지정하십시오.<br>
-     * 유효한 입력 지점을 모두 전달하며 지점 축소는 tailPolicy의 단순화·draw 정책 정책에 따릅니다.<br>
+     * 유효한 입력 지점을 모두 전달하며 지점 축소는 tailPolicy의 단순화·GPU 표시 설정에 따릅니다.<br>
      * 자원 생성을 지연한 경우에도 호출 시 초기 경로를 먼저 반영한 뒤 입력을 추가합니다.<br>
      * drawOffset이 0이 아니고 입력 지점이 모두 같은 위치이면 첫 이동점이 올 때 시작점을 추가합니다.<br>
      * 기존 경로 뒤에 지점을 추가합니다.<br>
@@ -232,13 +256,13 @@ declare class U3dCumulativePath {
     createTrailFromPositions(positions: Array<U3dCumulativePathPositionData>): void;
     /**
      * 경로를 화면에 표시합니다.<br>
-     * draw 정책을 평가하고 메시를 장면에 추가합니다.
+     * GPU 기준값을 갱신하고 메시를 장면에 추가합니다.
      */
     show(): void;
     /**
      * 경로를 화면에서 숨깁니다.<br>
      * 숨긴 동안에도 `updatePath`의 경로 갱신·단순화·draw 정책은 계속 적용됩니다.<br>
-     * drawFunc 평가는 숨긴 동안에도 계속합니다.<br>
+     * 다시 표시할 때 최신 시간·거리 기준으로 GPU 효과를 적용합니다.<br>
      * 다음 `createTrailFromPositions` 호출은 기존 경로를 지우고 새 경로로 표시됩니다.
      */
     hide(): void;
@@ -251,6 +275,53 @@ declare class U3dCumulativePath {
     getHelperMesh(update?: boolean): three.InstancedMesh | undefined;
     #private;
 }
+
+/**
+     * 노드별 표시·부분 구간·fade·폐기 정책. this는 U3dCumulativePath입니다.
+     * 숨긴 노드도 평가하며 예외 시 이전 결정을 유지합니다. 입력 객체를 변경해도 내부 노드는 바뀌지 않습니다.
+     */
+    type U3dCumulativePathDrawFunc = (this: U3dCumulativePath, info: U3dCumulativePathDrawInfo) => USimpleTailDrawResult | void;
+
+/**
+     * 노드 식별자와 기록 시각은 USimpleTailDrawNode 선언을 공유합니다.
+     * position/dist는 공개 조회 API의 이름이며 내부 x·y·z/pathDistance에서 변환합니다.
+     */
+    type U3dCumulativePathDrawInfo_Content = {
+        /**
+         * 보정 후 월드 좌표
+         */
+        position: Pick<USimpleTailDrawNode, "x" | "y" | "z">;
+        /**
+         * 경로 시작부터 누적 거리(m)
+         */
+        dist: USimpleTailDrawNode["pathDistance"];
+        /**
+         * 평가 경로 시간(ms). 기본 최신 입력 시간
+         */
+        totalTime: number;
+        /**
+         * 최신 입력까지 전체 누적 경로 거리(m). totalDist - dist가 이 노드부터 최신 입력까지의 거리입니다.
+         */
+        totalDist: number;
+        /**
+         * 평가 epoch 시각(ms)
+         */
+        now: number;
+        /**
+         * 직전 연결 노드. 첫 노드·단절 뒤에는 null
+         */
+        previous: Pick<U3dCumulativePathDrawInfo, "nodeId" | "position" | "time"> | null;
+        /**
+         * 별도 도착 이력의 복사본. 접근할 때 복사합니다.
+         */
+        waypointHistory: Array<WaypointRecord>;
+    };
+
+/**
+     * 노드 식별자와 기록 시각은 USimpleTailDrawNode 선언을 공유합니다.
+     * position/dist는 공개 조회 API의 이름이며 내부 x·y·z/pathDistance에서 변환합니다.
+     */
+    type U3dCumulativePathDrawInfo = Pick<USimpleTailDrawNode, "nodeId" | "time"> & U3dCumulativePathDrawInfo_Content;
 
 /**
      * `moveSmoothly`로 실제 도착한 지점 한 건의 이력 기록
@@ -267,97 +338,10 @@ declare class U3dCumulativePath {
     };
 
 /**
-     * 노드별 표시·부분 구간·fade·폐기 정책. this는 U3dCumulativePath입니다.
-     * 숨긴 노드도 평가하며 예외 시 이전 결정을 유지합니다. 입력 객체를 변경해도 내부 노드는 바뀌지 않습니다.
+     * colorGradation이 true일 때 지점 기록 시 색 농도를 계산합니다. this는 현재 경로입니다.
+     * 등록하거나 렌더링할 때 기존 노드 전체를 재평가하지 않습니다.
      */
-    type U3dCumulativePathDrawFunc = (info: U3dCumulativePathDrawInfo) => U3dCumulativePathDrawResult | void;
-
-type U3dCumulativePathDrawResult = {
-        /**
-         * 노드 색상. 생략하면 기본 색상과 기존 colorGradation을 사용하며 지정하면 기존 색 농도를 대체합니다. 노드 사이에서 보간합니다.
-         */
-        color?: three.ColorRepresentation;
-        /**
-         * 노드 불투명도(0~1). 생략/비정상 값은 기본 opacity. 노드 사이에서 보간한 뒤 fade.alpha와 곱합니다.
-         */
-        opacity?: number;
-        /**
-         * hide는 보관, dispose는 복구 불가능한 제거와 버퍼 회수
-         */
-        action?: "draw" | "hide" | "dispose";
-        /**
-         * 폭·불투명도 배율(0~1). 생략/비정상 값은 1. 0도 삭제를 뜻하지 않습니다.
-         */
-        fade?: {
-            width?: number;
-            alpha?: number;
-        };
-        /**
-         * 직전 연결 노드→현재 노드 구간의 표시 비율. 기본 0~1. from>=to면 표시하지 않습니다.
-         */
-        range?: {
-            from?: number;
-            to?: number;
-        };
-    };
-
-type U3dCumulativePathDrawInfo = {
-        /**
-         * 버퍼 이동·삭제에도 유지되는 식별자
-         */
-        nodeId: number;
-        /**
-         * 보정 후 월드 좌표
-         */
-        position: {
-            x: number;
-            y: number;
-            z: number;
-        };
-        /**
-         * 경로 시작부터 누적 거리(m)
-         */
-        dist: number;
-        /**
-         * 실시간 노드 기록 epoch 시각(ms). 경로가 자체 생성하며 애니메이션 누적 시간과 무관합니다. 명시적 이력 입력은 그 time을 사용합니다.
-         */
-        time: number;
-        /**
-         * 평가 경로 시간(ms). 기본 최신 입력 시간
-         */
-        totalTime: number;
-        /**
-         * 최신 입력까지 전체 누적 경로 거리(m). totalDist - dist가 이 노드부터 최신 입력까지의 거리입니다.
-         */
-        totalDist: number;
-        /**
-         * 평가 epoch 시각(ms)
-         */
-        now: number;
-        /**
-         * 직전 연결 노드. 첫 노드·단절 뒤에는 null
-         */
-        previous: {
-            nodeId: number;
-            position: {
-                x: number;
-                y: number;
-                z: number;
-            };
-            time: number;
-        } | null;
-        /**
-         * 별도 도착 이력의 복사본. 접근할 때 복사합니다.
-         */
-        waypointHistory: Array<WaypointRecord>;
-    };
-
-/**
-     * 경로의 각 지점에서 색을 얼마나 진하게 칠할지 정하는 콜백입니다. <br>
-     * `setStyleFunc`이나 스타일 옵션의 `styleFunc`으로 등록하며, 등록하면 기본 그라데이션 대신 이 함수의 결과를 사용합니다. <br>
-     * 호출 시 `this`는 경로 인스턴스(`U3dCumulativePath`)입니다. <br>
-     */
-    type U3dCumulativePathStyleFunc = (pos: three.Vector3, dist: number, time: number) => number;
+    type U3dCumulativePathStyleFunc = (this: U3dCumulativePath, position: three.Vector3, dist: number, time: number) => number;
 
 /**
      * 경로를 그리는 방식을 정하는 스타일 옵션입니다. <br>
@@ -382,17 +366,17 @@ type U3dCumulativePathDrawInfo = {
          */
         opacity?: number;
         /**
-         * 경로 굵기. 화면 픽셀 기준 값이며, 기본 설정(`depthWidthScale`)에서는 카메라와의 거리에 따라 보정됩니다 <br>
+         * 경로 반폭(px). 직선의 전체 폭은 약 2배이며, 폭 fade가 적용되면 줄어듭니다 <br>
          */
         width?: number;
         /**
-         * 지점별 색 농도 그라데이션 사용 여부. 켜면 `styleFunc`(없으면 지점 높이 z 기준의 기본 함수)가 정한 농도로 칠하고, 끄면 단색으로 그립니다 <br>
+         * true면 지점 기록 시 styleFunc 또는 기본 높이 기반 색 농도를 적용합니다 <br>
          */
         colorGradation?: boolean;
         /**
-         * 지점별 색 농도를 직접 정하는 함수. 넣으면 `colorGradation`의 기본 계산 대신 이 함수를 씁니다 <br>
+         * 지점별 colorFactor(0~1)를 반환하는 함수. colorGradation이 true일 때 적용하며 null은 기본 높이 계산 사용
          */
-        styleFunc?: U3dCumulativePathStyleFunc;
+        styleFunc?: U3dCumulativePathStyleFunc | null;
         /**
          * 제거 예정(deprecated) 옵션. 현재 구현에서 읽지 않으며 아무 효과가 없습니다 <br>
          */
@@ -422,11 +406,11 @@ type U3dCumulativePathDrawInfo = {
             z: number;
         };
         /**
-         * 사용하지 않는 이전 옵션. drawFunc로 표시와 수명을 제어합니다. <br>
+         * tailPolicy.onFadeOut과 같은 제한 경계 콜백. null로 해제합니다. <br>
          */
-        onFadeOut?: (arg0: object) => void;
+        onFadeOut?: USimpleTailFadeOutCallback | null;
         /**
-         * 노드 표시·구간·fade·폐기를 결정하는 함수. 지정하면 maxDistance보다 우선하며 null이면 거리 기본 정책으로 복귀
+         * 노드별 CPU 제어 콜백. 지정한 경로만 매 프레임 순회하며 null로 해제. styleFunc와 함께 사용 가능
          */
         drawFunc?: U3dCumulativePathDrawFunc | null;
         /**
@@ -439,7 +423,7 @@ type U3dCumulativePathDrawInfo = {
      * 경로 지점 하나의 위치·거리·시각 묶음입니다. <br>
      * 생성 옵션 `initPositions`와 `createTrailFromPositions`의 입력으로 사용합니다. <br>
      */
-    type U3dCumulativePathPositionData = {
+    type U3dCumulativePathPositionData_Content = {
         /**
          * 그 지점의 위경도 좌표 (EPSG:4326). `initPositions`·`createTrailFromPositions`로 넘기면 월드 좌표로 변환되어 그려지므로 직접 변환하지 않습니다 <br>
          */
@@ -449,21 +433,23 @@ type U3dCumulativePathDrawInfo = {
             z: number;
         };
         /**
-         * 노드 기록 epoch 시각(ms). 생략하면 입력 시 Date.now(). `styleFunc`에도 같은 시각을 전달합니다 <br>
-         */
-        time?: number;
-        /**
          * 해당 지점에서 컴포넌트 로컬축을 월드축으로 변환할 회전값 <br>
          */
         orientation?: three.QuaternionLike;
     };
 
 /**
+     * 경로 지점 하나의 위치·거리·시각 묶음입니다. <br>
+     * 생성 옵션 `initPositions`와 `createTrailFromPositions`의 입력으로 사용합니다. <br>
+     */
+    type U3dCumulativePathPositionData = USimpleTailPointMetadata & U3dCumulativePathPositionData_Content;
+
+/**
      * U3dCumulativePath 생성자 옵션 <br>
      */
     type U3dCumulativePathCO = {
         /**
-         * 노드 draw 정책. pathStyle.drawFunc보다 우선합니다.
+         * 노드별 CPU 제어 콜백. pathStyle.drawFunc보다 우선합니다.
          */
         drawFunc?: U3dCumulativePathDrawFunc | null;
         /**
@@ -517,4 +503,4 @@ type U3dCumulativePathDrawInfo = {
         precision?: number;
     };
 
-export type { U3dCumulativePath, U3dCumulativePathCO, U3dCumulativePathDrawFunc, U3dCumulativePathDrawInfo, U3dCumulativePathDrawResult, U3dCumulativePathPositionData, U3dCumulativePathStyleFunc, U3dCumulativePath_StyleOpt, WaypointRecord };
+export type { U3dCumulativePath, U3dCumulativePathCO, U3dCumulativePathDrawFunc, U3dCumulativePathDrawInfo, U3dCumulativePathDrawInfo_Content, U3dCumulativePathPositionData, U3dCumulativePathPositionData_Content, U3dCumulativePathStyleFunc, U3dCumulativePath_StyleOpt, WaypointRecord };

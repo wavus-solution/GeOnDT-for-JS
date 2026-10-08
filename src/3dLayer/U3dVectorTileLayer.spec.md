@@ -49,6 +49,20 @@ VctrTile_Content 부분 타입 명세
         complete?: boolean
             선언상 boolean이지만 부모는 TILE_STATE 값을 저장한다. [확인 Q-003]
 
+U3dVectorTileClusterState 부분 타입 명세
+    이 명세에서 사용하는 필드:
+        _clusterRadius: number
+            레이어에서 저장한 위치 그룹 크기를 참조한다.
+
+U3dVectorTileDistanceState 부분 타입 명세
+    이 명세에서 사용하는 필드:
+        _viewSizeOffset?: number | Function
+            레이어에 저장된 거리 배율이며 함수 참조도 호출하지 않고 전달한다.
+
+U3dVectorTileVisibilitySetter 함수 타입 정의
+    (poi: Object3D, visible: boolean) -> void
+    인터페이스: 전달 객체와 자식의 표시 상태를 반영하며 receiver는 지정하지 않는다.
+
 U3dVectorTileLayer extends U3dModelTilesLayer 클래스 정의
     의존: U3dModelTilesLayer — 다운로드·캐시·타일 상태와 수명주기 제공; 상속: {U3dModelTilesLayer}
 
@@ -124,7 +138,7 @@ U3dVectorTileLayer extends U3dModelTilesLayer 클래스 정의
             취소 세대이면 반환하고 자식이 있으면 각 자식의 updateId를 설정한다.
             viewBox가 없으면 저장 drawArg를 추가 인수로 전달하여 부모 createViewBox를 호출한다.
             checkTile이 true이면 setPromise를 호출하고 해당 자식 promise에 성공 콜백을 등록한다.
-            tile.children이 있는 경우 각 성공 콜백에서 val.disposed가 false이면 addGroup 후 완료 타일·현재 tile·updateId 순서로 인수를 전달하여 그 타일의 자식을 즉시 탐색한다.
+            tileEx.children이 있는 경우 각 성공 콜백에서 workedTile.disposed가 false이면 addGroup 후 완료 타일·현재 tile·updateId 순서로 인수를 전달하여 그 타일의 자식을 즉시 탐색한다.
             성공 결과가 disposed이면 콜백을 끝낸다.
             checkTile이 false인 자식은 disposeTile로 해제한다.
             형제 완료를 기다리지 않고 전체 탐색 완료 Promise도 반환하지 않는다.
@@ -162,22 +176,11 @@ U3dVectorTileLayer extends U3dModelTilesLayer 클래스 정의
         동작:
             메시가 없으면 false를 반환한다.
             mesh가 있는 경우:
-                positionKey가 없으면 이름과 좌표로 키를 계산하여 userData에 저장한다.
-                같은 키가 없으면 메시 하나의 Set을 Map에 등록하고 메시와 모든 자식을 표시한 뒤 true를 반환한다.
-                기존 Set에 없는 메시이면 메시와 모든 자식을 숨기고 후보에 추가한다.
-            이미 등록된 메시의 가시 상태는 건드리지 않고 true를 반환한다.
-
     removeVisibleState(mesh: U3dPOI) -> undefined
-        의존: U3dPOI — 대체 후보 종류 판정; 상수: {U3dPOI}
         동작:
             mesh가 없으면 끝낸다.
             mesh가 있는 경우:
                 기존 visible을 기억한 뒤 메시와 모든 자식을 숨긴다.
-                positionKey가 없으면 계산하여 저장한다.
-            Map에 키나 메시가 없으면 끝내고 있으면 Set에서 제거한다.
-            Set이 비면 키를 삭제한다.
-            제거 전 visible이 true였으면 남은 후보 중 최초 U3dPOI와 모든 자식을 표시한다.
-
     search(name: string) -> Array<{mesh: U3dPOI, position: Vector3 | undefined}>
         동작:
             Map 키가 입력 부분 문자열을 포함하면 해당 Set의 첫 메시와 _position 참조를 결과에 넣는다.
@@ -185,16 +188,10 @@ U3dVectorTileLayer extends U3dModelTilesLayer 클래스 정의
 
     isUpdateVCTRPoint(vctr: U3dPOI, tile: U3DTileset, campos: Vector3) -> boolean
         의존:
-            U3dModelTilesLayer — 저장 거리 배율; 속성 읽기: {_viewSizeOffset}
             U3dLayer — 저장 판정 문맥; 속성 읽기: {_drawArg}
             UDrawArg — POI 구의 프러스텀 교차; 함수: {intersectsSphere()}
         동작:
             입력 셋 중 하나가 없거나 저장 구가 프러스텀 밖이면 false를 반환한다.
-            카메라와 저장 위치의 거리를 계산한다.
-            _farDistance가 1024·2048·4096·8192·16384·32768·65536·131072 중 하나이면 한도는 farDistance의 6배다.
-            아니면 farDistance에 tile.level의 nullish 기본값 1, 0.8과 저장 viewSizeOffset을 곱한다. [확인 Q-002]
-            거리가 한도보다 엄격하게 작을 때 true를 반환한다.
-
     override setHeightOffset(offset: number) -> undefined
         의존:
             defined — 파서 유무; 함수: {defined()}
@@ -294,8 +291,6 @@ _calcPosition(object: Object3D, tile: VctrTile, info: object) -> DeferredObject<
         object.userData와 info.tile에 geographic·google·epsg4978 참조를 기록하고 별도 world 벡터도 저장한다.
         object.position이 없을 때만 world 벡터를 position으로 설정한다.
         isUseBox이고 기존 boxHelper가 있으면 주석 그룹에 추가한다.
-        region이 있는 양수 level 타일에서 부모 meshes가 있으면 부모 방향 보정을 수행한다.
-        g_useOrigin이면 scalar -0.045·factor 0.45, 아니면 정수 위도 33 초과에서 -0.040·0.5, 나머지에서 -0.038·0.42를 선택한다.
         같은 region·level 조건에서 부모 meshes가 없으면 needPositionUpdate를 true로 설정한다.
         마지막에 값 없이 resolve한 완료 객체를 반환한다.
 
@@ -307,18 +302,6 @@ computeTransform(info: object) -> Matrix4
         현재 타일 transform.elements를 복사하거나 단위행렬을 만든다.
         부모부터 루트 방향으로 순회하여 transform이 있는 조상의 행렬을 앞에서 곱한 새 행렬로 바꾼다.
         최종 누적 행렬을 반환한다.
-
-_upReposition(object: Object3D, tile: VctrTile, parent: VctrTile, scalar: number, factor: number | undefined) -> Object3D | undefined
-    의존:
-        defined — 부모 준비 여부; 함수: {defined()}
-        THREE.Vector3 — 원본 위치 보관; 생성자: {new Vector3()}
-    동작:
-        factor가 undefined이면 0.45를 선택한다.
-        부모 complete가 null 또는 undefined이거나 첫 메시가 없으면 반환한다.
-        부모 첫 메시의 최초 위치를 orgPosition_에 보관하고 그 복사본의 x·y를 정수로, z를 0으로 만든다.
-        현재 object 위치의 복사본도 z를 0으로 만든다.
-        scalar에 (1 - 35 / geographic.y) * factor를 더하여 현재 위치에서 부모 위치로 lerp한다.
-        결과 xyz를 object.position에 쓰고 object를 반환한다.
 
 _updateVCTRPoint(vctr: Object3D, tile: VctrTile, campos: Vector3) -> boolean
     의존: THREE.Sphere — POI 구 생성; 생성자: {new Sphere()}
@@ -336,13 +319,10 @@ createBoundingVolume(tile: VctrTile | undefined) -> undefined
         boundingVolume이 없고 originBoundingValue가 있으면 공유 단위 inverseTileTransform과 undefined 타일 변환으로 볼륨을 만든다.
         자식이 있으면 각 자식에 재귀한다.
 
-getPositionKey(vctr: U3dPOI) -> string
-    동작:
-        레이어를 this로 받아 이름, x와 y를 clusterRadius로 나눈 반올림 값, z를 10으로 나눈 반올림 값을 밑줄로 연결한다.
-
 setVisiblePOI(poi: Object3D, visible: boolean = false) -> undefined
     동작:
         poi.visible을 지정 값으로 바꾸고 모든 자식에 재귀한다.
+
 ```
 
 > 공개 참조용 발췌본입니다. 비공개 구현 설명과 내부 관리 정보는 생략했습니다.

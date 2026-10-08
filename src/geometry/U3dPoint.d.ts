@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -157,7 +157,7 @@ declare class U3dPoint extends U3dGeometry {
      *
      * @type {Record<string, number>}
      */
-    static "__#18@#scaleList": Record<string, number>;
+    static "__#19@#scaleList": Record<string, number>;
     /**
      * 캐시된 Point 재질(materialList)과 그 텍스처를 모두 정리(dispose)합니다. <br>
      * 캐시 텍스처는 살아있는 U3dPoint 인스턴스들이 공유하므로, 앱 종료나 전체 리셋 시점에만 호출해야 합니다. <br>
@@ -169,7 +169,7 @@ declare class U3dPoint extends U3dGeometry {
      * @param {import('three').Texture | null | undefined} texture
      * @returns {boolean}
      */
-    static "__#18@#isCachedTexture"(texture: three.Texture | null | undefined): boolean;
+    static "__#19@#isCachedTexture"(texture: three.Texture | null | undefined): boolean;
     /**
      * 이미지 URL과 offset으로 재질 캐시 키를 만듭니다. <br>
      *
@@ -177,7 +177,7 @@ declare class U3dPoint extends U3dGeometry {
      * @param {import('three').Vector3Like | undefined} offset
      * @returns {string}
      */
-    static "__#18@#cacheKey"(url: string, offset: three.Vector3Like | undefined): string;
+    static "__#19@#cacheKey"(url: string, offset: three.Vector3Like | undefined): string;
     /**
      * 두 offset이 같은 보정값인지 비교합니다. <br>
      *
@@ -185,7 +185,7 @@ declare class U3dPoint extends U3dGeometry {
      * @param {import('three').Vector3Like | undefined} b
      * @returns {boolean}
      */
-    static "__#18@#sameOffset"(a: three.Vector3Like | undefined, b: three.Vector3Like | undefined): boolean;
+    static "__#19@#sameOffset"(a: three.Vector3Like | undefined, b: three.Vector3Like | undefined): boolean;
     /**
      * 포인트 도형을 생성합니다. <br>
      * 색상·크기·이미지(`img`) 등을 옵션으로 지정할 수 있으며, 좌표는 생성 후 `setVertex`(월드)나 `setPositions`(위경도)로 넣습니다. <br>
@@ -193,6 +193,31 @@ declare class U3dPoint extends U3dGeometry {
      * @param {U3dPointCO} [opt = {}] 생성 옵션 <br>
      */
     constructor(opt?: U3dPointCO);
+    /**
+     * 점 재질입니다. 이미지 캐시 적용 시 복제 재질로 교체되며, 해제 후에는 undefined입니다. <br>
+     *
+     * @override
+     * @type {import('three').PointsMaterial | undefined}
+     */
+    override material: three.PointsMaterial | undefined;
+    /**
+     * 사용자가 부여하는 메타데이터입니다. THREE.Points 생성 시 객체별로 초기화됩니다. <br>
+     *
+     * @type {import('three').Object3D['userData']}
+     */
+    userData: three.Object3D["userData"];
+    /**
+     * 도형 표시 여부입니다. 기본값은 true입니다. <br>
+     *
+     * @type {import('three').Object3D['visible']}
+     */
+    visible: three.Object3D["visible"];
+    /**
+     * 렌더링 정렬 순서입니다. 값이 작을수록 먼저 그리며, 깊이 검사를 비활성화하지는 않습니다. <br>
+     *
+     * @type {import('three').Object3D['renderOrder']}
+     */
+    renderOrder: three.Object3D["renderOrder"];
     /**
      * 해제 여부. `dispose` 이후 도착하는 비동기 콜백을 무시하는 데 사용합니다. <br>
      *
@@ -253,6 +278,20 @@ declare class U3dPoint extends U3dGeometry {
      * @ignore
      */
     texture: UTexture | three.Texture | undefined;
+    /**
+     * 현재 점 재질을 반환합니다. 이미지 캐시 적용으로 재질이 교체되면 다시 조회하십시오. <br>
+     *
+     * @override
+     * @returns {import('three').PointsMaterial | undefined} 현재 재질. 해제 후에는 undefined <br>
+     */
+    override getMaterial(): three.PointsMaterial | undefined;
+    /**
+     * 점 재질을 교체합니다. 이전 재질과 텍스처는 자동으로 해제하지 않습니다. <br>
+     *
+     * @override
+     * @param {import('three').PointsMaterial | undefined} material 새 점 재질. undefined이면 재질 참조를 제거합니다 <br>
+     */
+    override setMaterial(material: three.PointsMaterial | undefined): void;
     /**
      * 포인트의 실제 표시 크기를 반환합니다(요청 크기 `size` × offset 확장 배율). <br>
      *

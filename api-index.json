@@ -8,27 +8,37 @@
   {
     "name": "Alarm_DetailOpt",
     "kind": "type",
-    "declaration": "src/analy/UAnalyAlarm.d.ts"
+    "declaration": "src/analy/UAnalyAlarm.d.ts",
+    "source": "src/analy/UAnalyAlarm.js",
+    "spec": "src/analy/UAnalyAlarm.spec.md"
   },
   {
     "name": "AlignControlTC",
     "kind": "type",
-    "declaration": "src/analy/UAnalyAlignModel.d.ts"
+    "declaration": "src/analy/UAnalyAlignModel.d.ts",
+    "source": "src/analy/UAnalyAlignModel.js",
+    "spec": "src/analy/UAnalyAlignModel.spec.md"
   },
   {
     "name": "AlignControlTC_Content",
     "kind": "type",
-    "declaration": "src/analy/UAnalyAlignModel.d.ts"
+    "declaration": "src/analy/UAnalyAlignModel.d.ts",
+    "source": "src/analy/UAnalyAlignModel.js",
+    "spec": "src/analy/UAnalyAlignModel.spec.md"
   },
   {
     "name": "Ananlysis_Mesh",
     "kind": "type",
-    "declaration": "src/analy/UAnaly.d.ts"
+    "declaration": "src/analy/UAnaly.d.ts",
+    "source": "src/analy/UAnaly.js",
+    "spec": "src/analy/UAnaly.spec.md"
   },
   {
     "name": "Ananlysis_Mesh_Content",
     "kind": "type",
-    "declaration": "src/analy/UAnaly.d.ts"
+    "declaration": "src/analy/UAnaly.d.ts",
+    "source": "src/analy/UAnaly.js",
+    "spec": "src/analy/UAnaly.spec.md"
   },
   {
     "name": "AnimationController",
@@ -123,7 +133,9 @@
   {
     "name": "ClippingLayer",
     "kind": "type",
-    "declaration": "src/analy/UAnalyClipping.d.ts"
+    "declaration": "src/analy/UAnalyClipping.d.ts",
+    "source": "src/analy/UAnalyClipping.js",
+    "spec": "src/analy/UAnalyClipping.spec.md"
   },
   {
     "name": "clone",
@@ -320,23 +332,28 @@
     "name": "CustomLandStyleCO",
     "kind": "type",
     "declaration": "src/analy/UAnalyCustomLand.d.ts",
+    "source": "src/analy/UAnalyCustomLand.js",
     "spec": "src/analy/UAnalyCustomLand.spec.md"
   },
   {
     "name": "CustomModelEntry",
     "kind": "type",
-    "declaration": "src/analy/UAnalyCustomModel.d.ts"
+    "declaration": "src/analy/UAnalyCustomModel.d.ts",
+    "source": "src/analy/UAnalyCustomModel.js",
+    "spec": "src/analy/UAnalyCustomModel.spec.md"
   },
   {
     "name": "DataOPT",
     "kind": "type",
     "declaration": "src/analy/UAnalyCustomLand.d.ts",
+    "source": "src/analy/UAnalyCustomLand.js",
     "spec": "src/analy/UAnalyCustomLand.spec.md"
   },
   {
     "name": "DataOPT_Input",
     "kind": "type",
     "declaration": "src/analy/UAnalyCustomLand.d.ts",
+    "source": "src/analy/UAnalyCustomLand.js",
     "spec": "src/analy/UAnalyCustomLand.spec.md"
   },
   {
@@ -1008,6 +1025,13 @@
     "declaration": "src/draw/UDraw.d.ts"
   },
   {
+    "name": "LayerHeightInfo",
+    "kind": "type",
+    "declaration": "src/analy/UAnalyAverageHeight.d.ts",
+    "source": "src/analy/UAnalyAverageHeight.js",
+    "spec": "src/analy/UAnalyAverageHeight.spec.md"
+  },
+  {
     "name": "LightAnalyOption",
     "kind": "type",
     "declaration": "src/view/USpotLight.d.ts"
@@ -1204,7 +1228,9 @@
   {
     "name": "ModelEditInfo",
     "kind": "type",
-    "declaration": "src/analy/UAnalyAlarm.d.ts"
+    "declaration": "src/analy/UAnalyAlarm.d.ts",
+    "source": "src/analy/UAnalyAlarm.js",
+    "spec": "src/analy/UAnalyAlarm.spec.md"
   },
   {
     "name": "ModelInfo",
@@ -1216,7 +1242,9 @@
   {
     "name": "ModelLayerLike",
     "kind": "type",
-    "declaration": "src/analy/UAnalyAlarm.d.ts"
+    "declaration": "src/analy/UAnalyAlarm.d.ts",
+    "source": "src/analy/UAnalyAlarm.js",
+    "spec": "src/analy/UAnalyAlarm.spec.md"
   },
   {
     "name": "ModelMaterial",
@@ -1647,6 +1675,16 @@
   },
   {
     "name": "PathMaterial_Content",
+    "kind": "type",
+    "declaration": "src/geometry/U3dPathGeometry.d.ts"
+  },
+  {
+    "name": "PathShaderMaterial",
+    "kind": "type",
+    "declaration": "src/geometry/U3dPathGeometry.d.ts"
+  },
+  {
+    "name": "PathShaderUniforms",
     "kind": "type",
     "declaration": "src/geometry/U3dPathGeometry.d.ts"
   },
@@ -3707,12 +3745,17 @@
     "declaration": "src/geometry/U3dCumulativePath.d.ts"
   },
   {
-    "name": "U3dCumulativePathDrawResult",
+    "name": "U3dCumulativePathDrawInfo_Content",
     "kind": "type",
     "declaration": "src/geometry/U3dCumulativePath.d.ts"
   },
   {
     "name": "U3dCumulativePathPositionData",
+    "kind": "type",
+    "declaration": "src/geometry/U3dCumulativePath.d.ts"
+  },
+  {
+    "name": "U3dCumulativePathPositionData_Content",
     "kind": "type",
     "declaration": "src/geometry/U3dCumulativePath.d.ts"
   },
@@ -3760,6 +3803,11 @@
     "name": "U3dCylinderParam_Content",
     "kind": "type",
     "declaration": "src/geometry/U3dCylinder.d.ts"
+  },
+  {
+    "name": "U3dDepthOffsetFunction",
+    "kind": "type",
+    "declaration": "src/geometry/U3dGeometry.d.ts"
   },
   {
     "name": "U3dDxfData",
@@ -4479,6 +4527,12 @@
   },
   {
     "name": "U3dLineParam_Content",
+    "kind": "type",
+    "declaration": "src/geometry/U3dLine.d.ts",
+    "spec": "src/geometry/U3dLine.spec.md"
+  },
+  {
+    "name": "U3dLineSetParam",
     "kind": "type",
     "declaration": "src/geometry/U3dLine.d.ts",
     "spec": "src/geometry/U3dLine.spec.md"
@@ -5665,7 +5719,8 @@
   {
     "name": "U3dProcess",
     "kind": "type",
-    "declaration": "src/core/U3dProcess.d.ts"
+    "declaration": "src/core/U3dProcess.d.ts",
+    "spec": "src/core/U3dProcess.spec.md"
   },
   {
     "name": "U3dQuadModelTile",
@@ -5680,6 +5735,30 @@
   },
   {
     "name": "U3dQuadTile",
+    "kind": "type",
+    "declaration": "src/quadtree/U3dQuadTile.d.ts",
+    "spec": "src/quadtree/U3dQuadTile.spec.md"
+  },
+  {
+    "name": "U3dQuadTileLodContext",
+    "kind": "type",
+    "declaration": "src/quadtree/U3dQuadTile.d.ts",
+    "spec": "src/quadtree/U3dQuadTile.spec.md"
+  },
+  {
+    "name": "U3dQuadTileLodParameters",
+    "kind": "type",
+    "declaration": "src/quadtree/U3dQuadTile.d.ts",
+    "spec": "src/quadtree/U3dQuadTile.spec.md"
+  },
+  {
+    "name": "U3dQuadTilePresentationLayerState",
+    "kind": "type",
+    "declaration": "src/quadtree/U3dQuadTile.d.ts",
+    "spec": "src/quadtree/U3dQuadTile.spec.md"
+  },
+  {
+    "name": "U3dQuadTilePresentationSummary",
     "kind": "type",
     "declaration": "src/quadtree/U3dQuadTile.d.ts",
     "spec": "src/quadtree/U3dQuadTile.spec.md"
@@ -6010,27 +6089,37 @@
   {
     "name": "U3dVectorLayer",
     "kind": "value",
-    "declaration": "src/3dLayer/U3dVectorLayer.d.ts"
+    "declaration": "src/3dLayer/U3dVectorLayer.d.ts",
+    "source": "src/3dLayer/U3dVectorLayer.js",
+    "spec": "src/3dLayer/U3dVectorLayer.spec.md"
   },
   {
     "name": "U3dVectorLayerCO",
     "kind": "type",
-    "declaration": "src/3dLayer/U3dVectorLayer.d.ts"
+    "declaration": "src/3dLayer/U3dVectorLayer.d.ts",
+    "source": "src/3dLayer/U3dVectorLayer.js",
+    "spec": "src/3dLayer/U3dVectorLayer.spec.md"
   },
   {
     "name": "U3dVectorLayerCO_Content",
     "kind": "type",
-    "declaration": "src/3dLayer/U3dVectorLayer.d.ts"
+    "declaration": "src/3dLayer/U3dVectorLayer.d.ts",
+    "source": "src/3dLayer/U3dVectorLayer.js",
+    "spec": "src/3dLayer/U3dVectorLayer.spec.md"
   },
   {
     "name": "U3dVectorLayerEMI",
     "kind": "type",
-    "declaration": "src/3dLayer/U3dVectorLayer.d.ts"
+    "declaration": "src/3dLayer/U3dVectorLayer.d.ts",
+    "source": "src/3dLayer/U3dVectorLayer.js",
+    "spec": "src/3dLayer/U3dVectorLayer.spec.md"
   },
   {
     "name": "U3dVectorLayerEMI_Content",
     "kind": "type",
-    "declaration": "src/3dLayer/U3dVectorLayer.d.ts"
+    "declaration": "src/3dLayer/U3dVectorLayer.d.ts",
+    "source": "src/3dLayer/U3dVectorLayer.js",
+    "spec": "src/3dLayer/U3dVectorLayer.spec.md"
   },
   {
     "name": "U3dVectorPBFDecodedLayer",
@@ -6105,27 +6194,60 @@
     "spec": "src/3dLayer/U3dVectorPBFLayer.spec.md"
   },
   {
+    "name": "U3dVectorTileClusterState",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dVectorTileLayer.d.ts",
+    "source": "src/3dLayer/U3dVectorTileLayer.js",
+    "spec": "src/3dLayer/U3dVectorTileLayer.spec.md"
+  },
+  {
+    "name": "U3dVectorTileDistanceState",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dVectorTileLayer.d.ts",
+    "source": "src/3dLayer/U3dVectorTileLayer.js",
+    "spec": "src/3dLayer/U3dVectorTileLayer.spec.md"
+  },
+  {
+    "name": "U3dVectorTileIndexState",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dVectorLayer.d.ts",
+    "source": "src/3dLayer/U3dVectorLayer.js",
+    "spec": "src/3dLayer/U3dVectorLayer.spec.md"
+  },
+  {
     "name": "U3dVectorTileLayer",
     "kind": "value",
     "declaration": "src/3dLayer/U3dVectorTileLayer.d.ts",
+    "source": "src/3dLayer/U3dVectorTileLayer.js",
     "spec": "src/3dLayer/U3dVectorTileLayer.spec.md"
   },
   {
     "name": "U3dVectorTileLayerCO",
     "kind": "type",
     "declaration": "src/3dLayer/U3dVectorTileLayer.d.ts",
+    "source": "src/3dLayer/U3dVectorTileLayer.js",
     "spec": "src/3dLayer/U3dVectorTileLayer.spec.md"
   },
   {
     "name": "U3dVectorTileLayerCO_Content",
     "kind": "type",
     "declaration": "src/3dLayer/U3dVectorTileLayer.d.ts",
+    "source": "src/3dLayer/U3dVectorTileLayer.js",
     "spec": "src/3dLayer/U3dVectorTileLayer.spec.md"
   },
   {
-    "name": "U3dVideoLayer",
-    "kind": "value",
-    "declaration": "src/3dLayer/U3dVideoLayer.d.ts"
+    "name": "U3dVectorTileVisibilitySetter",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dVectorTileLayer.d.ts",
+    "source": "src/3dLayer/U3dVectorTileLayer.js",
+    "spec": "src/3dLayer/U3dVectorTileLayer.spec.md"
+  },
+  {
+    "name": "U3dVectorTileVolumeState",
+    "kind": "type",
+    "declaration": "src/3dLayer/U3dVectorTileLayer.d.ts",
+    "source": "src/3dLayer/U3dVectorTileLayer.js",
+    "spec": "src/3dLayer/U3dVectorTileLayer.spec.md"
   },
   {
     "name": "U3dView",
@@ -6306,140 +6428,247 @@
   {
     "name": "UAnaly",
     "kind": "value",
-    "declaration": "src/analy/UAnaly.d.ts"
+    "declaration": "src/analy/UAnaly.d.ts",
+    "source": "src/analy/UAnaly.js",
+    "spec": "src/analy/UAnaly.spec.md"
   },
   {
     "name": "UAnalyAlarm",
     "kind": "value",
-    "declaration": "src/analy/UAnalyAlarm.d.ts"
+    "declaration": "src/analy/UAnalyAlarm.d.ts",
+    "source": "src/analy/UAnalyAlarm.js",
+    "spec": "src/analy/UAnalyAlarm.spec.md"
+  },
+  {
+    "name": "UAnalyAlarmAnimationOwner",
+    "kind": "type",
+    "declaration": "src/analy/UAnalyAlarm.d.ts",
+    "source": "src/analy/UAnalyAlarm.js",
+    "spec": "src/analy/UAnalyAlarm.spec.md"
   },
   {
     "name": "UAnalyAlarmCO",
     "kind": "type",
-    "declaration": "src/analy/UAnalyAlarm.d.ts"
+    "declaration": "src/analy/UAnalyAlarm.d.ts",
+    "source": "src/analy/UAnalyAlarm.js",
+    "spec": "src/analy/UAnalyAlarm.spec.md"
   },
   {
     "name": "UAnalyAlarmCO_Content",
     "kind": "type",
-    "declaration": "src/analy/UAnalyAlarm.d.ts"
+    "declaration": "src/analy/UAnalyAlarm.d.ts",
+    "source": "src/analy/UAnalyAlarm.js",
+    "spec": "src/analy/UAnalyAlarm.spec.md"
+  },
+  {
+    "name": "UAnalyAlarmCursorResult",
+    "kind": "type",
+    "declaration": "src/analy/UAnalyAlarm.d.ts",
+    "source": "src/analy/UAnalyAlarm.js",
+    "spec": "src/analy/UAnalyAlarm.spec.md"
+  },
+  {
+    "name": "UAnalyAlarmEditedLookup",
+    "kind": "type",
+    "declaration": "src/analy/UAnalyAlarm.d.ts",
+    "source": "src/analy/UAnalyAlarm.js",
+    "spec": "src/analy/UAnalyAlarm.spec.md"
+  },
+  {
+    "name": "UAnalyAlarmModelLookup",
+    "kind": "type",
+    "declaration": "src/analy/UAnalyAlarm.d.ts",
+    "source": "src/analy/UAnalyAlarm.js",
+    "spec": "src/analy/UAnalyAlarm.spec.md"
+  },
+  {
+    "name": "UAnalyAlarmSelectionOwner",
+    "kind": "type",
+    "declaration": "src/analy/UAnalyAlarm.d.ts",
+    "source": "src/analy/UAnalyAlarm.js",
+    "spec": "src/analy/UAnalyAlarm.spec.md"
   },
   {
     "name": "UAnalyAlignModel",
     "kind": "value",
-    "declaration": "src/analy/UAnalyAlignModel.d.ts"
+    "declaration": "src/analy/UAnalyAlignModel.d.ts",
+    "source": "src/analy/UAnalyAlignModel.js",
+    "spec": "src/analy/UAnalyAlignModel.spec.md"
   },
   {
     "name": "UAnalyAlignModelCO",
     "kind": "type",
-    "declaration": "src/analy/UAnalyAlignModel.d.ts"
+    "declaration": "src/analy/UAnalyAlignModel.d.ts",
+    "source": "src/analy/UAnalyAlignModel.js",
+    "spec": "src/analy/UAnalyAlignModel.spec.md"
   },
   {
     "name": "UAnalyAlignModelCO_Content",
     "kind": "type",
-    "declaration": "src/analy/UAnalyAlignModel.d.ts"
+    "declaration": "src/analy/UAnalyAlignModel.d.ts",
+    "source": "src/analy/UAnalyAlignModel.js",
+    "spec": "src/analy/UAnalyAlignModel.spec.md"
   },
   {
     "name": "UAnalyArea",
     "kind": "value",
-    "declaration": "src/analy/UAnalyArea.d.ts"
+    "declaration": "src/analy/UAnalyArea.d.ts",
+    "source": "src/analy/UAnalyArea.js",
+    "spec": "src/analy/UAnalyArea.spec.md"
   },
   {
     "name": "UAnalyAreaCO",
     "kind": "type",
-    "declaration": "src/analy/UAnalyArea.d.ts"
+    "declaration": "src/analy/UAnalyArea.d.ts",
+    "source": "src/analy/UAnalyArea.js",
+    "spec": "src/analy/UAnalyArea.spec.md"
   },
   {
     "name": "UAnalyAreaCO_Content",
     "kind": "type",
-    "declaration": "src/analy/UAnalyArea.d.ts"
+    "declaration": "src/analy/UAnalyArea.d.ts",
+    "source": "src/analy/UAnalyArea.js",
+    "spec": "src/analy/UAnalyArea.spec.md"
   },
   {
     "name": "UAnalyAverageHeight",
     "kind": "value",
-    "declaration": "src/analy/UAnalyAverageHeight.d.ts"
+    "declaration": "src/analy/UAnalyAverageHeight.d.ts",
+    "source": "src/analy/UAnalyAverageHeight.js",
+    "spec": "src/analy/UAnalyAverageHeight.spec.md"
   },
   {
     "name": "UAnalyAverageHeightCO",
     "kind": "type",
-    "declaration": "src/analy/UAnalyAverageHeight.d.ts"
+    "declaration": "src/analy/UAnalyAverageHeight.d.ts",
+    "source": "src/analy/UAnalyAverageHeight.js",
+    "spec": "src/analy/UAnalyAverageHeight.spec.md"
   },
   {
     "name": "UAnalyAverageHeightCO_Content",
     "kind": "type",
-    "declaration": "src/analy/UAnalyAverageHeight.d.ts"
+    "declaration": "src/analy/UAnalyAverageHeight.d.ts",
+    "source": "src/analy/UAnalyAverageHeight.js",
+    "spec": "src/analy/UAnalyAverageHeight.spec.md"
+  },
+  {
+    "name": "UAnalyAverageHeightMergedHeightLookup",
+    "kind": "type",
+    "declaration": "src/analy/UAnalyAverageHeight.d.ts",
+    "source": "src/analy/UAnalyAverageHeight.js",
+    "spec": "src/analy/UAnalyAverageHeight.spec.md"
   },
   {
     "name": "UAnalyClipping",
     "kind": "value",
-    "declaration": "src/analy/UAnalyClipping.d.ts"
+    "declaration": "src/analy/UAnalyClipping.d.ts",
+    "source": "src/analy/UAnalyClipping.js",
+    "spec": "src/analy/UAnalyClipping.spec.md"
   },
   {
     "name": "UAnalyClippingCO",
     "kind": "type",
-    "declaration": "src/analy/UAnalyClipping.d.ts"
+    "declaration": "src/analy/UAnalyClipping.d.ts",
+    "source": "src/analy/UAnalyClipping.js",
+    "spec": "src/analy/UAnalyClipping.spec.md"
   },
   {
     "name": "UAnalyClippingCO_Content",
     "kind": "type",
-    "declaration": "src/analy/UAnalyClipping.d.ts"
+    "declaration": "src/analy/UAnalyClipping.d.ts",
+    "source": "src/analy/UAnalyClipping.js",
+    "spec": "src/analy/UAnalyClipping.spec.md"
   },
   {
     "name": "UAnalyClippingFilterParam",
     "kind": "type",
-    "declaration": "src/analy/UAnalyClipping.d.ts"
+    "declaration": "src/analy/UAnalyClipping.d.ts",
+    "source": "src/analy/UAnalyClipping.js",
+    "spec": "src/analy/UAnalyClipping.spec.md"
   },
   {
     "name": "UAnalyCO",
     "kind": "type",
-    "declaration": "src/analy/UAnaly.d.ts"
+    "declaration": "src/analy/UAnaly.d.ts",
+    "source": "src/analy/UAnaly.js",
+    "spec": "src/analy/UAnaly.spec.md"
   },
   {
     "name": "UAnalyCO_Content",
     "kind": "type",
-    "declaration": "src/analy/UAnaly.d.ts"
+    "declaration": "src/analy/UAnaly.d.ts",
+    "source": "src/analy/UAnaly.js",
+    "spec": "src/analy/UAnaly.spec.md"
   },
   {
     "name": "UAnalyContour",
     "kind": "value",
-    "declaration": "src/analy/UAnalyContour.d.ts"
+    "declaration": "src/analy/UAnalyContour.d.ts",
+    "source": "src/analy/UAnalyContour.js",
+    "spec": "src/analy/UAnalyContour.spec.md"
   },
   {
     "name": "UAnalyContourCO",
     "kind": "type",
-    "declaration": "src/analy/UAnalyContour.d.ts"
+    "declaration": "src/analy/UAnalyContour.d.ts",
+    "source": "src/analy/UAnalyContour.js",
+    "spec": "src/analy/UAnalyContour.spec.md"
   },
   {
     "name": "UAnalyContourCO_Content",
     "kind": "type",
-    "declaration": "src/analy/UAnalyContour.d.ts"
+    "declaration": "src/analy/UAnalyContour.d.ts",
+    "source": "src/analy/UAnalyContour.js",
+    "spec": "src/analy/UAnalyContour.spec.md"
   },
   {
     "name": "UAnalyContourStyleEntry",
     "kind": "type",
-    "declaration": "src/analy/UAnalyContour.d.ts"
+    "declaration": "src/analy/UAnalyContour.d.ts",
+    "source": "src/analy/UAnalyContour.js",
+    "spec": "src/analy/UAnalyContour.spec.md"
   },
   {
     "name": "UAnalyCustomLand",
     "kind": "value",
     "declaration": "src/analy/UAnalyCustomLand.d.ts",
+    "source": "src/analy/UAnalyCustomLand.js",
     "spec": "src/analy/UAnalyCustomLand.spec.md"
   },
   {
     "name": "UAnalyCustomLandCO",
     "kind": "type",
     "declaration": "src/analy/UAnalyCustomLand.d.ts",
+    "source": "src/analy/UAnalyCustomLand.js",
     "spec": "src/analy/UAnalyCustomLand.spec.md"
   },
   {
     "name": "UAnalyCustomLandCO_Content",
     "kind": "type",
     "declaration": "src/analy/UAnalyCustomLand.d.ts",
+    "source": "src/analy/UAnalyCustomLand.js",
     "spec": "src/analy/UAnalyCustomLand.spec.md"
   },
   {
     "name": "UAnalyCustomModel",
     "kind": "value",
-    "declaration": "src/analy/UAnalyCustomModel.d.ts"
+    "declaration": "src/analy/UAnalyCustomModel.d.ts",
+    "source": "src/analy/UAnalyCustomModel.js",
+    "spec": "src/analy/UAnalyCustomModel.spec.md"
+  },
+  {
+    "name": "UAnalyCustomModelInput",
+    "kind": "type",
+    "declaration": "src/analy/UAnalyCustomModel.d.ts",
+    "source": "src/analy/UAnalyCustomModel.js",
+    "spec": "src/analy/UAnalyCustomModel.spec.md"
+  },
+  {
+    "name": "UAnalyCustomModelSetup",
+    "kind": "type",
+    "declaration": "src/analy/UAnalyCustomModel.d.ts",
+    "source": "src/analy/UAnalyCustomModel.js",
+    "spec": "src/analy/UAnalyCustomModel.spec.md"
   },
   {
     "name": "UAnalyDepth",
@@ -6548,6 +6777,20 @@
     "name": "UAnalyLandScapeCO_Content",
     "kind": "type",
     "declaration": "src/analy/UAnalyLandScape.d.ts"
+  },
+  {
+    "name": "UAnalyMergedMeshLayer",
+    "kind": "type",
+    "declaration": "src/analy/UAnaly.d.ts",
+    "source": "src/analy/UAnaly.js",
+    "spec": "src/analy/UAnaly.spec.md"
+  },
+  {
+    "name": "UAnalyMergedMeshLayer_Content",
+    "kind": "type",
+    "declaration": "src/analy/UAnaly.d.ts",
+    "source": "src/analy/UAnaly.js",
+    "spec": "src/analy/UAnaly.spec.md"
   },
   {
     "name": "UAnalyMultipleComponent",
@@ -6852,6 +7095,16 @@
     "declaration": "src/core/UCameraState.d.ts"
   },
   {
+    "name": "UCameraStateCO",
+    "kind": "type",
+    "declaration": "src/core/UCameraState.d.ts"
+  },
+  {
+    "name": "UCameraStateJSON",
+    "kind": "type",
+    "declaration": "src/core/UCameraState.d.ts"
+  },
+  {
     "name": "UCanvasTexture",
     "kind": "type",
     "declaration": "src/core/texture/UCanvasTexture.d.ts"
@@ -6967,6 +7220,11 @@
     "name": "UCssBilboard",
     "kind": "type",
     "declaration": "src/annotation/UCssBilboard.d.ts"
+  },
+  {
+    "name": "UCustomProcess",
+    "kind": "type",
+    "declaration": "src/process/UCustomProcess.d.ts"
   },
   {
     "name": "UDEF",
@@ -7356,6 +7614,11 @@
     "declaration": "src/core/UFrustum.d.ts"
   },
   {
+    "name": "UFrustumTargetQuaternion",
+    "kind": "type",
+    "declaration": "src/core/UFrustum.d.ts"
+  },
+  {
     "name": "UFrustumTerrainProjectionHelper",
     "kind": "value",
     "declaration": "src/helpers/UFrustumTerrainProjectionHelper.d.ts",
@@ -7385,6 +7648,34 @@
   },
   {
     "name": "UFrustumTerrainProjectionHelperCO_Content",
+    "kind": "type",
+    "declaration": "src/helpers/UFrustumTerrainProjectionHelper.d.ts",
+    "source": "src/helpers/UFrustumTerrainProjectionHelper.js",
+    "spec": "src/helpers/UFrustumTerrainProjectionHelper.spec.md"
+  },
+  {
+    "name": "UFrustumTerrainProjectionLifecycleJob",
+    "kind": "type",
+    "declaration": "src/helpers/UFrustumTerrainProjectionHelper.d.ts",
+    "source": "src/helpers/UFrustumTerrainProjectionHelper.js",
+    "spec": "src/helpers/UFrustumTerrainProjectionHelper.spec.md"
+  },
+  {
+    "name": "UFrustumTerrainProjectionLifecyclePublication",
+    "kind": "type",
+    "declaration": "src/helpers/UFrustumTerrainProjectionHelper.d.ts",
+    "source": "src/helpers/UFrustumTerrainProjectionHelper.js",
+    "spec": "src/helpers/UFrustumTerrainProjectionHelper.spec.md"
+  },
+  {
+    "name": "UFrustumTerrainProjectionLifecycleQueue",
+    "kind": "type",
+    "declaration": "src/helpers/UFrustumTerrainProjectionHelper.d.ts",
+    "source": "src/helpers/UFrustumTerrainProjectionHelper.js",
+    "spec": "src/helpers/UFrustumTerrainProjectionHelper.spec.md"
+  },
+  {
+    "name": "UFrustumTerrainProjectionRetiredResource",
     "kind": "type",
     "declaration": "src/helpers/UFrustumTerrainProjectionHelper.d.ts",
     "source": "src/helpers/UFrustumTerrainProjectionHelper.js",
@@ -8044,24 +8335,35 @@
     "name": "UProcessAdaptiveState",
     "kind": "type",
     "declaration": "src/manager/UProcessManager.d.ts",
+    "source": "src/manager/UProcessManager.js",
     "spec": "src/manager/UProcessManager.spec.md"
   },
   {
     "name": "UProcessDebugLog",
     "kind": "type",
     "declaration": "src/manager/UProcessManager.d.ts",
+    "source": "src/manager/UProcessManager.js",
     "spec": "src/manager/UProcessManager.spec.md"
   },
   {
     "name": "UProcessManager",
     "kind": "type",
     "declaration": "src/manager/UProcessManager.d.ts",
+    "source": "src/manager/UProcessManager.js",
+    "spec": "src/manager/UProcessManager.spec.md"
+  },
+  {
+    "name": "UProcessMotionState",
+    "kind": "type",
+    "declaration": "src/manager/UProcessManager.d.ts",
+    "source": "src/manager/UProcessManager.js",
     "spec": "src/manager/UProcessManager.spec.md"
   },
   {
     "name": "UProcessTaskTimingState",
     "kind": "type",
     "declaration": "src/manager/UProcessManager.d.ts",
+    "source": "src/manager/UProcessManager.js",
     "spec": "src/manager/UProcessManager.spec.md"
   },
   {
@@ -8076,6 +8378,16 @@
   },
   {
     "name": "URenderer",
+    "kind": "type",
+    "declaration": "src/core/URenderer.d.ts"
+  },
+  {
+    "name": "URendererCO",
+    "kind": "type",
+    "declaration": "src/core/URenderer.d.ts"
+  },
+  {
+    "name": "URendererCO_Content",
     "kind": "type",
     "declaration": "src/core/URenderer.d.ts"
   },
@@ -8152,6 +8464,16 @@
     "declaration": "src/effect/USimpleTail.d.ts"
   },
   {
+    "name": "USimpleTailCommonPolicy",
+    "kind": "type",
+    "declaration": "src/effect/USimpleTail.d.ts"
+  },
+  {
+    "name": "USimpleTailCommonPolicy_Content",
+    "kind": "type",
+    "declaration": "src/effect/USimpleTail.d.ts"
+  },
+  {
     "name": "USimpleTailDrawEvaluator",
     "kind": "type",
     "declaration": "src/effect/USimpleTail.d.ts"
@@ -8162,22 +8484,27 @@
     "declaration": "src/effect/USimpleTail.d.ts"
   },
   {
+    "name": "USimpleTailDrawResult",
+    "kind": "type",
+    "declaration": "src/effect/USimpleTail.d.ts"
+  },
+  {
+    "name": "USimpleTailFadeOutCallback",
+    "kind": "type",
+    "declaration": "src/effect/USimpleTail.d.ts"
+  },
+  {
+    "name": "USimpleTailFadeOutEvent",
+    "kind": "type",
+    "declaration": "src/effect/USimpleTail.d.ts"
+  },
+  {
     "name": "USimpleTailNode",
     "kind": "type",
     "declaration": "src/effect/USimpleTail.d.ts"
   },
   {
     "name": "USimpleTailPointMetadata",
-    "kind": "type",
-    "declaration": "src/effect/USimpleTail.d.ts"
-  },
-  {
-    "name": "USimpleTailRuntimePolicy",
-    "kind": "type",
-    "declaration": "src/effect/USimpleTail.d.ts"
-  },
-  {
-    "name": "USimpleTailRuntimePolicy_Content",
     "kind": "type",
     "declaration": "src/effect/USimpleTail.d.ts"
   },
@@ -8402,54 +8729,63 @@
     "name": "UTerrainStamp",
     "kind": "value",
     "declaration": "src/helpers/UTerrainStamp.d.ts",
+    "source": "src/helpers/UTerrainStamp.js",
     "spec": "src/helpers/UTerrainStamp.spec.md"
   },
   {
     "name": "UTerrainStampCircleValue",
     "kind": "type",
     "declaration": "src/helpers/UTerrainStamp.d.ts",
+    "source": "src/helpers/UTerrainStamp.js",
     "spec": "src/helpers/UTerrainStamp.spec.md"
   },
   {
     "name": "UTerrainStampParam",
     "kind": "type",
     "declaration": "src/helpers/UTerrainStamp.d.ts",
+    "source": "src/helpers/UTerrainStamp.js",
     "spec": "src/helpers/UTerrainStamp.spec.md"
   },
   {
     "name": "UTerrainStampParamInput",
     "kind": "type",
     "declaration": "src/helpers/UTerrainStamp.d.ts",
+    "source": "src/helpers/UTerrainStamp.js",
     "spec": "src/helpers/UTerrainStamp.spec.md"
   },
   {
     "name": "UTerrainStampPointLike",
     "kind": "type",
     "declaration": "src/helpers/UTerrainStamp.d.ts",
+    "source": "src/helpers/UTerrainStamp.js",
     "spec": "src/helpers/UTerrainStamp.spec.md"
   },
   {
     "name": "UTerrainStampPointParam",
     "kind": "type",
     "declaration": "src/helpers/UTerrainStamp.d.ts",
+    "source": "src/helpers/UTerrainStamp.js",
     "spec": "src/helpers/UTerrainStamp.spec.md"
   },
   {
     "name": "UTerrainStampRenderState",
     "kind": "type",
     "declaration": "src/helpers/UTerrainStamp.d.ts",
+    "source": "src/helpers/UTerrainStamp.js",
     "spec": "src/helpers/UTerrainStamp.spec.md"
   },
   {
     "name": "UTerrainStampRenderUniforms",
     "kind": "type",
     "declaration": "src/helpers/UTerrainStamp.d.ts",
+    "source": "src/helpers/UTerrainStamp.js",
     "spec": "src/helpers/UTerrainStamp.spec.md"
   },
   {
     "name": "UTerrainStampSetParamOption",
     "kind": "type",
     "declaration": "src/helpers/UTerrainStamp.d.ts",
+    "source": "src/helpers/UTerrainStamp.js",
     "spec": "src/helpers/UTerrainStamp.spec.md"
   },
   {
@@ -8489,6 +8825,11 @@
     "name": "UTextureLoader",
     "kind": "type",
     "declaration": "src/core/loader/UTextureLoader.d.ts"
+  },
+  {
+    "name": "UTileMesh",
+    "kind": "type",
+    "declaration": "src/core/mesh/UTileMesh.d.ts"
   },
   {
     "name": "UTween",
@@ -8593,12 +8934,14 @@
     "name": "VctrTile",
     "kind": "type",
     "declaration": "src/3dLayer/U3dVectorTileLayer.d.ts",
+    "source": "src/3dLayer/U3dVectorTileLayer.js",
     "spec": "src/3dLayer/U3dVectorTileLayer.spec.md"
   },
   {
     "name": "VctrTile_Content",
     "kind": "type",
     "declaration": "src/3dLayer/U3dVectorTileLayer.d.ts",
+    "source": "src/3dLayer/U3dVectorTileLayer.js",
     "spec": "src/3dLayer/U3dVectorTileLayer.spec.md"
   },
   {

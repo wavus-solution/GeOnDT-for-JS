@@ -32,8 +32,7 @@ const BASE_RAY_THRESHOLD = 100;
 const MAX_CAMERA_DISTANCE = 10_200_000;
 /** 디버그 상자를 여유 있게 확보하기 위해 항공기 수에 더하는 값입니다. */
 const DEBUG_BOX_MARGIN = 100;
-/** 하루를 시간 단위로 정규화할 때 사용하는 값입니다. */
-const HOURS_PER_DAY = 24;
+/** 최신 기록보다 이 시간(ms) 이상 오래된 경로 노드는 가장 짙은 색으로 표시합니다. */
 /** 기본 추적 카메라 시점입니다. */
 const DEFAULT_CAMERA_VIEW = 'ThirdPersonFront';
 /** 운항이 끝난 항공기의 상태 값입니다. */
@@ -242,18 +241,11 @@ export async function initialize(context) {
     }
 
     /**
-     * 누적 경로 색상을 시간대에 따라 변화시키는 Style 함수입니다.
-     * 엔진이 컴포넌트를 `this`로 호출하므로 화살표 함수로 작성하지 않습니다.
-     * @param {{x: number, y: number, z: number}} position 경로 지점
-     * @param {number} distance 누적 거리(m)
-     * @param {number} time 경과시간(ms)
-     * @returns {number} 0~1 사이의 색상 보간 값
+     * 지점이 기록된 시각의 시간대에 따라 색 농도를 정합니다.
+     * @type {U3dCumulativePathStyleFunc}
      */
-    function createPathColorRatio(position, distance, time) {
-        const takeoffTime = planeList.get(this.componentName)?.takeoffTime;
-        if (!takeoffTime) return 0;
-        const passedHour = new Date(new Date(takeoffTime).getTime() + time).getHours();
-        return Math.round(passedHour / HOURS_PER_DAY * 100) / 100;
+    function pathStyleFunc(position, dist, time) {
+        return new Date(time).getHours() / 24;
     }
 
     /**
@@ -360,8 +352,7 @@ export async function initialize(context) {
                 drawOffset: -20,
                 lineType: 'circle',
                 colorGradation: true,
-                styleFunc: createPathColorRatio,
-                tailPolicy: {nearWidthFadeStart: 0, nearWidthFadeEnd: 0, depthWidthScale: false, widthFade: 0}
+                styleFunc: pathStyleFunc,
             }
         });
         if (!component) return undefined;

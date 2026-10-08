@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -233,13 +233,6 @@ declare class U3dLayerList {
      * @return {Array<import('@U3dLayer').U3dLayer>} VectorTile 레이어 배열
      */
     getInstanceVectorTileLayers(): Array<U3dLayer>;
-    /**
-     * 클래스 종류가 video인 레이어를 등록 목록 순서로 조회합니다.
-     * 목록을 변경하지 않으며, 원본 레이어 객체를 담은 새 배열을 반환합니다.
-     *
-     * @returns {Array<import('@U3dLayer').U3dLayer>} 일치하는 비디오 레이어의 새 배열
-     */
-    getInstanceVideoLayers(): Array<U3dLayer>;
     /**
      * 클래스 종류가 animation인 레이어를 등록 목록 순서로 조회합니다.
      * 목록을 변경하지 않으며, 원본 레이어 객체를 담은 새 배열을 반환합니다.

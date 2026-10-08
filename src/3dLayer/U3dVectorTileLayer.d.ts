@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -8,16 +8,19 @@ import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/e
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { TileCheckContext, U3dModelTilesLayer, U3dModelTilesLayerCO } from "./U3dModelTilesLayer.js";
 import type { U3DTileset } from "../3dTiles/U3DTileset.js";
+import type { U3dApp } from "../app/U3dApp.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
 import type { U3dPOI } from "../geometry/U3dPOI.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 import type { DeferredObject } from "../util/deferred.js";
 
 /**
- * ~extends import('/union3d/3dLayer/U3dModelTilesLayer.js').U3dModelTilesLayer <br>
- * `3D VectorTile` 레이어 클래스
+ * ~extends import('@union3d/3dLayer/U3dModelTilesLayer').U3dModelTilesLayer <br>
+ *
+ * VCTR 타일의 포인트와 레이블을 표시하는 레이어입니다.
+ *
  * @group 3dLayer
- * @extends U3dModelTilesLayer
+ * @extends {U3dModelTilesLayer}
  *
  * @example
  *   var modellayer = new Union3D.model.U3dVectorTileLayer({
@@ -99,14 +102,17 @@ declare class U3dVectorTileLayer extends U3dModelTilesLayer {
      */
     override addGroup(tile: U3DTileset, updateId?: string | number): void;
     /**
-     * POI를 가시 상태 맵에 등록하고 중복 위치의 경우 숨김 처리
+     * POI를 위치별 후보에 등록합니다.
+     * 같은 키의 첫 후보와 자식은 표시하고, 새 중복 후보와 자식은 숨깁니다.
+     * 이미 등록된 후보의 표시 상태는 변경하지 않습니다.
      *
      * @param {import('@union3d/geometry/U3dPOI').U3dPOI} mesh 등록할 POI 객체
-     * @return {boolean} 등록 성공 여부
+     * @returns {boolean} 등록 성공 여부이며 입력이 없으면 false
      */
     addVisibleState(mesh: U3dPOI): boolean;
     /**
-     * POI를 가시 상태 맵에서 제거하고 다음 후보를 가시화
+     * POI와 자식을 숨기고 위치별 후보에서 제거합니다.
+     * 제거 전에 표시 중이던 POI라면 남은 후보 중 첫 U3dPOI와 자식을 표시합니다.
      *
      * @param {import('@union3d/geometry/U3dPOI').U3dPOI} mesh 제거할 POI 객체
      */
@@ -122,12 +128,13 @@ declare class U3dVectorTileLayer extends U3dModelTilesLayer {
         position: three.Vector3 | undefined;
     }>;
     /**
-     * VCTR 포인트의 업데이트 가시화 여부를 판단
+     * VCTR 포인트가 프러스텀과 거리 조건을 만족하는지 판정합니다.
+     * 입력이 없거나 저장된 구가 프러스텀 밖이면 false를 반환합니다.
      *
      * @param {import('@union3d/geometry/U3dPOI').U3dPOI} vctr POI 객체
      * @param {import('@U3DTileset').U3DTileset} tile 소속 타일 정보
      * @param {import('three').Vector3} campos 카메라 위치
-     * @return {boolean} 업데이트(가시화) 여부
+     * @returns {boolean} 업데이트(가시화) 여부
      */
     isUpdateVCTRPoint(vctr: U3dPOI, tile: U3DTileset, campos: three.Vector3): boolean;
     /**
@@ -310,4 +317,40 @@ type VctrTile_Content = {
 
 type VctrTile = U3DTileset & VctrTile_Content;
 
-export type { U3dVectorTileLayer, U3dVectorTileLayerCO, U3dVectorTileLayerCO_Content, VctrTile, VctrTile_Content };
+/**
+     * POI 위치 그룹 계산에서 읽는 레이어 설정입니다.
+     */
+    type U3dVectorTileClusterState = {
+        /**
+         * 위치 그룹 크기
+         */
+        _clusterRadius: number;
+    };
+
+/**
+     * POI 거리 판정에서 읽는 레이어 설정입니다.
+     * 함수형 배율도 기존 저장 상태 그대로 전달하며, 이 타입은 실행을 지시하지 않습니다.
+     */
+    type U3dVectorTileDistanceState = {
+        /**
+         * 저장된 거리 배율 또는 기존 함수 참조
+         */
+        _viewSizeOffset?: number | Function;
+    };
+
+/**
+     * POI와 그 자식의 표시 상태를 반영하는 함수입니다.
+     */
+    type U3dVectorTileVisibilitySetter = (poi: three.Object3D, visible: boolean) => any;
+
+/**
+     * 구 반경 보조 계산에 필요한 앱 계약입니다.
+     */
+    type U3dVectorTileVolumeState = {
+        /**
+         * 카메라와 출력 크기 제공자
+         */
+        _app: Pick<U3dApp, "_camera" | "getDrawBufferHeight" | "getDrawBufferWidth">;
+    };
+
+export type { U3dVectorTileClusterState, U3dVectorTileDistanceState, U3dVectorTileLayer, U3dVectorTileLayerCO, U3dVectorTileLayerCO_Content, U3dVectorTileVisibilitySetter, U3dVectorTileVolumeState, VctrTile, VctrTile_Content };

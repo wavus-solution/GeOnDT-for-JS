@@ -235,9 +235,6 @@ U3dLayerList 클래스 정의
     getInstanceMultipleComponentLayers() -> Array<U3dLayer>
         동작: 전체 배열과 "U3dMultipleComponentLayer"를 클래스 종류 필터에 전달하고 일치하는 레이어의 새 배열을 반환한다. 선택 정책은 이 공개 메서드에서 정한다.
 
-    getInstanceVideoLayers() -> Array<U3dLayer>
-        동작: 전체 배열과 "video"를 클래스 종류 필터에 전달하고 일치하는 레이어의 새 배열을 반환한다. 선택 정책은 이 공개 메서드에서 정한다.
-
     getInstanceAnimationLayers() -> Array<U3dLayer>
         동작: 전체 배열과 "animation"을 클래스 종류 필터에 전달하고 일치하는 레이어의 새 배열을 반환한다. 선택 정책은 이 공개 메서드에서 정한다.
 

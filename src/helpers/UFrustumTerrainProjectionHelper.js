@@ -2,7 +2,6 @@ import {Color, Frustum} from 'three';
 import {LineSegments2} from 'three/examples/jsm/lines/LineSegments2.js';
 import {LineSegmentsGeometry} from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
 import {LineMaterial} from 'three/examples/jsm/lines/LineMaterial.js';
-import {UDEF} from '@union3d/core/UDEF';
 import {UTerrainStamp} from '@union3d/helpers/UTerrainStamp.js';
 import {__GError__, __GInfo__} from '@U3dMessage';
 import {INTERNAL} from '@union3d/helpers/UFrustumTerrainProjectionHelper.internal';
@@ -54,6 +53,14 @@ const pickTerrainStampStyleOverride = INTERNAL.pickTerrainStampStyleOverride;
  * LineSegments2를 기반으로 선 두께를 조절할 수 있습니다.
  * 지면 이미지는 모든 채움 stamp가 공유하는 frame에 배치하며, 교차 영역 밖은 잘립니다.
  * fill.textureFit의 contain도 stretch와 같은 매핑을 사용하며 이미지 전체 표시와 종횡비 유지를 보장하지 않습니다.
+ * 기본 지면 외곽선은 지형 stamp로 밀착 출력합니다. terrainOutlineStamp가 false이면 접촉 외곽선을 생략합니다.
+ * 화면에서 전체 frustum이 96px보다 작으면 지면 격자를 최대 5×5로 줄이고, 128px 이상이면 요청 격자로 복귀합니다.
+ * cullByMainCamera가 true이면 단색 지면의 개별 UV 영역도 메인 카메라 기준으로 선택합니다.
+ * 화면 밖 영역은 계산·Stamp 생성을 생략하며, 원거리 LOD는 외곽선을 보존하고 내부 분할점만 줄입니다.
+ * 작게 보이는 인접 원거리 Stamp는 외피 점을 유지할 수 있을 때만 두 개씩 합칩니다.
+ * 이 정책은 이 Helper가 생성하는 지면 형상에만 적용하며 공용 UTerrainStamp나 load()로 복원한 Stamp에는 적용하지 않습니다.
+ * 최초 표시와 재표시는 여러 Helper 사이에서 분산되므로 몇 프레임 뒤에 나타날 수 있습니다.
+ * dispose()는 즉시 갱신·출력을 중지하고 소유 렌더 자원의 실제 반납은 나누어 수행합니다.
  *
  * @extends {LineSegments2}
  *
@@ -75,7 +82,7 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
      */
     constructor(frustum = new Frustum(), options = {}) {
         const geometry = new LineSegmentsGeometry();
-        initializeLineSegmentsGeometry(geometry, MAX_OUTLINE_SEGMENT_COUNT);
+        initializeLineSegmentsGeometry(geometry, MAX_OUTLINE_SEGMENT_COUNT, true);
         const opacity = options.opacity ?? 1;
         const lineWidth = getPositiveNumber(options.lineWidth, 2);
         const depthOffset = Number(options.depthOffset ?? 0.005);
@@ -141,6 +148,7 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
         this.terrainBoundaryFilletRatio = Number.isFinite(requestedFilletRatio)
             ? Math.max(0, Math.min(MAX_TERRAIN_STAMP_BOUNDARY_FILLET_RATIO, requestedFilletRatio))
             : DEFAULT_TERRAIN_STAMP_BOUNDARY_FILLET_RATIO;
+        /** 전체 Helper 및 단색 지면 영역의 카메라 선택·원거리 내부 LOD 사용 여부입니다. */
         this.cullByMainCamera = options.cullByMainCamera ?? true;
         // smoothing은 호환 drape 경로의 terrain edge 내부점에만 적용한다.
         // 기본 접촉 전용 footprint는 경계 topology를 보존해야 하므로 이 공간 필터를 사용하지 않는다.
@@ -671,6 +679,20 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
     }
 
     /**
+     * 선분이 준비된 경우에만 기본 LineSegments2의 교차 검사를 수행합니다.
+     * 첫 활성화 전에는 큰 선분 attribute가 없으므로 빈 geometry를 picking에서 제외합니다.
+     *
+     * @override
+     *
+     * @param {import('three').Raycaster} raycaster 교차를 검사할 광선
+     * @param {Array<import('three').Intersection>} intersects 교차 결과를 추가할 배열
+     */
+    raycast(raycaster, intersects) {
+        if (this.geometry.instanceCount === 0 || !this.geometry.getAttribute('instanceStart')) return;
+        super.raycast(raycaster, intersects);
+    }
+
+    /**
      * 마지막 고정 주기 update에서 확정한 matrix로 LineSegments2의 world matrix를 갱신한다.
      * renderer 경로에서 원시 Frustum matrix를 다시 읽으면 line/side만 먼저 움직이고 world 좌표인
      * terrain stamp는 다음 tick까지 남아 서로 어긋나므로 여기서는 확정 matrix를 그대로 유지한다.
@@ -685,11 +707,19 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
 
     /**
      * 현재 프러스텀 평면으로 외곽선을 갱신하는 메서드입니다.
+     * 표준 지형에서 자세·실제 격자·설정·의존 타일이 같고 교차 필터가 완전히 수렴했으면
+     * 직전 footprint 계산 결과를 재사용합니다. 표시 스타일과 앱 연결은 계속 반영합니다.
+     * 카메라 이동으로 개별 UV 영역 선택이 바뀌면 재계산하고, 새로 진입한 영역의 낡은 교차 이력은 버립니다.
+     * 내용이 같은 선·옆면 버퍼와 지면 stamp는 GPU 갱신을 생략하며 출력 해상도는 유지합니다.
      *
      * @returns {this}
      */
     update() {
         if (this._disposed || this.#implementation.isUpdating) return this;
+        // 대기 중 명시 갱신은 같은 활성화 요청으로 합칩니다. 준비 결과를 매번 버리면
+        // 매 프레임 update하는 호출자가 최초 표시를 계속 늦추므로, 준비 이후 입력은 다음 정상 주기에 읽습니다.
+        // 이미 표시된 Helper의 명시적 update는 기존 동기 갱신 계약을 유지합니다.
+        if (this.#implementation.activationQueue) return this;
 
         this.#implementation.isUpdating = true;
         try {
@@ -1060,6 +1090,8 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
      * UFrustumHelper의 save()와 같은 형식이므로 두 helper가 저장한 스냅샷을 서로 불러올 수 있습니다.
      * 지형 투영 모드(생성 옵션 terrain이 true)가 아니거나 지금 지형에 그려진 stamp가 없으면 안내 메시지를 남기고 undefined를 반환합니다.
      * load()로 불러온 스냅샷 stamp는 저장 대상이 아니며 현재 프러스텀이 만든 stamp만 담습니다.
+     * 카메라 선택이 켜져 있으면 현재 선택된 영역만 저장합니다. 전체 footprint가 필요하면 cullByMainCamera를 false로 바꾸고 update()한 뒤 저장합니다.
+     * 기본 지면 외곽선도 stamp로 저장합니다. 영상 레이어 부재나 stamp 예산 부족으로 선 geometry를 사용하는 구간은 저장되지 않습니다.
      *
      * @param {UFrustumHelperSaveOption} [options={}] 저장 범위를 정하는 옵션
      * @returns {UFrustumHelperTerrainStampSnapshot|undefined} 현재 지형 투영면 스냅샷이며, 저장할 수 없으면 undefined입니다.
@@ -1202,7 +1234,8 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
     }
 
     /**
-     * helper가 생성한 geometry, material, 투영선, cache를 해제하는 메서드입니다.
+     * Helper의 갱신·출력을 즉시 중지하고 소유 geometry, material, 투영선과 cache를 해제합니다.
+     * 렌더 자원의 실제 반납은 여러 프레임에 나누며, Scene·앱 종료 중에는 즉시 정리합니다.
      *
      * @override
      */
@@ -1215,8 +1248,10 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
         this.removeEventListener('removed', this.#implementation.onRemoved);
         this.#implementation.stopUpdateTimer(true);
         this.removeFromParent?.();
-        this.geometry.dispose();
-        this.material.dispose();
+        this.visible = false;
+        // 예약 취소와 Scene 분리가 끝난 자원만 넘겨 지연 반납 중 다시 그려지지 않게 합니다.
+        this.#implementation.retireResource(this.geometry);
+        this.#implementation.retireResource(this.material);
         if (this.#implementation.renderHeartbeatMesh) {
             // WebGLRenderer는 onBeforeRender를 함수로 호출하므로 dispose 후에도 안전한 no-op을 남긴다.
             this.#implementation.renderHeartbeatMesh.onBeforeRender = () => {};
@@ -1224,22 +1259,23 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
         // 참조 필드와 children에 함께 있는 메시도 한 번만 정리하며, 분리된 소유 메시도 포함한다.
         for (const child of new Set([this.projectionLine, this.nonTerrainFillMesh, this.sideFillMesh, this.#implementation.renderHeartbeatMesh, ...this.children])) {
             if (!child) continue;
-            UDEF.disposeObject3D(child);
             child.removeFromParent();
+            this.#implementation.retireResource(child);
         }
         this.clear();
-        for (const stamp of this.#implementation.terrainFillStampPool) {
-            stamp.dispose?.();
-        }
-        this.#implementation.terrainFillStampPool.length = 0;
-        for (const stamp of this.#implementation.terrainOutlineStampPool) {
-            stamp.dispose?.();
-        }
-        this.#implementation.terrainOutlineStampPool.length = 0;
-        this.clearLoadedTerrainStamps();
+        // Stamp 등록 해제는 지금 확정하고, 마지막 공유 텍스처의 반납만 Helper 큐가 맡습니다.
+        this.#implementation.withTerrainStampBatch(() => {
+            for (const stamp of this.#implementation.terrainFillStampPool) stamp.dispose?.();
+            this.#implementation.terrainFillStampPool.length = 0;
+            for (const stamp of this.#implementation.terrainOutlineStampPool) stamp.dispose?.();
+            this.#implementation.terrainOutlineStampPool.length = 0;
+            this.clearLoadedTerrainStamps();
+        });
         this.#implementation.terrainStampApp = undefined;
         this.terrainHeightSampleLayout = undefined;
         this.#implementation.terrainIntersectionState.resolvedHeights.length = 0;
+        // 공유 지형 조회 자원의 사용분도 함께 반납합니다.
+        this.#implementation.releaseTerrainHeightResources();
         this.#implementation.resetTemporalPose();
         this.#implementation.resetTerrainIntersectionState();
     }

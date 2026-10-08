@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -85,9 +85,14 @@ declare class UAnalyAverageHeight extends UAnaly {
         height: number;
     }> | undefined;
     /**
-     * 선택된 모델들의 평균 높이를 계산해 반환하는 함수
-     * @param {import('@union3d/select/U3dSelect').U3dSelect} [u3dSelect] 입력시 해당 객체의 선택 모델들로 계산
-     * @return {number | undefined} 평균 높이
+     * 선택 모델의 높이를 ID 중복 없이 집계한 평균을 반환합니다. <br>
+     * 내부 선택기가 없으면 외부 선택기를 전달해도 undefined를 반환합니다.
+     * 내부 선택기가 있으면 외부 선택 목록을 사용할 수 있으며 빈 목록의 평균은 0입니다.
+     * 일반 메시의 높이는 월드 축 정렬 경계의 Z축 길이이며 getModelHeight() 재정의를 호출하지 않습니다.
+     * 병합 모델의 높이 조회에는 현재 분석의 선택 범위를 사용하며 조회·기하 오류는 그대로 전파합니다.
+     *
+     * @param {import('@union3d/select/U3dSelect').U3dSelect} [u3dSelect] 내부 선택기 대신 계산할 선택 목록의 제공자
+     * @returns {number | undefined} 평균 높이 또는 내부 선택기가 없으면 undefined
      */
     getAverageHeight(u3dSelect?: U3dSelect): number | undefined;
     /**
@@ -100,19 +105,13 @@ declare class UAnalyAverageHeight extends UAnaly {
      */
     getModelHeight(model: UMesh | U3DTilesMesh): number;
     /**
-     * 평균 높이 계산 결과 반환값
-     * @memberof UAnalyAverageHeight
-     * @inner
+     * 선택된 메시를 레이어별로 묶어 평균 높이와 함께 반환합니다. <br>
+     * 외부 선택기는 레이어별 메시 목록에만 사용하고 각 평균은 내부 전체 선택으로 다시 계산합니다.
+     * 내부 선택기가 없으면 평균은 0이며 반환 목록의 메시들은 원본 참조입니다.
+     * 선택 조회·집계 오류는 그대로 전파합니다.
      *
-     * @typedef {Object} LayerHeightInfo
-     * @property {string} layerName 레이어 이름
-     * @property {Array<import('@UMesh').UMesh | import('@U3DTilesMesh').U3DTilesMesh>} list 검사한 대상 객체 목록
-     * @property {number} averageHeight 평균 높이
-     */
-    /**
-     * 선택된 모델의 평균높이 계산 결과를 반환하는 함수
-     * @param {import('@union3d/select/U3dSelect').U3dSelect} [u3dSelect] 입력 시 해당 객체의 선택 객체들로 계산
-     * @return {Array<LayerHeightInfo>} 평균 높이 계산 결과
+     * @param {import('@union3d/select/U3dSelect').U3dSelect} [u3dSelect] 레이어별 메시 목록을 제공할 외부 선택기
+     * @returns {Array<LayerHeightInfo>} 레이어별 메시 목록과 내부 전체 선택의 평균
      *
      * @example
      *  return [{
@@ -121,20 +120,7 @@ declare class UAnalyAverageHeight extends UAnaly {
      *     averageHeight: 12.5
      *  }]
      */
-    getCalcResult(u3dSelect?: U3dSelect): Array<{
-        /**
-         * 레이어 이름
-         */
-        layerName: string;
-        /**
-         * 검사한 대상 객체 목록
-         */
-        list: Array<UMesh | U3DTilesMesh>;
-        /**
-         * 평균 높이
-         */
-        averageHeight: number;
-    }>;
+    getCalcResult(u3dSelect?: U3dSelect): Array<LayerHeightInfo>;
     /**
      * 선택된 모델을 key 기반으로 반환하는 함수
      * @param {import('@union3d/select/U3dSelect').U3dSelect} [u3dSelect] 입력시 해당 객체의 선택 모델들로 반환
@@ -154,4 +140,31 @@ declare class UAnalyAverageHeight extends UAnaly {
     #private;
 }
 
-export type { UAnalyAverageHeight, UAnalyAverageHeightCO, UAnalyAverageHeightCO_Content };
+/**
+     * 레이어별 선택 메시와 내부 전체 선택의 평균 높이입니다.
+     * 기존 결과 타입 이름을 유지하며 list에는 메시 원본 참조를 보관합니다.
+     */
+    type LayerHeightInfo = {
+        /**
+         * 레이어 이름
+         */
+        layerName: string;
+        /**
+         * 검사한 대상 메시 목록
+         */
+        list: Array<UMesh | U3DTilesMesh>;
+        /**
+         * 내부 전체 선택의 평균 높이
+         */
+        averageHeight: number;
+    };
+
+/**
+     * 현재 분석 상태로 병합 모델의 높이 목록을 조회합니다.
+     */
+    type UAnalyAverageHeightMergedHeightLookup = (mesh: UMesh) => Array<{
+        id: string;
+        height: number;
+    }> | undefined;
+
+export type { LayerHeightInfo, UAnalyAverageHeight, UAnalyAverageHeightCO, UAnalyAverageHeightCO_Content, UAnalyAverageHeightMergedHeightLookup };

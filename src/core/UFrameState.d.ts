@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -18,7 +18,13 @@ declare class UFrameState {
     _disposed: boolean;
     dispose(): void;
     getType(): any;
-    addUpdate(tile: any, force: any): void;
+    /**
+     * 현재 뷰에 필요한 자식 레이어 작업을 수집하고 실행합니다.
+     *
+     * @param {import('@U3dQuadTile').U3dQuadTile} tile 작업을 집계할 부모 타일
+     * @param {boolean} force 강제 갱신 여부
+     */
+    addUpdate(tile: U3dQuadTile, force: boolean): void;
     /**
      * 부모 Presentation을 먼저 복구한 뒤 자식 branch를 폐기합니다.
      *

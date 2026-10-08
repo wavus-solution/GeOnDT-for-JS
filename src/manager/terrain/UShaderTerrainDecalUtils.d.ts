@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -1337,9 +1337,9 @@ type TerrainPathSegment = {
          */
         handoffResidues?: Map<U3dImageLayer, Array<three.Object3D>>;
         /**
-         * terrain mesh입니다.
+         * 지형 메시입니다. 미생성 타일을 조회해 저장한 경우 null일 수 있습니다.
          */
-        mesh?: three.Mesh;
+        mesh?: three.Mesh | null;
         /**
          * terrain material입니다.
          */
@@ -1353,10 +1353,10 @@ type TerrainPathSegment = {
          */
         layerName?: string;
         /**
-         * 지형 메시와 LOD 표시 전환 대기 상태를 보유한 타일입니다.
+         * 지형 메시와 LOD 표시 전환 대기 상태를 보유한 타일입니다. 메시 생성 전에는 _mesh가 null일 수 있습니다.
          */
         tile?: Partial<{
-            _mesh: three.Mesh;
+            _mesh: three.Mesh | null;
             _lodPresentPending: boolean;
         }>;
         /**
@@ -1538,10 +1538,10 @@ type TerrainPathSegment = {
          */
         mesh?: three.Mesh;
         /**
-         * tile 객체입니다.
+         * 타일 객체입니다. 메시 생성 전에는 _mesh가 null일 수 있습니다.
          */
         tile?: Partial<{
-            _mesh: three.Mesh;
+            _mesh: three.Mesh | null;
         }>;
         /**
          * 표시 여부입니다.
@@ -1853,10 +1853,10 @@ type TerrainPathSegment = {
          */
         mesh?: three.Mesh;
         /**
-         * tile 객체입니다.
+         * 타일 객체입니다. 메시 생성 전에는 _mesh가 null일 수 있습니다.
          */
         tile?: Partial<{
-            _mesh: three.Mesh;
+            _mesh: three.Mesh | null;
         }>;
         /**
          * 소유 레이어입니다.

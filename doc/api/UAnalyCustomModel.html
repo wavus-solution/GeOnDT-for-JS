@@ -15,7 +15,7 @@
     <!-- 한글 본문용 가변 서체입니다. 내려받지 못해도 styles/jaguar.css의 대체 서체로 그대로 표시됩니다. -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-    <link type="text/css" rel="stylesheet" href="styles/jaguar.css?v=muw7iz8z">
+    <link type="text/css" rel="stylesheet" href="styles/jaguar.css?v=muz1hdly">
     <script>
         // 화면이 그려지기 전에 테마를 정해 화면이 한 번 번쩍이는 것을 막습니다.
         // 상단 전환 버튼으로 직접 고른 적이 없으면 운영체제 설정을 따릅니다.
@@ -697,10 +697,6 @@
                     <a href="U3dApp.html#getInstanceTerrainLayers">getInstanceTerrainLayers</a>
                 </li>
             
-                <li data-name="getinstancevideolayers">
-                    <a href="U3dApp.html#getInstanceVideoLayers">getInstanceVideoLayers</a>
-                </li>
-            
                 <li data-name="getintensitylight">
                     <a href="U3dApp.html#getIntensityLight">getIntensityLight</a>
                 </li>
@@ -1167,6 +1163,10 @@
             
                 <li data-name="removeview">
                     <a href="U3dApp.html#removeView">removeView</a>
+                </li>
+            
+                <li data-name="renderframe">
+                    <a href="U3dApp.html#renderFrame">renderFrame</a>
                 </li>
             
                 <li data-name="resetfog">
@@ -1879,6 +1879,10 @@
                     <a href="UAnaly.html#active">active</a>
                 </li>
             
+                <li data-name="adddefaultevent">
+                    <a href="UAnaly.html#addDefaultEvent">addDefaultEvent</a>
+                </li>
+            
                 <li data-name="clear">
                     <a href="UAnaly.html#clear">clear</a>
                 </li>
@@ -1887,12 +1891,20 @@
                     <a href="UAnaly.html#deactive">deactive</a>
                 </li>
             
+                <li data-name="getanalysisoption">
+                    <a href="UAnaly.html#getAnalysisOption">getAnalysisOption</a>
+                </li>
+            
                 <li data-name="getscene">
                     <a href="UAnaly.html#getScene">getScene</a>
                 </li>
             
                 <li data-name="gettargetlayername">
                     <a href="UAnaly.html#getTargetLayerName">getTargetLayerName</a>
+                </li>
+            
+                <li data-name="gettype">
+                    <a href="UAnaly.html#getType">getType</a>
                 </li>
             
                 <li data-name="intersectmodel">
@@ -1915,6 +1927,10 @@
                     <a href="UAnaly.html#on">on</a>
                 </li>
             
+                <li data-name="setanalysisoption">
+                    <a href="UAnaly.html#setAnalysisOption">setAnalysisOption</a>
+                </li>
+            
                 <li data-name="setapp">
                     <a href="UAnaly.html#setApp">setApp</a>
                 </li>
@@ -1933,6 +1949,10 @@
         <section class="navigation-member-list" data-type="typedefs">
             <h3>Type Definitions</h3>
             <ul>
+            
+                <li data-name="ananlysis_mesh">
+                    <a href="UAnaly.html#~Ananlysis_Mesh">Ananlysis_Mesh</a>
+                </li>
             
                 <li data-name="uanalyco">
                     <a href="UAnaly.html#~UAnalyCO">UAnalyCO</a>
@@ -2475,6 +2495,10 @@
                     <a href="UAnalyContour.html#isTopoVisible">isTopoVisible</a>
                 </li>
             
+                <li data-name="setheightvisible">
+                    <a href="UAnalyContour.html#setHeightVisible">setHeightVisible</a>
+                </li>
+            
                 <li data-name="settopo">
                     <a href="UAnalyContour.html#setTopo">setTopo</a>
                 </li>
@@ -2745,6 +2769,14 @@
                     <a href="UAnalyCustomModel.html#isExistModelName">isExistModelName</a>
                 </li>
             
+                <li data-name="ispolygon">
+                    <a href="UAnalyCustomModel.html#isPolygon">isPolygon</a>
+                </li>
+            
+                <li data-name="merge">
+                    <a href="UAnalyCustomModel.html#merge">merge</a>
+                </li>
+            
                 <li data-name="mergemesh">
                     <a href="UAnalyCustomModel.html#mergeMesh">mergeMesh</a>
                 </li>
@@ -2782,6 +2814,14 @@
             
                 <li data-name="custommodelentry">
                     <a href="UAnalyCustomModel.html#~CustomModelEntry">CustomModelEntry</a>
+                </li>
+            
+                <li data-name="uanalycustommodelinput">
+                    <a href="UAnalyCustomModel.html#~UAnalyCustomModelInput">UAnalyCustomModelInput</a>
+                </li>
+            
+                <li data-name="uanalycustommodelsetup">
+                    <a href="UAnalyCustomModel.html#~UAnalyCustomModelSetup">UAnalyCustomModelSetup</a>
                 </li>
             
             </ul>
@@ -5494,17 +5534,6 @@
             <span class="navigation-primary-link"><a href="UAnalyViewCone.html">UAnalyViewCone</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="UAnalyViewCone.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -7912,17 +7941,6 @@
             <span class="navigation-primary-link"><a href="U3dImageLayer.html">U3dImageLayer</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dImageLayer.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -8278,17 +8296,6 @@
             <span class="navigation-primary-link"><a href="U3dImageWMSLayer.html">U3dImageWMSLayer</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dImageWMSLayer.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -8504,17 +8511,6 @@
             <span class="navigation-primary-link"><a href="U3dImageXYZLayer.html">U3dImageXYZLayer</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dImageXYZLayer.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -8573,10 +8569,6 @@
             
                 <li data-name="event">
                     <a href="U3dLayer.html#EVENT">EVENT</a>
-                </li>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dLayer.html#OPT_KEYS">OPT_KEYS</a>
                 </li>
             
                 <li data-name="initialized">
@@ -8998,10 +8990,6 @@
                     <a href="U3dLayerList.html#getInstanceVectorTileLayers">getInstanceVectorTileLayers</a>
                 </li>
             
-                <li data-name="getinstancevideolayers">
-                    <a href="U3dLayerList.html#getInstanceVideoLayers">getInstanceVideoLayers</a>
-                </li>
-            
                 <li data-name="getlayer">
                     <a href="U3dLayerList.html#getLayer">getLayer</a>
                 </li>
@@ -9203,17 +9191,6 @@
             <span class="navigation-primary-link"><a href="U3dModelBasicLayer.html">U3dModelBasicLayer</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dModelBasicLayer.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -11209,17 +11186,6 @@
             <span class="navigation-primary-link"><a href="U3dOpenLayer.html">U3dOpenLayer</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dOpenLayer.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -11274,6 +11240,10 @@
             
                 <li data-name="getdebuglogjson">
                     <a href="U3dOpenLayer.html#getDebugLogJson">getDebugLogJson</a>
+                </li>
+            
+                <li data-name="gettilebackgroundcolor">
+                    <a href="U3dOpenLayer.html#getTileBackgroundColor">getTileBackgroundColor</a>
                 </li>
             
                 <li data-name="refresh">
@@ -11876,6 +11846,10 @@
             
                 <li data-name="u3dvectorlayeremi">
                     <a href="U3dVectorLayer.html#~U3dVectorLayerEMI">U3dVectorLayerEMI</a>
+                </li>
+            
+                <li data-name="u3dvectortileindexstate">
+                    <a href="U3dVectorLayer.html#~U3dVectorTileIndexState">U3dVectorTileIndexState</a>
                 </li>
             
             </ul>
@@ -13335,12 +13309,20 @@
                     <a href="U3dCumulativePath.html#getHelperMesh">getHelperMesh</a>
                 </li>
             
+                <li data-name="getnodes">
+                    <a href="U3dCumulativePath.html#getNodes">getNodes</a>
+                </li>
+            
                 <li data-name="getpath">
                     <a href="U3dCumulativePath.html#getPath">getPath</a>
                 </li>
             
                 <li data-name="gettail">
                     <a href="U3dCumulativePath.html#getTail">getTail</a>
+                </li>
+            
+                <li data-name="gettailpolicy">
+                    <a href="U3dCumulativePath.html#getTailPolicy">getTailPolicy</a>
                 </li>
             
                 <li data-name="hide">
@@ -13428,10 +13410,6 @@
             
                 <li data-name="u3dcumulativepathpositiondata">
                     <a href="U3dCumulativePath.html#~U3dCumulativePathPositionData">U3dCumulativePathPositionData</a>
-                </li>
-            
-                <li data-name="u3dcumulativepathstylefunc">
-                    <a href="U3dCumulativePath.html#~U3dCumulativePathStyleFunc">U3dCumulativePathStyleFunc</a>
                 </li>
             
                 <li data-name="u3dcumulativepath_styleopt">
@@ -14442,6 +14420,14 @@
                     <a href="U3dLine.html#linewidth">linewidth</a>
                 </li>
             
+                <li data-name="renderorder">
+                    <a href="U3dLine.html#renderOrder">renderOrder</a>
+                </li>
+            
+                <li data-name="visible">
+                    <a href="U3dLine.html#visible">visible</a>
+                </li>
+            
                 <li data-name="worldunits">
                     <a href="U3dLine.html#worldUnits">worldUnits</a>
                 </li>
@@ -14455,6 +14441,10 @@
             
                 <li data-name="clearsurfacedrape">
                     <a href="U3dLine.html#clearSurfaceDrape">clearSurfaceDrape</a>
+                </li>
+            
+                <li data-name="computelinedistances">
+                    <a href="U3dLine.html#computeLineDistances">computeLineDistances</a>
                 </li>
             
                 <li data-name="dispose">
@@ -14536,6 +14526,14 @@
         <section class="navigation-member-list" data-type="members">
             <h3>Members</h3>
             <ul>
+            
+                <li data-name="geometry">
+                    <a href="U3dPathGeometry.html#geometry">geometry</a>
+                </li>
+            
+                <li data-name="material">
+                    <a href="U3dPathGeometry.html#material">material</a>
+                </li>
             
                 <li data-name="renderorder">
                     <a href="U3dPathGeometry.html#renderOrder">renderOrder</a>
@@ -14843,6 +14841,10 @@
                     <a href="U3dPoint.html#img">img</a>
                 </li>
             
+                <li data-name="material">
+                    <a href="U3dPoint.html#material">material</a>
+                </li>
+            
                 <li data-name="materiallist">
                     <a href="U3dPoint.html#materialList">materialList</a>
                 </li>
@@ -14851,12 +14853,24 @@
                     <a href="U3dPoint.html#offset">offset</a>
                 </li>
             
+                <li data-name="renderorder">
+                    <a href="U3dPoint.html#renderOrder">renderOrder</a>
+                </li>
+            
                 <li data-name="size">
                     <a href="U3dPoint.html#size">size</a>
                 </li>
             
                 <li data-name="sizeattenuation">
                     <a href="U3dPoint.html#sizeAttenuation">sizeAttenuation</a>
+                </li>
+            
+                <li data-name="userdata">
+                    <a href="U3dPoint.html#userData">userData</a>
+                </li>
+            
+                <li data-name="visible">
+                    <a href="U3dPoint.html#visible">visible</a>
                 </li>
             
             </ul>
@@ -14872,6 +14886,10 @@
             
                 <li data-name="getdepthtest">
                     <a href="U3dPoint.html#getDepthTest">getDepthTest</a>
+                </li>
+            
+                <li data-name="getmaterial">
+                    <a href="U3dPoint.html#getMaterial">getMaterial</a>
                 </li>
             
                 <li data-name="getoffset">
@@ -14896,6 +14914,10 @@
             
                 <li data-name="setimage">
                     <a href="U3dPoint.html#setImage">setImage</a>
+                </li>
+            
+                <li data-name="setmaterial">
+                    <a href="U3dPoint.html#setMaterial">setMaterial</a>
                 </li>
             
                 <li data-name="setoffset">
@@ -15101,6 +15123,10 @@
                     <a href="U3dSphere.html#radius">radius</a>
                 </li>
             
+                <li data-name="renderorder">
+                    <a href="U3dSphere.html#renderOrder">renderOrder</a>
+                </li>
+            
                 <li data-name="setdistancematerial">
                     <a href="U3dSphere.html#setDistanceMaterial">setDistanceMaterial</a>
                 </li>
@@ -15115,6 +15141,10 @@
             
                 <li data-name="useline">
                     <a href="U3dSphere.html#useline">useline</a>
+                </li>
+            
+                <li data-name="visible">
+                    <a href="U3dSphere.html#visible">visible</a>
                 </li>
             
                 <li data-name="widthsegments">
@@ -18175,6 +18205,10 @@
                     <a href="URenderer.html#getDrawCall">getDrawCall</a>
                 </li>
             
+                <li data-name="getmsaasamples">
+                    <a href="URenderer.html#getMsaaSamples">getMsaaSamples</a>
+                </li>
+            
                 <li data-name="getpassesbytype">
                     <a href="URenderer.html#getPassesByType">getPassesByType</a>
                 </li>
@@ -18243,12 +18277,12 @@
                     <a href="URenderer.html#setApp">setApp</a>
                 </li>
             
-                <li data-name="setcomposersamples">
-                    <a href="URenderer.html#setComposerSamples">setComposerSamples</a>
-                </li>
-            
                 <li data-name="setenvoption">
                     <a href="URenderer.html#setEnvOption">setEnvOption</a>
+                </li>
+            
+                <li data-name="setmsaasamples">
+                    <a href="URenderer.html#setMsaaSamples">setMsaaSamples</a>
                 </li>
             
                 <li data-name="setpasssize">
@@ -18454,9 +18488,8 @@
     UAnalyCustomModel
     </h2>
     
-        <div class="class-description"><p>~extends <a href="UAnaly.html#~UAnaly">UAnaly</a> <br>
-<code>사용자 건물</code>(모델 생성) 클래스 <br>
-사용자 건물 생성(그리기), 삭제, 수정 등의 기능을 제공합니다.</p></div>
+        <div class="class-description"><p>~extends <a href="UAnaly.html#~UAnaly">UAnaly</a> <br></p>
+<p>선택점을 이용한 사용자 건물의 생성·조회·병합·삭제를 제공합니다.</p></div>
     
 </header>  
 
@@ -18601,7 +18634,7 @@
 	
         <tr>
             
-                <td class="name"><code>linecolor3d</code></td>
+                <td class="name"><code>lineColor3d</code></td>
             
             
             <td class="type">
@@ -18630,7 +18663,41 @@
                         
                     
                 
-                <p>건물 영역을 그릴 때 선의 색상</p></td>
+                <p>저장할 선 색상(현재 선 표출에는 적용되지 않음)</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>linecolor3d</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last">
+                
+                    
+                        <span class="optional">optional</span>
+                    
+                    
+                        
+                    
+                
+                <p>이전 소문자 옵션</p></td>
         </tr>
 	
 	
@@ -18775,7 +18842,8 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>사용자 건물 (모델 생성) 활성화 함수</p>
+        <p>사용자 건물 선택을 활성화하고 앱 클릭·더블클릭 이벤트를 등록합니다.
+이미 활성화된 상태에서 다시 호출하면 기존 앱 이벤트 등록은 그대로 남습니다.</p>
     </div>
     
 
@@ -18841,7 +18909,13 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>사용자 건물을 생성하는 함수</p>
+        <p>단일 옵션 또는 옵션 배열에서 사용자 모델을 생성합니다.
+name은 필수이며 배열의 이름 누락은 건너뛰고 중복 이름은 이후 처리를 중단합니다.
+종류가 불완전하면 원본 modeltype을 EXTRUDE로 보완합니다. GEOMETRY는 원본 mesh·drawarg도 설정합니다.
+돌출 입력은 vertex 또는 points와 extrudeheight를 사용하며, falsy labeltext는 빈 문자열로 전달합니다.
+rotation·scale·style은 모델 생성 뒤 순서대로 적용하고 성공한 모델만 등록합니다.
+GROUP은 중첩 배열을 펼치고 하위 그룹은 직접 항목만 펼칩니다. 자식 생성 종류는 상위 옵션을 따릅니다.
+생성 중 예외는 전달하며 앞서 성공한 모델을 롤백하지 않습니다.</p>
     </div>
     
 
@@ -18992,7 +19066,8 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>사용자 건물 생성 옵션 값을 입력 받아 새 사용자 건물을 추가하는 함수</p>
+        <p>기존 point·buldheight·landheight 입력으로 모델을 생성합니다.
+기존 호출 순서대로 등록 직후 clear()를 수행하므로 새 모델을 포함한 모든 모델이 해제됩니다.</p>
     </div>
     
 
@@ -19269,7 +19344,8 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>사용자 건물 (모델 생성) 초기화 함수</p>
+        <p>하이라이트·선택점·보조 선을 정리하고 생성 모델을 모두 해제합니다.
+활성 상태와 앱 이벤트 등록은 유지합니다.</p>
     </div>
     
 
@@ -19335,7 +19411,8 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>사용자 건물 (모델 생성) 비활성화 함수</p>
+        <p>현재 저장된 앱 이벤트를 해제하고 선택점 표출과 보조 선을 정리합니다.
+생성 모델 목록과 선택점 목록은 직접 비우지 않습니다.</p>
     </div>
     
 
@@ -19401,7 +19478,7 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>생성된 사용자 건물을 반환하는 함수</p>
+        <p>생성된 모델 목록의 원본 배열을 반환합니다. 배열 변경은 후속 조회·삭제에 반영됩니다.</p>
     </div>
     
 
@@ -19496,7 +19573,7 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>사용자 건물 생성 타입을 반환하는 함수</p>
+        <p>현재 선택 모드를 반환합니다.</p>
     </div>
     
 
@@ -19591,7 +19668,8 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>사용자 건물 이름을 입력받아 해당하는 건물을 검색하는 함수</p>
+        <p>이름이 일치하는 첫 모델을 반환합니다.
+그룹은 자신의 이름이 아니라 직접 자식의 이름을 검색하고 그룹 자체를 반환합니다.</p>
     </div>
     
 
@@ -19706,7 +19784,7 @@ analy.active();</code></pre>
                         
                     
             </td>
-            <td class="description last"></td>
+            <td class="description last">첫 일치 모델. 없으면 undefined</td>
         </tr>
     
     </tbody>
@@ -19734,7 +19812,7 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>uid를 입력받아 해당하는 사용자 건물을 반환하는 함수</p>
+        <p>입력 UID와 모델 UID를 각각 문자열로 변환하여 첫 일치 모델을 반환합니다.</p>
     </div>
     
 
@@ -19877,7 +19955,8 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>생성된 사용자 건물에 대한 상태 및 파라미터 정보들을 리스트로 반환하는 함수</p>
+        <p>각 모델의 저장 파라미터를 목록 순서대로 새 배열에 담아 반환합니다.
+개별 파라미터 객체의 복사 여부는 해당 모델의 구현에 따릅니다.</p>
     </div>
     
 
@@ -19980,7 +20059,7 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>건물 이름을 입력받아 이미 존재하는 건물 이름인지 여부를 반환하는 함수</p>
+        <p>최상위 모델 목록에 같은 이름이 있는지 엄격 비교로 확인합니다.</p>
     </div>
     
 
@@ -20107,6 +20186,358 @@ analy.active();</code></pre>
             
 <dt>
     <div class="nameContainer">
+        <h4 class="name" id="isPolygon">
+            
+             isPolygon<span class="signature">()</span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>기존 호환용 메서드이며 현재는 아무 작업도 하지 않습니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="merge">
+            
+             merge<span class="signature">(name, meshBase, meshes, <span class="optional">useDelete</span>)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="object_.html">object</a><span class="returns-or">|</span>undefined</span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>메시를 병합하여 addCustomModel()에 다시 전달할 생성 옵션을 반환합니다.
+버퍼와 위치는 결과 메시의 원본 참조이며, 결과의 geometry·단일 material은 해제합니다.
+병합할 다른 메시가 없어 기준 메시가 반환되는 경우에도 같은 해제를 수행합니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
+        
+
+<table class="params">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		<th>Default</th>
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last">
+                
+                    
+                    
+                        
+                    
+                
+                <p>건물 이름</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>meshBase</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#Mesh">Mesh</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last">
+                
+                    
+                    
+                        
+                    
+                
+                <p>기준 건물 mesh</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>meshes</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#Mesh">Mesh</a></span>
+|
+
+<span class="param-type">Array.&lt;<a href="global.html#Mesh">Mesh</a>></span>
+
+
+            
+            </td>
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last">
+                
+                    
+                    
+                        
+                    
+                
+                <p>병합할 건물 mesh 목록</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>useDelete</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+            
+            </td>
+            
+            
+                <td class="default">
+                
+                    true
+                
+                </td>
+            
+            
+            <td class="description last">
+                
+                    
+                        <span class="optional">optional</span>
+                    
+                    
+                        
+                    
+                
+                <p>기존 모델 삭제 여부(null·undefined이면 true)</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table>
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    <h5>Throws:</h5>
+    
+            
+
+<dl>
+    <dt>
+        <div class="param-desc">
+        <p>병합 결과가 없는 경우</p>
+        </div>
+    </dt>
+    <dt>
+        <dl>
+            <dt>
+                Type
+            </dt>
+            <dd>
+                
+<span class="param-type">Error</span>
+
+
+            </dd>
+        </dl>
+    </dt>
+</dl>
+
+
+        
+    
+    
+    <h5>Returns:</h5>
+    
+
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Type</th>
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+        <tr>
+            
+            <td class="type">
+            
+                        <a href="object_.html">object</a>
+                         | 
+                    
+                        undefined
+                        
+                    
+            </td>
+            <td class="description last">재입력 옵션. 이름 중복이면 undefined</td>
+        </tr>
+    
+    </tbody>
+</table>
+
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
         <h4 class="name" id="mergeMesh">
             
              mergeMesh<span class="signature">(meshBase, meshes, <span class="optional">useDelete</span>)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="global.html#Mesh">Mesh</a></span>
@@ -20120,7 +20551,9 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>사용자 건물 mesh를 병합하는 함수</p>
+        <p>입력 순서대로 메시를 병합하고 필요하면 기존 모델을 삭제합니다.
+병합 결과가 없으면 기준 메시를 반환하며 삭제하지 않습니다.
+두 번째 병합부터 이전 중간 결과의 dispose()를 호출하므로 그 메서드가 필요합니다.</p>
     </div>
     
 
@@ -20249,7 +20682,7 @@ analy.active();</code></pre>
                         
                     
                 
-                <p>기존 mesh 데이터 삭제 여부</p></td>
+                <p>기존 모델 삭제 여부(null·undefined이면 true)</p></td>
         </tr>
 	
 	
@@ -20342,7 +20775,8 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>생성된 모든 사용자 건물을 삭제하는 함수</p>
+        <p>모든 모델을 순서대로 해제한 뒤 목록을 새 빈 배열로 교체합니다.
+해제 중 예외가 발생하면 이후 해제와 목록 교체는 실행하지 않습니다.</p>
     </div>
     
 
@@ -20408,7 +20842,7 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>입력 받은 사용자 건물을 삭제하는 함수</p>
+        <p>같은 UID의 등록 모델을 삭제하고, 없으면 입력 모델을 직접 해제합니다.</p>
     </div>
     
 
@@ -20519,7 +20953,7 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>해당 사용자 건물의 특정 Mesh를 삭제하는 함수</p>
+        <p>직접 자식에 입력 메시가 포함된 첫 모델을 삭제합니다. 중첩 자손은 검색하지 않습니다.</p>
     </div>
     
 
@@ -20630,7 +21064,8 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>해당 uid의 사용자 건물을 삭제하는 함수</p>
+        <p>UID가 엄격히 일치하는 첫 모델을 해제한 뒤 목록에서 삭제합니다.
+getModelByUid()와 달리 UID를 문자열로 변환하지 않습니다.</p>
     </div>
     
 
@@ -20742,7 +21177,7 @@ analy.active();</code></pre>
                         
                     
             </td>
-            <td class="description last"></td>
+            <td class="description last">삭제 성공 여부</td>
         </tr>
     
     </tbody>
@@ -20770,7 +21205,7 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>사용자 건물 생성 타입을 설정하는 함수</p>
+        <p>선택 모드를 저장합니다. 입력값을 검증하거나 즉시 앱 모드를 전환하지 않습니다.</p>
     </div>
     
 
@@ -20881,7 +21316,8 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>라벨을 가시화/비가시화 하는 함수</p>
+        <p>장면의 Mesh 하위 객체에 저장된 라벨을 주석 장면에 등록하거나 분리합니다.
+라벨을 하나라도 찾으면 앱의 데이터 갱신을 한 번 요청합니다.</p>
     </div>
     
 
@@ -20994,13 +21430,797 @@ analy.active();</code></pre>
 <dd>
     
     <div class="description">
-        <p>사용자 건물 항목. 단일 모델(U3dCustomModel), 그룹(U3dCustomModelGroup),
-메쉬 모델(U3dCustomModelMesh) 중 하나를 가리킨다.</p>
+        <p>단일 모델·그룹·메시 모델 중 하나인 사용자 건물 항목입니다.</p>
     </div>
     
     
     
 <dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+</dd>
+
+                
+                    
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="~UAnalyCustomModelInput">UAnalyCustomModelInput<span class="type-signature type object"><a href="object_.html">object</a></span> </h4>
+    </div>
+    
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        <p>모델 조립에 사용하는 입력 구조입니다. 공개 addCustomModel()은 기존의
+단일 object·Array<object> 계약을 유지하고 종류별 입력 검사를 별도로 수행합니다.
+외부 모델의 기존 데이터 스키마이므로 modeltype·extrudeheight 등의 키는 보존합니다.</p>
+    </div>
+    
+    
+    
+<dl class="details">
+    
+        
+        <h5 class="subsection-title">Properties:</h5>
+        
+        <dl>
+
+<table class="props">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		<th>Argument</th>
+		
+		
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>모델 이름</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>modeltype</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>모델 종류</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>models</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">Array.&lt;<a href="object_.html">object</a>></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>그룹 항목</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>vertex</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">Array.&lt;<a href="global.html#Vector3">Vector3</a>></span>
+|
+
+<span class="param-type">ArrayLike.&lt;number></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>돌출 꼭짓점 또는 메시 위치 버퍼</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>uv</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">ArrayLike.&lt;number></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>메시 UV 버퍼</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>position</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#Vector3">Vector3</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>메시 위치</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>points</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">Array.&lt;<a href="global.html#GeoPosition">GeoPosition</a>></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>돌출 모델의 지리 좌표</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>extrudeheight</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+|
+
+<span class="param-type">string</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>Number로 변환할 돌출 깊이</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>zoffset</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>모델 높이 보정</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>labeltext</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>라벨 문자열</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>center</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#Vector3">Vector3</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>모델 중심</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>color</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#ColorLike">ColorLike</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>모델 색상</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>opacity</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>모델 불투명도</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>rotation</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="object_.html">object</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>모델의 회전 설정</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>scale</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="object_.html">object</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>모델의 축척 설정</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>style</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#KeyValue">KeyValue</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>외부 모델이 해석하는 스타일 속성</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>mesh</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#Mesh">Mesh</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>조립 후 원본에 저장하는 메시</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>drawarg</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="UDrawArg.html#~UDrawArg">UDrawArg</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>원본에 저장하는 실행 인수</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table></dl>
+        
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+</dd>
+
+                
+                    
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="~UAnalyCustomModelSetup">UAnalyCustomModelSetup<span class="type-signature type object"><a href="object_.html">object</a></span> </h4>
+    </div>
+    
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        <p>외부 사용자 모델 구현이 제공하는 초기 설정 호출 계약입니다.
+기존 선언의 필수 인수와 달리 실제 구현은 undefined·null 입력에서 설정을 생략합니다.
+분석의 넓은 입력 계약을 유지하기 위한 국소 호출 view이며 모델 반환 타입을 대신하지 않습니다.</p>
+    </div>
+    
+    
+    
+<dl class="details">
+    
+        
+        <h5 class="subsection-title">Properties:</h5>
+        
+        <dl>
+
+<table class="props">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>setRotate</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+            
+            </td>
+            
+            
+            
+            
+            
+            <td class="description last"><p>회전 설정</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>setScale</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+            
+            </td>
+            
+            
+            
+            
+            
+            <td class="description last"><p>축척 설정</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>setStyle</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+            
+            </td>
+            
+            
+            
+            
+            
+            <td class="description last"><p>스타일 설정</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table></dl>
+        
     
         
     
@@ -21044,7 +22264,7 @@ analy.active();</code></pre>
 
     </div>
 </div>
-<script src="scripts/prism.js?v=muw7iz8z"></script>
-<script src="scripts/main.js?v=muw7iz8z"></script>
+<script src="scripts/prism.js?v=muz1hdly"></script>
+<script src="scripts/main.js?v=muz1hdly"></script>
 </body>
 </html>

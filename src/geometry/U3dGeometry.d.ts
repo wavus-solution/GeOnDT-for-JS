@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -8,7 +8,6 @@ import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/e
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dLayer } from "../3dLayer/U3dLayer.js";
 import type { UEventDispatcher, UEventDispatcherCO } from "../core/UEventDispatcher.js";
-import type { UBufferGeometry } from "../core/geometry/UBufferGeometry.js";
 import type { ColorLike, GeoPositionVector3, KeyValue, WorldPositionVector3 } from "../types/global.js";
 import type { measureGroundDepthOffset } from "../util/measureGroundDepthOffset.js";
 
@@ -148,11 +147,11 @@ declare class U3dGeometry extends UEventDispatcher {
      */
     _properties: KeyValue;
     /**
-     * @type {import('@union3d/core/geometry/UBufferGeometry').UBufferGeometry}
+     * @type {import('three').BufferGeometry | undefined}
      *
      * @ignore
      */
-    geometry: UBufferGeometry;
+    geometry: three.BufferGeometry | undefined;
     /**
      * @type {boolean}
      *
@@ -257,15 +256,15 @@ declare class U3dGeometry extends UEventDispatcher {
     /**
      * 이 도형이 사용하는 BufferGeometry 객체를 반환합니다. <br>
      *
-     * @returns {import('@union3d/core/geometry/UBufferGeometry').UBufferGeometry} 정점·법선 같은 형상 데이터를 담은 지오메트리. 이 도형이 쓰고 있는 객체이므로 고치면 화면에도 반영됩니다 <br>
+     * @returns {import('three').BufferGeometry | undefined} 해제 후에는 undefined이며, 정점·법선 같은 형상 데이터를 담은 지오메트리. 이 도형이 쓰고 있는 객체이므로 고치면 화면에도 반영됩니다 <br>
      */
-    getGeometry(): UBufferGeometry;
+    getGeometry(): three.BufferGeometry | undefined;
     /**
      * 이 도형의 BufferGeometry 객체를 교체합니다. <br>
      *
-     * @param {import('@union3d/core/geometry/UBufferGeometry').UBufferGeometry} geometry 새로 사용할 지오메트리. 이전 지오메트리는 자동으로 해제되지 않습니다 <br>
+     * @param {import('three').BufferGeometry} geometry 새로 사용할 지오메트리. 이전 지오메트리는 자동으로 해제되지 않습니다 <br>
      */
-    setGeometry(geometry: UBufferGeometry): void;
+    setGeometry(geometry: three.BufferGeometry): void;
     /**
      * 도형의 위경도 좌표 배열을 반환합니다. <br>
      * 복사본이 아니라 도형이 쓰는 배열 그대로이므로, 원소를 고치면 도형의 좌표도 함께 바뀝니다. <br>
@@ -485,21 +484,23 @@ declare class U3dGeometry extends UEventDispatcher {
     /**
      * `dynamicDepthOffset`이 true일 때 매 프레임 지형 묻힘 정도를 측정하는 데 사용할 함수를 설정합니다. <br>
      * 측정 함수는 `{drawArg, object, camPos, size, cameraDistance}`를 인자로 받아 미터 단위 depthOffset을 돌려줍니다. <br>
-     * 함수가 아닌 값은 등록하지 않고 지금 설정을 유지합니다. <br>
+     * 위치·크기·카메라 거리는 월드 단위이며, 반환값은 엔진이 미터에서 월드 단위로 환산합니다. <br>
+     * undefined·음수·유한하지 않은 반환값은 보정 0으로 처리하며 기본 측정으로 대체하지 않습니다. <br>
+     * 함수가 아닌 값은 등록하지 않고 지금 설정을 유지합니다. null·undefined로 해제할 수 없습니다. <br>
      * 설정한 적이 없으면 기본 측정 함수(`measureGroundDepthOffset`)를 사용합니다. <br>
      *
-     * @param {function} func 깊이 보정치를 재는 함수. `{drawArg, object, camPos, size, cameraDistance}`를 받아 미터 단위 값을 반환합니다 <br>
+     * @param {U3dDepthOffsetFunction} func 깊이 보정치를 재는 함수. `{drawArg, object, camPos, size, cameraDistance}`를 받아 미터 단위 값을 반환합니다 <br>
      *
      * @example
      * disc.setDepthOffsetFunction(({cameraDistance}) => cameraDistance * 0.001);
      */
-    setDepthOffsetFunction(func: Function): void;
+    setDepthOffsetFunction(func: U3dDepthOffsetFunction): void;
     /**
      * 현재 설정된 depthOffset 측정 함수를 반환합니다(`setDepthOffsetFunction`과 짝을 이룹니다). <br>
      *
-     * @returns {function | undefined} 설정해 둔 측정 함수. 설정한 적이 없으면 `undefined`이며 이때는 기본 측정 함수를 사용합니다 <br>
+     * @returns {U3dDepthOffsetFunction | undefined} 설정해 둔 측정 함수. 설정한 적이 없으면 `undefined`이며 이때는 기본 측정 함수를 사용합니다 <br>
      */
-    getDepthOffsetFunction(): Function | undefined;
+    getDepthOffsetFunction(): U3dDepthOffsetFunction | undefined;
     /**
      * 도형의 색상을 설정합니다. <br>
      * 올바르지 않은 색상 값은 TypeError 또는 RangeError를 발생시키며 기존 색상을 유지합니다. <br>
@@ -561,6 +562,7 @@ declare class U3dGeometry extends UEventDispatcher {
      * 도형의 중심점을 반환합니다(지오메트리 경계 상자의 중심 기준). <br>
      *
      * @returns {import('three').Vector3} 도형 로컬 좌표 기준 중심점. 호출할 때마다 새 벡터를 만들어 돌려줍니다 <br>
+     * @throws {TypeError} 해제 등으로 지오메트리가 없으면 발생합니다 <br>
      */
     getCenter(): three.Vector3;
     /**
@@ -673,6 +675,14 @@ declare class U3dGeometry extends UEventDispatcher {
 }
 
 /**
+     * 사용자 깊이 보정 함수입니다. 위치·크기·카메라 거리는 월드 단위이며, 반환값은 미터 단위입니다. <br>
+     * 엔진이 반환값을 월드 단위로 환산한 뒤 카메라 거리의 90% 이내로 제한합니다. <br>
+     * undefined·음수·유한하지 않은 값은 보정 0으로 처리하며 기본 측정 함수를 대신 호출하지 않습니다. <br>
+     * 기본 measureGroundDepthOffset은 월드 단위를 반환하므로 사용자 콜백과 반환 단위가 다릅니다. <br>
+     */
+    type U3dDepthOffsetFunction = (arg0: Parameters<typeof measureGroundDepthOffset>[0]) => (number | undefined);
+
+/**
      * ~extends import('@UEventDispatcher').UEventDispatcherCO <br>
      *
      * U3dGeometry 생성자 옵션 입니다. <br>
@@ -711,7 +721,7 @@ declare class U3dGeometry extends UEventDispatcher {
         /**
          * dynamicDepthOffset이 true일 때, depthOffset을 동적으로 측정하는 데 사용되는 함수. <br>
          */
-        depthOffsetFunction?: typeof measureGroundDepthOffset;
+        depthOffsetFunction?: U3dDepthOffsetFunction;
         /**
          * 꼭짓점의 월드 좌표(EPSG:3857) 배열 <br>
          */
@@ -813,7 +823,7 @@ declare class U3dGeometry extends UEventDispatcher {
         /**
          * `dynamicDepthOffset`이 켜져 있을 때 보정치를 재는 함수
          */
-        depthOffsetFunction?: Function;
+        depthOffsetFunction?: U3dDepthOffsetFunction;
         /**
          * 도형이 놓인 위치. `x`는 경도, `y`는 위도 (위경도 좌표계(EPSG:4326)), `z`는 높이 (미터)입니다. <br>
          *  좌표가 하나인 도형에만 적용하며, 좌표가 여러 개인 도형은 `getParam`에서 `undefined`입니다
@@ -864,4 +874,4 @@ declare class U3dGeometry extends UEventDispatcher {
         DISPOSE: string;
     };
 
-export type { U3dGeometry, U3dGeometryCO, U3dGeometryCO_Content, U3dGeometryEMI, U3dGeometryStyleParam, U3dOutlineAliasCO };
+export type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryCO_Content, U3dGeometryEMI, U3dGeometryStyleParam, U3dOutlineAliasCO };

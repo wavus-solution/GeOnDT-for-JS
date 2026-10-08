@@ -1032,18 +1032,18 @@ resolveTerrainTileOrigin(tileEntry: TerrainTileEntry, features: Array<TerrainFea
         terrain mesh 를 조회하여 위치가 있으면 그 위치를 기준점으로 반환한다.
         남은 경우 첫 feature 의 origin 성분을 숫자로 확정해 반환한다.
 
-resolveTerrainTileMesh(tileEntry: TerrainTileEntry | undefined) -> Mesh | undefined
+resolveTerrainTileMesh(tileEntry: TerrainTileEntry | undefined) -> Mesh | null | undefined
     역할: layer cache, tile 내부 mesh, registry mesh가 섞여 있어도 같은 우선순위로 terrain mesh를 찾는다.
 
     처리 기준:
         tileEntry.mesh 가 있으면 그대로 사용하고 tile 내부를 보지 않는다.
         tileEntry.mesh 가 비어 있고 tile 내부 mesh 가 있으면 호출자가 넘긴 tileEntry.mesh 에 그 mesh 를 되쓴다.
-        어느 쪽에도 mesh 가 없으면 undefined 를 반환하며 tileEntry 를 바꾸지 않는다.
+        어느 쪽에도 mesh 가 없으면 tile 내부의 미생성 값(null 또는 undefined)을 반환하며 tileEntry 를 바꾸지 않는다.
 
     동작:
         tileEntry 가 없으면 undefined 를 반환한다.
         tileEntry.mesh 가 있으면 그 mesh 를 반환한다.
-        tile 내부 mesh 가 있으면 tileEntry.mesh 에 저장한 뒤 그 mesh 를 반환하고, 없으면 undefined 를 반환한다.
+        tile 내부 mesh 가 있으면 tileEntry.mesh 에 저장한 뒤 그 mesh 를 반환하고, 없으면 읽은 null 또는 undefined를 그대로 반환한다.
 
 cloneTerrainOrigin(origin: TerrainPoint | undefined) -> TerrainPoint | undefined
     역할: tile-local 기준점의 값 사본을 만든다.
@@ -2150,6 +2150,8 @@ createFloatDataTexture(arrayLike: ArrayLike<number>, width: number, height: numb
 ```
 
 ## 4. 공통 처리 기준과 제약
+
+- 공유 타입 `TerrainTileEntry`, `TerrainManagerOption`, `TerrainMaterialBinding`의 `tile._mesh`는 메시 생성 전의 `null`과 필드가 없는 `undefined`를 허용한다. `resolveTerrainTileMesh()`는 연결된 메시가 없으면 입력 상태에 따라 `null` 또는 `undefined`를 그대로 반환한다. 이 조회값을 보관하는 `TerrainTileEntry.mesh`도 `null`을 허용한다.
 
 ```spec
 이 단위는 모듈 상태를 보관하지 않으며, hashNumber 가 쓰는 공용 8바이트 버퍼만 모듈 수준에서 재사용한다.

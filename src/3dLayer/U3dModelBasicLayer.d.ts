@@ -1,13 +1,12 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dModelLayer, U3dModelLayerCO } from "./U3dModelLayer.js";
-import type { U3dVideoLayer } from "./U3dVideoLayer.js";
 import type { UBox3 } from "../core/UBox3.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
 import type { UGroup } from "../core/UGroup.js";
@@ -51,7 +50,6 @@ declare class U3dModelBasicLayer extends U3dModelLayer {
     _isLoaded: boolean;
     _objectCenter: three.Vector3;
     _isGroup: boolean;
-    _hasVideoTexture: boolean;
     _object: ModelObject3D;
     _drawObject: UGroup;
     /**@type {Array<ModelObject3D>} */
@@ -74,8 +72,6 @@ declare class U3dModelBasicLayer extends U3dModelLayer {
     _useU3f: any;
     _u3fUrl: any;
     _xmlUrl: any;
-    /**@type {Array<import('@union3d/3dLayer/U3dVideoLayer').U3dVideoLayer>} */
-    _videoLayer: Array<U3dVideoLayer>;
     _containMetaData: any;
     _usePositionOffset: any;
     modelType: {

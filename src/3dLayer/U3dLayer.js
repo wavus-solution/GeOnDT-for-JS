@@ -83,6 +83,8 @@ class U3dLayer extends U3dObject {
      * @override
      *
      * @type {Array<string>}
+     *
+     * @ignore
      */
     static OPT_KEYS = [
         ...U3dObject.OPT_KEYS, 'cache', 'classType', 'visible', 'crs',

@@ -94,6 +94,7 @@ export async function initialize(context) {
             sideColor: '#006dff',
             sideOpacity: 0.12,
             // 지면 투영 Helper의 품질·시간 보정값도 드론별로 보관해 재생성·설정 초기화 후 같은 값을 적용한다.
+            // 근거리 형상은 기존 정밀도를 유지한다. 화면에서 작은 helper만 내부에서 격자를 줄인다.
             updateIntervalMs: 20,
             intersectionSteps: 24,
             terrainStampGridSize: 9,
@@ -383,6 +384,7 @@ export async function initialize(context) {
             // containername은 실제 3D 지도가 들어갈 DOM id와 일치해야 한다.
             app = context.app;
             window.app = app;
+            // 지도 전체 해상도는 낮추지 않는다. 선과 지면 경계는 원래 화면 품질로 그린다.
             app.debugFps(false); // 전용 패널에서 실제 렌더 FPS와 측정 구간 통계를 함께 표시한다.
             disposeFpsMonitor = initializeFpsMonitor();
 
@@ -988,7 +990,7 @@ export async function initialize(context) {
             });
         }
 
-        // 드론 10대와 각 지면 투영 Helper의 성능을 비교할 수 있도록 서로 다른 출발점을 사용한다.
+        // 초기 3대와 수동으로 추가하는 드론에 사용할 출발점 목록이다.
         const DIRECTION_CAPTURE_POSITIONS = [
             {x: 127.94650345667147, y: 37.34919793475747, z: 1000},
             {x: 127.94277569936673, y: 37.34393675801265, z: 1000},
@@ -1002,9 +1004,9 @@ export async function initialize(context) {
             {x: 127.9430, y: 37.3520, z: 1000}
         ];
 
-        // 모델 로딩 완료 후 목록 전체를 생성해 최초 진입부터 드론 10대에 같은 기본 설정을 적용한다.
+        // 기본 예제는 3대로 시작한다. 10대 Helper 성능 시험은 sample-viewer/testFrustumHelper.html에서 수행한다.
         function addInitialDroneComponents() {
-            DIRECTION_CAPTURE_POSITIONS.forEach(function (position) {
+            DIRECTION_CAPTURE_POSITIONS.slice(0, 3).forEach(function (position) {
                 // 모든 초기 드론이 UI 기본 Pitch 10°로 시작해 같은 조건에서 지면 투영 Helper를 비교할 수 있게 한다.
                 addDroneComponent(position);
             });
@@ -1549,6 +1551,11 @@ export async function initialize(context) {
                     drones: droneComponents.length,
                     terrainHelpers,
                     moving: !window.pauseDroneMovement,
+                    renderPixelRatio: app.getRenderer().getPixelRatio(),
+                    renderCanvas: {
+                        width: app.getRenderer().domElement.width,
+                        height: app.getRenderer().domElement.height
+                    },
                     captureStyle: element('capture-area-style').value,
                     settingsSignature: JSON.stringify(droneComponents.map(component => component.userData?.[DRONE_FRUSTUM_SETTINGS_KEY]))
                 };
@@ -1627,11 +1634,11 @@ export async function initialize(context) {
                 report.averageFps = report.frames * 1000 / report.activeMs;
                 report.finishedAt = new Date().toISOString();
                 report.targetMet = report.averageFps >= 50;
-                const eligible = report.initialScenario.drones === 10 && report.initialScenario.terrainHelpers === 10 && !report.conditionsChanged;
+                const eligible = report.initialScenario.drones > 0 && report.initialScenario.terrainHelpers === report.initialScenario.drones && !report.conditionsChanged;
                 status.dataset.result = eligible ? (report.targetMet ? 'pass' : 'fail') : '';
                 status.textContent = eligible
                     ? `측정 완료 · 평균 50 FPS ${report.targetMet ? '달성' : '미달'}`
-                    : '측정 완료 · 10대/Helper 10개 또는 동일 조건을 확인하세요.';
+                    : '측정 완료 · 드론·지면 Helper 수와 동일 조건을 확인하세요.';
                 if (!Number.isFinite(report.minimumFps)) { report.minimumFps = null; minimum.textContent = '—'; }
             }
 
@@ -3158,8 +3165,8 @@ export async function initialize(context) {
                 // hit/miss가 이 시간 동안 연속으로 바뀌어야 지면 영역의 출현·소멸을 확정한다.
                 // 한두 번의 terrain LOD 판정 변화로 외곽 topology가 깜빡이는 현상을 줄인다.
                 terrainIntersectionHitPersistenceMs: frustumSettings.terrainIntersectionHitPersistenceMs,
-                // footprint UV grid의 각 camera ray를 24등분하고 마지막점을 포함한 총 25점에서 최초 지면 진입 접점을 찾는다.
-                // 기존 20보다 깊이 방향 접점 오차를 줄이되, 이동 중 반복되는 height query 증가를 약 20% 안으로 제한한다.
+                // 각 광선을 기본 24단계로 나눠 기존 교차 정밀도를 유지한다.
+                // 첫 접점 뒤의 불필요한 높이 조회만 생략한다.
                 intersectionSteps: frustumSettings.intersectionSteps,
                 // 지면 채움은 네 접점을 직선으로 잇지 않고 내부 ray grid의 hit/miss 경계를 추적한다.
                 // 값이 클수록 오목한 산악 지형 외곽을 세밀하게 표현하지만 height query와 stamp 수가 증가한다.
@@ -3185,9 +3192,8 @@ export async function initialize(context) {
                     gradientColor: captureAreaStyle.gradientColor,
                     // // frustum fill 그라데이션 방향 ('vertical' or 'horizontal')
                     gradientDirection: captureAreaStyle.gradientDirection,
-                    // 128은 단순 예제값이 아니라 현재 UTerrainStamp shader 반복문과 16×128 데이터 텍스처의 공유 상한이다.
-                    // 더 큰 값을 전달해도 실제 layer 값은 128로 제한된다. 상한을 늘리려면 shader/texture/지면 투영 Helper 고정 버퍼를
-                    // 함께 변경하고 대상 GPU의 fragment 비용을 측정해야 하므로 이 예제에서는 현재 엔진 상한을 사용한다.
+                    // 정밀 경계와 단색 내부 타일 모두 동일한 후보 상한을 사용한다.
+                    // 이 값은 레이어가 공유하며 128을 넘겨도 현재 shader 상한으로 제한된다.
                     maxStampsPerTile: 128,
                     // 기본 terrain fill은 지형 material이 직접 그리므로 이 값은 사용하지 않는다.
                     renderOrder: 999,

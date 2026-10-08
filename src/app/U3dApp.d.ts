@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -26,7 +26,6 @@ import type { U3dOpenLayer, U3dOpenLayerCO } from "../3dLayer/U3dOpenLayer.js";
 import type { U3dPatternXYZLayer, U3dPatternXYZLayerCO } from "../3dLayer/U3dPatternXYZLayer.js";
 import type { U3dShaderMeasureLayer } from "../3dLayer/U3dShaderMeasureLayer.js";
 import type { U3dTerrainLayer } from "../3dLayer/U3dTerrainLayer.js";
-import type { U3dVideoLayer } from "../3dLayer/U3dVideoLayer.js";
 import type { UAnaly } from "../analy/UAnaly.js";
 import type { UAnalyAlarm } from "../analy/UAnalyAlarm.js";
 import type { UAnalyAlignModel } from "../analy/UAnalyAlignModel.js";
@@ -64,7 +63,7 @@ import type { U3dOverviewMap } from "../core/U3dOverviewMap.js";
 import type { U3dStats } from "../core/U3dStats.js";
 import type { UBox3 } from "../core/UBox3.js";
 import type { UCamera } from "../core/UCamera.js";
-import type { UCameraState } from "../core/UCameraState.js";
+import type { UCameraState, UCameraStateJSON } from "../core/UCameraState.js";
 import type { UCollapse } from "../core/UCollapse.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
 import type { UGroup } from "../core/UGroup.js";
@@ -777,6 +776,11 @@ type U3dAppCO = {
      */
     pixelResolution?: "SD" | "HD" | "FHD" | "QHD" | "UHD" | Array<number>;
     /**
+     * 로그 깊이 버퍼 사용 여부입니다.<br>
+     * logarithmicDepthBuffer 속성을 생략하면 기본값 true를 사용합니다.
+     */
+    logarithmicDepthBuffer?: boolean;
+    /**
      * 해상도에 곱해지는 픽셀 밀도 배율이며 값이 클수록 선명해지고 연산량이 늘어남
      */
     pixelRatio?: number;
@@ -1296,26 +1300,27 @@ declare class U3dApp extends U3dObject {
     /**
      * 나중에 다시 불러올 카메라 상태를 저장합니다.
      *
-     * @param {import('@union3d/core/UCameraState').UCameraState} cameraStateInfo 저장할 카메라 상태
+     * @param {import('@union3d/core/UCameraState').UCameraState | UCameraStateJSON} cameraStateInfo 저장할 카메라 상태 또는 직렬화 상태
      *
      * @example
      * app.setSavedCameraState(app.getCameraState());
      */
-    setSavedCameraState(cameraStateInfo: UCameraState): void;
+    setSavedCameraState(cameraStateInfo: UCameraState | UCameraStateJSON): void;
     /**
      * 저장된 카메라 상태를 반환합니다.
      * 저장된 상태가 없으면 `undefined`를 반환합니다.
      *
-     * @returns {import('@union3d/core/UCameraState').UCameraState | undefined} 저장된 카메라 상태
+     * @returns {import('@union3d/core/UCameraState').UCameraState | UCameraStateJSON | undefined} 저장된 카메라 상태 또는 직렬화 상태
      *
      * @example
      * const state = app.getSavedCameraState();
      */
-    getSavedCameraState(): UCameraState | undefined;
+    getSavedCameraState(): UCameraState | UCameraStateJSON | undefined;
     /**
-     * Renderer를 생성하는 함수
+     * 렌더러를 생성하며 재생성할 때는 기존 렌더러의 MSAA 요청값을 유지합니다.
+     *
      * @param {HTMLElement} container 3dMap div 객체
-     * @return {import('@union3d/core/URenderer').URenderer} renderer 객체
+     * @returns {import('@union3d/core/URenderer').URenderer} 렌더러 객체
      *
      * @ignore
      */
@@ -1461,6 +1466,7 @@ declare class U3dApp extends U3dObject {
     getSegVertex(): number;
     /**
      * 시간에 따른 태양 정보(위치/일조량 등)를 설정하는 함수
+     * 카메라 타겟 좌표가 없으면 태양 위치 갱신을 생략합니다.
      * @param {Date} date 설정 시간
      * @ignore
      */
@@ -1614,11 +1620,11 @@ declare class U3dApp extends U3dObject {
      */
     getOverviewMap(): U3dOverviewMap;
     /**
-     * 오버뷰를 생성하는 함수
-     * @param {import('@union3d/core/U3dOverviewMap').U3dOverviewMap} idoverview 오버뷰 아이디
-     * @returns {boolean}
+     * 기존 오버뷰를 해제하고 지정한 DOM 컨테이너에 오버뷰를 생성합니다.
+     * @param {string} idoverview 오버뷰 컨테이너의 DOM ID
+     * @returns {boolean} 오버뷰 생성 요청 처리 여부
      */
-    createOverviewMap(idoverview: U3dOverviewMap): boolean;
+    createOverviewMap(idoverview: string): boolean;
     /**
      * AutoClear 설정을 반환하는 함수
      * @returns {boolean} AutoClear 여부
@@ -1685,7 +1691,14 @@ declare class U3dApp extends U3dObject {
     rotationX_: number;
     rotationY_: number;
     rotationZ_: number;
-    renderFrame(delta: any): boolean;
+    /**
+     * 애니메이션 루프의 시각에 맞춰 갱신 작업을 진행하고, 그리기 시점이면 한 프레임을 그립니다.
+     * 그리기를 건너뛰어도 준비 작업은 진행하며, 중지·해제·미초기화 상태에서는 실행하지 않습니다.
+     *
+     * @param {number} delta 애니메이션 루프가 전달한 시각(ms)
+     * @returns {false | undefined} 그리기 간격을 기다리는 경우 false이며 그 밖에는 반환값 없음
+     */
+    renderFrame(delta: number): false | undefined;
     updateFrame(delta: any): void;
     tweenFrame(delta: any): void;
     /**
@@ -2873,11 +2886,6 @@ declare class U3dApp extends U3dObject {
     getInstanceModelLayers(): any[];
     getInstanceModelAndGroupLayers(): U3dLayer[];
     /**
-     * U3dApp에 있는 비디오 모델 레이어들을 반환하는 함수
-     * @returns {Array<import('@U3dLayer').U3dLayer>} 비디오 모델 레이어 목록
-     */
-    getInstanceVideoLayers(): Array<U3dLayer>;
-    /**
      * U3dApp에 있는 애니매이션 모델 레이어들을 반환하는 함수
      * @returns {Array<import('@U3dLayer').U3dLayer>} 애니매이션 모델 레이어 목록
      */
@@ -3218,6 +3226,7 @@ declare class U3dApp extends U3dObject {
     /**
      * 카메라 상태를 반환하는 함수 (위경도 좌표)
      * @returns {import('@union3d/core/UCameraState').UCameraState} 카메라 상태 객체
+     * @throws {Error} 카메라 또는 타겟 좌표가 없어 완전한 상태를 조회할 수 없는 경우
      * @example
      * return {
      *              camera: {x: 126.78771616171915, y: 37.64258233377268, z: 69.07397201920645},   // 카메라 위경도 좌표
@@ -3234,16 +3243,16 @@ declare class U3dApp extends U3dObject {
      * 현재 카메라 상태를 저장하는 함수
      * 이후에 loadSavedCameraState API 를 사용 하여 현재의 위치와 각도로 불러오는 방식으로 사용 가능
      *
-     * @returns {import('@union3d/core/UCameraState').UCameraState | undefined} 저장된 카메라 상태
+     * @returns {import('@union3d/core/UCameraState').UCameraState | UCameraStateJSON | undefined} 저장된 카메라 상태
      *
      * @example
      * const info = app.saveCameraState();
      */
-    saveCameraState(): UCameraState | undefined;
+    saveCameraState(): UCameraState | UCameraStateJSON | undefined;
     /**
      * saveCameraState API를 통해서 저장된 카메라 상태로 이동 및 회전 하는 함수
      *
-     * @param {import('@union3d/core/UCameraState').UCameraState} [info] 이전에 저장한 카메라 상태 정보.
+     * @param {import('@union3d/core/UCameraState').UCameraState | UCameraStateJSON} [info] 이전에 저장한 카메라 상태 정보.
      * 생략하면 saveCameraState로 저장한 상태를 사용하며, toJSON 결과와 같은 평문 상태 객체도 받는다.
      * @param {number} [duration] 이동 및 회전 완료까지 시간 (밀리초)
      * @returns {undefined | Promise<boolean>} 이동 완료 시점의 Promise. 사용할 카메라 상태가 없거나 형식이 올바르지 않으면 `undefined`
@@ -3252,7 +3261,7 @@ declare class U3dApp extends U3dObject {
      * app.saveCameraState();
      * await app.loadCameraState(undefined, 3000);
      */
-    loadCameraState(info?: UCameraState, duration?: number): undefined | Promise<boolean>;
+    loadCameraState(info?: UCameraState | UCameraStateJSON, duration?: number): undefined | Promise<boolean>;
     /**
      * 카메라 상태를 반환하는 함수(3D world 좌표)
      * @returns {import('@union3d/core/UCameraState').UCameraState} 카메라 상태 객체
@@ -3278,8 +3287,8 @@ declare class U3dApp extends U3dObject {
      */
     getCameraTargetPosition(): WorldPosition;
     /**
-     * 카메라의 위경도 위치를 반환하는 함수
-     * @returns {GeoPosition|null} 카메라의 위경도 위치 좌표
+     * 카메라의 위경도 위치를 반환합니다.
+     * @returns {GeoPosition | null} 위경도 위치. 초기화·해제 중 조회 자원이나 좌표가 없으면 null
      */
     getCameraGeographicPosition(): GeoPosition | null;
     /**
@@ -3293,10 +3302,11 @@ declare class U3dApp extends U3dObject {
      */
     getCameraHeight(): number;
     /**
-     * 카메라 타겟의 위경도 좌표를 반환하는 함수
-     * @returns {GeoPosition} 타겟의 위경도 좌표
+     * 카메라 타겟의 위경도 좌표를 반환합니다. 카메라 위치나 기본 좌표로 대체하지 않습니다.
+     * @returns {GeoPosition | null} 타겟의 위경도 좌표. 컨트롤, 타겟, 변환 자원 또는 변환 결과가 없으면 null
+     * @throws {Error} 타겟 복제 또는 좌표 변환에서 발생한 예외는 호출자에게 전달됩니다.
      */
-    getCameraGeographicTargetPoint(): GeoPosition;
+    getCameraGeographicTargetPoint(): GeoPosition | null;
     /**
      * 카메라 타겟의 좌표를 반환하는 함수
      * @returns {WorldPosition} 타켓의 좌표
@@ -3620,7 +3630,6 @@ declare class U3dApp extends U3dObject {
     getCollapsePosition(vec: any, scenes: any): any;
     getWalkCollapsePosition(vec: any, scenes: any): any;
     isUpdateFrame(): boolean;
-    createVideoLayer(opt: any): false | U3dVideoLayer;
     /**
      * 3D 애니메이션 모델 레이어를 생성해 앱에 추가합니다. <br>
      * 3ds 파일 시퀀스를 불러와 애니메이션으로 재생하는 레이어입니다. <br>
@@ -4711,6 +4720,18 @@ declare class U3dApp extends U3dObject {
          */
         drawFrameTime: number;
         /**
+         * 다음 그리기 예정 시각(ms)
+         */
+        drawNextFrameTime: number;
+        /**
+         * 현재 그리기 간격이 시작된 기준 시각(ms)
+         */
+        drawScheduleStartTime: number;
+        /**
+         * 현재 일정에 적용된 그리기 간격(ms)
+         */
+        drawScheduleFrameUnit: number;
+        /**
          * 준비 중인 그리기 프레임 수
          */
         drawReadyFrame: number;
@@ -4891,7 +4912,10 @@ declare class U3dApp extends U3dObject {
      * 공통 콜백 맵 타입
      */
     type U3dAppCameraStateStore = {
-        savedInfo: UCameraState | undefined;
+        /**
+         * 저장된 클래스 또는 직렬화 상태
+         */
+        savedInfo: UCameraState | UCameraStateJSON | undefined;
     };
 
 /**
@@ -5044,7 +5068,7 @@ declare class U3dApp extends U3dObject {
      * 프레임 준비 작업이 조회·호출하는 앱 멤버만 지정한 인터페이스입니다.
      * 앱 객체 자체를 참조하여 콜백 실행 전에 교체된 멤버도 조회합니다.
      */
-    type U3dAppDrawReadySource = Pick<U3dApp, "_animationManager" | "_mixerManager" | "_freeFlyControl" | "getInstanceVideoLayers" | "_drawArg" | "_fires" | "_particles" | "getAnalysis" | "getSky" | "getLight">;
+    type U3dAppDrawReadySource = Pick<U3dApp, "_animationManager" | "_mixerManager" | "_freeFlyControl" | "_drawArg" | "_fires" | "_particles" | "getAnalysis" | "getSky" | "getLight">;
 
 /**
      * 절단면 계산에 필요한 초기화된 카메라·지도 컨트롤의 최소 상태입니다.

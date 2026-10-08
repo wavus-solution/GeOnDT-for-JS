@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -55,11 +55,15 @@ declare class U3dOpenLayer extends U3dImageLayer {
     /** @type {Array<number> | undefined} */ _resolutions: Array<number> | undefined;
     /** @type {import('three').ColorRepresentation | null} */ _tileBackgroundColor: three.ColorRepresentation | null;
     /**
-     * 타일 데이터의 픽셀 정보가 없을 시, 기본으로 적용될 색상을 설정합니다. null입력시 투명처리
-     * @param {import('three').ColorRepresentation} color=null
+     * 타일 데이터의 픽셀 정보가 없는 영역에 적용할 배경색을 설정합니다.
+     * @param {import('three').ColorRepresentation | null} color 배경색. null이면 배경색을 해제합니다.
      */
-    setTileBackgroundColor(color: three.ColorRepresentation): void;
-    getTileBackgroundColor(): three.ColorRepresentation;
+    setTileBackgroundColor(color: three.ColorRepresentation | null): void;
+    /**
+     * 설정된 타일 배경색을 반환합니다.
+     * @returns {import('three').ColorRepresentation | null} 배경색. 해제 상태이면 null입니다.
+     */
+    getTileBackgroundColor(): three.ColorRepresentation | null;
     /**
      * 동일 비동기 구간이 여러 frame/TileQueue 호출에서 관측되더라도 최초 시각만 보존합니다.
      * 반환값으로 이번 호출에서 실제 mark가 생성됐는지 알려 주어, 시작 대기 시간 같은 1회성 값이 후속 frame에서

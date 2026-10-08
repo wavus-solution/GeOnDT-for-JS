@@ -12,18 +12,22 @@
 
 - 대상 Frustum의 여섯 평면을 세 개씩 교차하여 near 4개와 far 4개의 로컬 코너를 만든다.
 - 렌더가 실제로 일어나는 동안에만 자체 고정 주기 timer로 현재 planes와 matrix를 다시 읽어 한 번의 원자적 갱신을 수행한다.
-- far 평면의 정규 UV 격자마다 near→far 광선을 만들고, 한 번의 batch 높이 조회에서 유효한 좌표별 고도는 보존하며 데이터가 없는 좌표만 기본 평면 높이 0으로 보정해 최초 지면 진입점을 찾는다.
+- 최초 표시·재표시와 렌더에서 분리된 자원의 반납은 Helper 모듈의 앱별 공유 큐로 나눈다. 앱에 새 상태나 렌더 정책을 설치하지 않으며 정상 갱신 주기·지면 격자와 경계 품질은 유지한다.
+- far 평면의 정규 UV 격자마다 near→far 광선을 만들고, 네 깊이씩 조회하여 최초 지면 진입점을 찾은 뒤 남은 깊이 조회를 생략한다. 유효한 좌표별 고도는 보존하며 데이터가 없는 좌표만 기본 평면 높이 0으로 보정한다.
 - 광선별 hit/miss와 이분 정제한 경계 위치를 프레임 사이에서 중앙값·거리 제한·시간 EMA로 안정화한다.
 - marching squares로 hit 격자를 잘라 footprint polygon 집합과 그 합집합 외곽선을 만든다.
+- 개별 UV 영역의 카메라 선택과 원거리 내부 분할 LOD는 Helper가 소유한다. 공용 `UTerrainStamp`와 `load()`로 복원한 Stamp에는 이 정책을 적용하지 않는다. 지형 높이 범위를 확인할 수 있는 단색 접촉 경로에서만 적용하며 외곽선 해상도와 hit/miss 정제 횟수는 유지한다.
 - footprint polygon이 내부 상한을 넘으면 격자 해상도를 낮춰 다시 만들고, 외곽선 stamp가 image layer나 채움과 공유하는 예산을 확보하지 못하면 외곽선만 `LineSegments2` 출력으로 되돌린다.
 - 외곽선의 각 지면점과 같은 UV의 near 점을 이어 옆면 curtain과 대표 구조선을 만든다.
 - 대상 Frustum 자세를 히스테리시스와 far 적응형 반감기로 시간 안정화하여 helper의 world matrix로 확정한다.
 - 선·채움·옆면·투영선의 색상, 두께, 투명도와 표시 상태 및 자원 해제를 제공한다.
-- 책임 경계: 렌더 지면의 높이 조회와 그 cache는 `UDrawArg`가, stamp의 tile 등록과 shader 출력은 `UTerrainStamp`가 소유한다. 이 클래스는 고도 레이어를 직접 조회하지 않으며 대상 `Frustum`의 target이나 matrix를 갱신하는 API를 호출하지 않는다.
+- 책임 경계: 지형 타일의 수명과 공용 높이 API는 `UDrawArg`가, stamp 등록과 shader 출력은 `UTerrainStamp`가 소유한다. helper는 drawArg의 타일 목록을 공유 숫자 색인으로 검색하고 조회 시 현재 로드 상태와 높이를 읽는다. 정지 광선은 목록 revision과 실제 의존 타일의 상태가 같을 때 높이를 재사용한다. 표준 tile cache가 없는 provider는 기존 batch API로 조회한다. 고도 레이어의 로드나 대상 `Frustum`의 target·matrix 갱신은 수행하지 않는다.
 
 ### 1.3 주요 동작 방식
 
-생성자는 선 geometry와 depth bias를 넣은 `LineMaterial`을 만들고 렌더링과 지형 처리에 필요한 옵션을 저장·정규화한 뒤, 채움·옆면·투영선과 렌더 감지용 heartbeat mesh를 붙이고 첫 갱신을 실행한다. heartbeat mesh의 `onBeforeRender`가 실제 렌더를 기록하면 고정 주기 timer가 시작되고, 3초 동안 렌더가 없으면 자원을 보존한 채 출력과 stamp 등록만 중지한다. 각 갱신은 코너를 계산하고 자세를 시간 안정화한 뒤 메인 카메라 교차를 검사하고, 통과하면 batch 조회의 좌표별 유효 고도와 데이터가 없는 좌표의 기본 평면 높이로 UV 격자 광선의 접점을 조회해 footprint를 만든다. 유효한 footprint가 하나도 없으면 표시 설정을 유지한 채 렌더 자원만 숨긴다.
+생성자는 빈 선 geometry와 depth bias를 넣은 `LineMaterial`을 만들고 옵션을 정규화한 뒤 채움·옆면·투영선과 heartbeat mesh를 붙인다. 큰 선·면 buffer는 최초 유효 형상 갱신까지 할당을 미룬다. 첫 update는 Scene·렌더 확인 전에는 지형 계산을 하지 않는다. heartbeat가 실제 렌더를 기록하면 최초 표시·재표시를 앱별 공유 큐에 넣고 네 회차 분산을 목표로 6ms 예산 안에서 Helper 단위로 준비한다. 첫 회차의 접수 순서로 묶음을 닫고 해당 묶음의 계산이 끝났을 때 실시간 채움·외곽선 Stamp를 한 번에 등록·표시하여 중간 후보 집합을 렌더에 노출하지 않는다. load()로 복원한 Stamp의 독립 표시·삭제는 이 표시 대기 대상에서 제외한다. 단일 Helper는 중간에 끊지 않으므로 네 회차 완료나 6ms를 보장하는 상한은 아니다. 표시 완료 뒤에는 기존 고정 주기 timer를 유지하며, 3초 동안 렌더가 없으면 출력과 stamp 등록만 중지한다. 갱신은 코너·자세를 확정하고 메인 카메라 교차를 통과하면 UV 광선 접점으로 footprint를 만든다. 유효한 footprint가 없으면 표시 설정을 유지한 채 렌더 자원만 숨긴다. 삭제 시 갱신·출력·stamp 등록은 즉시 끊고, 분리된 렌더 자원의 실제 반납은 같은 큐가 나누어 처리한다.
+
+최초 계산·표시를 기다리는 동안의 반복 update 요청은 같은 예약으로 합친다. 각 Helper는 자신의 준비 시점에 최신 입력을 읽으며, 준비 후 바뀐 입력은 묶음 표시 뒤 기존 정상 갱신 주기에서 반영한다. 준비 결과를 반복 폐기하지 않아 연속 요청이 최초 표시를 계속 미루지 않게 한다. 숨김·삭제·Scene 이탈은 이 요청 병합과 별개로 대기를 즉시 취소한다.
 
 ### 1.4 주요 사용처와 연계 대상
 
@@ -41,6 +45,66 @@ TerrainQuery 타입 정의
         update 시점에 한 번만 만든 helper world inverse matrix이다.
     intersectionBySampleKey: Map<number, Vector3>
         far plane UV sample key별 world 지면 교차점이다.
+
+UFrustumTerrainProjectionRetiredResource 타입 정의
+    dispose: Function
+        소유 자원을 해제하는 함수이다. 큐 인수 뒤 오류가 나도 인수 거부로 재전파하지 않는다.
+    isObject3D?: boolean
+        true이면 자식까지 포함한 공통 Object3D 소유권 정리 경로를 사용한다.
+
+UFrustumTerrainProjectionLifecycleJob 타입 정의
+    sequence: number
+        회차 시작 뒤 접수된 요청을 다음 회차로 넘기기 위한 순서이다.
+    run: Function
+        실행 시점의 현재 입력으로 최초 활성화를 수행한다.
+    cancel: Function
+        소유자의 대기 큐 참조와 렌더 활성 표시를 비운다.
+
+UFrustumTerrainProjectionLifecyclePublication 타입 정의
+    stamps: Array<UTerrainStamp>
+        같은 묶음에서 표시할 실시간 채움·외곽선 Stamp이며 복원 목록은 포함하지 않는다.
+    publish: Function
+        현재 표시·Scene·app 자격과 저장한 객체 identity를 확인하여 준비한 출력을 표시한다.
+    finish: Function
+        Stamp 배치 확정 뒤 오류를 받아 정상 timer 또는 오류 재시도를 예약한다.
+    cancel: Function
+        종료 시 준비 결과의 대기 참조와 렌더 활성 표시를 비운다.
+    error?: unknown
+        개별 표시 callback 또는 소유 Stamp 등록에서 발생한 오류이다.
+
+UFrustumTerrainProjectionLifecycleQueue 타입 정의
+    key: object
+        app, drawArg 또는 Helper 순서로 선택한 큐 격리 key이다.
+    app: U3dApp | undefined
+        실행·정리 전에 중지 및 종료 여부를 확인할 앱이다.
+    pending: Map<object, UFrustumTerrainProjectionLifecycleJob>
+        구현 인스턴스별 중복을 합친 활성화 요청이다.
+    ready: Map<object, UFrustumTerrainProjectionLifecyclePublication>
+        계산을 마친 뒤 같은 묶음의 표시를 기다리는 결과이다.
+    resources: Set<UFrustumTerrainProjectionRetiredResource>
+        렌더에서 분리되어 큐로 소유권이 넘어온 자원이다.
+    sequence: number
+        마지막 접수 순서이다.
+    cohortSequence: number | undefined
+        묶음 첫 회차에서 고정한 마지막 접수 순서이며 뒤에 온 요청은 다음 묶음에서 준비한다.
+    activationLimit: number
+        이번 대기량을 네 회차에 나누기 위한 회차별 활성화 개수 한도이다.
+    releaseLimit: number
+        반납 대기량에서 계산한 회차별 자원 개수 한도이며 최대 64이다.
+    frame: number | undefined
+        예약한 RAF 식별자이다.
+    cleanupTimer: ReturnType<typeof setTimeout> | undefined
+        RAF가 중단되어도 반납을 진행할 100ms 정리 timer 식별자이다.
+    flushing: boolean
+        현재 실행 중인 회차에 재진입하지 않도록 하는 상태이다.
+    closed: boolean
+        종료 뒤 새 작업을 예약하지 않도록 하는 상태이다.
+    scene: UScene | undefined
+        dispose 알림으로 큐를 닫을 앱의 외부 Scene이다.
+    onSceneDispose: Function | undefined
+        Scene 종료를 공유 큐 종료로 연결한다.
+    retire: Function | undefined
+        Stamp와 Helper가 독점 소유 자원을 반환할 진입점이다.
 
 UFrustumTerrainProjectionHelper_Fill_Content 부분 타입 명세
     이 명세에서 사용하는 필드:
@@ -72,12 +136,12 @@ UFrustumTerrainProjectionHelper_Fill_Content 부분 타입 명세
             채움 mesh 전용 renderOrder이며 생략하면 helper renderOrder에서 1을 뺀다.
         terrainStamp?: boolean
             false이면 지면 채움 stamp를 만들지 않는다.
-        terrainOutlineStamp?: boolean = true
-            true이면 지면 교차 외곽선을 stamp로 출력한다.
+        terrainOutlineStamp?: boolean
+            기본값 true이며 지형 표면에 밀착한 stamp 외곽선이다. false이면 접촉 외곽선을 생략한다. 영상 레이어 부재나 stamp 예산 부족 시 접점을 잇는 선으로 대체한다.
         terrainOutlineWidthUnits?: 'pixels' | 'meters' = 'pixels'
             stamp 외곽선 두께 단위이다.
         terrainStampGridSize?: number = 9
-            footprint 판정 UV 격자 한 변의 샘플 수이며 3~17의 홀수로 정규화한다.
+            footprint 판정 UV 격자 한 변의 최대 샘플 수이며 3~17의 홀수로 정규화한다. 전체 frustum이 화면에서 96 pixel 미만이면 최대 5로 줄이고 128 pixel 이상이면 요청값으로 복귀한다.
         terrainBoundaryRefinementSteps?: number = 6
             검출한 hit/miss 경계를 이분 정제할 횟수이며 0~12로 정규화한다.
         terrainBoundaryFilletSegments?: number = 2
@@ -85,7 +149,7 @@ UFrustumTerrainProjectionHelper_Fill_Content 부분 타입 명세
         terrainBoundaryFilletRatio?: number = 0.15
             인접 edge 중 짧은 쪽 길이에 곱할 fillet 반경 비율이며 0~0.3으로 제한한다.
         maxStampsPerTile?: number = 128
-            terrain tile 하나가 검사할 stamp 최대 개수이며 출력 예산 판정에도 사용한다.
+            terrain tile 하나가 검사할 stamp 최대 개수이며 helper 출력 예산 판정에도 사용한다. 단색 내부 합성도 같은 후보 상한을 따른다.
         stampMode?: 'fill' | 'mask' = 'fill'
             stamp 적용 방식이다.
         targetLayer?: object
@@ -157,7 +221,7 @@ UFrustumTerrainProjectionHelperCO_Content 부분 타입 명세
         terrainBoundaryRefinementSteps?: number = 6
             fill 옵션과 같은 의미이며 fill 쪽 값이 우선한다.
         cullByMainCamera?: boolean = true
-            메인 카메라 밖의 helper는 지형 조회와 갱신을 건너뛴다.
+            메인 카메라 밖의 Helper와 단색 지면의 개별 영역·Stamp를 선택하고 원거리 내부 LOD를 적용한다. 이미지·그라데이션·mask·미터 단위 선·높이 범위 미확인·큰 격자·예산 fallback에서는 개별 영역 정책을 적용하지 않는다.
         smoothing?: boolean = false
             모든 layout 샘플이 지면과 교차한 호환 drape 경로의 외곽선 내부점만 완화한다. fill grid와 기본 접촉 전용 경로에는 적용하지 않는다.
         smoothingIterations?: number = 2
@@ -190,8 +254,8 @@ UFrustumTerrainProjectionHelperCO_Content 부분 타입 명세
             원점에서 footprint 중심까지 잇는 선택적 점선 옵션이다.
         terrain?: boolean = false
             true이면 near→far 광선과 현재 렌더 지면의 교차점으로 실제 지면 footprint를 만든다. 좌표별 고도 데이터가 없으면 기본 평면 높이 0을 사용한다.
-        terrainOutlineStamp?: boolean = true
-            지면 교차 외곽선을 stamp로 그릴지 지정한다.
+        terrainOutlineStamp?: boolean
+            기본값 true이며 지형 표면에 밀착한 stamp 외곽선이다. false이면 접촉 외곽선을 생략한다. 영상 레이어 부재나 stamp 예산 부족 시 접점을 잇는 선으로 대체한다.
         terrainOutlineWidthUnits?: 'pixels' | 'meters' = 'pixels'
             stamp 외곽선 두께 단위이다.
         fill?: UFrustumTerrainProjectionHelper_Fill_Content
@@ -258,7 +322,7 @@ UFrustumTerrainProjectionHelper extends LineSegments2 클래스 정의
         fillet 반경 비율이다.
 
     cullByMainCamera: boolean = true
-        메인 카메라 밖에서 지형 조회를 건너뛸지 나타내는 상태이다.
+        전체 Helper와 단색 지면의 개별 영역을 메인 카메라로 선택하고 원거리 내부 분할 LOD를 적용할지 나타낸다. false이면 이 카메라 정책을 끈다.
 
     smoothing: boolean = false
         지형 edge 공간 완화 사용 여부이다.
@@ -370,7 +434,7 @@ UFrustumTerrainProjectionHelper extends LineSegments2 클래스 정의
             UTerrainStamp — 지면 채움 stamp 준비와 tile 상한 설정; 생성자: {new UTerrainStamp()}; 함수: {setMaxStampsPerTile()}
 
         동작:
-            선 geometry를 만들고 외곽선 최대 선분 수만큼 고정 buffer를 초기화한다.
+            선 geometry를 만들고 최대 선분 수만 지연 등록한다. 큰 instance buffer는 첫 유효 형상 갱신에서 할당한다.
             두께를 유한한 양수로 정규화하고 색상·불투명도·world 단위·depth 옵션과 함께 선 재질에 넣은 뒤 depth bias를 주입하여 기반 생성자에 넘긴다.
 
             이 helper 전용 계산 상태를 한 번 생성한다.
@@ -567,6 +631,13 @@ UFrustumTerrainProjectionHelper extends LineSegments2 클래스 정의
 
         동작: 기반 구현에 그대로 위임한다.
 
+    override raycast(raycaster: Raycaster, intersects: Array<Intersection>) -> void
+        역할: 최초 형상 대기 중인 빈 선 geometry는 picking에서 제외한다.
+        의존:
+            LineSegments2 — 준비된 선분의 교차 검사; 함수: {raycast()}
+            LineSegmentsGeometry — 선분 속성 조회; 함수: {getAttribute()}; 속성 읽기: {instanceCount}
+        동작: instanceCount가 0이거나 instanceStart가 없으면 종료하고, 그 밖에는 부모의 교차 검사에 원래 인수를 전달한다.
+
     update() -> UFrustumTerrainProjectionHelper
         역할: 현재 프러스텀 상태로 코너·자세·지면 footprint를 한 번에 다시 계산하고 선·채움·옆면·stamp·투영선 출력을 확정한다.
 
@@ -574,6 +645,7 @@ UFrustumTerrainProjectionHelper extends LineSegments2 클래스 정의
 
         처리 기준:
             이미 처분되었거나 갱신 중이면 재진입하지 않으며, 진입했으면 종료 경로와 무관하게 재진입 표시를 해제한다.
+            최초 계산·표시가 공유 큐에서 대기 중이면 명시적 호출을 같은 예약으로 합치고 준비 결과를 폐기하지 않는다. 각 준비 시점에 최신 입력을 읽으며 준비 후 입력 변경은 묶음 표시 뒤 기존 정상 주기에서 반영한다. 이미 활성인 Helper의 명시적 갱신은 동기 실행한다.
             사용자 표시 설정이 꺼져 있으면 world matrix만 갱신하고 출력을 숨긴 뒤 다음 렌더까지 비활성으로 둔다.
             Scene까지 이어지는 parent 사슬이 없거나 실제 렌더가 확인되지 않으면 지형을 계산하지 않고 stamp도 등록하지 않는다.
             코너를 만들 수 없으면 선 geometry를 비우고 채움·옆면·stamp를 정리한 뒤 출력을 숨긴다.
@@ -586,7 +658,7 @@ UFrustumTerrainProjectionHelper extends LineSegments2 클래스 정의
             THREE — 비지형 외곽선 좌표 배열 구성과 투영선 표시 전환; 속성 읽기: {Vector3.x, Vector3.y, Vector3.z}; 속성 쓰기: {Object3D.visible}
 
         동작:
-            처분 상태이거나 갱신 중이면 그대로 반환하고, 아니면 재진입 방지 표시를 켠 뒤 종료 시 반드시 해제한다.
+            처분 상태이거나 갱신 중이거나 최초 계산·표시가 대기 중이면 그대로 반환한다. 그 밖에는 재진입 방지 표시를 켠 뒤 종료 시 반드시 해제한다.
             표시 설정이 꺼져 있으면 world matrix만 갱신하고 출력을 숨긴 뒤 비활성으로 전환한다.
 
             Scene 연결과 렌더 활성 상태를 확인하고 하나라도 아니면 비활성으로 전환한다.
@@ -728,7 +800,8 @@ UFrustumTerrainProjectionHelper extends LineSegments2 클래스 정의
 
     save(options: UFrustumHelperSaveOption = {}) -> UFrustumHelperTerrainStampSnapshot | undefined
         역할: 현재 프러스텀이 만든 표시 중인 지면 채움·외곽선 stamp를 월드 좌표 스냅샷으로 반환한다.
-        처리 기준: terrain이 true가 아니거나 선택한 두 stamp 목록이 모두 비어 있으면 안내 메시지를 남기고 undefined를 반환한다. 불러온 stamp는 저장하지 않는다.
+        인터페이스: 개별 영역 선택 중에는 현재 선택한 영역만 저장한다. 전체 footprint를 저장하려면 cullByMainCamera를 false로 설정한 뒤 update()한다. 복원 목록은 카메라 영역 선택과 원거리 LOD의 대상이 아니다.
+        처리 기준: terrain이 true가 아니거나 선택한 두 stamp 목록이 모두 비어 있으면 안내 메시지를 남기고 undefined를 반환한다. 불러온 stamp는 저장하지 않는다. 기본 지면 stamp 외곽선도 저장하며 영상 레이어 부재나 예산 부족으로 대체한 선 geometry 구간은 저장하지 않는다.
         의존: UTerrainStamp — 도형·표현 직렬화; 함수: {getVisible(), getParam()}
         동작:
             includeFill과 includeOutline이 false인 목록은 제외하고 활성 도형을 수집한다.
@@ -753,7 +826,7 @@ UFrustumTerrainProjectionHelper extends LineSegments2 클래스 정의
         동작: 불러온 stamp 목록의 얕은 복사본을 반환한다. 요소 자체는 실제 stamp이며 현재 프러스텀 stamp는 포함하지 않는다.
 
     override dispose() -> void
-        역할: timer와 이벤트를 먼저 끊고 이 helper가 만든 geometry, 재질, stamp와 이력을 모두 해제한다.
+        역할: 갱신·출력·등록을 즉시 중단하고 소유 geometry·재질의 실제 반납을 공유 큐에 맡긴다.
 
         처리 기준:
             이미 처분되었으면 아무 것도 하지 않는다.
@@ -761,20 +834,21 @@ UFrustumTerrainProjectionHelper extends LineSegments2 클래스 정의
             heartbeat mesh의 렌더 callback은 해제 뒤에도 호출될 수 있으므로 안전한 빈 함수로 교체한다.
             소유한 자식은 참조 필드와 children에서 중복을 제거해 한 번씩 정리하며, 공통 호출부의 추가 순회에 의존하지 않는다.
             stamp 풀은 각 stamp를 처분한 뒤 길이를 0으로 만들어 재사용 대상에서 제외한다.
+            Scene·앱 종료, RAF 미지원 또는 반납 적체 상한에서는 즉시 반납한다. 등록 해제는 GPU 반납 완료를 기다리지 않는다.
 
         의존:
-            THREE — 리스너 해제, 부모 분리와 geometry·재질 해제; 함수: {Object3D.dispose(), Object3D.removeEventListener(), Object3D.removeFromParent(), BufferGeometry.dispose(), Material.dispose()}
+            THREE — 해제 알림, 리스너 해제, 부모·자식 분리; 함수: {Object3D.dispose(), Object3D.removeEventListener(), Object3D.removeFromParent(), Object3D.clear()}
             LineSegments2 — 본체 geometry와 재질 접근; 속성 읽기: {geometry, material}
-            UDEF — 자식의 해제 알림과 소유 자원 정리; 함수: {disposeObject3D()}
             UTerrainStamp — stamp 자원 해제; 함수: {dispose()}
+            UFrustumTerrainProjectionImplementation — 공유 높이 조회 자원 반납; 함수: {releaseTerrainHeightResources()}
 
         동작:
             처분 표시를 켜고 부모 dispose로 해제 이벤트를 전달한 뒤 removed 리스너를 해제한다.
             timer를 중지하고 렌더 기록도 함께 지운다.
-            부모에서 분리하고 본체 geometry와 재질을 해제한다.
-            heartbeat mesh의 렌더 callback을 빈 함수로 바꾸고, 투영선·채움·옆면·heartbeat와 나머지 자식을 공통 해제 진입점으로 한 번씩 정리한 뒤 분리한다.
-            불러온 stamp를 모두 해제한다.
-            채움과 외곽선 stamp를 모두 처분하고 두 풀과 app 참조, layout cache와 좌표별 높이 보정 배열을 비운다.
+            부모에서 분리하고 visible을 끈 뒤 본체 geometry와 재질의 소유권을 반납한다.
+            heartbeat mesh의 렌더 callback을 빈 함수로 바꾼다. 투영선·채움·옆면·heartbeat와 나머지 자식의 중복을 제거하고 각각 부모에서 분리한 뒤 소유권을 반납하고 children을 비운다.
+            세 stamp 풀을 Helper 전용 동기 배치로 묶어 처분하고 목록을 비운다. 마지막 layer의 texture만 정리 큐에 넘기며 등록·binding 참조 제거는 배치 반환 전에 완료한다.
+            app 참조, layout cache와 좌표별 높이 보정 배열을 비운다. 구현 객체의 releaseTerrainHeightResources()를 호출하여 광선 cache와 공유 높이 색인의 사용분을 반납한다.
             자세와 지면 교차 이력을 초기화한다.
 
 ```
@@ -784,7 +858,7 @@ UFrustumTerrainProjectionHelper extends LineSegments2 클래스 정의
 ```spec
 지면 이미지는 공통 mappingFrame에 배치하고 contain 요청도 stretch로 출력한다. 실제 footprint 밖은 잘리며 이미지 전체 표시를 위해 사다리꼴 warp 계산을 추가하지 않는다.
 대상 Frustum은 읽기 전용 입력이며 target이나 matrix를 갱신하는 API를 호출하지 않는다.
-지형 높이는 draw argument의 배열 batch API로 조회하고 공용 지형 cache의 읽기와 쓰기를 모두 끄며, 유효한 높이는 보존하고 데이터가 없는 좌표만 현재 기본 평면 지형의 높이 0을 사용한다.
+지형 높이는 drawArg의 현재 로드 타일을 공유 숫자 색인으로 조회한다. 표준 cache가 없는 provider는 배열 batch API를 사용하고 공용 높이 cache의 읽기와 쓰기를 모두 끈다. 유효한 높이는 보존하고 데이터가 없는 좌표만 현재 기본 평면 높이 0을 사용한다.
 고정 주기 갱신은 실제 렌더가 확인된 동안에만 동작하고 마지막 렌더 이후 3초가 지나면 자원을 보존한 채 출력과 stamp 등록을 중지한다.
 Scene 이탈, 사용자 숨김과 렌더 중단은 처분이 아니므로 geometry·재질·stamp 객체와 재사용 cache를 해제하지 않는다.
 한 번의 갱신 안에서 자세 필터와 지면 필터는 같은 논리 시각을 사용한다.

@@ -1,12 +1,13 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { UAnalyGizmoModel } from "../analy/UAnalyGizmoModel.js";
+import type { UBufferGeometry } from "../core/geometry/UBufferGeometry.js";
 import type { U3dMouseEvent } from "../event/U3dMouseEvent.js";
 import type { U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam, U3dOutlineAliasCO } from "./U3dGeometry.js";
 import type { U3dSphere } from "./U3dSphere.js";
@@ -45,6 +46,20 @@ declare class U3dPathGeometry extends U3dGeometry {
      * @param {U3dPathGeometryCO} [options={}] 너비·높이·곡선 장력·분할 수·외곽선 등 경로 기본값을 지정하는 생성 옵션 <br>
      */
     constructor(options?: U3dPathGeometryCO);
+    /**
+     * 초기에는 기본 재질이며, 경로 생성 옵션에 따라 기본 재질 또는 셰이더 재질로 교체됩니다. 해제 후에는 undefined입니다. <br>
+     *
+     * @override
+     * @type {PathMaterial | undefined}
+     */
+    override material: PathMaterial | undefined;
+    /**
+     * 초기 버퍼, 경로 메타데이터가 있는 버퍼 또는 돌출 형상입니다. 해제 후에는 undefined입니다. <br>
+     *
+     * @override
+     * @type {import('@union3d/core/geometry/UBufferGeometry').UBufferGeometry | RoadBufferGeometry | import('@union3d/geometry/UExtrudeGeometry').UExtrudeGeometry | undefined}
+     */
+    override geometry: UBufferGeometry | RoadBufferGeometry | UExtrudeGeometry | undefined;
     /**
      * subExtends(UMesh)로 믹싱되는 THREE.Object3D 프로퍼티 <br>
      *
@@ -639,10 +654,10 @@ declare class U3dPathGeometry extends U3dGeometry {
 }
 
 /**
-     * ~extends import('@union3d/geometry/UExtrudeGeometry').UExtrudeGeometry <br>
+     * ~extends import('three').BufferGeometry <br>
      *
      * 경로 형상에 사용하는 지오메트리 타입입니다. <br>
-     * `UExtrudeGeometry`에 곡선·분할·단면 정보를 담는 속성을 더한 형식입니다. <br>
+     * `BufferGeometry`에 곡선·분할·단면 정보를 더한 형식입니다. 경로 생성·갱신이 완료된 버퍼를 나타내며, 초기 지오메트리와 돌출 형상에는 이 속성이 없습니다. <br>
      */
     type RoadBufferGeometry_Content = {
         /**
@@ -664,23 +679,23 @@ declare class U3dPathGeometry extends U3dGeometry {
         /**
          * 면별 생성 여부 <br>
          */
-        sides?: Array<boolean>;
+        sides: Array<boolean>;
         /**
          * 면별 단면 정점 수 <br>
          */
-        _sideSizes?: Array<number>;
+        _sideSizes: Array<number>;
         /**
          * 면별 폭 방향 분할 수 <br>
          */
-        _widthSize?: Array<number>;
+        _widthSize: Array<number>;
         /**
          * 길이 방향 분할 수 <br>
          */
-        _lengthSegments?: number;
+        _lengthSegments: number;
         /**
          * 길이 방향 정점 수 (`_lengthSegments` + 1) <br>
          */
-        lss?: number;
+        lss: number;
         /**
          * 제어점 좌표를 `[x, y, z, ...]` 순서로 나열한 배열 <br>
          */
@@ -696,11 +711,11 @@ declare class U3dPathGeometry extends U3dGeometry {
         /**
          * 곡선 전체 길이 (월드 좌표 길이) <br>
          */
-        len?: number;
+        len: number;
         /**
          * 표본 지점별 누적 길이 목록 <br>
          */
-        lenList?: Array<number>;
+        lenList: Array<number>;
         /**
          * 표본 지점별 수평 법선 벡터 <br>
          */
@@ -708,7 +723,7 @@ declare class U3dPathGeometry extends U3dGeometry {
         /**
          * 경로 형상 지오메트리 여부 <br>
          */
-        isPath?: boolean;
+        isPath: true;
         /**
          * 삼각형 면 수 <br>
          */
@@ -736,19 +751,19 @@ declare class U3dPathGeometry extends U3dGeometry {
     };
 
 /**
-     * ~extends import('@union3d/geometry/UExtrudeGeometry').UExtrudeGeometry <br>
+     * ~extends import('three').BufferGeometry <br>
      *
      * 경로 형상에 사용하는 지오메트리 타입입니다. <br>
-     * `UExtrudeGeometry`에 곡선·분할·단면 정보를 담는 속성을 더한 형식입니다. <br>
+     * `BufferGeometry`에 곡선·분할·단면 정보를 더한 형식입니다. 경로 생성·갱신이 완료된 버퍼를 나타내며, 초기 지오메트리와 돌출 형상에는 이 속성이 없습니다. <br>
      */
-    type RoadBufferGeometry = UExtrudeGeometry & RoadBufferGeometry_Content;
+    type RoadBufferGeometry = three.BufferGeometry & RoadBufferGeometry_Content;
 
 /**
      * ~extends import('three').ShaderMaterial <br>
      * ~extends import('three').MeshBasicMaterial <br>
      *
      * 경로 재질 타입입니다. <br>
-     * 셰이더 재질과 기본 재질의 속성에 색상·불투명도 복원용 원래 값을 더한 형식입니다. <br>
+     * 셰이더 재질 또는 기본 재질에 색상·불투명도 복원용 원래 값을 더한 형식입니다. <br>
      */
     type PathMaterial_Content = {
         /**
@@ -766,9 +781,9 @@ declare class U3dPathGeometry extends U3dGeometry {
      * ~extends import('three').MeshBasicMaterial <br>
      *
      * 경로 재질 타입입니다. <br>
-     * 셰이더 재질과 기본 재질의 속성에 색상·불투명도 복원용 원래 값을 더한 형식입니다. <br>
+     * 셰이더 재질 또는 기본 재질에 색상·불투명도 복원용 원래 값을 더한 형식입니다. <br>
      */
-    type PathMaterial = three.ShaderMaterial & three.MeshBasicMaterial & PathMaterial_Content;
+    type PathMaterial = (PathShaderMaterial | three.MeshBasicMaterial) & PathMaterial_Content;
 
 /**
      * ~extends import('@U3dSphere').U3dSphere <br>
@@ -1098,4 +1113,33 @@ declare class U3dPathGeometry extends U3dGeometry {
      */
     type U3dPathGeometryParam = U3dPathGeometryParam_Content & U3dGeometryStyleParam;
 
-export type { PathGeometryInfo, PathGeometryInfo_Content, PathMaterial, PathMaterial_Content, PathSphere, PathSphere_Content, RoadBufferGeometry, RoadBufferGeometry_Content, U3dPathGeometry, U3dPathGeometryCO, U3dPathGeometryCO_Content, U3dPathGeometryExport, U3dPathGeometryParam, U3dPathGeometryParam_Content, U3dPathGeometrySetParam, U3dPathGeometrySetParam_Content };
+/**
+     * 경로 셰이더가 기본으로 제공하는 uniform입니다. 점선 등 프로젝트 확장 uniform은 포함하지 않습니다. <br>
+     */
+    type PathShaderUniforms = {
+        /**
+         * 경로 색상 <br>
+         */
+        color: three.IUniform<three.Color>;
+        /**
+         * 불투명도 <br>
+         */
+        opacity: three.IUniform<number>;
+        /**
+         * 외곽선 두께 <br>
+         */
+        thickness: three.IUniform<number>;
+        /**
+         * 깊이 보정값 <br>
+         */
+        depthOffset: three.IUniform<number>;
+    };
+
+/**
+     * 경로 셰이더가 기본으로 제공하는 uniform입니다. 점선 등 프로젝트 확장 uniform은 포함하지 않습니다. <br>
+     */
+    type PathShaderMaterial = three.ShaderMaterial & {
+        uniforms: PathShaderUniforms;
+    };
+
+export type { PathGeometryInfo, PathGeometryInfo_Content, PathMaterial, PathMaterial_Content, PathShaderMaterial, PathShaderUniforms, PathSphere, PathSphere_Content, RoadBufferGeometry, RoadBufferGeometry_Content, U3dPathGeometry, U3dPathGeometryCO, U3dPathGeometryCO_Content, U3dPathGeometryExport, U3dPathGeometryParam, U3dPathGeometryParam_Content, U3dPathGeometrySetParam, U3dPathGeometrySetParam_Content };

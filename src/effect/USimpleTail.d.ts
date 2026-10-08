@@ -1,13 +1,12 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { USimpleTailShader } from "./material/USimpleTailMaterial.js";
-import type { U3dCumulativePathDrawFunc, U3dCumulativePathDrawResult } from "../geometry/U3dCumulativePath.js";
 
 /**
  * ~extends import('three').Object3D <br>
@@ -15,7 +14,7 @@ import type { U3dCumulativePathDrawFunc, U3dCumulativePathDrawResult } from "../
  * 이동 지점을 연결해 화면을 향하는 리본 궤적을 그립니다.
  */
 declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
-    static "__#31@#normalizeDrawResult"(result: any): {
+    static "__#32@#normalizeDrawResult"(result: any): {
         red: number;
         green: number;
         blue: number;
@@ -26,25 +25,7 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
         from: any;
         to: any;
     };
-    static "__#31@#createDistanceDrawFunc"(maxDistance: any, widthFade?: number, alphaFade?: number): (node: any, newest: any, now: any, previous: any) => {
-        action: string;
-        fade: {
-            width: number;
-            alpha: number;
-        };
-        range?: undefined;
-    } | {
-        action: string;
-        range: {
-            from: number;
-            to: number;
-        };
-        fade: {
-            width: number;
-            alpha: number;
-        };
-    };
-    static "__#31@#interpolateDrawNode"(a: any, b: any, t: any): {};
+    static "__#32@#interpolateDrawNode"(a: any, b: any, t: any): Pick<USimpleTailNode, "x" | "y" | "time" | "z" | "colorFactor" | "pathDistance">;
     /**
      * 삼각형 한 면을 구성하는 인덱스 개수를 반환합니다.
      *
@@ -74,6 +55,17 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      */
     static createMaterial(vertexShader?: string, fragmentShader?: string, customUniforms?: Record<string, three.IUniform>): three.ShaderMaterial;
     /**
+     * @param {USimpleTailCommonPolicy} previous
+     * @param {USimpleTailCommonPolicy} patch
+     * @returns {{limitMode: 'none' | 'time' | 'age' | 'distance', limitValue: number, limitAction: 'hide' | 'dispose'}}
+     * @ignore
+     */
+    static normalizeRetention(previous: USimpleTailCommonPolicy, patch: USimpleTailCommonPolicy): {
+        limitMode: "none" | "time" | "age" | "distance";
+        limitValue: number;
+        limitAction: "hide" | "dispose";
+    };
+    /**
      * USimpleTail 클래스 생성자입니다. <br>
      * 실제 궤적을 그리려면 initialize를 호출한 뒤 getMesh로 얻은 메시를 장면에 추가하십시오.
      *
@@ -85,24 +77,28 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      * @type {boolean}
      */
     _disposed: boolean;
+    /** @type {USimpleTailDrawEvaluator | undefined} */
+    drawFunc: USimpleTailDrawEvaluator | undefined;
+    set nodeCenters(nodes: USimpleTailNode[]);
+    /** Retained nodes only. Materialize the CPU list on public access, without rewriting GPU data. */
+    get nodeCenters(): USimpleTailNode[];
     scene: any;
     name: any;
     geometry: any;
     mesh: any;
-    nodeCenters: any;
     lastNodeCenter: any;
     currentNodeCenter: any;
     nodeIDs: any;
     currentNodeID: any;
     /** @type {number} */ maxLength: number;
     /** @type {number} */ expandStepLength: number;
-    /** @type {number} */ maxDistance: number;
+    limitMode: "time" | "distance" | "none" | "age";
+    limitValue: number;
+    limitAction: "dispose" | "hide";
     /** @type {number} */ pathDistance: number;
     /** @type {number} */ visibleStartNode: number;
     _drawStartNode: number;
-    /** @type {function(object): void} */ onFadeOut: (arg0: object) => void;
-    /** @type {USimpleTailDrawEvaluator | undefined} */
-    drawFunc: USimpleTailDrawEvaluator | undefined;
+    /** @type {USimpleTailFadeOutCallback | undefined} */ onFadeOut: USimpleTailFadeOutCallback | undefined;
     currentLength: any;
     currentEnd: any;
     tempMatrix4: any;
@@ -114,9 +110,6 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
     colorFactor: number;
     precision: any;
     fixedCapacity: boolean;
-    fadeStart: any;
-    fadeEnd: any;
-    depthWidthScale: boolean;
     widthFade: any;
     alphaFade: any;
     simplifyPolicy: SimplifyPolicy_Option;
@@ -138,6 +131,10 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
     length: any;
     perMaxNode: number;
     targetObject: three.Object3D<three.Object3DEventMap>;
+    drawSegments: any[] | {
+        a: any;
+        b: any;
+    }[];
     material: any;
     /**
      * 화면을 향하는 리본 궤적의 지점당 정점 수와 면 수를 설정합니다. <br>
@@ -174,18 +171,11 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      * 재질·스타일·확보된 용량을 유지하므로 다시 지점을 추가할 수 있습니다.
      */
     reset(): void;
-    drawSegments: any[] | {
-        a: {};
-        b: {};
-    }[];
     lastSimplifyKm: number;
     lastMemoryCheck: number;
     _positionPool: Float32Array<ArrayBuffer>;
     _indexPool: Uint32Array<ArrayBuffer>;
     _colorPool: Float32Array<ArrayBuffer>;
-    _widthFadePool: Float32Array<ArrayBuffer>;
-    _alphaFadePool: Float32Array<ArrayBuffer>;
-    _pathDistancePool: Float32Array<ArrayBuffer>;
     _sidePool: Int8Array<ArrayBuffer>;
     _startCapPool: Uint8Array<ArrayBuffer>;
     _endCapPool: Uint8Array<ArrayBuffer>;
@@ -205,7 +195,7 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      */
     rebuildFromNodeCenters(): void;
     /**
-     * 변환 행렬의 위치를 궤적 끝에 추가하고 노드 draw 정책를 갱신합니다. <br>
+     * 변환 행렬의 위치를 궤적 끝에 추가하고 GPU 기준값을 갱신합니다. <br>
      * 용량이 부족하면 정책에 따라 단순화·오래된 지점 제거·용량 확장을 수행합니다.
      *
      * @param {import('three').Matrix4} transformMatrix 월드 좌표(EPSG:3857) 위치를 담은 행렬
@@ -236,8 +226,11 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
         now?: number;
         totalTime?: number | null;
     }): void;
-    /** 실제 표시 구간입니다. 피킹에도 같은 단절 경계를 적용합니다. */
-    getDrawSegments(): any;
+    /** 피킹을 요청할 때만 limit에 맞춘 구간을 계산합니다. 렌더 프레임에서는 호출하지 않습니다. */
+    getDrawSegments(): {
+        a: any;
+        b: any;
+    }[];
     /**
      * 다음 좌표를 추가했을 때의 자체 누적 거리(m)를 계산합니다. 노드 제거 후에도 누적 기준을 유지합니다.
      * @param {import('three').Vector3Like} position 경로에 기록할 월드 좌표
@@ -273,38 +266,33 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      */
     setOpacity(opacity: number): void;
     /**
-     * 지점별 색 농도로 궤적 색상을 달리 표현할지 설정합니다.
-     *
-     * @param {boolean} enabled true면 지점의 colorFactor를 색상에 반영
+     * 지점별 색 농도를 궤적 색상에 적용합니다.
+     * @param {boolean} enabled true면 colorFactor를 반영
      */
     setGradation(enabled: boolean): void;
     /**
      * 궤적(trail)의 기본 너비를 변경합니다. <br>
-     * 카메라 깊이 보정과 fade가 적용되면 실제 표시 너비는 달라질 수 있습니다.
+     * fade가 적용되면 실제 표시 너비는 달라질 수 있습니다.
      *
      * @param {number} width 기본 화면 너비 값이며 유한한 숫자만 반영
      */
     setWidth(width: number): void;
     /**
-     * 궤적(tail)의 단순화·노드 draw 정책을 설정합니다. <br>
-     * 생략한 항목은 유지합니다. 사용자 drawFunc를 우선하며 없으면 maxDistance를 기본 drawFunc로 변환합니다. <br>
-     * drawFunc는 지점·최신 지점·현재 시각·직전 연결 지점·경로 시간을 받는 내부 평가 함수입니다.
-     *
-     * @param {USimpleTailRuntimePolicy} [policy={}] 변경할 궤적 정책
+     * 노드별 콜백을 정책과 독립적으로 등록하거나 해제합니다.
+     * @param {USimpleTailDrawEvaluator | null | undefined} drawFunc
      */
-    setTailPolicy(policy?: USimpleTailRuntimePolicy): void;
+    setDrawFunc(drawFunc: USimpleTailDrawEvaluator | null | undefined): void;
     /**
-     * 카메라 근접 구간에서 궤적 너비를 줄이는 fade 거리를 설정합니다. <br>
-     * 경로의 경과 시간이나 누적 거리 fade와는 별개입니다. <br>
-     * 종료 거리가 시작 거리보다 크면 시작 거리 이내에서 너비가 0이며 종료 거리부터 원래 너비입니다.
+     * 궤적(tail)의 단순화·제한·fade 정책을 설정합니다. <br>
+     * 생략한 항목은 유지합니다. 스타일과 독립적으로 제한 범위·숨김 또는 제거·fade를 적용합니다. <br>
+     * 노드별 콜백은 setDrawFunc로 별도 설정합니다.
      *
-     * @param {number} [start] 카메라 깊이 기준 너비가 0인 거리이며 유한한 0 이상 값만 반영
-     * @param {number} [end] 원래 너비로 돌아오는 거리이며 start보다 작으면 start로 보정
+     * @param {Omit<USimpleTail_Policy, 'initLength' | 'recordIntervalMs'>} [policy={}] 변경할 궤적 정책
      */
-    setFade(start?: number, end?: number): void;
+    setTailPolicy(policy?: Omit<USimpleTail_Policy, "initLength" | "recordIntervalMs">): void;
     /**
      * 월드 좌표(EPSG:3857) 지점을 궤적 끝에 추가합니다. <br>
-     * 새 지점을 추가하면 노드 draw 정책 콜백 결과를 함께 반영합니다.
+     * 새 지점을 추가하면 GPU 표시 효과의 기준 시간·거리를 함께 갱신합니다.
      *
      * @param {import('three').Vector3Like} worldPosition 추가할 지점의 월드 좌표(EPSG:3857)
      * @param {number} colorFactor 지점별 색 농도이며 0~1 범위로 전달
@@ -322,21 +310,30 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
     /**
      * 보관 중인 궤적 중심점 목록을 반환합니다. <br>
      * 복사본이 아니므로 외부 변경은 내부 이력에 직접 영향을 줍니다. <br>
-     * hide로 숨긴 노드는 포함하고 dispose된 노드는 제외합니다.
+     * GPU에서 숨긴 구간의 노드도 포함합니다.<br>
+     * time은 drawFunc(info).time과 같은 기록 epoch 시각(ms),
+     * pathDistance는 drawFunc(info).dist와 같은 경로 시작부터 누적 거리(m)입니다.
      *
      * @returns {Array<USimpleTailNode> | null} 오래된 순서의 내부 지점 배열이며 초기화 전이나 해제 후에는 null
      */
     getNodeCenters(): Array<USimpleTailNode> | null;
     /**
+     * 최신 입력 또는 updateDraw에서 지정한 평가 경로 시간(epoch ms)을 반환합니다.
+     * @returns {number | undefined} 아직 기록하지 않았으면 undefined
+     */
+    getTotalTime(): number | undefined;
+    /**
      * 선분에서 멀리 떨어진 지점을 남기는 RDP 방식으로 중심점 목록을 줄입니다. <br>
      * 양 끝점과 정책에서 지정한 꺾임 주변 지점을 보호합니다.
      *
-     * @template {import('three').Vector3Like} T
+     * @template {import('three').Vector3Like & {breakBefore?: boolean}} T
      * @param {Array<T>} points 순서대로 연결된 중심점 목록
      * @param {number} epsilon 선분에서 지점까지 허용할 거리이며 0 이상 값으로 전달
      * @returns {Array<T>} 원본 지점 객체의 참조를 담은 새 배열
      */
-    simplifyRDP<T extends three.Vector3Like>(points: Array<T>, epsilon: number): Array<T>;
+    simplifyRDP<T extends three.Vector3Like & {
+        breakBefore?: boolean;
+    }>(points: Array<T>, epsilon: number): Array<T>;
     /**
      * 입력 지점까지 포함하도록 궤적의 경계 구 크기를 늘립니다.
      *
@@ -362,7 +359,7 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
     simplifyTrailToTarget(targetCount: number, epsilonStart?: number, epsilonStep?: number): void;
     /**
      * 시야 영역(프러스텀, frustum) 안에 있는 중심점 범위만 그리도록 제한합니다. <br>
-     * 노드 draw 정책의 비연속 구간을 유지합니다. <br>
+     * 보관된 연속 경로의 정점 데이터를 이동합니다. <br>
      * 시야 절단은 GPU에 맡겨 양 끝점이 시야 밖인 교차 선분도 보존합니다.
      *
      * @param {import('three').Frustum} frustum 월드 좌표(EPSG:3857)에서 검사할 시야 영역
@@ -386,6 +383,43 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
 }
 
 /**
+     * U3dCumulativePath가 사용자 콜백을 감싸 tail에 전달하는 내부 함수입니다.
+     */
+    type USimpleTailDrawEvaluator = (node: USimpleTailDrawNode, newest: USimpleTailDrawNode, now: number, previous: USimpleTailDrawNode | null, totalTime: number) => USimpleTailDrawResult | void;
+
+/**
+     * 누적 경로와 내부 렌더러가 공유하는 노드별 표시 결정입니다.
+     */
+    type USimpleTailDrawResult = {
+        /**
+         * 노드 색상. 생략하면 기본 색상을 사용하며 지정하면 해당 색상을 대체합니다. 노드 사이에서 보간합니다.
+         */
+        color?: three.ColorRepresentation;
+        /**
+         * 노드 불투명도(0~1). 생략/비정상 값은 기본 opacity. 노드 사이에서 보간한 뒤 fade.alpha와 곱합니다.
+         */
+        opacity?: number;
+        /**
+         * hide는 보관, dispose는 복구 불가능한 노드 제거. 버퍼는 사용량이 용량의 절반 이하일 때 축소하며 전체 제거 시 즉시 해제합니다.
+         */
+        action?: "draw" | "hide" | "dispose";
+        /**
+         * 폭·불투명도 배율(0~1). 생략/비정상 값은 1. 0도 삭제를 뜻하지 않습니다.
+         */
+        fade?: {
+            width?: number;
+            alpha?: number;
+        };
+        /**
+         * 직전 연결 노드→현재 노드 구간의 표시 비율. 기본 0~1. from>=to면 표시하지 않습니다.
+         */
+        range?: {
+            from?: number;
+            to?: number;
+        };
+    };
+
+/**
      * 렌더 노드에 보관하는 경로 기록 정보입니다.
      */
     type USimpleTailPointMetadata = {
@@ -400,7 +434,7 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      */
     type USimpleTailDrawNode = {
         /**
-         * 안정적인 노드 식별자
+         * 버퍼 이동·삭제에도 유지되는 식별자
          */
         nodeId: number;
         /**
@@ -416,22 +450,64 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
          */
         z: number;
         /**
-         * 실제 중심점 사이에서 누적한 경로 거리(m)
+         * 경로 시작부터 누적 거리(m). U3dCumulativePathDrawInfo.dist와 같은 값
          */
         pathDistance: number;
         /**
-         * 노드 기록 epoch 시각(ms)
+         * 노드 기록 epoch 시각(ms). 실시간 기록은 경로가 자체 생성하며 애니메이션 누적 시간과 무관합니다. 명시적 이력 입력은 그 time을 사용합니다.
          */
         time: number;
+        /**
+         * 직전 노드와 연결이 끊어졌는지 여부
+         */
+        breakBefore?: boolean;
     };
 
 /**
-     * U3dCumulativePath가 사용자 콜백을 감싸 tail에 전달하는 내부 함수입니다.
+     * ~extends SimplifyPolicy_Option <br>
+     *
+     * 생성 옵션과 정책 변경에서 공유하는 단순화·제한·fade 설정입니다.
      */
-    type USimpleTailDrawEvaluator = (node: USimpleTailDrawNode, newest: USimpleTailDrawNode, now: number, previous: USimpleTailDrawNode | null, totalTime: number) => U3dCumulativePathDrawResult | void;
+    type USimpleTailCommonPolicy_Content = {
+        /**
+         * 용량 확장 배율이며 현재 지점 용량에 곱해 확장 단위를 정합니다.
+         */
+        precision?: number;
+        /**
+         * none은 제한·정책 fade 해제. distance는 m, time은 최신 기록 기준 ms, age는 현재 시각 기준 ms
+         */
+        limitMode?: "none" | "distance" | "time" | "age";
+        /**
+         * 제한 범위. 범위 이상이면 limitAction을 적용합니다. null/Infinity는 제한 해제, 0은 전체 숨김 또는 제거
+         */
+        limitValue?: number | null;
+        /**
+         * hide는 노드를 보관하고 GPU에서 숨김·fade 처리, dispose는 만료 노드를 제거. hide에서도 단순화나 drawFunc의 제거는 별도 적용
+         */
+        limitAction?: "hide" | "dispose";
+        /**
+         * 제거 예정(deprecated) 옵션. 대신 `limitMode: 'distance'`와 `limitValue`를 사용하세요.
+         */
+        maxDistance?: number;
+        /**
+         * 보관 범위의 오래된 끝부분에서 폭을 줄일 비율(0~1). 0은 fade 해제. distance·time·age 모드의 유한한 제한 범위에 적용합니다.
+         */
+        widthFade?: number;
+        /**
+         * 보관 범위의 오래된 끝부분에서 불투명도를 줄일 비율(0~1). 0은 fade 해제. 스타일 불투명도와 곱합니다.
+         */
+        alphaFade?: number;
+    };
 
 /**
      * ~extends SimplifyPolicy_Option <br>
+     *
+     * 생성 옵션과 정책 변경에서 공유하는 단순화·제한·fade 설정입니다.
+     */
+    type USimpleTailCommonPolicy = SimplifyPolicy_Option & USimpleTailCommonPolicy_Content;
+
+/**
+     * ~extends USimpleTailCommonPolicy <br>
      *
      * U3dCumulativePath에서 사용할 단순화·표시 정책입니다.
      */
@@ -441,10 +517,6 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
          */
         initLength?: number;
         /**
-         * 용량 확장 배율이며 현재 지점 용량에 곱해 확장 단위를 정합니다.
-         */
-        precision?: number;
-        /**
          * U3dCumulativePath의 실시간 지점 기록 최소 간격(ms)이며 0이면 제한하지 않습니다.
          */
         recordIntervalMs?: number;
@@ -453,52 +525,81 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
          */
         perMaxNode?: number;
         /**
-         * 사용자 drawFunc가 없으면 최신 위치부터 이 거리(m)만 표시하는 기본 drawFunc를 생성합니다. Infinity·0 이하·비정상 값은 제한 해제. 노드를 삭제하지 않습니다.
+         * 제한 경계가 전진할 때 호출합니다. hide·dispose 모두 적용하며 null로 해제합니다.
          */
-        maxDistance?: number;
-        /**
-         * 기본 거리 draw 정책에서 폭을 줄일 오래된 끝부분의 비율(0~1). 0은 폭 fade 해제. 사용자 drawFunc가 있으면 적용하지 않습니다.
-         */
-        widthFade?: number;
-        /**
-         * 기본 거리 draw 정책에서 투명하게 할 오래된 끝부분의 비율(0~1). 0은 투명도 fade 해제. 사용자 drawFunc가 있으면 적용하지 않습니다.
-         */
-        alphaFade?: number;
-        /**
-         * 노드 표시·부분 구간·fade·폐기 함수. null이면 maxDistance 기본 정책으로 복귀합니다.
-         */
-        drawFunc?: U3dCumulativePathDrawFunc | null;
-        /**
-         * 사용하지 않는 이전 옵션
-         */
-        onFadeOut?: (arg0: object) => void;
-        /**
-         * 호환 입력값으로 보관하며 현재 궤적 재질에는 반영하지 않습니다.
-         */
-        nearWidthFadeStart?: number;
-        /**
-         * 호환 입력값으로 보관하며 현재 궤적 재질에는 반영하지 않습니다.
-         */
-        nearWidthFadeEnd?: number;
-        /**
-         * 카메라 깊이에 따라 화면 너비를 보정할지 여부
-         */
-        depthWidthScale?: boolean;
+        onFadeOut?: USimpleTailFadeOutCallback | null;
     };
 
 /**
-     * ~extends SimplifyPolicy_Option <br>
+     * ~extends USimpleTailCommonPolicy <br>
      *
      * U3dCumulativePath에서 사용할 단순화·표시 정책입니다.
      */
-    type USimpleTail_Policy = SimplifyPolicy_Option & USimpleTail_Policy_Content;
+    type USimpleTail_Policy = USimpleTailCommonPolicy & USimpleTail_Policy_Content;
+
+/**
+     * 제한 범위를 벗어나는 경계 알림입니다. 개별 노드 삭제나 fade 시작 알림은 아닙니다.
+     * 경계가 전진할 때 평가당 한 번 호출하며 none·무한 제한에서는 호출하지 않습니다.
+     */
+    type USimpleTailFadeOutCallback = (this: USimpleTail, event: USimpleTailFadeOutEvent) => void;
+
+type USimpleTailFadeOutEvent = {
+        /**
+         * 대상 궤적. name으로 경로를 구분합니다.
+         */
+        target: USimpleTail;
+        /**
+         * 제한 기준
+         */
+        limitMode: "distance" | "time" | "age";
+        /**
+         * 제한 범위(m 또는 ms)
+         */
+        limitValue: number;
+        /**
+         * 제한 범위 밖의 처리 방식
+         */
+        limitAction: "hide" | "dispose";
+        /**
+         * 경로 시작부터 경계까지 누적 거리(m). 시간 순서가 뒤섞인 time·age 모드에서는 제공하지 않습니다.
+         */
+        boundaryDistance?: number;
+        /**
+         * time·age 모드의 제한 경계 epoch 시각(ms)
+         */
+        boundaryTime?: number;
+        /**
+         * 거리 모드에서만 제공하는 기존 호환 값. limitValue와 같습니다.
+         */
+        maxDistance?: number;
+        /**
+         * 경계 직전 또는 경계에 위치한 노드
+         */
+        previousNode?: USimpleTailNode;
+        /**
+         * 경계 다음 노드. 모두 범위를 벗어나면 생략합니다.
+         */
+        nextNode?: USimpleTailNode;
+        /**
+         * 보관 중인 마지막 노드
+         */
+        newestNode: USimpleTailNode;
+        /**
+         * 연결된 구간의 경계 보간점. 단절 구간에서는 생략합니다.
+         */
+        virtualPoint?: Pick<USimpleTailDrawNode, "x" | "y" | "z" | "pathDistance" | "time">;
+        /**
+         * previousNode에서 nextNode까지 경계 보간 비율(0~1)
+         */
+        t?: number;
+    };
 
 /**
      * 오래된 궤적 지점을 줄이고 최근 지점과 꺾임을 보호하는 정책입니다.
      */
     type SimplifyPolicy_Option = {
         /**
-         * 자동 단순화 사용 여부. drawFunc 사용 중이거나 폐기로 단절이 있으면 노드 정책 보존을 위해 단순화를 수행하지 않습니다.
+         * 자동 단순화 사용 여부. drawFunc 사용 중에는 단순화하지 않습니다. 폐기로 단절된 경로는 단절 경계를 보존하며 구간별로 단순화합니다.
          */
         simplify?: boolean;
         /**
@@ -533,34 +634,7 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
     }>;
 
 /**
-     * ~extends Omit<USimpleTail_Policy, 'drawFunc'> <br>
-     *
-     * USimpleTail에 직접 전달할 정책이며 drawFunc는 렌더 지점 평가 함수를 받습니다.
-     */
-    type USimpleTailRuntimePolicy_Content = {
-        /**
-         * 노드·최신 노드·현재 시각·직전 연결 노드·경로 시간을 받아 draw 결정을 반환하는 함수
-         */
-        drawFunc?: USimpleTailDrawEvaluator | null;
-        /**
-         * 카메라 근접 너비 fade의 시작 거리
-         */
-        fadeStart?: number;
-        /**
-         * 카메라 근접 너비 fade의 종료 거리
-         */
-        fadeEnd?: number;
-    };
-
-/**
-     * ~extends Omit<USimpleTail_Policy, 'drawFunc'> <br>
-     *
-     * USimpleTail에 직접 전달할 정책이며 drawFunc는 렌더 지점 평가 함수를 받습니다.
-     */
-    type USimpleTailRuntimePolicy = Omit<USimpleTail_Policy, "drawFunc"> & USimpleTailRuntimePolicy_Content;
-
-/**
-     * ~extends SimplifyPolicy_Option <br>
+     * ~extends USimpleTailCommonPolicy <br>
      *
      * USimpleTail 생성 옵션이며 실제 그리기 자원은 initialize에서 준비합니다.
      */
@@ -574,7 +648,7 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
          */
         name?: string;
         /**
-         * initialize에서 재사용할 기존 geometry
+         * initialize에서 해제하고 새로 생성할 기존 geometry
          */
         geometry?: three.BufferGeometry | null;
         /**
@@ -613,41 +687,13 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
          * 지점 추가에 재사용할 변환 행렬
          */
         tempMatrix4?: three.Matrix4;
-        /**
-         * 용량 확장 배율
-         */
-        precision?: number;
-        /**
-         * 사용자 drawFunc가 없으면 최신 위치부터 이 거리(m)만 표시하는 기본 drawFunc를 생성합니다. Infinity·0 이하·비정상 값은 제한 해제. 노드를 삭제하지 않습니다.
-         */
-        maxDistance?: number;
-        /**
-         * 카메라 근접 너비 fade의 시작 거리
-         */
-        fadeStart?: number;
-        /**
-         * 카메라 근접 너비 fade의 종료 거리
-         */
-        fadeEnd?: number;
-        /**
-         * 카메라 깊이에 따라 너비를 보정할지 여부
-         */
-        depthWidthScale?: boolean;
-        /**
-         * 기본 거리 draw 정책에서 폭을 줄일 오래된 끝부분의 비율(0~1). 0은 폭 fade 해제. 사용자 drawFunc가 있으면 적용하지 않습니다.
-         */
-        widthFade?: number;
-        /**
-         * 기본 거리 draw 정책에서 투명하게 할 오래된 끝부분의 비율(0~1). 0은 투명도 fade 해제. 사용자 drawFunc가 있으면 적용하지 않습니다.
-         */
-        alphaFade?: number;
     };
 
 /**
-     * ~extends SimplifyPolicy_Option <br>
+     * ~extends USimpleTailCommonPolicy <br>
      *
      * USimpleTail 생성 옵션이며 실제 그리기 자원은 initialize에서 준비합니다.
      */
-    type USimpleTailCO = Omit<Omit<SimplifyPolicy_Option, never> & USimpleTailCO_Content, never>;
+    type USimpleTailCO = Omit<Omit<USimpleTailCommonPolicy, never> & USimpleTailCO_Content, never>;
 
-export type { SimplifyPolicy_Option, USimpleTail, USimpleTailCO, USimpleTailCO_Content, USimpleTailDrawEvaluator, USimpleTailDrawNode, USimpleTailNode, USimpleTailPointMetadata, USimpleTailRuntimePolicy, USimpleTailRuntimePolicy_Content, USimpleTail_Policy, USimpleTail_Policy_Content };
+export type { SimplifyPolicy_Option, USimpleTail, USimpleTailCO, USimpleTailCO_Content, USimpleTailCommonPolicy, USimpleTailCommonPolicy_Content, USimpleTailDrawEvaluator, USimpleTailDrawNode, USimpleTailDrawResult, USimpleTailFadeOutCallback, USimpleTailFadeOutEvent, USimpleTailNode, USimpleTailPointMetadata, USimpleTail_Policy, USimpleTail_Policy_Content };

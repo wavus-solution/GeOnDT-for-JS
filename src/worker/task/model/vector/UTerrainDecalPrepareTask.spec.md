@@ -49,7 +49,6 @@ hole area는 fillOpacity를 -1로 표시하여 shader가 채우기 대신 지우
 제한 조건: entry cache는 항목 1024개와 추정 32MB, feature base cache는 4096개와 추정 64MB, tile 상태 cache는 4096개와 추정 32MB 안으로 유지하며 초과 시 가장 오래된 항목부터 버린다.
 제한 조건: path segment가 256개 이하이면 bucket을 만들지 않고 shader가 segment 목록을 직접 순회하게 한다. bucket 배열 생성·전송 비용이 이득보다 클 수 있기 때문이다.
 제한 조건: area 점 목록은 bucket 중복과 행 padding 없이 한 번만 저장한다. 이전의 행×최장 점 수 격자 레이아웃이 만들던 업로드량을 줄이기 위한 것이다.
-검증 기준: 선형 레이아웃 decode와 즉시 경로 동등성은 `unit-tests/terrain-decal-area-layout.test.mjs`(`npm run 테스트:단위실행하기`, `node --test`)가 확인한다. Playwright 가 기본 `testMatch` 로 잡지 않도록 `tests/` 밖에 둔다.
 ```
 
 ## 3. 정규 자연어 수도코드

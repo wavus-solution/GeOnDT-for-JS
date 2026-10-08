@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -34,7 +34,6 @@ import type { U3dTerrainLayer } from "../3dLayer/U3dTerrainLayer.js";
 import type { U3dVectorLayer } from "../3dLayer/U3dVectorLayer.js";
 import type { U3dVectorPBFLayer } from "../3dLayer/U3dVectorPBFLayer.js";
 import type { U3dVectorTileLayer } from "../3dLayer/U3dVectorTileLayer.js";
-import type { U3dVideoLayer } from "../3dLayer/U3dVideoLayer.js";
 import type { UAnalyAlarm } from "../analy/UAnalyAlarm.js";
 import type { UAnalyAlignModel } from "../analy/UAnalyAlignModel.js";
 import type { UAnalyArea } from "../analy/UAnalyArea.js";
@@ -316,7 +315,6 @@ declare class GeOnDT {
         U3dModelBasicLayer: typeof U3dModelBasicLayer;
         U3dModelWFSLayer: typeof U3dModelWFSLayer;
         U3dModelU3FLayer: typeof U3dModelU3FLayer;
-        U3dVideoLayer: typeof U3dVideoLayer;
         U3dModelShapeLayer: typeof U3dModelShapeLayer;
         U3dModelDxfLayer: typeof U3dModelDxfLayer;
         U3dModelTilesLayer: typeof U3dModelTilesLayer;

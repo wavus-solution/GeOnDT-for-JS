@@ -15,7 +15,7 @@
     <!-- 한글 본문용 가변 서체입니다. 내려받지 못해도 styles/jaguar.css의 대체 서체로 그대로 표시됩니다. -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-    <link type="text/css" rel="stylesheet" href="styles/jaguar.css?v=muw7iz8z">
+    <link type="text/css" rel="stylesheet" href="styles/jaguar.css?v=muz1hdly">
     <script>
         // 화면이 그려지기 전에 테마를 정해 화면이 한 번 번쩍이는 것을 막습니다.
         // 상단 전환 버튼으로 직접 고른 적이 없으면 운영체제 설정을 따릅니다.
@@ -697,10 +697,6 @@
                     <a href="U3dApp.html#getInstanceTerrainLayers">getInstanceTerrainLayers</a>
                 </li>
             
-                <li data-name="getinstancevideolayers">
-                    <a href="U3dApp.html#getInstanceVideoLayers">getInstanceVideoLayers</a>
-                </li>
-            
                 <li data-name="getintensitylight">
                     <a href="U3dApp.html#getIntensityLight">getIntensityLight</a>
                 </li>
@@ -1167,6 +1163,10 @@
             
                 <li data-name="removeview">
                     <a href="U3dApp.html#removeView">removeView</a>
+                </li>
+            
+                <li data-name="renderframe">
+                    <a href="U3dApp.html#renderFrame">renderFrame</a>
                 </li>
             
                 <li data-name="resetfog">
@@ -1879,6 +1879,10 @@
                     <a href="UAnaly.html#active">active</a>
                 </li>
             
+                <li data-name="adddefaultevent">
+                    <a href="UAnaly.html#addDefaultEvent">addDefaultEvent</a>
+                </li>
+            
                 <li data-name="clear">
                     <a href="UAnaly.html#clear">clear</a>
                 </li>
@@ -1887,12 +1891,20 @@
                     <a href="UAnaly.html#deactive">deactive</a>
                 </li>
             
+                <li data-name="getanalysisoption">
+                    <a href="UAnaly.html#getAnalysisOption">getAnalysisOption</a>
+                </li>
+            
                 <li data-name="getscene">
                     <a href="UAnaly.html#getScene">getScene</a>
                 </li>
             
                 <li data-name="gettargetlayername">
                     <a href="UAnaly.html#getTargetLayerName">getTargetLayerName</a>
+                </li>
+            
+                <li data-name="gettype">
+                    <a href="UAnaly.html#getType">getType</a>
                 </li>
             
                 <li data-name="intersectmodel">
@@ -1915,6 +1927,10 @@
                     <a href="UAnaly.html#on">on</a>
                 </li>
             
+                <li data-name="setanalysisoption">
+                    <a href="UAnaly.html#setAnalysisOption">setAnalysisOption</a>
+                </li>
+            
                 <li data-name="setapp">
                     <a href="UAnaly.html#setApp">setApp</a>
                 </li>
@@ -1933,6 +1949,10 @@
         <section class="navigation-member-list" data-type="typedefs">
             <h3>Type Definitions</h3>
             <ul>
+            
+                <li data-name="ananlysis_mesh">
+                    <a href="UAnaly.html#~Ananlysis_Mesh">Ananlysis_Mesh</a>
+                </li>
             
                 <li data-name="uanalyco">
                     <a href="UAnaly.html#~UAnalyCO">UAnalyCO</a>
@@ -2475,6 +2495,10 @@
                     <a href="UAnalyContour.html#isTopoVisible">isTopoVisible</a>
                 </li>
             
+                <li data-name="setheightvisible">
+                    <a href="UAnalyContour.html#setHeightVisible">setHeightVisible</a>
+                </li>
+            
                 <li data-name="settopo">
                     <a href="UAnalyContour.html#setTopo">setTopo</a>
                 </li>
@@ -2745,6 +2769,14 @@
                     <a href="UAnalyCustomModel.html#isExistModelName">isExistModelName</a>
                 </li>
             
+                <li data-name="ispolygon">
+                    <a href="UAnalyCustomModel.html#isPolygon">isPolygon</a>
+                </li>
+            
+                <li data-name="merge">
+                    <a href="UAnalyCustomModel.html#merge">merge</a>
+                </li>
+            
                 <li data-name="mergemesh">
                     <a href="UAnalyCustomModel.html#mergeMesh">mergeMesh</a>
                 </li>
@@ -2782,6 +2814,14 @@
             
                 <li data-name="custommodelentry">
                     <a href="UAnalyCustomModel.html#~CustomModelEntry">CustomModelEntry</a>
+                </li>
+            
+                <li data-name="uanalycustommodelinput">
+                    <a href="UAnalyCustomModel.html#~UAnalyCustomModelInput">UAnalyCustomModelInput</a>
+                </li>
+            
+                <li data-name="uanalycustommodelsetup">
+                    <a href="UAnalyCustomModel.html#~UAnalyCustomModelSetup">UAnalyCustomModelSetup</a>
                 </li>
             
             </ul>
@@ -5494,17 +5534,6 @@
             <span class="navigation-primary-link"><a href="UAnalyViewCone.html">UAnalyViewCone</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="UAnalyViewCone.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -7912,17 +7941,6 @@
             <span class="navigation-primary-link"><a href="U3dImageLayer.html">U3dImageLayer</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dImageLayer.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -8278,17 +8296,6 @@
             <span class="navigation-primary-link"><a href="U3dImageWMSLayer.html">U3dImageWMSLayer</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dImageWMSLayer.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -8504,17 +8511,6 @@
             <span class="navigation-primary-link"><a href="U3dImageXYZLayer.html">U3dImageXYZLayer</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dImageXYZLayer.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -8573,10 +8569,6 @@
             
                 <li data-name="event">
                     <a href="U3dLayer.html#EVENT">EVENT</a>
-                </li>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dLayer.html#OPT_KEYS">OPT_KEYS</a>
                 </li>
             
                 <li data-name="initialized">
@@ -8998,10 +8990,6 @@
                     <a href="U3dLayerList.html#getInstanceVectorTileLayers">getInstanceVectorTileLayers</a>
                 </li>
             
-                <li data-name="getinstancevideolayers">
-                    <a href="U3dLayerList.html#getInstanceVideoLayers">getInstanceVideoLayers</a>
-                </li>
-            
                 <li data-name="getlayer">
                     <a href="U3dLayerList.html#getLayer">getLayer</a>
                 </li>
@@ -9203,17 +9191,6 @@
             <span class="navigation-primary-link"><a href="U3dModelBasicLayer.html">U3dModelBasicLayer</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dModelBasicLayer.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -11209,17 +11186,6 @@
             <span class="navigation-primary-link"><a href="U3dOpenLayer.html">U3dOpenLayer</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dOpenLayer.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -11274,6 +11240,10 @@
             
                 <li data-name="getdebuglogjson">
                     <a href="U3dOpenLayer.html#getDebugLogJson">getDebugLogJson</a>
+                </li>
+            
+                <li data-name="gettilebackgroundcolor">
+                    <a href="U3dOpenLayer.html#getTileBackgroundColor">getTileBackgroundColor</a>
                 </li>
             
                 <li data-name="refresh">
@@ -11876,6 +11846,10 @@
             
                 <li data-name="u3dvectorlayeremi">
                     <a href="U3dVectorLayer.html#~U3dVectorLayerEMI">U3dVectorLayerEMI</a>
+                </li>
+            
+                <li data-name="u3dvectortileindexstate">
+                    <a href="U3dVectorLayer.html#~U3dVectorTileIndexState">U3dVectorTileIndexState</a>
                 </li>
             
             </ul>
@@ -13335,12 +13309,20 @@
                     <a href="U3dCumulativePath.html#getHelperMesh">getHelperMesh</a>
                 </li>
             
+                <li data-name="getnodes">
+                    <a href="U3dCumulativePath.html#getNodes">getNodes</a>
+                </li>
+            
                 <li data-name="getpath">
                     <a href="U3dCumulativePath.html#getPath">getPath</a>
                 </li>
             
                 <li data-name="gettail">
                     <a href="U3dCumulativePath.html#getTail">getTail</a>
+                </li>
+            
+                <li data-name="gettailpolicy">
+                    <a href="U3dCumulativePath.html#getTailPolicy">getTailPolicy</a>
                 </li>
             
                 <li data-name="hide">
@@ -13428,10 +13410,6 @@
             
                 <li data-name="u3dcumulativepathpositiondata">
                     <a href="U3dCumulativePath.html#~U3dCumulativePathPositionData">U3dCumulativePathPositionData</a>
-                </li>
-            
-                <li data-name="u3dcumulativepathstylefunc">
-                    <a href="U3dCumulativePath.html#~U3dCumulativePathStyleFunc">U3dCumulativePathStyleFunc</a>
                 </li>
             
                 <li data-name="u3dcumulativepath_styleopt">
@@ -14442,6 +14420,14 @@
                     <a href="U3dLine.html#linewidth">linewidth</a>
                 </li>
             
+                <li data-name="renderorder">
+                    <a href="U3dLine.html#renderOrder">renderOrder</a>
+                </li>
+            
+                <li data-name="visible">
+                    <a href="U3dLine.html#visible">visible</a>
+                </li>
+            
                 <li data-name="worldunits">
                     <a href="U3dLine.html#worldUnits">worldUnits</a>
                 </li>
@@ -14455,6 +14441,10 @@
             
                 <li data-name="clearsurfacedrape">
                     <a href="U3dLine.html#clearSurfaceDrape">clearSurfaceDrape</a>
+                </li>
+            
+                <li data-name="computelinedistances">
+                    <a href="U3dLine.html#computeLineDistances">computeLineDistances</a>
                 </li>
             
                 <li data-name="dispose">
@@ -14536,6 +14526,14 @@
         <section class="navigation-member-list" data-type="members">
             <h3>Members</h3>
             <ul>
+            
+                <li data-name="geometry">
+                    <a href="U3dPathGeometry.html#geometry">geometry</a>
+                </li>
+            
+                <li data-name="material">
+                    <a href="U3dPathGeometry.html#material">material</a>
+                </li>
             
                 <li data-name="renderorder">
                     <a href="U3dPathGeometry.html#renderOrder">renderOrder</a>
@@ -14843,6 +14841,10 @@
                     <a href="U3dPoint.html#img">img</a>
                 </li>
             
+                <li data-name="material">
+                    <a href="U3dPoint.html#material">material</a>
+                </li>
+            
                 <li data-name="materiallist">
                     <a href="U3dPoint.html#materialList">materialList</a>
                 </li>
@@ -14851,12 +14853,24 @@
                     <a href="U3dPoint.html#offset">offset</a>
                 </li>
             
+                <li data-name="renderorder">
+                    <a href="U3dPoint.html#renderOrder">renderOrder</a>
+                </li>
+            
                 <li data-name="size">
                     <a href="U3dPoint.html#size">size</a>
                 </li>
             
                 <li data-name="sizeattenuation">
                     <a href="U3dPoint.html#sizeAttenuation">sizeAttenuation</a>
+                </li>
+            
+                <li data-name="userdata">
+                    <a href="U3dPoint.html#userData">userData</a>
+                </li>
+            
+                <li data-name="visible">
+                    <a href="U3dPoint.html#visible">visible</a>
                 </li>
             
             </ul>
@@ -14872,6 +14886,10 @@
             
                 <li data-name="getdepthtest">
                     <a href="U3dPoint.html#getDepthTest">getDepthTest</a>
+                </li>
+            
+                <li data-name="getmaterial">
+                    <a href="U3dPoint.html#getMaterial">getMaterial</a>
                 </li>
             
                 <li data-name="getoffset">
@@ -14896,6 +14914,10 @@
             
                 <li data-name="setimage">
                     <a href="U3dPoint.html#setImage">setImage</a>
+                </li>
+            
+                <li data-name="setmaterial">
+                    <a href="U3dPoint.html#setMaterial">setMaterial</a>
                 </li>
             
                 <li data-name="setoffset">
@@ -15101,6 +15123,10 @@
                     <a href="U3dSphere.html#radius">radius</a>
                 </li>
             
+                <li data-name="renderorder">
+                    <a href="U3dSphere.html#renderOrder">renderOrder</a>
+                </li>
+            
                 <li data-name="setdistancematerial">
                     <a href="U3dSphere.html#setDistanceMaterial">setDistanceMaterial</a>
                 </li>
@@ -15115,6 +15141,10 @@
             
                 <li data-name="useline">
                     <a href="U3dSphere.html#useline">useline</a>
+                </li>
+            
+                <li data-name="visible">
+                    <a href="U3dSphere.html#visible">visible</a>
                 </li>
             
                 <li data-name="widthsegments">
@@ -18175,6 +18205,10 @@
                     <a href="URenderer.html#getDrawCall">getDrawCall</a>
                 </li>
             
+                <li data-name="getmsaasamples">
+                    <a href="URenderer.html#getMsaaSamples">getMsaaSamples</a>
+                </li>
+            
                 <li data-name="getpassesbytype">
                     <a href="URenderer.html#getPassesByType">getPassesByType</a>
                 </li>
@@ -18243,12 +18277,12 @@
                     <a href="URenderer.html#setApp">setApp</a>
                 </li>
             
-                <li data-name="setcomposersamples">
-                    <a href="URenderer.html#setComposerSamples">setComposerSamples</a>
-                </li>
-            
                 <li data-name="setenvoption">
                     <a href="URenderer.html#setEnvOption">setEnvOption</a>
+                </li>
+            
+                <li data-name="setmsaasamples">
+                    <a href="URenderer.html#setMsaaSamples">setMsaaSamples</a>
                 </li>
             
                 <li data-name="setpasssize">
@@ -19783,6 +19817,102 @@
 </dd>
 
         
+            
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="updatePossible">
+            
+             updatePossible<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">boolean</span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>고정 기준 화면의 투영 배율, 가시 영역 거리와 원자료의 유효 레벨로 추가 분화 여부를 판단합니다.
+특수 모드와 검색 위치 보정 경로는 기존 거리 판정을 유지합니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    <h5>Returns:</h5>
+    
+
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Type</th>
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+        <tr>
+            
+            <td class="type">
+            
+                        boolean
+                        
+                    
+            </td>
+            <td class="description last">자식 레벨의 콘텐츠가 필요하면 true</td>
+        </tr>
+    
+    </tbody>
+</table>
+
+    
+    
+    
+</dd>
+
+        
         </dl>
     
     
@@ -19801,7 +19931,7 @@
 
     </div>
 </div>
-<script src="scripts/prism.js?v=muw7iz8z"></script>
-<script src="scripts/main.js?v=muw7iz8z"></script>
+<script src="scripts/prism.js?v=muz1hdly"></script>
+<script src="scripts/main.js?v=muz1hdly"></script>
 </body>
 </html>

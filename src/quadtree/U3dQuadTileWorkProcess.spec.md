@@ -99,9 +99,8 @@ U3dQuadTileWorkProcess extends U3dProcess 클래스 정의
     constructor(opt = {})
         의존:
             U3dProcess — 공통 옵션과 큐 초기화; 생성자: {constructor()}
-            UCheckTime — 시간 측정 객체 보관; 생성자: {constructor()}
         동작:
-            opt.useMultiBuffer를 true로 덮어쓴 뒤 기반 생성자에 전달한다. 시간 측정 객체를 만들고 정리 주기 4와 인덱스 0을 보관한다.
+            opt.useMultiBuffer를 true로 덮어쓴 뒤 기반 생성자에 전달한다.
 
     override add(work: U3dQuadTileWork, customIndex?: function(number): (undefined | null | number)) -> void
         의존:
@@ -124,17 +123,13 @@ U3dQuadTileWorkProcess extends U3dProcess 클래스 정의
 
     process(curTime?: number) -> number
         의존:
-            U3dProcess — 기반 큐·실행 상태; 속성 읽기: {_dispose, _drawArg, _queueBuffer, _remainProcess}
-            U3dQueue — 개수와 정리; 속성 읽기: {length}; 함수: {traverse(), removeFind()}
-            U3dQuadTileWork — 타일·활성 조회; 함수: {getTile(), isActive()}
-            U3dQuadTile — 폐기 상태; 속성 읽기: {_disposed, disposed}
-            defined — 타일과 그리기 인자 검사; 함수: {defined()}
-            __GError__ — 엔진 표준 오류 보고; 함수: {__GError__()}
+            U3dProcess — 기반 상태; 속성 읽기: {_dispose, _drawArg, _queueBuffer, _remainProcess, _maxProcess}
+            U3dQueue — 대기 개수; 속성 읽기: {length}
+            defined — 그리기 인자 검사; 함수: {defined()}
         동작:
-            curTime은 사용하지 않는다. 폐기 상태이거나 그리기 인자가 없으면 0을 반환한다. 큐가 비었으면 현재 실행 수를 반환한다.
-            인덱스가 정리 주기와 같으면 인덱스를 먼저 0으로 만들고 대기 항목의 참조 목록을 복사한다. 복사 목록에서 비활성·타일 없음·폐기 작업과 검사 중 예외가 난 작업을 제외 후보로 수집하며 예외는 엔진 오류 로그로 기록한다. 그 외 호출에서는 인덱스를 증가시킨다.
-            실제 큐에 남아 있는 제외 후보만 제거하고 제거된 항목을 별도 목록에 보관한다. 큐 제거가 끝난 뒤 각 항목을 종결하여 알림 콜백의 큐 초기화나 신규 등록이 제거 순회에 개입하지 않게 한다. 상태 조회 중 이미 제거된 항목도 중복 종결하지 않는다.
-            다음 시작을 예약하고 호출 시점의 실행 수를 반환한다.
+            curTime은 사용하지 않는다. 폐기 또는 그리기 인자 없음이면 0을, 빈 큐이면 현재 점유 수를 반환한다.
+            전체 큐를 복사·순회하지 않는다. 유효성 확인과 제외 통지는 이후 디큐의 비동기 경계에서 항목마다 수행한다.
+            그 밖에는 시작을 예약하고 현재 점유 수를 반환한다.
 
     dequeueBuffer() -> boolean
         의존:
@@ -166,7 +161,8 @@ U3dQuadTileWorkProcess extends U3dProcess 클래스 정의
             측정은 실제 작업 함수를 호출하기 직전에 started를 전달하고 첫 finish에서 슬롯을 감소시킨 직후 외부 완료·취소 콜백보다 먼저 종결 상태를 전달한다.
             정상 완료·실패·명시 취소·30초 제한은 각각 succeeded·failed·cancelled·timeout으로 구분한다. 실행 호출과 완료 연결의 finally에 도달하기 전 종결은 즉시 완료로 표시하며 finally에서 그 표식을 해제한다.
             동기 종료 경로와 이후 완료 콜백 경로 모두 같은 측정 전달 함수를 사용한다.
-            처리기가 폐기되었으면 제외 처리하고 반환한다. 그 외에는 점유 수를 증가시킨다.
+            _dispose가 참이면 제외 처리하고 반환한다.
+            _dispose가 거짓이면 점유 수를 증가시킨다.
             첫 종결만 수락하는 finish와 취소 콜백을 만들고 실행 집합에 보관한다. TASK_TIMEOUT_MS가 지나면 작업 이름과 30초 초과를 경고하고 실패로 종결한다.
             finish는 재진입을 막기 위해 종결 표식을 먼저 설정하고 타이머와 실행 집합 항목을 제거한 뒤 점유 수를 줄인다. 실패이면 작업을 비활성화하고 Cancel을 호출하며 예외가 나면 기록한다.
             성공·실패 모두 End를 한 번 호출한다. Cancel과 End가 반환한 thenable의 거절도 기록하며 그 완료를 기다리지는 않는다. End 예외와 무관하게 진행 수 반영을 시도하고 오류를 기록한 뒤 다음 시작을 예약한다. 이 종결은 동기 오류와 후속 콜백 양쪽에서 도달한다.

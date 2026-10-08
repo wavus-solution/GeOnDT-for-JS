@@ -91,6 +91,8 @@ GUI_TemplateState 부분 타입 명세
         pixelResolution?: PIXELRE_SOLUTION_OPTION
         postProcess, sunFlare, shadow?: boolean
         postOption?: PostProcessParam
+        msaaSamples?: number
+            후처리 옵션과 별도로 보관하는 렌더러 MSAA 요청값이며 초기 설정 복원에 사용한다.
         toneExposure, intensityLight, intensitySunLight, modelUpdateOffset?: number
             정의된 필드만 대응 앱 API에 전달한다.
 
@@ -427,19 +429,23 @@ UDevToolView 클래스 정의
     #buildSettings() -> void
         의존:
             defined — 앱 존재 판정; 함수: {defined()}
-            U3dApp — 앱 설정과 실행 상태 연계; 함수: {getPostOption(), getImproveLevel(), isPostProcess(), getSunFlare(), isUseShadow(), getIntensityLight(), getIntensitySunLight(), getMaxProcess(), getPixelResolutionLevel(), getPixelRatio(), getRatioTileSize(), getRatioModelTileSize(), getTileUpdateSensitivity(), getToneMappingExposure(), setImproveValue(), setPostOption(), setMaxProcess(), setRatioTileSize(), setRatioModelTileSize(), restartQuadTree(), setTileUpdateSensitivity(), setPixelResolution(), setPixelRatio(), setToneMappingExposure(), setPostProcess(), setIntensityLight(), setIntensitySunLight(), setSunFlare(), setShadow()}
+            U3dApp — 앱 설정과 실행 상태 연계; 함수: {getPostOption(), getRenderer(), getImproveLevel(), isPostProcess(), getSunFlare(), isUseShadow(), getIntensityLight(), getIntensitySunLight(), getMaxProcess(), getPixelResolutionLevel(), getPixelRatio(), getRatioTileSize(), getRatioModelTileSize(), getTileUpdateSensitivity(), getToneMappingExposure(), setImproveValue(), setPostOption(), setMaxProcess(), setRatioTileSize(), setRatioModelTileSize(), restartQuadTree(), setTileUpdateSensitivity(), setPixelResolution(), setPixelRatio(), setToneMappingExposure(), setPostProcess(), setIntensityLight(), setIntensitySunLight(), setSunFlare(), setShadow()}
+            URenderer — 독립 MSAA 설정 조회·변경; 함수: {getMsaaSamples(), setMsaaSamples()}
+            UEffectComposer — MSAA 기본 요청값 조회; 속성 읽기: {DEFAULT_MSAA_SAMPLES}
             THREE_GUI — 폴더와 입력 구성; 함수: {title()}
             THREE_GUI_Controller — 입력 행의 표시와 콜백 연결; 함수: {name(), setTitle()}
         동작:
             앱이 없으면 종료하고 Settings 버튼을 설정으로 표시한다.
             품질 설정·작업설정·렌더링·조명·설정 관리 폴더와 각 입력 행을 추가한다.
             Settings state가 없으면 품질 버튼까지만 구성한 뒤 종료한다. 있으면 앱 조회값으로 초기화한다.
-            후처리 값이 없으면 대비 1.022, 밝기 1.1, AO·Bloom false, Bloom 강도 0.75를 사용한다.
+            MSAA는 렌더러의 getMsaaSamples로 읽고 값이 없으면 DEFAULT_MSAA_SAMPLES를 사용한다. 앱의 후처리 값이 없으면 대비 1.022, 밝기 1.1, AO·Bloom false, Bloom 강도 0.75를 사용한다.
             낮음은 low·HD·최대 작업 12·태양 플레어와 후처리 끔, 보통은 medium·FHD·18·플레어와 후처리 켬·AO와 Bloom 끔, 높음은 high·QHD·24·modelUpdateOffset 0·플레어와 후처리 및 AO와 Bloom 켬 템플릿을 적용한다.
             최대 작업은 2~60 정수, 타일·모델 타일 배율은 0.3~3의 0.1 단위, 갱신 민감도는 0.1~5의 0.1 단위 입력 완료 시 적용한다. 배율 변경은 쿼드트리도 재시작한다.
-            렌더링 영역은 텍스쳐 보정, 해상도 UHD·QHD·FHD·HD·SD, 픽셀 배율, 톤 맵 노출, 후처리 사용·대비·밝기·AO·Bloom·Bloom 강도를 조절한다.
+            렌더링 영역은 텍스쳐 보정, 해상도 UHD·QHD·FHD·HD·SD, 픽셀 배율, MSAA, 톤 맵 노출, 후처리 사용·대비·밝기·AO·Bloom·Bloom 강도를 조절한다.
+            MSAA는 msaasamples 상태에 연결하고 끄기 (0)·2× (기본)·4×·8×를 각각 숫자 0·2·4·8로 전달한다. 변경 시 렌더러가 있으면 setMsaaSamples에 전달하며 후처리 보정이 꺼져 있어도 조절한다.
+            MSAA 도움말은 기본값 2, 환경별 성능·화질 조절, 높은 값의 GPU 비용과 장치 상한, 후처리 보정과 독립적인 적용을 안내한다.
             텍스쳐 보정은 improvetexture 상태에 연결하며 낮음·보통·높음·매우 높음을 각각 low·medium·high·ultra로 전달한다. 변경 시 setImproveValue 적용 후 restartQuadTree를 호출하여 기존 지형 타일도 새 단계로 생성한다. 갱신·품질 프리셋·초기 설정 복원은 기존 상태 동기화 경로로 선택값을 맞춘다.
-            픽셀 배율은 입력 완료 시, 나머지 렌더링 항목은 변경 시 적용하며 후처리 옵션은 state의 다섯 값을 함께 전달한다.
+            픽셀 배율은 입력 완료 시, 나머지 렌더링 항목은 변경 시 적용한다. 대비·밝기·AO·Bloom·Bloom 강도는 state의 해당 다섯 값만 함께 전달하여 별도로 설정한 MSAA를 유지한다.
             환경광·태양광은 0 이상의 0.1 단위 입력 완료 시 적용하고 실제 앱 값으로 표시를 다시 맞춘다.
             플레어·그림자는 변경 즉시 대응 API를 호출한다.
             지도 컨트롤러 영역을 구성한다.
@@ -495,8 +501,9 @@ UDevToolView 클래스 정의
     #captureTemplateFromApp() -> GUI_TemplateState
         의존:
             defined — 앱 존재 판정; 함수: {defined()}
-            U3dApp — 앱 설정과 실행 상태 연계; 함수: {getPostOption(), getImproveLevel(), getMaxProcess(), getPixelResolutionLevel(), getPixelRatio(), getRatioTileSize(), getRatioModelTileSize(), getTileUpdateSensitivity(), isPostProcess(), getSunFlare(), isUseShadow(), getToneMappingExposure(), getIntensityLight(), getIntensitySunLight(), getModelUpdateOffset()}
-        동작: 앱이 없으면 빈 객체를 반환한다. 품질·작업·조명·갱신 값을 조회하여 새 객체로 반환하고 postOption은 없으면 빈 객체, 있으면 얕은 복사본으로 저장한다.
+            U3dApp — 앱 설정과 실행 상태 연계; 함수: {getPostOption(), getRenderer(), getImproveLevel(), getMaxProcess(), getPixelResolutionLevel(), getPixelRatio(), getRatioTileSize(), getRatioModelTileSize(), getTileUpdateSensitivity(), isPostProcess(), getSunFlare(), isUseShadow(), getToneMappingExposure(), getIntensityLight(), getIntensitySunLight(), getModelUpdateOffset()}
+            URenderer — 독립 MSAA 요청값 조회; 함수: {getMsaaSamples()}
+        동작: 앱이 없으면 빈 객체를 반환한다. 품질·작업·조명·갱신 값을 조회하여 새 객체로 반환하고 postOption은 없으면 빈 객체, 있으면 얕은 복사본으로 저장한다. MSAA는 렌더러가 있으면 getMsaaSamples 결과를 별도 msaaSamples 필드에 저장하며 후처리 보정이 꺼져 있어도 초기 요청값을 복원할 수 있게 한다.
 
     refresh() -> void
         의존: THREE_GUI_Controller — 입력 행의 표시와 콜백 연결; 함수: {updateDisplay()}
@@ -507,11 +514,12 @@ UDevToolView 클래스 정의
 
     #syncStateFromApp() -> void
         의존:
-            U3dApp — 앱 설정과 실행 상태 연계; 함수: {getImproveLevel(), isPostProcess(), getSunFlare(), isUseShadow(), getIntensityLight(), getIntensitySunLight(), getMaxProcess(), getPixelResolutionLevel(), getPixelRatio(), getRatioTileSize(), getRatioModelTileSize(), getTileUpdateSensitivity(), getToneMappingExposure(), getPostOption()}
+            U3dApp — 앱 설정과 실행 상태 연계; 함수: {getImproveLevel(), isPostProcess(), getSunFlare(), isUseShadow(), getIntensityLight(), getIntensitySunLight(), getMaxProcess(), getPixelResolutionLevel(), getPixelRatio(), getRatioTileSize(), getRatioModelTileSize(), getTileUpdateSensitivity(), getToneMappingExposure(), getPostOption(), getRenderer()}
+            URenderer — 독립 MSAA 요청값 조회; 함수: {getMsaaSamples()}
             THREE_GUI_Controller — 입력 행의 표시와 콜백 연결; 함수: {updateDisplay()}
         동작:
             앱이나 Settings state가 없으면 종료한다.
-            improvetexture·품질·작업·조명 값을 실제 앱 조회값으로 덮어쓴다. 후처리 속성이 nullish이면 기존 표시값을 유지한다.
+            improvetexture·품질·작업·조명 값을 실제 앱 조회값으로 덮어쓴다. MSAA는 렌더러 getter에서 별도로 읽고 nullish이면 기존 표시값을 유지한다. 후처리 속성이 nullish이면 기존 표시값을 유지한다.
             컨트롤 factor 표시를 맞춘다.
             모든 탭 컨트롤러의 표시만 갱신하며 입력 콜백과 앱 setter를 호출하지 않는다.
 
@@ -521,10 +529,11 @@ UDevToolView 클래스 정의
     #applyTemplate(setting: GUI_TemplateState, templateName: string) -> void
         의존:
             defined — 개별 필드 존재 판정; 함수: {defined()}
-            U3dApp — 앱 설정과 실행 상태 연계; 함수: {setImproveValue(), setPostProcess(), setPostOption(), setSunFlare(), setShadow(), setMaxProcess(), setPixelResolution(), setPixelRatio(), setRatioTileSize(), setRatioModelTileSize(), setTileUpdateSensitivity(), setToneMappingExposure(), setIntensityLight(), setIntensitySunLight(), setModelUpdateOffset(), restartQuadTree()}
+            U3dApp — 앱 설정과 실행 상태 연계; 함수: {setImproveValue(), setPostProcess(), setPostOption(), getRenderer(), setSunFlare(), setShadow(), setMaxProcess(), setPixelResolution(), setPixelRatio(), setRatioTileSize(), setRatioModelTileSize(), setTileUpdateSensitivity(), setToneMappingExposure(), setIntensityLight(), setIntensitySunLight(), setModelUpdateOffset(), restartQuadTree()}
+            URenderer — 독립 MSAA 요청값 복원; 함수: {setMsaaSamples()}
         동작:
             앱이나 setting이 없으면 종료한다.
-            정의된 improveTexture·postProcess·postOption·sunFlare·shadow·maxProcess·pixelResolution·pixelRatio·tileRatio·modelTileRatio·tileUpdateSensitivity·toneExposure·intensityLight·intensitySunLight·modelUpdateOffset을 이 순서로 각 setter에 전달한다.
+            정의된 improveTexture·postProcess·postOption·msaaSamples·sunFlare·shadow·maxProcess·pixelResolution·pixelRatio·tileRatio·modelTileRatio·tileUpdateSensitivity·toneExposure·intensityLight·intensitySunLight·modelUpdateOffset을 이 순서로 각 setter에 전달한다. msaaSamples는 렌더러가 있을 때 해당 렌더러에 적용하고 생략하면 기존 MSAA를 유지한다.
             improveTexture가 none이어도 setter에 전달하지만 현재 U3dApp은 값 0을 적용하지 않는다. [확인 Q-001]
             쿼드트리를 재시작하고 실제 앱 값을 표시한 뒤 템플릿 이름을 저장한다.
 

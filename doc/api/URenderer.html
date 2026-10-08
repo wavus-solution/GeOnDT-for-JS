@@ -15,7 +15,7 @@
     <!-- 한글 본문용 가변 서체입니다. 내려받지 못해도 styles/jaguar.css의 대체 서체로 그대로 표시됩니다. -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-    <link type="text/css" rel="stylesheet" href="styles/jaguar.css?v=muw7iz8z">
+    <link type="text/css" rel="stylesheet" href="styles/jaguar.css?v=muz1hdly">
     <script>
         // 화면이 그려지기 전에 테마를 정해 화면이 한 번 번쩍이는 것을 막습니다.
         // 상단 전환 버튼으로 직접 고른 적이 없으면 운영체제 설정을 따릅니다.
@@ -697,10 +697,6 @@
                     <a href="U3dApp.html#getInstanceTerrainLayers">getInstanceTerrainLayers</a>
                 </li>
             
-                <li data-name="getinstancevideolayers">
-                    <a href="U3dApp.html#getInstanceVideoLayers">getInstanceVideoLayers</a>
-                </li>
-            
                 <li data-name="getintensitylight">
                     <a href="U3dApp.html#getIntensityLight">getIntensityLight</a>
                 </li>
@@ -1167,6 +1163,10 @@
             
                 <li data-name="removeview">
                     <a href="U3dApp.html#removeView">removeView</a>
+                </li>
+            
+                <li data-name="renderframe">
+                    <a href="U3dApp.html#renderFrame">renderFrame</a>
                 </li>
             
                 <li data-name="resetfog">
@@ -1879,6 +1879,10 @@
                     <a href="UAnaly.html#active">active</a>
                 </li>
             
+                <li data-name="adddefaultevent">
+                    <a href="UAnaly.html#addDefaultEvent">addDefaultEvent</a>
+                </li>
+            
                 <li data-name="clear">
                     <a href="UAnaly.html#clear">clear</a>
                 </li>
@@ -1887,12 +1891,20 @@
                     <a href="UAnaly.html#deactive">deactive</a>
                 </li>
             
+                <li data-name="getanalysisoption">
+                    <a href="UAnaly.html#getAnalysisOption">getAnalysisOption</a>
+                </li>
+            
                 <li data-name="getscene">
                     <a href="UAnaly.html#getScene">getScene</a>
                 </li>
             
                 <li data-name="gettargetlayername">
                     <a href="UAnaly.html#getTargetLayerName">getTargetLayerName</a>
+                </li>
+            
+                <li data-name="gettype">
+                    <a href="UAnaly.html#getType">getType</a>
                 </li>
             
                 <li data-name="intersectmodel">
@@ -1915,6 +1927,10 @@
                     <a href="UAnaly.html#on">on</a>
                 </li>
             
+                <li data-name="setanalysisoption">
+                    <a href="UAnaly.html#setAnalysisOption">setAnalysisOption</a>
+                </li>
+            
                 <li data-name="setapp">
                     <a href="UAnaly.html#setApp">setApp</a>
                 </li>
@@ -1933,6 +1949,10 @@
         <section class="navigation-member-list" data-type="typedefs">
             <h3>Type Definitions</h3>
             <ul>
+            
+                <li data-name="ananlysis_mesh">
+                    <a href="UAnaly.html#~Ananlysis_Mesh">Ananlysis_Mesh</a>
+                </li>
             
                 <li data-name="uanalyco">
                     <a href="UAnaly.html#~UAnalyCO">UAnalyCO</a>
@@ -2475,6 +2495,10 @@
                     <a href="UAnalyContour.html#isTopoVisible">isTopoVisible</a>
                 </li>
             
+                <li data-name="setheightvisible">
+                    <a href="UAnalyContour.html#setHeightVisible">setHeightVisible</a>
+                </li>
+            
                 <li data-name="settopo">
                     <a href="UAnalyContour.html#setTopo">setTopo</a>
                 </li>
@@ -2745,6 +2769,14 @@
                     <a href="UAnalyCustomModel.html#isExistModelName">isExistModelName</a>
                 </li>
             
+                <li data-name="ispolygon">
+                    <a href="UAnalyCustomModel.html#isPolygon">isPolygon</a>
+                </li>
+            
+                <li data-name="merge">
+                    <a href="UAnalyCustomModel.html#merge">merge</a>
+                </li>
+            
                 <li data-name="mergemesh">
                     <a href="UAnalyCustomModel.html#mergeMesh">mergeMesh</a>
                 </li>
@@ -2782,6 +2814,14 @@
             
                 <li data-name="custommodelentry">
                     <a href="UAnalyCustomModel.html#~CustomModelEntry">CustomModelEntry</a>
+                </li>
+            
+                <li data-name="uanalycustommodelinput">
+                    <a href="UAnalyCustomModel.html#~UAnalyCustomModelInput">UAnalyCustomModelInput</a>
+                </li>
+            
+                <li data-name="uanalycustommodelsetup">
+                    <a href="UAnalyCustomModel.html#~UAnalyCustomModelSetup">UAnalyCustomModelSetup</a>
                 </li>
             
             </ul>
@@ -5494,17 +5534,6 @@
             <span class="navigation-primary-link"><a href="UAnalyViewCone.html">UAnalyViewCone</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="UAnalyViewCone.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -7912,17 +7941,6 @@
             <span class="navigation-primary-link"><a href="U3dImageLayer.html">U3dImageLayer</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dImageLayer.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -8278,17 +8296,6 @@
             <span class="navigation-primary-link"><a href="U3dImageWMSLayer.html">U3dImageWMSLayer</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dImageWMSLayer.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -8504,17 +8511,6 @@
             <span class="navigation-primary-link"><a href="U3dImageXYZLayer.html">U3dImageXYZLayer</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dImageXYZLayer.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -8573,10 +8569,6 @@
             
                 <li data-name="event">
                     <a href="U3dLayer.html#EVENT">EVENT</a>
-                </li>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dLayer.html#OPT_KEYS">OPT_KEYS</a>
                 </li>
             
                 <li data-name="initialized">
@@ -8998,10 +8990,6 @@
                     <a href="U3dLayerList.html#getInstanceVectorTileLayers">getInstanceVectorTileLayers</a>
                 </li>
             
-                <li data-name="getinstancevideolayers">
-                    <a href="U3dLayerList.html#getInstanceVideoLayers">getInstanceVideoLayers</a>
-                </li>
-            
                 <li data-name="getlayer">
                     <a href="U3dLayerList.html#getLayer">getLayer</a>
                 </li>
@@ -9203,17 +9191,6 @@
             <span class="navigation-primary-link"><a href="U3dModelBasicLayer.html">U3dModelBasicLayer</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dModelBasicLayer.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -11209,17 +11186,6 @@
             <span class="navigation-primary-link"><a href="U3dOpenLayer.html">U3dOpenLayer</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dOpenLayer.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -11274,6 +11240,10 @@
             
                 <li data-name="getdebuglogjson">
                     <a href="U3dOpenLayer.html#getDebugLogJson">getDebugLogJson</a>
+                </li>
+            
+                <li data-name="gettilebackgroundcolor">
+                    <a href="U3dOpenLayer.html#getTileBackgroundColor">getTileBackgroundColor</a>
                 </li>
             
                 <li data-name="refresh">
@@ -11876,6 +11846,10 @@
             
                 <li data-name="u3dvectorlayeremi">
                     <a href="U3dVectorLayer.html#~U3dVectorLayerEMI">U3dVectorLayerEMI</a>
+                </li>
+            
+                <li data-name="u3dvectortileindexstate">
+                    <a href="U3dVectorLayer.html#~U3dVectorTileIndexState">U3dVectorTileIndexState</a>
                 </li>
             
             </ul>
@@ -13335,12 +13309,20 @@
                     <a href="U3dCumulativePath.html#getHelperMesh">getHelperMesh</a>
                 </li>
             
+                <li data-name="getnodes">
+                    <a href="U3dCumulativePath.html#getNodes">getNodes</a>
+                </li>
+            
                 <li data-name="getpath">
                     <a href="U3dCumulativePath.html#getPath">getPath</a>
                 </li>
             
                 <li data-name="gettail">
                     <a href="U3dCumulativePath.html#getTail">getTail</a>
+                </li>
+            
+                <li data-name="gettailpolicy">
+                    <a href="U3dCumulativePath.html#getTailPolicy">getTailPolicy</a>
                 </li>
             
                 <li data-name="hide">
@@ -13428,10 +13410,6 @@
             
                 <li data-name="u3dcumulativepathpositiondata">
                     <a href="U3dCumulativePath.html#~U3dCumulativePathPositionData">U3dCumulativePathPositionData</a>
-                </li>
-            
-                <li data-name="u3dcumulativepathstylefunc">
-                    <a href="U3dCumulativePath.html#~U3dCumulativePathStyleFunc">U3dCumulativePathStyleFunc</a>
                 </li>
             
                 <li data-name="u3dcumulativepath_styleopt">
@@ -14442,6 +14420,14 @@
                     <a href="U3dLine.html#linewidth">linewidth</a>
                 </li>
             
+                <li data-name="renderorder">
+                    <a href="U3dLine.html#renderOrder">renderOrder</a>
+                </li>
+            
+                <li data-name="visible">
+                    <a href="U3dLine.html#visible">visible</a>
+                </li>
+            
                 <li data-name="worldunits">
                     <a href="U3dLine.html#worldUnits">worldUnits</a>
                 </li>
@@ -14455,6 +14441,10 @@
             
                 <li data-name="clearsurfacedrape">
                     <a href="U3dLine.html#clearSurfaceDrape">clearSurfaceDrape</a>
+                </li>
+            
+                <li data-name="computelinedistances">
+                    <a href="U3dLine.html#computeLineDistances">computeLineDistances</a>
                 </li>
             
                 <li data-name="dispose">
@@ -14536,6 +14526,14 @@
         <section class="navigation-member-list" data-type="members">
             <h3>Members</h3>
             <ul>
+            
+                <li data-name="geometry">
+                    <a href="U3dPathGeometry.html#geometry">geometry</a>
+                </li>
+            
+                <li data-name="material">
+                    <a href="U3dPathGeometry.html#material">material</a>
+                </li>
             
                 <li data-name="renderorder">
                     <a href="U3dPathGeometry.html#renderOrder">renderOrder</a>
@@ -14843,6 +14841,10 @@
                     <a href="U3dPoint.html#img">img</a>
                 </li>
             
+                <li data-name="material">
+                    <a href="U3dPoint.html#material">material</a>
+                </li>
+            
                 <li data-name="materiallist">
                     <a href="U3dPoint.html#materialList">materialList</a>
                 </li>
@@ -14851,12 +14853,24 @@
                     <a href="U3dPoint.html#offset">offset</a>
                 </li>
             
+                <li data-name="renderorder">
+                    <a href="U3dPoint.html#renderOrder">renderOrder</a>
+                </li>
+            
                 <li data-name="size">
                     <a href="U3dPoint.html#size">size</a>
                 </li>
             
                 <li data-name="sizeattenuation">
                     <a href="U3dPoint.html#sizeAttenuation">sizeAttenuation</a>
+                </li>
+            
+                <li data-name="userdata">
+                    <a href="U3dPoint.html#userData">userData</a>
+                </li>
+            
+                <li data-name="visible">
+                    <a href="U3dPoint.html#visible">visible</a>
                 </li>
             
             </ul>
@@ -14872,6 +14886,10 @@
             
                 <li data-name="getdepthtest">
                     <a href="U3dPoint.html#getDepthTest">getDepthTest</a>
+                </li>
+            
+                <li data-name="getmaterial">
+                    <a href="U3dPoint.html#getMaterial">getMaterial</a>
                 </li>
             
                 <li data-name="getoffset">
@@ -14896,6 +14914,10 @@
             
                 <li data-name="setimage">
                     <a href="U3dPoint.html#setImage">setImage</a>
+                </li>
+            
+                <li data-name="setmaterial">
+                    <a href="U3dPoint.html#setMaterial">setMaterial</a>
                 </li>
             
                 <li data-name="setoffset">
@@ -15101,6 +15123,10 @@
                     <a href="U3dSphere.html#radius">radius</a>
                 </li>
             
+                <li data-name="renderorder">
+                    <a href="U3dSphere.html#renderOrder">renderOrder</a>
+                </li>
+            
                 <li data-name="setdistancematerial">
                     <a href="U3dSphere.html#setDistanceMaterial">setDistanceMaterial</a>
                 </li>
@@ -15115,6 +15141,10 @@
             
                 <li data-name="useline">
                     <a href="U3dSphere.html#useline">useline</a>
+                </li>
+            
+                <li data-name="visible">
+                    <a href="U3dSphere.html#visible">visible</a>
                 </li>
             
                 <li data-name="widthsegments">
@@ -18175,6 +18205,10 @@
                     <a href="URenderer.html#getDrawCall">getDrawCall</a>
                 </li>
             
+                <li data-name="getmsaasamples">
+                    <a href="URenderer.html#getMsaaSamples">getMsaaSamples</a>
+                </li>
+            
                 <li data-name="getpassesbytype">
                     <a href="URenderer.html#getPassesByType">getPassesByType</a>
                 </li>
@@ -18243,12 +18277,12 @@
                     <a href="URenderer.html#setApp">setApp</a>
                 </li>
             
-                <li data-name="setcomposersamples">
-                    <a href="URenderer.html#setComposerSamples">setComposerSamples</a>
-                </li>
-            
                 <li data-name="setenvoption">
                     <a href="URenderer.html#setEnvOption">setEnvOption</a>
+                </li>
+            
+                <li data-name="setmsaasamples">
+                    <a href="URenderer.html#setMsaaSamples">setMsaaSamples</a>
                 </li>
             
                 <li data-name="setpasssize">
@@ -18466,7 +18500,8 @@ dispose()는 해당 listener를 먼저 해제한 뒤 컨텍스트를 강제로 �
 initComposer()가 필요한 pass를 모두 만들어 이름별로 등록해 두고, 그중 켜져 있는 pass만 실제로 composer에 들어갑니다.<br>
 등록한 뒤에 켜고 끄는 것은 activePass()만 사용하며, 이 메서드가 켜짐 상태를 바꾸면서 composer에 넣거나 빼 줍니다.<br>
 pass는 등록한 순서가 아니라 각자 가진 순서 값대로 실행되므로 새 pass를 넣을 때는 순서 값을 먼저 정해야 합니다.<br>
-setPostProcess(false)로 후처리를 끄면 화면 품질용 pass만 꺼지고 화면 출력과 분석·유틸 pass는 그대로 남습니다.</p></div>
+setPostProcess(false)로 후처리를 끄면 화면 품질용 pass만 꺼지고 화면 출력과 분석·유틸 pass는 그대로 남습니다.
+이때 통합 출력 pass는 밝기·대비만 생략하고 톤 매핑과 출력 색 변환을 유지합니다.</p></div>
     
 </header>  
 
@@ -18481,7 +18516,7 @@ setPostProcess(false)로 후처리를 끄면 화면 품질용 pass만 꺼지고 
     <div class="nameContainer">
         <h4 class="name" id="URenderer">
             
-             new URenderer<span class="signature">()</span>
+             new URenderer<span class="signature">(<span class="optional">opt</span>)</span>
         </h4>
     
     </div>
@@ -18491,11 +18526,75 @@ setPostProcess(false)로 후처리를 끄면 화면 품질용 pass만 꺼지고 
 <dd>
     
     
+    <div class="description">
+        <p>WebGL 렌더러를 생성하고 MSAA와 후처리 보정 설정을 각각 초기화합니다.</p>
+    </div>
+    
 
     
     
     
     
+    
+        
+
+<table class="params">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		<th>Default</th>
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>opt</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#URendererCO">URendererCO</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="default">
+                
+                    {}
+                
+                </td>
+            
+            
+            <td class="description last">
+                
+                    
+                        <span class="optional">optional</span>
+                    
+                    
+                        
+                    
+                
+                <p>WebGL 생성 옵션과 렌더러 품질 설정</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table>
     
     
     
@@ -18531,6 +18630,33 @@ setPostProcess(false)로 후처리를 끄면 화면 품질용 pass만 꺼지고 
     
     
     
+    <h5>Throws:</h5>
+    
+            
+
+<dl>
+    <dt>
+        <div class="param-desc">
+        <p>msaaSamples가 0 이상의 안전한 정수가 아닌 경우</p>
+        </div>
+    </dt>
+    <dt>
+        <dl>
+            <dt>
+                Type
+            </dt>
+            <dd>
+                
+<span class="param-type">RangeError</span>
+
+
+            </dd>
+        </dl>
+    </dt>
+</dl>
+
+
+        
     
     
     
@@ -18968,6 +19094,7 @@ setPostOption()을 호출할 때마다 기기 성능 판정값으로 덮어써�
         <p>pass를 켜거나 끄고 그 결과를 composer에도 반영합니다.<br>
 등록된 pass의 켜짐 상태를 바꾸는 방법은 이 메서드뿐이며, 켜면 자기 순서 자리에 끼워 넣고 끄면 composer에서 빼냅니다.<br>
 후처리가 꺼져 있으면 화면 품질용과 선택 품질용 pass는 true를 넘겨도 꺼진 상태로 남습니다.<br>
+사용 요청은 camera에 따른 일시 중단과 별도로 저장하여 다음 그리기에서 재판정합니다.<br>
 등록되어 있지 않은 pass를 넘기면 아무것도 하지 않습니다.</p>
     </div>
     
@@ -20380,6 +20507,102 @@ pass 목록도 비우므로 이후 후처리를 다시 쓰려면 initComposer()�
             
 <dt>
     <div class="nameContainer">
+        <h4 class="name" id="getMsaaSamples">
+            
+             getMsaaSamples<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">number</span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>렌더러에 설정한 MSAA 요청 샘플 수를 반환합니다.<br>
+장치 상한으로 제한하기 전 요청값이며 기본값은 2입니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    <h5>Returns:</h5>
+    
+
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Type</th>
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+        <tr>
+            
+            <td class="type">
+            
+                        number
+                        
+                    
+            </td>
+            <td class="description last">MSAA 요청 샘플 수이며 0이면 비활성화</td>
+        </tr>
+    
+    </tbody>
+</table>
+
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
         <h4 class="name" id="getPassesByType">
             
              getPassesByType<span class="signature">(type)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">Array.&lt;<a href="UPassInfo.html#~UPassInfo">UPassInfo</a>></span>
@@ -21172,7 +21395,7 @@ setApp()으로 앱을 연결한 뒤에만 값이 있습니다.</p>
 등록 시점의 켜짐 상태가 그대로 반영되어, 켜져 있는 pass만 composer에 들어가고 꺼진 pass는 이름만 등록된 채 대기합니다.<br>
 기본으로 켜지는 것은 장면 렌더·화면 출력·대비 밝기 보정·계단 현상 완화이고, AO와 Bloom과 Dither는 후처리 설정을 따릅니다.<br>
 스카이라인·일조량·높이·오버레이·복사·외곽선 pass는 꺼진 채 등록되므로 필요할 때 activePass()로 켭니다.<br>
-실행 순서는 등록 순서가 아니라 각 pass가 가진 순서 값을 따르며, 장면 렌더에서 시작해 화면 출력을 지나 계단 현상 완화와 Dither가 마지막에 옵니다.<br>
+AO 뒤에서 밝기·대비와 출력을 함께 처리하고, 뒤쪽에서 FXAA와 선택적 Dither를 함께 처리합니다.<br>
 후처리를 꺼 둔 상태로 등록하면 화면 품질용 pass는 등록과 동시에 꺼집니다.<br>
 renderComposer()가 composer가 없을 때 대신 호출하므로 보통 직접 부르지 않습니다.</p>
     </div>
@@ -21817,7 +22040,7 @@ renderComposer()가 composer가 없을 때 대신 호출하므로 보통 직접 
     
     <div class="description">
         <p>후처리 composer로 한 프레임을 화면에 그립니다.<br>
-composer가 아직 없으면 이 시점에 만들고, 이미 있으면 켜져 있는 pass에 camera만 갱신합니다.<br>
+composer가 아직 없으면 이 시점에 만들며, 첫 그리기부터 pass의 camera 상태를 갱신합니다.<br>
 자동 지우기를 끄고 그리므로 이전에 그려 둔 내용 위에 겹쳐집니다.</p>
     </div>
     
@@ -22527,175 +22750,6 @@ composer가 아직 없으면 이 시점에 만들고, 이미 있으면 켜져 �
             
 <dt>
     <div class="nameContainer">
-        <h4 class="name" id="setComposerSamples">
-            
-             setComposerSamples<span class="signature">(samples)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">void</span>
-        </h4>
-    
-    </div>
-
-    
-</dt>
-<dd>
-    
-    
-    <div class="description">
-        <p>후처리 렌더 타깃의 MSAA 요청 샘플 수를 저장합니다.<br>
-실제 적용값은 장치 상한으로 제한하며, 이미 생성된 타깃은 다음 후처리 렌더 시작 시 갱신합니다.<br>
-다른 후처리 pass의 활성 상태는 변경하지 않습니다.</p>
-    </div>
-    
-
-    
-    
-    
-    
-    
-        
-
-<table class="params">
-    <thead>
-	<tr>
-		
-		<th>Name</th>
-		
-		
-		<th>Type</th>
-		
-		
-		
-		<th class="last">Description</th>
-	</tr>
-	</thead>
-	
-	<tbody>
-	
-	
-        <tr>
-            
-                <td class="name"><code>samples</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-            
-            <td class="description last">
-                
-                <p>0 이상의 안전한 정수이며 0이면 MSAA를 비활성화합니다.</p></td>
-        </tr>
-	
-	
-	</tbody>
-</table>
-    
-    
-    
-<dl class="details">
-    
-        
-    
-    
-    
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-</dl>
-
-    
-    
-
-    
-
-    
-    
-    
-    <h5>Throws:</h5>
-    
-            
-
-<dl>
-    <dt>
-        <div class="param-desc">
-        <p>샘플 수가 0 이상의 안전한 정수가 아닌 경우</p>
-        </div>
-    </dt>
-    <dt>
-        <dl>
-            <dt>
-                Type
-            </dt>
-            <dd>
-                
-<span class="param-type">RangeError</span>
-
-
-            </dd>
-        </dl>
-    </dt>
-</dl>
-
-
-        
-    
-    
-    <h5>Returns:</h5>
-    
-
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Type</th>
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-    <tbody>
-    
-        <tr>
-            
-            <td class="type">
-            
-                        void
-                        
-                    
-            </td>
-            <td class="description last">반환값 없음</td>
-        </tr>
-    
-    </tbody>
-</table>
-
-    
-    
-    
-</dd>
-
-        
-            
-<dt>
-    <div class="nameContainer">
         <h4 class="name" id="setEnvOption">
             
              setEnvOption<span class="signature">(camera)</span>
@@ -22810,6 +22864,148 @@ composer가 아직 없으면 이 시점에 만들고, 이미 있으면 켜져 �
             
 <dt>
     <div class="nameContainer">
+        <h4 class="name" id="setMsaaSamples">
+            
+             setMsaaSamples<span class="signature">(msaaSamples)</span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>렌더러의 MSAA 요청 샘플 수를 설정합니다.<br>
+기본값은 2이며 환경의 성능과 화질에 맞게 0·2·4·8 등을 선택하십시오.<br>
+값을 높이면 얇은 선과 원거리 경계를 부드럽게 하지만 GPU 비용도 늘어납니다.<br>
+실제 적용값은 장치 상한으로 제한하며, 이미 생성된 타깃은 다음 후처리 렌더 시작 시 갱신합니다.<br>
+후처리 보정 사용 여부와 독립적으로 적용하며 다른 pass의 활성 상태는 변경하지 않습니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
+        
+
+<table class="params">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>msaaSamples</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+            
+            <td class="description last">
+                
+                <p>0 이상의 안전한 정수이며 0이면 MSAA 비활성화</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table>
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    <h5>Throws:</h5>
+    
+            
+
+<dl>
+    <dt>
+        <div class="param-desc">
+        <p>샘플 수가 0 이상의 안전한 정수가 아닌 경우</p>
+        </div>
+    </dt>
+    <dt>
+        <dl>
+            <dt>
+                Type
+            </dt>
+            <dd>
+                
+<span class="param-type">RangeError</span>
+
+
+            </dd>
+        </dl>
+    </dt>
+</dl>
+
+
+        
+    
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
         <h4 class="name" id="setPassSize">
             
              setPassSize<span class="signature">()</span>
@@ -22880,7 +23076,7 @@ composer가 아직 없으면 이 시점에 만들고, 이미 있으면 켜져 �
     <div class="nameContainer">
         <h4 class="name" id="setPostOption">
             
-             setPostOption<span class="signature">(<span class="optional">option</span>)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">void</span>
+             setPostOption<span class="signature">(<span class="optional">option</span>)</span>
         </h4>
     
     </div>
@@ -22894,9 +23090,8 @@ composer가 아직 없으면 이 시점에 만들고, 이미 있으면 켜져 �
         <p>후처리 설정을 갱신하고 그 값을 각 pass에 반영합니다.<br>
 넘기지 않은 항목은 기존 값을 유지하고, 기존 값도 없으면 정적 기본값을 사용합니다.<br>
 AO와 Bloom의 기본값은 호출할 때마다 기기 성능 판정값으로 먼저 덮어쓰므로, 저사양 기기에서는 지정하지 않은 항목이 꺼진 채로 시작합니다.<br>
-화면 품질용 pass를 모두 켠 뒤 대비·밝기를 적용하고, AO·Bloom·Dither는 설정값에 따라 개별로 켜고 끕니다.<br>
-composer가 아직 없으면 등록된 pass가 없어 설정 저장까지만 이뤄집니다.
-composerSamples는 기본 4이며 변경 시 다음 후처리 렌더 시작에 반영됩니다.</p>
+화면 품질용 pass를 켠 뒤 대비·밝기를 적용하고, AO·Bloom과 통합 FXAA의 Dither 효과는 설정값을 따릅니다.<br>
+composer가 아직 없으면 등록된 pass가 없어 설정 저장까지만 이뤄집니다.</p>
     </div>
     
 
@@ -22999,63 +23194,7 @@ composerSamples는 기본 4이며 변경 시 다음 후처리 렌더 시작에 �
     
     
     
-    <h5>Throws:</h5>
     
-            
-
-<dl>
-    <dt>
-        <div class="param-desc">
-        <p>composerSamples가 0 이상의 안전한 정수가 아닌 경우</p>
-        </div>
-    </dt>
-    <dt>
-        <dl>
-            <dt>
-                Type
-            </dt>
-            <dd>
-                
-<span class="param-type">RangeError</span>
-
-
-            </dd>
-        </dl>
-    </dt>
-</dl>
-
-
-        
-    
-    
-    <h5>Returns:</h5>
-    
-
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Type</th>
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-    <tbody>
-    
-        <tr>
-            
-            <td class="type">
-            
-                        void
-                        
-                    
-            </td>
-            <td class="description last">반환값 없음</td>
-        </tr>
-    
-    </tbody>
-</table>
-
     
     
     
@@ -23486,9 +23625,10 @@ draw()가 등록된 콜백이 있을 때만 호출합니다.</p>
     
     
     <div class="description">
-        <p>켜져 있는 pass들에 지금 사용할 camera를 알려 줍니다.<br>
+        <p>사용하도록 설정된 pass들에 지금 사용할 camera를 알려 줍니다.<br>
 camera를 바꿔 가며 같은 composer로 여러 번 그릴 때 각 pass가 옛 camera를 붙들지 않게 합니다.<br>
-camera를 받아 갱신하는 수단을 가진 pass만 대상이 됩니다.</p>
+camera 제한으로 일시 중단된 pass도 갱신하여, 지원하는 camera로 돌아오면 복구합니다.<br>
+사용자가 끄거나 후처리 전체 설정으로 차단된 pass는 갱신하지 않습니다.</p>
     </div>
     
 
@@ -23637,45 +23777,6 @@ U3dApp의 setPostOption()과 getPostOption()도 같은 타입을 사용합니다
 	</thead>
 	
 	<tbody>
-	
-	
-        <tr>
-            
-                <td class="name"><code>composerSamples</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-                    
-                
-                </td>
-            
-            
-            
-                <td class="default">
-                
-                    4
-                
-                </td>
-            
-            
-            <td class="description last"><p>후처리 렌더 타깃의 MSAA 요청 샘플 수입니다.<br>
-0 이상의 안전한 정수만 허용하며 0이면 MSAA를 비활성화합니다.<br>
-요청값은 보관하고 실제 적용값은 장치의 MSAA 상한으로 제한합니다. 변경은 다음 후처리 렌더 시작 시 반영됩니다.</p></td>
-        </tr>
-	
 	
 	
         <tr>
@@ -23987,7 +24088,7 @@ useBloom이 false이면 화면에 나타나지 않습니다.</p></td>
 
     </div>
 </div>
-<script src="scripts/prism.js?v=muw7iz8z"></script>
-<script src="scripts/main.js?v=muw7iz8z"></script>
+<script src="scripts/prism.js?v=muz1hdly"></script>
+<script src="scripts/main.js?v=muz1hdly"></script>
 </body>
 </html>

@@ -44,7 +44,11 @@ const mercator = new UMercator();
  *   });
  */
 class U3dImageWMSLayer extends U3dImageLayer {
-    /** @override */
+    /**
+     * @override
+     *
+     * @ignore
+     */
     static OPT_KEYS = [
         ...U3dImageLayer.OPT_KEYS,
         'layerName', 'reverseX', 'reverseY', 'width', 'height', 'cqlFilter', 'version',

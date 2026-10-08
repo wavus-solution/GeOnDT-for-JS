@@ -20,7 +20,7 @@
 
 ### 1.4 주요 사용처와 연계 대상
 
-`GeOnDT.model.U3dModelBasicLayer`로 공개된다. `U3dMultipleComponentLayer`, `U3dModelTdsLayer`, `U3dModelStaticLayer`가 상속하며, `U3dLodComponentLayer`는 초기화·표시의 기반 구현을 직접 호출한다. `tutorial-official/mergeVerticesObj.html`은 직접 생성과 정점 병합 사용처다.
+`GeOnDT.model.U3dModelBasicLayer`로 공개된다. `U3dMultipleComponentLayer`, `U3dModelTdsLayer`, `U3dModelStaticLayer`가 상속하며, `U3dLodComponentLayer`는 초기화·표시의 기반 구현을 직접 호출한다.
 
 ## 3. 정규 자연어 수도코드
 
@@ -156,7 +156,7 @@ U3dModelBasicLayer extends U3dModelLayer 클래스 정의
             객체 이름을 name 또는 빈 문자열로 지정하고 위치를 원점으로 만든 뒤 node를 _nodeID에 저장한다.
             색상·기준 주소·면·종류·확장자·외곽선·텍스처·XML·모델 목록·경로·LOD·Y-up·좌표계 설정을 저장한다. undefined만 기본값으로 대체하며 listModel은 복사하지 않는다.
             needXml이 falsy일 때만 크기·위치·위경도·회전·경계를 옵션과 기본값에서 저장한다. 위치 기본값은 undefined다.
-            제목·높이·U3F·XML 주소·비디오 목록·메타데이터·offset·Sprite 설정을 저장하고 modelType을 구성한다.
+            제목·높이·U3F·XML 주소·메타데이터·offset·Sprite 설정을 저장하고 modelType을 구성한다.
 
     override setApp(app: U3dApp) -> void
         의존:
@@ -702,15 +702,13 @@ load3DS(model: ModelInfo & KeyValue, textureUrl?: string)
 afterLoad3DS(promise: U3dModelBasicLayerCompletion, model: ModelInfo & KeyValue, object: ModelMesh)
     인터페이스: this는 U3dModelBasicLayer이며 전달받은 promise와 이 함수가 만드는 완료 객체를 별도로 종결한다.
     의존:
-        defined — 비디오·중심·재질·외곽선·교체 객체 존재 검사; 함수: {defined()}
+        defined — 중심·재질·외곽선·교체 객체 존재 검사; 함수: {defined()}
         UDEF — 후처리 완료·종류·해제; 정적 함수: {createPromise(), disposeObject3D()}; 상수: {UMESH_TYPE._complexBuilding}
         THREE — 메시·선 종류, 색상·외곽선·경계; 속성 읽기: {Mesh, LineSegments}; 생성자: {new Color(), new EdgesGeometry(), new LineSegments(), new LineBasicMaterial(), new Box3()}
-        U3dApp — 비디오 레이어; 함수: {createVideoLayer()}
         U3dModelLayer — 중심 설정; 함수: {setOriginCenter()}
         Web API — 후처리 오류 로그; 함수: {console.error()}
     동작:
         별도 완료 객체의 try 안에서 object.name=model.name으로 쓰고 Mesh 하위 타입 자손을 순회한다.
-        videourl이 정의되었으면 각 자식과 레이어 배치 설정으로 비디오 레이어를 만들어 _videoLayer에 추가한다.
         레이어 이름·복합 건물 종류를 쓰고 XML 첫 파일 이름이 없거나 현재 파일 이름과 대소문자 무시 비교가 다르면 자식 중심을 설정한다.
         정의된 재질은 단일값을 배열로 취급한다. 각 재질에서 _color가 정의되었을 때만 색상을 대체하며, 색상 대체 여부와 관계없이 자식이 LineSegments가 아니면 opacity·metalness=0.1과 원본 transparent 보관을 적용한다.
         _drawLine이 truthy이고 geometry·position 속성이 정의되었을 때만 검은색·선폭 2 외곽선을 추가한다.

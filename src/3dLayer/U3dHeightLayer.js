@@ -514,7 +514,8 @@ class U3dHeightLayer extends U3dLayer {
         if (!defined(geometry) || !defined(tile._mesh))
             return;
 
-        const mesh = tile.getMesh();
+        // 위에서 기반 메시의 존재를 확인했으며 표준 getMesh()는 같은 _mesh를 반환합니다.
+        const mesh = /** @type {import('@union3d/core/mesh/UTileMesh').UTileMesh} */ (tile.getMesh());
         mesh.scale.z = this.getHeightScale();
 
         tile.changeGeometry(geometry);

@@ -17,6 +17,8 @@
 
 처리기별 실행·대기 수와 작업 시간을 관찰하고, 구간 평균 100FPS 미만의 RAF 지연이 반복되면서 간격이 불안정하면 main 우선으로 한도를 줄인다. 높은 평균 응답 구간의 진폭은 측정하되 감속하지 않으며 평균 120FPS 이상으로 복귀하면 한 역할씩 처리량을 회복한다. 큰 단발 지연은 한도 증가를 잠시 보류한다. 안정된 저속 RAF 자체는 감속 사유가 아니다. 작업 지연에 따른 선제 감속과 복원 취소에도 같은 개입 구간을 적용한다. 처리기별 긴 큐 대기와 역할별 변경 효과를 관찰하며 증가 시험은 하나만 진행한다. 정착·기존 작업 배출·하한 보호와 짧은 완전 유휴의 한도 유지는 계속 적용한다.
 
+이동 중에는 카메라 변화량으로 메인 동시 실행 수와 큐의 시작 간격을 점진적으로 조절한다. 작업 생성과 타일 갱신은 기존 경로로 진행하며 FrameState와 U3dQuadSet의 갱신 여부를 제어하지 않는다. 이동 압력만 남고 실제 제한이 없으면 RAF 감속·복원을 계속한다. 관찰 구간 중 메인 한도를 추가로 낮추거나 시작 간격을 적용한 경우에만 메인 RAF 시험과 그 피드백을 보류한다. Work는 기존 RAF·대기 기준으로 계속 조절하며 이동 제한과 섞인 RAF 변화는 Work만의 효과로 비교하지 않는다. 마지막 실제 이동 이후 96ms 안에 이동 제한을 풀며 메인 RAF 시험은 이동 제한이 섞이지 않은 관찰 구간에서 재개한다.
+
 ### 1.4 주요 사용처와 연계 대상
 
 `U3dApp`이 관리자를 생성하여 각 처리기 참조를 받고 최대 작업 수 변경을 전달한다. 실제 렌더 루프의 RAF 시각은 `_recordFrame()`으로 전달한다. 관리자 소유 타일 처리기와 측정 자원의 전체 종료는 `dispose()`가 담당하며 앱 자원을 해제하기 전에 호출한다.
@@ -38,6 +40,20 @@ RAF 간격 기록과 자동 조절 상태는 UProcessManager 인스턴스별로 
 ## 3. 정규 자연어 수도코드
 
 ```spec
+UProcessMotionState 타입 정의
+    active: boolean
+        감쇠 후 이동 압력이 남아 있는지 여부다. 실제 한도 감소나 시작 간격 적용을 뜻하지는 않는다.
+    strength: number
+        0~1 이동 압력이며 정지 뒤 시간에 따라 감쇠한다.
+    screenSpeed: number
+        마지막 관측 이동 속도, 화면 높이 비율/초다.
+    screenDelta: number
+        마지막 관측 사이 화면 높이 대비 변화 비율이다.
+    startIntervalMs: number
+        메인 처리기별 유효 작업 시작 간격, 밀리초다.
+    pacedStartCount: number
+        이동 중 간격을 예약하여 시작한 메인 작업 수다.
+
 UProcessAdaptiveState 타입 정의
     enabled: boolean
         자동 조절 사용 설정이다. true여도 기준 상한이 8 이하면 실제 한도 조절을 생략하고 측정만 유지한다.
@@ -47,6 +63,10 @@ UProcessAdaptiveState 타입 정의
         사용자가 지정한 기준 상한이다.
     effectiveMaxProcess: number
         메인 처리기에 실제 적용한 한도다.
+    rafMaxProcess: number
+        이동 제한과 합성하기 전 RAF 제어의 메인 한도다.
+    motion: UProcessMotionState
+        카메라 이동에 따른 신규 작업 유입 상태의 복사본이다.
     effectiveWorkMaxProcess: number
         하위 작업의 기준 한도이며 단계별 배율 적용 전 값이다.
     frameIntervalMs: number
@@ -178,8 +198,12 @@ UProcessManager 클래스 정의
             진단 예외는 문자열로 보관하고 __GWarn__으로 알린다. 경고 자체의 예외도 격리하여 렌더링·작업 종결로 전파하지 않는다.
     // TEMP_PROCESS_DEBUG END
 
+    #motion: MotionAdmission
+        관리자 소유의 메인 시작 정책 객체이며 처리기별 시작 기록은 약한 참조로 관리한다. INTERNAL.createMotionAdmission으로 초기화한다.
+
     #adaptive: object
         자동 제어의 인스턴스 상태다. enabled는 true, 호환용 targetFps는 60, configuredLimit·appliedLimit·workLimit은 0으로 시작한다.
+        motionLimitedInWindow는 현재 관찰 구간에서 이동 정책이 RAF 한도보다 메인 한도를 더 낮추거나 양수 시작 간격을 적용했는지 나타내며 false로 시작한다. 구간 도중 제한이 해제돼도 다음 구간 초기화까지 true를 유지한다.
         previousTime은 undefined이며 windowStart·sampleCount·meanMs·squaredDeviation·peakIntervalMs으로 현재 구간을 누적한다. intervals는 길이 2048의 Float64Array이며 intervalCount까지 원본 간격을 보관한다. 그보다 많은 표본도 평균·편차·최장 간격·인접 차이에는 계속 반영한다.
         adjacentSum·adjacentCount는 인접 간격 차이의 제곱합과 개수다. baselineMs는 안정 구간에서 학습한 평상시 간격, referenceMs는 현재 비교 기준이다. medianMs·p95Ms·amplitudeMs·adjacentRmsMs·peakExcessMs·jitterAllowanceMs는 마지막 구간의 중앙값·분위수·진폭·인접 차이·최장 초과·허용 진폭이며 초기값은 0이다.
         intervalMs·averageMs·deviationMs·slowRatio·budgetExceededRatio·maximumFrameMs·measuredCount와 framePressure는 조회용 통계이며 초기값은 0이다. slowCount·excessMs는 중심과 허용 진폭을 넘은 표본 수·초과 시간이다.
@@ -203,7 +227,7 @@ UProcessManager 클래스 정의
         관리자 소유 처리기의 main/work 구분과 단계 이름이다. windowPeak·windowStarts·windowArrivals·windowCompleted·windowLimitHits는 구간의 최대 점유·시작·등록·정상 완료·한도 도달 시작 수다. 그룹 학습 상한과 무관하게 기록한다.
         queueWatch는 큐가 남은 동안만 보관하는 수치 관찰이며 pendingMs·windowMs·sumMs·samples·waitMs·sampleAgeMs·noStartMs를 0부터 누적한다. 큐가 비거나 측정 이력을 초기화하면 null로 해제한다. 작업 객체는 보관하지 않는다.
     #limitFeedback: Map<string, object> = 빈 Map
-        main·work별 직전 한도 변경의 응답·처리 여력 피드백이며 최대 두 개를 보관한다. role·previousLimit·direction·startedAt과 변경 전 진폭·최장 초과·평균을 보관한다. rafComparable은 true로 시작하고 반대 역할의 한도가 바뀌면 false가 된다. 유효 관찰 기간·진폭과 최장 초과 가중 합계·간격 합계·표본 수는 0부터 누적한다.
+        main·work별 직전 한도 변경의 응답·처리 여력 피드백이며 최대 두 개를 보관한다. role·previousLimit·direction·startedAt과 변경 전 진폭·최장 초과·평균을 보관한다. rafComparable은 이동 제한이 섞인 구간이면 false, 그 밖에는 true로 시작하고 반대 역할의 한도가 바뀌거나 이동 제한이 섞이면 false가 된다. 유효 관찰 기간·진폭과 최장 초과 가중 합계·간격 합계·표본 수는 0부터 누적한다.
         capacityWindowMs는 현재 처리 여력 관찰 구간의 유효 시간이며 0부터 누적한다. flows에는 처리기별 이름·역할·변경 전 대기·초당 완료·완료 표본·큐 대기 표본과 평균을 복사한다. 현재 구간의 완료 수·큐 대기 합계와 표본은 0부터, pendingThroughout는 변경 전 대기 여부부터 시작한다. badWindows는 같은 처리기의 연속 악화 구간 수이며 0부터 시작한다. 작업·레이어 객체는 보관하지 않는다.
     #frameMonitoringDisposed: boolean = false
         측정 해제 뒤 재기록과 재설정을 차단한다.
@@ -238,12 +262,13 @@ UProcessManager 클래스 정의
             UCustomProcess — 사용자 정의 처리기 생성; 생성자: {new UCustomProcess()}
             Web API — 문서 가시성 변경 감지; 함수: {document.addEventListener()}
         동작:
-            클래스 private 필드의 기본값은 먼저 준비한다. app이 falsy이면 앱·처리기를 초기화하지 않고 반환한다. 앱을 저장한 뒤 앱의 그리기 인자가 falsy이면 나머지를 초기화하지 않고 반환한다.
+            클래스 private 필드의 기본값과 관리자별 이동 객체를 먼저 준비한다.
+             app이 falsy이면 앱·처리기를 초기화하지 않고 반환한다. 앱을 저장한 뒤 앱의 그리기 인자가 falsy이면 나머지를 초기화하지 않고 반환한다.
             app이 truthy이고 _drawArg가 truthy이면:
                 maxProcess가 truthy이면 기준 한도로 쓰고 그 밖에는 앱의 _maxProcess를 사용한다.
                 사용자·영상·고도·모델 처리기와 모델 후속 처리기 목록을 생성해 보관한다.
                 사용자 정의 처리기와 빈 실행 로그 Map을 생성한다.
-                기준 한도를 configuredLimit·appliedLimit·workLimit에 기록한다. 네 메인 처리기를 user·image·height·model 이름과 main 종류로, 하위 처리기를 work1부터 순서대로 work 종류로 역할 Map에 등록한다. document가 있으면 참조를 저장하고 visibilitychange에 이력 초기화 콜백을 등록한다.
+                기준 한도를 configuredLimit·appliedLimit·effectiveLimit·workLimit에 기록한다. 네 메인 처리기를 user·image·height·model 이름과 main 종류로, 하위 처리기를 work1부터 순서대로 work 종류로 역할 Map에 등록한다. document가 있으면 참조를 저장하고 visibilitychange에 이력 초기화 콜백을 등록한다.
 
                 // TEMP_PROCESS_DEBUG BEGIN
                 처리기 구성이 끝나면 임시 ProcessDebugRecorder를 만들고 #debug를 통해 콘솔 함수를 등록한다.
@@ -259,7 +284,7 @@ UProcessManager 클래스 정의
     _recordTaskTiming(process: U3dQuadTileProcess | U3dQuadTileWorkProcess, task: object, phase: string, immediate: boolean = false) -> void
         인터페이스: phase는 queued·started·succeeded·failed·cancelled·timeout·discarded 중 하나다. immediate는 실행 호출과 완료 연결이 반환되기 전 종결 여부다.
         의존:
-            U3dApp — 측정 가능 상태 확인; 함수: {isInitialized(), isDisposed(), getStopRender()}
+            U3dApp — 측정 가능 상태 확인; 함수: {isInitialized(), isDisposed(), getStopRender(), getCamera(), getMapControl()}
             Web API — 단조 시각과 문서 가시성; 함수: {performance.now()}; 속성 읽기: {Document.hidden}
             U3dProcess — 시작 시 슬롯 점유·한도 측정; 함수: {getWorkingCount(), getMaxProcess()}
         동작:
@@ -318,6 +343,7 @@ UProcessManager 클래스 정의
             측정이 폐기되었으면 반환한다. #frameMonitoringDisposed가 false이면 가시화 지연 측정의 준비를 확인한다.
             #frameMonitoringDisposed가 false이고 자동 제어 꺼짐·유한하지 않은 시각이나 설정 한도·0 이하 설정 한도·앱 초기화 이전·폐기·렌더 중지·숨김 문서 중 하나이면 자동 제어 이력을 초기화하고 반환한다. 가시화 지연 측정은 유지한다.
             #frameMonitoringDisposed가 false이면:
+                이동 제어가 가능하면 현재 카메라·지도 조작 target·performance.now()로 이동을 관측한다. 메인 실제 한도를 합성 적용한다.
                 직전 시각을 보관하고 현재 시각으로 갱신한다. 직전 시각이 없으면 새 구간을 시작하고 반환한다. 간격이 0이면 무시하고 음수이면 이력을 초기화한다. 보이는 화면의 긴 양수 간격은 길이만으로 제외하지 않는다.
                 직전 간격과의 차이 제곱·현재 간격·최장 간격·전체 표본 수·점진 평균과 제곱 편차를 누적한다. 원본 버퍼에는 처음 2048개까지 저장한다.
                 구간이 250ms 미만이거나, 표본이 8개 미만이면서 구간이 1000ms 미만이면 기다린다. 이 조건을 벗어나면 보관한 표본을 정렬하여 아래쪽 중앙값·P10·위쪽 P95를 구하고 전체 표본의 평균·표준편차와 인접 차이 RMS를 반영한다.
@@ -346,7 +372,7 @@ UProcessManager 클래스 정의
                 메인과 하위 기준 한도 모두 사용자 설정으로 다시 적용하고 사유를 enabled 또는 disabled로 기록한다.
 
     getAdaptiveProcessState() -> UProcessAdaptiveState
-        동작: 사용 여부·호환용 FPS·설정 및 적용 한도·기준 간격·진폭·인접 차이·최장 초과·원래 압력과 실제 제어 압력·개입 상태·유효 지연과 큰 단발 지연 여부·10ms 초과 비율과 시간 비중·진입과 해제 누적 기간·변경 사유를 새 객체로 복사하여 반환한다. 단발 지연 보류 잔여 시간은 기한에서 마지막 RAF 시각을 빼고 0 이상으로 제한하며 시각이 없으면 0을 대신 뺀다. 내부 상태 객체는 반환하지 않는다.
+        동작: 사용 여부·호환용 FPS·설정 및 실제 적용 한도·별도 RAF 한도·현재 이동 상태·기준 간격·진폭·인접 차이·최장 초과·원래 압력과 실제 제어 압력·개입 상태·유효 지연과 큰 단발 지연 여부·10ms 초과 비율과 시간 비중·진입과 해제 누적 기간·변경 사유를 새 객체로 복사하여 반환한다. 이동 상태는 MotionAdmission.snapshot으로 복사한다. 단발 지연 보류 잔여 시간은 기한에서 마지막 RAF 시각을 빼고 0 이상으로 제한하며 시각이 없으면 0을 대신 뺀다. 내부 상태 객체는 반환하지 않는다.
 
     getVisualizationLatencyState() -> UVisualizationLatencyState | undefined
         의존: UVisualizationLatencyMonitor — 독립 결과 조회; 함수: {getSnapshot()}
@@ -401,10 +427,11 @@ UProcessManager 클래스 정의
 
     #resetFrameWindow(timestamp: number) -> void
         의존: U3dProcess — 새 구간 시작 시 점유 수; 함수: {getWorkingCount()}
-        동작: 시작 시각을 timestamp로 지정하고 구간 표본 수·버퍼 사용 길이·인접 차이 누적·평균·제곱 편차·지연 수·초과 시간·최장 간격을 0으로 만든다. 처리기별 최대 점유는 현재 실행 수로 시작하고 시작·신규 등록·정상 완료·한도 도달 계수는 0으로 만든다. 직전 간격과 완료 구간의 조회 통계는 유지한다.
+        동작: 시작 시각을 timestamp로 지정하고 구간 표본 수·버퍼 사용 길이·인접 차이 누적·평균·제곱 편차·지연 수·초과 시간·최장 간격을 0으로, motionLimitedInWindow를 false로 만든다. 처리기별 최대 점유는 현재 실행 수로 시작하고 시작·신규 등록·정상 완료·한도 도달 계수는 0으로 만든다. 직전 간격과 완료 구간의 조회 통계는 유지한다.
 
     #resetFrameHistory() -> void
         동작:
+            이동 이력을 초기화하고 기존 RAF 한도로 메인 실제 한도를 다시 적용한다.
             직전 시각을 undefined로 바꾸고 안정·대기 보호 안정·과부하·강한 과부하 시간과 연속 구간 수, 정착·추가 감소·회복 보류 시각을 0으로 만든다. 최초 유휴 시각은 null, 직전 회복 역할은 main, 판단 사유는 reset으로 만든다.
             역할별 한도 피드백 Map을 비우고 각 처리기의 queueWatch를 null로 해제하며 작업 측정 이력을 초기화한다. 현재 적용 한도와 호환용 FPS는 유지한다.
             실제 제어 압력·개입 진입과 해제 누적 기간·진입 구간 수·10ms 초과 비율과 시간 비중을 0으로, 개입 상태와 현재 유효 지연 여부를 false로 만든다.
@@ -419,6 +446,7 @@ UProcessManager 클래스 정의
         동작:
             작업 그룹과 처리기별 흐름을 수집하여 대기·실행 합계를 구한다. controlPressure가 1 이상이면 과부하이며 기본 판단 사유는 maintain이다.
             사용자 상한이 8 이하면 configured-floor를 판단 사유로 기록하고 반환한다. 감속·회복·피드백 평가·유휴 복원은 하지 않으며 측정과 실제 처리기 한도는 유지한다.
+            motionLimitedInWindow가 true이면 main 피드백만 제거하고 main 처리기의 큐 관찰만 비운다. 남은 work 피드백의 rafComparable을 false로 만들고 판단 사유를 motion-admission으로 둔다. 안정·과부하 누적과 work의 처리량·대기 관찰은 유지하며 이후 판단을 계속한다. 이동 압력만 있고 실제 제한이 없는 구간에는 이 처리를 하지 않는다.
             대기와 실행이 모두 0이면 역할별 피드백 Map을 비우고 안정·대기 보호 안정·과부하·강한 과부하 시간과 연속 구간 수를 0으로 만든다. 최초 완전 유휴 시각만 저장한다. 유휴 3000ms 미만은 현재 한도를 유지하는 idle-retained다.
             완전 유휴 3000ms 이상이고 적용 한도가 사용자 상한과 다르면 양쪽 상한을 복원하는 idle-recovery다. 이미 상한이면 idle이다. 이 경우 감소·회복·정착 보류 시각을 0으로 만든다. 완전 유휴는 여기서 반환한다.
             작업이 남으면 유휴 시각을 null로 지우고 과부하일 때만 overloadMs를 duration만큼 누적하며 그 밖에는 0으로 만든다.
@@ -426,13 +454,13 @@ UProcessManager 클래스 정의
             controlPressure가 2 이상이고 구간 평균이 1000/80ms 이상이면 severe다. severe이면 severeMs에 duration을 더하고 severeWindows를 1 증가시키며 그 밖에는 둘 다 0으로 만든다. 연속 2구간 이상이고 합계 500ms 이상이면 urgent다.
             역할별 피드백을 증가 방향 우선으로 평가한다. 평가가 실제 한도를 변경했으면 즉시 반환하고 아직 평가하지 않은 역할 기록은 유지한다. 관찰 종료만으로는 판단을 중단하지 않는다.
             정착 기한 전이면 settling으로 반환한다.
-            main·work별 실제 대기가 있는 흐름을 찾고 단계 배율로 정규화한 최대 점유를 구한다. main 최소는 8, work 최소는 8과 사용자 상한 절반 올림 중 큰 값이며 사용자 상한 이내로 제한한다. 해당 역할의 모든 흐름에서 구간 최대 점유가 현재 한도 올림 이내이면 drained다. 대기 흐름에 queueDelayed가 있으면 delayed이며 그 흐름들의 recentQueueWaitMs·noStartMs 중 최댓값을 역할의 waitMs로 사용한다.
+            이동 제한이 섞인 구간에는 work만, 그 밖에는 main·work를 조절 후보로 사용한다. 각 역할의 실제 대기가 있는 흐름을 찾고 단계 배율로 정규화한 최대 점유를 구한다. main 최소는 8, work 최소는 8과 사용자 상한 절반 올림 중 큰 값이며 사용자 상한 이내로 제한한다. 해당 역할의 모든 흐름에서 구간 최대 점유가 현재 한도 올림 이내이면 drained다. 대기 흐름에 queueDelayed가 있으면 delayed이며 그 흐름들의 recentQueueWaitMs·noStartMs 중 최댓값을 역할의 waitMs로 사용한다.
             대기가 있고 drained이며 상한보다 낮은 역할이 회복 후보이다. queueStableMs가 750ms 이상이면 delayed인 후보를 waitMs 내림차순으로 골라 대기 보호 후보로 삼는다. stableMs가 750ms 이상이면 해당 역할의 피드백이 없는 후보를 일반 회복 후보로 삼는다.
             빠른 구간 해제 누적이 750ms 이상이면 대기·배출 완료·상한 미만인 모든 역할을 빠른 구간 회복 후보로 삼는다. 해당 역할의 감소 관찰 중에도 가능하다.
             증가 방향 피드백이 하나도 없고 회복 보류 및 큰 단발 지연에 따른 증가 보류 기한을 모두 지났고 회복 후보가 있으면 빠른 구간 후보, 대기 보호 후보, 일반 회복 후보 순서로 선택한다. 빠른 구간 또는 일반 회복에서는 직전 회복의 반대 역할을 우선한다.
             사용자 상한에서 선택 역할의 하한을 뺀 범위를 회복량의 기준으로 쓴다. 빠른 구간은 이 범위의 0.25배 올림과 1 중 큰 값만큼 올리는 response-recovery, 대기 보호는 1/12 올림과 1 중 큰 값만큼 올리는 queue-recovery, 일반 회복은 0.125배 올림과 1 중 큰 값만큼 올리는 stable-recovery다. 모두 사용자 상한 이내로 제한하고 회복 역할을 보관한 뒤 반환한다.
             증가 방향 피드백이 남으면 다른 변경을 하지 않고 반환한다. 추가 감소 보류 기한 전이고 urgent가 아니면 capacity-hold로 반환한다. 작업 지연 후보가 있고 controlPressure가 0.75 이상이면 선제 신호다. 과부하가 500ms 이상 지속되거나 severe인 경우, 또는 선제 신호가 있는 경우에만 감소 후보를 찾는다.
-            실제 대기가 있고 한도와 점유 모두 역할별 최소값을 초과하는 역할을 main 우선으로 선택한다. 과부하가 아니면 main만 선택할 수 있다. 추가 감소 보류 기한 전이거나 그 역할의 피드백이 있으면 urgent이면서 drained인 역할만 선택한다. 후보가 없으면 minimum-or-low-occupancy다. 선택 역할의 피드백이 있거나 보류 기한 전이면 held다.
+            실제 대기가 있고 한도와 점유 모두 역할별 최소값을 초과하는 역할을 main 우선으로 선택한다. 과부하가 아니면 main만 선택할 수 있다. 추가 감소 보류 기한 전이거나 그 역할의 피드백이 있으면 urgent이면서 drained인 역할만 선택한다. 후보가 없으면 이동 제한이 섞인 구간은 motion-admission, 나머지는 minimum-or-low-occupancy다. 선택 역할의 피드백이 있거나 보류 기한 전이면 held다.
             현재 한도에서 역할별 하한을 뺀 여유분에 severe이면 0.35, 그 밖에는 0.2를 곱해 올림한다. 감소량은 최소 1이되 여유분을 넘지 않으며 현재 한도에서 이 감소량을 뺀다. 점유 수는 후보 판단에만 쓰고 감소량의 기준으로 쓰지 않는다. held이면 severe-decrease, 그 밖의 과부하이면 pressure-decrease, 아니면 task-decrease다.
 
         // TEMP_PROCESS_DEBUG BEGIN
@@ -462,7 +490,7 @@ UProcessManager 클래스 정의
 
     #changeProcessLimit(role: string, limit: number, reason: string, timestamp: number, flows: Array<object>) -> void
         동작:
-            role에 해당하는 기존 한도를 읽어 이전 한도와 감소·증가 방향, 시작 시각, 변경 전 RAF 진폭·최장 초과·평균을 해당 역할 키의 피드백에 저장한다. rafComparable은 true, 유효 관찰 누적값은 0부터 시작한다. 다른 역할 기록은 교체하지 않는다.
+            role에 해당하는 기존 한도를 읽어 이전 한도와 감소·증가 방향, 시작 시각, 변경 전 RAF 진폭·최장 초과·평균을 해당 역할 키의 피드백에 저장한다. rafComparable은 motionLimitedInWindow가 true이면 false, 그 밖에는 true이며 유효 관찰 누적값은 0부터 시작한다. 다른 역할 기록은 교체하지 않는다.
             감소 중이던 같은 역할을 다시 감소시키면 기존 피드백의 flows와 capacityWindowMs를 이어받는다. 최초 처리량·대기 기준과 미완료 독립 구간·연속 악화 증거를 보존하고 RAF 전후 비교만 다시 시작한다.
             이어받는 조건이 아니면 각 흐름의 이름·역할·대기·완료율·완료 표본·큐 대기 표본과 평균을 새 객체로 복사한다. 변경 후 완료 수·큐 대기 합계·표본·badWindows와 capacityWindowMs는 0, pendingThroughout는 현재 대기 여부로 만든다. 작업과 레이어를 보관하지 않는다.
             안정·대기 보호 안정·과부하·강한 과부하 시간과 연속 구간 수를 0으로 만든다. 선택한 한쪽만 새 한도로 적용하고 정착 기한을 현재보다 250ms 뒤로 둔다.
@@ -475,9 +503,25 @@ UProcessManager 클래스 정의
         의존: U3dProcess — 실제 한도 변경; 함수: {setMaxProcess()}
         동작:
             각 역할의 피드백에서 반대 역할의 한도가 이번 적용으로 바뀌면 rafComparable을 false로 만든다. 처리량·대기 관찰은 유지하고 혼합된 변경의 RAF 결과를 단독 역할의 효과로 판정하지 않는다.
-            workLimit 생략 시 현재 하위 기준 한도를 유지한다. 사용자·영상·고도·모델 처리기에 limit을 적용한다.
+            workLimit 생략 시 현재 하위 기준 한도를 유지한다. limit은 RAF 제어 한도로 보관하고 메인 처리기에는 이동 한도를 합성한 값을 적용한다.
             workLimit으로 단계별 한도 목록을 얻어 현재 하위 처리기 목록 순서대로 적용한다.
             appliedLimit·workLimit·reason·decisionReason을 기록한다. 사용자 설정 상한과 앱 설정, 큐 내용, 실행 작업의 완료·취소 상태는 바꾸지 않는다.
+
+    #motionEnabled() -> boolean
+        의존: U3dApp — 렌더 중지 확인; 함수: {getStopRender()}
+        동작: 임시 진단이 존재하고 both 모드가 아니면 false다. 그 밖에는 자동 제어 활성·사용자 상한 8 초과·측정 미폐기·문서 표시·렌더 미중지 조건을 모두 만족할 때만 true다.
+
+    #applyMainLimit() -> void
+        의존: U3dProcess — 메인 실제 한도 변경; 함수: {setMaxProcess()}
+        동작:
+            이동 제어가 가능하면 RAF의 appliedLimit과 현재 이동 한도 중 작은 값, 불가능하면 appliedLimit을 사용한다.
+            이동 제어가 가능하고 합성 한도가 appliedLimit보다 작거나 시작 간격이 0보다 크면 motionLimitedInWindow를 true로 만든다. 그 밖에는 기존 구간 표식을 유지한다. 같은 실제 한도를 유지해도 이 집계를 먼저 수행한다.
+            effectiveLimit과 같으면 반환한다. 다르면 역할 Map의 main 처리기만 setMaxProcess하고 effectiveLimit에 기록한다. Work 한도와 보관한 RAF 한도는 바꾸지 않는다.
+
+    _getProcessStartDelay(process: U3dProcess, reserve: boolean = false) -> number
+        동작:
+            이동 제어가 불가능하거나 역할이 main이 아니면 0이다.
+            나머지는 처리기·현재 시각·reserve로 시작 간격을 조회하여 반환한다.
 
     getWorkingCount() -> number
         의존: U3dProcess — 실행 중 작업 수; 함수: {getWorkingCount()}
@@ -566,9 +610,9 @@ UProcessManager 클래스 정의
 UProcessDebugLog 부분 타입 명세
     이 명세에서 사용하는 필드:
         schemaVersion: number
-            현재 형식은 14이다.
+            현재 형식은 18이다.
         policyVersion: string
-            현재 자동 제어 정책은 response-band-v2이다.
+            현재 자동 제어 정책은 motion-process-v2이다.
         instanceId: number
             현재 관리자 번호다.
         availableInstanceIds: Array<number>
@@ -647,7 +691,7 @@ ProcessDebugRecorder 클래스 정의
 
     static getProcessDebugLog(id?: number) -> UProcessDebugLog
         인터페이스: install이 window에 등록하는 콘솔 함수이며 관리자 번호 생략 시 최근 생성 대상을 선택한다.
-        동작: 선택한 기록기의 독립 진단 복사본을 반환한다.
+        동작: 선택한 기록기의 snapshot으로 독립 진단 복사본을 얻어 반환한다.
 
     static startProcessDebugLog(mode: string = 'both', label: string = '', id?: number) -> object
         인터페이스: install이 window에 등록하는 콘솔 함수다.
@@ -703,6 +747,7 @@ ProcessDebugRecorder 클래스 정의
     decision(timestamp: number, pressure: object, state: object, timing: object) -> void
         의존: Web API — 진단 상대 시각; 함수: {performance.now()}
         #manager 참조의 getVisualizationLatencyState 조회 결과도 visualizationLatency에 저장한다.
+        motion에는 현재 이동 압력을, motionLimitedInWindow에는 해당 관찰 구간의 실제 이동 제한 적용 이력을 복사한다. 구간 중 제한이 해제된 경우에도 두 값의 차이를 보존한다.
         동작: 상대 시각·세대·모드·판단 조건·전후 한도 중 변경 전 값·RAF 통계·정착 및 감소·회복 보류까지 남은 시간·최초 유휴 경과·안정·대기 보호 안정·과부하 누적·강한 과부하 시간과 연속 구간 수를 복사한다. RAF 통계에는 원래 압력 framePressure와 실제 제어 압력 controlPressure, 개입 상태 responseLimited, 현재 유효 지연 responseDelayed, 큰 단발 지연 responseSpike와 증가 보류 잔여 밀리초 spikeRecoveryHoldMs, 10ms 초과 비율 responseSlowRatio와 초과 시간 비중 responseExcessRatio, 진입 및 해제 누적 기간 responseEnterElapsedMs·responseExitElapsedMs를 포함한다. feedbacks 배열에 역할별 방향·이전 한도·경과와 관찰 시간·현재 처리 여력 구간 시간·최대 연속 악화 구간 수·rafComparable을 복사한다. 처리기 흐름에는 상시 대기 수치를 포함하여 객체별로 복사하고 작업 그룹 상태는 원시 값으로 옮겨 미완성 판단에 보관한다.
 
     feedbackResult(result: object) -> void
@@ -735,7 +780,7 @@ ProcessDebugRecorder 클래스 정의
         동작:
             #manager 참조의 getVisualizationLatencySamples 결과는 visualizationSamples에, getVisualizationLatencyState 결과는 current.visualizationLatency에 넣고 startedPerformanceMs에 세션의 단조 시각 기준 시작값을 넣는다. 표본 시각과 판단 상대 시각의 변환과 GPU·모니터 표시 완료를 의미하지 않는다는 해석을 notes에 명시한다. 측정은 진단 세션 및 한도 변경과 독립적으로 유지한다.
             이력별 추가 개수가 600을 초과하면 나머지 위치부터 배열 앞뒤를 이어 시간순으로 복사하고 덮어쓴 개수를 기록한다.
-            스키마 14·정책 이름 response-band-v3·관리자 목록·실험 조건·오류·정책·해석 안내·세션 전체 통계·현재 제어와 미완료 구간·보관량·세 이력을 묶는다. 안내에는 평균 100FPS 미만 지연 구간 진입·평균 120FPS 복귀·평균 80FPS 이하 강한 감속·큰 단발 지연의 증가 보류·원래 압력과 실제 제어 압력의 구분, 빠른 구간 회복과 복원 취소 조건, 하한 8과 설정값 8 이하의 제어 생략, 역할별 피드백과 처리 여력 관찰 상한 5000ms를 명시한다. 이 상한은 개별 작업의 30초 제한과 별개다.
+            스키마 18·정책 이름 motion-process-v2·관리자 목록·실험 조건·오류·정책·해석 안내·세션 전체 통계·현재 제어와 미완료 구간·보관량·세 이력을 묶는다. 안내에는 작업 생성·화면 갱신 유지·메인 동시 실행 수와 시작 간격의 점진 제한·마지막 실제 이동 96ms 뒤 이동 제한 해제·motion.active와 관찰 구간의 실제 이동 제한 표식의 구분, 평균 100FPS 미만 지연 구간 진입·평균 120FPS 복귀·평균 80FPS 이하 강한 감속·큰 단발 지연의 증가 보류·원래 압력과 실제 제어 압력의 구분, 빠른 구간 회복과 복원 취소 조건, 하한 8과 설정값 8 이하의 제어 생략, 역할별 피드백과 처리 여력 관찰 상한 5000ms를 명시한다. 이 상한은 개별 작업의 30초 제한과 별개다.
             JSON 직렬화와 역직렬화로 전체 독립 복사본을 반환한다. 조회 자체는 기록을 지우지 않으며 배열과 정책·상태를 변경해도 내부 제어에 반영되지 않는다.
 
     dispose() -> void

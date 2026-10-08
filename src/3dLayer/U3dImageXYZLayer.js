@@ -27,7 +27,11 @@ import {normalizeOptionKeys} from "@util/normalizeOptionKeys.js";
  * @extends {U3dImageLayer}
  */
 class U3dImageXYZLayer extends U3dImageLayer {
-    /** @override */
+    /**
+     * @override
+     *
+     * @ignore
+     */
     static OPT_KEYS = [
         ...U3dImageLayer.OPT_KEYS,
         'reverseX', 'reverseY', 'needXml', 'xmlUrl'

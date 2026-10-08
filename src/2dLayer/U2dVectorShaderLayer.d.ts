@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -21,7 +21,7 @@ import type { UMeasureFeature } from "../ol/UMeasureFeature.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 import type { KeyValue } from "../types/global.js";
 import type { OLFeature } from "../types/ol.js";
-import type { deferred } from "../util/deferred.js";
+import type { DeferredObject } from "../util/deferred.js";
 
 /**
  * Debug JSON 에 담는, tile 캐시에 들어 있는 mesh 하나의 상태입니다.
@@ -980,12 +980,13 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     /**
      * 이 레이어가 쓰던 terrain 합성 등록, WFS 요청과 응답 캐시, Feature 와 셰이더 자원을 모두 정리합니다. <br>
      * 정리 후에는 이 레이어를 다시 사용할 수 없습니다.
+     * 기존 호출부의 ready·done·resolve 사용을 보존하기 위해 공개 반환형에도 Deferred 객체를 유지합니다.
      *
      * @override
      *
-     * @returns {ReturnType<typeof deferred>} 정리가 끝나면 `true` 로 이행되는 Promise 호환 객체
+     * @returns {DeferredObject<boolean>} 정리가 끝나면 true로 완료되는 Deferred 객체
      */
-    override dispose(): ReturnType<typeof deferred>;
+    override dispose(): DeferredObject<boolean>;
     /**
      * 위경도 좌표계(EPSG:4326) 위치를 받아 그 지점에 걸치는 Feature 를 모두 찾아 목록으로 반환합니다. <br>
      * 최소·최대 타일 레벨 사이의 타일 캐시에서 찾으므로 아직 그려지지 않은 영역의 Feature 는 나오지 않습니다.

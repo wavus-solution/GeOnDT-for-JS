@@ -15,7 +15,7 @@
     <!-- 한글 본문용 가변 서체입니다. 내려받지 못해도 styles/jaguar.css의 대체 서체로 그대로 표시됩니다. -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-    <link type="text/css" rel="stylesheet" href="styles/jaguar.css?v=muw7iz8z">
+    <link type="text/css" rel="stylesheet" href="styles/jaguar.css?v=muz1hdly">
     <script>
         // 화면이 그려지기 전에 테마를 정해 화면이 한 번 번쩍이는 것을 막습니다.
         // 상단 전환 버튼으로 직접 고른 적이 없으면 운영체제 설정을 따릅니다.
@@ -697,10 +697,6 @@
                     <a href="U3dApp.html#getInstanceTerrainLayers">getInstanceTerrainLayers</a>
                 </li>
             
-                <li data-name="getinstancevideolayers">
-                    <a href="U3dApp.html#getInstanceVideoLayers">getInstanceVideoLayers</a>
-                </li>
-            
                 <li data-name="getintensitylight">
                     <a href="U3dApp.html#getIntensityLight">getIntensityLight</a>
                 </li>
@@ -1167,6 +1163,10 @@
             
                 <li data-name="removeview">
                     <a href="U3dApp.html#removeView">removeView</a>
+                </li>
+            
+                <li data-name="renderframe">
+                    <a href="U3dApp.html#renderFrame">renderFrame</a>
                 </li>
             
                 <li data-name="resetfog">
@@ -1879,6 +1879,10 @@
                     <a href="UAnaly.html#active">active</a>
                 </li>
             
+                <li data-name="adddefaultevent">
+                    <a href="UAnaly.html#addDefaultEvent">addDefaultEvent</a>
+                </li>
+            
                 <li data-name="clear">
                     <a href="UAnaly.html#clear">clear</a>
                 </li>
@@ -1887,12 +1891,20 @@
                     <a href="UAnaly.html#deactive">deactive</a>
                 </li>
             
+                <li data-name="getanalysisoption">
+                    <a href="UAnaly.html#getAnalysisOption">getAnalysisOption</a>
+                </li>
+            
                 <li data-name="getscene">
                     <a href="UAnaly.html#getScene">getScene</a>
                 </li>
             
                 <li data-name="gettargetlayername">
                     <a href="UAnaly.html#getTargetLayerName">getTargetLayerName</a>
+                </li>
+            
+                <li data-name="gettype">
+                    <a href="UAnaly.html#getType">getType</a>
                 </li>
             
                 <li data-name="intersectmodel">
@@ -1915,6 +1927,10 @@
                     <a href="UAnaly.html#on">on</a>
                 </li>
             
+                <li data-name="setanalysisoption">
+                    <a href="UAnaly.html#setAnalysisOption">setAnalysisOption</a>
+                </li>
+            
                 <li data-name="setapp">
                     <a href="UAnaly.html#setApp">setApp</a>
                 </li>
@@ -1933,6 +1949,10 @@
         <section class="navigation-member-list" data-type="typedefs">
             <h3>Type Definitions</h3>
             <ul>
+            
+                <li data-name="ananlysis_mesh">
+                    <a href="UAnaly.html#~Ananlysis_Mesh">Ananlysis_Mesh</a>
+                </li>
             
                 <li data-name="uanalyco">
                     <a href="UAnaly.html#~UAnalyCO">UAnalyCO</a>
@@ -2475,6 +2495,10 @@
                     <a href="UAnalyContour.html#isTopoVisible">isTopoVisible</a>
                 </li>
             
+                <li data-name="setheightvisible">
+                    <a href="UAnalyContour.html#setHeightVisible">setHeightVisible</a>
+                </li>
+            
                 <li data-name="settopo">
                     <a href="UAnalyContour.html#setTopo">setTopo</a>
                 </li>
@@ -2745,6 +2769,14 @@
                     <a href="UAnalyCustomModel.html#isExistModelName">isExistModelName</a>
                 </li>
             
+                <li data-name="ispolygon">
+                    <a href="UAnalyCustomModel.html#isPolygon">isPolygon</a>
+                </li>
+            
+                <li data-name="merge">
+                    <a href="UAnalyCustomModel.html#merge">merge</a>
+                </li>
+            
                 <li data-name="mergemesh">
                     <a href="UAnalyCustomModel.html#mergeMesh">mergeMesh</a>
                 </li>
@@ -2782,6 +2814,14 @@
             
                 <li data-name="custommodelentry">
                     <a href="UAnalyCustomModel.html#~CustomModelEntry">CustomModelEntry</a>
+                </li>
+            
+                <li data-name="uanalycustommodelinput">
+                    <a href="UAnalyCustomModel.html#~UAnalyCustomModelInput">UAnalyCustomModelInput</a>
+                </li>
+            
+                <li data-name="uanalycustommodelsetup">
+                    <a href="UAnalyCustomModel.html#~UAnalyCustomModelSetup">UAnalyCustomModelSetup</a>
                 </li>
             
             </ul>
@@ -5494,17 +5534,6 @@
             <span class="navigation-primary-link"><a href="UAnalyViewCone.html">UAnalyViewCone</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="UAnalyViewCone.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -7912,17 +7941,6 @@
             <span class="navigation-primary-link"><a href="U3dImageLayer.html">U3dImageLayer</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dImageLayer.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -8278,17 +8296,6 @@
             <span class="navigation-primary-link"><a href="U3dImageWMSLayer.html">U3dImageWMSLayer</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dImageWMSLayer.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -8504,17 +8511,6 @@
             <span class="navigation-primary-link"><a href="U3dImageXYZLayer.html">U3dImageXYZLayer</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dImageXYZLayer.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -8573,10 +8569,6 @@
             
                 <li data-name="event">
                     <a href="U3dLayer.html#EVENT">EVENT</a>
-                </li>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dLayer.html#OPT_KEYS">OPT_KEYS</a>
                 </li>
             
                 <li data-name="initialized">
@@ -8998,10 +8990,6 @@
                     <a href="U3dLayerList.html#getInstanceVectorTileLayers">getInstanceVectorTileLayers</a>
                 </li>
             
-                <li data-name="getinstancevideolayers">
-                    <a href="U3dLayerList.html#getInstanceVideoLayers">getInstanceVideoLayers</a>
-                </li>
-            
                 <li data-name="getlayer">
                     <a href="U3dLayerList.html#getLayer">getLayer</a>
                 </li>
@@ -9203,17 +9191,6 @@
             <span class="navigation-primary-link"><a href="U3dModelBasicLayer.html">U3dModelBasicLayer</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dModelBasicLayer.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -11209,17 +11186,6 @@
             <span class="navigation-primary-link"><a href="U3dOpenLayer.html">U3dOpenLayer</a></span>
         </summary>
         <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="opt_keys">
-                    <a href="U3dOpenLayer.html#OPT_KEYS">OPT_KEYS</a>
-                </li>
-            
-            </ul>
-        </section>
-
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -11274,6 +11240,10 @@
             
                 <li data-name="getdebuglogjson">
                     <a href="U3dOpenLayer.html#getDebugLogJson">getDebugLogJson</a>
+                </li>
+            
+                <li data-name="gettilebackgroundcolor">
+                    <a href="U3dOpenLayer.html#getTileBackgroundColor">getTileBackgroundColor</a>
                 </li>
             
                 <li data-name="refresh">
@@ -11876,6 +11846,10 @@
             
                 <li data-name="u3dvectorlayeremi">
                     <a href="U3dVectorLayer.html#~U3dVectorLayerEMI">U3dVectorLayerEMI</a>
+                </li>
+            
+                <li data-name="u3dvectortileindexstate">
+                    <a href="U3dVectorLayer.html#~U3dVectorTileIndexState">U3dVectorTileIndexState</a>
                 </li>
             
             </ul>
@@ -13335,12 +13309,20 @@
                     <a href="U3dCumulativePath.html#getHelperMesh">getHelperMesh</a>
                 </li>
             
+                <li data-name="getnodes">
+                    <a href="U3dCumulativePath.html#getNodes">getNodes</a>
+                </li>
+            
                 <li data-name="getpath">
                     <a href="U3dCumulativePath.html#getPath">getPath</a>
                 </li>
             
                 <li data-name="gettail">
                     <a href="U3dCumulativePath.html#getTail">getTail</a>
+                </li>
+            
+                <li data-name="gettailpolicy">
+                    <a href="U3dCumulativePath.html#getTailPolicy">getTailPolicy</a>
                 </li>
             
                 <li data-name="hide">
@@ -13428,10 +13410,6 @@
             
                 <li data-name="u3dcumulativepathpositiondata">
                     <a href="U3dCumulativePath.html#~U3dCumulativePathPositionData">U3dCumulativePathPositionData</a>
-                </li>
-            
-                <li data-name="u3dcumulativepathstylefunc">
-                    <a href="U3dCumulativePath.html#~U3dCumulativePathStyleFunc">U3dCumulativePathStyleFunc</a>
                 </li>
             
                 <li data-name="u3dcumulativepath_styleopt">
@@ -14442,6 +14420,14 @@
                     <a href="U3dLine.html#linewidth">linewidth</a>
                 </li>
             
+                <li data-name="renderorder">
+                    <a href="U3dLine.html#renderOrder">renderOrder</a>
+                </li>
+            
+                <li data-name="visible">
+                    <a href="U3dLine.html#visible">visible</a>
+                </li>
+            
                 <li data-name="worldunits">
                     <a href="U3dLine.html#worldUnits">worldUnits</a>
                 </li>
@@ -14455,6 +14441,10 @@
             
                 <li data-name="clearsurfacedrape">
                     <a href="U3dLine.html#clearSurfaceDrape">clearSurfaceDrape</a>
+                </li>
+            
+                <li data-name="computelinedistances">
+                    <a href="U3dLine.html#computeLineDistances">computeLineDistances</a>
                 </li>
             
                 <li data-name="dispose">
@@ -14536,6 +14526,14 @@
         <section class="navigation-member-list" data-type="members">
             <h3>Members</h3>
             <ul>
+            
+                <li data-name="geometry">
+                    <a href="U3dPathGeometry.html#geometry">geometry</a>
+                </li>
+            
+                <li data-name="material">
+                    <a href="U3dPathGeometry.html#material">material</a>
+                </li>
             
                 <li data-name="renderorder">
                     <a href="U3dPathGeometry.html#renderOrder">renderOrder</a>
@@ -14843,6 +14841,10 @@
                     <a href="U3dPoint.html#img">img</a>
                 </li>
             
+                <li data-name="material">
+                    <a href="U3dPoint.html#material">material</a>
+                </li>
+            
                 <li data-name="materiallist">
                     <a href="U3dPoint.html#materialList">materialList</a>
                 </li>
@@ -14851,12 +14853,24 @@
                     <a href="U3dPoint.html#offset">offset</a>
                 </li>
             
+                <li data-name="renderorder">
+                    <a href="U3dPoint.html#renderOrder">renderOrder</a>
+                </li>
+            
                 <li data-name="size">
                     <a href="U3dPoint.html#size">size</a>
                 </li>
             
                 <li data-name="sizeattenuation">
                     <a href="U3dPoint.html#sizeAttenuation">sizeAttenuation</a>
+                </li>
+            
+                <li data-name="userdata">
+                    <a href="U3dPoint.html#userData">userData</a>
+                </li>
+            
+                <li data-name="visible">
+                    <a href="U3dPoint.html#visible">visible</a>
                 </li>
             
             </ul>
@@ -14872,6 +14886,10 @@
             
                 <li data-name="getdepthtest">
                     <a href="U3dPoint.html#getDepthTest">getDepthTest</a>
+                </li>
+            
+                <li data-name="getmaterial">
+                    <a href="U3dPoint.html#getMaterial">getMaterial</a>
                 </li>
             
                 <li data-name="getoffset">
@@ -14896,6 +14914,10 @@
             
                 <li data-name="setimage">
                     <a href="U3dPoint.html#setImage">setImage</a>
+                </li>
+            
+                <li data-name="setmaterial">
+                    <a href="U3dPoint.html#setMaterial">setMaterial</a>
                 </li>
             
                 <li data-name="setoffset">
@@ -15101,6 +15123,10 @@
                     <a href="U3dSphere.html#radius">radius</a>
                 </li>
             
+                <li data-name="renderorder">
+                    <a href="U3dSphere.html#renderOrder">renderOrder</a>
+                </li>
+            
                 <li data-name="setdistancematerial">
                     <a href="U3dSphere.html#setDistanceMaterial">setDistanceMaterial</a>
                 </li>
@@ -15115,6 +15141,10 @@
             
                 <li data-name="useline">
                     <a href="U3dSphere.html#useline">useline</a>
+                </li>
+            
+                <li data-name="visible">
+                    <a href="U3dSphere.html#visible">visible</a>
                 </li>
             
                 <li data-name="widthsegments">
@@ -18175,6 +18205,10 @@
                     <a href="URenderer.html#getDrawCall">getDrawCall</a>
                 </li>
             
+                <li data-name="getmsaasamples">
+                    <a href="URenderer.html#getMsaaSamples">getMsaaSamples</a>
+                </li>
+            
                 <li data-name="getpassesbytype">
                     <a href="URenderer.html#getPassesByType">getPassesByType</a>
                 </li>
@@ -18243,12 +18277,12 @@
                     <a href="URenderer.html#setApp">setApp</a>
                 </li>
             
-                <li data-name="setcomposersamples">
-                    <a href="URenderer.html#setComposerSamples">setComposerSamples</a>
-                </li>
-            
                 <li data-name="setenvoption">
                     <a href="URenderer.html#setEnvOption">setEnvOption</a>
+                </li>
+            
+                <li data-name="setmsaasamples">
+                    <a href="URenderer.html#setMsaaSamples">setMsaaSamples</a>
                 </li>
             
                 <li data-name="setpasssize">
@@ -18939,7 +18973,7 @@ app과 scene은 필수이며 둘 중 하나가 없으면 오류를 보고합니�
     <div class="description">
         <p>위치 데이터 배열의 지점을 경로 끝에 한 번에 추가합니다.<br>
 생성 직후의 초기 경로는 생성 옵션 initPositions로 지정하십시오.<br>
-유효한 입력 지점을 모두 전달하며 지점 축소는 tailPolicy의 단순화·draw 정책 정책에 따릅니다.<br>
+유효한 입력 지점을 모두 전달하며 지점 축소는 tailPolicy의 단순화·GPU 표시 설정에 따릅니다.<br>
 자원 생성을 지연한 경우에도 호출 시 초기 경로를 먼저 반영한 뒤 입력을 추가합니다.<br>
 drawOffset이 0이 아니고 입력 지점이 모두 같은 위치이면 첫 이동점이 올 때 시작점을 추가합니다.<br>
 기존 경로 뒤에 지점을 추가합니다.<br>
@@ -19266,6 +19300,104 @@ drawOffset이 0이 아니고 입력 지점이 모두 같은 위치이면 첫 이
             
 <dt>
     <div class="nameContainer">
+        <h4 class="name" id="getNodes">
+            
+             getNodes<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">Array.&lt;<a href="global.html#U3dCumulativePathDrawInfo">U3dCumulativePathDrawInfo</a>></span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>보관 중인 노드를 오래된 순서로 drawFunc(info)와 같은 구조로 조회합니다.<br>
+숨긴 노드는 포함하고 제거·단순화된 노드는 제외합니다. 콜백 평가나 렌더링 갱신은 하지 않습니다.<br>
+좌표와 이전 노드 정보는 복사본이며, now와 전체 시간·거리는 조회 시점 기준입니다.
+waypointHistory는 조회 시점의 도착 이력을 접근할 때마다 복사합니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    <h5>Returns:</h5>
+    
+
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Type</th>
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+        <tr>
+            
+            <td class="type">
+            
+                        Array.&lt;<a href="global.html#U3dCumulativePathDrawInfo">U3dCumulativePathDrawInfo</a>>
+                        
+                    
+            </td>
+            <td class="description last">미초기화·해제 후에는 빈 배열</td>
+        </tr>
+    
+    </tbody>
+</table>
+
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
         <h4 class="name" id="getPath">
             
              getPath<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="USimpleTail.html#~USimpleTail">USimpleTail</a><span class="returns-or">|</span>undefined</span>
@@ -19465,6 +19597,103 @@ getTail과 같은 값을 반환합니다.</p>
             
 <dt>
     <div class="nameContainer">
+        <h4 class="name" id="getTailPolicy">
+            
+             getTailPolicy<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="global.html#USimpleTail_Policy">USimpleTail_Policy</a></span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>기본값과 입력값 정규화가 반영된 현재 궤적 정책의 복사본을 반환합니다.
+반환 객체를 변경해도 내부 정책은 바뀌지 않습니다. 변경은 setTailPolicy를 사용합니다.
+콜백은 등록된 함수 참조를 그대로 반환합니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    <h5>Returns:</h5>
+    
+
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Type</th>
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+        <tr>
+            
+            <td class="type">
+            
+                        <a href="global.html#USimpleTail_Policy">USimpleTail_Policy</a>
+                        
+                    
+            </td>
+            <td class="description last">현재 궤적 정책</td>
+        </tr>
+    
+    </tbody>
+</table>
+
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
         <h4 class="name" id="hide">
             
              hide<span class="signature">()</span>
@@ -19480,7 +19709,7 @@ getTail과 같은 값을 반환합니다.</p>
     <div class="description">
         <p>경로를 화면에서 숨깁니다.<br>
 숨긴 동안에도 <code>updatePath</code>의 경로 갱신·단순화·draw 정책은 계속 적용됩니다.<br>
-drawFunc 평가는 숨긴 동안에도 계속합니다.<br>
+다시 표시할 때 최신 시간·거리 기준으로 GPU 효과를 적용합니다.<br>
 다음 <code>createTrailFromPositions</code> 호출은 기존 경로를 지우고 새 경로로 표시됩니다.</p>
     </div>
     
@@ -19883,7 +20112,7 @@ drawFunc 평가는 숨긴 동안에도 계속합니다.<br>
     
     
     <div class="description">
-        <p>노드별 표시·구간·fade·폐기 정책을 교체합니다. null이면 maxDistance 기본 정책으로 복귀합니다.</p>
+        <p>노드별 제어 콜백을 교체합니다. null이면 CPU 평가를 해제합니다.</p>
     </div>
     
 
@@ -19997,9 +20226,7 @@ drawFunc 평가는 숨긴 동안에도 계속합니다.<br>
     
     
     <div class="description">
-        <p>경로 지점별 색 농도 그라데이션을 켜거나 끕니다.<br>
-그라데이션을 켜면 styleFunc 또는 기본 계산 결과를 사용합니다.<br>
-끄면 단색으로 표시됩니다.</p>
+        <p>기록된 지점의 colorFactor를 색 농도에 적용할지 설정합니다.</p>
     </div>
     
 
@@ -20046,7 +20273,7 @@ drawFunc 평가는 숨긴 동안에도 계속합니다.<br>
             
             <td class="description last">
                 
-                <p>true면 지점별 색 농도를 적용하고 false면 단색으로 그릴지 여부</p></td>
+                <p>true면 styleFunc 또는 기본 높이 기반 색 농도를 적용</p></td>
         </tr>
 	
 	
@@ -20836,8 +21063,8 @@ updatePath 또는 초기 지점에 회전값을 지정하면 해당 값이 우�
     
     
     <div class="description">
-        <p>지점별 색 농도(그라데이션 값) 계산 함수를 설정합니다.<br>
-undefined를 지정하면 기본 계산을 사용합니다.</p>
+        <p>지점 기록 시 색 농도를 반환하는 함수를 등록합니다. 등록 시에는 실행하지 않습니다.
+null 또는 undefined는 기본 높이 기반 계산으로 복원합니다.</p>
     </div>
     
 
@@ -20874,7 +21101,10 @@ undefined를 지정하면 기본 계산을 사용합니다.</p>
             <td class="type">
             
                 
-<span class="param-type"><a href="U3dCumulativePath.html#~U3dCumulativePathStyleFunc">U3dCumulativePathStyleFunc</a></span>
+<span class="param-type"><a href="global.html#U3dCumulativePathStyleFunc">U3dCumulativePathStyleFunc</a></span>
+|
+
+<span class="param-type">null</span>
 |
 
 <span class="param-type">undefined</span>
@@ -20887,7 +21117,7 @@ undefined를 지정하면 기본 계산을 사용합니다.</p>
             
             <td class="description last">
                 
-                <p>지점별 색 농도를 반환하는 콜백 또는 기본 계산을 사용할 undefined</p></td>
+                </td>
         </tr>
 	
 	
@@ -21175,7 +21405,7 @@ undefined를 지정하면 기본 계산을 사용합니다.</p>
     
     <div class="description">
         <p>경로를 화면에 표시합니다.<br>
-draw 정책을 평가하고 메시를 장면에 추가합니다.</p>
+GPU 기준값을 갱신하고 메시를 장면에 추가합니다.</p>
     </div>
     
 
@@ -21241,7 +21471,7 @@ draw 정책을 평가하고 메시를 장면에 추가합니다.</p>
     
     
     <div class="description">
-        <p>보관 노드의 draw 정책을 다시 평가합니다. 시간 기준을 지정할 수 있습니다.</p>
+        <p>GPU 기준 시간을 갱신하고, drawFunc가 있으면 노드를 평가합니다.</p>
     </div>
     
 
@@ -21360,7 +21590,7 @@ draw 정책을 평가하고 메시를 장면에 추가합니다.</p>
     
     <div class="description">
         <p>현재 위치를 경로 끝에 추가합니다.<br>
-숨김 여부와 관계없이 경로를 갱신하고 단순화·draw 정책 정책을 적용합니다.<br>
+숨김 여부와 관계없이 경로를 갱신하고 단순화·GPU 표시 설정을 적용합니다.<br>
 별도 원본 입력 대기열은 만들지 않습니다.<br>
 drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다음 이동점이 올 때 함께 추가합니다.<br>
 <code>pos</code>는 복사해 사용하므로 호출 뒤 같은 객체를 재사용할 수 있습니다.</p>
@@ -21626,7 +21856,7 @@ drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다�
                 </td>
             
             
-            <td class="description last"><p>노드 draw 정책. pathStyle.drawFunc보다 우선합니다.</p></td>
+            <td class="description last"><p>노드별 CPU 제어 콜백. pathStyle.drawFunc보다 우선합니다.</p></td>
         </tr>
 	
 	
@@ -22136,37 +22366,6 @@ drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다�
 	
         <tr>
             
-                <td class="name"><code>time</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-                    
-                
-                </td>
-            
-            
-            
-            
-            <td class="description last"><p>노드 기록 epoch 시각(ms). 생략하면 입력 시 Date.now(). <code>styleFunc</code>에도 같은 시각을 전달합니다 <br></p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
                 <td class="name"><code>orientation</code></td>
             
             
@@ -22221,194 +22420,6 @@ drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다�
     
 </dl>
 
-    
-    
-</dd>
-
-                
-                    
-<dt>
-    <div class="nameContainer">
-        <h4 class="name" id="~U3dCumulativePathStyleFunc">
-            
-             U3dCumulativePathStyleFunc<span class="signature">(pos, dist, time)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">number</span>
-        </h4>
-    
-    </div>
-
-    
-</dt>
-<dd>
-    
-    
-    <div class="description">
-        <p>경로의 각 지점에서 색을 얼마나 진하게 칠할지 정하는 콜백입니다. <br>
-<code>setStyleFunc</code>이나 스타일 옵션의 <code>styleFunc</code>으로 등록하며, 등록하면 기본 그라데이션 대신 이 함수의 결과를 사용합니다. <br>
-호출 시 <code>this</code>는 경로 인스턴스(<code>U3dCumulativePath</code>)입니다. <br></p>
-    </div>
-    
-
-    
-    
-    
-    
-    
-        
-
-<table class="params">
-    <thead>
-	<tr>
-		
-		<th>Name</th>
-		
-		
-		<th>Type</th>
-		
-		
-		
-		<th class="last">Description</th>
-	</tr>
-	</thead>
-	
-	<tbody>
-	
-	
-        <tr>
-            
-                <td class="name"><code>pos</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type"><a href="global.html#Vector3">Vector3</a></span>
-
-
-            
-            </td>
-            
-            
-            
-            <td class="description last">
-                
-                <p>그 지점의 좌표. <code>updatePath</code>로 넣은 지점은 월드 좌표(EPSG:3857), <code>initPositions</code>로 넣은 지점은 위경도(EPSG:4326)입니다 <br></p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>dist</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-            
-            <td class="description last">
-                
-                <p>경로 시작점부터 그 지점까지 누적된 이동 거리 (미터) <br></p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>time</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-            
-            <td class="description last">
-                
-                <p>그 지점이 기록된 시각. <code>updatePath</code>에 넘긴 값을 그대로 받습니다 <br></p></td>
-        </tr>
-	
-	
-	</tbody>
-</table>
-    
-    
-    
-<dl class="details">
-    
-        
-    
-    
-    
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-</dl>
-
-    
-    
-
-    
-
-    
-    
-    
-    
-    
-    <h5>Returns:</h5>
-    
-
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Type</th>
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-    <tbody>
-    
-        <tr>
-            
-            <td class="type">
-            
-                        number
-                        
-                    
-            </td>
-            <td class="description last">0~1 사이로 반환해야 하는 색 농도 값. 0에 가까울수록 옅고 1에 가까울수록 진하게 칠합니다 <br></td>
-        </tr>
-    
-    </tbody>
-</table>
-
-    
     
     
 </dd>
@@ -22646,7 +22657,7 @@ drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다�
                 </td>
             
             
-            <td class="description last"><p>경로 굵기. 화면 픽셀 기준 값이며, 기본 설정(<code>depthWidthScale</code>)에서는 카메라와의 거리에 따라 보정됩니다 <br></p></td>
+            <td class="description last"><p>경로 반폭(px). 직선의 전체 폭은 약 2배이며, 폭 fade가 적용되면 줄어듭니다 <br></p></td>
         </tr>
 	
 	
@@ -22683,7 +22694,7 @@ drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다�
                 </td>
             
             
-            <td class="description last"><p>지점별 색 농도 그라데이션 사용 여부. 켜면 <code>styleFunc</code>(없으면 지점 높이 z 기준의 기본 함수)가 정한 농도로 칠하고, 끄면 단색으로 그립니다 <br></p></td>
+            <td class="description last"><p>true면 지점 기록 시 styleFunc 또는 기본 높이 기반 색 농도를 적용합니다 <br></p></td>
         </tr>
 	
 	
@@ -22696,7 +22707,10 @@ drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다�
             <td class="type">
             
                 
-<span class="param-type"><a href="U3dCumulativePath.html#~U3dCumulativePathStyleFunc">U3dCumulativePathStyleFunc</a></span>
+<span class="param-type"><a href="global.html#U3dCumulativePathStyleFunc">U3dCumulativePathStyleFunc</a></span>
+|
+
+<span class="param-type">null</span>
 
 
             
@@ -22718,7 +22732,7 @@ drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다�
                 </td>
             
             
-            <td class="description last"><p>지점별 색 농도를 직접 정하는 함수. 넣으면 <code>colorGradation</code>의 기본 계산 대신 이 함수를 씁니다 <br></p></td>
+            <td class="description last"><p>지점별 colorFactor(0~1)를 반환하는 함수. colorGradation이 true일 때 적용하며 null은 기본 높이 계산 사용</p></td>
         </tr>
 	
 	
@@ -22954,7 +22968,10 @@ drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다�
             <td class="type">
             
                 
-<span class="param-type">function</span>
+<span class="param-type"><a href="global.html#USimpleTailFadeOutCallback">USimpleTailFadeOutCallback</a></span>
+|
+
+<span class="param-type">null</span>
 
 
             
@@ -22976,7 +22993,7 @@ drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다�
                 </td>
             
             
-            <td class="description last"><p>사용하지 않는 이전 옵션. drawFunc로 표시와 수명을 제어합니다. <br></p></td>
+            <td class="description last"><p>tailPolicy.onFadeOut과 같은 제한 경계 콜백. null로 해제합니다. <br></p></td>
         </tr>
 	
 	
@@ -23014,7 +23031,7 @@ drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다�
                 </td>
             
             
-            <td class="description last"><p>노드 표시·구간·fade·폐기를 결정하는 함수. 지정하면 maxDistance보다 우선하며 null이면 거리 기본 정책으로 복귀</p></td>
+            <td class="description last"><p>노드별 CPU 제어 콜백. 지정한 경로만 매 프레임 순회하며 null로 해제. styleFunc와 함께 사용 가능</p></td>
         </tr>
 	
 	
@@ -23218,7 +23235,7 @@ drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다�
 
     </div>
 </div>
-<script src="scripts/prism.js?v=muw7iz8z"></script>
-<script src="scripts/main.js?v=muw7iz8z"></script>
+<script src="scripts/prism.js?v=muz1hdly"></script>
+<script src="scripts/main.js?v=muz1hdly"></script>
 </body>
 </html>

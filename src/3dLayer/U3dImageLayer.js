@@ -37,7 +37,11 @@ import {INTERNAL} from '@union3d/3dLayer/U3dImageLayer.internal';
  * @extends {U3dLayer}
  */
 class U3dImageLayer extends U3dLayer {
-    /** @override */
+    /**
+     * @override
+     *
+     * @ignore
+     */
     static OPT_KEYS = [
         ...U3dLayer.OPT_KEYS,
         'transparent', 'burnLevels', 'flipY', 'parseFunction', 'useDataCache',

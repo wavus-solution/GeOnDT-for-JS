@@ -1,12 +1,14 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
+import type { U3dProcess } from "../core/U3dProcess.js";
 import type { UVisualizationLatencySample, UVisualizationLatencyState } from "./UVisualizationLatencyMonitor.js";
+import type { UCustomProcess } from "../process/UCustomProcess.js";
 import type { U3dQuadTileProcess } from "../quadtree/U3dQuadTileProcess.js";
 import type { U3dQuadTileWorkProcess } from "../quadtree/U3dQuadTileWorkProcess.js";
 
@@ -17,12 +19,12 @@ declare class UProcessManager {
     _app: any;
     _drawArg: any;
     _maxProcess: any;
-    _userProcess: any;
-    _imageProcess: any;
-    _heightProcess: any;
-    _modelProcess: any;
-    _modelWorkProcesses: any[];
-    _customProcess: any;
+    _userProcess: U3dQuadTileProcess;
+    _imageProcess: U3dQuadTileProcess;
+    _heightProcess: U3dQuadTileProcess;
+    _modelProcess: U3dQuadTileProcess;
+    _modelWorkProcesses: U3dQuadTileWorkProcess[];
+    _customProcess: UCustomProcess;
     _workingProcessLog: Map<any, any>;
     /**
      * 처리기의 큐 등록·실행 시작·첫 종결을 측정 상태에 반영합니다.
@@ -45,7 +47,7 @@ declare class UProcessManager {
     getTaskTimingState(): Array<UProcessTaskTimingState>;
     /**
      * RAF 호출 시각을 기록하고 관찰 구간이 끝났을 때 작업 한도를 조절합니다.
-     * U3dApp의 실제 렌더 루프에서 호출하며 별도의 RAF나 타이머를 등록하지 않습니다.
+     * U3dApp의 실제 렌더 루프에서 호출하며 RAF 측정용 반복 실행을 따로 등록하지 않습니다.
      *
      * @param {number} timestamp RAF가 전달한 밀리초 시각
      *
@@ -53,7 +55,7 @@ declare class UProcessManager {
      */
     _recordFrame(timestamp: number): void;
     /**
-     * RAF 간격 안정화를 위한 자동 작업 조절을 설정합니다.
+     * RAF 간격 안정화와 화면 이동에 따른 자동 작업 조절을 설정합니다.
      * RAF 호출 빈도를 제한하거나 앱의 실제 그리기 주기를 변경하지 않습니다.
      * 설정을 바꾸면 측정 이력을 초기화하고 사용자 지정 작업 한도를 다시 적용합니다.
      *
@@ -96,18 +98,29 @@ declare class UProcessManager {
      * @ignore
      */
     _disposeFrameMonitoring(): void;
-    getWorkingCount(): any;
+    /**
+     * 메인 처리기의 다음 시작까지 남은 시간을 반환합니다.
+     * 유효 작업을 꺼낸 경우에만 reserve로 시작 간격을 소비하고 Work는 항상 즉시 허용합니다.
+     *
+     * @param {import('@union3d/core/U3dProcess').U3dProcess} process 시작할 처리기
+     * @param {boolean} [reserve=false] 유효 작업의 실제 시작 예약 여부
+     * @returns {number} 남은 대기 시간, 밀리초
+     *
+     * @ignore
+     */
+    _getProcessStartDelay(process: U3dProcess, reserve?: boolean): number;
+    getWorkingCount(): number;
     getWorkingLevel2(): any;
     getWorkingLevel3(): any;
     logProcess(task: any): void;
     deleteLog(task: any): void;
     getLog(): Map<any, any>;
-    initUserProcess(): any;
-    initImageProcess(): any;
-    initHeightProcess(): any;
-    initModelProcess(): any;
-    initModelWorkProcess(): any[];
-    getWorkLimitList(maxProcess?: any): any[];
+    initUserProcess(): U3dQuadTileProcess;
+    initImageProcess(): U3dQuadTileProcess;
+    initHeightProcess(): U3dQuadTileProcess;
+    initModelProcess(): U3dQuadTileProcess;
+    initModelWorkProcess(): U3dQuadTileWorkProcess[];
+    getWorkLimitList(maxProcess?: number): number[];
     /**
      * 사용자가 지정한 동시 작업 수를 자동 조절의 상한으로 적용합니다.
      * 측정 이력을 비워 이전 설정에서 얻은 부하 판단이 새 설정에 영향을 주지 않게 합니다.
@@ -116,12 +129,12 @@ declare class UProcessManager {
      * @param {number} [maxProcess=UDEF.DEFAULT_MAX_PROCESS] 처리기별 기준 최대 동시 작업 수
      */
     applyMaxProcess(maxProcess?: number): void;
-    getUserProcess(): any;
-    getImageProcess(): any;
-    getHeightProcess(): any;
-    getModelProcess(): any;
-    getModelWorkProcesses(): any[];
-    getCustomProcess(): any;
+    getUserProcess(): U3dQuadTileProcess;
+    getImageProcess(): U3dQuadTileProcess;
+    getHeightProcess(): U3dQuadTileProcess;
+    getModelProcess(): U3dQuadTileProcess;
+    getModelWorkProcesses(): U3dQuadTileWorkProcess[];
+    getCustomProcess(): UCustomProcess;
     #private;
 }
 
@@ -147,6 +160,14 @@ declare class UProcessManager {
          * 메인작업 처리기에 실제 적용한 한도
          */
         effectiveMaxProcess: number;
+        /**
+         * 이동 제한과 합성하기 전 RAF 제어가 정한 메인 한도
+         */
+        rafMaxProcess: number;
+        /**
+         * 카메라 이동에 따른 신규 작업 유입 제어 상태
+         */
+        motion: UProcessMotionState;
         /**
          * 하위 작업에 적용한 기준 한도. 단계별 배율 적용 전 값
          */
@@ -255,6 +276,37 @@ declare class UProcessManager {
          * 마지막 한도 변경 또는 폐기 사유. initial, configured, enabled, disabled, pressure-decrease, severe-decrease, task-decrease, response-recovery, stable-recovery, queue-recovery, recovery-brake, capacity-release, idle-recovery, disposed 중 하나
          */
         reason: string;
+    };
+
+/**
+     * 카메라 이동에 따른 메인 동시 실행 수와 시작 간격 제어의 조회 결과입니다.
+     * 계수는 측정 이력 초기화 이후의 누적값이며 객체 참조를 포함하지 않습니다.
+     */
+    type UProcessMotionState = {
+        /**
+         * 감쇠 후 이동 압력이 남아 있는지 여부. 실제 한도 감소나 시작 간격 적용을 뜻하지는 않음
+         */
+        active: boolean;
+        /**
+         * 0~1 이동 압력. 정지 뒤 경과 시간에 따라 감쇠
+         */
+        strength: number;
+        /**
+         * 마지막 관측 이동 속도, 화면 높이 비율/초
+         */
+        screenSpeed: number;
+        /**
+         * 마지막 관측 사이의 화면 높이 대비 변화 비율
+         */
+        screenDelta: number;
+        /**
+         * 메인 처리기별 유효 작업 시작 간격, 밀리초
+         */
+        startIntervalMs: number;
+        /**
+         * 이동 제한 중 간격을 예약하고 시작한 메인 작업 수
+         */
+        pacedStartCount: number;
     };
 
 /**
@@ -430,4 +482,4 @@ declare class UProcessManager {
         events: Array<object>;
     };
 
-export type { UProcessAdaptiveState, UProcessDebugLog, UProcessManager, UProcessTaskTimingState };
+export type { UProcessAdaptiveState, UProcessDebugLog, UProcessManager, UProcessMotionState, UProcessTaskTimingState };

@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -80,7 +80,7 @@ declare class UAnalyRoute extends UAnaly {
      *
      * @ignore
      */
-    static "__#134@#getRightUpAxis"(direction: three.Vector3): {
+    static "__#137@#getRightUpAxis"(direction: three.Vector3): {
         right: three.Vector3;
         up: three.Vector3;
     };
@@ -92,7 +92,7 @@ declare class UAnalyRoute extends UAnaly {
      *
      * @ignore
      */
-    static "__#134@#rotateDirection"(axis: three.Vector3, angle: number, direction: three.Vector3): three.Vector3;
+    static "__#137@#rotateDirection"(axis: three.Vector3, angle: number, direction: three.Vector3): three.Vector3;
     /**
      * @param {UAnalyRouteCO} [options={}]
      */

@@ -6,7 +6,7 @@
 
 ### 1.1 목적과 의미
 
-`UTerrainStamp`는 지형 tile 위에 polygon·circle 기반 fill, gradient, texture와 mask overlay를 적용하거나 polyline을 그리기 위한 stamp 상태를 관리한다. terrain render 직전에는 현재 tile에 영향을 주는 stamp만 골라 shader uniform이 사용할 metadata texture를 준비한다.
+`UTerrainStamp`는 지형 tile 위에 polygon·circle 기반 fill, gradient, texture와 mask overlay를 적용하거나 polyline을 그리기 위한 stamp 상태를 관리한다. 현재 tile의 후보 metadata를 준비하고, 타일 전체가 같은 단색인 경우에만 CPU에서 계산한 합성색을 재사용한다. 작은 단색 집합의 확정 내부/외부를 float uniform으로 전달하고 경계는 원래 정밀도로 판정한다. 단색 polygon·polyline 후보가 16개 이하이면 4/8/16개 상한의 전용 program을 사용한다. 그 밖의 이미지·gradient·mask·circle·많은 후보는 범용 정밀 경로를 유지한다. raster 해상도는 줄이지 않는다.
 
 ### 1.2 책임 범위
 
@@ -14,16 +14,17 @@
 - app의 image layer 목록과 target layer 조건을 기준으로 overlay registry를 구성한다.
 - layer별로 수명이 안정적인 render binding을 유지하고 renderer가 render 직전에 사용할 tile별 stamp metadata를 갱신한다.
 - URL별 texture atlas를 lazy 생성하고 이미지 load 완료 시 전체 stamp state를 dirty 처리한다.
-- tile bounds와 겹치는 stamp 후보만 골라 tile별 metadata DataTexture를 캐시한다.
-- 마지막 stamp가 제거된 layer state와 state가 소유한 metadata texture를 해제한다.
+- 단색 내부 타일은 기존 row의 renderOrder와 누적 alpha 조기 종료를 그대로 계산한 상수색으로 출력한다. 저해상도 합성 target이나 별도 갱신 주기를 사용하지 않는다.
+- tile bounds와 겹치는 stamp 후보를 고르고 같은 순서의 후보 조합끼리 metadata DataTexture를 공유한다.
+- 공유 texture의 비활성 조합을 나누어 회수하고, 같은 행 수의 유휴 저장소는 layer 전용 풀에서 재사용한다. 마지막 stamp가 제거되면 활성 texture와 풀의 소유 참조를 함께 해제한다. Helper가 명시한 동기 배치에 한해 독점 texture의 최종 dispose 책임을 외부 정리 함수로 이전할 수 있다.
 - layer state가 다시 생성될 때 캐시된 terrain material이 기존 uniform 참조로 새 state를 즉시 읽도록 binding을 재사용한다.
 - layer state의 최초 생성·최종 해제는 app render나 QuadTileSet update를 강제로 요청하지 않고 다음 terrain render에서 현재 binding 상태로 반영한다.
 
-책임 경계: `UTerrainStamp`는 terrain shader 주입 자체를 수행하지 않고 `GTerrainOverlayShader`가 연결한 uniform 값을 갱신한다. stamp 인스턴스는 자신을 scene에 추가하지 않으며 app과 layer의 수명은 호출자가 관리한다.
+책임 경계: 기본 도형 GLSL은 `GTerrainOverlayShader`가 제공하고, 단색 내부 타일 전용 variant는 이 단위의 비공개 구현이 연결한다. stamp 인스턴스는 자신을 scene에 추가하지 않으며 app과 layer의 수명은 호출자가 관리한다.
 
 ### 1.3 주요 동작 방식
 
-stamp는 `setApp()`으로 app context에 연결된 뒤 `visible`이 true이고 유효한 도형이 있을 때만 검색 대상 layer의 registry에 등록된다. 등록 시 외부 입력을 shader용 cache로 복사·정규화한다. render 직전에는 registry cache를 전역 DataTexture의 row로 직렬화하고, tile bounds가 있으면 현재 tile과 겹치는 후보만 담은 별도 DataTexture를 선택한다. shader는 각 row의 도형, 색상, mode, polyline 두께와 texture mapping metadata를 읽어 fill·mask·polyline 결과를 계산한다.
+stamp는 `setApp()`으로 app context에 연결된 뒤 `visible`이 true이고 유효한 도형이 있을 때만 검색 대상 layer의 registry에 등록된다. 등록 시 외부 입력을 shader용 cache로 복사·정규화한다. render-before에서는 app의 레이어 registry를 갱신한다. tile draw 직전에 후보 조합의 DataTexture를 고르고, float metadata와 tile bounds로 단색 내부 여부를 판정하여 상수색 또는 정밀 row variant를 선택한다. 후보 순서가 같으면 타일 위치와 무관하게 metadata와 상대 좌표 원점을 공유하고 빈 후보는 공용 빈 texture를 사용한다. row shader는 각 row의 도형, 색상, mode, polyline 두께와 texture mapping metadata를 읽어 결과를 계산한다.
 
 관찰된 실행 특성: `UTerrainMesh` 계열의 material render 직전 경로에서 tile mesh 단위로 `updateRenderUniforms()`가 호출될 수 있다. 큰 world 좌표의 정밀도 손실을 줄이기 위해 overlay origin 기준 상대 좌표를 사용하고, CSS pixel 단위 polyline 두께는 renderer pixel ratio를 함께 전달해 framebuffer pixel 단위로 환산한다.
 
@@ -54,17 +55,20 @@ textureFit contain은 texture가 있는 4점 polygon에서만 네 꼭짓점 warp
 mappingFrame은 유효한 3~4개의 world 좌표만 사용하고, 존재하면 polygon 포함 영역과 별개로 texture와 gradient가 공유하는 UV 기준 프레임에 우선 적용해야 한다.
 gradientDirection은 vertical 또는 horizontal만 허용하고 그 외 값은 vertical로 보정해야 한다.
 mode는 fill 또는 mask 이름과 shader mode 숫자만 허용하고 그 외 값은 자동 layer 기준으로 처리해야 한다.
-targetLayer가 있으면 targetLayer보다 renderOrder가 높은 image layer만 검색하고 targetLayer 자체에는 등록하지 않아야 한다.
-mode를 생략하고 targetLayer가 있으면 검색된 layer에 mask mode를 사용하며, mode를 명시하면 검색된 layer에 해당 mode를 사용해야 한다.
+채움 mode의 targetLayer가 있으면 그보다 renderOrder가 높은 image layer만 검색하고 targetLayer 자체에는 등록하지 않아야 한다.
+명시 mask 또는 mode 생략과 targetLayer 조합은 모든 image layer를 검색한다. targetLayer 위에는 mask, targetLayer 자신과 아래에는 낮은 순서의 stamp 합성을 막는 가림 mode로 등록해야 한다. targetLayer 없는 명시 mask는 검색된 layer에 mask mode를 사용한다.
 app의 image layer 목록이 바뀌면 render-before callback 갱신에서 stamp별 검색 layer를 다시 계산해야 한다.
-tile bounds가 있으면 tile과 겹치지 않는 stamp를 해당 tile metadata texture에서 제외해야 한다.
-tile과 겹치는 stamp가 maxStampsPerTile을 넘으면 tile 중심에서 overlay bounds까지의 거리 기준으로 가까운 stamp를 우선해야 한다.
+기존 row 경로에서는 tile bounds가 있으면 tile과 겹치지 않는 stamp를 해당 tile metadata texture에서 제외해야 한다.
+기존 row 경로에서 tile과 겹치는 stamp가 maxStampsPerTile을 넘으면 tile 중심에서 overlay bounds까지의 거리 기준으로 가까운 stamp를 우선해야 한다.
+정밀 경로와 상수색 경로는 동일한 tile 후보·상한·renderOrder·0.96 누적 alpha 조기 종료를 적용해야 한다.
+단색 내부 여부를 증명할 수 없는 tile은 정밀 경로로 처리한다. 선 bounds·다각형 변·원 경계와 교차하거나 이미지·gradient·mask가 보이는 tile은 상수색으로 대체하지 않는다.
+같은 타일 내부에서 변하지 않는 premultiplied RGB와 alpha만 합성하여 재사용한다. 별도 raster texture의 보간·양자화에 따른 경계 열화를 허용하지 않는다.
 큰 world 좌표는 overlay origin 기준 상대 좌표로 변환하고 splitDifference 방식으로 JS 단계의 차분 정밀도를 보정해야 한다.
 texture atlas 최대 이미지 수는 atlas texture 또는 URL entry가 만들어지기 전에만 변경할 수 있어야 한다.
 document가 없는 환경에서는 atlas uniform 구조를 유지하기 위해 1x1 fallback DataTexture를 사용해야 한다.
-마지막 stamp가 layer state에서 제거되면 전역·tile별 metadata texture와 finalizer 등록을 해제하고 layer state의 강한 참조를 제거해야 한다.
+마지막 stamp가 layer state에서 제거되면 전역·공유 후보 조합 metadata texture와 layer state의 강한 참조를 제거해야 한다. Helper 전용 동기 배치가 정리 함수를 지정하면 texture만 그 함수에 이전하며, state·binding·옛 record의 참조 제거는 배치 반환 전에 완료해야 한다.
 마지막 stamp 제거 뒤에도 layer별 render binding의 uniform 객체 참조는 유지하고, count 0과 공유 빈 metadata texture를 가리켜야 한다.
-한 번 생성된 layer별 render binding은 활성 stamp가 0개여도 render state 조회에서 반환하여 terrain material이 stamp 유무에 따라 shader program을 반복 전환하지 않게 해야 한다.
+한 번 생성된 layer별 render binding은 활성 stamp가 0개여도 render state 조회에서 반환해야 한다. 도장 지원 binding의 존재 여부는 유지하고, 합성 활성 여부에 따른 row/합성 variant만 별도로 선택한다.
 같은 layer에 stamp가 다시 등록되면 새 layer state는 기존 render binding을 재사용하여 캐시된 terrain material이 dispose된 이전 texture를 참조하지 않게 해야 한다.
 layer state의 최초 생성과 최종 해제는 app render나 QuadTileSet update를 강제로 요청하지 않고 다음 terrain render에서 반영해야 한다.
 ```
@@ -73,11 +77,21 @@ layer state의 최초 생성과 최종 해제는 app render나 QuadTileSet updat
 
 ```spec
 실행 맥락: terrain tile render 직전에 object별 uniform 값을 반복 갱신할 수 있다.
+갱신 기준: 현재 stamp revision과 tile bounds에 대해 판정하며 별도 저주기 합성으로 이전 형상을 지연 출력하지 않는다.
+자원 기준: 상수색 경로는 Vector4와 기존 후보 metadata를 재사용하고 별도의 render target·mesh·material을 만들지 않는다.
+재사용 기준: tile cache의 revision·bounds·공유 texture 유효성이 같으면 단색 판정과 합성색을 재사용한다.
+품질 기준: 경계와 외곽선은 기존 화면 해상도의 도형 판정을 보존한다. 내부 합성색의 float 연산 반올림 이외의 해상도 손실은 만들지 않는다.
 우선순위: stamp 포함 판정과 mask 결과를 보존하면서 tile별 shader 입력 개수와 texture 재작성 범위를 줄인다.
-재사용 기준: layer별 state, 전역 stamp DataTexture, tile별 metadata texture cache, texture atlas, scratch 배열과 Vector는 반복 render에서 재사용해야 한다.
+재사용 기준: layer별 state, 전역 stamp DataTexture, 후보 조합별 metadata texture, tile별 후보 선택 cache, texture atlas, scratch 배열과 Vector는 반복 render에서 재사용해야 한다.
 격리 기준: frame 사이에 유지되는 전체 stamp 목록, 전역 상대 origin과 tile 후보 배열은 layer state별로 소유하여 다른 image layer의 render 갱신이 덮어쓰지 않아야 한다.
 제한 조건: 전체 stamp 개수는 registry 수집 단계에서 shader row 상한으로 먼저 자르지 않고 tile별 후보 선정 뒤에만 row 상한을 적용해야 한다.
-자원 기준: tile별 cache는 object identity와 bounds key 및 texture revision이 같으면 기존 metadata texture를 재사용해야 한다.
+자원 기준: tile별 cache는 object identity와 정규화한 네 bounds 좌표 및 texture revision이 같고 공유 texture가 퇴출되지 않았으면 기존 후보 선택 결과를 재사용해야 한다.
+자원 기준: 공유 후보 조합 texture는 현재·직전 렌더 프레임의 작업 집합을 보호하고 비활성 조합만 회수해야 한다. 프레임별 회수는 Map 256개를 목표로 최대 64개씩 처리하되, Map 512개 초과분은 보관 압력 해소를 위해 추가 회수한다. 보호 중인 작업 집합은 상한 때문에 퇴출하지 않는다. 프레임 정보를 받지 못하면 기존 전체 256개 LRU를 사용한다.
+자원 기준: 퇴출한 texture와 backing array는 같은 layer의 같은 행 수 저장소로만 재사용한다. 풀은 총 128개 및 CPU backing 4MiB 이내이며 GPU에는 같은 float 저장소 크기가 추가로 남을 수 있다. 퇴출 뒤 두 번의 관찰 render 프레임을 기다리고, 사용할 저장소가 없으면 새로 생성한다. GPU 완료를 동기적으로 기다리지 않는다.
+정확성 기준: 퇴출된 data record의 texture·후보·색 배열 참조를 비우고 그 record 자체를 재활성화하지 않는다. 빌린 배열은 영점으로 초기화한 뒤 새 조합의 metadata를 작성하고 needsUpdate를 설정한다. 후보 선택·순서·상한·상대 원점·색과 shader 분기는 바꾸지 않는다.
+자원 기준: 마지막 사용 layer state를 해제할 때 활성 조합과 풀에 보관한 texture를 각각 한 번만 dispose하거나 Helper 정리 함수에 한 번 이전하고 풀의 개수·byte 합계를 비워야 한다. 정리 함수가 정상 반환한 뒤에는 그 함수의 소유자가 정확히 한 번 dispose하며, 거부할 때는 소유권을 저장하기 전에 예외를 던져야 한다.
+갱신 기준: 보관 중인 같은 순서의 후보 객체와 atlas 세대가 같으면 다른 Stamp의 변경만으로 직렬화·업로드하지 않아야 한다. 빈 후보도 revision 변경으로 새 texture 작성·업로드를 요청하지 않아야 한다.
+재사용 기준: 직전 세대의 타일은 추가·제거·교체된 Stamp의 이전/새 범위와 겹치지 않고 후보 상한·atlas가 같을 때 후보와 coverage를 재사용한다. 여러 세대를 건너뛴 타일은 전체 후보를 다시 선정한다.
 자원 기준: 비활성 binding용 빈 metadata texture는 모듈 전체에서 한 장만 공유하고, binding WeakMap 값은 layer를 역참조하지 않아야 한다.
 갱신 기준: 좌표·스타일 변경과 layer state의 생성·해제는 추가 app render나 QuadTileSet update 요청을 만들지 않아야 한다.
 검증 기준: 많은 stamp가 넓게 분포한 입력에서 멀리 떨어진 stamp가 현재 tile 후보를 밀어내지 않는지 확인해야 한다.
@@ -111,12 +125,6 @@ _terrainStampStates: Set<object> = 빈 Set
 
 _terrainStampAppStates: WeakMap<object, object> = 빈 WeakMap
     app별 stamp Set과 render-before callback 수명주기를 보관한다.
-
-_terrainStampTileTextureFinalizer: FinalizationRegistry | undefined
-    의존:
-        Web API — tile object 회수 callback 등록 기반 생성; 생성자: {new FinalizationRegistry()}
-        DataTexture — 회수된 tile의 metadata texture 해제; 함수: {dispose()}
-    FinalizationRegistry를 지원하는 환경에서만 생성한다.
 
 UTerrainStampAtlas 클래스 정의
     atlasSize: number
@@ -230,6 +238,8 @@ _textureAtlas: UTerrainStampAtlas
     모든 stamp 인스턴스가 공유하는 URL texture atlas이다.
 
 UTerrainStamp 클래스 정의
+    static _addCompositeShader(shader: object, uniforms: object) -> void
+        동작:
     #disposed: boolean = false
         true가 되면 setter가 실행되어도 registry에 다시 등록하지 않는다.
 
@@ -238,6 +248,15 @@ UTerrainStamp 클래스 정의
 
     #searchLayers: Array<object> = 빈 배열
         현재 app과 targetLayer 기준으로 registry를 연결할 image layer 목록이다.
+
+    #registeredCache: object | undefined
+        직전 등록의 복사·정규화된 좌표/스타일 snapshot이며 동일 내용의 재등록을 생략하는 비교 기준이다. 등록 해제 시 비운다.
+
+    #registeredSearchLayers: Array<object> | undefined
+        직전 등록의 검색 layer 목록이며 객체 identity와 순서를 비교한다. 등록 해제 시 참조를 비운다.
+
+    #helperBatch: object | undefined
+        명시적으로 포함된 Helper 도장의 현재 동기 배치 문맥이다. 중첩 전의 문맥을 보관했다가 종료 시 복구하며 다음 프레임에 유지하지 않는다.
 
     visible: boolean = false
         registry 등록 허용 여부이며 true이고 유효한 도형과 검색 layer가 있을 때만 등록된다.
@@ -319,10 +338,9 @@ UTerrainStamp 클래스 정의
             결과의 activeCount는 현재 layer registry의 stamp 수이다.
             uniforms는 count, objectRelative, pixelRatio, stampDataTexture, stampDataTextureSize와 textureAtlas의 layer별 안정적인 동일 참조를 제공한다.
         동작:
-            layer의 stamp state를 조회한다.
+            layer의 영속 render binding을 직접 조회해 반환하며, 한 번도 생성되지 않았으면 undefined를 반환한다.
 
-            등록된 stamp cache가 있으면 state가 보유한 render binding을 반환한다.
-            활성 state가 없으면 이전에 생성된 layer render binding을 조회해 반환하고, binding도 없으면 undefined를 반환한다.
+            마지막 stamp가 해제된 뒤에도 같은 binding 참조를 반환하고, 재등록 시 그 binding의 uniform 값만 갱신한다.
 
     static updateRenderUniforms(layer: object, renderContext: object = {}) -> void
         역할: render 직전 현재 tile object에 맞는 overlay uniform 값을 갱신한다.
@@ -339,8 +357,36 @@ UTerrainStamp 클래스 정의
             app stamp state를 조회한다.
 
             app state가 없거나 stamp가 없으면 false를 반환한다.
-            등록된 stamp를 순회하며 검색 layer 갱신 여부를 누적한다.
+            이 동기 호출에서 공유할 전체 image layer 목록을 한 번 조회·정렬한다.
+            등록된 stamp를 순회하며 같은 app에 속한 stamp에는 정렬 목록을 전달하고 검색 layer 갱신 여부를 누적한다.
+            목록은 다음 갱신이나 setter 호출에 재사용하지 않으며, 각 stamp의 target 조건은 별도로 적용한다.
             하나 이상 갱신되었으면 true를 반환한다.
+
+    static _withHelperBatch(stamps: Iterable<UTerrainStamp>, callback: Function, retire?: Function, onStampError?: Function) -> T
+        역할: Helper 소유 도장의 중간 등록을 합치고 최종 layer 해제 texture의 정리 소유권을 선택적으로 이전한다.
+        인터페이스:
+            stamps는 이번 동기 작업에 포함할 도장 목록이다.
+            callback은 include(stamp)를 받아 동기적으로 변경하고 T를 반환한다. 새 도장은 변경 전에 include로 포함하며 include는 입력 도장을 반환한다.
+            retire는 독점 DataTexture 하나를 받아 정리 소유권을 인수한다. 생략하면 즉시 dispose한다. 정상 반환 후에는 수신자가 정확히 한 번 dispose하며, 인수를 거부할 때는 저장 전에 예외를 던진다.
+            onStampError는 실제 commit에서 실패한 도장과 원래 오류를 관찰한다. 도장을 변경하지 않으며, 기존 Error·AggregateError 전파를 대신하거나 삼키지 않는다. 중첩되어 바깥으로 합친 도장은 실제 바깥 commit의 관찰자에게만 전달한다.
+        처리 기준:
+            callback 안에서는 await와 중간 렌더를 수행하지 않는다. 포함하지 않은 일반 도장은 즉시 동작한다.
+            도장별 마지막 변경 순서를 보존하며, callback 실패 시 이미 변경된 값은 되돌리지 않고 등록·해제를 확정한다.
+            callback 또는 지정된 retire·onStampError가 함수가 아니거나 include 입력이 도장이 아니면 TypeError이다. 종료 후 include 호출은 Error이며 thenable 반환은 TypeError이다.
+        의존: Three texture API — 정리 함수가 없거나 인수를 거부한 texture 해제; 함수: {DataTexture.dispose()}
+        동작:
+            포함한 도장의 바깥 배치 문맥과 직전 등록 layer 목록을 저장한다. dispose가 인스턴스 참조를 지워도 옛 등록을 제거할 수 있도록 목록을 배치가 보유한다.
+            callback을 실행하고 발생한 오류를 저장한다. setter와 해제 요청은 pending 목록에서 삭제 후 다시 추가하여 마지막 변경 순서로 모은다.
+            callback 종료 뒤 같은 도장이 바깥 배치에도 포함되어 있으면 바깥 pending으로 합친다. 그 밖의 도장은 disposed·visible 상태에 따라 제거하거나 최종 값으로 한 번 등록한다.
+
+            등록에 사용할 전체 layer 목록은 commit의 app별로 한 번 정렬하고 각 도장의 최종 target 조건을 적용한다.
+
+            도장별 검색·등록 실패 때 남은 등록을 제거하고 원래 오류를 수집한 뒤 해당 도장과 오류를 onStampError에 통지한다. 통지 함수가 던진 추가 오류도 수집하며 나머지 도장 처리를 계속한다. 작업 callback·자원 정리 오류는 특정 도장에 귀속하여 통지하지 않는다.
+            이번 배치가 건드린 동일 state가 아직 활성 Set에 있으며 비어 있을 때만 해제하여 texture를 내부 목록에 모은다.
+
+            도장별 바깥 문맥을 finally에서 복구한다. registry·binding·옛 tile record와 state의 참조가 끊긴 뒤 texture만 retire에 넘기거나 즉시 dispose한다.
+            retire가 예외로 인수를 거부하면 해당 texture를 직접 dispose하고 오류를 저장한다. 공용 빈 texture는 이전하지 않는다.
+            배치의 도장·app·state·texture 참조를 비운다. 오류 하나는 원래 객체로 재전파하고 여러 오류는 AggregateError로 전달하며, 없으면 callback 결과를 반환한다.
 
     constructor(opt: object = {})
         역할: stamp의 도형, 스타일, layer 적용 상태를 초기화하고 가능한 경우 registry에 등록한다.
@@ -376,7 +422,7 @@ UTerrainStamp 클래스 정의
 
             새 app을 저장하고 app stamp set에 등록한다.
 
-            새 app과 targetLayer 기준 검색 layer를 계산한다.
+            새 app과 targetLayer 기준 검색 layer를 계산한다. Helper 배치 안에서는 최종 commit까지 계산을 미룬다.
 
             disposed 상태라도 app stamp set 등록과 layer 검색은 수행하며, registry 동기화 단계에서만 재등록을 중단한다. [확인 Q-003]
 
@@ -391,7 +437,7 @@ UTerrainStamp 클래스 정의
             현재 targetLayer와 같은 입력이면 자신을 반환한다.
             기존 registry에서 제거하고 targetLayer를 저장한다.
 
-            app과 targetLayer 기준 검색 layer를 다시 계산한다.
+            app과 targetLayer 기준 검색 layer를 다시 계산한다. Helper 배치 안에서는 최종 commit까지 계산을 미룬다.
 
             registry를 다시 동기화하고 자신을 반환한다.
 
@@ -581,6 +627,7 @@ UTerrainStamp 클래스 정의
 
     표시와 수명주기 책임 그룹
         역할: registry 등록 여부와 폐기 상태를 관리한다.
+        처리 기준: 명시적으로 포함된 Helper 배치 안에서는 setter의 인스턴스 값과 dispose 상태를 즉시 변경하되 registry 변경과 마지막 state 해제는 배치 반환 전에 확정한다. 일반 호출은 즉시 반영한다.
 
         setMaxStampsPerTile(value: number) -> UTerrainStamp
             동작:
@@ -618,15 +665,16 @@ UTerrainStamp 클래스 정의
     #syncRegistry() -> void
         역할: 현재 visible, disposed와 도형 상태를 layer registry에 반영한다.
         동작:
+            commit 전인 Helper 배치에 포함되어 있으면 마지막 변경 순서로 pending에 기록하고 종료한다.
             disposed 상태이면 종료한다.
             visible이 false이면 registry에서 제거하고 종료한다.
 
             현재 stamp cache를 registry에 등록한다.
 
-    #refreshSearchLayers() -> boolean
+    #refreshSearchLayers(sortedLayers?: Array<object>) -> boolean
         역할: app의 현재 image layer 목록에 맞게 stamp 등록 대상 layer를 갱신한다.
         동작:
-            app과 targetLayer 기준 새 검색 layer 목록을 계산한다.
+            app과 targetLayer 기준 새 검색 layer 목록을 계산하며, 같은 app 갱신에서 전달된 전체 정렬 목록이 있으면 조회·정렬을 반복하지 않는다.
 
             새 목록과 기존 목록의 순서별 논리 layer가 모두 같으면 false를 반환한다.
 
@@ -643,38 +691,31 @@ UTerrainStamp 클래스 정의
             gradientDirection, textureFit, mode와 lineWidthUnits를 각각 허용 값으로 보정하고 expectTexture를 boolean으로 저장한다.
 
             targetLayer가 전달되면 저장한다.
-            app과 targetLayer 기준 검색 layer 목록을 다시 계산한다.
+            app과 targetLayer 기준 검색 layer 목록을 다시 계산한다. Helper 배치 안에서는 최종 commit까지 계산을 미룬다.
 
     #registerTerrainOverlay() -> void
-        역할: 현재 stamp 상태의 normalized cache를 적용 대상 layer state에 등록한다.
-        의존: defined — cache와 mode 존재 여부 판정; 함수: {defined()}
+        역할: 현재 stamp 상태를 정규화하고 변경된 layer 등록만 갱신한다.
         동작:
-            기존 registry 등록분을 먼저 제거한다.
+            현재 type에 맞춰 좌표와 스타일의 복사본을 만든다. 유효하지 않으면 이전 snapshot과 등록을 지우고 종료한다.
 
-            현재 type에 맞춰 polygon, circle 또는 polyline cache를 만든다.
+            검색 layer 객체의 순서와 정규화된 데이터가 정확히 같은지 비교한다. 다를 때만 이전 등록을 해제하고 새 snapshot을 보관한다.
 
-            cache 생성에 실패하면 종료한다.
-            검색 layer를 순회한다.
-            현재 stamp가 mask 동작인지 판정한다.
+            layer별 mode를 확인한다. 출력 자격이 없어진 기존 등록은 제거하고 실제 출력 layer의 state만 생성/조회한다.
 
-            mask stamp가 targetLayer 자체에 해당하면 state를 만들지 않고 다음 layer로 넘어간다.
+            도형/스타일 또는 mode·targetLayer·renderOrder가 바뀌었거나 등록이 없을 때만 cacheByStamp를 기록하고 dirty를 세운다.
+            내용이 같은 호출도 maxStampsPerTile의 마지막 지정값을 layer 공유 상한에 반영한다.
 
-            layer별 mode를 계산하고 mode가 없으면 state를 만들지 않고 다음 layer로 넘어간다.
-
-            실제 출력할 layer의 state만 생성하거나 조회한다.
-
-            stamp cache에 mode, owner와 targetLayer를 더해 state cacheByStamp에 저장한다.
-            render binding의 activeCount를 현재 cache 수로 동기화한다.
-
-            maxStampsPerTile이 있으면 state 한도를 갱신한다.
-
-            state를 dirty 처리한다.
-            성공·조기 종료·오류 여부와 관계없이 비어 있는 layer state를 찾아 자원을 해제한다.
+            오류 시 현재 등록 목록을 해제에 전달한 뒤 snapshot과 등록을 지우고 재전파한다. 새 layer 일부만 등록한 뒤 실패해도 그 등록을 제거한다.
+            일반 도장은 전체 빈 state를 정리한다. Helper 배치는 건드린 state identity를 모아 배치 끝에서만 빈 state를 정리한다.
 
     #unregisterTerrainOverlay(cleanupEmptyStates: boolean = false) -> void
-        역할: 모든 layer state에서 현재 stamp cache를 제거하고 요청된 경우 비어진 state를 해제한다.
+        역할: 등록 비교 snapshot과 현재 stamp cache를 제거하고 요청된 경우 비어진 state를 해제한다.
         동작:
-            전체 terrain stamp state를 순회하며 현재 stamp cache가 삭제된 state만 dirty 처리하고 render binding의 activeCount를 동기화한다.
+            commit 전인 Helper 배치에서는 마지막 변경 순서로 pending에 기록하고 종료한다.
+            현재 등록 layer 목록을 보관한 뒤 비교 snapshot을 비운다. 인스턴스 목록이 없으면 Helper 배치가 보관한 최초 목록을 사용한다.
+            Helper 배치에서는 보관한 등록 layer만 조회하여 stamp cache를 제거하고 dirty·activeCount를 갱신한다. 건드린 state를 모은 뒤 종료하여 마지막 자원 정리를 배치에 맡긴다.
+
+            Helper 배치 밖에서는 전체 terrain stamp state를 순회하며 현재 stamp cache가 삭제된 state만 dirty 처리하고 render binding의 activeCount를 동기화한다.
 
             cleanupEmptyStates가 true이면 cache가 비어진 state를 별도 배열에 수집한다.
             순회가 끝난 뒤 수집한 state의 GPU texture와 registry 소유권을 해제한다.
@@ -809,20 +850,24 @@ resolveTerrainStampLineWidthUnits(units: string | undefined) -> 'meters' | 'pixe
 
 isTerrainStampMaskMode(stamp: UTerrainStamp) -> boolean
     역할: stamp가 target layer 기반 또는 명시 mask 동작인지 판정한다.
-    동작: mode가 mask이거나 targetLayer가 정의되어 있으면 true를 반환한다.
+    동작: mode가 mask이거나, mode가 정의되지 않았고 targetLayer가 정의되어 있으면 true를 반환한다. 명시 fill이면 targetLayer가 있어도 false이다.
 
-getTerrainStampMaskTargetLayer(stamp: UTerrainStamp) -> object | undefined
-    역할: mask 적용에서 제외할 stamp의 target layer를 얻는다.
-    동작: targetLayer가 정의되어 있으면 반환하고 아니면 undefined를 반환한다.
+getTerrainStampSearchTargetLayer(stamp: UTerrainStamp) -> object | undefined
+    역할: 검색 대상 image layer를 좁힐 기준 layer를 얻는다.
+    동작:
+        targetLayer가 없으면 undefined를 반환한다.
+        mask이면 target 자신과 아래에도 가림 mode를 등록해야 하므로 undefined를 반환하고, 채움이면 targetLayer를 반환한다.
 
 updateTerrainOverlayUniforms(stampState: object, renderContext: object = {}) -> void
     역할: render 직전 stamp state와 tile object에 맞는 shader metadata uniform 값을 갱신한다.
     의존: WebGLRenderer(renderContext.renderer) — CSS pixel 두께 환산용 renderer 배율 조회; 함수: {getPixelRatio()}
     동작:
-        state가 dirty이면 전역 overlay texture를 다시 작성한다.
+        compositeEnabled를 false, rowCoverage와 rowFill을 공용 영점 배열, plainRowLimit을 0으로 초기화하고 renderer 프레임에 따라 비활성 texture를 회수한다.
+        state가 dirty이면 overlay 후보와 변경 범위를 다시 수집한다.
 
         현재 object의 bounds에 맞는 metadata texture와 overlay 수를 적용한다.
 
+        uniform stampDataTextureSize의 높이를 선택된 texture의 실제 행 수로 바꾼다.
         object의 matrixWorld translation을 world origin으로 구한다.
 
         object origin과 선택한 overlay origin의 정밀도 보정 차이를 uniform objectRelative에 기록한다.
@@ -830,23 +875,25 @@ updateTerrainOverlayUniforms(stampState: object, renderContext: object = {}) -> 
         renderer pixel ratio가 0보다 큰 유한한 값이면 uniform pixelRatio에 저장하고 아니면 1을 저장한다.
 
 updateTerrainOverlayTexture(stampState: object) -> void
-    역할: registry 전체의 살아 있는 overlay cache를 전역 DataTexture에 직렬화한다.
+    역할: registry 전체의 살아 있는 overlay cache와 타일 검색 자료를 갱신한다.
     의존:
-        Vector3 — 선택한 전역 상대 origin 복사; 함수: {copy()}
-        DataTexture — 전역 metadata texture를 GPU upload 대상으로 표시; 속성 쓰기: {needsUpdate}
         TERRAIN_OVERLAY_SHADER — fallback row 상한; 상수: {MAX_OVERLAYS}
     동작:
         state entries를 비운다.
-        state cacheByStamp를 순회하며 visible이 false가 아닌 cache의 world bounds를 계산한다.
+        전체 후보 bounds를 빈 범위로 초기화한다.
+        state cacheByStamp를 순회하며 visible이 false가 아닌 cache의 world bounds를 최초 한 번 계산한다. 정규화 snapshot이 교체되지 않으면 계산된 bounds를 재사용한다.
 
         현재 state의 target layer 자체에 적용될 mask cache는 제외하고 나머지를 state entries에 수집한다.
 
+        수집한 cache의 world bounds를 합쳐 전체 후보 bounds를 갱신한다.
+        entries를 renderOrder와 생성 순서로 정렬한다.
+
+        직전 목록과 현재 목록의 변경 범위 및 위치와 무관한 무효화 조건을 기록한다.
+        전체 bounds의 네 성분이 모두 유한할 때만 넓은 범위 제외를 활성화한다.
+        현재 수집 목록으로 보수적인 타일 후보 검색 자료를 갱신한다.
         fallbackCount를 shader 최대 row 수로 제한한다.
-        fallbackCount가 0이면 원점, 아니면 첫 overlay 대표점을 state의 전역 상대 origin으로 선택한다.
-
-        fallbackCount만큼 overlay row를 전역 DataTexture에 쓴다.
-
-        전역 DataTexture를 needsUpdate로 표시하고 uniform stampDataTexture를 전역 texture로 연결한다.
+        fallbackCount 안의 texture URL은 기존 순서대로 atlas entry를 요청하여 cell 선점·이미지 load 순서를 유지한다.
+        전역 숫자 metadata의 직렬화는 bounds 없는 draw에서 실제 사용될 때까지 미룬다.
         dirty를 해제하고 textureRevision을 증가시킨다.
 
 resolveOverlayRelativeOrigin(target: Vector3, overlays: Array<object>, count: number) -> Vector3
@@ -871,43 +918,62 @@ applyObjectOverlayTexture(stampState: object, object: object) -> void
     역할: 현재 tile object에 사용할 metadata texture, overlay 수와 상대 좌표 origin을 선택한다.
     의존:
         Vector3 — 전역 또는 tile별 상대 origin 복사; 함수: {copy()}
-        Web API — tile object 회수 시 새 metadata texture 해제를 예약; 함수: {FinalizationRegistry.register()}
+        DataTexture — 전역 metadata 변경 upload 표시; 속성 쓰기: {needsUpdate}
     동작:
-        object와 연결된 tile의 여러 bounds 표현을 정규 XY bounds로 변환한다.
+        object와 연결된 tile의 현재 bounds를 매번 읽어 state 소유 작업 객체에 정규 XY bounds를 기록한다.
 
-        bounds가 없거나 state entries가 비어 있으면 전역 metadata texture, 제한된 전체 개수와 state 전역 origin을 uniform에 적용하고 종료한다.
-        bounds key와 object identity로 기존 tile cache를 조회한다.
+        bounds가 없거나 state entries가 비어 있으면 shader row 상한으로 fallbackCount를 정한다.
+            전역 metadata의 직렬화 세대가 현재와 다르면 최신 fallbackCount와 첫 overlay 대표점으로 전역 origin을 정하고 전역 row를 작성한다.
+            다시 작성한 전역 texture를 needsUpdate로 표시하고 globalTextureRevision을 현재 세대로 갱신한다.
+            전역 metadata texture, fallbackCount와 전역 origin을 uniform에 적용하고 종료한다.
+        object identity로 기존 tile cache를 조회하고 저장된 네 좌표와 현재 bounds를 비교한다.
 
-        cache revision과 bounds key가 현재 값이면 기존 cache를 그대로 사용한다.
-        cache가 없거나 오래되었으면 기존 metadata texture를 재사용하고, texture가 없으면 새 DataTexture를 만든다.
+        cache가 직전 세대이고 bounds·texture가 유효하며 후보 상한·atlas가 그대로이고 변경된 이전/새 도형 범위와 겹치지 않으면 cache revision만 진행한다. 여러 세대를 건너뛴 타일에는 적용하지 않는다.
+        cache revision과 네 bounds 좌표가 현재 값이고 빌린 공유 항목의 texture가 살아 있으면 기존 cache를 사용한다.
+        그 외에는 현재 tile의 후보 조합을 선택하고 object identity로 cache를 저장한다.
 
-        새 tile texture이고 FinalizationRegistry를 지원하면 texture와 token을 state 소유 Set에 넣고 object 회수 callback을 등록한다.
-        FinalizationRegistry가 없는 환경에서는 새 tile texture를 state 소유 Set에 넣지 않는다. [확인 Q-002]
-        현재 tile과 겹치는 overlay를 새 cache에 직렬화하고 object identity로 저장한다.
+        cache.data의 texture와 count를 uniform에 적용하고 data.origin을 scratch origin에 복사한다.
+        data의 마지막 사용 프레임을 기록하고 cache의 compositeEnabled와 유효한 compositeColor, rowCoverage와 data.plainRowLimit·rowFill을 현재 draw의 uniform에 적용한다.
 
-        cache의 texture와 count를 uniform에 적용하고 cache origin을 scratch origin에 복사한다.
-
-buildTileOverlayTexture(stampState: object, tileBounds: object, boundsKey: string, texture: DataTexture) -> object
-    역할: 현재 tile bounds와 겹치는 stamp 후보만 골라 metadata texture cache 항목을 만든다.
+buildTileOverlayTexture(stampState: object, tileBounds: object, cache?: object) -> object
+    역할: 현재 tile의 후보를 선택하고 동일 후보 조합의 texture를 공유하는 cache 항목을 만든다.
     의존:
         Vector3 — tile별 상대 origin 생성과 현재 origin 복사; 생성자: {new Vector3()}; 함수: {copy()}
-        DataTexture(texture) — 직렬화 완료를 GPU upload 대상으로 표시; 속성 쓰기: {needsUpdate}
+        Vector4 — 타일이 소유한 합성색 최초 생성; 생성자: {new Vector4()}
+        DataTexture — 퇴출 자원 해제와 변경 데이터 upload 표시; 함수: {dispose()}; 속성 쓰기: {needsUpdate}
         TERRAIN_OVERLAY_SHADER — tile별 row 상한; 상수: {MAX_OVERLAYS}
     동작:
         state 한도와 shader row 한도 중 작은 값을 tile limit으로 사용한다.
         state의 tile 후보 배열을 비운다.
-        state entries에서 현재 state의 target mask를 제외한다.
+        유한한 전체 후보 bounds와 tile이 32 world unit margin에서도 겹치지 않으면 개별 stamp 순회를 생략한다.
+
+        전체 bounds 밖이 아니면 보수적인 공간 색인 후보를 조회한다. 색인이 비활성이거나 불리한 범위이면 전체 entries를 사용한다.
+        검색 후보에서 현재 state의 target mask를 제외한다.
 
         나머지 중 bounds가 32 world unit margin까지 겹치는 overlay만 후보로 수집한다.
 
         후보가 limit을 넘으면 tile 중심에서 각 overlay bounds까지의 최단 거리 제곱을 비교해 가까운 순서로 정렬한다.
 
         count를 후보 수와 limit 중 작은 값으로 정한다.
-        선택 후보가 없으면 영점, 있으면 첫 후보의 대표점을 상대 좌표 origin으로 정한다.
+        상한 때문에 거리 순으로 후보를 줄였으면 남은 후보를 renderOrder와 생성 순서로 다시 정렬한다.
 
-        count 범위의 후보를 metadata texture row에 직렬화하고 texture를 needsUpdate로 표시한다.
-
-        boundsKey, count, origin, revision과 texture를 가진 cache 항목을 반환한다.
+        선택 순서대로 생성 ID를 연결하여 공유 Map의 key를 만든다.
+        count가 0이면 공용 빈 data를 선택하고 texture를 다시 작성하지 않는다.
+        count가 양수이면 공유 Map에서 key에 해당하는 data를 찾는다.
+            없으면 프레임 추적을 하지 않는 수동 호출에서만 Map 크기 256 이상일 때 가장 오래된 항목을 제거하고 공통 회수 경로에 반환한다. 프레임 추적 중인 활성 조합은 draw 도중 퇴출하지 않는다.
+            없으면 count 이상의 최소 2의 거듭제곱 행 수로 풀을 조회하고 사용할 저장소가 없으면 texture를 만든다.
+            선택한 texture와 count, 새 origin, 초기 revision을 가진 data를 만든다. 이전 tile WeakMap이 참조하는 퇴출 record는 재사용하지 않는다.
+            data revision이 현재 revision과 다르면 같은 순서의 후보 객체와 atlas 세대가 달라졌는지 판정한다.
+                달라졌으면 첫 후보 대표점을 origin으로 정하고 선택 후보를 row에 기록한다.
+                    직렬화된 metadata의 단색 적합성과 4/8/16개 상한을 data.plainRowLimit에 저장하고 같은 Float32 색·유효 알파를 rowFill에 기록한다.
+                    texture를 needsUpdate로 표시한다.
+                같으면 origin·metadata·색 배열을 유지한다. 두 경우 모두 data revision을 현재 값으로 저장한다.
+            key를 Map의 마지막으로 이동하여 새로 선택된 조합의 보관 순서를 갱신한다.
+        기존 cache가 없으면 Vector4 합성색을 가진 cache를 만든다. 재계산에서는 같은 타일의 cache와 합성색을 재사용한다.
+        data.plainRowLimit이 양수이면 cache 소유 Float32Array(16)를 최초 한 번 만들고 0으로 초기화하여 rowCoverage를 끝까지 분류한다.
+        그 외에는 공용 영점 배열을 연결하고 상수색이 불가능한 첫 후보에서 판정을 종료한다. 단색 배열은 같은 타일의 다음 단색 전환에 재사용한다.
+        선택된 float metadata·count·origin·tile bounds로 단색 내부 여부와 합성색을 계산한다.
+        같은 cache에 bounds의 네 숫자를 복사하고 revision, data, compositeEnabled·compositeColor·rowCoverage를 갱신해 반환한다. 다음 draw에서 덮어쓰는 bounds 작업 객체의 참조는 보관하지 않는다.
 
 isTargetMaskOverlayForState(stampState: object, overlay: object) -> boolean
     역할: mask overlay가 자신의 target layer state에 잘못 포함되는 경우를 식별한다.
@@ -941,14 +1007,14 @@ writeOverlayToTexture(texture: DataTexture, row: number, overlay: object) -> voi
         type, pointCount, hasTexture와 textureOpacity를 column 0에 쓴다.
         circle이면 center와 radius 및 radius 제곱을 column 1에 쓴다.
         polygon 또는 polyline이면 각 점을 상대 좌표로 바꿔 column 1부터 순서대로 쓴다.
-        color와 alpha 또는 texture alpha 사용 여부를 column 9에 쓴다.
-        atlas UV rect 또는 기본 rect를 column 10에 쓴다.
-        mode와 expectTexture를 column 14의 앞 두 값에 쓴다.
-        polyline이면 lineWidth와 pixels 단위 여부를 column 14의 나머지 두 값에 쓰고, 다른 도형이면 0을 쓴다.
-        texture가 없는 gradient 색상과 방향을 column 15에 쓴다.
+        color와 alpha 또는 texture alpha 사용 여부를 column 17에 쓴다.
+        atlas UV rect 또는 기본 rect를 column 18에 쓴다.
+        mode와 expectTexture를 column 22의 앞 두 값에 쓴다.
+        polyline이면 lineWidth와 pixels 단위 여부를 column 22의 나머지 두 값에 쓰고, 다른 도형이면 0을 쓴다.
+        texture가 없는 gradient 색상과 방향을 column 23에 쓴다.
 
-        bounds를 column 11에 쓴다.
-        texture basis와 warp를 column 12와 13에 쓴다.
+        bounds를 column 19에 쓴다.
+        texture basis와 warp를 column 20과 21에 쓴다.
 
         각 column의 RGBA 기록은 공통 texel writer를 사용한다.
 
@@ -958,6 +1024,7 @@ writeOverlayTextureBasisToTexture(texture: DataTexture, row: number, overlay: ob
         Vector3 — UV 기준점 복사와 basis·warp 벡터 계산; 함수: {set(), copy(), subVectors(), sub()}
         TERRAIN_OVERLAY_SHADER — circle type 판정; 상수: {TYPE_CIRCLE}
     동작:
+        texture URL과 gradientColor가 모두 없으면 basis 두 column을 0으로 기록하고 좌표 변환 없이 종료한다. 로딩 중인 texture URL이 있으면 아래 계산을 유지하며, 스타일 전환으로 row를 다시 작성할 때 현재 값에 맞춰 basis를 갱신한다.
         circle은 center와 radius로 정사각 기준 프레임을 만든다.
         polygon에 유효한 mappingFrame이 있으면 첫 점을 origin, 두 번째 점을 U 기준, 네 번째 점 또는 세 번째 점을 V 기준으로 우선 사용한다.
         contain 조건의 4점 polygon은 점 순서를 origin, U점, warp점, V점으로 사용한다.
@@ -970,7 +1037,7 @@ writeOverlayTextureBasisToTexture(texture: DataTexture, row: number, overlay: ob
         basis 점들을 overlay origin 상대 좌표로 변환한다.
 
         상대 origin에서 U점과 V점까지의 벡터를 계산하고, contain 4점이면 네 번째 꼭짓점의 bilinear warp 보정 벡터도 계산한다.
-        column 12와 13에 texture basis와 warp 값을 쓴다.
+        column 20과 21에 texture basis와 warp 값을 쓴다.
 
 preparePolygonTextureFrame(overlay: object) -> boolean
     역할: texture가 있는 일반 polygon의 점 분포를 덮는 회전 정사각 UV 프레임을 만든다.
@@ -1008,13 +1075,13 @@ getOverlayPointsCenter(target: Vector3, points: Array<Vector3>) -> Vector3
     역할: 여러 overlay 점의 산술 평균 중심을 구한다.
     동작: target을 영점으로 초기화해 모든 점을 더하고 점 개수로 나눈 target을 반환한다.
 
-createOverlayTexture() -> DataTexture
-    역할: stamp metadata row를 저장할 고정 크기 float DataTexture를 만든다.
+createOverlayTexture(rowCapacity: number = TERRAIN_OVERLAY_SHADER.MAX_OVERLAYS) -> DataTexture
+    역할: 지정한 행 수의 stamp metadata를 저장할 float DataTexture를 만든다.
     의존:
         Three texture API — float RGBA metadata texture 생성과 sampler 설정; 생성자: {new DataTexture()}; 상수: {RGBAFormat, FloatType, NearestFilter, ClampToEdgeWrapping}; 속성 쓰기: {minFilter, magFilter, wrapS, wrapT, generateMipmaps, flipY, needsUpdate}
         TERRAIN_OVERLAY_SHADER — metadata texture 열·행 크기; 상수: {TEXTURE_WIDTH, MAX_OVERLAYS}
     동작:
-        shader TEXTURE_WIDTH와 MAX_OVERLAYS 및 RGBA 네 채널 크기의 Float32Array를 만든다.
+        shader TEXTURE_WIDTH와 rowCapacity 및 RGBA 네 채널 크기의 Float32Array를 만든다.
         nearest filter, clamp wrapping, mipmap 비활성화와 flipY 비활성화를 설정한 DataTexture를 반환한다.
 
 _emptyTerrainStampDataTexture: DataTexture | undefined
@@ -1023,7 +1090,7 @@ _emptyTerrainStampDataTexture: DataTexture | undefined
 getEmptyTerrainStampDataTexture() -> DataTexture
     역할: 비활성 render binding용 빈 metadata texture를 한 장만 lazy 생성해 반환한다.
     동작:
-        공유 texture가 없으면 새 metadata texture를 만들어 저장한다.
+        공유 texture가 없으면 1행 metadata texture를 만들어 저장한다.
 
         공유 texture를 반환한다.
 
@@ -1074,6 +1141,10 @@ cloneTerrainStampMappingFrame(frame: Array<Vector3> | undefined) -> Array<Vector
     역할: getter 반환용 mapping frame 복사본을 만든다.
     동작: 배열이면 각 점의 clone 또는 새 Vector3 복사본 배열을 반환하고 배열이 아니면 undefined를 반환한다.
 
+compareTerrainStampRenderOrder(a: object, b: object) -> number
+    역할: stamp 합성에 사용할 렌더 순서를 비교한다.
+    동작: renderOrder의 차를 반환하고 같으면 creationId의 차를 반환하며, 생략된 값은 0으로 본다.
+
 nextPowerOfTwo(value: number) -> number
     역할: 요청 크기 이상인 가장 작은 2의 거듭제곱을 계산한다.
     동작: 1에서 시작해 value 이상이 될 때까지 2를 곱한 결과를 반환한다.
@@ -1103,14 +1174,14 @@ getPointBoundsXY(points: Array<object>) -> object
     역할: polygon 또는 polyline 점 목록의 XY 최소·최대 범위를 계산한다.
     동작: 모든 점의 x와 y를 숫자로 변환해 minX, minY, maxX와 maxY를 누적한 bounds를 반환한다.
 
-getObjectTileBoundsXY(object: object) -> object | undefined
+getObjectTileBoundsXY(object: object, target: object) -> object | undefined
     역할: 서로 다른 terrain tile 구현의 bounds 위치를 공통 XY bounds로 변환한다.
     의존:
         terrain render object(object) — tile과 object bounds 접근; 함수: {getTile()}; 속성 읽기: {_tile, _boundingBox}
         terrain tile(tile) — tile bounds 접근; 함수: {getBoundingbox()}; 속성 읽기: {_boundingbox, _boundingBox, _rectangle3d}
     동작:
         getTile() 결과를 우선하고 없으면 object._tile을 사용한다.
-        tile의 getBoundingbox(), _boundingbox, _boundingBox, object._boundingBox 순서로 첫 bounds 후보를 정규화한다.
+        tile의 getBoundingbox(), _boundingbox, _boundingBox, object._boundingBox 순서로 첫 bounds 후보를 target에 정규화한다.
 
         정규 bounds가 있으면 반환하고, 없으면 tile._rectangle3d를 같은 방식으로 정규화해 반환한다.
 
@@ -1118,18 +1189,19 @@ getBoundsCenterXY(bounds: object) -> object
     역할: tile 후보 거리 정렬에 사용할 bounds 중심을 계산한다.
     동작: X와 Y 최소·최대의 평균 좌표를 가진 객체를 반환한다.
 
-getBoundsKey(bounds: object) -> string
-    역할: 객체 identity와 무관하게 같은 tile bounds를 식별할 cache key를 만든다.
-    동작: minX, minY, maxX와 maxY를 쉼표로 이어 반환한다.
+areBoundsXYEqual(a: object, b: object) -> boolean
+    역할: 객체 identity와 무관하게 tile bounds의 네 숫자가 같은지 비교한다.
+    동작: minX, minY, maxX와 maxY가 모두 같으면 true를 반환한다. 이전 문자열 key의 동치를 보존하여 NaN끼리와 양·음의 0끼리도 같은 값으로 취급한다.
 
-normalizeBoundsXY(bounds: object | undefined) -> object | undefined
+normalizeBoundsXY(bounds: object | undefined, target: object) -> object | undefined
     역할: 지원하는 여러 bounds 표현을 minX·minY·maxX·maxY 구조로 통일한다.
     동작:
         bounds가 없으면 undefined를 반환한다.
-        minx·miny·maxx·maxy 숫자가 있으면 축별 최소·최대 순서를 보정해 반환한다.
-        min·max point가 있으면 해당 x·y를 같은 구조로 보정해 반환한다.
-        ptLeftBottom·ptRightTop point가 있으면 해당 x·y를 같은 구조로 보정해 반환한다.
+        minx·miny·maxx·maxy가 모두 유한하면 축별 최소·최대 순서를 보정한다.
+        그렇지 않고 min·max point의 x·y가 모두 유한하면 같은 구조로 보정한다.
+        그렇지 않고 ptLeftBottom·ptRightTop point가 있으면 해당 x·y를 별도의 유효성 제한 없이 같은 구조로 보정한다.
         지원하는 형태가 아니면 undefined를 반환한다.
+        외부 속성을 모두 읽어 보정한 뒤 target의 네 좌표에 기록하고 같은 객체를 반환한다.
 
 intersectsBoundsXY(a: object | undefined, b: object | undefined, margin: number = 0) -> boolean
     역할: 두 XY bounds가 margin을 포함해 겹치는지 보수적으로 판정한다.
@@ -1174,11 +1246,13 @@ createTerrainStampRenderBinding() -> object
     의존:
         Vector2 — stampDataTextureSize uniform 값; 생성자: {new Vector2()}
         Vector3 — objectRelative uniform 값; 생성자: {new Vector3()}
-        TERRAIN_OVERLAY_SHADER — uniform texture 크기와 기본 row 상한; 상수: {TEXTURE_WIDTH, MAX_OVERLAYS}
+        TERRAIN_OVERLAY_SHADER — uniform texture 폭; 상수: {TEXTURE_WIDTH}
     동작:
+        합성 활성 여부 false와 premultiplied 합성색 Vector4(0,0,0,0)를 함께 만든다.
+        plainRowLimit의 초기값 0과 rowCoverage·rowFill이 가리킬 공용 영점 Float32Array(16)·Float32Array(64)를 연결한다.
         count 0, 영점 objectRelative, pixelRatio 1과 공유 빈 stampDataTexture uniform을 만든다.
 
-        texture 크기와 공유 atlas uniform을 함께 만든다.
+        shader texture 폭과 빈 texture의 높이 1 및 공유 atlas uniform을 함께 만든다.
 
         activeCount 0과 uniforms를 가진 binding을 반환한다.
 
@@ -1196,13 +1270,17 @@ createTerrainStampState(layer: object) -> object
         layer render binding을 생성하거나 조회하고 새 활성 전역 metadata texture를 만든다.
 
         기존 binding의 activeCount, count, objectRelative와 pixelRatio를 초기값으로 되돌린다.
+        plainRowLimit은 0, rowCoverage·rowFill은 공용 영점 배열로 되돌려 이전 state의 단색 후보 경로를 재사용하지 않는다. atlasRevision은 0으로 초기화한다.
+        전역 metadata의 마지막 직렬화 세대 globalTextureRevision은 -1로 시작한다.
         binding의 stampDataTexture를 새 활성 texture로, texture atlas를 현재 공유 atlas로 교체한다.
 
         cacheByStamp Map, 전역 metadata texture와 object별 tile cache WeakMap을 연결한다.
-        frame 사이에 유지할 전체 stamp entries, tile 후보 배열과 전역 상대 origin을 state 전용 재사용 객체로 만든다.
+        frame 사이에 유지할 전체 stamp entries, tile 후보 배열, bounds 정규화 작업 객체와 전역 상대 origin을 state 전용 재사용 객체로 만든다.
         render binding 참조를 활성 state에 저장한다.
-        state 해제 시 tile texture와 FinalizationRegistry 등록을 정리할 texture Set과 token Set을 만든다.
-        dirty=true, revision=0과 기본 maxStampsPerTile을 가진 state를 반환한다.
+        후보 조합별 texture를 소유하는 빈 Map과 공용 빈 texture·count 0·영점 origin을 가진 빈 data를 만든다.
+
+        같은 layer의 유휴 저장소를 보관할 행 수별 풀과 개수·byte 합계를 초기화한다.
+        dirty=true, revision=0과 기본 maxStampsPerTile을 가진 state를 반환한다. 합성 활성 여부와 색은 초기화한다.
 
 getTerrainStampState(layer: object, create: boolean = false) -> object | undefined
     의존: defined — layer와 state layer 존재 여부 판정; 함수: {defined()}
@@ -1218,20 +1296,21 @@ updateTerrainStampRenderBindingCount(state: object) -> void
     역할: layer별 안정 binding의 공개 활성 stamp 수를 registry와 맞춘다.
     동작: render binding이 있으면 activeCount를 cacheByStamp 크기로 바꾼다.
 
-releaseTerrainStampState(state: object) -> void
-    역할: stamp가 없는 layer state의 GPU texture, finalizer 등록과 registry 소유권을 해제한다.
+releaseTerrainStampState(state: object, retire?: Function) -> void
+    역할: stamp가 없는 layer state의 GPU texture와 registry 소유권을 해제한다.
     처리 기준: state가 없거나 cacheByStamp에 stamp가 남아 있으면 아무것도 해제하지 않는다.
     의존:
         Three texture API — 전역·tile별 metadata texture 해제; 함수: {dispose()}
-        Web API — tile finalizer 등록 해제; 함수: {FinalizationRegistry.unregister()}
         defined — layer 참조 존재 여부 판정; 함수: {defined()}
     동작:
         layer와 render binding 참조를 보관한다.
         render binding의 activeCount와 uniform count를 0으로 바꾸고 좌표·pixel ratio를 초기화한다.
-        binding의 stampDataTexture를 모듈 공유 빈 texture로 먼저 교체한 뒤 state 소유 전역 metadata texture를 dispose한다.
+        binding의 stampDataTexture를 모듈 공유 빈 texture로 먼저 교체한 뒤 state 소유 전역 metadata texture를 내부 retire에 넘기거나, retire가 없으면 dispose한다. retire가 있으면 state의 전역 texture 참조도 비운다. Helper 배치는 내부 목록 수집 함수를 전달하여 외부 정리 callback을 참조 제거 이후에 호출한다.
 
-        모든 finalizer token을 unregister한 뒤 token Set을 비운다.
-        state 소유 Set의 tile metadata texture를 모두 dispose하고 Set을 비운다. FinalizationRegistry가 없으면 새 tile texture가 이 Set에 등록되지 않는다. [확인 Q-002]
+        binding의 texture 높이를 1로 바꾼다.
+        상수색 활성 uniform을 false로 바꾸고 색을 0으로 초기화한다. 별도 합성 GPU 자원은 없다.
+        plainRowLimit은 0, rowCoverage·rowFill은 공용 영점 배열로 되돌려 해제한 tile cache의 배열 참조를 끊는다. 변경 추적의 직전 entry 목록도 비우고 공간 색인 참조를 해제한다.
+        공유 Map의 활성 texture와 유휴 풀을 같은 retire로 반환하고 각 후보 record·Map·풀의 소유 참조를 비운다. retire가 없으면 즉시 해제한다.
         tile WeakMap을 새 빈 WeakMap으로 교체하고 cacheByStamp, entries와 tile 후보 배열을 비우며 전역 상대 origin을 영점으로 되돌린다.
         layer가 있으면 활성 state WeakMap 색인을 삭제하고 state의 layer와 render binding 참조를 지운다.
         전체 state Set에서 state를 제거한다.
@@ -1239,12 +1318,12 @@ releaseTerrainStampState(state: object) -> void
 releaseEmptyTerrainStampStates() -> void
     역할: 등록 cache가 없는 layer state를 안전하게 수집한 뒤 일괄 해제한다.
     동작:
-        전체 state Set을 순회해 cacheByStamp가 빈 state를 임시 배열에 수집한다.
+        전체 state Set을 순회해 cacheByStamp가 빈 state를 임시 배열에 수집한다. 빈 state가 처음 발견될 때만 배열을 만든다.
         수집이 끝난 뒤 각 state의 자원과 소유권을 해제한다.
 
 markAllTerrainStampStatesDirty() -> void
     역할: atlas 이미지 load 완료를 모든 layer metadata texture의 다음 재작성으로 연결한다.
-    동작: 전체 terrain stamp state를 순회하며 textureDirty를 true로 바꾼다.
+    동작: 전체 terrain stamp state를 순회하며 textureDirty를 true로 바꾸고 atlasRevision을 증가시킨다. 위치와 무관하게 공유 metadata와 타일 분류를 무효화한다.
 
 getTerrainStampAppState(app: object, create: boolean = false) -> object | undefined
     의존: defined — app 존재 여부 판정; 함수: {defined()}
@@ -1263,6 +1342,9 @@ registerTerrainStampApp(app: object, stamp: UTerrainStamp) -> void
         app state가 없으면 종료한다.
         stamp를 app state set에 추가한다.
         app이 render-before API를 제공하고 같은 key가 없으면 refresh callback을 등록한다.
+
+        등록 callback은 layer 목록만 갱신한다.
+        후보 metadata와 타일별 상수색 판정은 실제 terrain draw의 updateRenderUniforms에서 갱신한다. render-before에서 별도 합성 render를 실행하지 않는다.
 
 unregisterTerrainStampApp(app: object, stamp: UTerrainStamp) -> void
     역할: app별 stamp set에서 stamp를 제거하고 마지막 stamp가 사라지면 callback을 해제한다.
@@ -1285,17 +1367,18 @@ isSameTerrainStampLayerList(a: Array<object>, b: Array<object>) -> boolean
 
         모두 같으면 true를 반환한다.
 
-getSearchLayers(app: object, targetLayer: object | undefined) -> Array<object>
+getSearchLayers(app: object, targetLayer?: object, sortedLayers?: Array<object>) -> Array<object>
     역할: app의 image layer 중 stamp registry에 적용할 layer 목록을 renderOrder 내림차순으로 계산한다.
     의존:
         U3dApp(app) — image layer 목록 조회; 함수: {getImageLayers()}
         U3dLayer(layer, targetLayer) — render 순서와 layer 식별값 조회; 함수: {getRenderOrder()}
     동작:
-        app.getImageLayers() 결과가 비어 있거나 배열이 아니면 빈 배열을 반환한다.
-        layer를 renderOrder 내림차순으로 정렬한다.
+        같은 동기 갱신에서 준비한 전체 sortedLayers가 전달되면 그 목록을 사용한다.
+        전달되지 않았으면 app.getImageLayers()를 조회하여 비어 있거나 배열이 아니면 빈 배열을 반환하고, 나머지는 renderOrder 내림차순으로 정렬한다.
+        선택한 목록이 비어 있으면 targetLayer의 속성은 읽지 않고 그 목록을 반환한다.
         targetLayer가 있으면 같은 논리 layer를 찾고, targetLayer 자체를 제외한 뒤 그 renderOrder보다 높은 layer만 남긴다.
 
-        중복을 제거한 layer 배열을 반환한다.
+        직접 정렬한 목록은 참조 중복을 제거해 반환한다. 전달받은 목록은 이미 중복이 제거되어 있으므로 target 필터 결과 또는 원래 목록을 반환하며, 공유 목록을 제자리에서 변경하지 않는다.
 
 isSameTerrainStampLayer(layer: object, targetLayer: object) -> boolean
     의존:
@@ -1315,7 +1398,7 @@ isSameTerrainStampLayer(layer: object, targetLayer: object) -> boolean
 layer별 활성 state는 WeakMap으로 색인하지만 순회를 위해 전체 state Set과 state.layer가 강한 참조를 유지한다. 마지막 stamp 제거 시 해당 state의 자원과 강한 참조를 함께 해제해야 한다.
 layer별 render binding은 별도 WeakMap에서 state 수명보다 오래 유지하고 layer를 역참조하지 않아야 한다. 같은 layer의 state 재생성 시 uniform 객체는 재사용하고 그 value만 새 활성 자원으로 교체해야 한다.
 비활성 render binding은 dispose된 state texture가 아니라 count 0과 모듈 공유 빈 metadata texture를 가리켜야 한다.
-한 번 생성된 render binding은 활성 state가 없어도 조회 가능해야 하며, terrain material은 이 빈 binding으로 stamp shader program과 uniform 참조를 유지해야 한다.
+한 번 생성된 render binding은 활성 state가 없어도 조회 가능해야 하며, terrain material은 이 빈 binding으로 stamp uniform 참조를 유지해야 한다. 비활성 합성 경로는 row variant의 count 0으로 표시한다.
 전체 stamp entries, 전역 상대 origin과 tile 후보 배열은 layer state 사이에서 공유하지 않아야 한다.
 layer state 생성·해제와 stamp 좌표·스타일 update는 app render 또는 QuadTileSet update를 강제로 요청하지 않아야 한다.
 app별 stamp set은 WeakMap으로 관리하고 마지막 stamp가 제거되면 render-before callback과 app state를 제거해야 한다.
@@ -1324,7 +1407,7 @@ texture atlas는 URL별 cell을 공유하고 atlas가 가득 차면 texture fill
 tile bounds를 알 수 없는 object는 overlay 누락을 피하기 위해 전역 overlay texture 기준으로 처리해야 한다.
 bounds 정보가 불완전하면 overlay 후보를 제거하지 않아야 한다.
 tile 후보 교차 판정은 overlay bounds에 32 world unit margin을 적용해야 한다.
-DataTexture는 0~15 column의 float RGBA row metadata layout을 사용하고 shader 상수의 TEXTURE_WIDTH와 MAX_OVERLAYS 크기를 따라야 한다.
+DataTexture의 row 폭은 shader TEXTURE_WIDTH의 24 float RGBA texel이다. 0번은 도형 metadata, 1~16번은 점, 17~23번은 채움·atlas·bounds·UV·mode·gradient를 저장한다. 타일별 metadata 높이는 실제 후보 수에 맞는 2의 거듭제곱이며 MAX_OVERLAYS 상한을 따른다. 상수색 경로도 동일한 후보를 사용한다.
 texture image URL 후보는 원본 URL을 먼저 시도하고 root-relative URL이면 document.baseURI 기준 상대 후보를 추가로 시도해야 한다.
 mappingFrame은 polygon 포함 판정과 bounds를 바꾸지 않고 여러 polygon stamp가 공유할 texture·gradient UV 좌표계만 정해야 한다.
 polyline의 meters 두께는 world 거리로, pixels 두께는 renderer pixel ratio를 반영한 CSS pixel 의미로 shader에 전달해야 한다.

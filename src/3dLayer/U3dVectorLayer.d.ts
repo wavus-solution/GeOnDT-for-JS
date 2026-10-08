@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -209,10 +209,13 @@ declare class U3dVectorLayer extends U3dLayer {
      */
     setDynamicUpdate(val: boolean): void;
     /**
+     * 타일 이탈에 따라 더 이상 표시할 타일이 없는 도형을 숨깁니다.
+     * 레벨 범위 밖의 타일은 해당 도형을 숨기는 기존 처리를 따릅니다.
+     *
      * @override
      *
-     * @param {import('@U3dQuadTile').U3dQuadTile} tile
-     * @returns {undefined}
+     * @param {import('@U3dQuadTile').U3dQuadTile} tile 장면에서 이탈한 타일
+     * @returns {undefined} 별도 완료값 없음
      *
      * @ignore
      */
@@ -285,7 +288,9 @@ declare class U3dVectorLayer extends U3dLayer {
      * 같은 이름(`param.name`)의 도형이 이미 있으면 경고를 남기고 해당 항목을 건너뜁니다. <br>
      * 항목이 처리될 때마다 LOAD 이벤트가 발생합니다. <br>
      * 모든 항목을 동시에 처리하므로 호출 순서대로 끝난다고 가정하지 마십시오. <br>
-     * `callback`이 실패하면 반환한 Promise 전체가 실패하며, 그때까지 등록된 도형은 레이어에 남습니다. <br>
+     * `callback`이 동기 예외를 던지면 이 호출에서 직접 전파되며 완료 Promise를 반환하지 않습니다. <br>
+     * `callback`이 반환한 Promise가 거절되면 전체 완료 Promise도 거절되며, 그때까지 등록한 도형은 남습니다. <br>
+     * LOAD 이벤트는 별도 성공 처리에서 발생하므로 이벤트 리스너 예외는 반환한 완료 Promise에 합쳐지지 않습니다. <br>
      *
      * @param {Partial<{type: string, param: Record<string, unknown>}> | Array<Partial<{type: string, param: Record<string, unknown>}>>} savedData `saveWork` 결과의 `geometries` 항목 하나 또는 그 배열 <br>
      * @param {function(Partial<{type: string, param: Record<string, unknown>}>): *} callback 저장 항목 하나를 받아 도형을 만들고 `addGeometry`로 등록하는 사용자 콜백 함수 <br>
@@ -393,4 +398,40 @@ declare class U3dVectorLayer extends U3dLayer {
      */
     type U3dVectorLayerEMI = Omit<Omit<U3dLayerEMI, never> & U3dVectorLayerEMI_Content, never>;
 
-export type { U3dVectorLayer, U3dVectorLayerCO, U3dVectorLayerCO_Content, U3dVectorLayerEMI, U3dVectorLayerEMI_Content };
+/**
+     * 타일 색인과 표시 판단에 필요한 레이어의 제한된 상태입니다.
+     * 상태 스냅샷이 아니라 원본 레이어의 필드에 접근하는 계약입니다.
+     * _workBuffer는 기반 클래스의 선언과 호환되는 타입이며 이 단위에서는 Set으로 사용합니다.
+     */
+    type U3dVectorTileIndexState = {
+        /**
+         * 등록된 도형
+         */
+        _geomList: Map<string, U3dGeometry>;
+        /**
+         * 타일별 도형 ID
+         */
+        _modelAtTile: Map<string, Set<string>>;
+        /**
+         * 도형별 타일 표시 상태
+         */
+        _indexAtModel: Map<string, Map<string, boolean>>;
+        /**
+         * 타일 작업 키를 보관하는 실제 Set의 기반 선언
+         */
+        _workBuffer: Record<string, unknown>;
+        /**
+         * 표시 최소 레벨
+         */
+        _minlevel: number;
+        /**
+         * 표시 최대 레벨
+         */
+        _maxlevel: number;
+        /**
+         * 동적 색인용 투영 계산기
+         */
+        _mercator: UMercator | undefined;
+    };
+
+export type { U3dVectorLayer, U3dVectorLayerCO, U3dVectorLayerCO_Content, U3dVectorLayerEMI, U3dVectorLayerEMI_Content, U3dVectorTileIndexState };

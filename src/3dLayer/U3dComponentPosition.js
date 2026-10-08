@@ -1605,19 +1605,21 @@ class U3dComponentPosition {
      */
     setCumulativePathStyle (opt) {
         opt = opt || {};
+        const styleFunc = Object.prototype.hasOwnProperty.call(opt, 'styleFunc')
+            ? U3dCumulativePath.validateStyleFunc(opt.styleFunc) : this.#pathStyle.styleFunc;
         const prevTailPolicy = this.#pathStyle.tailPolicy;
         const nextTailPolicy = opt.tailPolicy;
-        this.#pathStyle = {
+        const nextStyle = {
             ...this.#pathStyle,
             ...opt,
+            styleFunc,
             tailPolicy: defined(nextTailPolicy)
-                ? {...(prevTailPolicy || {}), ...nextTailPolicy}
+                ? U3dCumulativePath.mergeTailPolicy(prevTailPolicy, nextTailPolicy)
                 : prevTailPolicy,
         };
 
-        if(this.#cumulativePath === undefined) return;
-
-        this.#cumulativePath.setPathStyle(opt);
+        this.#cumulativePath?.setPathStyle(opt);
+        this.#pathStyle = nextStyle;
     }
 
     /**
@@ -2030,6 +2032,7 @@ class U3dComponentPosition {
                 lineType: style.lineType,
                 colorGradation: style.colorGradation,
                 styleFunc: /** @type {U3dCumulativePathStyleFunc} */ (style.styleFunc),
+                ...(Object.prototype.hasOwnProperty.call(style, 'drawFunc') ? {drawFunc: style.drawFunc} : {}),
                 smooth: /** @type {boolean} */ (style.smooth),
                 smoothFactor: /** @type {number} */ (style.smoothFactor),
                 smoothMaxDistance: /** @type {number} */ (style.smoothMaxDistance),

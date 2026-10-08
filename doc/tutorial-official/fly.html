@@ -606,7 +606,7 @@
                                 <div class="form-group">
                                     <label class="col-sm-12 control-label summary-param">
                                         <label class="return-text">
-                                            return [Vector3] : 위경도 좌표 (x, y, z)</label>
+                                            return [GeoPosition | null] : 타겟 위경도 좌표 (x, y, z). 조회할 타겟이나 좌표가 없으면 null</label>
                                     </label>
                                 </div>
                                 <div class="form-group" style="display: ruby; margin-top: 3%">
@@ -2769,8 +2769,12 @@
             $("input[name=latitude-geo-position]").val(geoPosition.y);
             $("input[name=height-geo-position]").val(geoPosition.z);
         }
+        /**
+         * 타겟 좌표가 있을 때만 조회 결과를 입력칸에 표시합니다.
+         */
         function getCameraGeographicTargetPoint(){
             let geoPosition = app.getCameraGeographicTargetPoint();
+            if (geoPosition === null) return;
             $("input[name=longitude-target-point]").val(geoPosition.x);
             $("input[name=latitude-target-point]").val(geoPosition.y);
             $("input[name=height-target-point]").val(geoPosition.z);

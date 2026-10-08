@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -8,6 +8,9 @@ import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/e
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dLayer } from "../3dLayer/U3dLayer.js";
 import type { U3dObject } from "../core/U3dObject.js";
+import type { UDrawArg } from "../core/UDrawArg.js";
+import type { UTileMesh } from "../core/mesh/UTileMesh.js";
+import type { UGeoRect } from "../math/UGeoRect.js";
 
 /**
  * @extends {U3dObject}
@@ -20,6 +23,7 @@ declare class U3dQuadTile extends U3dObject {
         6: number;
         7: number;
         8: number;
+        16: number;
         17: number;
         18: number;
     };
@@ -67,17 +71,17 @@ declare class U3dQuadTile extends U3dObject {
     _center: three.Vector3;
     _LongitudeSpan: number;
     _LatitudeSpan: number;
-    _rectangle: any;
-    _rectangle3d: any;
-    _x: any;
-    _y: any;
-    _key: any;
-    _meshname: any;
+    _rectangle: UGeoRect;
+    _rectangle3d: UGeoRect;
+    _x: number;
+    _y: number;
+    _key: string;
+    _meshname: string;
     _rsize: number;
     _zsize: number;
     _boundingbox: three.Box3;
     _sphere: three.Sphere;
-    _mesh: any;
+    _mesh: UTileMesh;
     _northWestChild: any;
     _southWestChild: any;
     _northEastChild: any;
@@ -86,8 +90,8 @@ declare class U3dQuadTile extends U3dObject {
     _disposed: boolean;
     distance_: number;
     _visible: boolean;
-    _processed: any;
-    _worked: any;
+    _processed: string;
+    _worked: string;
     _waitWork: Map<any, any>;
     _endWork: Map<any, any>;
     _workState: any;
@@ -107,6 +111,23 @@ declare class U3dQuadTile extends U3dObject {
      */
     getHeightByXY(x: number, y: number): number;
     changeGeometry(geometry: any): void;
+    /**
+     * FrameState의 표시 전환 검사에 필요한 집계 결과를 반환합니다.
+     *
+     * 상세 조회를 재정의한 타일은 기존 메서드를 인수 없이 호출하여 확장 동작을 보존합니다.
+     * 표준 구현만 레이어별 상세 객체 생성을 생략하며, 판정 값은 호출할 때마다 다시 계산합니다.
+     *
+     * @returns {U3dQuadTilePresentationSummary} 현재 표시 준비 집계
+     *
+     * @ignore
+     */
+    _getPresentationSummary(): U3dQuadTilePresentationSummary;
+    /**
+     * 고정 기준 화면의 투영 배율, 가시 영역 거리와 원자료의 유효 레벨로 추가 분화 여부를 판단합니다.
+     * 특수 모드와 검색 위치 보정 경로는 기존 거리 판정을 유지합니다.
+     *
+     * @returns {boolean} 자식 레벨의 콘텐츠가 필요하면 true
+     */
     updatePossible(): boolean;
     /**
      * 현재 LOD 전환 판단과 작업 상태를 반환합니다.
@@ -123,7 +144,7 @@ declare class U3dQuadTile extends U3dObject {
         waitWorkNames: Array<string>;
         endWorkNames: Array<string>;
     };
-    getMesh(): any;
+    getMesh(): UTileMesh;
     getWaitWork(workName: any): any;
     setWaitWork(work: any): void;
     isWait(): boolean;
@@ -150,12 +171,12 @@ declare class U3dQuadTile extends U3dObject {
     isInitialized(): boolean;
     setInitialized(initialized: any): void;
     info(): {
-        x: any;
-        y: any;
+        x: number;
+        y: number;
         level: any;
-        rectangle: any;
-        rectangle3d: any;
-        key: any;
+        rectangle: UGeoRect;
+        rectangle3d: UGeoRect;
+        key: string;
     };
     intersect(vecx: any, vecy: any, vecz: any): boolean;
     computeChild(minX: any, maxX: any, minY: any, maxY: any, level: any, scene: any, drawArg: any, type: any, parent: any, startlevel: any, quadindex: any, quadset: any): any;
@@ -184,19 +205,12 @@ declare class U3dQuadTile extends U3dObject {
      *
      * Parent/Child 계층은 탐색하지 않으며 호출 시점의 단일 타일 상태만 계산합니다.
      *
-     * @returns {{layerStates: Array<{layer: import('@U3dLayer').U3dLayer, participant: boolean, renderReady: boolean, attached: boolean, retainedPresentationSafe: boolean, confirmedEmpty: boolean}>, renderReady: boolean, attached: boolean, retainedPresentationSafe: boolean, handoffReady: boolean}} 현재 타일의 Presentation snapshot입니다.
+     * @returns {{layerStates: Array<U3dQuadTilePresentationLayerState>, renderReady: boolean, attached: boolean, retainedPresentationSafe: boolean, handoffReady: boolean}} 현재 타일의 Presentation snapshot입니다.
      *
      * @ignore
      */
     getPresentationSnapshot(): {
-        layerStates: Array<{
-            layer: U3dLayer;
-            participant: boolean;
-            renderReady: boolean;
-            attached: boolean;
-            retainedPresentationSafe: boolean;
-            confirmedEmpty: boolean;
-        }>;
+        layerStates: Array<U3dQuadTilePresentationLayerState>;
         renderReady: boolean;
         attached: boolean;
         retainedPresentationSafe: boolean;
@@ -229,8 +243,8 @@ declare class U3dQuadTile extends U3dObject {
     getTileSize(): any;
     traverse(callback: any): void;
     update(drawArg: any, frameState: any, force?: boolean): boolean;
-    getProcessStep(): any;
-    getWorkStep(): any;
+    getProcessStep(): string;
+    getWorkStep(): string;
     disposeDetail(): void;
     dispose(callback: any): void;
     createMesh(material: any, drawArg?: any): boolean;
@@ -258,4 +272,107 @@ declare class U3dQuadTile extends U3dObject {
     #private;
 }
 
-export type { U3dQuadTile };
+/**
+     * 한 번의 동기 타일 순회에서 공유하는 카메라·레이어 판단 값입니다.
+     * 타일별 거리, 가시성, 레벨별 배율과 분화 이력은 포함하지 않습니다.
+     */
+    type U3dQuadTileLodParameters = {
+        /**
+         * 현재 카메라
+         */
+        camera: three.Camera;
+        /**
+         * 특수 모드 보정을 적용한 카메라 위치 사본
+         */
+        cameraPosition: three.Vector3;
+        /**
+         * 공통 타일 품질 비율
+         */
+        tileSizeRatio: number;
+        /**
+         * 특수 모드 또는 검색 위치 보정 경로 여부
+         */
+        useLegacyMetric: boolean;
+        /**
+         * 고정 1440 높이의 세로 투영 배율
+         */
+        projectionScale: number;
+        /**
+         * 추가 분화가 유효한 최대 자료 레벨, 제한하지 않으면 Infinity
+         */
+        refinementMaxLevel: number;
+    };
+
+/**
+     * 동기 타일 순회 중에만 존재하는 지연 초기화 저장소입니다.
+     * 순회가 반환하거나 예외로 끝나면 소유자가 이전 저장소를 복원합니다.
+     */
+    type U3dQuadTileLodContext = {
+        /**
+         * 값을 공유하는 그리기 인수
+         */
+        drawArg: UDrawArg;
+        /**
+         * 최초 가시 타일에서 계산한 공통 값
+         */
+        parameters?: U3dQuadTileLodParameters;
+    };
+
+/**
+     * 상세 조회에서 반환하는 단일 레이어의 표시 준비 상태입니다.
+     */
+    type U3dQuadTilePresentationLayerState = {
+        /**
+         * 검사한 레이어
+         */
+        layer: U3dLayer;
+        /**
+         * 표시 준비 판정 참여 여부
+         */
+        participant: boolean;
+        /**
+         * 렌더링 준비 완료 여부
+         */
+        renderReady: boolean;
+        /**
+         * 현재 표시 부착 완료 여부
+         */
+        attached: boolean;
+        /**
+         * 기존 적용본의 표시 안전성
+         */
+        retainedPresentationSafe: boolean;
+        /**
+         * 빈 결과 확인 여부
+         */
+        confirmedEmpty: boolean;
+    };
+
+/**
+     * 부모·자식 표시 전환에서 사용하는 호출별 준비 상태 집계입니다.
+     * 상세 조회 재정의의 결과도 수용하므로 차단 레이어 목록은 선택 속성입니다.
+     */
+    type U3dQuadTilePresentationSummary = {
+        /**
+         * 모든 참여 레이어의 준비 완료 여부
+         */
+        renderReady: boolean;
+        /**
+         * 모든 참여 레이어의 부착 완료 여부
+         */
+        attached: boolean;
+        /**
+         * 모든 참여 레이어의 기존 표시 안전성
+         */
+        retainedPresentationSafe: boolean;
+        /**
+         * 준비와 부착이 모두 완료되었는지 여부
+         */
+        handoffReady: boolean;
+        /**
+         * 수집을 요청했고 차단이 있을 때만 생성하는 레이어 목록
+         */
+        blockingLayers?: Array<U3dLayer>;
+    };
+
+export type { U3dQuadTile, U3dQuadTileLodContext, U3dQuadTileLodParameters, U3dQuadTilePresentationLayerState, U3dQuadTilePresentationSummary };

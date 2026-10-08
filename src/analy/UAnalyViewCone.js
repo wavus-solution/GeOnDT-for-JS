@@ -30,6 +30,8 @@ const ANALY_THETA = 'theta';
 class UAnalyViewCone extends UAnaly {
     /**
      * @override
+     *
+     * @ignore
      */
     static OPT_KEYS = [
         ...UAnaly.OPT_KEYS, 'name', 'segments'
