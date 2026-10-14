@@ -171,7 +171,7 @@ export async function initialize(context) {
             },
             korea_terrain: {
                 name: 'korea_terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
-                baseurl: resolveDataUrl("https://dt-data.mappick.co.kr/ServiceData/dem/DEM_4/Korean_peninsula/"), //+ 고도 데이터 기본 URL, *필수 입력
+                baseurl: "https://dt-data.mappick.co.kr/ServiceData/dem/DEM_4/Korean_peninsula/", //+ 고도 데이터 기본 URL, *필수 입력
                 ext: '.umf', //+ 파일 확장자, *필수 입력
                 reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
                 minlevel: 9,  //+ 가시화 최소 레벨
