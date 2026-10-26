@@ -418,7 +418,7 @@
             self.layer = new self._GeOnDT.image.U3dImageXYZLayer(this.options);
             self._app.addLayer(this.layer);
         }
-        this.layer.then(() => {
+        this.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -446,7 +446,7 @@
     HeightLayer.prototype.create = function () {
         let self = this;
         self.layer = this._app.createHeightXYZLayer(self.options);
-        self.layer.then(() => {
+        self.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -628,7 +628,13 @@
                 if(layer){
                     return app.showLayer(u3fLayerName, true);
                 }else{
-                    createU3fModelLayers().then(function () {
+                    const created = createU3fModelLayers();
+                    if (!created) {
+                        $('#u3f-layer').prop('checked', false);
+                        return;
+                    }
+                    // 그룹 자체의 초기화를 기다립니다. 하위 모델은 준비되는 순서대로 그룹에 추가됩니다.
+                    created.ready.then(function () {
                         return app.showLayer(u3fLayerName, true);
                     }).catch(function () {
                         $('#u3f-layer').prop('checked', false);
@@ -671,11 +677,12 @@
 
         function createU3fModelLayers() {
             const info = getU3fModelLayerInfo();
-            let groupLayer = app.createModelGroupLayer({
+            let groupLayer = app.createGroupLayer({
                 name: u3fLayerName,
                 maxlevel: info.maxlevel,
                 minlevel: info.minlevel
             });
+            if (!groupLayer) return groupLayer;
 
             requestU3fLayerList(info.serverUrl).then(function (result) {
                 const infos = (result && result.params && result.params.data) ? result.params.data : [];
@@ -707,8 +714,10 @@
 
                     const subLayer = app.create3DFModelLayer(options);
                     if(subLayer){
-                        subLayer.then(function () {
+                        subLayer.ready.then(function () {
                             groupLayer.addLayer(subLayer);
+                        }).catch(error => {
+                            console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
                         })
                     }
 
@@ -868,10 +877,12 @@
         app.addLayer(animationLayer);
         animationLayer.setInstanced(true);
         window.animationLayer = animationLayer;
-        animationLayer.ready(function () {
+        animationLayer.ready.then(function () {
             app.showLayer(option.name, true).then(function () {
                 console.log("U3dMultipleComponentLayer show");
             });
+        }).catch(error => {
+            console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
         });
 
         $(document).on('click', 'input[type="radio"]', function (e) {

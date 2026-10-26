@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -252,8 +252,8 @@ declare class U3dOverlay {
      */
     isShow: boolean;
     /**
-     * 화면 좌표를 3차원 좌표로 되돌릴 때 교차 대상으로 사용하는 보조 객체입니다. <br>
-     * 드래그 중 마우스 위치를 좌표로 바꾸는 데 쓰이며, remove 메서드를 호출한 뒤에는 undefined가 됩니다.
+     * 화면 좌표를 3차원 좌표로 되돌릴 때 기준면의 위치를 보관하는 보조 객체입니다. <br>
+     * 드래그 중 패널 기준점을 좌표로 바꾸는 데 쓰이며, remove 메서드를 호출한 뒤에는 undefined가 됩니다.
      *
      * @type {import('three').Sprite | undefined}
      */
@@ -382,12 +382,16 @@ declare class U3dOverlay {
      */
     setDraggable(draggable: boolean): void;
     /**
+     * 마우스 왼쪽 버튼을 누르면 드래그를 시작합니다.
+     *
      * @param {MouseEvent} e 마우스 이벤트
      *
      * @ignore
      */
     _handleMouseDown(e: MouseEvent): void;
     /**
+     * 이동량을 패널에 적용하고 같은 기준점으로 월드 좌표를 갱신합니다.
+     *
      * @param {MouseEvent} e 마우스 이벤트
      *
      * @ignore
@@ -402,7 +406,7 @@ declare class U3dOverlay {
     /**
      * Overlay를 app에 세팅하는 메서드
      *
-     * @param {import('@U3dApp').U3dApp} app
+     * @param {import('@U3dApp').U3dApp} app 오버레이를 등록할 지도 앱
      *
      * @ignore
      */
@@ -505,6 +509,8 @@ declare class U3dOverlay {
      * 화면 좌표를 3차원 좌표로 되돌릴 때 쓰는 보조 객체의 위치를 이동합니다.
      *
      * 드래그로 얻는 좌표의 기준면을 옮기는 것이며 오버레이 요소의 화면 위치는 바뀌지 않습니다. <br>
+     * 직접 지정한 기준면은 다음 드래그에서도 유지하며, 지정하지 않으면 드래그 시작 시 현재 위치를 기준으로 삼습니다. <br>
+     * 기본 기준면의 방향은 첫 드래그 이후 고정하며, 이 메서드로 직접 지정한 기준면은 기존처럼 카메라 정면을 따릅니다. <br>
      * 오버레이를 U3dApp에 등록하기 전에 호출하면 아무 변화 없이 반환됩니다.
      *
      * @param {WorldPosition} [vec3] 보조 객체를 놓을 월드 좌표(EPSG:3857) 값이며, 생략하면 현재 위치를 변환해 사용합니다.

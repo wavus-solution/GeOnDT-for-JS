@@ -27,6 +27,19 @@
 </div>
 <h2 id="1-레이어-생성하기">1. 레이어 생성하기</h2>
 <p>컴포넌트 레이어는 등록된 3D 에셋 정보를 통해 GeOnDT에서 사용할 수 있는 데이터로 변환하고, 컴포넌트를 생성하고, 생성된 컴포넌트를 출력·조회·관리합니다.<br>GeOnDT에서 주로 사용되는 대표적인 컴포넌트 레이어는 <code>U3dMultipleComponentLayer</code> 입니다. </p>
+<p>레이어 객체와 초기화 대기는 구분합니다. 생성·조회 API는 레이어 자체를 반환하며, 초기화 완료는 <code>layer.ready</code>로 기다립니다. <code>ready</code>는 표준 <code>Promise</code>이고 성공값은 원래 레이어 자신입니다. TypeScript에서도 완료값은 실제 하위 레이어 타입을 유지합니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> layer <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">createMultipleComponentLayer</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'example'</span><span class="token punctuation">,</span> <span class="token literal-property property">needxml</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>layer<span class="token punctuation">)</span> <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'레이어 생성에 실패했습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> initializedLayer <span class="token operator">=</span> <span class="token keyword">await</span> layer<span class="token punctuation">.</span>ready<span class="token punctuation">;</span> <span class="token comment">// initializedLayer === layer</span>
+
+layer<span class="token punctuation">.</span>ready<span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token parameter">readyLayer</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>readyLayer<span class="token punctuation">.</span><span class="token function">getName</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token number">123</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token parameter">value</span> <span class="token operator">=></span> console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>value<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">catch</span><span class="token punctuation">(</span><span class="token parameter">error</span> <span class="token operator">=></span> console<span class="token punctuation">.</span><span class="token function">error</span><span class="token punctuation">(</span>error<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>기존 <code>await layer</code>, <code>layer.then(...)</code>, <code>layer.ready(...)</code>는 <code>await layer.ready</code> 또는 <code>layer.ready.then(...)</code>으로 바꿉니다. 여러 레이어를 기다릴 때는 <code>Promise.all(layers.map(layer =&gt; layer.ready))</code>를 사용합니다. 레이어 본체에는 <code>then</code>·<code>catch</code>·<code>finally</code>가 없으며, 실패 처리와 공통 정리도 <code>ready</code>의 메서드를 사용합니다. 성공 콜백의 예외까지 처리하려면 위 예제처럼 같은 Promise 체인에 <code>.catch(...)</code>를 연결합니다.</p>
+<p>기존 <code>layer.then(...).fail(...)</code>도 <code>layer.ready.then(...).catch(...)</code>로 체인 끝까지 바꿉니다. <code>then</code>은 레이어 대신 새 Promise를 반환하고, 다음 콜백에는 앞 콜백의 반환값이 전달됩니다. 다음 콜백에서도 레이어를 받으려면 <code>return readyLayer</code>를 명시하거나 원래 <code>layer.ready</code>에 별도로 구독합니다. 이미 준비된 레이어라도 콜백은 현재 동기 코드가 끝난 뒤 실행되므로, 콜백 안에서는 대상이 해제되거나 교체되지 않았는지도 확인해야 합니다.</p>
+<p>완료 여부만 확인할 때는 <code>layer.isReady()</code>를 사용합니다. 이 값은 성공과 실패 모두에서 <code>true</code>가 되므로 성공값과 오류를 구분하려면 <code>ready</code>를 확인합니다. 생성만으로 초기화가 완료되지는 않으며, 앱 등록과 완료 시점은 각 레이어의 계약을 따릅니다.</p>
 <h3 id="1-createmultiplecomponentlayer로-생성">1. <code>createMultipleComponentLayer()</code>로 생성</h3>
 <h4 class="api-heading" id="api">API</h4>
 <p>U3dApp.createMultipleComponentLayer(<code>opt</code>) : app에 컴포넌트 레이어를 생성하고 등록하는 함수</p>
@@ -45,7 +58,7 @@
 <details class="api-disclosure">
 <summary title="반환값 펼치기">반환값</summary>
 <ul>
-<li><code>return</code> (<code>U3dMultipleComponentLayer | false</code>) : 생성된 레이어. 옵션이 올바르지 않으면 <code>false</code></li>
+<li><code>return</code> (<code>U3dMultipleComponentLayer | null</code>) : 생성된 레이어. 생성하지 못하면 <code>null</code></li>
 </ul>
 </details>
 <pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> layer <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">createMultipleComponentLayer</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
@@ -57,7 +70,7 @@
     <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'컴포넌트 레이어 생성에 실패했습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 <span class="token punctuation">}</span>
 
-<span class="token keyword">await</span> layer<span class="token punctuation">;</span>
+<span class="token keyword">await</span> layer<span class="token punctuation">.</span>ready<span class="token punctuation">;</span>
 app<span class="token punctuation">.</span><span class="token function">showLayer</span><span class="token punctuation">(</span>layer<span class="token punctuation">.</span><span class="token function">getName</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 </code></pre>
 <h3 id="2-생성자-함수로-직접-생성">2. 생성자 함수로 직접 생성</h3>
@@ -68,7 +81,7 @@ app<span class="token punctuation">.</span><span class="token function">showLaye
 <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 
 app<span class="token punctuation">.</span><span class="token function">addLayer</span><span class="token punctuation">(</span>layer<span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token keyword">await</span> layer<span class="token punctuation">;</span>
+<span class="token keyword">await</span> layer<span class="token punctuation">.</span>ready<span class="token punctuation">;</span>
 app<span class="token punctuation">.</span><span class="token function">showLayer</span><span class="token punctuation">(</span>layer<span class="token punctuation">.</span><span class="token function">getName</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 </code></pre>
 <p>특별히 직접 생성해야 할 이유가 없다면 레이어 생성과 app 등록을 함께 처리하는 <code>createMultipleComponentLayer()</code> 사용을 권장합니다.<br>생성된 레이어는 반드시 <code>app.showLayer</code> 메서드로 가시화 여부를 true로 설정해야 화면에 출력됩니다.</p>
@@ -111,7 +124,7 @@ app<span class="token punctuation">.</span><span class="token function">showLaye
     <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'컴포넌트 레이어 생성에 실패했습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 <span class="token punctuation">}</span>
 
-<span class="token keyword">await</span> layer<span class="token punctuation">;</span>
+<span class="token keyword">await</span> layer<span class="token punctuation">.</span>ready<span class="token punctuation">;</span>
 </code></pre>
 <h3 id="2-loadmodel로-동적-등록">2. <code>loadModel()</code>로 동적 등록</h3>
 <p>레이어 생성 시점과 3D 에셋 데이터를 읽어오는 시점이 다르거나,<br>실행 중에 필요한 에셋만 동적으로 추가하려면 <code>loadModel()</code>을 통해 등록 가능합니다.<br><code>loadModel()</code>의 매개변수는 앞서 설명한 <code>ModelDataInfo</code> 객체입니다.  </p>
@@ -143,7 +156,7 @@ app<span class="token punctuation">.</span><span class="token function">showLaye
     <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'컴포넌트 레이어 생성에 실패했습니다.'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 <span class="token punctuation">}</span>
 
-<span class="token keyword">await</span> layer<span class="token punctuation">;</span>
+<span class="token keyword">await</span> layer<span class="token punctuation">.</span>ready<span class="token punctuation">;</span>
 
 <span class="token keyword">await</span> layer<span class="token punctuation">.</span><span class="token function">loadModel</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
     <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'helicopter2'</span><span class="token punctuation">,</span>

@@ -385,7 +385,7 @@
             self.layer = new self._union3d.image.U3dImageXYZLayer( this.options);
             self._app.addLayer(this.layer);
         }
-        this.layer.then(()=>{
+        this.layer.ready.then(()=>{
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -413,7 +413,7 @@
     HeightLayer.prototype.create =function(){
         let self = this;
         self.layer = this._app.createHeightXYZLayer(self.options);
-        self.layer.then(()=>{
+        self.layer.ready.then(()=>{
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -754,7 +754,7 @@
             maxlevel = layerInfo.metaData.raster.maxlevel;
             maxresolution = layerInfo.metaData.raster.maxresolution;
         }
-        // 2. 3D 서버를 거치지 않고 직접 XML 파일을 파싱하여 생성하는 경우createTempleteTMSImageLayer
+        // 2. 3D 서버를 거치지 않고 직접 XML 파일을 파싱하여 생성하는 경우createTemplateTMSImageLayer
         var image3dLayer = app.createTMSImageLayerAsXML(
             layerInfo.name,             // ex : "busan-part"
             layerInfo.baseUrl,          // ex : "https://dt-data.mappick.co.kr/ServiceData/raster/busan-part"
@@ -773,11 +773,13 @@
             layerInfo.metaData.majorFolder,
             layerInfo.metaData.origin
         );*/
-        image3dLayer.then(function (){
+        image3dLayer.ready.then(function (){
             app.showLayer(image3dLayer.getName(), true);
             //+ create 2d imageLayer
             var info = Object.assign(layerInfo);
             create2DImageLayer(info);
+        }).catch(error => {
+            console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
         });
 
         return image3dLayer;

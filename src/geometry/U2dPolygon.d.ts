@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -109,30 +109,38 @@ declare class U2dPolygon extends U2dGeometry {
     _center: Array<number> | undefined;
     /**
      * 다각형의 꼭짓점 좌표를 통째로 바꿉니다. <br>
-     * 넘긴 좌표를 `srs`가 가리키는 좌표계에서 지도 좌표계(EPSG:3857)로 하나씩 바꾼 뒤 반영합니다. <br>
-     * 이미 지도 좌표로 가지고 있다면 `srs`에 `'EPSG:3857'`을 넣어 변환 없이 그대로 쓸 수 있습니다. <br>
+     * 넘긴 좌표를 `srs`가 가리키는 좌표계에서 월드 좌표(EPSG:3857)로 하나씩 바꾼 뒤 반영합니다. <br>
+     * 이미 월드 좌표(EPSG:3857)로 가지고 있다면 `srs`에 해당 코드를 넣어 변환 없이 그대로 쓸 수 있습니다. <br>
      * 마지막 점과 첫 점은 자동으로 이어지므로 첫 점을 끝에 다시 넣지 않아도 됩니다. <br>
+     * 표시 중이던 미리보기 점은 종료합니다. <br>
      *
-     * 바깥쪽 테두리 하나만 사용합니다. <br>
-     * `ary`에 배열을 여러 개 넣어도 첫 번째 것만 반영되고 나머지는 버려집니다. <br>
+     * 외곽선·내부 구멍을 모두 보존하며, 복합 면은 폴리곤 목록으로 한 겹 더 감싸 전달합니다. <br>
      *
      * @override
      *
-     * @param {Triple_Array<number>} ary 꼭짓점 좌표를 테두리별로 묶은 배열 `[[[x, y], ...]]`. 기본 좌표계에서는 `[[[경도, 위도], ...]]`입니다 <br>
-     * @param {string} [srs='EPSG:4326'] 넘긴 좌표가 어떤 좌표계인지 나타내는 코드 <br>
+     * @param {Double_Array<number> | Triple_Array<number> | Quad_Array<number>} ary 단일 링, 링 목록 또는 복합 면 좌표입니다. <br>
+     * @param {string} [srs='EPSG:4326'] 입력 좌표계 코드. 기본값은 위경도 좌표계(EPSG:4326)입니다 <br>
      */
-    override setPosition(ary: Triple_Array<number>, srs?: string): void;
+    override setPosition(ary: Double_Array<number> | Triple_Array<number> | Quad_Array<number>, srs?: string): void;
     /**
-     * 입력 좌표 배열을 다각형 좌표 형식으로 변환하는 함수 <br>
+     * 모든 링을 보존한 좌표를 반환합니다. 복합 면은 폴리곤 목록을 반환합니다.
+     *
+     * @override
+     *
+     * @returns {Double_Array<number> | Triple_Array<number> | Quad_Array<number>} 월드 좌표(EPSG:3857)의 단일 링, 링 목록 또는 복합 면입니다.
+     */
+    override getPosition(): Double_Array<number> | Triple_Array<number> | Quad_Array<number>;
+    /**
+     * 첫 외곽선의 입력 좌표를 원본 다각형 타입으로 감싸고 내부 구멍과 다른 면을 보존합니다. <br>
      *
      * @override
      *
      * @param {Double_Array<number>} coords 변환할 꼭짓점 좌표 (EPSG:3857) <br>
-     * @returns {Quad_Array<number>} 첫 점을 끝에 덧붙여 테두리를 닫고 MultiPolygon 형태로 감싼 좌표 <br>
+     * @returns {Triple_Array<number> | Quad_Array<number>} 첫 외곽선을 닫고 내부 구멍·다른 면과 원본 타입을 보존한 좌표 <br>
      *
      * @ignore
      */
-    override buildCoordinates(coords: Double_Array<number>): Quad_Array<number>;
+    override buildCoordinates(coords: Double_Array<number>): Triple_Array<number> | Quad_Array<number>;
     /**
      * 다각형이 덮는 넓이를 반환합니다. <br>
      * 꼭짓점을 평면 위의 점으로 보고 계산하며, 지구의 곡률은 반영하지 않습니다. <br>

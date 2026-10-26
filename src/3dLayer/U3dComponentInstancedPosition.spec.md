@@ -37,6 +37,7 @@
 변환 갱신 순서, 공유 임시 객체 사용, child·POI·overlay·누적 경로·barrier·edge 갱신 여부를 바꾸지 않아야 한다.
 show()와 hide()는 성공·실패 상태를 가진 DeferredObject를 반환해야 한다.
 경로 텍스처의 포맷, 필터, wrapping, mipmap과 flipY 설정을 유지해야 한다.
+색상 텍스처 제외·복원은 현재 인스턴스에만 적용하고 공유 재질·다른 슬롯·사용자 uniform·LOD별 원래 map 유무를 유지해야 한다. 선택 해제는 설정을 보존하고 삭제·번호 재사용은 해당 슬롯의 제외 표식을 초기화해야 한다.
 JavaScript 메서드 열거 가능성 같은 reflection 차이는 호환성 범위에서 제외한다.
 ```
 
@@ -96,6 +97,13 @@ U3dComponentInstancedPositionCO 타입 정의
     Omit<U3dComponentPositionCO, never>와 U3dComponentInstancedPositionCO_Content의 교차 타입
 
 U3dComponentInstancedPosition extends U3dComponentPosition 클래스 정의
+    override _applyModelOffset() -> void
+        역할: 상속한 setModelOffset()의 보정을 현재 컴포넌트 인스턴스 전체에 반영한다.
+        동작:
+            position, 그룹 또는 현재 index가 없으면 종료한다.
+            현재 논리 위치로 인스턴스 행렬을 갱신한다. 각 메시의 행렬은 논리 TRS × 모델 오프셋 이동 × 원본 메시 행렬이다. 공유 그룹·원본 행렬과 다른 index의 행렬은 변경하지 않는다.
+            경계 상자는 원본 메시 행렬을 반영한 로컬 경계 전체에 같은 이동량을 더한다. 논리 proxy의 위치·회전·크기는 유지한다.
+
     isMixerEnabled: (() -> boolean) | undefined
         현재 파일에서 직접 설정하지 않는 mixer 활성 여부 callback 확장점
     _instancedMaxCount: number
@@ -118,6 +126,9 @@ U3dComponentInstancedPosition extends U3dComponentPosition 클래스 정의
         frustum 거리·확률 판정 결과
     _rootObject: Object3D | undefined
         우선 반환할 원본 모델 참조
+    #baseColor: Color | undefined
+        마지막 setColor 입력의 선형 RGB clone. 선택 복원을 반복해도 CSS 문자열 반올림 없이 기본색을 유지한다.
+
     #colorAdjustmentSelected: boolean = false
         선택 중 렌더 데이터에는 중립값을 사용하고 설정된 밝기·대비는 기반 컴포넌트에 보존한다.
     #animationDistance: number
@@ -159,9 +170,10 @@ U3dComponentInstancedPosition extends U3dComponentPosition 클래스 정의
             Math — instance별 난수 offset 생성; 함수: {random()}
 
         동작:
-            setInstanced, instanceId, groupIndex, instancedInfo와 instancedGroup을 저장하고 빈 animation 목록을 만든다.
+            setInstanced, instanceId, groupIndex, instancedInfo와 instancedGroup을 저장한 뒤 해당 슬롯의 색상·선택·투명도·텍스처 제외·보정 상태를 초기화하고 빈 animation 목록을 만든다. 초기화는 공유 자원·다른 ID·사용자 uniform을 보존하는 U3dComponentPosition 내부 연결을 사용한다.
             proxy `_object.rotateX/Y/Z`를 현재 컴포넌트를 명시적 owner로 받는 비공개 회전 함수에 바인딩한다.
             tweenFps, 무작위 offset과 그룹 최대 용량을 설정한다.
+            그룹이 있으면 현재 index의 entity를 수집한다.
             animationDistance를 설정한다.
             position·rotation·scale 접근자를 proxy `_object`의 같은 변환 객체에 연결한다. 각 setter는 현재 구현의 단일 JavaScript setter 인수 처리와 자기 속성 재할당 순서를 그대로 가진다. [확인 Q-002]
             proxy transform을 다시 복사하고 world matrix, quaternion과 instance matrix를 갱신한다.
@@ -243,12 +255,18 @@ U3dComponentInstancedPosition extends U3dComponentPosition 클래스 정의
             position, quaternion과 현재 scale을 updateInstances()에 전달한다. idx와 elapsedTime은 사용하지 않는다.
         현재 구현에서 idx와 elapsedTime은 공개 매개변수지만 계산에 사용하지 않는다. [확인 Q-006]
 
+    override dispose() -> void
+        의존:
+            U3dComponentPosition — 컴포넌트 해제; 함수: {isDisposed(), dispose()}
+        동작: 이미 해제되었으면 종료한다. 현재 공유 그룹의 해당 ID에 남은 색상·선택·투명도·텍스처 제외·보정 상태를 초기화한 뒤 부모 dispose를 실행한다. 이미 해제된 공유 메시에는 데이터를 쓰지 않는다. 공유 재질과 다른 인스턴스는 변경하지 않는다.
+
     override setColor(color: Color | string | number = '#ffffff') -> boolean
-        처리 기준: instanceId 또는 instancedGroup이 없으면 false를 반환한다.
-        의존: U3dComponentPosition — 마지막 컴포넌트 색상 저장; 속성 읽기·쓰기: {color}
+        처리 기준: 해제 상태이거나 instanceId 또는 instancedGroup이 없으면 false를 반환한다.
+        의존:
+            U3dComponentPosition — 해제 상태 조회와 현재 색상 저장; 함수: {isDisposed()}; 속성 읽기·쓰기: {color}
         동작:
-            입력을 Color로 변환하고 그룹 direct child마다 `instanceId % mesh.capacity` index를 사용한다.
-            기존 색상과 같으면 해당 mesh를 건너뛰고, 다르면 instance 색상을 설정하고 clone을 `_oriColorMap`에 저장하며 컴포넌트 color를 CSS style 문자열로 갱신한다.
+            입력을 Color로 변환하고 각 메시의 현재 ID에 기본색 교체를 적용한다. 최초 흰색 지정도 원본 기본색 교체 요청으로 처리한다. 입력의 선형 RGB clone을 #baseColor에, CSS style 문자열을 color에 저장한다.
+            U3dComponentPosition 내부 렌더 연결을 사용하여 원본 공유 재질은 보존하고 텍스처·정점색·조명 계산 전에 재질 기본색만 교체한다. 색상 clone을 _oriColorMap에 저장하여 선택 복원 후에도 마지막 setColor를 유지한다.
             예외는 __GSError__로 보고하고 false를, 정상 처리는 true를 반환한다.
 
     override getColor() -> ColorRepresentation
@@ -267,7 +285,14 @@ U3dComponentInstancedPosition extends U3dComponentPosition 클래스 정의
         동작: 컴포넌트 opacity가 truthy이면 반환하고, 0처럼 falsy이면 첫 mesh의 `instanceId % capacity` opacity를 조회하여 반환한다.
 
     override exceptTexture(isExcept: boolean = false) -> boolean
-        동작: true이면 미지원 안내를 __GInfo__로 출력하고 false를 반환한다. false이면 true를 반환한다.
+        의존:
+            U3dComponentPosition — 해제 상태 판정; 함수: {isDisposed()}
+            defined — 인스턴스 ID 유무 판정; 함수: {defined()}
+            __GSError__ — 포착한 예외 기록; 함수: {__GSError__()}
+        동작:
+            해제된 컴포넌트이거나 instanceId가 null·undefined이거나 instancedGroup이 없으면 false를 반환한다.
+            선택·복원은 마지막 제외 설정을 유지하며 삭제·슬롯 재사용에서는 해당 제외 표식을 초기화한다. 사용자 거리별 LOD callback에서 지정한 boolean 정책을 따르고 내부 형상 LOD는 같은 저장값을 공유한다.
+            정상 적용 뒤 true를 반환하고 예외는 기록한 뒤 false를 반환한다.
 
     override getParam() -> ComponentParam
         동작: 기반 getParam() 결과에서 instanced가 정의되지 않았을 때만 `_setInstanced`를 기록하고 같은 객체를 반환한다.
@@ -276,7 +301,7 @@ U3dComponentInstancedPosition extends U3dComponentPosition 클래스 정의
         처리 기준: instancedGroup 또는 그룹 내 index가 없으면 새 빈 Box3를 반환한다.
         동작:
             getObject()와 그룹 내 index를 조회한다.
-            전체 box의 center를 계산하여 `_center`에 추가한 같은 Box3를 반환한다.
+            전체 box에 현재 모델 로컬 이동량을 더한 뒤 center를 계산하여 `_center`에 추가한 같은 Box3를 반환한다.
 
     override getRectangle() -> RectangleCorners | undefined
         처리 기준: object, position, rotation, scale 또는 bounding box가 없으면 undefined를 반환한다.
@@ -357,20 +382,22 @@ U3dComponentInstancedPosition extends U3dComponentPosition 클래스 정의
         처리 기준: instancedGroup이 없으면 종료한다.
         동작: 그룹 전체를 순회하여 THREE.Mesh인 child의 renderOrder를 입력값으로 교체한다.
 
-    pickMaterial(intersect?: unknown, color: ColorRepresentation = '#ffffff', opacity: number = 1) -> boolean
-        처리 기준: instanceId 또는 instancedGroup이 없으면 false를 반환한다.
-        의존: U3dComponentPosition — 저장된 배율 조회; 함수: {getBrightness(), getContrast()}
+    override pickMaterial(intersect?: unknown, color: ColorRepresentation = '#ffffff', opacity: number = 1) -> boolean
+        처리 기준: 해제 상태이거나 instanceId 또는 instancedGroup이 없으면 false를 반환한다.
+        의존:
+            U3dComponentPosition — 해제 상태와 저장된 배율 조회; 함수: {isDisposed(), getBrightness(), getContrast(), getSaturation()}
         동작:
-            color를 Color로 만들고 그룹 direct child마다 instanceId % capacity index에 pickMaterial을 선택 호출한다. intersect는 현재 사용하지 않는다.
+            color를 Color로 만들고 현재 ID의 선택 강조를 적용한다. intersect는 현재 사용하지 않는다. 공유 재질 기본색은 바꾸지 않고 인스턴스별 기본색 교체 경로를 사용한다. 같은 ID를 반복 선택해도 최초 선택 전 색상·투명도 백업을 유지한다.
             #colorAdjustmentSelected를 true로 바꾸고 저장값을 보존한 채 렌더 배율을 중립값으로 설정한다.
             예외는 __GSError__로 보고하고 false를, 정상 처리는 true를 반환한다.
 
-    restoreMaterial() -> boolean
+    override restoreMaterial() -> boolean
         처리 기준: disposed 상태이거나 instanceId 또는 instancedGroup이 없으면 false를 반환한다.
-        의존: U3dComponentPosition — 폐기 상태와 저장된 배율 조회; 함수: {isDisposed(), getBrightness(), getContrast()}
+        의존:
+            U3dComponentPosition — 폐기 상태와 저장된 배율 조회; 함수: {isDisposed(), getBrightness(), getContrast(), getSaturation()}
         동작:
-            그룹 direct child마다 instanceId % capacity index의 restoreMaterial을 선택 호출한다.
-            #colorAdjustmentSelected를 false로 바꾸고 선택 중에도 보존한 현재 밝기·대비·채도를 다시 적용한다.
+            그룹 direct child마다 instanceId % capacity index의 restoreMaterial을 선택 호출한다. 다른 ID의 pickedInfo는 보존한다. 마지막 setColor가 없으면 기본색 교체 표식을 제거하여 원본 재질 색상을 사용한다.
+            #colorAdjustmentSelected를 false로 바꾸고 #baseColor가 있으면 U3dComponentPosition의 내부 기본색 교체를 다시 적용하여 반복 복원에도 마지막 setColor 값을 보존한다. 현재 밝기·대비·채도를 다시 적용한다. 색상 텍스처 제외 표식은 변경하지 않는다.
             예외는 __GSError__로 보고하고 false를, 정상 처리는 true를 반환한다.
 
     updateAnimationAt(instanceId: number) -> false

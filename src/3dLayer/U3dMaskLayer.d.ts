@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -230,13 +230,14 @@ declare class U3dMaskLayer extends U3dModelLayer {
     getMaskObject(tileKey: string, index: object): object;
     /**
      * 참조 레이어의 모델 높이를 격자 셀에 반영하고 요청 타일의 박스를 표시합니다.
-     * 공유 메시와 이미 처리한 메시를 제외하고, 모든 점 검사 이후 타일 상태와 완료 객체를 갱신합니다.
+     * 공유 메시와 이미 처리한 메시를 제외하고, 모든 점 검사 이후 타일 상 태와 완료 객체를 갱신합니다.
      * infoLayer가 없으면 완료되지 않는 기존 경로도 유지합니다.
      *
      * @param {string} tileKey 높이를 반영할 타일 키
-     * @returns {Promise<void>} 기반 비동기 실행의 완료 객체
+     * @param {AbortSignal} [signal] 모델 작업의 취소 신호
+     * @returns {Promise<void>} 완료 객체. 취소된 계산은 값을 반영하지 않고 종료합니다.
      */
-    createMaskValue(tileKey: string): Promise<void>;
+    createMaskValue(tileKey: string, signal?: AbortSignal): Promise<void>;
 }
 
 /**

@@ -184,46 +184,57 @@ class U3dModelBasicLayer extends U3dModelLayer {
     // U3dLayer.setApp 함수에서 call
     /**
      * 기반 레이어를 초기화한 뒤 XML 또는 생성 옵션으로 모델 로딩을 시작합니다.
-     * 장면 등록과 모델 로딩 완료는 별개이며 완료 시 레이어의 resolve/reject를 호출합니다.
+     * 장면 등록과 모델 로딩 완료는 별개이며 성공 시 현재 레이어 인스턴스로 resolve합니다.
      *
      * @override
      */
     initialize() {
-        U3dLayer.prototype.initialize.call(this);
-        // 부모 생성자가 부착한 완료 인터페이스를 같은 수신 객체로 사용합니다.
-        const self = /** @type {U3dModelBasicLayer & U3dModelBasicLayerCompletion} */ (/** @type {unknown} */ (this));
-        // xml이 있을 때
-        if (self._needXml === true) {
-            initWithXML.call(self).then(() => {
-                loadModel.call(self).then(() => {
-                    self.resolve();
-                }).catch(() => {
-                    self.reject();
+        const self = this;
+        try {
+            U3dLayer.prototype.initialize.call(this);
+            if (self._needXml === true) {
+                initWithXML.call(self).then(() => {
+                    // 커스텀 Deferred는 성공 콜백의 예외를 다음 catch로 전파하지 않습니다.
+                    try {
+                        loadModel.call(self).then(() => {
+                            self._resolveReady();
+                        }).catch((error) => {
+                            self._rejectReady(error);
+                        });
+                    } catch (error) {
+                        if (self.isReady()) {
+                            console.error('완료된 레이어의 초기화 후처리에서 오류가 발생했습니다.', error);
+                            return;
+                        }
+                        self._rejectReady(error);
+                    }
+                }).catch((error) => {
+                    self._rejectReady(error);
                 });
-            }).catch(() => {
-                self.reject();
-            });
-        }
-        else {
-            if (!defined(self._location) && defined(self._geoLocation)) {
-                const world = self._drawArg.getGeographicToWorld(self._geoLocation.x, self._geoLocation.y, self._geoLocation.z);
-                self._location = {
-                    x: world.x,
-                    y: world.y,
-                    z: world.z
-                };
+            } else {
+                if (!defined(self._location) && defined(self._geoLocation)) {
+                    const world = self._drawArg.getGeographicToWorld(self._geoLocation.x, self._geoLocation.y, self._geoLocation.z);
+                    self._location = {
+                        x: world.x,
+                        y: world.y,
+                        z: world.z
+                    };
+                }
+                self._object._xml = {};
+                self._object._xml._title = self._title;
+                if (defined(self._boundingBox)) {
+                    const bbox = /** @type {BoundingBox2D} */ (self._boundingBox);
+                    self._bbox3D = self.get3DBoxFromGoogleBox(bbox);
+                }
+                loadModel.call(self).then(() => {
+                    self._resolveReady();
+                }).catch((error) => {
+                    self._rejectReady(error);
+                });
             }
-            self._object._xml = {};
-            self._object._xml._title = self._title;
-            if (defined(self._boundingBox)) {
-                const bbox = /** @type {BoundingBox2D} */ (self._boundingBox);
-                self._bbox3D = self.get3DBoxFromGoogleBox(bbox);
-            }
-            loadModel.call(self).then(() => {
-                self.resolve();
-            }).catch(() => {
-                self.reject();
-            });
+        } catch (error) {
+            if (self.isReady()) throw error;
+            self._rejectReady(error);
         }
     }
 
@@ -595,10 +606,11 @@ class U3dModelBasicLayer extends U3dModelLayer {
             }
             switch (String(ext).toLowerCase()) {
                 case self.modelType.OBJ:
-                    loadOBJ.call(self, model).then(afterLoadOBJ.bind(self, promiseObj, model));
+                    loadOBJ.call(self, model).then(afterLoadOBJ.bind(self, promiseObj, model)).catch(promiseObj.reject);
                     break;
                 case self.modelType.TDS:
-                    load3DS.call(self, model, textureUrl).then(afterLoad3DS.bind(self, promiseObj, model));
+                    // 후처리가 반환하는 Promise까지 기다려 외부 완료 객체로 실패를 전달합니다.
+                    Promise.resolve(load3DS.call(self, model, textureUrl)).then(afterLoad3DS.bind(self, promiseObj, model)).catch(promiseObj.reject);
                     break;
                 case self.modelType.DAE:
                     /** @type {any} */ (loadDae).call(self, model).then(afterLoadDAE.bind(self, promiseObj, model));
@@ -1743,7 +1755,7 @@ function loadOBJ(model) {
             resolve: resolve,
             reject: reject
         };
-        loadMTLLoader.call(self, model).then(loadOBJLoader.bind(self, promiseObj, model));
+        loadMTLLoader.call(self, model).then(loadOBJLoader.bind(self, promiseObj, model)).catch(reject);
     });
 }
 

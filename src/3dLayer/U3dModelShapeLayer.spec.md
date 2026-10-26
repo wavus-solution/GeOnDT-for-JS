@@ -40,7 +40,7 @@ U3dModelShapeLayer extends U3dModelLayer 클래스 정의
             층 높이는 4, 윗면·옆면 분리 및 라벨 표시는 false, depthOffset=1, 텍스처 사용은 false가 기본이다. 높이·지면·라벨·층 속성 키와 높이·스타일 콜백을 보관한다.
             textureurl이 truthy면 먼저 쓰고 아니면 textureUrl을 사용하며 둘 다 없으면 빈 배열이다. _useproxy가 falsy이면 proxyurl을 빈 문자열로 바꾼다.
             시간 제한기·압출 모델 그룹·메르카토르 변환기를 생성한다. 그룹은 부모 _drawArg를 전달받는다.
-            텍스처 초기화 반환값에 then/catch를 등록한다. 성공하면 정의된 resolve를 자신으로 호출하고, 실패하면 console.error 후 정의된 reject를 오류로 호출한다. 호출 시 receiver는 레이어다.
+            텍스처 초기화 반환값에 then/catch를 등록한다. 성공하면 _resolveReady를 호출하고, 실패하면 console.error 후 _rejectReady에 오류를 전달한다. 호출 시 receiver는 레이어다.
 
     textureInit() -> Promise<Array<void> | undefined> | void
         의존:
@@ -252,7 +252,7 @@ U3dModelShapeLayer extends U3dModelLayer 클래스 정의
             U3dModelLayer — 기반 계열의 상태·API 접근; 속성 읽기: {_visible, dispatchEvent}
         동작:
             drawArg가 없으면 종료한다. 레이어가 숨겨졌으면 처리 대기열을 비우고 종료하며 대기열이 비어 있어도 종료한다.
-            시간 제한기가 실행을 허용할 때만 UDEF.createPromise 안에서 최대 _maxProcess개 타일 키를 앞에서 꺼내고, 해당 타일 모델 중 아직 보이지 않는 모델을 scene에 추가한 뒤 MESH.DRAWN 이벤트를 보낸다. executor 예외는 reject하나 이 Promise를 반환하지 않는다.
+            시간 제한기가 실행을 허용할 때만 UDEF.createPromise 안에서 최대 _maxProcess개 타일 키를 앞에서 꺼내고, 해당 타일 모델 중 아직 보이지 않는 모델을 scene에 추가한 뒤 MESH.DRAWN 이벤트를 보낸다. executor 예외는 reject하고 마지막 catch에서 __GError__로 기록한다. 이 Promise를 반환하지 않는다.
             실행 허용 여부와 관계없이 이 경로 끝에서 다음 갱신 간격을 20으로 설정한다.
 
     override show(show: boolean) -> void
@@ -463,7 +463,7 @@ loadTexture(textureUrl: string) -> Promise<void>
         UDEF — 텍스처 크기 유지; 함수: {UDEF.noResizeTexture()}
     동작:
         프록시 문자열과 textureUrl을 합쳐 새 UTextureLoader로 요청한다. 성공 시 텍스처 리사이즈를 막고 최종 요청 URL을 키로 캐시에 저장한 뒤 deferred를 resolve한다.
-        로딩 오류 콜백은 로그 뒤 같은 오류로 reject한다. 반환 객체는 프로젝트 deferred이며 네이티브 Promise의 체인 예외 전파로 해석하지 않는다.
+        로딩 오류 콜백은 로그 뒤 같은 오류로 reject한다. UDEF.createPromise가 반환하는 표준 Promise를 사용하며 후속 콜백의 예외는 새 체인의 거부로 전달된다.
 
 setStyle(mesh: U3dModelShapeMesh) -> void
     인터페이스: this는 U3dModelShapeLayer이며 호출한 레이어의 상태를 읽거나 변경한다.

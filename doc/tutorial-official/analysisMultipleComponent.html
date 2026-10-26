@@ -541,7 +541,7 @@
             self.layer = new self._geonDT.image.U3dImageXYZLayer(this.options);
             self._app.addLayer(this.layer);
         }
-        this.layer.then(() => {
+        this.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -571,7 +571,7 @@
     HeightLayer.prototype.create = function () {
         let self = this;
         self.layer = this._app.createHeightXYZLayer(self.options);
-        self.layer.then(() => {
+        self.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -1205,7 +1205,7 @@
         }
 
         function initModelLayer() {
-            let u3fGroupLayer = this.app.createModelGroupLayer({
+            let u3fGroupLayer = this.app.createGroupLayer({
                 maxlevel: 19,
                 minlevel: 17,
                 name: 'U3fGroupLayer'
@@ -1234,7 +1234,7 @@
                         maxlevel: infos[i].metaData.maxLevel
                     };
                     let layer = app.create3DFModelLayer(options);
-                    if (layer !== undefined) {
+                    if (layer) {
                         u3fGroupLayer.addLayer(layer);
                     }
                 }
@@ -1535,10 +1535,12 @@
                 let componentLayer = app.createMultipleComponentLayer(option);
                 window.componentLayer = componentLayer;
                 componentLayer.setInstanced(true);
-                componentLayer.then(()=>{
+                componentLayer.ready.then(()=>{
                     app.showLayer( componentLayer.getName(), true );
                     analy.setLayer(componentLayer);
                     app.endloadingBar();
+                }).catch(error => {
+                    console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
                 });
             }
         }

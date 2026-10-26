@@ -772,7 +772,7 @@ class U3dModelLayer extends U3dLayer {
         self.editedEvent = {};
         self._editWorkBuffer = {};
         if (defined(self._app))
-            self._app.restartQuadTree();
+            self._app.restartModelQuadTree();
     }
 
     /**

@@ -22,6 +22,19 @@ const DRILL_MIN_RADIUS = 400;
 const DRILL_MAX_RADIUS = 560;
 const DRILL_HEIGHT_SPAN = 900;
 const DRILL_ASCENT_HEIGHT = 600;
+const BANKED_DRONE_COUNT = 10;
+const BANKED_ORBIT_CENTER = {x: 127.5675, y: 36.6890, z: 950};
+const BANKED_TURN_RADIUS = 600;
+const BANKED_STRAIGHT_LENGTH = 1400;
+const BANKED_DRONE_SPACING = 65;
+const BANKED_FLIGHT_SPEED = 25;
+const BANKED_ROLL_TRANSITION_DISTANCE = 100;
+const BANKED_ROLL_DEGREES = 30;
+// 실제 서비스의 일렬 대형에는 선두 기준 0, -4, +4m의 기체별 고도 차이가 있습니다.
+// 같은 고도로만 비행하면 직선 전환 시 평면 경계가 늘어나는 입력 조건을 빠뜨립니다.
+const BANKED_ALTITUDE_OFFSETS = Object.freeze([0, -4, 4, -4, 4, -4, 4, -4, 4, -4]);
+const BANKED_ARC_LENGTH = Math.PI * BANKED_TURN_RADIUS;
+const BANKED_ROUTE_LENGTH = 2 * BANKED_STRAIGHT_LENGTH + 2 * BANKED_ARC_LENGTH;
 const METERS_PER_DEGREE_LATITUDE = 111320;
 const HELPER_UPDATE_KEY = 'UGroupBoundaryHelperExample';
 const FORMATION_STATE_SUBSCRIBERS = new Set();
@@ -37,7 +50,8 @@ const BOUNDARY_COLOR = Object.freeze({
     droplet: 0x76ff7a,
     arrow: 0xff8b42,
     vertical: 0x718cff,
-    drill: 0xb57cff
+    drill: 0xb57cff,
+    bankedLine: 0xff4568
 });
 
 const ORBIT_CENTERS = [
@@ -113,6 +127,18 @@ let dropletFormation;
 let arrowFormation;
 let verticalFormation;
 let drillFormation;
+let bankedLineFormation;
+let bankedFlightDistance = 0;
+let bankedFlightTimestamp;
+let bankedTurnDirection = -1;
+let bankedRollEnabled = true;
+let bankedAltitudeVariationEnabled = true;
+let bankedBoundaryErrorCount = 0;
+let bankedBoundaryLastError = '';
+let bankedBoundaryVerticalSpan = 0;
+let bankedBoundaryMaxVerticalSpan = 0;
+let bankedBoundaryDiagnosticsDirty = false;
+let bankedBoundaryNotifyTimestamp = 0;
 
 const formations = [];
 const boundaryHelpers = [];
@@ -140,6 +166,12 @@ export async function initialize(context) {
     isAnimationRunning = true;
     animationSpeedMultiplier = 1;
     cleanupDemo();
+    bankedTurnDirection = -1;
+    bankedFlightDistance = getBankedStartDistance();
+    bankedFlightTimestamp = undefined;
+    bankedRollEnabled = true;
+    bankedAltitudeVariationEnabled = true;
+    resetBankedBoundaryDiagnostics();
 
     app.createloadingBar('load');
     app.loadingBar();
@@ -156,6 +188,10 @@ export async function initialize(context) {
             },
             setAnimationRunning,
             resetDroneFormation,
+            setBankedRollEnabled,
+            setBankedAltitudeVariationEnabled,
+            setBankedTurnDirection,
+            focusBankedFormation,
             subscribeDemoState(listener) {
                 if (typeof listener !== 'function') return () => {};
                 FORMATION_STATE_SUBSCRIBERS.add(listener);
@@ -186,7 +222,7 @@ export async function dispose(context, example) {
 }
 
 /**
- * 애니메이션 레이어 생성 후 7개 그룹을 구성합니다.
+ * 애니메이션 레이어 생성 후 8개 그룹을 구성합니다.
  *
  */
 async function createAnimationLayer() {
@@ -205,9 +241,11 @@ async function createAnimationLayer() {
         }]
     });
 
-    if (typeof animationLayer?.then === 'function') {
-        await animationLayer;
+    if (!animationLayer) {
+        throw new Error('그룹 경계 형상에 사용할 애니메이션 레이어를 생성하지 못했습니다.');
     }
+    // 모델 자원이 준비된 뒤에만 대형과 경계 헬퍼를 생성합니다.
+    await animationLayer.ready;
 
     app.showLayer(animationLayer.getName(), true);
     createDroneFormations();
@@ -217,7 +255,7 @@ async function createAnimationLayer() {
 }
 
 /**
- * 7개 그룹의 위치를 생성하고 그룹 경계 헬퍼를 생성합니다.
+ * 기존 7개 대형과 roll 비교용 10대 일렬 대형의 경계 헬퍼를 생성합니다.
  */
 function createDroneFormations() {
     const orbitPositions = ORBIT_CENTERS.map(function (center, index) {
@@ -260,6 +298,33 @@ function createDroneFormations() {
         BOUNDARY_COLOR.drill,
         DRILL_BOUNDARY_OPTIONS
     );
+
+    const bankedPositions = Array.from({length: BANKED_DRONE_COUNT}, (_, index) => {
+        const pose = getBankedRoutePose(bankedFlightDistance + bankedTurnDirection * index * BANKED_DRONE_SPACING);
+        return offsetGeoPosition(BANKED_ORBIT_CENTER, pose.east, pose.north, BANKED_ALTITUDE_OFFSETS[index]);
+    });
+    bankedLineFormation = createDroneFormation('bankedLineFormation', bankedPositions, BOUNDARY_COLOR.bankedLine, {
+        // 서비스의 GROUP 103과 같은 경계 설정으로 재현합니다.
+        height: 30,
+        bufferSize: BOUNDARY_BUFFER_SIZE,
+        connectionDistance: BOUNDARY_CONNECTION_DISTANCE,
+        positionTolerance: BOUNDARY_POSITION_TOLERANCE,
+        surfaceMode: 'plane'
+    });
+    // 표시 위치 벡터는 재사용합니다. 이동 대기열을 쌓지 않아 열 대의 대형 시각이 같습니다.
+    bankedLineFormation.worldCenter = app.geographicToVector3(BANKED_ORBIT_CENTER);
+    bankedLineFormation.worldPositions = bankedLineFormation.components.map(() => bankedLineFormation.worldCenter.clone());
+    const three = helperApi.THREE;
+    bankedLineFormation.forwardAxis = new three.Vector3();
+    bankedLineFormation.upAxis = new three.Vector3(0, 0, 1);
+    bankedLineFormation.headingQuaternion = new three.Quaternion();
+    bankedLineFormation.flightQuaternion = new three.Quaternion();
+    bankedLineFormation.modelQuaternion = new three.Quaternion().setFromEuler(new three.Euler(Math.PI / 2, 0, 0));
+    bankedLineFormation.flightRotation = new three.Euler();
+    bankedLineFormation.rollDegrees = Array(BANKED_DRONE_COUNT).fill(0);
+    bankedLineFormation.turning = Array(BANKED_DRONE_COUNT).fill(false);
+    bankedLineFormation.side = bankedLineFormation.helper.getObjectByName('bankedLineFormationBoundaryHelperSide');
+    updateBankedFormation();
 }
 
 /**
@@ -326,8 +391,35 @@ function registerHelperUpdate() {
     }
 
     app.setRenderBefore(HELPER_UPDATE_KEY, function () {
+        updateBankedFormation();
         for (let i = 0; i < boundaryHelpers.length; i++) {
-            boundaryHelpers[i].update();
+            const helper = boundaryHelpers[i];
+            if (helper !== bankedLineFormation.helper) {
+                helper.update();
+                continue;
+            }
+            try {
+                helper.update();
+            } catch (error) {
+                // 재현 대상의 실패는 엔진이 콘솔에 기록합니다. 다른 대형과 재생 제어는 계속
+                // 동작시켜 오류 직후의 입력·자세를 일시정지하고 비교할 수 있게 합니다.
+                bankedBoundaryErrorCount++;
+                bankedBoundaryLastError = error instanceof Error ? error.message : String(error);
+                bankedBoundaryDiagnosticsDirty = true;
+            }
+            const bounds = bankedLineFormation.side.geometry.boundingBox;
+            const verticalSpan = bounds ? bounds.max.z - bounds.min.z : 0;
+            if (verticalSpan !== bankedBoundaryVerticalSpan) bankedBoundaryDiagnosticsDirty = true;
+            bankedBoundaryVerticalSpan = verticalSpan;
+            bankedBoundaryMaxVerticalSpan = Math.max(bankedBoundaryMaxVerticalSpan, bankedBoundaryVerticalSpan);
+        }
+        // 일시정지 뒤에도 helper의 위치 완화는 잠시 진행됩니다. 이동 타이머가 멈춘 동안
+        // 바뀌는 경계 크기와 오류 기록만 최대 초당 10회 UI에 반영합니다.
+        const now = performance.now();
+        if (!isAnimationRunning && bankedBoundaryDiagnosticsDirty && now - bankedBoundaryNotifyTimestamp >= 100) {
+            bankedBoundaryNotifyTimestamp = now;
+            bankedBoundaryDiagnosticsDirty = false;
+            notifyDemoState();
         }
     });
     // @example-code:end group.render-update
@@ -339,6 +431,7 @@ function registerHelperUpdate() {
 // @example-code:start group.animation-control
 function startDroneMovement() {
     isAnimationRunning = true;
+    bankedFlightTimestamp = undefined;
     moveDronesToNextWaypoint();
     restartMovementTimer();
     notifyDemoState();
@@ -350,6 +443,7 @@ function stopDroneMovement() {
         moveTimer = undefined;
     }
     isAnimationRunning = false;
+    bankedFlightTimestamp = undefined;
     notifyDemoState();
 }
 // @example-code:end group.animation-control
@@ -387,10 +481,164 @@ function setAnimationRunning(running) {
 // @example-code:start group.reset-control
 function resetDroneFormation() {
     moveStep = 0;
+    bankedFlightDistance = getBankedStartDistance();
+    bankedFlightTimestamp = undefined;
+    resetBankedBoundaryDiagnostics();
+    updateBankedFormation();
     applyDroneFormation();
     notifyDemoState();
 }
 // @example-code:end group.reset-control
+
+// @example-code:start group.banked-flight
+/**
+ * 같은 위치와 시각의 일렬 추종 대형에서 기체별 roll 적용 여부를 비교합니다.
+ *
+ * @param {boolean} enabled roll 적용 여부
+ */
+function setBankedRollEnabled(enabled) {
+    bankedRollEnabled = Boolean(enabled);
+    updateBankedFormation();
+    notifyDemoState();
+}
+
+/**
+ * 기체별 고도 차이를 켜거나 끄고 같은 경로에서 경계 변형을 비교합니다.
+ *
+ * @param {boolean} enabled 기체별 -4~4m 고도 차이 적용 여부
+ */
+function setBankedAltitudeVariationEnabled(enabled) {
+    bankedAltitudeVariationEnabled = Boolean(enabled);
+    resetDroneFormation();
+}
+
+/**
+ * 재현 구간을 다시 관찰할 때 누적 오류와 경계 크기 기록을 초기화합니다.
+ */
+function resetBankedBoundaryDiagnostics() {
+    bankedBoundaryErrorCount = 0;
+    bankedBoundaryLastError = '';
+    bankedBoundaryVerticalSpan = 0;
+    bankedBoundaryMaxVerticalSpan = 0;
+    bankedBoundaryDiagnosticsDirty = true;
+    bankedBoundaryNotifyTimestamp = 0;
+}
+
+/**
+ * 선회 방향을 바꾸고 앞쪽과 뒤쪽의 비행 구간이 다른 시작 배치로 이동합니다.
+ *
+ * @param {string} direction 'clockwise' 또는 'counterclockwise'
+ */
+function setBankedTurnDirection(direction) {
+    bankedTurnDirection = direction === 'counterclockwise' ? 1 : -1;
+    bankedFlightDistance = getBankedStartDistance();
+    bankedFlightTimestamp = undefined;
+    resetBankedBoundaryDiagnostics();
+    updateBankedFormation();
+    notifyDemoState();
+}
+
+/**
+ * 두 직선과 두 반원으로 이루어진 알약 경로를 기체별 거리 차를 두고 따라갑니다.
+ * 선두부터 65m씩 뒤의 경로 위치를 사용하므로 직선·선회 구간에 기체들이 나뉠 수 있습니다.
+ * roll은 각 기체가 위치한 구간에서 계산하며 직선에서는 0°, 반원 안쪽에서는 최대 30°입니다.
+ */
+function updateBankedFormation() {
+    if (!bankedLineFormation) return;
+    const now = performance.now();
+    if (isAnimationRunning && bankedFlightTimestamp !== undefined) {
+        bankedFlightDistance = (bankedFlightDistance - bankedTurnDirection
+            * BANKED_FLIGHT_SPEED * (now - bankedFlightTimestamp) * animationSpeedMultiplier / 1000) % BANKED_ROUTE_LENGTH;
+    }
+    bankedFlightTimestamp = now;
+
+    const flight = bankedLineFormation;
+    bankedLineFormation.components.forEach(function (component, index) {
+        const pose = getBankedRoutePose(bankedFlightDistance + bankedTurnDirection * index * BANKED_DRONE_SPACING);
+        const tangentX = -bankedTurnDirection * pose.tangentX;
+        const tangentY = -bankedTurnDirection * pose.tangentY;
+        const rollDegrees = bankedRollEnabled ? -bankedTurnDirection * BANKED_ROLL_DEGREES * pose.rollScale : 0;
+        flight.rollDegrees[index] = rollDegrees;
+        flight.turning[index] = pose.turning;
+        flight.forwardAxis.set(tangentX, tangentY, 0);
+        flight.headingQuaternion.setFromAxisAngle(flight.upAxis, Math.atan2(tangentX, -tangentY));
+        // 모델 보정 후의 기체별 진행축을 중심으로 기울여 heading 회전과 roll 회전을 구분합니다.
+        flight.flightQuaternion.setFromAxisAngle(flight.forwardAxis, rollDegrees * Math.PI / 180)
+            .multiply(flight.headingQuaternion).multiply(flight.modelQuaternion);
+        flight.flightRotation.setFromQuaternion(flight.flightQuaternion);
+
+        const position = bankedLineFormation.worldPositions[index];
+        const altitudeOffset = bankedAltitudeVariationEnabled ? BANKED_ALTITUDE_OFFSETS[index] : 0;
+        const geographic = offsetGeoPosition(BANKED_ORBIT_CENTER, pose.east, pose.north, altitudeOffset);
+        // 기존 대형과 같은 위경도 변환을 사용합니다. 같은 지리 고도라도 위도에 따라 월드 Z는
+        // 조금 달라지므로 Z를 중심값으로 고정하면 실제 입력 조건의 경계 이상을 놓칠 수 있습니다.
+        position.copy(app.geographicToVector3(geographic));
+        // lookAt 자동 자세 합성을 함께 쓰면 roll 축이 달라지므로 합성한 자세를 직접 적용합니다.
+        component.setPosition(position);
+        component.setRotation(flight.flightRotation);
+    });
+}
+
+/**
+ * 앞쪽은 직선 비행, 뒤쪽은 선회 비행이 되는 구간 경계 부근에서 시작합니다.
+ *
+ * @returns {number} 시계 방향을 양수로 하는 선두 기체의 경로 거리
+ */
+function getBankedStartDistance() {
+    const leadDistance = BANKED_DRONE_SPACING * 4;
+    return bankedTurnDirection === -1
+        ? BANKED_STRAIGHT_LENGTH + BANKED_ARC_LENGTH + leadDistance
+        : BANKED_STRAIGHT_LENGTH - leadDistance;
+}
+
+/**
+ * 경로 거리로 위치, 시계 방향의 접선과 선회 기울기 비율을 구합니다.
+ * 직선과 반원의 접점에서 위치와 접선이 이어지며 roll은 반원 진입·이탈 100m에서 부드럽게 변합니다.
+ *
+ * @param {number} distance 시계 방향을 양수로 하는 경로 거리
+ * @returns {{east:number,north:number,tangentX:number,tangentY:number,rollScale:number,turning:boolean}} 중심 기준 이동 자세
+ */
+function getBankedRoutePose(distance) {
+    const routeDistance = ((distance % BANKED_ROUTE_LENGTH) + BANKED_ROUTE_LENGTH) % BANKED_ROUTE_LENGTH;
+    const halfStraight = BANKED_STRAIGHT_LENGTH / 2;
+    if (routeDistance < BANKED_STRAIGHT_LENGTH) {
+        return {east: -halfStraight + routeDistance, north: BANKED_TURN_RADIUS, tangentX: 1, tangentY: 0, rollScale: 0, turning: false};
+    }
+    if (routeDistance >= BANKED_STRAIGHT_LENGTH + BANKED_ARC_LENGTH
+        && routeDistance < 2 * BANKED_STRAIGHT_LENGTH + BANKED_ARC_LENGTH) {
+        return {east: halfStraight - (routeDistance - BANKED_STRAIGHT_LENGTH - BANKED_ARC_LENGTH), north: -BANKED_TURN_RADIUS, tangentX: -1, tangentY: 0, rollScale: 0, turning: false};
+    }
+    const rightArc = routeDistance < BANKED_STRAIGHT_LENGTH + BANKED_ARC_LENGTH;
+    const arcDistance = rightArc ? routeDistance - BANKED_STRAIGHT_LENGTH
+        : routeDistance - 2 * BANKED_STRAIGHT_LENGTH - BANKED_ARC_LENGTH;
+    const angle = (rightArc ? Math.PI / 2 : -Math.PI / 2) - arcDistance / BANKED_TURN_RADIUS;
+    const transition = Math.min(1, arcDistance / BANKED_ROLL_TRANSITION_DISTANCE,
+        (BANKED_ARC_LENGTH - arcDistance) / BANKED_ROLL_TRANSITION_DISTANCE);
+    return {
+        east: (rightArc ? halfStraight : -halfStraight) + BANKED_TURN_RADIUS * Math.cos(angle),
+        north: BANKED_TURN_RADIUS * Math.sin(angle),
+        tangentX: Math.sin(angle),
+        tangentY: -Math.cos(angle),
+        rollScale: transition * transition * (3 - 2 * transition),
+        turning: true
+    };
+}
+// @example-code:end group.banked-flight
+
+/**
+ * 일렬 대형의 현재 중심을 비스듬한 위쪽 시점에서 봅니다.
+ *
+ * @returns {Promise<boolean> | undefined} 카메라 이동 완료
+ */
+function focusBankedFormation() {
+    if (!bankedLineFormation) return;
+    const positions = bankedLineFormation.worldPositions;
+    const target = positions[0].clone().add(positions[positions.length - 1]).multiplyScalar(0.5);
+    const camera = target.clone();
+    camera.y -= 700;
+    camera.z += 650;
+    return app.flyToPosition(camera, target, 600);
+}
 
 /**
  * 현재 스텝으로 모든 그룹을 갱신합니다.
@@ -602,12 +850,26 @@ function resolveBoundaryNumber(candidate, fallback) {
 }
 
 function getDemoState() {
+    const rollDegrees = bankedLineFormation ? bankedLineFormation.rollDegrees : [0];
+    const turningCount = bankedLineFormation ? bankedLineFormation.turning.filter(Boolean).length : 0;
     return {
         moveStep,
         formationCount: formations.length,
         boundaryHelperCount: boundaryHelpers.length,
         isAnimationRunning,
-        animationSpeedMultiplier
+        animationSpeedMultiplier,
+        bankedDroneCount: BANKED_DRONE_COUNT,
+        bankedRollEnabled,
+        bankedAltitudeVariationEnabled,
+        bankedBoundaryErrorCount,
+        bankedBoundaryLastError,
+        bankedBoundaryVerticalSpan,
+        bankedBoundaryMaxVerticalSpan,
+        bankedTurnDirection: bankedTurnDirection === -1 ? 'clockwise' : 'counterclockwise',
+        bankedRollMinDegrees: Math.min(...rollDegrees),
+        bankedRollMaxDegrees: Math.max(...rollDegrees),
+        bankedTurningCount: turningCount,
+        bankedStraightCount: BANKED_DRONE_COUNT - turningCount
     };
 }
 
@@ -640,6 +902,8 @@ function cleanupDemo() {
     }
     boundaryHelpers.length = 0;
     formations.length = 0;
+    bankedLineFormation = undefined;
+    bankedFlightTimestamp = undefined;
 
     if (animationLayer && typeof animationLayer.removeAllComponent === 'function') {
         animationLayer.removeAllComponent();

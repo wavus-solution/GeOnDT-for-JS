@@ -8,7 +8,7 @@
 
 `U3dQuadTile`은 terrain quadtree의 개별 tile을 표현하며, tile geometry에 로드된 height grid에서 Google 좌표에 해당하는 render height를 조회한다.
 
-이 문서는 height sampling과 지형 LOD 판단·자식 콘텐츠 준비·표시 준비 검사 동작을 기록한다. 나머지 생명주기의 전체 명세화는 포함하지 않는다.
+이 문서는 height sampling, 표시 배율과 공간 경계 갱신, 지형 LOD 판단·자식 콘텐츠 준비·표시 준비 검사 및 타일 해제의 오류 처리 동작을 기록한다. 나머지 생명주기의 전체 명세화는 포함하지 않는다.
 
 ### 1.2 책임 범위
 
@@ -86,6 +86,38 @@ U3dQuadTilePresentationSummary 타입 정의
 
 U3dQuadTile extends U3dObject 클래스 정의
 
+    _setHeightScale(scale: number) -> void
+        역할: 고도 레이어가 선택한 표시 배율과 타일의 공간 경계를 동기화한다.
+        의존:
+            UTileMesh — 실제 배율과 수동 행렬 갱신; 속성 읽기·쓰기: {scale.z}; 함수: {setManualUpdate()}
+        동작:
+            메시가 없거나 실제 메시의 Z 배율이 scale과 같으면 종료한다.
+            메시 Z 배율을 설정하고 수동 행렬을 갱신한다.
+            고도 로드가 완료되었으면 월드 높이 경계를 갱신한다.
+            고도가 아직 연결되지 않았으면 생성 시의 추정 경계를 유지한다.
+
+    #updateHeightBounds() -> void
+        역할: 원본 정점을 순회하지 않고 표시 배율을 반영한 LOD 경계를 만든다.
+        의존:
+            UTileMesh — 로컬 표면 경계와 변환; 속성 읽기: {geometry.boundingBox, scale.z, position.z}
+            UDEF — 고도 자료 없음 예약값; 상수: {TERRAIN_NO_DATA}
+        동작:
+            지오메트리의 최소·최대 Z와 각 Float32 반올림값을 모두 포함하는 높이 범위를 구한다.
+            메시의 Z 배율과 위치로 환산하여 타일 월드 상자의 최소·최대 Z에 대입한다.
+            월드 상자로 기존 _sphere를 갱신한다.
+            원본 로컬 최소·최대 Z가 모두 TERRAIN_NO_DATA이면 _centerZ에 예약값을 유지한다.
+            그 외에는 월드 높이 범위 중간값으로 _centerZ를 갱신한다.
+            _center.z에 _centerZ를 반영한다.
+
+    changeGeometry(geometry: UPlaneBufferGeometry) -> void
+        의존:
+            UTileMesh — 공유 지오메트리와 로컬 경계구 갱신; 함수: {changeGeometry(), computeBoundingSphere()}
+            __GError__ — 입력·메시 누락 알림; 함수: {__GError__()}
+        동작:
+            geometry가 없거나 메시가 없으면 해당 오류를 알리고 종료한다.
+            기존 메시 지오메트리에 새 자료를 반영하고 현재 표시 배율의 월드 경계를 갱신한다.
+            메시의 공유 경계구 객체를 유지하면서 새 높이 범위를 로컬 좌표로 반영한다.
+
     _getPresentationSummary() -> U3dQuadTilePresentationSummary
         처리 기준: FrameState가 사용하는 내부 집계이며 호출 사이에 결과를 공유하지 않는다.
         동작:
@@ -123,7 +155,7 @@ U3dQuadTile extends U3dObject 클래스 정의
             UDrawArg — 카메라·모드·가시성 조회; 함수: {intersectsBox(), getCameraPosition(), getSearchPosition()}; 속성 읽기: {_camera, _frustum}
             THREE.Camera — 투영 배율 조회; 속성 읽기: {projectionMatrix}; 함수: {getDenominator()}
         동작:
-            drawArg가 없거나 실제 레벨이 최소 레벨 미만·최대 레벨 이상이면 분화 요청을 false로 두고 false를 반환한다.
+            drawArg나 경계 상자가 없거나 실제 레벨이 설정 최소 레벨 미만·최대 레벨 이상이면 분화 요청을 false로 두고 false를 반환한다. 최소·최대 레벨은 앱 설정을 우선하고 미지정 시 공용 기본값을 사용하며 런타임 변경을 즉시 반영한다. world·custom의 시작 레벨이 최소 설정보다 낮아도 예외를 두거나 강제 분화하지 않고 탐색을 중단한다.
             경계 상자가 가시 범위와 교차하지 않으면 같은 방식으로 false를 반환한다.
             현재 동기 순회에서 사용할 수 있는 공통 값을 조회한다.
             레벨별 배율, 공통 타일 크기 비율 또는 개별 비율과 기존 구·상자 크기로 tilesize를 구한다.
@@ -203,6 +235,17 @@ U3dQuadTile extends U3dObject 클래스 정의
             _childTiles를 빈 배열로 만들거나 기존 배열 길이를 0으로 초기화한다.
             네 분면의 자식 필드가 없으면 현재 생성자에 절반 영역·다음 레벨·부모·장면·drawArg·종류·시작 레벨·분면·quadset을 전달해 만들고 renderOrder를 0으로 둔다.
             기존 또는 새 자식을 북서·북동·남서·남동 순서로 _childTiles에 넣는다.
+
+    dispose(callback?: boolean | ((tile: U3dQuadTile) -> void)) -> void
+        인터페이스:
+            자신과 하위 타일의 작업·자원을 한 번만 정리한다. 이미 해제된 타일은 아무 작업도 하지 않는다.
+            하나의 실패는 원래 오류를, 여러 실패는 호출 순서대로 담은 errors 배열을 가진 Error를 전달한다.
+        동작:
+            해제 상태를 먼저 기록하여 재진입을 막고 _disposeChildren으로 자식부터 정리한 뒤 자신의 알림·자원 정리를 수행한다.
+            격자·캐시 제거가 실패해도 대기·완료 작업 정리와 handoff lease 반납을 시도한다.
+            lease는 레이어 정리보다 먼저 반납한다. 레이어·표시 해제·메시·완료 콜백의 실패도 수집하며 다음 단계를 계속한다.
+            부모·자식 목록 참조와 초기화 상태를 정리한다. 자식 하나가 실패해도 나머지 자식을 처리하고 각 방향 참조를 제거한다.
+            모든 정리 시도를 마친 뒤 수집한 오류를 전달한다.
 
     createMesh(material, drawArg = this._drawArg) -> boolean
         동작:
@@ -289,7 +332,7 @@ getVisibleBoxDistance(box: THREE.Box3, position: THREE.Vector3, frustum: THREE.F
 
 getTileTransitionLayers(tile: U3dQuadTile) -> Array<U3dLayer>
     동작:
-        최소 레벨을 만족하고 visible이 엄격한 true인 영상, visible이 엄격한 true인 기타 레이어, 존재하는 terrain 레이어 순서로 모은다.
+        최소 레벨 또는 명시적인 참여 선언을 만족하고 visible이 엄격한 true인 영상, visible이 엄격한 true인 기타 레이어, 존재하는 terrain 레이어 순서로 모은다.
         Set으로 같은 레이어 참조를 제거하고 첫 등장 순서의 배열을 반환한다.
 
 createTilePresentationSnapshot(tile: U3dQuadTile, transitionLayers: Array<U3dLayer>) -> object

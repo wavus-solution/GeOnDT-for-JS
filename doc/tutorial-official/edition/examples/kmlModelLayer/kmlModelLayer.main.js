@@ -49,9 +49,11 @@ export async function initialize(context) {
                 maxprocess: 2,
                 interpolationheight: true
             });
-            terrainLayer.then(function () {
+            terrainLayer.ready.then(function () {
                 app.showLayer('korea_terrain', true);
                 app.endloadingBar();
+            }).catch(error => {
+                console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
             });
     
             const layerMap = new Map();

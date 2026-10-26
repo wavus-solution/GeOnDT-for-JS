@@ -19,7 +19,7 @@
 
 ### 1.3 주요 동작 방식
 
-체적 요청 시 편집 다각형과 선택적인 경사 다각형을 생성하고 영역에 포함되는 타일을 구한다. 각 타일은 고도 레이어의 공용 페이로드 조회 흐름을 통해 원시 표본과 UMF 2.0 헤더를 함께 받는다. UMF 2.0은 타일 헤더의 `scale`, `offset`, `noData`, 격자 크기를 사용하고, 헤더가 없는 UMF 1.x는 생성 시 받은 레이어 전역 값을 사용한다. 마스크에 포함된 유효 표본만 높이로 복원하여 체적을 누적하고 모든 요청이 끝나면 결과와 deferred 상태를 완료한다.
+체적 요청 시 편집 다각형과 선택적인 경사 다각형을 생성하고 영역에 포함되는 타일을 구한다. 각 타일은 고도 레이어의 공용 페이로드 조회 흐름을 통해 원시 표본과 UMF 2.0 헤더를 함께 받는다. UMF 2.0은 타일 헤더의 `scale`, `offset`, `noData`, 격자 크기를 사용하고, 헤더가 없는 UMF 1.x는 생성 시 받은 레이어 전역 값을 사용한다. 마스크에 포함된 유효 표본만 높이로 복원하여 체적을 누적하고 모든 요청이 끝나면 결과와 deferredPromise 상태를 완료한다.
 
 ### 1.4 주요 사용처와 연계 대상
 
@@ -48,6 +48,9 @@ CustomLand 클래스 정의
     static textureCache: Map<string, {texture, count}>
         URL별 공유 텍스처와 참조 수 저장소
 
+    _volumePromise: DeferredPromise<this> | undefined = undefined
+        최초 체적 요청에서 생성하며 반복 요청에 같은 완료 결과를 전달한다. 객체 자체는 thenable이 아니다.
+
     tiles: Array<DemTile>
         체적 분석에 사용할 파싱 완료 타일 목록
 
@@ -58,12 +61,13 @@ CustomLand 클래스 정의
             경사면 편집이면 입력 외곽선으로 경사 메시를 만든다.
             텍스처를 사용하면 URL별 공유 캐시를 우선 사용하고 없으면 비동기로 로드한다.
         의존:
-            deferred — 체적과 텍스처 준비 완료 상태 생성; 함수: {deferred()}
+            deferredPromise — 텍스처 준비 완료 상태 생성; 함수: {deferredPromise()}
             THREE — 경사 메시와 텍스처 상태 구성; 생성자: {new Shape(), new ExtrudeGeometry(), new MeshBasicMaterial(), new Mesh(), new Box3()}
             UTextureLoader — 편집 텍스처 요청; 생성자: {new UTextureLoader()}; 함수: {load()}
         동작:
             입력 또는 기본값으로 공개 상태와 분석 누적값을 초기화한다.
             필요한 경우 경사 메시와 공유 텍스처를 준비하고 이미지 레이어 로드 이벤트에 텍스처 갱신을 등록한다.
+            텍스처 로드 또는 반영 후처리가 실패하면 사용 설정을 끄고 진단하며, 이미 획득한 텍스처와 리스너는 처분 시 반납한다.
 
     getInclineZValue(x: number, y: number, z: number) -> number
         역할: 경사 메시의 지정 평면 위치에 대응하는 편집 후 높이를 반환한다.
@@ -96,13 +100,13 @@ CustomLand 클래스 정의
         동작: tile.width와 tile.height 범위를 순회하여 원본 인덱스와 선택적인 경사 인덱스를 분리해 반환한다.
 
     onLoadManager(end?: Function, progressFunc?: Function) -> void
-        역할: 준비된 타일의 체적을 계산하고 분석 결과와 deferred를 완료한다.
+        역할: 준비된 타일의 체적을 계산하고 분석 결과와 deferredPromise를 완료한다.
         처리 기준:
-            고정 해상도 마스크 생성에 실패하면 deferred를 거절한다.
+            고정 해상도 마스크 생성에 실패하면 deferredPromise를 거절한다.
             유효 표본이 하나도 없으면 평균·최소·최대 높이를 UDEF.TERRAIN_NO_DATA로 기록한다.
         의존:
             UDEF — 유효 표본이 없는 결과 식별; 상수: {TERRAIN_NO_DATA}
-            deferred 객체 — 분석 성공·실패 완료; 콜백: {resolve(), reject()}
+            deferredPromise 객체 — 분석 성공·실패 완료; 콜백: {resolve(), reject()}
         동작:
             고정 해상도 또는 타일 원래 해상도에 맞는 마스크를 구해 일반·경사 체적을 누적한다.
             누적 결과를 객체 속성에 저장하고 진행·완료 callback을 실행한 뒤 객체를 resolve한다.
@@ -147,13 +151,15 @@ CustomLand 클래스 정의
             동작: 원본 편집 영역을 반환한다.
 
     dispose() -> void
+        완료 계약: 진행 중 체적 요청을 UAbortError로 거절하고 늦은 타일 응답은 결과에 적용하지 않는다.
         역할: 경사 메시, 텍스처 이벤트와 공유 텍스처 참조를 정리한다.
         의존:
-            UDEF — Object3D와 텍스처 자원 처분; 함수: {disposeObject3D()}
+            Three.js — 소유 지오메트리와 마지막 공유 텍스처 처분; 함수: {dispose()}
             U3dEvent — 이미지 로드 이벤트 식별; 상수: {IMAGE.LOADED}
         동작:
             경사 메시를 장면에서 제거하고 지오메트리를 처분한다.
-            이미지 레이어 이벤트와 합성 텍스처를 복원하고 마지막 공유 참조이면 원본 텍스처도 처분한다.
+            텍스처를 보유하면 사용 설정이 꺼져 있어도 이미지 레이어 이벤트와 합성 텍스처를 복원하고 자기 참조를 반납한다. 마지막 공유 참조이면 원본 텍스처도 처분한다.
+            개별 타일 복원이나 이미지 레이어 조회가 실패하면 진단하고 나머지 정리와 공유 참조 반납을 계속한다.
             데이터 레이어 연결을 끊고 처분 상태를 기록한 뒤 앱 갱신을 요청한다.
 
     clone() -> undefined
@@ -181,11 +187,11 @@ CustomLand 클래스 정의
     getVolume(progressFunc?: Function) -> Promise<CustomLand>
         역할: 원본 DEM을 준비하고 편집 전·후 토공량 분석 완료 Promise를 반환한다.
         처리 기준:
-            데이터 URL이 있고 아직 완료되지 않은 경우에만 분석을 시작한다.
+            최초 호출에서 완료 객체를 저장한 뒤 분석을 시작한다. 해제 상태·URL 누락·시작 예외는 거절한다.
             경사 편집이면 원본과 경사 다각형을 각각 준비한다.
         동작:
             JSTS 분석 다각형을 만들고 고도 타일 로딩을 시작한다.
-            객체의 기존 deferred Promise를 반환한다.
+            객체와 분리한 _volumePromise를 반환한다. 진행 중 반복 호출도 요청을 중복하지 않으며 완료값은 then 없는 원본 CustomLand다.
 
     getDifference() -> number
         동작: 원본 체적에서 평탄 편집 후 체적을 뺀 값을 반환한다.
@@ -220,7 +226,7 @@ CustomLand 클래스 정의
         역할: 편집 범위의 DEM 타일 페이로드를 고도 레이어에서 병렬로 준비한다.
         처리 기준:
             baseUrl은 호환 시그니처로만 유지하고 URL·프록시·압축·버전 처리는 dataLayer에 위임한다.
-            dataLayer가 공용 타일 페이로드 계약을 제공하지 않으면 deferred를 거절한다.
+            dataLayer가 공용 타일 페이로드 계약을 제공하지 않으면 deferredPromise를 거절한다.
             타일이 없으면 즉시 완료 계산으로 진행한다.
             한 타일이라도 요청·파싱·격자 검증에 실패하면 부분 체적을 만들지 않고 전체 분석을 거절한다.
         의존:
@@ -229,7 +235,7 @@ CustomLand 클래스 정의
         동작:
             분석 타일 목록을 만들고 LoadingManager callback을 등록한다.
             각 논리 타일에 dataLayer 요청을 시작하고 성공하면 페이로드를 타일 상태로 변환한다.
-            전체 요청이 정리되면 실패 타일 존재 여부에 따라 deferred를 거절하거나 체적 계산에 위임한다.
+            전체 요청이 정리되면 실패 타일 존재 여부에 따라 _volumePromise를 거절하거나 체적 계산에 위임한다. 로더 동기 예외와 최종 계산 예외도 반환 Promise로 전달한다.
 
     _onStartManager(start?: Function, url: string, loaded: number, total: number) -> void
         동작: 이전 타일과 체적 상태를 초기화하고 loading 상태를 기록한 뒤 start callback을 실행한다.

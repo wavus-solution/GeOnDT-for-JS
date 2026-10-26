@@ -41,6 +41,23 @@ export const U3dVectorLayerEMD = {
  */
 class U3dVectorLayer extends U3dLayer {
     /**
+     * 이 레이어가 등록한 콜백만 보관합니다. 도형의 사용자 리스너는 건드리지 않습니다.
+     * 등록마다 새 항목을 만들므로 제거 후 즉시 재등록한 도형의 이전 갱신 결과도 구분합니다.
+     *
+     * @type {Map<import('@U3dGeometry').U3dGeometry, {change: EventCallBack | undefined, end: EventCallBack | undefined, dispose: EventCallBack}>}
+     */
+    #geometrySubscriptions = new Map();
+
+    /** @type {boolean} */ #disposing = false;
+
+    /**
+     * 갱신 콜백의 제거·재등록이 update를 재귀 호출하지 않도록 합니다.
+     *
+     * @type {boolean}
+     */
+    #updating = false;
+
+    /**
      * 이 레이어가 발생시키는 이벤트 이름 모음입니다. <br>
      * `U3dVectorLayerEMD`와 같은 객체입니다. <br>
      *
@@ -177,7 +194,12 @@ class U3dVectorLayer extends U3dLayer {
 
         self._checkTime = new UCheckTime();
         self._autoHeightList = new Map();
-        (/** @type {Partial<{resolve: DeferredResolveFunc}>} */(/** @type {unknown} */(self))).resolve?.(self);
+        // 기반 이벤트는 등록 역순으로 전달됩니다. 먼저 등록한 이 정리는 사용자
+        // BEFORE_DISPOSE 콜백 뒤, 부모 Scene 해제 전에 실행하여 기존 알림 순서를 유지합니다.
+        this.addEventListener(U3dVectorLayer.EVENT.BEFORE_DISPOSE, () => {
+            if (this.#disposing) this.clear();
+        });
+        self._resolveReady();
     }
 
     /**
@@ -206,12 +228,27 @@ class U3dVectorLayer extends U3dLayer {
      * 3D Geometry 객체를 레이어에 추가하여 화면에 가시화하는 함수입니다. <br>
      * 추가한 뒤 도형의 `setPosition`/`addPosition`으로 좌표를 지정하면 해당 위치에 그려집니다. <br>
      * 레이어의 `autoHeight`·`scaleRatio`는 추가 시점에 함께 적용됩니다. <br>
+     * 영구 해제된 도형·레이어에는 등록하지 않으며, 같은 도형의 중복 등록은 무시합니다. <br>
+     * 다른 벡터 레이어에 등록된 도형은 이전 등록을 해제한 뒤 옮깁니다. <br>
      * `renderOffset`은 단층(`U3dFault`) 도형에만 적용됩니다. <br>
      *
      * @param {import('@U3dGeometry').U3dGeometry} geom 이 레이어에 등록해 화면에 표시할 도형 객체 <br>
      */
     addGeometry(geom) {
-        //  if (!(geom instanceof U3dGeometry)) return;
+        if (!geom || this._disposed || this.#disposing || this.#isGeometryDisposed(geom)) {
+            console.warn('[U3dVectorLayer.addGeometry] 해제된 레이어·도형은 등록할 수 없습니다.');
+            return;
+        }
+        const mesh = /** @type {import('three').Object3D} */ (/** @type {unknown} */ (geom));
+        if (this._geomList.get(mesh.uuid) === geom) return;
+
+        // Three.js의 parent 이동만으로는 이전 레이어의 갱신·타일 참조가 지워지지 않습니다.
+        // 등록 해제 API로 이전 소유자를 정리하고, 그 이벤트가 새 소유자를 정했으면 존중합니다.
+        const previous = geom.getLayer?.();
+        if (previous instanceof U3dVectorLayer && previous !== this) {
+            previous.removeGeometry(geom);
+            if (geom.getLayer?.() || this._disposed || this.#disposing || this.#isGeometryDisposed(geom)) return;
+        }
         const self = this;
         const geomMesh = /** @type {import('@UMesh').UMesh} */ (/** @type {unknown} */ (geom));
         const geomScalable = /** @type {import('@union3d/geometry/U3dFault').U3dFault | import('@union3d/geometry/USpeedModelFilter').USpeedModelFilter} */ (/** @type {unknown} */ (geom));
@@ -224,29 +261,38 @@ class U3dVectorLayer extends U3dLayer {
         if(self._renderOffset && geomFault.setRenderOffset){
             geomFault.setRenderOffset(self._renderOffset);
         }
+        // 도형의 축척·오프셋 setter가 사용자 코드를 호출하며 해제할 수도 있습니다.
+        // 렌더 그룹에 넣기 직전에 수명을 다시 확인합니다.
+        if (this._disposed || this.#disposing || this.#isGeometryDisposed(geom)) return;
         self._geomList.set(geomMesh.uuid, geom);
+        // added/removed 이벤트에서도 이전 소유자를 올바르게 찾을 수 있도록 먼저 연결합니다.
+        geom.setLayer?.(this);
+        this.#subscribeGeometry(geom);
         self._group.add(geomMesh);
-        if ((geom instanceof U3dGeometry) && !(geom instanceof U3dPathGeometry)) {
-            geom.addEventListener('change', this.#vertexChanged.bind(this));
-            // this.update();
-        }
+        if (!this.#isRegisteredGeometry(geomMesh)) return;
 
         if (geomMesh.setLayerName) {
             geomMesh.setLayerName(self.getName());
         }
 
-        if (geom.setLayer) {
-            geom.setLayer(/** @type {import('@U3dLayer').U3dLayer} */(/** @type {unknown} */(self)));
-        }
 
         if(geomFlow.animation && self._drawArg) {
             geomFlow.initAnimation?.(self._drawArg);
         }
 
+        if (!this.#isRegisteredGeometry(geomMesh)) return;
         if(self._dynamicUpdate && self._mercator){
             if(!geomUpdatable.updateFunction){
                 if(geom instanceof U3dPathGeometry ){
-                    geom.once?.('end', this.#setTileIndex.bind(this))
+                    const subscription = this.#geometrySubscriptions.get(geom);
+                    if (subscription) {
+                        const end = () => {
+                            geom.removeEventListener('end', end);
+                            if (this.#isRegisteredGeometry(geomMesh)) this.#setTileIndex(geomMesh);
+                        };
+                        subscription.end = end;
+                        geom.addEventListener('end', end);
+                    }
                 }
                 if(geomMesh.position.x === 0 && geomMesh.position.y === 0) return ;
                 this.#setTileIndex(geomMesh)
@@ -319,6 +365,7 @@ class U3dVectorLayer extends U3dLayer {
     show(show) {
         const self = this;
 
+        if (this._disposed || this.#disposing) return;
         if (self._visible === show)
             return;
 
@@ -338,6 +385,7 @@ class U3dVectorLayer extends U3dLayer {
         }else{
             for(let geom of geomList) {
                 const geomMesh =  /** @type {import('@UMesh').UMesh} */(/**@type{unknown}*/ (geom));
+                if (!this.#isRegisteredGeometry(geomMesh)) continue;
                 self._group.add(geomMesh);
                 if(geomMesh.getLabel && geomMesh.visible){
                     let isShow = show;
@@ -361,30 +409,7 @@ class U3dVectorLayer extends U3dLayer {
      * @param {import('@U3dGeometry').U3dGeometry} geom 이 레이어에서 제거할 도형 객체 <br>
      */
     removeGeometry(geom) {
-        if(!geom) return;
-        const geomMesh = /** @type {import('@UMesh').UMesh} */(/**@type{unknown}*/ (geom));
-
-        const id = geomMesh.uuid;
-
-        this._geomList.delete(id);
-        this._group.remove(geomMesh);
-
-        if (geomMesh.setLayerName) {
-            geomMesh.setLayerName(undefined);
-        }
-
-        if (geom.setLayer) {
-            geom.setLayer(undefined);
-        }
-
-        if(this._dynamicUpdate){
-            this.#removeTileIndex(geomMesh);
-        }
-
-        if(this.autoHeight) {
-            this.#removeAutoHeight(geomMesh);
-        }
-
+        if (!geom || !this.#detachGeometry(geom)) return;
         geom.dispatchEvent({type: U3dVectorLayer.EVENT.BEFORE_DISPOSE});
         geom.dispatchEvent({type: U3dVectorLayer.EVENT.DISPOSE});
         this.update();
@@ -398,23 +423,36 @@ class U3dVectorLayer extends U3dLayer {
      * @ignore
      */
     update() {
-        if(!this._visible) return;
+        if(this._disposed || this.#disposing || this.#updating || !this._visible) return;
         if(this._updateGeomList.size === 0) return;
-        if(this._checkTime.isUpdate()){
-            this.dispatchEvent(U3dVectorLayer.EVENT.UPDATE, this);
-
-            super.update();
-
-            for(const geom of this._updateGeomList.values()){
-                const geomMesh = /** @type {import('@UMesh').UMesh} */ (/** @type {unknown} */ (geom));
-                const geomUpdatable = /** @type {Partial<{updateFunction: (function(import('@U3dLayer').U3dLayer): boolean)}>} */ (geom);
-                if(geomUpdatable.updateFunction){
-                    const isVisible = geomUpdatable.updateFunction(/** @type {import('@U3dLayer').U3dLayer} */(/** @type {unknown} */(this)));
-                    this.#setVisibleGeometry(geomMesh, isVisible);
+        this.#updating = true;
+        try {
+            if(this._checkTime.isUpdate()) {
+                this.dispatchEvent(U3dVectorLayer.EVENT.UPDATE, this);
+                super.update();
+                // Map의 실시간 반복자는 같은 도형의 제거·재등록을 새 항목으로 계속 읽습니다.
+                // 한 프레임의 대상만 복사하여 사용자 콜백에 의한 무한 반복을 막습니다.
+                for(const geom of [...this._updateGeomList.values()]) {
+                    const geomMesh = /** @type {import('@UMesh').UMesh} */ (/** @type {unknown} */ (geom));
+                    const geomUpdatable = /** @type {Partial<{updateFunction: (function(import('@U3dLayer').U3dLayer): boolean)}>} */ (geom);
+                    if (!this.#isRegisteredGeometry(geomMesh)) {
+                        this.#detachGeometry(geom);
+                        continue;
+                    }
+                    const subscription = this.#geometrySubscriptions.get(geom);
+                    if(geomUpdatable.updateFunction) {
+                        const isVisible = geomUpdatable.updateFunction(/** @type {import('@U3dLayer').U3dLayer} */(/** @type {unknown} */(this)));
+                        // 갱신 중 제거·해제·재등록되었으면 이전 등록의 결과를 적용하지 않습니다.
+                        if (this.#geometrySubscriptions.get(geom) !== subscription) continue;
+                        this.#setVisibleGeometry(geomMesh, isVisible);
+                    }
                 }
             }
+            // isUpdate=false인 프레임에도 호출해야 기존 20ms 경과 판정이 진행됩니다.
+            this._checkTime.updateTime(20);
+        } finally {
+            this.#updating = false;
         }
-        this._checkTime.updateTime(20);
     }
 
     /**
@@ -439,6 +477,7 @@ class U3dVectorLayer extends U3dLayer {
         for (const geom of self._geomList.values()) {
             const geomMesh = /** @type {import('@UMesh').UMesh} */ (/** @type {unknown} */ (geom));
             const geomUpdatable = /** @type {Partial<{updateFunction: (function(import('@U3dLayer').U3dLayer): boolean)}>} */ (geom);
+            if (!this.#isRegisteredGeometry(geomMesh)) continue;
 
             if (geomUpdatable.updateFunction) {
                 self._updateGeomList.set(geomMesh.uuid, geom);
@@ -554,7 +593,8 @@ class U3dVectorLayer extends U3dLayer {
      */
     clear() {
         const self = this;
-        const geoms = this._geomList.values();
+        const geoms = [...this._geomList.values()];
+        for (const geom of geoms) this.#detachGeometry(geom);
         for(let geom of geoms){
             const geomMesh = /** @type {import('@UMesh').UMesh} */ (/** @type {unknown} */ (geom));
             UDEF.disposeObject3D(geom,(/** @type {import('three').Object3D} */ v)=>{
@@ -584,10 +624,6 @@ class U3dVectorLayer extends U3dLayer {
             geom.dispatchEvent({type: U3dVectorLayer.EVENT.BEFORE_DISPOSE});
             geom.dispatchEvent({type: U3dVectorLayer.EVENT.DISPOSE});
         }
-        this._geomList.clear();
-        this._geomList = new Map();
-        this._updateGeomList.clear();
-        this._group.clear();
         this.update();
     }
 
@@ -747,28 +783,99 @@ class U3dVectorLayer extends U3dLayer {
      * 제거한 도형을 다시 쓰려면 호출 전에 참조를 따로 보관해 두십시오. <br>
      */
     removeAllGeometries() {
-        const geomList = this._geomList.values();
-        for(const geom of geomList) {
-            const geomMesh = /** @type {import('@UMesh').UMesh} */ (/** @type {unknown} */ (geom));
-            geomMesh.setLayerName?.(undefined);
-
-            if (geom.setLayer) {
-                geom.setLayer(undefined);
-            }
-
-            if(this._dynamicUpdate){
-                this.#removeTileIndex(geomMesh);
-            }
-
-            if(this.autoHeight) {
-                this.#removeAutoHeight(geomMesh);
-            }
+        // 사용자 이벤트 전에 호출 시점의 모든 등록을 끊습니다. 이벤트에서 다시 등록한
+        // 도형은 새 등록이므로 마지막 group.clear/map.clear로 지우지 않습니다.
+        const geometries = [...this._geomList.values()];
+        for (const geom of geometries) this.#detachGeometry(geom);
+        for (const geom of geometries) {
             geom.dispatchEvent({type: U3dVectorLayer.EVENT.BEFORE_DISPOSE});
             geom.dispatchEvent({type: U3dVectorLayer.EVENT.DISPOSE});
         }
-        this._geomList.clear();
-        this._group.clear();
         this.update();
+    }
+
+    /**
+     * 레이어 해제 중 사용자 콜백이 도형을 다시 등록하지 못하게 하고,
+     * 부모 Scene 해제 전에 등록·갱신·이벤트 참조를 정리합니다.
+     *
+     * @override
+     *
+     * @returns {Promise<boolean>} 부모 레이어의 해제 완료 결과
+     */
+    dispose() {
+        if (this._disposed || this.#disposing) return Promise.resolve(true);
+        this.#disposing = true;
+        try {
+            // BEFORE_DISPOSE의 자체 리스너가 숨겨진 도형까지 정리합니다.
+            return super.dispose();
+        } finally {
+            this.#disposing = false;
+        }
+    }
+
+    /**
+     * 영구 해제 표식만 검사합니다. visible=false·재질 없음·sleeping은 재사용 금지가 아닙니다.
+     *
+     * @param {import('@U3dGeometry').U3dGeometry} geom 검사할 도형
+     * @returns {boolean} 영구 해제 여부
+     */
+    #isGeometryDisposed(geom) {
+        return /** @type {Partial<{_disposed: boolean}>} */ (geom)._disposed === true;
+    }
+
+    /**
+     * 현재 등록·수명 상태를 검사하여 늦은 이벤트가 도형을 부활시키지 못하게 합니다.
+     *
+     * @param {import('three').Object3D} mesh 검사할 렌더 객체
+     * @returns {boolean} 현재 레이어에서 갱신·표시할 수 있는지 여부
+     */
+    #isRegisteredGeometry(mesh) {
+        const geom = /** @type {import('@U3dGeometry').U3dGeometry} */ (/** @type {unknown} */ (mesh));
+        return !this._disposed && !this.#disposing && this._geomList.get(mesh.uuid) === geom && !this.#isGeometryDisposed(geom);
+    }
+
+    /**
+     * 등록 단위의 이벤트 구독을 만듭니다. 경로 완료·Three.js change 모두 같은 함수 참조로 해제합니다.
+     *
+     * @param {import('@U3dGeometry').U3dGeometry} geom 등록한 도형
+     */
+    #subscribeGeometry(geom) {
+        const change = geom instanceof U3dGeometry && !(geom instanceof U3dPathGeometry) ? this.#vertexChanged.bind(this) : undefined;
+        const dispose = () => {
+            // dispose 이벤트는 단순 등록 해제에도 쓰입니다. 명시적 영구 해제 표식이 있을 때만 자동 분리합니다.
+            if (this.#isGeometryDisposed(geom)) this.#detachGeometry(geom);
+        };
+        this.#geometrySubscriptions.set(geom, {change, end: undefined, dispose});
+        if (change) geom.addEventListener('change', change);
+        geom.addEventListener('dispose', dispose);
+    }
+
+    /**
+     * 등록 참조를 자원 해제와 분리해 정리합니다. 사용자 리스너와 재질·텍스처는 보존합니다.
+     *
+     * @param {import('@U3dGeometry').U3dGeometry} geom 분리할 도형
+     * @returns {boolean} 현재 레이어의 등록을 제거했는지 여부
+     */
+    #detachGeometry(geom) {
+        const mesh = /** @type {import('@UMesh').UMesh} */ (/** @type {unknown} */ (geom));
+        if (this._geomList.get(mesh.uuid) !== geom) return false;
+        this._geomList.delete(mesh.uuid);
+        this._updateGeomList.delete(mesh.uuid);
+        const subscription = this.#geometrySubscriptions.get(geom);
+        this.#geometrySubscriptions.delete(geom);
+        if (subscription) {
+            if (subscription.change) geom.removeEventListener('change', subscription.change);
+            geom.removeEventListener('dispose', subscription.dispose);
+            if (subscription.end) geom.removeEventListener('end', subscription.end);
+        }
+        if (geom.getLayer?.() === this) {
+            mesh.setLayerName?.(undefined);
+            geom.setLayer(undefined);
+        }
+        this.#removeTileIndex(mesh);
+        this.#removeAutoHeight(mesh);
+        this._group.remove(mesh);
+        return true;
     }
 
     /**
@@ -778,6 +885,7 @@ class U3dVectorLayer extends U3dLayer {
      * @ignore
      */
     #setVisibleGeometry(geom, isShow) {
+        if (!this.#isRegisteredGeometry(geom)) return;
         const self = this;
         const geomMesh = /** @type {import('@UMesh').UMesh} */ (/** @type {unknown} */ (geom));
         const geomGeo = /** @type {import('@U3dGeometry').U3dGeometry} */ (/** @type {unknown} */ (geom));
@@ -852,7 +960,7 @@ class U3dVectorLayer extends U3dLayer {
      * @ignore
      */
     #vertexChanged(e) {
-        if (e.data) this.#transform(e.data);
+        if (e.data && this.#isRegisteredGeometry(e.data)) this.#transform(e.data);
     }
 
     /**

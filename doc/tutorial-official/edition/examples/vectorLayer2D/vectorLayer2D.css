@@ -11,6 +11,95 @@
     padding: 18px;
 }
 
+/* 검색 목록과 개별 편집은 그리기 패널과 함께 볼 수 있어 공통 단일 패널 전환에 묶지 않습니다. */
+.vector2d-floating-panel {
+    position: absolute;
+    z-index: 30;
+    top: 76px;
+    left: 16px;
+    width: min(350px, calc(100vw - 100px));
+    max-height: 40vh;
+    overflow: auto;
+    border-radius: 14px;
+    pointer-events: auto;
+}
+
+.vector2d-info-panel {
+    top: 64px;
+    left: auto;
+    right: calc(88px + var(--theme-side-panel-width) + 12px);
+    max-height: calc(100dvh - 120px);
+}
+.vector2d-floating-panel[hidden], .vector2d-floating-panel [hidden], .vector2d-panel [hidden] { display: none; }
+.vector2d-floating-panel h2 { margin: 0; font-size: 15px; }
+.vector2d-button-row { display: flex; gap: 8px; }
+.vector2d-object-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; max-height: 240px; overflow: auto; }
+.vector2d-object-list button {
+    width: 100%; padding: 10px 12px; text-align: left;
+    color: #eff9fd; background: var(--theme-surface);
+    border: 1px solid var(--theme-line); border-radius: 8px; overflow-wrap: anywhere;
+}
+.vector2d-object-list button:hover, .vector2d-object-list button[aria-pressed="true"] { border-color: var(--theme-accent); background: var(--theme-accent-soft); }
+.vector2d-info-panel input[type="color"] { width: 100%; height: 32px; }
+.vector2d-object-list button { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.vector2d-object-list button small { flex: none; padding: 2px 7px; border-radius: 5px; color: var(--theme-muted); background: rgb(255 255 255 / 0.06); font-size: 10px; }
+.vector2d-object-list button[aria-pressed="true"] { box-shadow: inset 3px 0 var(--theme-accent); }
+.vector2d-info-panel .panel-header { position: sticky; top: 0; z-index: 1; background: #142734; }
+.vector2d-metrics { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--theme-line); border-radius: 8px; background: var(--theme-surface); color: #a3e5e0; font: 11px/1.7 Consolas, monospace; overflow-wrap: anywhere; }
+.vector2d-details summary { color: #eff9fd; font-size: 13px; font-weight: 700; cursor: pointer; }
+.vector2d-details[open] summary { margin-bottom: 14px; }
+.vector2d-inline-option { display: flex; align-items: center; gap: 9px; margin: 12px 0; color: #e4f3f9; font-size: 12px; cursor: pointer; }
+.vector2d-inline-option input { accent-color: var(--theme-accent); }
+.vector2d-move-controls { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin: 14px 0; padding: 12px; border: 1px solid var(--theme-line); border-radius: 12px; background: var(--theme-surface); }
+.vector2d-move-controls label { color: var(--theme-muted); font-size: 11px; }
+.vector2d-move-controls input { display: block; width: 80px; margin: 6px 0; }
+.vector2d-direction-pad { display: grid; grid-template-columns: repeat(3, 32px); grid-template-rows: repeat(3, 28px); gap: 3px; }
+.vector2d-direction-pad button { border: 1px solid var(--theme-line); border-radius: 6px; background: var(--theme-surface); color: #d1f4f3; font-size: 17px; }
+.vector2d-direction-pad button:first-child { grid-column: 2; }
+.vector2d-direction-pad button:nth-child(2) { grid-row: 2; grid-column: 1; }
+.vector2d-direction-pad span { grid-row: 2; grid-column: 2; color: var(--theme-muted); text-align: center; align-self: center; }
+.vector2d-direction-pad button:nth-child(4) { grid-row: 2; grid-column: 3; }
+.vector2d-direction-pad button:last-child { grid-row: 3; grid-column: 2; }
+.vector2d-coordinate-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.vector2d-coordinate-pair label { color: var(--theme-muted); font-size: 11px; }
+.vector2d-coordinate-pair input, .vector2d-move-controls input { box-sizing: border-box; max-width: 100%; min-width: 0; min-height: 32px; padding: 5px 8px; border: 1px solid var(--theme-line); border-radius: 7px; background: #10212e; color: #eff9fd; font: 12px Consolas, monospace; }
+.vector2d-coordinate-pair input { display: block; width: 100%; margin-top: 6px; }
+.vector2d-info-panel .vector2d-textarea { margin-top: 7px; }
+.vector2d-info-panel .vector2d-danger { margin-top: 20px; color: #ffb1bb; border-color: #88515c; background: #4f263633; }
+.vector2d-action:hover:not(:disabled), .vector2d-direction-pad button:hover { border-color: var(--theme-accent); background: var(--theme-accent-soft); }
+.vector2d-action:focus-visible, .vector2d-direction-pad button:focus-visible, .vector2d-details summary:focus-visible, .vector2d-object-list button:focus-visible { outline: 2px solid var(--theme-accent); outline-offset: 2px; }
+.vector2d-feature-overlay {
+    /* U3dOverlay는 지도 하단 기준의 top/left를 계산하므로 요소가 절대 위치여야 적용됩니다. */
+    position: absolute;
+    z-index: 20;
+    width: 320px; max-width: 75vw; color: #eaf6ff; background: #142734;
+    border: 1px solid #53778c; border-radius: 12px; box-shadow: 0 8px 30px #0006;
+    font: 12px/1.5 sans-serif; pointer-events: auto;
+}
+.vector2d-feature-overlay header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border-bottom: 1px solid #53778c; cursor: move; user-select: none; }
+.vector2d-feature-overlay button { color: inherit; background: transparent; border: 0; font-size: 24px; cursor: pointer; }
+.vector2d-feature-overlay dl { max-height: 280px; overflow: auto; margin: 0; padding: 12px; }
+.vector2d-feature-overlay dl > div { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 8px; padding: 5px 0; }
+.vector2d-feature-overlay dt { color: #a9c3d3; }
+.vector2d-feature-overlay dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+
+.vector2d-draw-toast {
+    position: absolute;
+    z-index: 40;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: calc(100% - 32px);
+    padding: 12px 18px;
+    border: 1px solid var(--theme-accent);
+    border-radius: 12px;
+    background: #142734ee;
+    color: #eff9fd;
+    font-size: 14px;
+    pointer-events: none;
+}
+.vector2d-draw-toast[hidden] { display: none; }
+
 .vector2d-panel-content .panel-description {
     margin: 0;
     color: var(--theme-muted);
@@ -240,58 +329,6 @@
 .vector2d-action:disabled {
     cursor: not-allowed;
     opacity: 0.45;
-}
-
-.vector2d-result-card {
-    padding: 12px;
-    border: 1px solid var(--theme-line);
-    border-radius: 10px;
-    background: var(--theme-surface);
-}
-
-.vector2d-result-heading {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.vector2d-result-heading h3 {
-    margin: 0;
-}
-
-.vector2d-result-heading span {
-    color: var(--theme-muted);
-    font-size: 10px;
-}
-
-#vector2d-result-data {
-    margin: 8px 0 0;
-}
-
-#vector2d-result-data div {
-    display: grid;
-    grid-template-columns: 72px minmax(0, 1fr);
-    gap: 8px;
-    padding: 6px 0;
-    border-bottom: 1px solid var(--theme-line);
-    font-size: 11px;
-}
-
-#vector2d-result-data div:last-child {
-    border-bottom: 0;
-}
-
-#vector2d-result-data dt {
-    color: var(--theme-muted);
-}
-
-#vector2d-result-data dd {
-    min-width: 0;
-    margin: 0;
-    color: #eff9fd;
-    font-family: Consolas, monospace;
-    overflow-wrap: anywhere;
 }
 
 @media (max-width: 760px) {

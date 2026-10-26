@@ -6,7 +6,7 @@
 
 `U3dModelBIMObjLayer`는 MTL·OBJ와 JSON 메타데이터를 연결하여 파일별 배치, 개별 객체 표시·선택 및 서버의 제어 케이스를 제공한다. 부모 레이어의 앱·그룹·수명주기를 사용하고, 자체 로딩은 파일별 순차 실행한다. 제어 케이스는 위치·제외·레벨·속성 변경 자료이며 조회·저장은 렌더 객체에 자동 적용하는 작업과 구분된다.
 
-`GeOnDT.model.U3dModelBIMObjLayer`로 제공되며 `U3dApp.createModelBIMObjLayer()`가 생성·등록한다. 직접 협력 대상은 `U3dModelLayer`, `UMTLLoader`, `UOBJLoader`, 앱의 좌표·고도 변환 및 XMLHttpRequest이다.
+`GeOnDT.model.U3dModelBIMObjLayer`로 제공되며 `U3dApp.createBIMObjModelLayer()`가 생성·등록한다. 직접 협력 대상은 `U3dModelLayer`, `UMTLLoader`, `UOBJLoader`, 앱의 좌표·고도 변환 및 XMLHttpRequest이다.
 
 ## 3. 정규 자연어 수도코드
 
@@ -168,11 +168,11 @@ U3dModelBIMObjLayer extends U3dModelLayer 클래스 정의
     override U3dModelBIMObjLayer.initialize() -> void
         의존:
             U3dModelLayer — 상속된 초기화 진입점; 함수: {prototype.initialize.call()}
-            U3dLayer — 초기화 구현과 생성자에서 부착한 완료 제어; 함수: {initialize(), resolve(), reject()}
+            U3dLayer — 초기화 구현과 ready Promise 완료 제어; 함수: {initialize(), _resolveReady(), _rejectReady()}
             defined — nullish 판정; 함수: {defined()}
         동작:
             _classtype이 정의되지 않았거나 정확히 'U3dModelBIMObjLayer'가 아니면 종료한다.
-            부모 initialize 후 현재 레이어를 receiver로 load를 실행한다. 성공하면 레이어 자체로 resolve하고 실패하면 받은 이유로 reject한다.
+            부모 initialize 후 현재 레이어를 receiver로 load를 실행한다. 성공하면 _resolveReady로 레이어 자신을 전달하고 실패하면 _rejectReady에 받은 이유를 전달한다.
 
     U3dModelBIMObjLayer.isValidMetaData(name: string, metaData?: U3dBIMSourceFile) -> boolean
         의존:
@@ -773,7 +773,7 @@ traverse(meta: MetaData, callback: function) -> void
 ```spec
 정의 여부는 defined를 통해 null과 undefined만 누락으로 판정하며 빈 문자열·0·false는 별도로 명시된 분기에서만 구분한다.
 공개 상태와 원본 참조를 반환하는 조회는 읽기 전용이 아니다. 케이스 files·제외 배열, 메타데이터 properties·children, 트리 tree·list·map을 공유한 결과의 변경은 원본에 반영된다. 새로 만든 위치 객체·키 배열·목록 항목의 바깥 구조는 공유하지 않으며 각 메서드의 반환 규칙을 따른다.
-자체 deferred는 네이티브 Promise와 다르며 공개 완료 API의 계약은 then 또는 await로 관찰한다. 빈 파일 목록과 Mesh 집계 수가 예상 수에 도달하지 않는 미종결 경로는 각 심벌에 별도로 명세한다.
+초기화는 ready Promise로 관찰하고 개별 load 작업의 deferred 계약과 구분한다. 빈 파일 목록과 Mesh 집계 수가 예상 수에 도달하지 않는 미종결 경로는 각 심벌에 별도로 명세한다.
 ```
 
 > 공개 참조용 발췌본입니다. 비공개 구현 설명과 내부 관리 정보는 생략했습니다.

@@ -180,8 +180,12 @@ TerrainSourceState 타입 정의
         요청 상태
     errorReason?: string
         실패 또는 취소 사유
+    allowFailureFallback?: boolean = false
+        원격 요청 실패 이후의 이전 벡터 또는 벡터 없는 지형 표시 허용 여부. 재요청 중에는 실패 사유를 유지해 대체 표시를 이어 간다.
     sourceIdentity?: TerrainSourceIdentity
         최신 권위 source identity
+    inputRevision?: {signature: string | number, revision: number}
+        입력 비교값에 대응하는 확정 버전이며 요청·데이터 승인·실제 GPU 적용 버전과 분리한다.
     syncSnapshot?: TerrainSourceSyncSnapshot
         마지막으로 승인한 tile-local source snapshot
     ownerLayer?: U3dLayer
@@ -455,9 +459,33 @@ TerrainWorkerResult 타입 정의
         즉시 경로에서 만든 결과 표식
     byteLength?: number
         결과의 바이트 크기
+    compositionRuns?: Array<TerrainCompositionRun>
+        총순서대로 나눈 구간 참조 목록이며 Worker 결과는 각 run.workerResult에 둔다. 정적 GPU 결과가 있으면 해당 Worker 계산을 생략한다. 구간의 수명과 재사용 식별자는 Manager 단위가 소유한다.
+
+TerrainPreparedBuild 타입 정의
+    featureRevisions?: Map<string, number>
+        같은 빌드 입력의 동적 피처 편집 버전 snapshot이며 타일별 Source 번호와 분리한다.
+    featureSignature: string
+        feature 구성 서명이며 분리 입력에서는 구간 서명을 순서대로 결합한 값
+    tileOrigin: TerrainPoint
+        packed 좌표의 공통 기준점
+    featureBases: Array<TerrainFeature>
+        Worker 기본 정보이며 분리 입력은 구간별 prepared에 보관하고 전체 목록은 빈 배열로 둔다.
+    featureRefs: Array<TerrainFeatureRef>
+        타일별 참조이며 분리 입력은 구간별 prepared에 보관하고 전체 목록은 빈 배열로 둔다.
+    compositionRuns?: Array<TerrainCompositionRun>
+        독립 준비·Worker·정적 RTT 재사용 단위이며 실제 타일의 총순서를 보존한다.
+    compositionPlan?: TerrainDecalCompositionPlan
+        표시 피처의 총순서와 batch 계획이며 분리 입력의 전체 결과는 precomposed이다.
+    staticCompositeKey?: string
+        기존 hybrid 정적 합성 결과의 재사용 key
+    immediateFeatureBases?: Array<TerrainFeature>
+        일반 즉시 빌드에 사용할 기본 정보
 
 TerrainBufferState 부분 타입 명세
     이 명세에서 사용하는 필드:
+        featureRevisions?: Map<string, number>
+            이 적용본이 표현하는 동적 피처 편집 버전이며 LOD 교체 시 부모·자식 적용본과 비교한다. 빈 Worker 결과에도 보존하고 dispose에서 참조를 해제한다.
         defines?: Record<string, number>
             켜야 하는 shader define
         uniforms?: Record<string, IUniform>
@@ -470,6 +498,8 @@ TerrainBufferState 부분 타입 명세
             변경 버전
         packedStates?: Partial<{path: TerrainBucketState, area: TerrainBucketState, circle: TerrainBucketState}>
             합성기가 batch 범위를 계산할 때 참조할 packed 원본
+        compositionLayers?: Array<TerrainCompositionLayer>
+            합성 scheduler가 순서대로 결합하고 정리할 구간별 입력 상태. 완성된 전체 결과는 별도 target을 소유한다.
 
 TerrainMaterialContent 타입 정의
     clearTerrainDecalState?: () => void
@@ -587,9 +617,13 @@ TerrainTileEntry 부분 타입 명세
             적용 중인 LOD profile 식별자
         lodProfileVersion?: number
             적용 중인 LOD profile 버전
+        compositionRuns?: Array<TerrainCompositionRun>
+            실제 타일이 소유한 연속 구간의 준비 입력·Worker 결과·정적 RTT 캐시
 
 TerrainManagerOption 부분 타입 명세
     이 명세에서 사용하는 필드:
+        allowFailureFallback?: boolean
+            source 요청 실패 이후의 대체 표시를 허용하는지 여부이며 기본 source의 엄격한 대기는 유지한다.
         origin?: TerrainPoint
             feature 에 origin 이 없을 때 사용할 기준 좌표
         sourceKey?: string
@@ -600,6 +634,8 @@ TerrainManagerOption 부분 타입 명세
             합성 group key이며 feature 값이 있으면 feature 값을 먼저 쓴다.
         consumePreparedFeatures?: boolean
             이미 준비된 feature 객체를 복사하지 않고 그대로 바꿔 쓸지 여부
+        deferWorkerSchedule?: boolean
+            Manager가 입력 준비 전에 기존 Admission에서 최신 요청을 병합하고 Worker 전송을 양보할지 여부
         threshold?: number
             임계값 uniform 을 덮어쓸 값
         depthOffset?: number
@@ -692,7 +728,7 @@ TERRAIN_DECAL_BUCKET_GRID_X: number = 16
 TERRAIN_DECAL_BUCKET_GRID_Y: number = 16
     bucket 격자의 기본 세로 개수
 
-TERRAIN_DECAL_PATH_BUCKET_THRESHOLD: number = 256
+TERRAIN_DECAL_PATH_BUCKET_THRESHOLD: number = 64
     선분 수가 이 값을 넘을 때만 path bucket index를 만드는 기준
 
 TERRAIN_DECAL_PATH_STYLE_TEXELS: number = 2
@@ -1845,16 +1881,18 @@ takeLruCacheValue(lruCache: LRUCache, key: string) -> TerrainCacheValue | undefi
         값의 byteLength 를 잔여 용량에 더하고 값을 반환한다.
 
 disposeTerrainUniformTextures(uniforms: Record<string, IUniform> = {}) -> void
-    역할: uniform map이 들고 있던 GPU texture를 해제한다.
+    역할: uniform map에서 버퍼 소유 표시가 있는 GPU texture만 한 번 해제한다.
 
     처리 기준:
-        값이 Texture 인 uniform 만 해제하고 나머지는 건드리지 않는다.
+        값이 Texture 이고 __terrainBufferOwnedTexture 표시가 참인 값만 해제한다.
+        해제 전에 소유 표시를 거짓으로 바꿔 같은 texture 의 별칭이나 반복 정리가 중복 해제하지 않게 한다.
+        외부 texture 와 RenderTarget texture 의 소유권은 가져오지 않는다.
         uniform map 에서 항목을 제거하지 않으므로 해제된 texture 참조는 그대로 남는다.
 
     의존: THREE — texture 판정과 GPU 자원 해제; 속성 읽기: {Texture}; 함수: {dispose()}
 
     동작:
-        uniform 을 순회하며 값이 Texture 이면 해제한다.
+        uniform 을 순회하며 버퍼 소유 Texture 의 소유 표시를 내리고 해제한다.
 
 normalizeTerrainFeatureRequest(feature: TerrainFeature, opt: TerrainManagerOption = {}) -> TerrainFeature | undefined
     역할: 호출자가 준 다양한 형태의 feature를 이후 모든 계산이 전제할 수 있는 정규 feature로 확정하고 두 hash를 채운다.
@@ -1992,6 +2030,9 @@ createTerrainMaterialStateFromWorkerResult(tileEntry: TerrainTileEntry, workerRe
     인터페이스: 반환: define, uniform, 반투명 여부, 강제 갱신 요청과 revision 을 담은 buffer 상태다.
 
     처리 기준:
+        활성 버퍼가 보관한 반환 uniform 을 한 번 꺼내 사용한다. 이 pool 은 전체 적용 성공 이후 표시·복원·합성에서 분리된 값만 포함해야 한다.
+        반환 pool 에서 동일 규격 Texture 를 재사용하고 이번 결과에 쓰지 않는 반환 Texture 는 정리한다.
+        준비 예외 시 이미 만든 후보 자료와 남은 반환 pool 을 중복 없이 정리한다.
         worker 결과의 featureCount 가 0 보다 크면 terrain decal 전체 define 을 켠다.
         적용된 항목 수는 선, 면, 원 적용 결과의 합이며 선 도형은 선분 수가 더해진다.
         적용된 항목이 하나도 없으면 define 을 모두 버린 빈 define 과 base uniform 만 담아 반환하므로, worker 결과의 featureCount 만 0 보다 컸던 경우 terrain decal define 도 함께 사라진다.
@@ -2065,13 +2106,14 @@ createTerrainBaseUniforms(tileEntry: TerrainTileEntry, workerResult: TerrainWork
         terrain mesh 를 조회해 축척 벡터를 만든다.
         임계값과 깊이 보정값을 위 우선순위로 확정한 uniform map 을 반환한다.
 
-applyTerrainBucketState(uniforms: Record<string, IUniform>, defines: Record<string, number>, prefix: string, state: TerrainBucketState | undefined) -> number
+applyTerrainBucketState(uniforms: Record<string, IUniform>, defines: Record<string, number>, prefix: string, state: TerrainBucketState | undefined, reusableUniforms: Record<string, IUniform> | undefined) -> number
     역할: 선 또는 면 packed 상태를 float data texture와 uniform으로 옮기고 해당 도형 define을 켠다.
 
     인터페이스:
         uniforms: 호출자가 소유한 uniform map 이며 이 함수가 항목을 추가한다.
         defines: 호출자가 소유한 define map 이며 이 함수가 항목을 추가한다.
         prefix: uniform 이름 접두어이며 `path` 일 때만 선분 전용 uniform 을 만든다.
+        reusableUniforms: 표시·복원·진행 중 합성에서 반환된 이전 버퍼 소유 uniform 이다. 같은 이름의 Texture 만 재사용 후보로 전달한다.
         반환: 적용된 항목 수이며 상태가 없거나 항목 수가 0 이하면 0 이다.
 
     처리 기준:
@@ -2096,7 +2138,7 @@ applyTerrainBucketState(uniforms: Record<string, IUniform>, defines: Record<stri
         선 도형이 아니면 접두어를 붙인 데이터·스타일·bounds texture 와 크기, 전체 범위, 항목 수를 uniform 에 넣는다.
         bucket 메타를 고정 길이 벡터 배열로 바꾸고 bucket 격자를 uniform 에 넣은 뒤 항목 수를 반환한다.
 
-applyTerrainCircleState(uniforms: Record<string, IUniform>, defines: Record<string, number>, state: TerrainBucketState | undefined) -> number
+applyTerrainCircleState(uniforms: Record<string, IUniform>, defines: Record<string, number>, state: TerrainBucketState | undefined, reusableUniforms: Record<string, IUniform> | undefined) -> number
     역할: 원 packed 상태를 uniform으로 옮기고 원 도형 define을 켠다.
 
     인터페이스: 반환: 적용된 원 항목 수이며 상태가 없거나 항목 수가 0 이하면 0 이다.
@@ -2132,11 +2174,12 @@ toVector4Array(source: Array<unknown> = [], count: number = 0) -> Array<Vector4>
         원본 항목 수와 요청 개수 중 작은 수만큼 네 성분을 읽어 벡터에 설정한다.
         벡터 목록을 반환한다.
 
-createFloatDataTexture(arrayLike: ArrayLike<number>, width: number, height: number) -> DataTexture
+createFloatDataTexture(arrayLike: ArrayLike<number>, width: number, height: number, previousTexture: unknown = undefined) -> DataTexture
     역할: packed 배열을 값 그대로 읽히는 float data texture로 만든다.
 
     처리 기준:
-        입력이 Float32Array 이면 새로 만들지 않고 그대로 texture 데이터로 사용하므로 texture 와 packed 배열이 같은 buffer 를 공유한다.
+        반환된 버퍼 소유 DataTexture 의 규격이 같으면 새 Texture 생성 없이 기존 객체와 GPU 저장소를 재사용한다.
+        신규 Texture 의 CPU 데이터는 별도 사본으로 만들어 Worker·구간 캐시 배열을 다음 준비의 재사용으로 변경하지 않는다.
         Float32Array 가 아니면 Float32Array 로 변환하며 값이 없으면 빈 배열로 본다.
         너비와 높이는 1 이상으로 보정하고 값이 없으면 1 을 쓴다.
         형식은 RGBA float 이며 확대·축소 filter 를 최근접으로, mipmap 생성을 끄고, 세로 뒤집기를 끄고, 두 축 좌표 반복을 경계 고정으로 설정해 packed 값이 보간이나 반복으로 변형되지 않게 한다.
@@ -2146,12 +2189,69 @@ createFloatDataTexture(arrayLike: ArrayLike<number>, width: number, height: numb
 
     동작:
         입력 배열을 Float32Array 로 확정하고 크기를 1 이상으로 보정한다.
-        RGBA float texture 를 만들고 갱신 표식과 sampling 설정을 적용해 반환한다.
+        재사용 가능한 반환 Texture 가 있으면 변경 범위를 갱신해 반환한다.
+        없으면 RGBA float texture 를 만들고 갱신 표식과 sampling 설정, 버퍼 소유 표시를 적용한다.
+        첫 전체 업로드 완료 추적을 연결하고 반환한다.
+
+DATA_TEXTURE_COMPONENTS_PER_TEXEL: number = 4
+    DataTexture texel 하나의 component 수
+
+MAX_DATA_TEXTURE_PARTIAL_UPDATE_ROWS: number = 128
+    부분 업로드로 처리할 최대 변경 행 수. 이보다 많으면 여러 GPU 호출보다 전체 업로드가 유리하다.
+
+updateReusableTerrainDataTexture(previousValue: unknown, nextValue: unknown) -> DataTexture | undefined
+    역할: 같은 규격의 DataTexture 데이터를 비교해 변경 행만 update range 로 등록한다.
+
+    인터페이스:
+        previousValue: 현재 material 에 연결된 값
+        nextValue: 새 DataTexture 또는 image·format·type 을 담은 CPU 준비 입력
+        반환: 재사용할 texture 이며 재사용할 수 없으면 undefined 다.
+
+    처리 기준:
+        이전 값이 DataTexture 이고 크기·형식·규격이 같아야 재사용한다.
+        버퍼 경로의 호출자는 이전 texture 가 표시·복원·진행 중 합성에서 분리되었음을 보장한다.
+        변경 행이 없으면 업로드하지 않고 그대로 재사용한다.
+        변경 행이 부분 업로드 상한을 넘으면 여러 GPU 호출보다 전체 업로드가 유리하므로 전체 갱신으로 바꾼다.
+        한 번도 업로드되지 않은 texture 는 부분 갱신으로 시작할 수 없으므로 전체 업로드한다.
+
+    동작:
+        규격이 다르면 undefined 를 반환한다.
+        행 단위로 데이터를 비교해 변경 범위를 모은다.
+        변경이 없으면 이전 texture 를 그대로 반환한다.
+        부분 갱신이 가능하면 대기 범위를 병합해 등록하고, 아니면 전체 갱신을 표시한 뒤 이전 texture 를 반환한다.
+
+mergeDataTextureUpdateRanges(currentRanges: Array<{start: number, count: number}>, nextRanges: Array<{start: number, count: number}>, rowComponentCount: number) -> Array<{start: number, count: number}>
+    역할: 렌더 전에 누적된 같은 행의 겹치거나 인접한 texture 범위를 병합한다.
+
+    인터페이스:
+        currentRanges: 기존 대기 범위
+        nextRanges: 새 변경 범위
+        rowComponentCount: texture 한 행의 component 수
+        반환: GPU 호출 기준으로 병합한 범위
+
+    처리 기준:
+        범위를 시작 위치로 정렬해 인접·중복 구간을 하나로 합쳐 GPU 호출 수를 줄인다.
+
+    동작:
+        기존 범위와 새 범위를 합쳐 정렬하고 인접·중복 구간을 병합한 목록을 반환한다.
+
+trackTerrainDataTextureUpload(value: unknown) -> void
+    역할: DataTexture 의 첫 전체 업로드 완료를 한 번 추적한다.
+
+    처리 기준:
+        이미 업로드 추적 여부가 있으면 기존 callback 과 상태를 유지한다.
+        새 추적은 업로드 전 상태로 시작하고 실제 onUpdate 호출 후 완료 상태로 전환한다.
+        기존 onUpdate 는 원래 texture 문맥으로 함께 호출한다.
+
+    동작:
+        DataTexture 이며 추적이 없으면 onUpdate 를 연결한다.
+
 ```
 
 ## 4. 공통 처리 기준과 제약
 
 - 공유 타입 `TerrainTileEntry`, `TerrainManagerOption`, `TerrainMaterialBinding`의 `tile._mesh`는 메시 생성 전의 `null`과 필드가 없는 `undefined`를 허용한다. `resolveTerrainTileMesh()`는 연결된 메시가 없으면 입력 상태에 따라 `null` 또는 `undefined`를 그대로 반환한다. 이 조회값을 보관하는 `TerrainTileEntry.mesh`도 `null`을 허용한다.
+- `compositionRuns`는 Manager가 구간 재사용과 Worker 요청을 관리하는 입력 계약이고 `compositionLayers`는 Composer가 구간 결과를 원래 순서로 합성하는 입력 계약이다. 이 단위는 공통 타입을 제공하며, 평탄한 Worker 결과의 material 변환은 Manager가 선택한 구간마다 기존 `createTerrainMaterialStateFromWorkerResult()`를 사용한다.
 
 ```spec
 이 단위는 모듈 상태를 보관하지 않으며, hashNumber 가 쓰는 공용 8바이트 버퍼만 모듈 수준에서 재사용한다.
@@ -2161,7 +2261,7 @@ FNV-1a hash 결합은 항상 초기값 2166136261 에서 시작하고 결합 순
 packed 상태의 texture 크기는 선형 texel 수를 제곱근 기준 2차원 배치로 바꾼 값이며, 용량이 실제 texel 수보다 클 수 있으므로 남는 texel 은 0 으로 남는다.
 packed 상태 생성과 cache 복제는 Float32Array 를 새로 만들지 않고 공유하므로, 호출자는 복제 결과의 배열을 제자리에서 바꾸지 않아야 한다.
 uniform 과 define map 은 호출자가 소유하며 applyTerrainBucketState 와 applyTerrainCircleState 는 항목을 추가하기만 하고 제거하지 않는다.
-float data texture 는 이 단위가 만들고 소유권은 호출자에게 넘어가므로, 해제는 호출자가 disposeTerrainUniformTextures 로 수행한다.
+float data texture 는 이 단위가 만들고 소유권은 결과 버퍼로 넘어가므로, 해제는 버퍼 수명 경계에서 disposeTerrainUniformTextures 로 수행한다. Material 은 내부 공유 적용에서 이를 빌려 쓴다.
 호출자가 넘긴 객체를 바꾸는 경로는 다음과 같다. resolveTerrainTileMesh 는 tile entry 의 mesh 를 cache 로 되쓰고, createTerrainPreparedFeatureBaseImmediate 는 feature base 에 준비 결과를 cache 하며, normalizeTerrainFeatureRequest 는 준비된 payload 소비 요청에서 입력 feature 의 필드를 직접 덮어쓴다.
 그 밖에 applyTerrainBucketState 와 applyTerrainCircleState 는 uniform 과 define map 을, addTerrainPathSegmentToBuckets 와 addTerrainPathBucketCell 은 bucket 목록과 중복 표시 배열을 채우고, takeLruCacheValue 는 LRU cache 항목과 잔여 용량을, disposeTerrainUniformTextures 는 uniform 이 참조하는 texture 를 해제 상태로 바꾼다.
 ```

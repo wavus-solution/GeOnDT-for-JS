@@ -378,6 +378,8 @@
                         duration: 100000,
                         movepointlist: movePosition    //경로설정 옵션
                     });
+                }).catch(error => {
+                    console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
                 });
 
                 option.drawpath = false;
@@ -399,6 +401,8 @@
                         active: true
                     };
                     animationLayer2.setCameraTrace(opt); //+ 헬리콥터에 맞춰 카메라 이동
+                }).catch(error => {
+                    console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
                 });
 
                 animationLayer3 = new Union3D.model.U3dMultipleComponentLayer(option); //+ multipleComponentLayer 생성
@@ -421,6 +425,8 @@
                         targetOffset: undefined
                     };
                     animationLayer3.setCameraTrace(opt); //+ 헬리콥터에 맞춰 카메라 이동
+                }).catch(error => {
+                    console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
                 });
                 isReset = false;
             } else {

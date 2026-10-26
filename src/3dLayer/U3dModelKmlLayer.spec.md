@@ -53,12 +53,14 @@ U3dModelKmlLayer extends U3dVectorLayer 클래스 정의
     constructor(opt: U3dModelKmlLayerCO)
         의존:
             U3dVectorLayer — 기반 초기화; 생성자: {super()}
+            U3dLayer — 초기 렌더 순서 조회; 함수: {getRenderOrder()}
             defaultValue — undefined 기본값; 함수: {defaultValue()}
             defined — 입력 존재 판정; 함수: {defined()}
             __GError__ — 생성 시 시작한 로딩 실패 기록; 함수: {__GError__()}
         동작:
             부모 생성 뒤 이름표·URL·로딩 참조·식별자 사전·순번·KMZ 자료와 URL 사전을 초기화한다.
             heightField의 기본값은 height이며 styleFunction은 함수인 경우만 저장한다.
+            부모가 정한 현재 렌더 순서를 조회하여 입력 로딩 전에 형상 그룹과 장면에 적용한다.
             정의된 비어 있지 않은 kmlText, 정의된 kmlData, 정의된 비어 있지 않은 baseUrl 순서로 한 경로만 시작하고 반환 Promise를 보관한다.
             로딩 Promise의 실패에 레이어 receiver 인수와 오류 문자열을 로그로 전달하는 catch를 등록하며 원래 Promise 참조는 유지한다.
 
@@ -113,6 +115,18 @@ U3dModelKmlLayer extends U3dVectorLayer 클래스 정의
     reload() -> Promise<U3dModelKmlLayer>
         동작:
             현재 _baseUrl의 로딩 Promise를 반환하고 _loadingPromise는 교체하지 않는다.
+
+    override setRenderOrder(val: number) -> void
+        역할: KML 형상을 담는 그룹의 렌더 순서를 레이어 설정에 맞춘다.
+        처리 기준: 기존·이후 등록 형상에 같은 그룹 순서를 적용하며 도형별 renderOrder와 외곽선의 순서 차이를 유지한다.
+        의존:
+            U3dLayer — 레이어 순서 저장과 렌더 상태 조회; 함수: {super.setRenderOrder()}; 속성 읽기: {_scene, _group, _app}
+            UScene — 장면 순서 반영; 속성 쓰기: {renderOrder}
+            UGroup — 하위 렌더 목록의 그룹 순서 반영; 속성 쓰기: {renderOrder, _renderOrder}
+            U3dApp — 연결된 앱의 다음 갱신 요청; 함수: {changeUpdate()}
+        동작:
+            부모 setter로 레이어 순서를 저장한 뒤 장면의 renderOrder와 형상 그룹의 renderOrder·_renderOrder를 val로 변경한다.
+            앱과 changeUpdate가 있으면 갱신을 요청한다.
 
     override initialize() -> void
         의존: U3dVectorLayer — 상속 초기화; 함수: {super.initialize()}

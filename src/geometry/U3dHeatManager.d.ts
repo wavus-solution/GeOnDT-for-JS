@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -22,7 +22,7 @@ declare class U3dHeatManager {
      *
      * @ignore
      */
-    static "__#153@#_TMP": three.Vector3;
+    static "__#11492@#_TMP": three.Vector3;
     /**
      * 임시 Quaternion (행렬 분해용) <br>
      *
@@ -30,7 +30,7 @@ declare class U3dHeatManager {
      *
      * @ignore
      */
-    static "__#153@#_TMP_Q": three.Quaternion;
+    static "__#11492@#_TMP_Q": three.Quaternion;
     /**
      * 임시 Vector3 (스케일 추출용) <br>
      *
@@ -38,7 +38,7 @@ declare class U3dHeatManager {
      *
      * @ignore
      */
-    static "__#153@#_TMP_S": three.Vector3;
+    static "__#11492@#_TMP_S": three.Vector3;
     /**
      * 온도 기반 팔레트를 설정하는 함수 <br>
      *
@@ -186,6 +186,10 @@ declare class U3dHeatManager {
          * 센서 데이터 텍스처 <br>
          */
         texture: three.DataTexture | null;
+        /**
+         * 대상 온도 범위에 맞춘 팔레트 텍스처 <br>
+         */
+        paletteTexture: three.DataTexture | null;
         /**
          * 센서 데이터 버퍼 <br>
          */

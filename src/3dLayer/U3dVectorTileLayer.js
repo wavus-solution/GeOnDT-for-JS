@@ -806,7 +806,8 @@ function _calcPosition(object, tile, info) {
 function _parseVCTR(obj) {
     let self = this;
     let buffer = obj.buf;
-    const info = /** @type {ModelTileContentQueueInfo & Partial<{tileset: object}>} */(obj.info);
+    // 공통 큐의 tile 슬롯은 이 파서에 진입하면 VCTR 타일입니다.
+    const info = /** @type {Omit<ModelTileContentQueueInfo, 'tile'> & {tile: VctrTile} & Partial<{tileset: object}>} */(obj.info);
     const tile = /** @type {VctrTile} */(obj.info.tile);
     const updateId = obj.updateId;
     /** @type {DeferredObject<import('@U3DTileset').U3DTileset>} */
@@ -846,7 +847,10 @@ function _parseVCTR(obj) {
         (/** @type {Partial<{_parser: UVctrParser}>} */(self))._parser = new UVctrParser(option);
     }
 
-    (/** @type {UVctrParser} */ ((/** @type {Partial<{_parser: UVctrParser}>} */(self))._parser)).parse(buffer, byteOffset, tile, info.tileset).then(function (/** @type {Partial<{points: import('@union3d/3dTiles/VCTR/Vector3DTilePoints').Vector3DTilePoints, batchTable: object}>} */ result) {
+    (/** @type {UVctrParser} */ ((/** @type {Partial<{_parser: UVctrParser}>} */(self))._parser)).parse(buffer, byteOffset, tile, info.tileset).then(function (value) {
+        // UVctrParser는 빈 타일이면 undefined, 내용이 있으면 points/batchTable 객체로 완료합니다.
+        // 반환 선언이 없는 파서의 unknown 결과를 이 호출 경계에서 실제 계약에 연결합니다.
+        const result = /** @type {Partial<{points: import('@union3d/3dTiles/VCTR/Vector3DTilePoints').Vector3DTilePoints, batchTable: object}> | undefined} */ (value);
         if (self.isCancel(updateId)) {
             promise.reject(tile);
             return;

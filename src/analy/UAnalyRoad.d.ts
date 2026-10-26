@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -13,7 +13,6 @@ import type { U3dApp } from "../app/U3dApp.js";
 import type { UGroup } from "../core/UGroup.js";
 import type { UGizmoControls } from "../mode/UGizmoControls.js";
 import type { GeoPosition, WorldPositionVector3 } from "../types/global.js";
-import type { deferred } from "../util/deferred.js";
 
 /**
  * ~extends import('@UAnaly').UAnaly <br>
@@ -176,9 +175,9 @@ declare class UAnalyRoad extends UAnaly {
      *
      * @param {string} url 격자 이미지 url
      * @param {number} [opacity=1] 이미지 투명도
-     * @return {ReturnType<typeof deferred>} 프로미스
+     * @return {Promise<void>} 프로미스
      */
-    setDrawGridImage(url: string, opacity?: number): ReturnType<typeof deferred>;
+    setDrawGridImage(url: string, opacity?: number): Promise<void>;
     /**
      * 격자 무늬 가이드 라인 가시화 여부를 설정하는 함수
      *
@@ -224,15 +223,15 @@ declare class UAnalyRoad extends UAnaly {
     /**
      * 도로 편집 모드를 시작하는 함수
      *
-     * @return {ReturnType<typeof deferred>}
+     * @return {Promise<void>}
      */
-    edtiRoad(): ReturnType<typeof deferred>;
+    edtiRoad(): Promise<void>;
     /**
      * 도로 병합 모드를 시작하는 함수
      *
-     * @return {ReturnType<typeof deferred>}
+     * @return {Promise<void>}
      */
-    combineRoad(): ReturnType<typeof deferred>;
+    combineRoad(): Promise<void>;
     /**
      * 도로 그리기 중인지 반환하는 함수
      *
@@ -282,17 +281,20 @@ declare class UAnalyRoad extends UAnaly {
      * @param {import('@U3dRoadExtension').U3dRoadExtension} road1 도로 1
      * @param {import('@U3dRoadExtension').U3dRoadExtension} road2 도로 2
      * @param {Array<string>} type 병합 타입
-     * @return {ReturnType<typeof deferred>}
+     * @return {Promise<void>}
      */
-    getAbsorption(road1: U3dRoadExtension, road2: U3dRoadExtension, type: Array<string>): ReturnType<typeof deferred>;
+    getAbsorption(road1: U3dRoadExtension, road2: U3dRoadExtension, type: Array<string>): Promise<void>;
     /**
      * 도로 교차로를 검사하는 함수
      *
      * @param {import('@U3dRoadExtension').U3dRoadExtension} last 새로 추가된 도로
      * @param {boolean} [isTRoad] T자 도로 여부
-     * @return {ReturnType<typeof deferred>}
+     * @return {Promise<Array<{line: import('three').Object3D, points: Array<GeoPosition>}>>}
      */
-    getIntersections(last: U3dRoadExtension, isTRoad?: boolean): ReturnType<typeof deferred>;
+    getIntersections(last: U3dRoadExtension, isTRoad?: boolean): Promise<Array<{
+        line: three.Object3D;
+        points: Array<GeoPosition>;
+    }>>;
     #private;
 }
 

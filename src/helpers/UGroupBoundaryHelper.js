@@ -348,7 +348,7 @@ class UGroupBoundaryHelper extends Mesh {
                 this,
                 '경계 형상을 갱신하는 중 오류가 발생하였습니다. 원인: '
                     + (error instanceof Error ? error.message : String(error)),
-                '*code=>'
+                '2613628'
             );
             throw error;
         }

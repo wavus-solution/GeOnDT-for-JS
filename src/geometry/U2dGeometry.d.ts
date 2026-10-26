@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -29,7 +29,7 @@ import type { OLFeature, OLFill, OLGeometry, OLStroke, OLStyle } from "../types/
 declare class U2dGeometry {
     /**
      * 2D 도형을 생성합니다(주로 하위 클래스에서 상속하여 사용합니다). <br>
-     * 채우기·외곽선 스타일과 OpenLayers Feature를 함께 만들며, 좌표는 비어 있는 상태로 시작합니다. <br>
+     * 기본 생성은 빈 Feature와 스타일을 준비하며, `sourceFeature`가 있으면 원본을 그대로 연결하고 OL 스타일은 첫 조회까지 만들지 않습니다. <br>
      * 좌표는 만든 뒤 `setPosition`이나 `addPosition`으로 넣습니다. <br>
      *
      * @param {U2dGeometryCO} [opt={}] 생성 옵션 (이름·채우기색·외곽선 색·외곽선 두께·검색 제외·편집 잠금) <br>
@@ -64,7 +64,7 @@ declare class U2dGeometry {
      */
     strokeWidth: number;
     /**
-     * 도형을 이루는 좌표입니다(EPSG:3857). <br>
+     * 순차 입력에서 확정한 월드 좌표(EPSG:3857)입니다. 미리보기 점은 포함하지 않습니다. <br>
      * 도형 종류에 따라 점·선·폴리곤 형태가 다르며, 자세한 형태는 {@link U2dCoordinate}에 정리되어 있습니다. <br>
      *
      * @type {U2dCoordinate}
@@ -108,6 +108,8 @@ declare class U2dGeometry {
      */
     style: OLStyle;
     /**
+     * 현재 표시 중인 임시 마지막 좌표입니다.
+     *
      * @type {Array<number>|undefined}
      *
      * @ignore
@@ -139,6 +141,10 @@ declare class U2dGeometry {
      * @ignore
      */
     _label: U2dLabel | undefined;
+    _disposed: boolean;
+    _ownsFeature: boolean;
+    /** @type {Set<function(): void>} */
+    _disposeListeners: Set<() => void>;
     /**
      * 입력 좌표 배열을 각 도형 종류에 맞는 좌표 형식으로 변환하는 추상 메서드입니다. <br>
      * 하위 클래스(선·다각형 등)에서 재정의하여 사용합니다. <br>
@@ -164,6 +170,13 @@ declare class U2dGeometry {
      */
     dispose(): void;
     /**
+     * 도형 해제 시 연결을 정리할 함수를 등록합니다.
+     * @param {function(): void} listener 해제 통지를 받을 함수입니다.
+     * @returns {function(): void} 등록을 해제하는 함수입니다.
+     * @ignore
+     */
+    addDisposeListener(listener: () => void): () => void;
+    /**
      * 이 도형을 검색 대상에서 제외할지 여부를 설정합니다. <br>
      * Feature가 만들어져 있으면 Feature에도 같은 값을 함께 반영합니다. <br>
      *
@@ -179,7 +192,7 @@ declare class U2dGeometry {
     /**
      * 이 도형을 편집하지 못하게 잠글지 여부를 설정합니다. <br>
      * 잠그면 `setStyle`·`setFillColor`·`setStrokeColor`·`setStrokeWidth`가 값을 바꾸지 않고 넘어갑니다. <br>
-     * 잠금을 켜는 경우에만 Feature에 반영되므로, 한 번 잠근 Feature는 `false`를 넣어도 Feature 쪽 표시가 남습니다. <br>
+     * 잠금과 해제 모두 원본 Feature에 반영합니다. <br>
      *
      * @param {boolean} nonChanged `true`면 편집을 잠그고 `false`면 잠금을 풉니다 <br>
      */
@@ -190,6 +203,101 @@ declare class U2dGeometry {
      * @returns {boolean} `true`면 스타일과 색상을 바꾸는 함수가 동작하지 않는 상태입니다 <br>
      */
     getNonChanged(): boolean;
+    /**
+     * 현재 원본의 스타일·표시·검색·편집·라벨 상태를 반환합니다. 좌표와 변환값은 포함하지 않습니다.
+     *
+     * @returns {U2dGeometryParam} 다른 도형의 setParam에 전달할 수 있는 현재 값입니다. 미지정 스타일은 undefined입니다.
+     */
+    getParam(): U2dGeometryParam;
+    /**
+     * 지정한 항목만 변경합니다. null·undefined는 무시하며 좌표 변환은 기존 좌표 API를 사용합니다.
+     *
+     * @param {U2dGeometryParam} [param={}] 적용할 스타일과 상태입니다.
+     * @throws {TypeError|RangeError} 값의 형식이나 범위가 잘못되면 변경 전에 발생합니다.
+     */
+    setParam(param?: U2dGeometryParam): void;
+    /**
+     * 하이라이트·숨김 중에는 보관한 편집 스타일을 반환합니다. 조회로 OL 자원을 만들지 않습니다.
+     *
+     * @returns {OLStyle|undefined} 현재 편집 대상인 단일 스타일입니다.
+     *
+     * @ignore
+     */
+    _getSourceStyle(): OLStyle | undefined;
+    /**
+     * 원본에 명시한 값만 읽어 레이어에서 상속하는 기본 스타일을 보존합니다.
+     *
+     * @returns {U2dGeometryParam & Partial<{fillColor: string, strokeColor: string}>} 현재 스타일과 표시 상태입니다.
+     *
+     * @ignore
+     */
+    _getStyleValues(): U2dGeometryParam & Partial<{
+        fillColor: string;
+        strokeColor: string;
+    }>;
+    /** @returns {string|undefined} 현재 채움 색상이며 미지정이면 undefined입니다. */
+    getFillColor(): string | undefined;
+    /** @returns {string|undefined} 현재 외곽선 색상이며 미지정이면 undefined입니다. */
+    getStrokeColor(): string | undefined;
+    /** @returns {number|undefined} 현재 외곽선 두께이며 미지정이면 undefined입니다. */
+    getStrokeWidth(): number | undefined;
+    /** @returns {number|undefined} 명시 투명도를 우선한 채움 불투명도이며 미지정이면 undefined입니다. */
+    getFillOpacity(): number | undefined;
+    /** @returns {number|undefined} 명시 투명도를 우선한 외곽선 불투명도이며 미지정이면 undefined입니다. */
+    getStrokeOpacity(): number | undefined;
+    /**
+     * 채움의 불투명도를 바꾸고 연결된 레이어에 변경을 알립니다.
+     *
+     * 이전 전역값과 같아도 명시한 편집으로 전달하며 형상 이동과 구분합니다. <br>
+     *
+     * @param {number} opacity 불투명도입니다. 0은 투명, 1은 불투명입니다.
+     * @throws {TypeError|RangeError} 0~1 범위의 유한한 숫자가 아니면 발생합니다.
+     */
+    setFillOpacity(opacity: number): void;
+    /**
+     * 외곽선의 불투명도를 바꾸고 연결된 레이어에 변경을 알립니다.
+     *
+     * 이전 전역값과 같아도 명시한 편집으로 전달하며 형상 이동과 구분합니다. <br>
+     *
+     * @param {number} opacity 불투명도입니다. 0은 투명, 1은 불투명입니다.
+     * @throws {TypeError|RangeError} 0~1 범위의 유한한 숫자가 아니면 발생합니다.
+     */
+    setStrokeOpacity(opacity: number): void;
+    /**
+     * 형상 속성을 제외한 사용자 속성의 얕은 복사본을 반환합니다.
+     *
+     * @returns {KeyValue} 현재 원본의 사용자 속성입니다. 해제된 도형은 빈 객체입니다.
+     */
+    getProperties(): KeyValue;
+    /**
+     * 사용자 속성을 JSON으로 깊은 복사하여 전체 교체합니다. 원본 형상과 ID는 보존합니다.
+     *
+     * @param {KeyValue|string} input 속성 객체 또는 JSON 문자열입니다. 형상 속성은 무시합니다.
+     * @throws {SyntaxError|TypeError} JSON 변환이 불가능하거나 객체 형식이 아니면 변경 전에 발생합니다.
+     */
+    setProperties(input: KeyValue | string): void;
+    /**
+     * 없는 사용자 속성만 추가합니다. 빈 키와 null·undefined는 무시합니다.
+     *
+     * @param {string} key 추가할 속성 이름입니다.
+     * @param {unknown} value JSON으로 보관할 값입니다.
+     * @throws {TypeError} JSON 변환이 불가능하거나 예약 키이면 발생합니다.
+     */
+    addProperties(key: string, value: unknown): void;
+    /**
+     * 기존 사용자 속성의 값만 변경합니다. 없는 키와 null·undefined는 무시합니다.
+     *
+     * @param {string} key 변경할 속성 이름입니다.
+     * @param {unknown} value JSON으로 보관할 새 값입니다.
+     * @throws {TypeError} JSON 변환이 불가능하면 발생합니다.
+     */
+    changeProperties(key: string, value: unknown): void;
+    /**
+     * 사용자 속성을 제거합니다. 형상과 원본 ID는 보존합니다.
+     *
+     * @param {string} key 제거할 속성 이름입니다.
+     */
+    removeProperties(key: string): void;
     /**
      * 도형에 저장해 둔 사용자 정의 정보를 반환합니다. <br>
      *
@@ -218,15 +326,22 @@ declare class U2dGeometry {
      * 외부에서 읽어 온 Feature를 이 클래스로 감싸 다룰 때 사용합니다. <br>
      *
      * 연결하면서 Feature가 가진 Geometry·속성·검색 제외·편집 잠금·좌표를 읽어 이 도형의 값으로 덮어씁니다. <br>
-     * 반대로 스타일은 이 도형이 갖고 있던 것을 Feature에 씌웁니다. <br>
+     * 원본 스타일을 보존하며, 기본적으로 외부 Feature의 해제 책임은 원래 소유자에게 있습니다. <br>
+     * 스타일이 없는 원본에는 도형의 기본 스타일을 연결합니다. <br>
+     * 다른 Feature를 연결하면 기존 미리보기 점을 종료합니다. <br>
+     * 레이어 연결 중에는 Feature 자체를 교체하지 않습니다. 형상은 `getFeature().setGeometry()`로 교체합니다. <br>
      * `feature`가 없으면 콘솔에 메시지를 남기고 아무것도 바꾸지 않습니다. <br>
      *
      * @param {OLFeature} feature 연결할 OpenLayers Feature <br>
+     * @param {boolean} [ownsFeature=false] 내부에서 생성한 원본의 해제 책임까지 넘길 때만 true입니다.
+     * @throws {TypeError} 매개체에서 원본 OpenLayers Feature를 찾을 수 없으면 발생합니다.
+     * @throws {Error} 레이어 연결이 남은 도형의 Feature를 교체하면 발생합니다.
      */
-    setFeature(feature: OLFeature): void;
+    setFeature(feature: OLFeature, ownsFeature?: boolean): void;
     /**
      * 이 도형이 사용하는 OpenLayers Geometry 객체를 반환합니다. <br>
      * 좌표나 경계 상자를 OpenLayers API로 직접 계산할 때 사용합니다. <br>
+     * 원본 형상이 교체되었으면 순차 입력 좌표를 맞추고 이전 미리보기 점을 종료합니다. <br>
      *
      * @returns {OLGeometry|undefined} 이 도형이 쓰고 있는 Geometry. 하위 클래스가 만들기 전이면 `undefined` <br>
      */
@@ -238,16 +353,29 @@ declare class U2dGeometry {
      * 편집이 잠겨 있으면(`nonChanged`) 아무것도 바꾸지 않고 넘어갑니다. <br>
      * 도형이 하이라이트 상태이면 화면에 바로 적용하지 않고 하이라이트가 끝난 뒤 쓰도록 보관합니다. <br>
      *
+     * 이전 전역값과 같아도 명시한 편집으로 전달하며 형상 이동과 구분합니다. <br>
+     *
      * @param {OLStyle} style 적용할 OpenLayers 스타일 객체 <br>
      */
     setStyle(style: OLStyle): void;
     /**
      * 도형에 적용된 현재 스타일을 반환합니다. <br>
-     * 이 도형이 쓰고 있는 객체를 그대로 돌려주므로, 돌려받은 스타일을 고치면 도형에도 반영됩니다. <br>
+     * 첫 조회에만 필요한 OL 리소스를 만들고 이후에는 같은 객체를 반환합니다. 원본에 없던 기본 스타일을 조회만으로 원본에 지정하지 않습니다. <br>
+     * 반환 스타일을 직접 수정한 뒤 원본 Feature의 `changed()`를 호출하면 연결된 레이어에도 반영됩니다. <br>
+     * 원형 이미지가 교체되었으면 이미지의 채움·외곽선을 우선하여 편의 필드와 지연 편집값을 동기화합니다. <br>
+     * 채움·외곽선 부재로 계산하는 투명 상태는 사용자 불투명도로 저장하지 않습니다. <br>
      *
      * @returns {OLStyle} 지금 적용 중인 OpenLayers 스타일 객체 <br>
      */
     getStyle(): OLStyle;
+    /**
+     * OL 스타일이 준비되기 전의 개별 지정값을 기존 원본 상태에 기록합니다.
+     *
+     * @param {'fillColor' | 'fillOpacity' | 'strokeColor' | 'strokeOpacity' | 'strokeWidth' | 'visible'} key 변경하는 스타일 항목입니다.
+     * @param {string | number | boolean} value 개별 지정하는 값입니다.
+     * @ignore
+     */
+    _setStyleValue(key: "fillColor" | "fillOpacity" | "strokeColor" | "strokeOpacity" | "strokeWidth" | "visible", value: string | number | boolean): void;
     /**
      * 도형의 이름을 바꿉니다. <br>
      * 이 클래스가 들고 있는 이름만 바뀌며, 만들 때 Feature에 넣어 둔 `name` 속성은 그대로 남습니다. <br>
@@ -264,30 +392,63 @@ declare class U2dGeometry {
     /**
      * 도형의 좌표를 통째로 바꿉니다. <br>
      * 기존 좌표를 버리고 넘긴 좌표로 도형을 다시 그립니다. <br>
+     * 표시 중이던 미리보기 점은 종료합니다. <br>
      * 좌표를 하나씩 이어 붙이려면 `addPosition`을 사용합니다. <br>
      *
-     * @param {U2dCoordinate} position 새로 지정할 지도 좌표 (EPSG:3857). 도형 종류에 맞는 형태로 넣습니다 <br>
+     * @param {U2dCoordinate} position 새로 지정할 좌표. 기본값은 월드 좌표(EPSG:3857)이며 도형 종류에 맞는 형태로 넣습니다 <br>
+     * @param {string} [srs='EPSG:3857'] 입력 좌표계이며 월드 좌표(EPSG:3857)와 위경도 좌표계(EPSG:4326)를 지원합니다.
+     * @throws {TypeError} 지원하지 않는 좌표계를 지정하면 발생합니다.
      */
-    setPosition(position: U2dCoordinate): void;
+    setPosition(position: U2dCoordinate, srs?: string): void;
     /**
-     * 도형의 현재 좌표를 반환합니다. <br>
-     * 이 도형이 들고 있는 배열을 그대로 돌려주므로, 돌려받은 배열을 고치면 도형의 좌표도 함께 바뀝니다. <br>
+     * 원본 도형의 현재 좌표를 반환합니다. <br>
+     * 순차 입력의 확정 좌표는 변경하지 않습니다. 반환 배열을 수정한 결과는 `setPosition()`으로 반영합니다. <br>
      *
-     * @returns {U2dCoordinate} 지도 좌표 (EPSG:3857). 도형 종류에 따라 배열 형태가 다릅니다 <br>
+     * @returns {U2dCoordinate} 지도 좌표(EPSG:3857). 도형 종류에 따라 배열 형태가 다릅니다 <br>
      */
     getPosition(): U2dCoordinate;
     /**
+     * 명시적으로 형상을 변경한 뒤 순차 입력에 사용할 확정 좌표를 맞춥니다.
+     * 미리보기 점은 변환된 위치로 따로 보관하여 다음 점 입력에 포함하지 않습니다.
+     *
+     * @ignore
+     */
+    _syncCoordinates(): void;
+    /**
+     * 지도 좌표에서 지정한 거리만큼 형상 전체를 이동합니다.
+     *
+     * @param {number} x 동서 방향의 이동량입니다.
+     * @param {number} y 남북 방향의 이동량입니다.
+     */
+    translate(x: number, y: number): void;
+    /**
+     * 지도 좌표의 기준점을 중심으로 도형을 회전합니다.
+     *
+     * @param {number} angle 반시계 방향의 회전량이며 단위는 라디안입니다.
+     * @param {Array<number>} [anchor] 지도 좌표의 기준점이며 생략하면 경계 상자 중심입니다.
+     */
+    rotate(angle: number, anchor?: Array<number>): void;
+    /**
+     * 지도 좌표의 기준점을 중심으로 도형의 크기를 변경합니다.
+     *
+     * @param {number} x 동서 방향의 배율입니다.
+     * @param {number} [y] 남북 방향의 배율입니다.
+     * @param {Array<number>} [anchor] 기준점이며 생략하면 경계 상자 중심입니다.
+     */
+    scale(x: number, y?: number, anchor?: Array<number>): void;
+    /**
      * 도형 좌표 끝에 점을 하나 덧붙입니다. <br>
      * 마우스로 선이나 다각형을 한 점씩 그려 나갈 때 사용하며, 덧붙일 때마다 도형이 다시 그려집니다. <br>
+     * 표시 중이던 미리보기 점을 버리고 입력한 점만 확정합니다. <br>
      *
-     * 위경도로 넣으면 지도 좌표로 변환해 저장합니다. <br>
+     * 위경도 좌표계(EPSG:4326)로 넣으면 월드 좌표(EPSG:3857)로 변환해 저장합니다. <br>
      * 지원하지 않는 좌표계를 넣으면 콘솔에 지원 목록을 남기고 좌표를 넣지 않습니다. <br>
      *
      * @param {Array<number>} position 덧붙일 좌표. `srs`가 위경도면 `[경도, 위도]`, 지도 좌표면 `[x, y]`입니다 <br>
-     * @param {string} [srs='EPSG:4326'] 넘긴 좌표의 좌표계. `EPSG:4326`(위경도) 또는 `EPSG:3857`(지도 좌표)만 받습니다 <br>
+     * @param {string} [srs='EPSG:4326'] 넘긴 좌표의 좌표계. 위경도 좌표계(EPSG:4326) 또는 월드 좌표(EPSG:3857)만 받습니다 <br>
      *
      * @example
-     * geom.addPosition([126.97409864653284, 37.56407015989075], 'EPSG:4326');
+     * geom.addPosition([126.97409864653284, 37.56407015989075], 'EPSG:4326'); // 위경도 좌표계(EPSG:4326) 입력
      */
     addPosition(position: Array<number>, srs?: string): void;
     /**
@@ -305,7 +466,9 @@ declare class U2dGeometry {
     /**
      * 도형 내부를 채우는 색상을 바꿉니다. <br>
      * 편집이 잠겨 있으면(`nonChanged`) 아무것도 바꾸지 않고 넘어갑니다. <br>
-     * 스타일 객체의 채우기 색만 바꾸므로 `fillColor` 프로퍼티 값은 그대로 남습니다. <br>
+     * 원본 스타일과 `fillColor` 프로퍼티를 함께 변경합니다. <br>
+     *
+     * 이전 전역값과 같아도 명시한 편집으로 전달하며 형상 이동과 구분합니다. <br>
      *
      * @param {string} color 적용할 채우기 색상. CSS 색 문자열로 적으며 `rgba()`로 투명도를 함께 지정할 수 있습니다 <br>
      */
@@ -313,7 +476,9 @@ declare class U2dGeometry {
     /**
      * 도형 외곽선의 색상을 바꿉니다. <br>
      * 편집이 잠겨 있으면(`nonChanged`) 아무것도 바꾸지 않고 넘어갑니다. <br>
-     * 스타일 객체의 외곽선 색만 바꾸므로 `strokeColor` 프로퍼티 값은 그대로 남습니다. <br>
+     * 원본 스타일과 `strokeColor` 프로퍼티를 함께 변경합니다. <br>
+     *
+     * 이전 전역값과 같아도 명시한 편집으로 전달하며 형상 이동과 구분합니다. <br>
      *
      * @param {string} color 적용할 외곽선 색상. CSS 색 문자열로 적습니다 <br>
      */
@@ -321,7 +486,9 @@ declare class U2dGeometry {
     /**
      * 도형 외곽선의 두께를 바꿉니다. <br>
      * 편집이 잠겨 있으면(`nonChanged`) 아무것도 바꾸지 않고 넘어갑니다. <br>
-     * 스타일 객체의 외곽선 두께만 바꾸므로 `strokeWidth` 프로퍼티 값은 그대로 남습니다. <br>
+     * 원본 스타일과 `strokeWidth` 프로퍼티를 함께 변경합니다. <br>
+     *
+     * 이전 전역값과 같아도 명시한 편집으로 전달하며 형상 이동과 구분합니다. <br>
      *
      * @param {number} width 적용할 외곽선 두께 (픽셀). 화면 배율과 무관하게 같은 굵기로 보입니다 <br>
      */
@@ -372,6 +539,15 @@ declare class U2dGeometry {
      */
     hideLabel(): void;
     /**
+     * 현재 연결된 라벨의 표시 상태를 바꿉니다. 라벨이 없으면 아무것도 하지 않습니다.
+     *
+     * @param {boolean} visible 라벨을 표시할지 여부입니다.
+     * @throws {TypeError} 표시 여부가 boolean이 아니면 발생합니다.
+     */
+    setShowLabel(visible: boolean): void;
+    /** @returns {boolean} 현재 연결된 라벨의 표시 상태이며 라벨이 없으면 false입니다. */
+    getShowLabel(): boolean;
+    /**
      * 도형을 지도에 다시 보이게 합니다. <br>
      * `hide`로 감춰 둔 도형에 원래 스타일을 되돌려 표시합니다. <br>
      */
@@ -379,6 +555,7 @@ declare class U2dGeometry {
     /**
      * 도형을 지도에서 감춥니다. <br>
      * 도형을 지우지 않고 빈 스타일을 씌워 보이지 않게만 하므로, `show`로 다시 표시할 수 있습니다. <br>
+     * 숨기기 전에 원본에 적용된 최신 단일 스타일을 보관합니다. <br>
      * 감춘 상태에서도 도형은 남아 있어 검색이나 좌표 조회에는 그대로 잡힙니다. <br>
      */
     hide(): void;
@@ -389,6 +566,10 @@ declare class U2dGeometry {
      * U2dGeometry 생성자 옵션 <br>
      */
     type U2dGeometryCO = {
+        /**
+         * 전체 형상을 가진 원본 Feature입니다. 빈 형상·기본 OL 스타일을 만들지 않고 빌려 연결합니다. <br>
+         */
+        sourceFeature?: OLFeature;
         /**
          * 도형을 구분하는 이름. 레이어에서 도형을 찾을 때 쓰며, 넣지 않거나 빈 문자열이면 무작위 GUID 문자열이 자동으로 만들어집니다 <br>
          */
@@ -435,7 +616,7 @@ declare class U2dGeometry {
      * - 선: `[[x, y], ...]` <br>
      * - 폴리곤: `[[[x, y], ...], ...]` <br>
      */
-    type U2dCoordinate = Array<number> | Double_Array<number> | Triple_Array<number>;
+    type U2dCoordinate = Array<number> | Double_Array<number> | Triple_Array<number> | Quad_Array<number>;
 
 /**
      * 2D 도형 위에 함께 표시하는 라벨 객체입니다. <br>
@@ -443,4 +624,46 @@ declare class U2dGeometry {
      */
     type U2dLabel = U3dPOI | UCssBilboard;
 
-export type { U2dCoordinate, U2dGeometry, U2dGeometryCO, U2dLabel };
+/**
+     * 2D 도형의 공통 조회·부분 편집 파라미터입니다. 좌표·회전·배율은 포함하지 않습니다.
+     */
+    type U2dGeometryParam = {
+        /**
+         * 채움 색상입니다.
+         */
+        fillColor?: three.ColorRepresentation | Array<number>;
+        /**
+         * 채움 불투명도(0~1)입니다. 색상의 알파보다 우선합니다.
+         */
+        fillOpacity?: number;
+        /**
+         * 외곽선 색상입니다.
+         */
+        strokeColor?: three.ColorRepresentation | Array<number>;
+        /**
+         * 외곽선 불투명도(0~1)입니다.
+         */
+        strokeOpacity?: number;
+        /**
+         * 외곽선 두께(0 이상)입니다.
+         */
+        strokeWidth?: number;
+        /**
+         * 도형 표시 여부입니다. 검색 제외와 별개입니다.
+         */
+        visible?: boolean;
+        /**
+         * 검색 제외 여부입니다.
+         */
+        excludeSearch?: boolean;
+        /**
+         * 스타일 편집 잠금입니다. false는 이번 편집 전에 해제하고 true는 편집 후 잠급니다.
+         */
+        nonChanged?: boolean;
+        /**
+         * 연결된 라벨의 표시 여부입니다. 라벨이 없으면 조회값은 false입니다.
+         */
+        showLabel?: boolean;
+    };
+
+export type { U2dCoordinate, U2dGeometry, U2dGeometryCO, U2dGeometryParam, U2dLabel };

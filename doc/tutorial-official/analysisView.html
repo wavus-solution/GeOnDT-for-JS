@@ -449,10 +449,10 @@
                 let subLayer = app.create3DFModelLayer(buldLayerConstruct);
                 // app.showLayer(subLayer.getName(), true);
                 //     addSelectOption(count + ':' + subLayer.getName());
-                subLayer.then(function (layer) {
+                subLayer.ready.then(function (layer) {
                     app.showLayer(layer.getName(), true);
                     count++;
-                }).fail(function (layer) {
+                }).catch(function (layer) {
 
                 });
                 return subLayer;
@@ -558,6 +558,9 @@
                     promise.then(function () {
                         //카메라 이동 종료시점
                         updateState();
+                    }).catch(error => {
+                        // 새 이동이나 사용자 중단은 정상적인 취소입니다.
+                        if (error?.name !== 'AbortError') console.error(error);
                     });
                 }
             });
@@ -568,6 +571,9 @@
                     promise.then(function () {
                         //카메라 이동 종료시점
                         updateState();
+                    }).catch(error => {
+                        // 새 이동이나 사용자 중단은 정상적인 취소입니다.
+                        if (error?.name !== 'AbortError') console.error(error);
                     });
                 }
             });
@@ -578,6 +584,9 @@
                     promise.then(function () {
                         //카메라 이동 종료시점
                         updateState();
+                    }).catch(error => {
+                        // 새 이동이나 사용자 중단은 정상적인 취소입니다.
+                        if (error?.name !== 'AbortError') console.error(error);
                     });
                 }
             });
@@ -588,6 +597,9 @@
                     promise.then(function () {
                         //카메라 이동 종료시점
                         updateState();
+                    }).catch(error => {
+                        // 새 이동이나 사용자 중단은 정상적인 취소입니다.
+                        if (error?.name !== 'AbortError') console.error(error);
                     });
                 }
             });

@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -9,7 +9,6 @@ import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/ty
 import type { UAnaly, UAnalyCO } from "./UAnaly.js";
 import type { U3dApp } from "../app/U3dApp.js";
 import type { ColorLike } from "../types/global.js";
-import type { deferred } from "../util/deferred.js";
 
 /**
  * ~extends import('@UAnaly').UAnaly <br>
@@ -70,9 +69,14 @@ declare class UAnalySkyLine extends UAnaly {
      * 화면 배열을 요청하여 하늘·지면·초과 영역의 픽셀 수를 집계합니다.
      * 분석이 비활성이거나 패스를 연결하지 못하면 반환 객체를 reject합니다.
      *
-     * @returns {ReturnType<typeof deferred>} 화면 집계 결과를 전달하는 deferred 객체
+     * @returns {Promise<{ground: number, sky: number, over: number, total: number}>} 화면 집계 결과를 전달하는 Promise
      */
-    getScreenInfo(): ReturnType<typeof deferred>;
+    getScreenInfo(): Promise<{
+        ground: number;
+        sky: number;
+        over: number;
+        total: number;
+    }>;
     #private;
 }
 

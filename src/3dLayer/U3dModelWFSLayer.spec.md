@@ -341,7 +341,7 @@ U3dModelWFSLayer extends U3dModelLayer 클래스 정의
             UCheckTime — 갱신 주기 검사기 생성; 생성자: {new UCheckTime()}
             UFileLoader — GetFeature 응답 로더 생성과 json 응답 형식 지정; 생성자: {new UFileLoader()}; 함수: {setResponseType()}
             Console API — baseUrl 누락 안내; 함수: {console.info()}
-            생성완료연결(self) — 외부에서 선택적으로 연결한 동적 생성 완료 함수; 함수: {resolve()}
+            U3dLayer — 초기화 완료 통지; 함수: {_resolveReady()}
 
         동작:
             원본 입력을 변경하지 않고 부모·WFS 옵션의 대소문자 별칭을 camelCase로 정규화한다.
@@ -364,7 +364,7 @@ U3dModelWFSLayer extends U3dModelLayer 클래스 정의
             SLD URL이 있으면 SLD를 로드하고, 없으면 준비 완료로 표시하여 모델 생성을 바로 허용한다.
             filter는 undefined로 초기화하고 styleFunction·heightFunction·depthFunction·labelFunction에 사용자 콜백을 저장한다.
             _tileModelMap·_modelIds에 빈 타일별 모델 맵과 모델 식별자 집합을, _loader에 json 응답 로더를, _labelMap에 빈 라벨 맵을 준비한다.
-            생성 promise가 연결되어 있으면 자기 자신으로 완료한다.
+            _resolveReady를 호출하여 ready를 자기 자신으로 완료한다.
 
     밝기와 대비 책임 그룹
         역할: 생성한 mesh의 밝기·대비 표현 값을 조회하고 현재 렌더 그룹 전체에 반영한다.

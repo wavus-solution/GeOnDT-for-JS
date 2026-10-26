@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -10,7 +10,7 @@ import type { U3dApp } from "../app/U3dApp.js";
 import type { UDEF } from "./UDEF.js";
 import type { UGroup } from "./UGroup.js";
 import type { UPassInfo } from "../postProcess/UPassInfo.js";
-import type { DeferredObject } from "../util/deferred.js";
+import type { DeferredPromise } from "../util/deferredPromise.js";
 
 /**
  * ~extends import('three').WebGLRenderer <br>
@@ -235,18 +235,18 @@ declare class URenderer extends three.WebGLRenderer {
      * 예약만 하고 곧바로 돌아오며 실제 값은 다음 draw()가 끝날 때 전달됩니다.<br>
      * 캡처가 되려면 렌더러를 만들 때 그리기 버퍼 보존 옵션이 켜져 있어야 합니다.
      *
-     * @param {DeferredObject<string>} capturePromise 결과 데이터 URL을 받을 객체
+     * @param {DeferredPromise<string>} capturePromise 결과 데이터 URL을 받을 Promise
      */
-    capture(capturePromise: DeferredObject<string>): void;
+    capture(capturePromise: DeferredPromise<string>): void;
     _capturePromises: any[];
     /**
      * 다음 프레임을 다 그린 뒤 화면을 Blob으로 넘겨받도록 예약합니다.<br>
      * 예약만 하고 곧바로 돌아오며 실제 값은 다음 draw()가 끝날 때 전달됩니다.<br>
      * capture()와 마찬가지로 다 그려진 canvas를 다시 읽어 가므로, 렌더러를 만들 때 그리기 버퍼 보존 옵션이 켜져 있어야 합니다.
      *
-     * @param {DeferredObject<Blob>} capturePromise 결과 Blob을 받을 객체
+     * @param {DeferredPromise<Blob | null>} capturePromise 결과 Blob을 받을 Promise. 브라우저가 이미지를 만들지 못하면 null로 완료
      */
-    captureToBlob(capturePromise: DeferredObject<Blob>): void;
+    captureToBlob(capturePromise: DeferredPromise<Blob | null>): void;
     _captureToBlobPromises: any[];
     /**
      * 후처리 composer로 한 프레임을 화면에 그립니다.<br>
@@ -288,8 +288,8 @@ declare class URenderer extends three.WebGLRenderer {
     /**
      * 화면의 한 점에 그려진 지점의 월드 좌표(EPSG:3857)를 읽어 옵니다.<br>
      * 장면을 좌표 기록용 재질로 한 번 더 그린 뒤 그 픽셀 하나를 읽으므로 호출할 때마다 추가 렌더가 일어납니다.<br>
-     * 읽은 값은 앱이 가진 영역 상자 범위로 환산해 돌려주며, 매번 같은 벡터를 재사용하므로 값을 보관하려면 복사해야 합니다.<br>
-     * 앱이 연결되어 있지 않으면 undefined를 반환합니다.
+     * 카메라 상대 위치에 카메라 월드 위치를 더해 반환하며, 같은 벡터를 재사용하므로 값을 보관하려면 복사해야 합니다.<br>
+     * 앱이 연결되어 있지 않거나 해당 픽셀에 유효한 표면이 없으면 undefined를 반환합니다.
      *
      * @param {number} [screenX=0] 읽을 지점의 화면 가로 위치이며 픽셀 단위
      * @param {number} [screenY=0] 읽을 지점의 화면 세로 위치이며 픽셀 단위

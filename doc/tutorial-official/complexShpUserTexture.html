@@ -467,7 +467,7 @@
             self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
             self._app.addLayer(this.layer);
         }
-        this.layer.then(() => {
+        this.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -497,7 +497,7 @@
     HeightLayer.prototype.create = function () {
         let self = this;
         self.layer = this._app.createHeightXYZLayer(self.options);
-        self.layer.then(() => {
+        self.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -733,7 +733,7 @@
             let count = 0;
             try {
                 app.loadingBar();
-                layer.ready(()=>{
+                layer.ready.then(()=>{
                     //레이어 이벤트 추가
                     // 호출 순서 : mesh-loaded -> mesh-drawn -> layer-loaded
 
@@ -768,6 +768,8 @@
                             app.fitLayerExtent(layer.getName(), false, -100);
                         });
                     }
+                }).catch(error => {
+                    console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
                 });
             } catch (e) {
                 confirm(e.message);

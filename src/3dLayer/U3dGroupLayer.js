@@ -111,14 +111,14 @@ class U3dGroupLayer extends U3dLayer {
     }
 
     /**
-     * 기반 생성자가 부착한 deferred를 자신으로 완료한다. 기반 initialize는 호출하지 않는다.
+     * 기반 생성자가 만든 ready Promise를 이 그룹 레이어 자신으로 완료합니다. 기반 initialize는 호출하지 않습니다.
      *
      * @override
      *
      * @ignore
      */
     initialize() {
-        (/** @type {DeferredObject<this>} */ (/** @type {unknown} */ (this))).resolve(this);
+        this._resolveReady();
     }
 
     /**
@@ -253,13 +253,14 @@ class U3dGroupLayer extends U3dLayer {
     }
 
     /**
-     * 자식 레이어를 그룹에 연결하고 경계를 누적한 뒤 목록에 추가한다. <br>
-     * 같은 객체가 이미 있거나 자식 이름과 그룹 자신의 이름이 느슨한 비교로 같으면 거절한다.
-     * 다른 자식끼리 이름이 같은지는 검사하지 않는다. <br>
-     * ready가 있으면 우선 사용하고, 없으면 then, 둘 다 없으면 즉시 표시 상태를 전달한다.
-     * 준비 성공 콜백은 실행 당시의 그룹 표시 상태를 읽는다. 준비 완료를 기다리지 않고 등록 결과를 반환한다.
-     * 준비 실패는 경로별 오류 로그로 알리며, 동기 예외는 앞선 변경을 되돌리지 않고 전달한다. <br>
-     * 최초 경계는 자식의 min·max 벡터를 공유하므로 이후 누적이 해당 자식 경계에도 반영될 수 있다.
+     * 자식 레이어를 그룹에 연결하고 경계를 누적한 뒤 목록에 추가합니다. <br>
+     * 같은 객체가 이미 있거나 자식 이름과 그룹 자신의 이름이 느슨한 비교로 같으면 거절합니다.
+     * 다른 자식끼리 이름이 같은지는 검사하지 않습니다. <br>
+     * ready Promise가 있으면 완료 후 표시 상태를 전달하고, 없으면 즉시 전달합니다.
+     * 준비 성공 콜백은 실행 당시의 그룹 표시 상태를 읽습니다. 준비 완료를 기다리지 않고 등록 결과를 반환합니다.
+     * 콜백 실행 전에 그룹·자식이 해제되거나 자식이 목록에서 제거되면 표시를 적용하지 않습니다.
+     * 준비 실패는 경로별 오류 로그로 알리며, 동기 예외는 앞선 변경을 되돌리지 않고 전달합니다. <br>
+     * 최초 경계는 자식의 min·max 벡터를 공유하므로 이후 누적이 해당 자식 경계에도 반영될 수 있습니다.
      *
      * @param {U3dGroupLayerChild} layer 추가할 자식 레이어
      * @returns {boolean} 목록에 추가하면 true. 이미 같은 객체가 있거나 그룹 이름과 충돌하면 false
@@ -270,16 +271,12 @@ class U3dGroupLayer extends U3dLayer {
             layer.setGroupLayer(this);
 
             if (defined(layer.ready)) {
-                layer.ready(() => {
+                layer.ready.then(() => {
+                    // 완료된 Promise의 콜백도 즉시 실행되지 않으므로 현재 수명과 소속을 다시 확인합니다.
+                    if (this.isDisposed() || layer.isDisposed() || !this._listlayer.includes(layer)) return;
                     layer.show(this._visible);
                 }).catch(() => {
                     U3dMessage.error(this._classtype, U3dMessage.CNT.LAYER.ERROR_ADD_GROUP_1, '2775786');
-                });
-            } else if (defined(layer.then)) {
-                layer.then(() => {
-                    layer.show(this._visible);
-                }).catch(() => {
-                    U3dMessage.error(this._classtype, U3dMessage.CNT.LAYER.ERROR_ADD_GROUP_1, '2775457');
                 });
             } else {
                 layer.show(this._visible);

@@ -71,18 +71,19 @@ U3dModelStaticLayer extends U3dModelBasicLayer 클래스 정의
         의존:
             U3dModelLayer — 공통 초기화와 장면 상태; 함수: {U3dModelLayer.prototype.initialize.call()}; 속성 읽기: {_scene, _object}; 속성 쓰기: {_bbox, _center}
             U3dModelBasicLayer — 모델 로더와 목록; 함수: {load()}; 속성 읽기: {_listModel}
-            U3dLayer — 완료 통지; 함수: {resolve()}
+            U3dLayer — 완료·실패 통지; 함수: {_resolveReady(), _rejectReady()}
             defined — 장면과 객체 존재; 함수: {defined()}
             THREE — 그룹 경계와 중심; 생성자: {new THREE.Box3(), new THREE.Vector3()}; 함수: {THREE.Box3.setFromObject(), THREE.Box3.getCenter()}
             장면과 그룹 — 객체 등록; 함수: {_scene.remove(), _renderBuffer.add()}
         동작:
             즉시 부모의 initialize가 아니라 U3dModelLayer.prototype.initialize를 현재 receiver로 호출한다.
             _scene과 _object가 모두 정의된 경우만 기존 _object를 장면에서 제거한다.
-            load가 truthy인 경우만 _listModel.length로 로딩 수를 설정한다. 빈 목록은 바로 자신을 resolve하며 경계와 중심을 새로 만들지 않는다.
-            현재 목록 길이를 조건으로 순회하여 각 항목의 load 반환값에 성공 콜백만 등록한다. 반환은 항상 undefined이며 전체 완료 Promise를 만들지 않는다.
+            load가 truthy인 경우만 _listModel.length로 로딩 수를 설정한다. 빈 목록은 바로 _resolveReady로 자신을 전달하며 경계와 중심을 새로 만들지 않는다.
+            현재 목록 길이를 조건으로 순회하여 각 항목의 load 반환값에 성공·실패 콜백을 등록한다. 반환은 항상 undefined이며 전체 완료 Promise를 만들지 않는다.
             각 성공 콜백은 로딩 수를 먼저 줄이고, 콜백 실행 시점의 _listModel[i]에서 crs와 ext를 읽어 객체에 기록한다.
             load가 truthy인 경우 등록한 성공 콜백에서 객체를 배치한 뒤 렌더 그룹에 추가한다.
-            이때 로딩 수가 정확히 0이면 그룹 경계의 새 Box3와 새 Vector3 중심을 저장하고 자신을 resolve한다. 실패 콜백·취소·재호출 세대 구분은 없다. 배치 예외는 이후 추가와 완료를 중단하며 이미 감소한 수를 복원하지 않는다.
+            이미 완료한 레이어의 추가 로딩 실패·배치 예외는 로그에 남기고 완료 상태를 유지한다.
+            이때 로딩 수가 정확히 0이면 그룹 경계의 새 Box3와 새 Vector3 중심을 저장하고 _resolveReady로 자신을 전달한다. 요청 실패와 성공 콜백의 배치 예외는 레이어 _rejectReady에 전달하며 감소한 수를 복원하지 않는다. 실패 콜백은 레이어 본체를 반환하지 않는다. 취소·재호출 세대 구분은 없다.
 
     override dispose() -> void
         의존:

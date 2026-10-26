@@ -16,7 +16,7 @@
 
 ### 1.3 주요 동작 방식
 
-생성 시 영역과 시작 레벨에 해당하는 지형·모델 루트를 쌍으로 만든다. 일반 업데이트는 위치·회전 차이 또는 명시적 갱신 요청을 판별한 뒤 루트에 작업을 전달하고 검색 완료 이벤트를 처리한다.
+생성 시 지정한 종류 또는 두 종류의 루트를 만들며 같은 컨테이너에서 지형·모델 루트를 독립적으로 추가·해제한다. 일반 업데이트는 위치·회전 차이 또는 명시적 갱신 요청을 판별한 뒤 루트에 작업을 전달하고 검색 완료 이벤트를 처리한다.
 
 ### 1.4 주요 사용처와 연계 대상
 
@@ -55,7 +55,7 @@ U3dQuadSet extends U3dObject 클래스 정의
     _frameStates: Map = 빈 Map
         루트 객체를 키로 지형·모델 작업 상태를 보관한다.
 
-    constructor(minx: number, maxx: number, miny: number, maxy: number, level: number, layers, drawArg, scene)
+    constructor(minx: number, maxx: number, miny: number, maxy: number, level: number, layers, drawArg, scene, type?: string)
         의존:
             U3dObject — 기반 객체 초기화; 생성자: {new U3dObject()}
             defined — 입력 존재 판정; 함수: {defined()}
@@ -71,16 +71,80 @@ U3dQuadSet extends U3dObject 클래스 정의
             시간 확인 객체와 Google 영역을 만든다.
             X방향 영역 폭을 두 번 제곱한 합의 제곱근에 0.5를 곱하여 반지름을 구한다.
             이 단위에서 초기화하지 않은 _center를 Sphere의 중심 인수로 전달하고 영역의 z=0부터 반지름까지 Box3를 만든다. [확인 Q-001]
-            빈 _frameStates와 UVisibleState를 만든 뒤 루트 초기화를 실행한다.
+            빈 _frameStates와 UVisibleState를 만든 뒤 type에 맞는 루트 초기화를 실행한다.
+
+    static isValidRegion(rectangle: UGeoRect | undefined, level: number | undefined, maxLevel: number) -> boolean
+        동작:
+            유한하고 양의 면적인 경계와 0 이상 최대 레벨 이하의 정수 시작 레벨인지 확인한다.
+
+    static createQuadTreeSet(rectangle: UGeoRect, level: number, drawArg: UDrawArg, scene: UScene, tree?: U3dQuadSet, type?: string) -> U3dQuadSet | null
+        동작:
+            기존 컨테이너가 전달되면 해당 인스턴스의 createQuadTreeSet(rectangle, level, type)에 위임한다. 신규 생성은 입력 검사 후 생성자를 호출한다.
+            입력이 유효하지 않으면 null을 반환한다. 반대쪽 루트가 있으면 같은 영역·시작 레벨이어야 하며 다르면 RangeError를 전달한다.
+            기존 컨테이너에 누락된 종류만 추가한다. 기존 컨테이너가 없으면 지정한 종류 또는 두 종류의 새 컨테이너를 생성한다.
+            초기 생성 실패의 준비된 루트 회수는 생성자·initialize 경로에서 처리한다.
+
+    createQuadTreeSet(rectangle: UGeoRect, level: number, type?: string) -> U3dQuadSet | null
+        동작:
+            현재 컨테이너의 그리기 인자·장면을 사용하여 누락된 종류만 보충한다. 이미 대상 종류가 있으면 현재 객체를 반환한다.
+            입력이 유효하지 않거나 해제된 객체이면 null을 반환한다. 기존 영역·시작 레벨과 다르면 RangeError를 전달한다.
+
+    restartQuadTree(rectangle: UGeoRect, level: number, type?: string) -> U3dQuadSet | null
+        동작:
+            입력과 종류를 검사하고 부분 재시작의 영역·시작 레벨이 기존과 다르면 해제 전에 거절한다. disposeQuadTree(type)로 대상만 해제하고 앱이 종료되었으면 null을 반환한다. 검증한 내부 생성은 정적 생성기를 다시 거치지 않는다.
+            반대쪽 루트가 남아 있으면 기존 컨테이너에 대상 종류를 다시 추가한다.
+            전체 또는 마지막 종류 교체는 새 컨테이너를 반환하여 해제된 컨테이너를 재사용하지 않는다.
+            생성·해제 오류는 호출자에게 전달하며 앱의 연결·완료 대기·화면 갱신은 앱이 담당한다.
+
+    disposeQuadTree(type?: string) -> void
+        동작:
+            지정한 종류의 해제 메서드를 호출하며 종류 생략 시 dispose()로 두 종류를 해제한다.
+            전체·개별 해제는 같은 종류별 루트·프레임 정리 경로를 사용한다.
+
+    isDisposed() -> boolean
+        동작:
+            컨테이너의 _disposed 상태를 반환한다. 한 종류의 루트가 남은 부분 해제 상태는 false이며 마지막 종류 해제 후 true가 된다.
 
     dispose() -> void
-        의존:
-            U3dQuadTile / U3dQuadModelTile — 하위 트리 해제; 함수: {dispose()}
-            UEventDispatcher — 이벤트 구독 해제; 함수: {off()}
         동작:
-            각 루트의 북서·북동·남서·남동 자식을 재귀적으로 먼저 방문한 뒤 해당 타일의 dispose(true)를 호출한다.
-            _listQuadtree를 빈 배열로 교체하고 off()로 이 객체의 이벤트 구독을 해제한다.
-            _frameStates와 _visibleState는 이 함수에서 비우지 않는다. [확인 Q-002]
+            disposeTerrainQuadTree(),disposeModelQuadTree()를 모두 시도하며 한 종류의 오류가 다른 종류 정리를 막지 않는다.
+            쿼드셋은 루트의 dispose만 호출하고 하위 재귀는 타일이 소유한다. 각 타일은 자식부터 재귀 해제하며 단일 실패는 원래 오류를, 복수 실패는 호출 순서대로 담은 errors 배열을 가진 Error로 전달한다. 하위에서 묶어 전달한 오류는 해당 객체로 보존한다.
+            마지막 루트 해제 시 _frameStates, LOD 임시 문맥과 이벤트 구독을 비우고 해제 상태로 표시한다.
+
+    getQuadTree(type: string) -> U3dQuadTile | U3dQuadModelTile | undefined
+        동작:
+            지정한 종류의 첫 루트를 반환한다. 해당 종류가 없거나 컨테이너가 해제되었으면 undefined를 반환한다.
+
+    getQuadTrees(type?: string) -> Array<U3dQuadTile | U3dQuadModelTile>
+        동작:
+            지정한 종류의 루트 목록을 반환하며 종류 생략 시 전체 목록을 반환한다.
+            반환 배열은 복사본이며 루트 객체의 참조는 유지한다. 해당 종류가 없거나 해제되었으면 빈 배열을 반환한다.
+
+    hasQuadTree(type: string) -> boolean
+        동작:
+            해제되지 않았고 해당 종류의 루트가 통합 목록에 있는지 반환한다.
+
+    createTerrainQuadTreeSet() -> void
+        동작:
+            저장한 영역·시작 레벨로 지형 루트만 준비한 뒤 통합 목록에 추가한다. 동일 종류가 이미 있거나 컨테이너가 해제되었으면 종료한다.
+            생성 실패 시 준비한 루트를 모두 정리하여 반대쪽 루트를 보존한다. 정리가 성공하면 생성 오류를 그대로 전달하며, 정리도 실패하면 생성 오류와 정리 오류를 순서대로 errors 배열을 가진 Error로 전달한다.
+            루트 변경 세대를 증가시키고 이전 위치를 무효화하여 다음 갱신을 실행한다.
+
+    createModelQuadTreeSet() -> void
+        동작:
+            지형 개별 생성과 같은 기준으로 모델 루트만 준비하고 추가한다.
+
+    disposeTerrainQuadTree() -> void
+        동작:
+            지형 루트와 해당 프레임 참조를 해제 알림 전에 목록에서 분리하고 가시 상태를 초기화한다.
+            모델 루트·프레임·캐시는 유지한다. 대상이 없으면 종료한다.
+            루트 변경 세대를 증가시키며 마지막 종류를 해제하면 컨테이너도 해제 상태가 된다.
+            모든 대상 루트를 처리한 뒤 단일 실패는 원래 오류를, 복수 실패는 errors 배열을 가진 Error로 전달한다.
+
+    disposeModelQuadTree() -> void
+        동작:
+            모델 루트와 해당 프레임만 분리·해제하며 지형 가시 상태를 유지한다.
+            나머지 해제 기준과 오류 전달은 지형 개별 해제와 같다.
 
     add(quadtree) -> false | void
         의존: defined — 타일 존재 판정; 함수: {defined()}
@@ -88,21 +152,27 @@ U3dQuadSet extends U3dObject 클래스 정의
             quadtree가 없으면 false를 반환한다.
             존재하면 _listQuadtree 끝에 추가하며 별도 값을 반환하지 않는다.
 
-    initialize() -> boolean
+    initialize(type?: string) -> boolean
         의존:
-            UMathEngine — 시작 레벨의 타일 좌표와 경계 계산; 정적 함수: {getGoogleToIndexXY(), TileBounds()}
-            U3dQuadTile — 지형 루트 생성; 정적 함수: {setStartLevel()}; 생성자: {new U3dQuadTile()}
-            U3dQuadModelTile — 모델 루트 생성; 생성자: {new U3dQuadModelTile()}
-            UEventDispatcher — 타일 완료 구독; 함수: {on()}
-            U3dEvent — 완료 이벤트 종류; 상수: {TILE.LOADED}
-            U3dApp — 완료된 타일의 자동 높이 보정; 함수: {execAutoHeightUpdate()}
+            UMathEngine — 시작 레벨의 타일 좌표와 경계 계산
+            U3dQuadTile / U3dQuadModelTile — 종류별 루트 생성
         동작:
-            _drawArg 또는 _drawArg._app이 없으면 false를 반환한다.
-            U3dQuadTile의 시작 레벨을 _rlevel로 설정한다.
-            영역 양끝의 타일 인덱스를 구하고 양끝을 포함한 Y·X 인덱스를 순회한다.
-            각 타일 경계의 최솟값·최댓값으로 지형·모델 루트를 각각 생성하여 이 객체에 추가한다.
-            TILE.LOADED에 앱의 execAutoHeightUpdate를 앱에 bind한 함수를 등록한다.
-            _initialized를 루트 목록이 비어 있지 않은지로 설정하고 반환한다.
+            앱이 없으면 false를 반환한다. 지정한 type이 지형·모델이 아니면 TypeError를 전달한다.
+            type을 생략하면 두 종류를 생성하고 지정하면 해당 종류만 생성한다. 루트 생성에 _rlevel을 직접 전달한다.
+            두 번째 종류 생성이 실패하면 먼저 생성한 종류도 정리한다.
+            TILE.LOADED에 쿼드셋 자신의 updateAutoHeight를 연결하고 초기화 여부를 반환한다. 앱의 이벤트 전달 메서드는 사용하지 않는다.
+
+    updateAutoHeight(tile: U3dQuadTile | undefined) -> void
+        의존:
+            U3dApp / UIndexManager — 앱 상태와 위치별 등록 항목 조회; 함수: {isDisposed(), getIndexManager(), search()}
+            U3dQuadTile — 소속·종류·높이 준비·경계·고도 조회
+        동작:
+            앱·쿼드셋이 해제되었거나 트리 교체·영역 적용 중이면 반환한다.
+            소속 지형 타일이 아니거나 해제된 타일·자식이 있는 타일·고도 미준비 타일이면 반환한다.
+            지형 루트 이름과 타일 레벨로 등록 항목의 중복 반영을 판정하며 새로운 지형에서는 같은 레벨도 다시 적용한다.
+            등록 좌표 minX+0.5,minY+0.5의 고도를 콜백에 전달하고 고도 0도 유효하게 반영한다.
+            지형 루트는 적용 시작 시 한 번만 조회한다. 콜백 중 앱·타일·저장한 지형 루트의 해제 상태를 확인하여 이전 타일의 나머지 반영을 중단한다. 모델만 교체되면 지형 반영을 계속한다.
+            고도 조회·등록 콜백의 오류는 원래 오류로 전달하며 추가 상태나 별도 목록은 만들지 않는다.
 
     setWireFrameRendering(drawArg, value) -> void
         의존: U3dQuadTile / U3dQuadModelTile — 와이어프레임 전파; 함수: {setWireFrameRendering()}
@@ -198,7 +268,7 @@ U3dQuadSet extends U3dObject 클래스 정의
             카메라 기준·자료 준비 또는 루트 순회의 정상 반환과 예외 모두 이전 저장소가 있으면 parameters를 undefined로 무효화하고 _lodUpdateContext를 이전 저장소로 복원한다.
             복귀한 바깥 순회의 다음 가시 표준 타일은 최신 상태로 공통 값을 다시 계산하고 이후 타일들이 재사용한다. 타일별 변경 검사나 추가 갱신 예약은 하지 않는다.
             실행을 생략한 갱신은 기존 저장소를 무효화하지 않는다. 공통 값은 비동기 작업 완료 시점까지 유지하지 않는다.
-            루트 전달을 마치면 검색 완료 처리를 실행한다.
+            루트 목록을 복사하여 순회하고 도중 루트 변경 또는 앱 해제가 발생하면 오래된 순회와 완료 통지를 중단한다. 루트 전달을 정상으로 마치면 검색 완료 처리를 실행한다.
 
     updateModel(box3) -> void
         의존:
@@ -208,24 +278,27 @@ U3dQuadSet extends U3dObject 클래스 정의
             UDrawArg — 앱 참조; 속성 읽기: {_app}
             U3dApp — 모델 실행기; 속성 읽기: {_modelProcess}
         동작:
-            모델 종류가 아닌 루트를 건너뛴다.
+            현재 모델 루트 목록을 복사하고 해당 종류가 없으면 종료한다. 순회 중 현재 모델 루트가 해제되면 중단한다.
             미초기화 모델 루트의 메시를 생성하고 루트별 UModelFrameState를 필요할 때 만들어 _frameStates에 먼저 등록한다.
             모델 루트의 update에 _drawArg, 상태, true와 box3를 전달한다.
-            모델 루트 처리가 끝나면 검색 완료 처리를 실행한다.
+            모델 루트의 해제 상태를 메시 초기화·순회 뒤에 확인한다. 모델 루트가 교체되면 이전 프레임 등록과 완료 알림을 중단하고 지형만 교체되면 모델 처리를 계속한다.
 
     redraw() -> void
         동작:
             사용할 수 없는 함수라는 오류를 코드 8119830으로 __GError__에 전달한다.
 
-raiseSearchedEvent(drawArg) -> void
+raiseSearchedEvent(drawArg, modelRoots?: Array<U3dQuadModelTile>) -> void
+    인터페이스:
+        현재 쿼드셋을 this로 받아 앱의 검색 완료와 작업 완료 알림을 연결한다.
     의존:
         UDrawArg — 검색 중인 타일 수 관리; 함수: {minusSearchTileCount(), getSearchTileCount(), resetSearchTileCount()}; 속성 읽기: {_app}
-        U3dApp — 검색 및 작업 완료 알림; 함수: {dispatchEvent(), createWorkingEndEvent()}; 상수: {EVENT.SEARCHED}
+        U3dApp — 수명·전환 상태 및 검색·작업 완료 알림; 함수: {isDisposed(), dispatchEvent(), createWorkingEndEvent()}; 속성 읽기: {_quadTreeChanging, _mapRegionApplying}; 상수: {EVENT.SEARCHED}
     동작:
-        drawArg가 없으면 종료한다.
+        drawArg의 현재 앱을 보관하며 쿼드셋이 해제되었거나 앱이 없거나 해제·트리 전환·지도 영역 전환 중이면 종료한다.
         검색 타일 수를 한 번 줄이고 남은 수가 0보다 크면 종료한다.
-        검색 수를 초기화한 뒤 앱이 없으면 종료한다.
-        앱의 SEARCHED 이벤트를 전달하고 createWorkingEndEvent를 호출한다.
+        검색 수를 초기화한 뒤 보관한 앱의 SEARCHED 이벤트를 전달한다.
+        이벤트 처리 뒤 쿼드셋이 해제되었거나 drawArg의 앱이 바뀌었거나 보관한 앱이 해제되었으면 종료한다.
+        SEARCHED 콜백 이후 일반 순회는 공통 루트 변경 세대를 확인한다. 모델 순회는 보관한 모델 루트의 수명만 확인하므로 지형 교체 후에도 createWorkingEndEvent로 모델 완료를 예약한다.
 ```
 
 > 공개 참조용 발췌본입니다. 비공개 구현 설명과 내부 관리 정보는 생략했습니다.

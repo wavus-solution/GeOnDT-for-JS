@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -16,7 +16,7 @@ import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/ty
  * @group helpers
  */
 declare class UBox3Helper extends LineSegments<BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> {
-    /** @type {WeakMap<import('three').BufferGeometry, number>} */ static "__#60@#geometryReferences": WeakMap<three.BufferGeometry, number>;
+    /** @type {WeakMap<import('three').BufferGeometry, number>} */ static "__#11407@#geometryReferences": WeakMap<three.BufferGeometry, number>;
     /**
      * 색상 키별 공유 재질 저장소다.
      * 기존 공개 Map에는 외부에서 임의의 키·값을 넣을 수 있으므로 기존 any 계약을 유지한다.
@@ -77,7 +77,7 @@ declare class UBox3Helper extends LineSegments<BufferGeometry<three.NormalBuffer
      *
      * @ignore
      */
-    static "__#60@#releaseMaterial"(colorKey: number, material: three.Material | Array<three.Material>): void;
+    static "__#11407@#releaseMaterial"(colorKey: number, material: three.Material | Array<three.Material>): void;
     /**
      * 표시할 box와 공유 재질을 연결한다. 색상 변환 등의 오류는 호출자에게 전달한다.
      *

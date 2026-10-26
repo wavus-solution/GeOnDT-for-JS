@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -14,7 +14,7 @@ import type { UTextureLoader } from "../core/loader/UTextureLoader.js";
 import type { UMesh } from "../core/mesh/UMesh.js";
 import type { UPlaneBufferGeometry } from "../geometry/UPlaneBufferGeometry.js";
 import type { Double_Array, GeoPosition, GeoPositionVector3, WorldPosition, WorldPositionVector3 } from "../types/global.js";
-import type { DeferredObject } from "../util/deferred.js";
+import type { DeferredPromise } from "../util/deferredPromise.js";
 
 /**
  * `편집지형`(CustomLand) 관련 클래스 <br>
@@ -85,6 +85,8 @@ declare class CustomLand {
     inclineShellCount: number;
     test: number;
     state: string;
+    /** @type {DeferredPromise<this> | undefined} */
+    _volumePromise: DeferredPromise<this> | undefined;
     _classtype: string;
     _inclineRate: any;
     _inclineEdit: any;
@@ -101,8 +103,8 @@ declare class CustomLand {
     _textureLoader: UTextureLoader | undefined;
     /** @type {import('three').Texture | undefined} */
     _texture: three.Texture | undefined;
-    /** @type {DeferredObject<void> | undefined} */
-    _textureReady: DeferredObject<void> | undefined;
+    /** @type {DeferredPromise<void> | undefined} */
+    _textureReady: DeferredPromise<void> | undefined;
     _disposed: boolean;
     /**
      * 편집지형 경사면의 Z값(Incline ZValue)을 반환하는 함수
@@ -243,7 +245,9 @@ declare class CustomLand {
      */
     setLandHeight(height: number): void;
     /**
-     * 편집 지형의 현재 부피를 반환하는 함수
+     * 편집 지형의 체적을 계산하고 결과가 저장된 객체로 완료합니다. <br>
+     * 최초 호출에서 계산을 시작하며, 반복 호출은 같은 Promise를 반환합니다.
+     *
      * @param {Function} [progressFunc]
      * @return {Promise<CustomLand>}
      */

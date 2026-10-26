@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -8,7 +8,127 @@ import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/e
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { UCssBilboard } from "../annotation/UCssBilboard.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
-import type { UGroup } from "../core/UGroup.js";
+import type { DispatchInputEvent, Listeners } from "../core/UEventDispatcher.js";
+import type { UGroup, UGroupCO, UGroupComponent, UGroupMember } from "../core/UGroup.js";
+import type { EventCallBack } from "../types/global.js";
+
+/** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
+interface GeOnDTMixedInstance_U3dPOI {
+"_drawArg": UDrawArg | undefined;
+"_boundingBox": three.Box3 | undefined;
+"name": string;
+"next"(): three.Object3D<three.Object3DEventMap> | undefined;
+"has"(object: UGroupMember): boolean;
+"add"(object: three.Object3D<three.Object3DEventMap>, ...args: any[]): this;
+"remove"(object: three.Object3D<three.Object3DEventMap>, ...args: any[]): this;
+"getComponents"(): UGroupComponent[];
+"getMembers"(): UGroupMember[];
+"clear"(): this;
+"fastClear"(): void;
+"getCenter"(): three.Vector3;
+"getChildren"(): UGroupMember[];
+"getParent"(component?: UGroupComponent | undefined): three.Object3D<three.Object3DEventMap> | undefined;
+"removeAlphaMap"(): void;
+"resetAlphaMap"(): void;
+"setAlphaTest"(alphaFilter: number): void;
+"setOpacity"(opacity: number): void;
+"setColor"(color: three.ColorRepresentation): void;
+"getId"(object: three.Object3D<three.Object3DEventMap> & Partial<{ getUid: () => string | number | undefined; _uuid: string | number; _id: string | number; }>): string | number | undefined;
+readonly "isGroup": true;
+readonly "isObject3D": true;
+readonly "id": number;
+"uuid": string;
+readonly "type": string;
+"parent": three.Object3D<three.Object3DEventMap> | null;
+"children": three.Object3D<three.Object3DEventMap>[];
+"up": three.Vector3;
+readonly "position": three.Vector3;
+readonly "rotation": three.Euler;
+readonly "quaternion": three.Quaternion;
+readonly "scale": three.Vector3;
+readonly "modelViewMatrix": three.Matrix4;
+readonly "normalMatrix": three.Matrix3;
+"matrix": three.Matrix4;
+"matrixWorld": three.Matrix4;
+"matrixAutoUpdate": boolean;
+"matrixWorldAutoUpdate": boolean;
+"matrixWorldNeedsUpdate": boolean;
+"layers": three.Layers;
+"visible": boolean;
+"castShadow": boolean;
+"receiveShadow": boolean;
+"frustumCulled": boolean;
+"renderOrder": number;
+"animations": three.AnimationClip[];
+"customDepthMaterial"?: three.Material<three.MaterialEventMap> | undefined;
+"customDistanceMaterial"?: three.Material<three.MaterialEventMap> | undefined;
+"static": boolean;
+"userData": Record<string, any>;
+"pivot": three.Vector3 | null;
+"onBeforeShadow"(renderer: three.WebGLRenderer, scene: three.Scene<three.Object3DEventMap>, camera: three.Camera, shadowCamera: three.Camera, geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, depthMaterial: three.Material<three.MaterialEventMap>, group: three.Group<three.Object3DEventMap>): void;
+"onAfterShadow"(renderer: three.WebGLRenderer, scene: three.Scene<three.Object3DEventMap>, camera: three.Camera, shadowCamera: three.Camera, geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, depthMaterial: three.Material<three.MaterialEventMap>, group: three.Group<three.Object3DEventMap>): void;
+"onBeforeRender"(renderer: three.WebGLRenderer, scene: three.Scene<three.Object3DEventMap>, camera: three.Camera, geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, material: three.Material<three.MaterialEventMap>, group: three.Group<three.Object3DEventMap>): void;
+"onAfterRender"(renderer: three.WebGLRenderer, scene: three.Scene<three.Object3DEventMap>, camera: three.Camera, geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, material: three.Material<three.MaterialEventMap>, group: three.Group<three.Object3DEventMap>): void;
+"applyMatrix4"(matrix: three.Matrix4): void;
+"applyQuaternion"(quaternion: three.Quaternion): this;
+"setRotationFromAxisAngle"(axis: three.Vector3, angle: number): void;
+"setRotationFromEuler"(euler: three.Euler): void;
+"setRotationFromMatrix"(m: three.Matrix4): void;
+"setRotationFromQuaternion"(q: three.Quaternion): void;
+"rotateOnAxis"(axis: three.Vector3, angle: number): this;
+"rotateOnWorldAxis"(axis: three.Vector3, angle: number): this;
+"rotateX"(angle: number): this;
+"rotateY"(angle: number): this;
+"rotateZ"(angle: number): this;
+"translateOnAxis"(axis: three.Vector3, distance: number): this;
+"translateX"(distance: number): this;
+"translateY"(distance: number): this;
+"translateZ"(distance: number): this;
+"localToWorld"(vector: three.Vector3): three.Vector3;
+"worldToLocal"(vector: three.Vector3): three.Vector3;
+"lookAt"(vector: three.Vector3): void;
+"lookAt"(x: number, y: number, z: number): void;
+"removeFromParent"(): this;
+"attach"(object: three.Object3D<three.Object3DEventMap>): this;
+"getObjectById"(id: number): three.Object3D<three.Object3DEventMap> | undefined;
+"getObjectByName"(name: string): three.Object3D<three.Object3DEventMap> | undefined;
+"getObjectByProperty"(name: string, value: any): three.Object3D<three.Object3DEventMap> | undefined;
+"getObjectsByProperty"(name: string, value: any, optionalTarget?: three.Object3D<three.Object3DEventMap>[] | undefined): three.Object3D<three.Object3DEventMap>[];
+"getWorldPosition"(target: three.Vector3): three.Vector3;
+"getWorldQuaternion"(target: three.Quaternion): three.Quaternion;
+"getWorldScale"(target: three.Vector3): three.Vector3;
+"getWorldDirection"(target: three.Vector3): three.Vector3;
+"raycast"(raycaster: three.Raycaster, intersects: three.Intersection<three.Object3D<three.Object3DEventMap>>[]): void;
+"intersectsFrustum"(frustum: three.Frustum | three.FrustumArray): boolean | undefined;
+"traverse"(callback: (object: three.Object3D<three.Object3DEventMap>) => any): void;
+"traverseVisible"(callback: (object: three.Object3D<three.Object3DEventMap>) => any): void;
+"traverseAncestors"(callback: (object: three.Object3D<three.Object3DEventMap>) => any): void;
+"updateMatrix"(): void;
+"updateMatrixWorld"(force?: boolean | undefined): void;
+"updateWorldMatrix"(updateParents: boolean, updateChildren: boolean, force?: boolean | undefined): void;
+"toJSON"(meta?: three.JSONMeta | undefined): three.Object3DJSON;
+"clone"(recursive?: boolean | undefined): this;
+"copy"(object: three.Object3D<three.Object3DEventMap>, recursive?: boolean | undefined): this;
+"dispose"(): void;
+"count"?: number | undefined;
+"occlusionTest"?: boolean | undefined;
+"addEventListener"(type: string, listener: EventCallBack, once?: boolean | undefined, name?: string | undefined): string | null;
+"hasEventListener"(type: string, listener: string | EventCallBack): boolean;
+"removeEventListener"(type: string, listener?: string | EventCallBack | undefined): void;
+"dispatchEvent"(event: string | DispatchInputEvent, data?: any): void;
+"once"(type: string, listener: EventCallBack, name?: string | undefined): string | null;
+"hasEventType"(type: string): boolean;
+"off"(type?: string | undefined, listener?: string | Function | undefined): void;
+"unkey"(type: string, key?: string | undefined): void;
+"removeEventListenerAll"(): void;
+"emit"(event: string | DispatchInputEvent, data?: any): void;
+"_listeners": Listeners | undefined;
+}
+
+declare const U3dPOI_base: Omit<typeof UGroup, "prototype"> & {
+    new (opt?: UGroupCO): GeOnDTMixedInstance_U3dPOI;
+    prototype: GeOnDTMixedInstance_U3dPOI;
+};
 
 /**
  * ~extends import('@union3d/core/UGroup') <br>
@@ -18,9 +138,10 @@ import type { UGroup } from "../core/UGroup.js";
  *
  * @group view
  * @summary 3D POI(Point of interest) 관련 클래스
- * @extends {UGroup}
+ * @extends {__GeOnDTMixinBase_U3dPOI}
+ 
  */
-declare class U3dPOI extends UGroup {
+declare class U3dPOI extends U3dPOI_base {
     /**
      * POI를 생성합니다. <br>
      * `position`(월드 좌표(EPSG:3857))은 필수이며, 지정하지 않으면 콘솔에 오류를 출력하고 초기화를 중단합니다. <br>
@@ -298,4 +419,4 @@ declare class U3dPOI extends UGroup {
         drawArg?: UDrawArg;
     };
 
-export type { U3dPOI, U3dPOICO };
+export type { GeOnDTMixedInstance_U3dPOI, U3dPOI, U3dPOICO, U3dPOI_base };

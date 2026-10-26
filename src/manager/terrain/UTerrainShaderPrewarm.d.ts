@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -44,6 +44,11 @@ type UTerrainShaderPrewarmCO = {
 };
 
 /**
+ * Three program의 지연 정보 조회 인터페이스입니다.
+ *
+ * @typedef {Partial<{getUniforms:function():unknown,getAttributes:function():unknown}>} TerrainShaderWarmupProgram
+ */
+/**
  * Terrain shader 실제 렌더 계측 callback 연결 상태입니다.
  *
  * @typedef {object} TerrainShaderProgramDiagnosticBinding
@@ -72,11 +77,13 @@ declare class UTerrainShaderPrewarm {
     _manager: UShaderTerrainDecalManager;
     /** @type {Map<string, import('@union3d/shader/UTerrainMaterial').UTerrainMaterial>} 앱 수명 동안 prewarm한 shader program 참조를 유지합니다. */
     templateCache: Map<string, UTerrainMaterial>;
+    /** @type {WeakMap<import('three').WebGLRenderer, number>} renderer별 program 참조를 분리하는 앱 수명 식별자입니다. */
+    rendererIds: WeakMap<three.WebGLRenderer, number>;
     /** @type {Set<string>} 실제 렌더 계측을 마친 prewarm cache key입니다. */
     diagnosedWarmupCacheKeys: Set<string>;
     /** @type {Map<import('three').Mesh, TerrainShaderProgramDiagnosticBinding>} mesh별 렌더 계측 callback 연결입니다. */
     programDiagnosticBindings: Map<three.Mesh, TerrainShaderProgramDiagnosticBinding>;
-    /** @type {number} 아직 실제 렌더를 확인하지 못한 prewarm 수입니다. */
+    /** @type {number} 비동기 컴파일과 지연 정보 조회를 기다리는 prewarm 수입니다. */
     warmupPendingCount: number;
     /**
      * @type {Set<import('@union3d/shader/UTerrainMaterial').UTerrainMaterial>} compileAsync 완료를 기다리는 warm material입니다.
@@ -84,6 +91,18 @@ declare class UTerrainShaderPrewarm {
      * 정리는 cache에서만 먼저 빼고 실제 dispose는 compile이 끝난 뒤에 수행합니다.
      */
     pendingWarmupMaterials: Set<UTerrainMaterial>;
+    /**
+     * 적용할 현재 변형의 준비 완료 여부를 반환합니다.
+     * 지원 범위 밖이거나 준비 실패로 제거된 변형은 기존 최초 렌더 경로를 사용합니다.
+     *
+     * @param {TerrainMaterial} material 표시할 재질입니다.
+     * @param {Record<string, number|undefined>} [defines={}] 적용할 정의입니다.
+     * @param {import('three').Mesh} [mesh] 실제 표시 mesh입니다.
+     * @returns {boolean} 해당 프로그램의 준비를 기다리지 않으면 참입니다.
+     *
+     * @ignore
+     */
+    isProgramReady(material: TerrainMaterial, defines?: Record<string, number | undefined>, mesh?: three.Mesh): boolean;
     /**
      * Terrain shader program 계측 callback을 원래 상태로 복원합니다.
      *

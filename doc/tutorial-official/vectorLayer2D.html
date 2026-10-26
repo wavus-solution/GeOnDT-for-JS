@@ -631,30 +631,6 @@
             strokeColor: '#ffff00',
             strokeWidth: 2
         });
-        let movingCircleRegistered = false;
-        let movingCircleCommitInFlight = false;
-        let pendingMovingCircleCoordinates;
-
-        /**
-         * 이전 composite build 중 들어온 좌표는 마지막 값만 남기고 순서대로 커밋한다.
-         */
-        async function commitMovingCirclePosition() {
-            if (movingCircleCommitInFlight) return;
-            movingCircleCommitInFlight = true;
-            try {
-                while (pendingMovingCircleCoordinates) {
-                    const nextCoordinates = pendingMovingCircleCoordinates;
-                    pendingMovingCircleCoordinates = undefined;
-
-                    subVectorLayer.beginFeatureUpdate(movingCircle);
-                    movingCircle.setPosition(nextCoordinates);
-                    await subVectorLayer.commitFeatureUpdate();
-                }
-            } finally {
-                movingCircleCommitInFlight = false;
-            }
-        }
-
         /**
          * 현재 회전 각도로 원 중심점과 원의 월드 좌표를 계산하여 U2dPolygon의 위치를 갱신한다.
          */
@@ -682,15 +658,7 @@
             // 각도를 감소시키면 동쪽에서 남쪽으로 진행하므로 지도상에서 시계 방향으로 공전한다.
             orbitAngle = (orbitAngle - ORBIT_ANGLE_STEP) % TWO_PI;
 
-            if (movingCircleRegistered) {
-                // Build가 느린 동안에는 대기 좌표를 덮어써 중간 revision이 worker queue에 쌓이지 않게 합니다.
-                pendingMovingCircleCoordinates = [circleWorldCoordinates];
-                void commitMovingCirclePosition().catch(function (error) {
-                    console.error('동적 원 위치 커밋에 실패했습니다.', error);
-                });
-            } else {
-                movingCircle.setPosition([circleWorldCoordinates]);
-            }
+            movingCircle.setPosition([circleWorldCoordinates]);
 
             //렌더링 프레임 20프레임 시간까지는 idle 상태로 바꾸지 말고, work 상태로 유지하도록하는 API 호출, drawFast 가 이 호출되었다면 호출하지 않아도 됩니다.
             app.drawWork(20);
@@ -698,7 +666,6 @@
 
         updateMovingCircle();
         subVectorLayer.addGeometry(movingCircle);
-        movingCircleRegistered = true;
 
         const circleAnimationInterval = setInterval(updateMovingCircle, ANIMATION_INTERVAL_MS);
         window.addEventListener('pagehide', function () {

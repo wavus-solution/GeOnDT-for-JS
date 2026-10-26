@@ -383,6 +383,8 @@
                 layer.add(indoorLight); // Layer scene에 Object3D 객체 추가
                 //layer.remove(indoorLight); // Layer scene에 Object3D 객체 제거
 
+            }).catch(error => {
+                console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
             });
         });
 

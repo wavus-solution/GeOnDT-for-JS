@@ -821,7 +821,7 @@
 
         function initU3fModelLayers(name) {
             try {
-                let groupLayer = app.createModelGroupLayer({
+                let groupLayer = app.createGroupLayer({
                     maxlevel: 19,
                     minlevel: 17,
                     name: name
@@ -859,14 +859,14 @@
                                 makeU3FPackage: 1
                             };
                             let subLayer = app.create3DFModelLayer(options);
-                            if(subLayer !== false){
-                                subLayer.then(function (layer) {
+                            if(subLayer){
+                                subLayer.ready.then(function (layer) {
                                     groupLayer.addLayer(subLayer);
                                     if(i === infos.length -1){
                                         console.log("u3f model layer load");
                                         app.showLayer(groupLayer.getName(),true);
                                     }
-                                }).fail(function (layer) {
+                                }).catch(function (layer) {
 
                                 });
                             }

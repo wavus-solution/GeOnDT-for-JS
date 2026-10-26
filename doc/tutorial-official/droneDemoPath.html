@@ -991,9 +991,6 @@
         clearOverlayList(this);
         app.removeOverlay(this);
 
-        // ObjectInfo 분석모드 종료
-        const analy = app.getAnalysis('ObjectInfo');
-        analy.clear();
     }
 
     // 컴포넌트가 가지고 있는 view를 삭제하는 함수
@@ -1913,7 +1910,7 @@
             app.addLayer(vectorLayer3d);
             app.showLayer('vector', true);
 
-            let u3fGroupLayer = this.app.createModelGroupLayer({
+            let u3fGroupLayer = this.app.createGroupLayer({
                 maxlevel: 15,
                 minlevel: 15,
                 name: 'U3fGroupLayer'
@@ -1942,7 +1939,7 @@
                         maxlevel: infos[i].metaData.maxLevel
                     };
                     let layer = app.create3DFModelLayer(options);
-                    if (layer !== undefined) {
+                    if (layer) {
                         u3fGroupLayer.addLayer(layer);
                     }
                 }
@@ -1997,9 +1994,11 @@
 
             //+ 에니메이션 레이어 생성
             window.componentLayer = app.createMultipleComponentLayer(layeroption);
-            componentLayer.then(()=>{
+            componentLayer.ready.then(()=>{
                 app.showLayer( componentLayer.getName(), true );
                 app.endloadingBar();
+            }).catch(error => {
+                console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
             });
 
             let startCylinder_ = undefined;

@@ -27,7 +27,8 @@
 }
 
 .heatGeometry-add,
-.heatGeometry-select-target {
+.heatGeometry-select-target,
+.heatGeometry-move {
     color: #e0f2fe;
     border: 1px solid rgba(56, 189, 248, 0.55);
     border-radius: 8px;
@@ -44,8 +45,10 @@
 
 .heatGeometry-add:hover,
 .heatGeometry-select-target:hover,
+.heatGeometry-move:hover,
 .heatGeometry-add.is-active,
-.heatGeometry-select-target.is-active {
+.heatGeometry-select-target.is-active,
+.heatGeometry-move.is-active {
     color: #ffffff;
     border-color: #38bdf8;
     background: rgba(2, 132, 199, 0.78);
@@ -180,41 +183,211 @@
 }
 
 .heatGeometry-settings-panel .panel-content {
+    min-height: 0;
     max-height: none;
-    padding: 16px;
+    padding: 12px;
     overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #88bfd1 transparent;
+}
+
+.heatGeometry-distribution {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--theme-line);
+}
+
+.heatGeometry-distribution h3 span {
+    margin-right: 6px;
+    color: #fdba74;
+    font-size: 11px;
+}
+
+.heatGeometry-enabled-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: 11px;
+}
+
+.heatGeometry-enabled-row label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.heatGeometry-enabled-row input {
+    width: 13px;
+    height: 13px;
+    margin: 0;
+    accent-color: #fb923c;
+    cursor: pointer;
+}
+
+.heatGeometry-enabled-row > span {
+    color: var(--theme-muted);
+    font-size: 10px;
 }
 
 .heatGeometry-form {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    gap: 18px;
     margin-top: 16px;
 }
 
-.heatGeometry-form label {
+.heatGeometry-slider {
     display: grid;
-    gap: 5px;
+    gap: 10px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.heatGeometry-slider > span,
+.heatGeometry-radius,
+.heatGeometry-legend-labels,
+.heatGeometry-mode-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.heatGeometry-slider output,
+.heatGeometry-radius output {
+    display: inline;
+    padding: 0;
+    color: #fdba74;
+    font: inherit;
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+}
+
+.heatGeometry-slider input[type="range"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 100%;
+    min-width: 0;
+    height: 16px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+}
+
+.heatGeometry-slider input::-webkit-slider-runnable-track {
+    height: 4px;
+    border: 1px solid rgba(207, 235, 243, 0.4);
+    border-radius: 4px;
+    background: rgba(190, 222, 232, 0.28);
+}
+
+.heatGeometry-slider input::-moz-range-track {
+    height: 3px;
+    border: 1px solid rgba(207, 235, 243, 0.4);
+    border-radius: 4px;
+    background: rgba(190, 222, 232, 0.28);
+}
+
+.heatGeometry-slider input::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    margin-top: -6px;
+    border: 2px solid #55b8d9;
+    border-radius: 50%;
+    background: #b8ecff;
+    box-shadow: 0 2px 5px rgba(8, 40, 56, 0.4);
+}
+
+.heatGeometry-slider input::-moz-range-thumb {
+    width: 10px;
+    height: 10px;
+    border: 2px solid #55b8d9;
+    border-radius: 50%;
+    background: #b8ecff;
+    box-shadow: 0 2px 5px rgba(8, 40, 56, 0.4);
+}
+
+.heatGeometry-slider input:focus-visible {
+    outline: 2px solid #b8ecff;
+    outline-offset: 4px;
+    border-radius: 4px;
+}
+
+.heatGeometry-radius {
+    margin-top: 18px;
+    padding: 10px;
+    border-radius: 8px;
+    background: rgba(251, 191, 36, 0.08);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.heatGeometry-legend {
+    margin-top: 12px;
+}
+
+.heatGeometry-legend-bar {
+    height: 5px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #1d4ed8 0%, #22d3ee 20.833%, #facc15 45.833%, #f97316 70.833%, #ef4444 100%);
+}
+
+.heatGeometry-legend-labels {
+    margin-top: 6px;
     color: var(--theme-muted);
+    font-size: 9px;
+}
+
+.heatGeometry-distribution-note {
+    margin: 12px 0 0;
+    color: var(--theme-muted);
+    font-size: 11px;
+    line-height: 1.65;
+}
+
+.heatGeometry-mode-row {
+    margin-top: 18px;
     font-size: 11px;
 }
 
-.heatGeometry-form label:first-child {
-    grid-column: 1 / -1;
+.heatGeometry-mode-row strong {
+    color: #fdba74;
 }
 
-.heatGeometry-form input {
-    width: 100%;
-    min-width: 0;
+.heatGeometry-mode-row button {
+    padding: 3px 0;
+    color: var(--theme-muted);
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 10px;
+    cursor: pointer;
+}
+
+.heatGeometry-mode-row button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.heatGeometry-detail-message {
     box-sizing: border-box;
-    padding: 8px 9px;
-    color: var(--theme-text);
+    min-height: 39px;
+    margin: 9px 0 0;
+    padding: 10px;
     border: 1px solid var(--theme-line);
-    border-radius: 7px;
-    background: rgba(255, 255, 255, 0.07);
+    border-radius: 9px;
+    background: rgba(8, 34, 48, 0.55);
+    font-size: 11px;
+    line-height: 1.5;
 }
 
-.heatGeometry-apply,
 .heatGeometry-remove,
 .heatGeometry-disconnect {
     border: 1px solid transparent;
@@ -222,16 +395,8 @@
     cursor: pointer;
 }
 
-.heatGeometry-apply {
-    grid-column: 1 / -1;
-    padding: 9px 12px;
-    color: #fff;
-    border-color: #0284c7;
-    background: #0369a1;
-}
-
 .heatGeometry-targets {
-    margin-top: 18px;
+    margin-top: 0;
 }
 
 .heatGeometry-target-heading {
@@ -244,6 +409,13 @@
 .heatGeometry-select-target {
     flex: 0 0 auto;
     padding: 6px 9px;
+    font-size: 11px;
+}
+
+.heatGeometry-move {
+    width: 100%;
+    margin-top: 9px;
+    padding: 8px 10px;
     font-size: 11px;
 }
 
@@ -291,6 +463,12 @@
     color: #fecaca;
     border-color: rgba(248, 113, 113, 0.48);
     background: rgba(127, 29, 29, 0.35);
+}
+
+@media (max-width: 900px) {
+    .heatGeometry-settings-panel {
+        right: 24px;
+    }
 }
 
 @media (max-width: 560px) {

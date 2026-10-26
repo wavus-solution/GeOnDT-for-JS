@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -409,6 +409,9 @@ declare class U3dModelU3FLayer extends U3dModelLayer {
     testMesh(): void;
     /**
      * 원본 레이어 정보를 읽어 표시 범위와 패키지 로딩 설정을 초기화합니다. <br>
+     * 정보 요청·해석·부모 초기화에 실패하면 원래 사유로 레이어의 초기화를 거부합니다. <br>
+     * 삭제 시 진행 중인 초기화는 AbortError로 거부하며, 늦은 응답은 적용하지 않습니다. <br>
+     * 초기화가 진행 중이면 같은 정보 요청을 반환합니다. 실패 후 reset()하면 재시도할 수 있습니다. <br>
      * needXml이 false이면 부모 초기화와 완료 통지만 수행하며 Promise를 반환하지 않습니다. <br>
      * 패키지 JSON을 요청하는 경우 반환된 Promise와 별도로 초기화가 진행됩니다.
      *
@@ -442,7 +445,8 @@ declare class U3dModelU3FLayer extends U3dModelLayer {
     /**
      * 레이어 정보를 요청하고 원본 최소·최대 타일 레벨을 기록합니다. <br>
      * 요청 실패·중단은 false로, 형식 식별 실패는 undefined로 거부합니다. <br>
-     * 바이너리 해석 중 발생한 예외는 이 메서드에서 복구하지 않습니다.
+     * 요청 생성과 바이너리 해석의 예외는 원래 사유로 거부하며, 손상된 데이터를 복구하지 않습니다. <br>
+     * 레이어 삭제 시 대기 요청은 AbortError로 거부하고 늦은 응답은 해석하지 않습니다.
      *
      * @param {string} [url] 요청 URL이며 생략하면 createU3GURL의 결과 사용
      * @param {import('@UDrawArg').UDrawArg} [drawArg] 호출부 호환용 렌더링 문맥이며 현재 구현에서는 사용하지 않음
@@ -450,7 +454,9 @@ declare class U3dModelU3FLayer extends U3dModelLayer {
      */
     getLayerInfo(url?: string, drawArg?: UDrawArg): Promise<object>;
     /**
-     * 레이어 JSON 정보를 로드합니다.
+     * 레이어 JSON 정보를 로드합니다. <br>
+     * 요청 생성 예외는 원래 사유로, 기존 비동기 실패는 undefined로 거부합니다. <br>
+     * 레이어 삭제 시 대기 요청은 AbortError로 거부합니다.
      *
      * @param {string} url JSON 요청 URL
      * @returns {Promise<object>} JSON 정보 Promise
@@ -506,7 +512,8 @@ declare class U3dModelU3FLayer extends U3dModelLayer {
      */
     deletekeys(): void;
     /**
-     * 부모 레이어 해제를 시작하고 공간 색인 및 이 레이어의 공유 재질을 해제합니다.
+     * 진행 중인 초기화·정보 요청을 취소하고 부모 레이어·공간 색인·공유 재질을 해제합니다. <br>
+     * 같은 URL을 사용하는 다른 소비자의 다운로드는 유지합니다.
      *
      * @override
      *
@@ -821,6 +828,26 @@ declare class U3dModelU3FLayer extends U3dModelLayer {
 }
 
 /**
+     * U3F 레이어의 초기화와 정보 요청 소유권을 파일 내부에서 관리하는 상태입니다.
+     */
+    type U3FLoadState = {
+        /**
+         * 진행 중 초기화
+         */
+        initialization: undefined | {
+            request: undefined | DeferredObject<object>;
+            cancel: (arg0: unknown) => void;
+        };
+        /**
+         * 이 레이어가 소유한 정보·JSON 요청
+         */
+        requests: Map<DeferredObject<object>, {
+            loader: UFileLoader;
+            id: string;
+        }>;
+    };
+
+/**
      * U3F 파서가 생성한 불투명한 복원 입력입니다. <br>
      * 입력은 메시 생성 과정에서 소비되므로 완료 뒤 원본 버퍼의 보존을 기대하지 마십시오.
      */
@@ -1077,4 +1104,4 @@ declare class U3dModelU3FLayer extends U3dModelLayer {
      */
     type U3FFinishModelCallback = (owner: U3FFinishModelOwner, mesh: ModelMesh, obj: U3FParsedObj) => boolean | undefined;
 
-export type { U3FFinishModelCallback, U3FFinishModelOwner, U3FGetEditedModelIndexOwner, U3FImageSelectionState, U3FMergeModelMesh24Owner, U3FMergeModelMesh25Owner, U3FMergeModelOwner, U3FModelHooks, U3FModelRuntime, U3FParseTileInfoOwner, U3FParsedObj, U3FPreviewInput, U3FReadLayerInfoOwner, U3FRestoreModelMeshesOwner, U3FSetGroupsDivisionRefineOwner, U3FValidationMeshInfoOwner, U3dModelU3FLayer, U3dModelU3FLayerCO, U3dModelU3FLayerCO_Content, U3dModelU3FLayerComposedInfo };
+export type { U3FFinishModelCallback, U3FFinishModelOwner, U3FGetEditedModelIndexOwner, U3FImageSelectionState, U3FLoadState, U3FMergeModelMesh24Owner, U3FMergeModelMesh25Owner, U3FMergeModelOwner, U3FModelHooks, U3FModelRuntime, U3FParseTileInfoOwner, U3FParsedObj, U3FPreviewInput, U3FReadLayerInfoOwner, U3FRestoreModelMeshesOwner, U3FSetGroupsDivisionRefineOwner, U3FValidationMeshInfoOwner, U3dModelU3FLayer, U3dModelU3FLayerCO, U3dModelU3FLayerCO_Content, U3dModelU3FLayerComposedInfo };

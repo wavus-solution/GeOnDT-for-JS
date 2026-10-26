@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -31,7 +31,7 @@ type UAnalyContourStyleEntry = {
 };
 
 /**
- * ~extends import('@union3d/analy/UAnalyHeight').UAnalyHeightCO <br>
+ * ~extends UAnalyHeightCO <br>
  * UAnalyContour 생성자 옵션
  */
 type UAnalyContourCO_Content = {
@@ -74,7 +74,7 @@ type UAnalyContourCO_Content = {
 };
 
 /**
- * ~extends import('@union3d/analy/UAnalyHeight').UAnalyHeightCO <br>
+ * ~extends UAnalyHeightCO <br>
  * UAnalyContour 생성자 옵션
  */
 type UAnalyContourCO = Omit<Omit<UAnalyHeightCO, never> & UAnalyContourCO_Content, never>;
@@ -89,7 +89,7 @@ type UAnalyContourCO = Omit<Omit<UAnalyHeightCO, never> & UAnalyContourCO_Conten
  * @property {number} [opacity=1] 해당 고도 구간의 투명도
  */
 /**
- * ~extends import('@union3d/analy/UAnalyHeight').UAnalyHeightCO <br>
+ * ~extends UAnalyHeightCO <br>
  * UAnalyContour 생성자 옵션
  * @memberof UAnalyContour
  * @inner
@@ -105,7 +105,7 @@ type UAnalyContourCO = Omit<Omit<UAnalyHeightCO, never> & UAnalyContourCO_Conten
  * @property {number} [topoFadeStartDistance=2000] 등고선 투명도가 감소하기 시작하는 월드 좌표 기준 카메라 거리
  * @property {number} [topoFadeEndDistance=80000] 등고선이 완전히 투명해지는 월드 좌표 기준 카메라 거리
  *
- * @typedef {Omit<import('@union3d/analy/UAnalyHeight').UAnalyHeightCO, never> & UAnalyContourCO_Content} UAnalyContourCO
+ * @typedef {Omit<UAnalyHeightCO, never> & UAnalyContourCO_Content} UAnalyContourCO
  */
 /**
  * ~extends import('@union3d/analy/UAnalyHeight').UAnalyHeight <br>

@@ -595,7 +595,7 @@
             self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
             self._app.addLayer(this.layer);
         }
-        this.layer.then(() => {
+        this.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -625,7 +625,7 @@
     HeightLayer.prototype.create = function () {
         let self = this;
         self.layer = this._app.createHeightXYZLayer(self.options);
-        self.layer.then(() => {
+        self.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -735,9 +735,9 @@
             }).then((resolve) => {
                 if (resolve) {
                     setRoadUrl(indoorName).then((opt) => {
-                        layer = app.createModelTdsLayer(opt);
+                        layer = app.createTdsModelLayer(opt);
                         if (defined(layer)) {
-                            layer.ready.then(function (indoor) {
+                            layer.ready.then(function () {
                                 window.layerObject = layer;
                                 app.endloadingBar();
                                 app.fitLayerExtent(indoorName);
@@ -745,9 +745,10 @@
                                 layer.setGroupOriginPosition();
                                 initFloorGroup = layer.setFloorFromGroupName(4, 0, '층', '0');
                                 initFloor();
-                                indoor.fail(function (err) {
-                                    app.endloadingBar();
-                                })
+                            }).catch(error => {
+                                // 준비 실패나 후속 처리 오류에도 로딩 표시가 남지 않게 합니다.
+                                app.endloadingBar();
+                                console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
                             })
                         }
                     });

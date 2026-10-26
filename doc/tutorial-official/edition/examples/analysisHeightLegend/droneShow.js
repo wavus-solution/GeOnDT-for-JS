@@ -190,7 +190,7 @@ export function createDroneShow(app) {
                 ext: VERTICAL_DRONE_MODEL.ext
             }]
         });
-        await layer;
+        await layer.ready;
         // @example-code:end drone.layer
         if (state.disposed) return;
         state.layer = layer;

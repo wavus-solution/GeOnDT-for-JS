@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -14,7 +14,6 @@ import type { UDrawArg } from "../core/UDrawArg.js";
 import type { UDraw } from "../draw/UDraw.js";
 import type { Double_Array, GeoPosition, GeoPositionVector3, WorldPositionVector3 } from "../types/global.js";
 import type { OLFeature, OLStyle } from "../types/ol.js";
-import type { DeferredObject } from "../util/deferred.js";
 
 /**
  * ~extends import('@UAnaly').UAnaly <br>
@@ -190,15 +189,18 @@ declare class UAnalyCustomLand extends UAnaly {
     setSelectType(type: string): void;
     /**
      * 커스텀 지형의 feature 리스트를 반환하는 함수
+     *
+     * @override
      * @return {Array<OLFeature>} feature 리스트
      */
-    getFeatures(): Array<OLFeature>;
+    override getFeatures(): Array<OLFeature>;
     /**
      * @deprecated  addCustomLand() 메서드를 사용하세요.
      *
      * @param {DataOPT_Input} options
+     * @returns {Promise<void>} 추가 완료. 잘못된 입력이나 처리 오류는 거부합니다.
      */
-    addEditLand(options: DataOPT_Input): DeferredObject<void>;
+    addEditLand(options: DataOPT_Input): Promise<void>;
     /**
      * @deprecated getCustomLandList() 메서드를 사용하세요.
      */
@@ -206,6 +208,7 @@ declare class UAnalyCustomLand extends UAnaly {
     /**
      * 편집한 지형을 추가하는 기능
      * @param {DataOPT_Input} options
+     * @returns {Promise<void>} 추가 완료. 잘못된 입력이나 처리 오류는 거부합니다.
      *
      * @example
      * analy.addCustomLand({
@@ -214,16 +217,17 @@ declare class UAnalyCustomLand extends UAnaly {
      *   geoVertex: [{x: 129.154, y: 35.164, z: 15}]
      * });
      */
-    addCustomLand(options: DataOPT_Input): DeferredObject<void>;
+    addCustomLand(options: DataOPT_Input): Promise<void>;
     /**
      * 편집한 지형을 수정하는 기능
      * @param {string} id 수정할 편집지형 ID
      * @param {DataOPT_Input} option
+     * @returns {Promise<void> | undefined} 수정 완료 또는 입력·대상 지형이 없으면 undefined
      *
      * @example
      * analy.editCustomLand("editLand", { id: "editLand_update", height: 55, geoVertex: [{x: 129.154, y: 35.164, z: 15}] });
      */
-    editCustomLand(id: string, option: DataOPT_Input): DeferredObject<void>;
+    editCustomLand(id: string, option: DataOPT_Input): Promise<void> | undefined;
     /**
      * 편집된 지형 리스트를 반환하는 함수
      * @return {Array<import('@union3d/analy/CustomLand').CustomLand>}
@@ -254,7 +258,7 @@ declare class UAnalyCustomLand extends UAnaly {
      *
      * @example
      * analy.getVolume('customLand_ID').then(function(land){
-     *   var volume = land.getVolume();
+     *   var volume = land.volume;
      *   var difference = land.getDifference();
      * });
      */

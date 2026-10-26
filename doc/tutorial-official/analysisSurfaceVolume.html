@@ -1352,7 +1352,7 @@
             self._app.addLayer(self.layer);
         }
 
-        self.layer
+        self.layer.ready
             .then(function () {
                 self.ready.resolve();
             })
@@ -1377,7 +1377,7 @@
         const self = this;
 
         self.layer = self._app.createHeightXYZLayer(self.options);
-        self.layer
+        self.layer.ready
             .then(function () {
                 self.ready.resolve();
             })
@@ -1421,8 +1421,10 @@
             self.layer = new GeOnDT.model.U3dModelTilesLayer(option);
             if (self.layer !== undefined) {
                 self._app.addLayer( self.layer );
-                self.layer.then(()=>{
+                self.layer.ready.then(()=>{
                     self.ready.resolve();
+                }).catch(error => {
+                    self.ready.reject(error);
                 });
             }
 
@@ -1452,7 +1454,7 @@
 
     U3fGroupLayer.prototype.create = async function () {
         const self = this;
-        self.layer = self._app.createModelGroupLayer({
+        self.layer = self._app.createGroupLayer({
             name: self.options.name,
             maxlevel: self.options.maxlevel || 17,
             minlevel: self.options.minlevel || 17
@@ -1493,12 +1495,12 @@
                         : self.options.options.makeU3FPackage
                 };
                 const layer = self._app.create3DFModelLayer(layerInfoOption);
-                if (layer === false) {
+                if (!layer) {
                     loadedCount++;
                     resolveWhenLoaded();
                     continue;
                 }
-                layer.then(function () {
+                layer.ready.then(function () {
                     self.layer.addLayer(layer);
                     loadedCount++;
                     resolveWhenLoaded();
@@ -1532,7 +1534,7 @@
         const self = this;
         self.layer = new self._union3d.model.U3dModelWFSLayer(self.options);
         self._app.addLayer(self.layer);
-        self.layer.then(function () {
+        self.layer.ready.then(function () {
             self.ready.resolve();
         }, function (error) {
             self.ready.reject(error);

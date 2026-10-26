@@ -93,14 +93,14 @@ class U3dImageXYZLayer extends U3dImageLayer {
             // needXml 레이어는 기반 클래스가 ready를 자동 완료하지 않으므로 XML 적용 뒤 직접 완료합니다.
             self.readXml().then(() => {
                 self.#computeRectangle();
-                /** @type {*} */(self).resolve?.(self);
+                self._resolveReady();
             }).catch(error => {
                 const message = error instanceof Error ? error.message : String(error);
                 // 메타데이터 한 건의 오류가 전역 비동기 오류로 전파되어 다른 이미지 타일 작업까지 방해하지
                 // 않도록 이 레이어의 XML 적용만 중단하고 생성 옵션의 기본 범위를 유지합니다.
                 __GError__(self._classtype, `XML 메타데이터를 적용할 수 없습니다. ${message}`, '6223055');
 
-                /** @type {*} */(self).reject?.(error);
+                self._rejectReady(error);
             });
         }
         self._urls = expandUrl(self._baseUrl);

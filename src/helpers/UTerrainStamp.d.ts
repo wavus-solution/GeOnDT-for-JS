@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -72,19 +72,19 @@ type UTerrainStampRenderUniforms = {
         value: three.Vector4;
     };
     /**
-     * 단색 전용 program의 후보 상한이며, 0이면 범용 경로입니다.
+     * 단색 전용 program의 후보 상한입니다. 4/8/16은 고정 호출, 128은 동적 반복이며 0이면 범용 경로입니다.
      */
     plainRowLimit: {
         value: number;
     };
     /**
-     * 현재 타일의 row별 경계·내부·외부 판정입니다.
+     * 현재 타일의 후보별 정밀 판정(0)·내부(1)·외부(2)입니다. 128 경로는 CSS 픽셀 외곽선까지의 월드 거리 하한에 3을 더한 값도 사용합니다.
      */
     rowCoverage: {
         value: Float32Array;
     };
     /**
-     * 단색 후보의 색상과 유효 알파입니다.
+     * 4/8/16 후보 경로의 색상과 유효 알파입니다. 128 경로는 공유 metadata texture를 직접 읽습니다.
      */
     rowFill: {
         value: Float32Array;
@@ -220,7 +220,7 @@ type UTerrainStampParam = {
      */
     mappingFrame?: Array<UTerrainStampPointParam>;
     /**
-     * 이미지가 준비될 때까지 색으로 채우지 않고 기다릴지 여부입니다.
+     * 합성 대상 채움의 알파를 1로 취급할지 여부입니다. 이미지 준비 전의 투명 대기에는 영향을 주지 않습니다.
      */
     expectTexture?: boolean;
     /**
@@ -346,7 +346,7 @@ declare class UTerrainStamp {
      * object는 지금 그리는 지형 타일이며, 이 타일과 겹치는 도장만 남깁니다.<br>
      * renderer는 화면 배율과 렌더 프레임 번호를 제공합니다. 없으면 배율 1과 최대 256개 조합 보관을 사용합니다.<br>
      * 프레임 번호가 있으면 현재·직전 프레임의 후보 조합을 보호하여 256개를 넘는 활성 화면도 재사용합니다.<br>
-     * object를 넘기지 않으면 타일별로 걸러 내지 않고 이 레이어에 등록된 도장 전체를 그대로 사용합니다.
+     * object를 넘기지 않으면 전역 후보를 사용하며, 대상 영상이 지정된 mask는 덮임을 확인할 수 없어 보류합니다.
      */
     static updateRenderUniforms(layer: U3dLayer, renderContext?: Partial<{
         object: three.Object3D;
@@ -403,18 +403,18 @@ declare class UTerrainStamp {
      * @param {object} [opt] 도형과 표현을 한 번에 지정하는 생성 옵션입니다.
      * @param {boolean} [opt.visible=false] 표시 대상으로 삼을지 여부입니다.
      * @param {'polygon'|'circle'|'polyline'} [opt.type='polygon'] 도형 종류이며 다각형, 원, 선 중 하나입니다.
-     * @param {Array<import('three').Vector3|UTerrainStampPointLike>} [opt.points] 다각형의 꼭짓점 또는 선의 경유점 목록이며 월드 좌표(EPSG:3857)입니다.<br>
+     * @param {Array<import('three').Vector3|import('@union3d/helpers/UTerrainStamp').UTerrainStampPointLike>} [opt.points] 다각형의 꼭짓점 또는 선의 경유점 목록이며 월드 좌표(EPSG:3857)입니다.<br>
      * 다각형은 3개 이상, 선은 2개 이상이 필요하고 앞에서부터 16개까지만 사용합니다.
-     * @param {import('three').Vector3|UTerrainStampPointLike} [opt.center] 원의 중심이며 월드 좌표(EPSG:3857)입니다.
+     * @param {import('three').Vector3|import('@union3d/helpers/UTerrainStamp').UTerrainStampPointLike} [opt.center] 원의 중심이며 월드 좌표(EPSG:3857)입니다.
      * @param {number} [opt.radius] 원의 반지름이며 단위는 미터이고 0보다 커야 합니다.
      * @param {number} [opt.lineWidth=1] 선 도형의 두께이며 0보다 커야 합니다.
      * @param {'meters'|'pixels'} [opt.lineWidthUnits='meters'] 선 두께를 지상 거리(미터)로 볼지 화면 픽셀로 볼지 정합니다.<br>
      * meters이면 확대·축소해도 지상에서 같은 폭을 덮고, pixels이면 화면에서 같은 굵기로 보입니다.
-     * @param {string|number|import('three').Color} [opt.color='#00ffff'] 도장을 채울 색이며, 이미지를 쓰는 경우 이미지가 준비되기 전까지 이 색으로 보입니다.
+     * @param {string|number|import('three').Color} [opt.color='#00ffff'] 이미지가 지정되지 않은 도장을 채울 색입니다.
      * @param {number} [opt.opacity=1] 색으로 채울 때의 불투명도이며 0이면 완전히 투명하고 1이면 불투명합니다.
      * @param {string|number|import('three').Color} [opt.gradientColor] 지정하면 color에서 이 색으로 이어지는 그러데이션(gradient)으로 채웁니다.
      * @param {'vertical'|'horizontal'} [opt.gradientDirection='vertical'] 그러데이션이 이어지는 방향이며, 허용하지 않는 값은 vertical로 바뀝니다.
-     * @param {string} [opt.texture] 도장 영역에 입힐 이미지 주소이며, 지정하지 않으면 색으로 채웁니다.
+     * @param {string} [opt.texture] 도장 영역에 입힐 이미지 주소이며, 준비될 때까지 투명하게 기다리고 지정하지 않으면 색으로 채웁니다.
      * @param {number} [opt.textureOpacity=1] 이미지로 채울 때의 불투명도이며 0 이상 1 이하로 제한됩니다.
      * @param {boolean} [opt.textureUseAlpha=true] 이미지 자체의 투명한 부분을 그대로 비칠지 여부이며, false이면 이미지 전체를 textureOpacity로 균일하게 덮습니다.
      * @param {number} [opt.textureScale=1] 이미지를 배치할 사각 영역을 중심 기준으로 넓히거나 좁히는 배율입니다.<br>
@@ -422,9 +422,9 @@ declare class UTerrainStamp {
      * @param {'stretch'|'contain'} [opt.textureFit='stretch'] 이미지를 도장 영역에 맞추는 방식이며, 허용하지 않는 값은 stretch로 바뀝니다.<br>
      * stretch는 도형을 감싸는 사각 영역에 이미지를 늘려 채우고 도형 밖으로 나간 부분은 보이지 않습니다.<br>
      * contain은 이미지를 꼭짓점 네 개에 맞춰 기울여 넣으며, 이미지를 쓰는 꼭짓점 4개짜리 다각형에서만 적용되고 그 밖에는 stretch처럼 동작합니다.
-     * @param {Array<import('three').Vector3|UTerrainStampPointLike>|null} [opt.mappingFrame] 이미지와 그러데이션이 기준으로 삼을 별도의 사각 영역이며 월드 좌표(EPSG:3857) 3~4개를 넣습니다.<br>
+     * @param {Array<import('three').Vector3|import('@union3d/helpers/UTerrainStamp').UTerrainStampPointLike>|null} [opt.mappingFrame] 이미지와 그러데이션이 기준으로 삼을 별도의 사각 영역이며 월드 좌표(EPSG:3857) 3~4개를 넣습니다.<br>
      * 지정하면 도형과 무관하게 이 영역을 기준으로 이미지가 배치되므로, 움직이는 도장에서도 무늬가 흔들리지 않습니다.
-     * @param {boolean} [opt.expectTexture=false] 이미지가 준비되지 않은 동안 색으로 미리 채우지 않고 기다릴지 여부입니다.
+     * @param {boolean} [opt.expectTexture=false] 합성 대상 채움의 알파를 1로 취급할지 여부이며, 이미지 준비 전에는 값과 관계없이 투명하게 기다립니다.
      * @param {import('@U3dLayer').U3dLayer} [opt.targetLayer] 가림 대상으로 삼을 영상 레이어이며, 지정하면 이 레이어보다 위에 그려지는 레이어에만 도장이 적용됩니다.
      * @param {string|number} [opt.mode] 채울지 가릴지 정하며 fill 또는 mask를 넣습니다.<br>
      * 생략하거나 그 밖의 값을 넣으면 targetLayer가 있을 때 가림, 없을 때 채움으로 동작합니다.
@@ -585,8 +585,8 @@ declare class UTerrainStamp {
      * @param {object} [opt] 바꿀 값만 담은 옵션입니다.
      * @param {'polygon'|'circle'|'polyline'} [opt.type] points를 다각형 꼭짓점으로 볼지 선 경유점으로 볼지 정하며, 생략하면 현재 도형 종류를 따릅니다.<br>
      * points와 함께 넘겨야 반영되고, 혼자 넘기면 아무 것도 바뀌지 않습니다.
-     * @param {Array<import('three').Vector3|UTerrainStampPointLike>} [opt.points] 다각형의 꼭짓점 또는 선의 경유점 목록이며 월드 좌표(EPSG:3857)입니다.
-     * @param {import('three').Vector3|UTerrainStampPointLike} [opt.center] 원의 중심이며 월드 좌표(EPSG:3857)입니다.
+     * @param {Array<import('three').Vector3|import('@union3d/helpers/UTerrainStamp').UTerrainStampPointLike>} [opt.points] 다각형의 꼭짓점 또는 선의 경유점 목록이며 월드 좌표(EPSG:3857)입니다.
+     * @param {import('three').Vector3|import('@union3d/helpers/UTerrainStamp').UTerrainStampPointLike} [opt.center] 원의 중심이며 월드 좌표(EPSG:3857)입니다.
      * @param {number} [opt.radius] 원의 반지름이며 단위는 미터입니다.
      * @param {string|number|import('three').Color} [opt.color] 도장을 채울 색입니다.
      * @param {number} [opt.opacity] 색으로 채울 때의 불투명도입니다.
@@ -597,14 +597,14 @@ declare class UTerrainStamp {
      * @param {boolean} [opt.textureUseAlpha] 이미지 자체의 투명한 부분을 그대로 비칠지 여부입니다.
      * @param {number} [opt.textureScale] 이미지를 배치할 사각 영역의 배율입니다.
      * @param {'stretch'|'contain'} [opt.textureFit] 이미지를 도장 영역에 맞추는 방식입니다.
-     * @param {Array<import('three').Vector3|UTerrainStampPointLike>|null} [opt.mappingFrame] 이미지와 그러데이션이 기준으로 삼을 별도의 사각 영역이며, null이나 점이 3개 미만이면 기준 영역을 해제합니다.
-     * @param {boolean} [opt.expectTexture] 이미지가 준비될 때까지 색으로 미리 채우지 않고 기다릴지 여부입니다.
+     * @param {Array<import('three').Vector3|import('@union3d/helpers/UTerrainStamp').UTerrainStampPointLike>|null} [opt.mappingFrame] 이미지와 그러데이션이 기준으로 삼을 별도의 사각 영역이며, null이나 점이 3개 미만이면 기준 영역을 해제합니다.
+     * @param {boolean} [opt.expectTexture] 합성 대상 채움의 알파를 1로 취급할지 여부이며, 이미지 준비 전의 투명 대기에는 영향을 주지 않습니다.
      * @param {number} [opt.lineWidth] 선 도형의 두께입니다.
      * @param {'meters'|'pixels'} [opt.lineWidthUnits] 선 두께를 지상 거리로 볼지 화면 픽셀로 볼지 정합니다.
      * @param {import('@U3dLayer').U3dLayer} [opt.targetLayer] 가림 대상으로 삼을 영상 레이어입니다.
      * @param {string|number} [opt.mode] 채울지 가릴지 정하며 fill 또는 mask를 넣고, 그 밖의 값은 생략한 것과 같이 처리됩니다.
      * @param {number} [opt.renderOrder] 다른 도장과 겹칠 때 그리는 순서이며 값이 클수록 위에 그려집니다.
-     * @returns {UTerrainStamp|undefined} 바뀌었으면 이 도장 자신을, 도형 입력이 올바르지 않아 아무 것도 바뀌지 않았으면 undefined를 반환합니다.
+     * @returns {this|undefined} 바뀌었으면 이 도장 자신을, 도형 입력이 올바르지 않으면 undefined를 반환합니다.
      */
     update(opt?: {
         type?: "polygon" | "circle" | "polyline";
@@ -627,7 +627,7 @@ declare class UTerrainStamp {
         targetLayer?: U3dLayer;
         mode?: string | number;
         renderOrder?: number;
-    }): UTerrainStamp | undefined;
+    }): this | undefined;
     /**
      * 도형은 그대로 두고 표현 값만 한 번에 바꿉니다.
      *
@@ -698,12 +698,12 @@ declare class UTerrainStamp {
     /**
      * 도장을 채울 색을 바꿉니다.
      *
-     * 이미지를 쓰는 도장에서는 이미지가 준비되기 전까지 보이는 색으로 사용됩니다.
+     * 이미지가 지정되지 않은 도장에서 사용하는 색이며, 이미지 로딩 중에는 이 색이 표시되지 않습니다.
      *
      * @param {string|number|import('three').Color} color 채울 색이며 CSS 색 문자열, 24비트 정수 또는 three.js Color로 지정합니다.
-     * @returns {UTerrainStamp} 이어서 호출할 수 있도록 이 도장 자신을 반환합니다.
+     * @returns {this} 이어서 호출할 수 있도록 이 도장 자신을 반환합니다.
      */
-    setColor(color: string | number | three.Color): UTerrainStamp;
+    setColor(color: string | number | three.Color): this;
     /**
      * 현재 채울 색을 복사해 반환합니다.
      *
@@ -764,8 +764,8 @@ declare class UTerrainStamp {
     /**
      * 도장 영역에 입힐 이미지 주소를 바꿉니다.
      *
-     * 이미지는 내려받는 즉시가 아니라 준비가 끝난 뒤에 화면에 나타나며, 그때까지는 설정된 색으로 보입니다.<br>
-     * 이미지를 가져오지 못했거나 서로 다른 이미지 주소가 보관소의 최대 개수를 넘으면 경고만 남고 설정된 색으로 채워집니다.<br>
+     * 이미지는 준비가 끝난 뒤에 화면에 나타나며, 그때까지는 opacity와 관계없이 투명하게 기다립니다.<br>
+     * 이미지를 가져오지 못했거나 서로 다른 이미지 주소가 보관소의 최대 개수를 넘으면 경고를 남기고 투명한 상태를 유지합니다.<br>
      * undefined를 넘기면 이미지만 떼어 내고 불투명도·투명 반영·배율·맞춤 방식은 이전 값이 남으므로, 이 값들까지 초기값으로 되돌리려면 clearTexture()를 사용하십시오.
      *
      * @param {string|undefined} texture 입힐 이미지 주소이며, undefined이면 이미지를 쓰지 않고 색으로 채웁니다.
@@ -774,14 +774,14 @@ declare class UTerrainStamp {
      * @param {boolean} [options.textureUseAlpha] 이미지 자체의 투명한 부분을 그대로 비칠지 여부입니다.
      * @param {number} [options.textureScale] 이미지를 배치할 사각 영역을 중심 기준으로 넓히거나 좁히는 배율입니다.
      * @param {'stretch'|'contain'} [options.textureFit] 이미지를 도장 영역에 맞추는 방식이며, 허용하지 않는 값은 stretch로 바뀝니다.
-     * @returns {UTerrainStamp} 이어서 호출할 수 있도록 이 도장 자신을 반환합니다.
+     * @returns {this} 이어서 호출할 수 있도록 이 도장 자신을 반환합니다.
      */
     setTexture(texture: string | undefined, options?: {
         textureOpacity?: number;
         textureUseAlpha?: boolean;
         textureScale?: number;
         textureFit?: "stretch" | "contain";
-    }): UTerrainStamp;
+    }): this;
     /**
      * 현재 입혀 둔 이미지 주소를 반환합니다.
      *

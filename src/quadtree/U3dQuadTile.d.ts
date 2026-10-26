@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -10,6 +10,7 @@ import type { U3dLayer } from "../3dLayer/U3dLayer.js";
 import type { U3dObject } from "../core/U3dObject.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
 import type { UTileMesh } from "../core/mesh/UTileMesh.js";
+import type { UPlaneBufferGeometry } from "../geometry/UPlaneBufferGeometry.js";
 import type { UGeoRect } from "../math/UGeoRect.js";
 
 /**
@@ -110,7 +111,23 @@ declare class U3dQuadTile extends U3dObject {
      * @return {number} 구글 스케일이 적용된 z
      */
     getHeightByXY(x: number, y: number): number;
-    changeGeometry(geometry: any): void;
+    /**
+     * 고도 레이어가 선택한 표시 배율을 기반 메시와 타일의 공간 경계에 반영합니다.
+     *
+     * 같은 타일을 여러 레이어가 공유하므로 레이어에 저장된 값 대신 실제 메시 배율을 비교합니다.
+     * 원본 정점과 메시의 로컬 경계구는 배율과 무관하며 다시 계산하지 않습니다.
+     *
+     * @param {number} scale 적용할 Z축 표시 배율
+     *
+     * @ignore
+     */
+    _setHeightScale(scale: number): void;
+    /**
+     * 고도 지오메트리의 자료를 연결하고 현재 표시 배율에 맞는 공간 경계를 갱신합니다.
+     *
+     * @param {import('@union3d/geometry/UPlaneBufferGeometry').UPlaneBufferGeometry} geometry 연결할 고도 지오메트리
+     */
+    changeGeometry(geometry: UPlaneBufferGeometry): void;
     /**
      * FrameState의 표시 전환 검사에 필요한 집계 결과를 반환합니다.
      *
@@ -125,6 +142,7 @@ declare class U3dQuadTile extends U3dObject {
     /**
      * 고정 기준 화면의 투영 배율, 가시 영역 거리와 원자료의 유효 레벨로 추가 분화 여부를 판단합니다.
      * 특수 모드와 검색 위치 보정 경로는 기존 거리 판정을 유지합니다.
+     * 설정 최소 레벨 미만이거나 최대 레벨 이상인 타일은 분화를 중단합니다.
      *
      * @returns {boolean} 자식 레벨의 콘텐츠가 필요하면 true
      */
@@ -246,7 +264,30 @@ declare class U3dQuadTile extends U3dObject {
     getProcessStep(): string;
     getWorkStep(): string;
     disposeDetail(): void;
-    dispose(callback: any): void;
+    /**
+     * 해제 알림을 개별 보호하여 한 외부 리스너의 오류가 작업 취소와 나머지 정리를 막지 않게 합니다.
+     * @returns {void}
+     * @ignore
+     */
+    _notifyDispose(): void;
+    /**
+     * 자식 해제를 한 곳에서 수행하고 실패한 자식의 참조도 제거합니다.
+     *
+     * @param {undefined | boolean | function(import('@U3dQuadTile').U3dQuadTile): void} callback 타일별 해제 완료 콜백
+     * @param {Array<unknown>} errors 자식 해제 중 발생한 오류
+     *
+     * @ignore
+     */
+    _disposeChildren(callback: undefined | boolean | ((arg0: U3dQuadTile) => void), errors: Array<unknown>): void;
+    /**
+     * 타일과 하위 타일의 작업·자원을 한 번만 해제합니다.
+     * 정리 단계가 실패해도 나머지 단계와 자식을 처리한 뒤 수집한 오류를 전달합니다.
+     * 자식 우선 해제 후 자신의 lease와 레이어 자원을 정리합니다.
+     *
+     * @param {boolean | function(import('@U3dQuadTile').U3dQuadTile): void} [callback] 타일별 해제 완료 콜백
+     * @throws {Error} 하나의 실패는 원래 오류를, 여러 실패는 errors 배열을 가진 오류를 전달합니다.
+     */
+    dispose(callback?: boolean | ((arg0: U3dQuadTile) => void)): void;
     createMesh(material: any, drawArg?: any): boolean;
     getGroup(): any;
     getPositionByXY(x: any, y: any): three.Vector3;

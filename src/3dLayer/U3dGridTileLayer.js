@@ -53,8 +53,8 @@ class U3dGridTileLayer extends U3dModelLayer {
 
         this._checkTime = new UCheckTime();
 
-        if (defined(this.resolve))
-            this.resolve(this);
+        if (defined(this._resolveReady))
+            this._resolveReady();
     }
 
     /**

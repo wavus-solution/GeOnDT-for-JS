@@ -698,8 +698,10 @@
         }
         const tilesLayer = new GeOnDT.model.U3dModelTilesLayer(tilesOpt);
         app.addLayer( tilesLayer );
-        tilesLayer.then(()=>{
+        tilesLayer.ready.then(()=>{
              app.showLayer(tilesLayer.getName(),true);
+        }).catch(error => {
+            console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
         });
         const analy = app.getAnalysis('Particle');
         ////////////////////////////////////////////////////////////////////////////////////////////////////////

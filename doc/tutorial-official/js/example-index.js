@@ -82,6 +82,24 @@
     }
 
     /**
+     * 띄어쓰기와 관계없이 검색할 수 있도록 비교할 문자열을 만듭니다.
+     * @param {unknown} value 원본 값
+     * @returns {string} 공백을 제거한 정규화 문자열
+     */
+    function normalizeSearch(value) {
+        return normalize(value).replaceAll(' ', '');
+    }
+
+    /**
+     * 파일명에 붙인 HTML 확장자를 제외하고 검색 낱말을 읽습니다.
+     * @returns {Array<string>} 정규화한 검색 낱말
+     */
+    function getSearchTokens() {
+        return normalize(searchInput.value).split(' ')
+            .map(token => token.replace(/(\S)\.html?$/i, '$1')).filter(Boolean);
+    }
+
+    /**
      * 사용자가 움직임 최소화를 설정했는지 확인합니다.
      * @returns {boolean} 설정했으면 true
      */
@@ -245,12 +263,12 @@
     }
 
     /**
-     * 예제를 카테고리 정의 순서대로 묶습니다.
+     * 예제를 카테고리별로 묶고 검색 중에는 일치도에 따라 묶음을 정렬합니다.
      * @param {Array<Record<string, unknown>>} list 예제 목록
      * @returns {Array<{id: string, label: string, items: Array<Record<string, unknown>>}>} 비어 있지 않은 묶음
      */
     function groupByCategory(list) {
-        return Object.entries(categories)
+        const groups = Object.entries(categories)
             .map(([id, label]) => ({
                 id,
                 label,
@@ -259,6 +277,10 @@
                 total: countByFilter(id)
             }))
             .filter(group => group.items.length > 0);
+        // 검색 중에는 가장 잘 맞는 예제가 뒤쪽 카테고리에 묻히지 않게 한다.
+        return searchInput.value.trim()
+            ? groups.sort((left, right) => list.indexOf(left.items[0]) - list.indexOf(right.items[0]))
+            : groups;
     }
 
     /**
@@ -395,17 +417,20 @@
      * 예제가 검색어와 카테고리에 일치하는 정도를 계산합니다.
      * @param {Record<string, unknown>} example 예제 메타데이터
      * @param {Array<string>} tokens 검색 단어
-     * @returns {{matched: boolean, allMatched: boolean, score: number}} 검색 점수
+     * @returns {{matched: boolean, exact: boolean, titleMatched: boolean, allMatched: boolean, score: number}} 이름 일치 여부와 검색 점수
      */
     function calculateMatch(example, tokens) {
         const inFilter = activeCategory === 'all'
             || (activeCategory === FAVORITE_GROUP.id && favorites.has(example.url))
             || (activeCategory === RECENT_GROUP.id && recents.includes(example.url))
             || example.category === activeCategory;
-        if (!inFilter) return {matched: false, allMatched: false, score: 0};
-        if (tokens.length === 0) return {matched: true, allMatched: true, score: 0};
+        if (!inFilter) return {matched: false, exact: false, titleMatched: false, allMatched: false, score: 0};
+        if (tokens.length === 0) return {matched: true, exact: false, titleMatched: false, allMatched: true, score: 0};
+        const query = normalizeSearch(tokens.join(' '));
+        const exact = [example.title, exampleName(example)].some(value => normalizeSearch(value) === query);
+        const titleMatched = normalizeSearch(example.title).includes(query);
         const score = scoreExample(example, tokens);
-        return {matched: score > 0, allMatched: score === tokens.length, score};
+        return {matched: score > 0, exact, titleMatched, allMatched: score === tokens.length, score};
     }
 
     /**
@@ -422,7 +447,7 @@
      * @returns {number} 겹치는 낱말 수
      */
     function scoreExample(example, tokens) {
-        const searchable = normalize([
+        const searchable = [
             example.title,
             example.summary,
             example.categoryLabel,
@@ -433,8 +458,8 @@
             example.apiHelp ? BADGE_LABELS.apiHelp : '',
             ...(example.tags || []),
             ...(example.apis || [])
-        ].join(' '));
-        return tokens.filter(token => searchable.includes(token)).length;
+        ].map(normalizeSearch);
+        return tokens.map(normalizeSearch).filter(token => searchable.some(value => value.includes(token))).length;
     }
 
     /**
@@ -447,23 +472,25 @@
      * @returns {Array<Record<string, unknown>>} 검색어에 걸리는 예제
      */
     function getSearchMatchedExamples() {
-        const tokens = normalize(searchInput.value).split(' ').filter(Boolean);
+        const tokens = getSearchTokens();
         if (tokens.length === 0) return examples;
         return examples.filter(example => scoreExample(example, tokens) > 0);
     }
 
     /**
-     * 현재 조건에 맞는 예제를 일치도 순으로 반환합니다.
+     * 이름의 정확한 일치, 제목의 검색어 전체 포함, 낱말 일치도 순으로 예제를 반환합니다.
      * @returns {Array<Record<string, unknown>>} 검색 결과
      */
     function getFilteredExamples() {
-        const tokens = normalize(searchInput.value).split(' ').filter(Boolean);
+        const tokens = getSearchTokens();
         // 카드에 검색어를 강조할 때 같은 낱말을 쓰도록 남겨 둔다.
         searchTokens = tokens;
         return examples
             .map(example => ({example, match: calculateMatch(example, tokens)}))
             .filter(item => item.match.matched)
             .sort((left, right) => {
+                if (left.match.exact !== right.match.exact) return left.match.exact ? -1 : 1;
+                if (left.match.titleMatched !== right.match.titleMatched) return left.match.titleMatched ? -1 : 1;
                 if (left.match.allMatched !== right.match.allMatched) return left.match.allMatched ? -1 : 1;
                 if (left.match.score !== right.match.score) return right.match.score - left.match.score;
                 return left.example.order - right.example.order;
@@ -613,7 +640,7 @@
      * @param {Array<Record<string, unknown>>} filtered 검색 조건에 맞는 예제
      */
     function renderRail(filtered) {
-        // filtered는 검색 일치도 순이라 카테고리가 섞여 있어 정의 순서로 다시 묶는다.
+        // 카드와 같은 카테고리 순서로 묶어 검색 결과의 위치를 맞춘다.
         // 즐겨찾기와 최근 본 예제는 넣지 않는다. 카드에서 한 번 더 비추는 것뿐이라
         // 목록에까지 세우면 같은 예제 이름이 두 번 나와 찾기가 헷갈린다.
         const groups = groupByCategory(filtered);
@@ -668,7 +695,7 @@
     }
 
     /**
-     * 검색어와 겹치는 구간을 찾습니다.
+     * 공백 차이를 무시하고 검색어와 겹치는 원문 구간을 찾습니다.
      *
      * 낱말이 여러 개면 구간이 서로 겹칠 수 있어, 겹치거나 맞닿은 구간은 하나로 합칩니다.
      * 합치지 않으면 같은 글자를 두 번 감싸 글자가 중복해서 나옵니다.
@@ -679,12 +706,22 @@
      */
     function findHighlightRanges(text, tokens) {
         const lower = text.toLocaleLowerCase('ko');
+        // 공백을 뺀 검색 위치를 원문 위치에 대응시켜 강조할 때 띄어쓰기를 보존한다.
+        const positions = [];
+        let compact = '';
+        for (let index = 0; index < lower.length; index++) {
+            if (/\s/.test(lower[index])) continue;
+            positions.push(index);
+            compact += lower[index];
+        }
         const ranges = [];
         tokens.forEach(token => {
-            let from = lower.indexOf(token);
+            const compactToken = normalizeSearch(token);
+            if (!compactToken) return;
+            let from = compact.indexOf(compactToken);
             while (from !== -1) {
-                ranges.push([from, from + token.length]);
-                from = lower.indexOf(token, from + token.length);
+                ranges.push([positions[from], positions[from + compactToken.length - 1] + 1]);
+                from = compact.indexOf(compactToken, from + compactToken.length);
             }
         });
         ranges.sort((left, right) => left[0] - right[0]);
@@ -702,9 +739,7 @@
      * @returns {boolean} 검색 중이고 검색어와 겹치면 true
      */
     function matchesSearch(text) {
-        if (searchTokens.length === 0) return false;
-        const lower = String(text).toLocaleLowerCase('ko');
-        return searchTokens.some(token => lower.includes(token));
+        return searchTokens.length > 0 && findHighlightRanges(String(text), searchTokens).length > 0;
     }
 
     /**

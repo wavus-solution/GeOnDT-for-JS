@@ -137,7 +137,7 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
     #tileGenCounter = 0;
      constructor(opt) {
          if (!defined(opt)) {
-             console.info('U3dMultipleComponentLayer constructor is failed. because opt is null');
+             console.info('U3dLodComponentLayer constructor is failed. because opt is null');
              return;
          }
          super(opt);
@@ -3002,12 +3002,11 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
     }
 
     /**
-     * 레이어를 표시하고 소유한 instance를 전역 visible 통계에 다시 포함합니다.
+     * 원본 모델을 제외하고 레이어를 표시하며 소유한 instance를 전역 visible 통계에 다시 포함합니다.
      *
      * @override
      *
      * @param {boolean} value true이면 표시하고 false이면 hide()를 호출합니다.
-     * @returns {void} 반환값 없이 레이어와 전역 visible 통계를 갱신합니다.
      */
     show(value = true){
         const self = this;
@@ -3016,6 +3015,7 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
             return;
         }
         U3dModelBasicLayer.prototype.show.call(self, true);
+        self._scene.remove(self._object);
         self._scene.add(self._instancedObject);
         self.#setVisibilityEnabled(true);
     }
@@ -3118,7 +3118,11 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
 
     /**
      * Basic 모델 로드와 LOD InstancedMesh 생성을 순서대로 초기화합니다.
+     * 원본 그룹은 장면에서 분리하여 컴포넌트 생성용으로만 보관합니다.
      * 입력 파라미터는 없습니다.
+     *
+     * @override
+     *
      * @returns {object} LOD 생성 완료 또는 실패 상태를 전달하는 deferred 객체
      */
     initialize(){
@@ -3130,8 +3134,8 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
 
         self._loadedModel = false;
         self._initPromise = deferred();
-        const publicResolve = self.resolve;
-        const publicReject = self.reject;
+        const publicResolve = self._resolveReady.bind(self);
+        const publicReject = self._rejectReady.bind(self);
 
         /**
          * Basic 모델 또는 LOD 생성 실패를 내부/외부 완료 신호에 함께 전달합니다.
@@ -3153,16 +3157,16 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
         }else{
             const basicLoadPromise = deferred();
 
-            // Basic initialize()는 완료 시 self.resolve()/self.reject()를 호출합니다.
-            // 해당 호출을 Basic 전용 deferred로 임시 연결하여 공개 layer.then()이
+            // Basic initialize()는 완료 시 self._resolveReady()/self._rejectReady()를 호출합니다.
+            // 해당 호출을 Basic 전용 deferred로 임시 연결하여 공개 layer.ready.then()이
             // LOD 생성 전에 완료되지 않도록 합니다.
-            self.resolve = basicLoadPromise.resolve;
-            self.reject = basicLoadPromise.reject;
+            self._resolveReady = basicLoadPromise.resolve;
+            self._rejectReady = basicLoadPromise.reject;
 
             basicLoadPromise.then(
                 () => {
-                    self.resolve = publicResolve;
-                    self.reject = publicReject;
+                    self._resolveReady = publicResolve;
+                    self._rejectReady = publicReject;
                     try{
                         self.#createLodModels(publicResolve, publicReject);
                     }catch(error){
@@ -3170,8 +3174,8 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
                     }
                 },
                 (error) => {
-                    self.resolve = publicResolve;
-                    self.reject = publicReject;
+                    self._resolveReady = publicResolve;
+                    self._rejectReady = publicReject;
                     rejectInitialize(error);
                 }
             );
@@ -3179,10 +3183,10 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
             // Basic 초기화가 시작되지 않은 경우에만 호출합니다.
             if(!self.isInitialized()){
                 try{
-                    U3dModelBasicLayer.prototype.initialize.call(self);
+                    U3dMultipleComponentLayer.prototype.initialize.call(self);
                 }catch(error){
-                    self.resolve = publicResolve;
-                    self.reject = publicReject;
+                    self._resolveReady = publicResolve;
+                    self._rejectReady = publicReject;
                     rejectInitialize(error);
                 }
             }
@@ -3193,8 +3197,10 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
 
     /**
      * Basic 모델 로드가 완료된 후 모델별 LOD InstancedMesh를 생성합니다.
-     * @param {Function} publicResolve - 외부 layer.then()을 완료하는 원래 resolve 함수
-     * @param {Function} publicReject - 외부 layer.catch()에 실패를 전달하는 원래 reject 함수
+     * 생성 결과 반영까지 완료한 뒤 외부 완료 신호를 전달하며 실패는 초기화 실패로 전달합니다.
+     *
+     * @param {function} publicResolve 외부 layer.ready.then()을 완료하는 원래 resolve 함수
+     * @param {function} publicReject 외부 layer.ready.catch()에 실패를 전달하는 원래 reject 함수
      *
      * @ignore
      */
@@ -3297,13 +3303,14 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
 
             const key = name+":"+level;
             const promise = self.#createLodInstancedMesh(object, name, level, options, [], {useDistanceLod})
-            resultPromise.push(promise);
-            promise.then((result) => {
+            resultPromise.push(promise.then((result) => {
                 const meshList = result.meshes;
-                if(!meshList || meshList.length === 0) return;
-                self.#state.lod.instancedMeshMap.set(key, meshList);
-                self._app.addNowUserLoading(1);
-            })
+                if(meshList && meshList.length !== 0){
+                    self.#state.lod.instancedMeshMap.set(key, meshList);
+                    self._app.addNowUserLoading(1);
+                }
+                return result;
+            }));
         }
 
         Promise.all(resultPromise)
@@ -3343,6 +3350,10 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
 
     /**
      * 레이어를 앱에 연결하고 모델 초기화 및 대기 중인 렌더 전 작업을 시작합니다.
+     * 원본 그룹은 화면에 표시하지 않고 컴포넌트 생성용으로 유지합니다.
+     *
+     * @override
+     *
      * @param {import('@U3dApp').U3dApp} app 연결할 U3dApp 인스턴스
      */
     setApp(app){
@@ -3357,7 +3368,7 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
             if(self.isInitialize)
                 self.initialize();
             else{
-                U3dModelBasicLayer.prototype.initialize.call(self);
+                U3dMultipleComponentLayer.prototype.initialize.call(self);
             }
             // app 연결 전에 대기한 dirty mesh가 있으면 이제 렌더 전 callback으로 이어서 처리합니다.
             if(self.#hasPendingSyncWork() && !self.#state.feature.syncScheduled)

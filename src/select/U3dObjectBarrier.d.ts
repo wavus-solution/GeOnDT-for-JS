@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -27,7 +27,9 @@ interface UOutlineStyleOption {
     color?: three.Color | string | number;
     visibleEdgeColor?: three.Color | string | number;
     hiddenEdgeColor?: three.Color | string | number;
+    /** 활성 farPoint에서는 CSS 픽셀 두께이며 lineWidthPx보다 우선하지 않습니다. 비활성에서는 기존 폭 배율입니다. */
     lineWidth?: number;
+    /** lineWidth가 없을 때 사용하는 기존 선 두께 별칭입니다. */
     width?: number;
     dashColor?: three.Color | string | number;
     dashDensity?: number;
@@ -42,6 +44,8 @@ interface UOutlineStyleOption {
     opacity?: number;
     pulse?: number;
     renderOrder?: number;
+    /** 모든 후처리 모드의 작은 대상을 객체별 닫힌 윤곽과 모드 효과로 대체하고 상세 복원의 기본 두께도 유지합니다. 배리어에서는 생략한 값을 활성·24px 전환·5px 최소 크기·0.1 단순화로 보완합니다. null 또는 enabled:false이면 해제하며 재질 대체 경로는 지원하지 않습니다. */
+    farPoint?: UOutlineFarPointOption | null;
 }
 
 /**
@@ -160,6 +164,7 @@ declare class U3dObjectBarrier {
      * 색과 선 굵기, 점선, 움직임 같은 값을 객체마다 따로 줄 수 있습니다.<br>
      * 후처리 외곽선 pass가 준비되어 있지 않거나 대상을 찾지 못하면 false를 반환합니다.<br>
      * 재질을 바꿔치기한 길에는 적용되지 않으므로, 후처리를 쓰지 않는 상태에서는 setMaterialBarrier()로 색과 투명도를 바꿉니다.
+     * farPoint를 생략하면 선택기와 같은 기본 보정을 사용하며, 부분 입력은 기본값을 보완합니다. 기존 스타일과 병합하지 않으며 null 또는 enabled:false이면 보정을 해제합니다.
      *
      * @param object 스타일을 바꿀 대상
      * @param style 적용할 외곽선 스타일이며 UOutlineStyleOption 형태
@@ -191,6 +196,7 @@ declare class U3dObjectBarrier {
      * 사용자 효과를 거는 시점에 이미 선택 하이라이트가 켜져 있으면 방금 건 스타일을 백업하고 선택 스타일을 위에 덮어, 선택이 계속 보이게 합니다.<br>
      * 반대로 선택이 사용자 효과를 덮을 때도 기존 스타일을 백업하므로 선택이 풀리면 사용자 효과가 되살아납니다.<br>
      * 움직이는 표현을 쓰는 스타일이면 매 프레임 갱신을 함께 켭니다.
+     * farPoint를 생략하면 선택기와 같은 기본 보정을 사용하며, 부분 입력은 기본값을 보완합니다. null 또는 enabled:false이면 보정을 해제합니다.
      *
      * @param object 하이라이트를 적용할 대상
      * @param style 적용할 외곽선 스타일이며 UOutlineStyleOption 형태
@@ -202,6 +208,7 @@ declare class U3dObjectBarrier {
      * 객체의 재질을 건드리지 않으므로 원래 색과 질감이 그대로 유지됩니다.<br>
      * 보통 setBarrier()가 대신 호출하며, 후처리 길을 직접 지정하고 싶을 때만 씁니다.<br>
      * 외곽선 pass가 준비되어 있지 않으면 false를 반환합니다.
+     * farPoint의 기본 보정·부분 입력·명시적 해제는 setBarrier()와 같습니다.
      *
      * @param object 하이라이트를 적용할 대상
      * @param style 적용할 외곽선 스타일이며 UOutlineStyleOption 형태
@@ -259,4 +266,53 @@ declare class U3dObjectBarrier {
     createMaterial(color: three.Color | string | number, opacity: number, pulseScale?: number, isInstanced?: boolean, name?: string): three.ShaderMaterial;
 }
 
-export type { U3dObjectBarrier, UInstancedMeshType, UOutlineMode, UOutlineStyleOption };
+/**
+     * 화면에서 작은 대상을 객체별 간략한 닫힌 외곽선으로 대체하는 옵션입니다.
+     * 대표 정점의 볼록 윤곽을 사용하므로 오목한 부분과 구멍은 생략하며, 중심 점은 출력하지 않습니다.
+     * BASIC·BOUNCE·FLOW·BLOOM 후처리에서 지원하며, 부분 선택·스타일 충돌 등 선택 의미를 보존할 수 없으면 상세 형상을 유지합니다.
+     * 활성 대상은 상세·간략 모두 같은 CSS 픽셀 기본 두께를 사용하며, 상세 표현은 실제 마스크의 실루엣을 사용합니다.
+     * BOUNCE는 닫힌 파동, BLOOM은 외부 광채, FLOW는 두 색상이 흐르는 선을 더합니다. 기존 모드별 속도·강도·점선 밀도·비율·색상·시간 오프셋을 사용합니다.
+     * 두께는 lineWidthPx, 스타일 lineWidth·width, 명시적 setLineWidth 값 순으로 사용하며 초기값은 1.5픽셀입니다. edgeGlow·블러는 적용하지 않습니다. 패턴·옵션 비활성 대상과 재질 대체 경로는 기존 출력 경로를 사용합니다.
+     * 옵션 설정은 기존 스타일과 병합하지 않고 대체합니다. U3dObjectBarrier는 생략·부분 입력에 U3dSelect와 같은 기본값(활성·24픽셀 전환·5픽셀 최소 크기·0.1 단순화)을 보완하며, null 또는 enabled:false이면 해제합니다.
+     * UOutlinePass에 직접 스타일을 지정할 때는 생략·null이면 해제하며, 옵션 객체의 기본값은 비활성·16픽셀 전환·12픽셀 최소 크기·2픽셀 단순화입니다.
+     */
+    type UOutlineFarPointOption = {
+        /**
+         * 간략 외곽 대체 사용 여부. 배리어·선택기는 기본 true이며 패스 직접 설정은 false입니다.
+         */
+        enabled?: boolean;
+        /**
+         * 상세·간략 기본 선의 CSS 픽셀 두께(숫자·양수·유한수). 스타일 lineWidth·width 및 전역 값보다 우선하며, BOUNCE 파동 두께는 기본 선의 5/3배입니다. 최소 윤곽 크기 minSizePx와 별개입니다.
+         */
+        lineWidthPx?: number;
+        /**
+         * 단일 전환 기준(CSS 픽셀, 양수·유한수). 배리어·선택기는 기본 24이며 패스 직접 설정은 16입니다. 전체 메시 투영 경계의 가로·세로 중 큰 값이 이 값 이하이면 간략 외곽으로 전환합니다. 복원은 내부에서 기준의 10%와 2픽셀 중 큰 여유를 더해 판정하며 그 사이에서는 이전 상태를 유지합니다. 이 값이 지정되면 기존 두 기준보다 우선합니다.
+         */
+        thresholdSizePx?: number;
+        /**
+         * 기존 호출 호환용 간략 진입 기준. thresholdSizePx 없이 기존 두 기준 중 하나를 지정한 경우에만 사용하며 생략값은 16입니다(양수·유한수). 새 호출은 thresholdSizePx를 사용합니다.
+         */
+        enterSizePx?: number;
+        /**
+         * 기존 호출 호환용 상세 복원 기준. thresholdSizePx 없이 기존 두 기준 중 하나를 지정한 경우에만 사용하며 생략값은 24입니다. 진입값보다 커야 하고 사이에서는 이전 상태를 유지합니다(양수·유한수). 새 호출은 thresholdSizePx를 사용합니다.
+         */
+        exitSizePx?: number;
+        /**
+         * 간략 윤곽의 최소 표시 크기(CSS 가로·세로 중 큰 값, 양수·유한수). 배리어·선택기는 기본 5이며 패스 직접 설정은 12입니다. 작으면 중심을 유지하며 확대하고, 가는 윤곽은 폭도 최소 4픽셀로 보완합니다.
+         */
+        minSizePx?: number;
+        /**
+         * 가장 간략한 단계의 정점 제거 허용 오차(CSS 픽셀, 양수·유한수). 배리어·선택기는 기본 0.1이며 패스 직접 설정은 2입니다. 간략 0단계는 건너뛰며 간략 1단계는 이 값의 1/2, 간략 2단계는 전체값을 사용합니다. 낮추면 더 많은 굴곡을 보존하지만 대표 정점의 볼록 윤곽에서만 적용하므로 오목한 부분·구멍은 복원되지 않습니다.
+         */
+        simplifyTolerancePx?: number;
+        /**
+         * 기존 호출 호환용 최소 표시 크기 입력. minSizePx를 생략하면 이 값을 사용하고 정규화 결과에는 minSizePx만 저장합니다(양수·유한수). 새 호출은 minSizePx를 사용하며 중심 점은 출력하지 않습니다.
+         */
+        pointSizePx?: number;
+        /**
+         * 같은 일반 객체를 구성하는 메시들의 공통 루트. 루트 안의 표시 메시 전체가 같은 유효 스타일로 등록된 경우에만 하나의 닫힌 윤곽으로 대체합니다. 인스턴스는 기존 컴포넌트 연결을 사용하며 서로 다른 객체의 클러스터링 용도가 아닙니다.
+         */
+        group?: three.Object3D;
+    };
+
+export type { U3dObjectBarrier, UInstancedMeshType, UOutlineFarPointOption, UOutlineMode, UOutlineStyleOption };

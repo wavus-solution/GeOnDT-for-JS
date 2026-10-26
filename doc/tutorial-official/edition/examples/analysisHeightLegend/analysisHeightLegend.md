@@ -11,7 +11,7 @@ apis:
   - getAnalysis
   - getHeightAtGeographicPoint
   - createMultipleComponentLayer
-  - createModelGroupLayer
+  - createGroupLayer
   - create3DFModelLayer
   - showLayer
   - addLayer
@@ -174,7 +174,7 @@ dependencies: []
 - `createMultipleComponentLayer()`, `getHeightAtGeographicPoint()`: 지면 높이를 기준으로 비교용 드론을 배치합니다.
 - `U3dVectorLayer`, `U3dLine`, `U3dPipe`, `U3dPathGeometry`: 드론 궤적을 서로 다른 방식으로 그립니다.
 - `get3DLibrary()`, `getExternalScene()`, `getGeographicToGoogle()`: 비교 경로의 아랫면을 `THREE.ShapeGeometry`로 직접 만들어 외부 Scene에 추가합니다. 윗면은 GeOnDT `U3dPathGeometry`로 만들어 두 형태의 제외 반영 범위를 비교합니다.
-- `createModelGroupLayer()`, `create3DFModelLayer()`: 건물 고도를 확인할 U3F 모델 레이어를 구성합니다.
+- `createGroupLayer()`, `create3DFModelLayer()`: 건물 고도를 확인할 U3F 모델 레이어를 구성합니다.
 - `setCameraTrace()`: 기존 예제와 동일하게 개발자 도구에서 `move()`를 호출하면 중앙 드론(`U3dPipe`)을 뒤쪽 3인칭 시점으로 추적합니다. 이 전역 함수는 예제 정리 시 원래 값으로 되돌립니다.
 
 ## 고도 범례 스타일 전달

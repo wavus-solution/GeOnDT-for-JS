@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -144,6 +144,8 @@ declare class U3dVectorLayer extends U3dLayer {
      * 3D Geometry 객체를 레이어에 추가하여 화면에 가시화하는 함수입니다. <br>
      * 추가한 뒤 도형의 `setPosition`/`addPosition`으로 좌표를 지정하면 해당 위치에 그려집니다. <br>
      * 레이어의 `autoHeight`·`scaleRatio`는 추가 시점에 함께 적용됩니다. <br>
+     * 영구 해제된 도형·레이어에는 등록하지 않으며, 같은 도형의 중복 등록은 무시합니다. <br>
+     * 다른 벡터 레이어에 등록된 도형은 이전 등록을 해제한 뒤 옮깁니다. <br>
      * `renderOffset`은 단층(`U3dFault`) 도형에만 적용됩니다. <br>
      *
      * @param {import('@U3dGeometry').U3dGeometry} geom 이 레이어에 등록해 화면에 표시할 도형 객체 <br>

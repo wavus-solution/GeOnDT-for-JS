@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -102,7 +102,8 @@ declare class U3dPatternXYZLayer extends U3dImageLayer {
     commit(): this;
     /**
      * 패턴 텍스처를 입힌 타일 메시를 만들어 캐시에 넣고, 작업이 끝나면 타일로 완료되는 Promise를 반환합니다. <br>
-     * 타일이 없거나 처분되었거나 레벨 범위 밖이면 undefined를 반환합니다.
+     * 타일·레이어가 해제되었거나 레벨 범위 밖이면 undefined를 반환합니다.
+     * 대기 중 해제되면 AbortError로 거부되며, 초기화·메시 생성 예외도 반환한 Promise로 전달합니다.
      *
      * @override
      *
@@ -126,9 +127,14 @@ declare class U3dPatternXYZLayer extends U3dImageLayer {
     override dispose(): void;
     removeTileFromScene(tile: any): boolean;
     /**
-     * 데칼을 추가 합니다.
-     * @param {Array<DecalOption>| Array<UPatternDecal>} decalInfos 추가할 데칼 정보
-     * @return {Promise<Array<UPatternDecal>>}
+     * 데칼을 등록하고 이미지 로딩·캔버스 반영이 끝나면 이번 호출의 데칼 목록을 반환합니다.
+     * 동시에 호출해도 각 Promise는 해당 호출의 결과를 전달합니다. 대기 중 레이어 해제는 AbortError로 전달합니다.
+     * 이미지 요청 실패는 기존 대체 처리를 유지하며, 합성·이벤트 처리의 예외는 거부로 전달합니다.
+     * 이미지 적용에 실패해도 나머지 요청과 가능한 캔버스 반영을 마친 뒤 실패를 전달합니다.
+     * 후속 콜백은 표준 Promise처럼 비동기로 실행되며 다음 then에는 앞 콜백의 반환값이 전달됩니다.
+     *
+     * @param {Array<DecalOption> | Array<import('@union3d/3dLayer/U3dPatternXYZLayer').UPatternDecal>} decalInfos 추가할 데칼 정보
+     * @returns {Promise<Array<import('@union3d/3dLayer/U3dPatternXYZLayer').UPatternDecal>>} 이번 호출에서 등록한 데칼 목록. 대기 중 제거·해제한 데칼은 반영을 건너뜁니다
      */
     addDecal(decalInfos: Array<DecalOption> | Array<UPatternDecal>): Promise<Array<UPatternDecal>>;
     /**

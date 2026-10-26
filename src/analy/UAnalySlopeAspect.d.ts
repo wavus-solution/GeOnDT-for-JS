@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -13,7 +13,7 @@ import type { UScene } from "../core/UScene.js";
 import type { UInstancedMesh, UInstancedMeshCO } from "../core/mesh/UInstancedMesh.js";
 import type { U3dPOI } from "../geometry/U3dPOI.js";
 import type { Double_Array } from "../types/global.js";
-import type { deferred } from "../util/deferred.js";
+import type { DeferredPromise } from "../util/deferredPromise.js";
 
 /**
  * 인스턴스 화살표 추가를 위한 콜백 함수 타입
@@ -113,7 +113,7 @@ declare class UAnalySlopeAspect extends UAnaly {
     /** @type {import('three').MeshBasicMaterial} */ _arrowMaterial: three.MeshBasicMaterial;
     /** @type {boolean} */ needUpdate: boolean;
     /** @type {ReturnType<typeof setTimeout> | undefined} */ timeoutId: ReturnType<typeof setTimeout> | undefined;
-    /** @type {ReturnType<typeof deferred>} */ slopePromise: ReturnType<typeof deferred>;
+    /** @type {DeferredPromise<boolean> | undefined} */ slopePromise: DeferredPromise<boolean> | undefined;
     /** @type {number} */ min: number;
     /** @type {number} */ max: number;
     /** @type {number} */ opacity: number;
@@ -159,7 +159,7 @@ declare class UAnalySlopeAspect extends UAnaly {
      * 분석 옵션에 따른 그리드를 생성하여, 경사향을 화면에 표출한다.
      * @param {import('three').Vector3 | {x: number, y: number}} position 분석 중심 위치 위경도
      * @param {Partial<UAnalySlopeAspectCO>} [options] 분석 옵션
-     * @return {ReturnType<typeof deferred>}
+     * @return {Promise<boolean>}
      * @throws {TypeError} 표면 샘플링 방식, 대상 레이어 목록 또는 화살표 형상 옵션 타입이 올바르지 않은 경우
      * @throws {RangeError} 화살표 형상 옵션이 0 이하인 경우
      * @throws {Error} 대상 레이어가 없거나 경사도·경사향을 계산할 유효 표면점이 없는 경우
@@ -167,7 +167,7 @@ declare class UAnalySlopeAspect extends UAnaly {
     getSlope(position: three.Vector3 | {
         x: number;
         y: number;
-    }, options?: Partial<UAnalySlopeAspectCO>): ReturnType<typeof deferred>;
+    }, options?: Partial<UAnalySlopeAspectCO>): Promise<boolean>;
     /**
      * @return {number}
      */

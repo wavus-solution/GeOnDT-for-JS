@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -328,7 +328,7 @@ declare class UDrawArg {
      * 사용처 점검: 반환값이 없을 수 있으므로 외부 사용처는 U3dLodComponentLayer와 U3dVectorLayer처럼 undefined 여부를 확인해야 한다.
      * @param {number} worldInX world x 좌표.
      * @param {number} worldInY world y 좌표.
-     * @param {number} [limitLevel=5] 탐색을 멈출 최소 level.
+     * @param {number} [limitLevel] 탐색을 멈출 최소 레벨. 생략하면 현재 지도 루트 레벨을 사용합니다.
      * @returns {import('@U3dQuadTile').U3dQuadTile | undefined} 조회된 terrain tile.
      *
      * @ignore
@@ -726,10 +726,9 @@ declare class UDrawArg {
      */
     setSkirt(skirt: boolean): void;
     /**
-     * app의 데이터 level을 반환한다.
-     * 주요 사용처: union3d 내부에서 UDrawArg.getDataLevel을 직접 호출하는 곳은 확인되지 않았고, app의 region option에서 설정된 _datalevel을 조회하는 위임 메서드로 유지된다.
-     * 사용처 점검: _app이 없으면 0을 반환한다. _app이 있어도 region option에 datalevel이 없으면 undefined가 반환될 수 있으므로 level 계산에 바로 쓰는 호출부는 기본값 처리가 필요하다.
-     * @returns {number | undefined} 데이터 level.
+     * 소속 앱의 현재 지도 트리 시작 레벨을 반환합니다.
+     * 타일 생성과 XYZ 고도 URL의 상대 레벨 계산에 사용하며 레이어 자료의 최소 제공 레벨과는 별개입니다.
+     * @returns {number | undefined} 지도 트리 시작 레벨. 앱이 없으면 0, 앱의 영역 설정 전에는 undefined일 수 있습니다.
      *
      * @ignore
      */

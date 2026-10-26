@@ -2,6 +2,11 @@
  * 2D 객체 그리기 예제에서 설명할 API Help Registry입니다.
  */
 export const apiHelp = Object.freeze({
+    'geometry.transform': createSourceHelp(
+        'U2dGeometry.translate() / rotate() / scale()',
+        '선택한 도형 중심을 기준으로 이동·회전·크기를 바꿉니다. 초기 도형은 편집할 때 애니메이션을 일시정지하며, 재개하면 변경한 위치와 형상에서 이어집니다. 포인트 표시 크기는 반경으로 조절합니다.',
+        'geometry.transform'
+    ),
     'geometry.create': createHybridHelp(
         'U2dPoint / U2dLine / U2dPolygon',
         '선택한 종류의 2D 도형을 현재 스타일 설정으로 만들어 레이어에 추가합니다. 포인트는 반경을, 라인과 폴리곤은 이어 붙인 점을 사용합니다.',
@@ -17,7 +22,7 @@ export const apiHelp = Object.freeze({
     ),
     'layer.style': createHybridHelp(
         'U2dVectorShaderLayer.setStyle()',
-        '레이어에 담긴 전체 2D 객체의 스타일을 한 번에 갱신합니다. 도형 생성 시 nonChanged를 true로 준 객체는 바뀌지 않습니다.',
+        '레이어 전체의 색·투명도·선 두께를 갱신합니다. 개별 도형은 도형 정보 패널에서 수정합니다.',
         'layer.style',
         settings => 'await vectorLayer.setStyle({\n'
             + "    fillColor: '" + toColorText(settings.fillColor) + "',\n"
@@ -36,23 +41,28 @@ export const apiHelp = Object.freeze({
             : '// 교차검색 모드가 꺼져 있어 getIntersects()를 호출하지 않습니다.'
     ),
     'layer.highlight-clear': createSourceHelp(
-        'U2dVectorShaderLayer.removeHigLightAll()',
-        '교차검색으로 강조한 표시를 한 번에 해제합니다. 도형 자체는 남습니다.',
+        'U2dVectorShaderLayer.removeHigLight()',
+        '검색된 도형의 색을 복원하고 검색 목록과 정보 오버레이를 닫습니다.',
         'layer.highlight-clear'
     ),
     'layer.clear': createSourceHelp(
-        'U2dVectorShaderLayer.clear()',
-        '레이어에 담긴 2D 객체를 모두 지웁니다. 레이어는 그대로 남아 다시 도형을 추가할 수 있습니다.',
+        'U2dVectorShaderLayer.removeGeometry()',
+        '도형 목록의 초기 도형과 직접 그린 도형을 모두 삭제하고 애니메이션을 중지합니다. WFS 피처와 별도로 입력한 GeoJSON·TopoJSON 데이터는 유지합니다.',
         'layer.clear'
     ),
     'layer.feature-query': createSourceHelp(
         'U2dVectorShaderLayer.getFeatureByXY()',
-        '위경도 좌표에 놓인 feature 정보를 조회합니다. 해당 위치에 객체가 없으면 값이 없습니다.',
+        '4326 위경도 위치에서 피처 배열을 조회하고 getProperties()로 속성을 읽습니다. 미로드 지역은 경고와 빈 배열을 반환합니다.',
         'layer.feature-query'
     ),
+    'search.overlay': createSourceHelp(
+        'U3dOverlay',
+        '검색 결과가 한 건이면 정보를 바로 표시하고, 여러 건이면 목록에서 선택해 표시합니다. 드래그하면 피처 기준점과 연결선으로 이어집니다. 단일 결과는 정보 창 닫기에서 강조도 해제하며, 여러 결과는 목록 닫기에서 해제합니다.',
+        'search.overlay'
+    ),
     'feature.update': createSourceHelp(
-        'U2dVectorShaderLayer.beginFeatureUpdate()',
-        '이미 추가한 도형의 좌표를 바꿀 때 사용합니다. beginFeatureUpdate()로 갱신을 시작하고 commitFeatureUpdate()가 끝나야 화면에 반영됩니다.',
+        'U2dGeometry.translate() / rotate()',
+        '초기 도형을 지도 좌표에서 이동·회전하면 원본 변경 이벤트로 화면에 자동 반영됩니다. 동적 원은 전용 레이어의 isDynamicRadius로 화면 크기를 유지하며, 상세 패널에서 픽셀 반경을 바꿉니다. 목록에서 스타일을 바꾸거나 삭제할 수 있으며 별도의 시작·커밋 호출은 필요하지 않습니다.',
         'feature.update'
     ),
     'import.data': createHybridHelp(

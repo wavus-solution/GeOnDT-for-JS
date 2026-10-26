@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -23,6 +23,7 @@ declare class UDevToolView {
     /**
      * UDevToolView 클래스 생성자입니다. <br>
      * app의 컨테이너 Element 안에 개발 도구 창을 만들고 Status, Settings, Debug 세 탭을 구성한 뒤 Status 탭을 선택합니다. <br>
+     * 창 구성이 끝나면 가시화 지연 관측을 자동으로 요청합니다. 작업 진단과 자동 제어 설정은 바꾸지 않습니다. <br>
      * app이 없으면 오류를 기록하고 창을 만들지 않습니다.
      *
      * @param {import('@U3dApp').U3dApp} app 개발 도구가 값을 읽고 설정을 적용할 대상 앱이며 창은 이 앱의 컨테이너 Element 안에 만들어집니다.
@@ -145,12 +146,14 @@ declare class UDevToolView {
     removeFolder(name: string, tabName?: string): boolean;
     /**
      * 개발 도구 창을 화면에 표시하는 메서드입니다. <br>
-     * 숨겨져 있는 동안 중단되었던 Status 탭 갱신과 onUpdate 콜백 호출을 다시 시작합니다.
+     * 숨겨져 있는 동안 중단되었던 Status 탭 갱신과 onUpdate 콜백 호출을 다시 시작합니다. <br>
+     * 가시화 지연 관측을 요청하여 이 창의 숨김으로 유예된 중지를 취소합니다. 해제된 창은 다시 표시하지 않습니다.
      */
     show(): void;
     /**
      * 개발 도구 창을 화면에서 숨기는 메서드입니다. <br>
      * 숨겨진 동안에는 Status 탭 갱신과 onUpdate 콜백을 호출하지 않습니다. <br>
+     * 이 창의 가시화 관측 요청을 해제합니다. 다른 요청이 없으면 중지하되 작업 진단 중에는 종료까지 유예합니다. <br>
      * 등록한 콜백과 창의 구성은 그대로 남으므로 show로 다시 표시할 수 있습니다.
      */
     hide(): void;
@@ -243,6 +246,7 @@ declare class UDevToolView {
      * 개발 도구 창을 해제하는 메서드입니다. <br>
      * 상태 갱신을 중단하고 onUpdate로 등록한 콜백을 모두 해제합니다. <br>
      * 모든 탭과 그 안의 컨트롤러, 그래프를 제거하고 창을 화면에서 걷어냅니다. <br>
+     * 이 창의 가시화 관측 요청을 해제하며 작업 진단 중의 중지는 관리자에서 진단 종료까지 유예합니다. <br>
      * 해제한 뒤에는 이 객체를 다시 사용할 수 없으므로 필요하면 새로 만드십시오.
      */
     dispose(): void;

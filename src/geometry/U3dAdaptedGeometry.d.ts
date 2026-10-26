@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -33,27 +33,27 @@ declare class U3dAdaptedGeometry extends U3dSphere {
      */
     static override EVENT: U3dAdaptedGeometryEMI;
     /** @type {import("three").Vector3} */
-    static "__#16@#TEMP_POSITION": three.Vector3;
+    static "__#11365@#TEMP_POSITION": three.Vector3;
     /** @type {import("three").Quaternion} */
-    static "__#16@#TEMP_ROTATION": three.Quaternion;
+    static "__#11365@#TEMP_ROTATION": three.Quaternion;
     /** @type {import("three").Vector3} */
-    static "__#16@#TEMP_SCALE": three.Vector3;
+    static "__#11365@#TEMP_SCALE": three.Vector3;
     /** @type {import("three").Matrix4} */
-    static "__#16@#TEMP_MAT4": three.Matrix4;
+    static "__#11365@#TEMP_MAT4": three.Matrix4;
     /** @type {import("three").Sphere} */
-    static "__#16@#TEMP_SPHERE": three.Sphere;
+    static "__#11365@#TEMP_SPHERE": three.Sphere;
     /** @type {import("three").Vector3} */
-    static "__#16@#TEMP_VECTOR": three.Vector3;
+    static "__#11365@#TEMP_VECTOR": three.Vector3;
     /** @type {import("three").Vector3} */
-    static "__#16@#TEMP_VECTOR2": three.Vector3;
+    static "__#11365@#TEMP_VECTOR2": three.Vector3;
     /** @type {import("three").Vector3} */
-    static "__#16@#TEMP_CENTER": three.Vector3;
+    static "__#11365@#TEMP_CENTER": three.Vector3;
     /** @type {import("three").Box3} */
-    static "__#16@#TEMP_BOX": three.Box3;
+    static "__#11365@#TEMP_BOX": three.Box3;
     /** @type {import("three").Vector3} */
-    static "__#16@#LINE_DIRECTION": three.Vector3;
+    static "__#11365@#LINE_DIRECTION": three.Vector3;
     /** @type {import("three").Vector3} */
-    static "__#16@#TEMP_DIR": three.Vector3;
+    static "__#11365@#TEMP_DIR": three.Vector3;
     /**
      * 어댑터 도형을 생성합니다. <br>
      * 인지 범위 배율(`buffer`), 연결선 색상·굵기(`lineColor`/`lineThick`), 범위 강조 색상(`boundColor`) 등을 옵션으로 지정할 수 있습니다. <br>
@@ -62,7 +62,6 @@ declare class U3dAdaptedGeometry extends U3dSphere {
      */
     constructor(opt: U3dAdaptedGeometryCO);
     _className: string;
-    name: any;
     isAdapter: boolean;
     /**
      * 인지 범위를 정하는 배율입니다. <br>
@@ -107,6 +106,15 @@ declare class U3dAdaptedGeometry extends U3dSphere {
      * @param {U3dGeometryStyleParam | U3dAdaptedStyleParam | string} style 스타일 옵션 (객체 또는 JSON 문자열) <br>
      */
     setStyle(style?: U3dGeometryStyleParam | U3dAdaptedStyleParam | string): void;
+    /**
+     * 어댑터가 대상까지 그리는 연결선의 색상을 설정합니다. <br>
+     * 연결선은 `showLine`으로 만들어지며, 아직 없으면 색을 바꾸지 않습니다. <br>
+     *
+     * @override
+     *
+     * @param {import('three').ColorRepresentation} lineColor 연결선 색상. 16진수 숫자(`0xff0000`), CSS 색 문자열(`'#ff0000'`) 또는 `THREE.Color`를 넣습니다 <br>
+     */
+    override setLineColor(lineColor: three.ColorRepresentation): void;
     /**
      * 어댑터 연결선의 굵기를 설정합니다. <br>
      * 값을 저장해 두었다가, 연결선을 그릴 때 이 굵기가 적용됩니다. <br>

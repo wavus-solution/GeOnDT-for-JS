@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -55,8 +55,9 @@ declare class U3dOpenLayer extends U3dImageLayer {
     /** @type {Array<number> | undefined} */ _resolutions: Array<number> | undefined;
     /** @type {import('three').ColorRepresentation | null} */ _tileBackgroundColor: three.ColorRepresentation | null;
     /**
-     * 타일 데이터의 픽셀 정보가 없는 영역에 적용할 배경색을 설정합니다.
+     * 타일의 빈 픽셀 배경색을 변경합니다. 같은 값이면 기존 타일을 유지합니다.
      * @param {import('three').ColorRepresentation | null} color 배경색. null이면 배경색을 해제합니다.
+     * @returns {void} 반환값이 없습니다.
      */
     setTileBackgroundColor(color: three.ColorRepresentation | null): void;
     /**

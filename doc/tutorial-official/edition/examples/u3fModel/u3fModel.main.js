@@ -62,7 +62,12 @@ export async function initialize(context) {
             const existingLegacyLayer = this._app.getLayerByName?.(this._name);
             if (existingLegacyLayer) {
                 this.layer = existingLegacyLayer;
-                this.ready.resolve(existingLegacyLayer);
+                // 기존 레이어도 초기화 완료 Promise를 관찰한 뒤 래퍼의 완료를 알립니다.
+                existingLegacyLayer.ready.then(() => {
+                    this.ready.resolve(existingLegacyLayer);
+                }).catch(error => {
+                    this.ready.reject(error);
+                });
                 return;
             }
             let self = this;
@@ -74,7 +79,7 @@ export async function initialize(context) {
                 self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
                 self._app.addLayer(this.layer);
             }
-            this.layer.then(() => {
+            this.layer.ready.then(() => {
                 self.ready.resolve();
             }).catch(function () {
                 self.ready.reject();
@@ -104,12 +109,17 @@ export async function initialize(context) {
             const existingLegacyLayer = this._app.getLayerByName?.(this._name);
             if (existingLegacyLayer) {
                 this.layer = existingLegacyLayer;
-                this.ready.resolve(existingLegacyLayer);
+                // 기존 레이어도 초기화 완료 Promise를 관찰한 뒤 래퍼의 완료를 알립니다.
+                existingLegacyLayer.ready.then(() => {
+                    this.ready.resolve(existingLegacyLayer);
+                }).catch(error => {
+                    this.ready.reject(error);
+                });
                 return;
             }
             let self = this;
             self.layer = this._app.createHeightXYZLayer(self.options);
-            self.layer.then(() => {
+            self.layer.ready.then(() => {
                 self.ready.resolve();
             }).catch(function () {
                 self.ready.reject();
@@ -171,7 +181,7 @@ export async function initialize(context) {
             },
             korea_terrain: {
                 name: 'korea_terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
-                baseurl: "https://dt-data.mappick.co.kr/ServiceData/dem/DEM_4/Korean_peninsula/", //+ 고도 데이터 기본 URL, *필수 입력
+                baseurl: 'https://dt-data.mappick.co.kr/ServiceData/dem/DEM_4/Korean_peninsula/', //+ 고도 데이터 기본 URL, *필수 입력
                 ext: '.umf', //+ 파일 확장자, *필수 입력
                 reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false)
                 minlevel: 9,  //+ 가시화 최소 레벨
@@ -276,7 +286,7 @@ export async function initialize(context) {
                     serverUrl: trdDimResUrl + 'v1/layers?type=u3f&category=AL_D198',
                     minlevel: 15,
                     maxlevel: 15,
-                    options: {compressmodel: true, isShareMaterial: true, makeU3FPackage: 0}
+                    options: {compressmodel: true, isShareMaterial: true, makeU3FPackage: 1}
                 },
                 '2.4': {
                     minlevel: 14,
@@ -350,7 +360,7 @@ export async function initialize(context) {
                         window.metalayers[version + ':' + info.name] = info;
                         const subLayer = createU3fSubLayer(version, info, config);
                         if (subLayer === false) return Promise.resolve();
-                        return Promise.resolve(subLayer).then(function () {
+                        return subLayer.ready.then(function () {
                             if (versionLayerStates.get(version) === state) {
                                 state.group.addLayer(subLayer);
                             }
@@ -379,7 +389,7 @@ export async function initialize(context) {
                 let state = versionLayerStates.get(version);
                 if (!state) {
                     if (!visible) return;
-                    const group = app.createModelGroupLayer({
+                    const group = app.createGroupLayer({
                         name: 'u3f-' + version,
                         minlevel: config.minlevel,
                         maxlevel: config.maxlevel

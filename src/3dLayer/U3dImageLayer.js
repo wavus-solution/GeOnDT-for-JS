@@ -11,7 +11,7 @@ import {U3dEvent} from '@union3d/event/U3dEvent';
 import {deferred} from "@util/deferred";
 import {LRUCache} from "@util/LRUCache";
 import {UTerrainMesh} from "@union3d/core/mesh/UTerrainMesh";
-import {__GInfo__, __GSError__} from "@U3dMessage";
+import {__GInfo__, __GSError__, __GError__} from "@U3dMessage";
 import {DEFAULT_BRIGHTNESS} from "@union3d/shader/GBrightnessBlendingShader.js";
 import {DEFAULT_CONTRAST} from "@union3d/shader/GContrastBlendingShader.js";
 import {DEFAULT_SATURATION} from "@union3d/shader/GSaturationBlendingShader.js";
@@ -95,7 +95,7 @@ class U3dImageLayer extends U3dLayer {
         opt = normalizeOptionKeys(opt, new.target);
         super(opt);
         const self = this;
-        const selfExt = /** @type {Partial<{_needXml: boolean, resolve: (function(U3dImageLayer): void)}>} */(/** @type {unknown} */(self));
+        const selfExt = /** @type {Partial<{_needXml: boolean}>} */(/** @type {unknown} */(self));
         self._type = UDEF.LAYER_TYPE.IMAGE;
         self._classtype = 'U3dImageLayer';
         self._disposed = false;
@@ -124,12 +124,12 @@ class U3dImageLayer extends U3dLayer {
         if(defined(opt.darkColorToneExposure)) self._darkColorToneExposure = opt.darkColorToneExposure;
 
         // 하위 클래스의 필드 초기화와 생성자 본문은 super()가 반환된 뒤에 실행.
-        // U3dImageLayer 생성자가 돌고 있는 동안 this._needXml은 항상 undefined -> XML 로드 전에 ready()가 완료
+        // U3dImageLayer 생성자가 돌고 있는 동안 this._needXml은 항상 undefined -> XML 로드 전에 ready가 완료
         // 타이머는 항상 예약하되, _needXml 검사를 타이머 콜백 안으로 이동
         setTimeout(function () {
             //+ 이니셜라이즈 종료 호출
-            if (selfExt._needXml !== true && defined(selfExt.resolve))
-                selfExt.resolve(self);
+            if (selfExt._needXml !== true)
+                self._resolveReady();
         }, 1);
 
         self.#dataCache = new LRUCache(self.#dataCacheSize,
@@ -2300,7 +2300,7 @@ class U3dImageLayer extends U3dLayer {
 
             //+ 표출영역이 없다면
             if (!this.intersects(tile._rectangle, level)
-                || level > U3dQuadTile.getMaxLevel()) {
+                || level > (this._drawArg?._app?._maxlevel ?? U3dQuadTile.getMaxLevel())) {
                 this.setStateTile(tile, UDEF.TILE_STATE._end);
                 break check;
             }
@@ -2524,8 +2524,13 @@ class U3dImageLayer extends U3dLayer {
                 (result && typeof result === 'object' && 'then' in result) ? result : undefined
             );
             if (thenable) {
-                thenable.then(() => {
+                // 반환값은 하나의 표준 Promise 체인으로 소비하여 후처리 예외까지 처리합니다.
+                Promise.resolve(thenable).then(() => {
+                    if (this._disposed || tile._disposed) return;
                     this.addTileFromScene(tile);
+                }).catch((error) => {
+                    if (this._disposed || tile._disposed || error?.name === 'AbortError') return;
+                    __GError__(this, `타일 텍스처 갱신에 실패했습니다. ${error}`, '2258522');
                 });
             } else if (result === true) {
                 this.addTileFromScene(tile);

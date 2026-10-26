@@ -1,14 +1,18 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U2dVectorShaderLayer } from "../2dLayer/U2dVectorShaderLayer.js";
+import type { UArrowHelper } from "../core/UArrowHelper.js";
+import type { URaycaster } from "../core/URaycaster.js";
 import type { UScene } from "../core/UScene.js";
 import type { UParticle } from "./UParticle.js";
+import type { XTween } from "./XTween.js";
+import type { U2dPoint } from "../geometry/U2dPoint.js";
 import type { WorldPosition } from "../types/global.js";
 
 /**
@@ -72,7 +76,7 @@ import type { WorldPosition } from "../types/global.js";
 declare class UParticleEngine {
     constructor(app: any);
     _app: any;
-    _scene: any;
+    _scene: UScene;
     positionStyle: 1;
     positionBase: three.Vector3;
     positionSpread: three.Vector3;
@@ -92,13 +96,13 @@ declare class UParticleEngine {
     angleAccelerationSpread: number;
     sizeBase: number;
     sizeSpread: number;
-    sizeTween: any;
+    sizeTween: XTween;
     colorBase: three.Vector3;
     colorSpread: three.Vector3;
-    colorTween: any;
+    colorTween: XTween;
     opacityBase: number;
     opacitySpread: number;
-    opacityTween: any;
+    opacityTween: XTween;
     blendStyle: 1;
     particleArray: any[];
     particlesPerSecond: number;
@@ -115,10 +119,10 @@ declare class UParticleEngine {
     _segments: number;
     _zAxis: three.Vector3;
     _yAxis: three.Vector3;
-    _point: any;
+    _point: U2dPoint;
     _tempBbox: three.Box3;
     _cacheMask: {};
-    _raycast: any;
+    _raycast: URaycaster;
     _isUpdated: boolean;
     isStop: boolean;
     _requestList: any[];
@@ -294,8 +298,8 @@ declare class UParticleEngine {
      * @return {import('@UParticle').UParticle} 개별적인 particle 속성을 담고 있는 객체
      */
     createParticleObject(): UParticle;
-    createXTween(timeArray: any, valueArray: any): any;
-    createArrowHelper(dir: any, center: any, length: any, color: any, headLength: any, headWidth: any): any;
+    createXTween(timeArray: any, valueArray: any): XTween;
+    createArrowHelper(dir: any, center: any, length: any, color: any, headLength: any, headWidth: any): UArrowHelper;
 }
 
 /**

@@ -279,8 +279,8 @@ class U3dModelWFSLayer extends U3dModelLayer {
         self._loader.setResponseType('json');
         self._labelMap = new Map();
 
-        if (defined(/** @type{any} */(self).resolve))
-            /** @type{any} */(self).resolve(self);
+        if (defined(self._resolveReady))
+            self._resolveReady();
     }
 
     /**

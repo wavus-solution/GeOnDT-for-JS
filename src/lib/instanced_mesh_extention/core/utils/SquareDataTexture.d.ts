@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../../../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../../../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -51,7 +51,7 @@ declare class SquareDataTexture extends DataTexture {
      * @default 0.8
      */
     fullUpdateRowRatio: number;
-    _utils: WebGLUtils;
+    _utils: any;
     _needsUpdate: boolean;
     _lastWidth: number;
     _data: any;
@@ -136,17 +136,18 @@ declare class SquareDataTexture extends DataTexture {
     }[];
     /**
      * 변경된 텍스처 행만 GPU에 업로드합니다.
+     *
      * @param {object} textureProperties - renderer texture 속성
      * @param {object} renderer - WebGLRenderer
-     * @param {{row:number,count:number,x:number,width:number}[]} info - 업로드할 연속 행/열 범위
+     * @param {Array<{row:number,count:number,x:number,width:number}>} info - 업로드할 연속 행/열 범위
      * @param {number} slot - texture unit slot
      */
-    updateRows(textureProperties: object, renderer: object, info: {
+    updateRows(textureProperties: object, renderer: object, info: Array<{
         row: number;
         count: number;
         x: number;
         width: number;
-    }[], slot: number): void;
+    }>, slot: number): void;
     /**
      * Sets a uniform value at the specified instance ID in the texture.
      * @param id The instance ID to set the uniform for.

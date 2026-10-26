@@ -10,7 +10,7 @@ import {UGroup} from "@union3d/core/UGroup";
 import {U3dBilboard} from "@union3d/geometry/U3dBilboard";
 import {__GError__, __GInfo__, U3dMessage} from "@U3dMessage";
 import {UDraw} from "@union3d/draw/UDraw";
-import {deferred} from "@util/deferred";
+import {deferredPromise} from "@util/deferredPromise";
 import {ol} from '@union3d/lib/ol/ol-debug.js';
 import {INTERNAL} from '@union3d/analy/UAnalyCustomLand.internal';
 
@@ -361,6 +361,8 @@ class UAnalyCustomLand extends UAnaly {
 
     /**
      * 커스텀 지형의 feature 리스트를 반환하는 함수
+     *
+     * @override
      * @return {Array<OLFeature>} feature 리스트
      */
     getFeatures() {
@@ -371,6 +373,7 @@ class UAnalyCustomLand extends UAnaly {
      * @deprecated  addCustomLand() 메서드를 사용하세요.
      *
      * @param {DataOPT_Input} options
+     * @returns {Promise<void>} 추가 완료. 잘못된 입력이나 처리 오류는 거부합니다.
      */
     addEditLand(options) {
         console.warn('UAnalyCustomLand.addEditLand:', '.addEditLand() is deprecated. please use .addCustomLand() method.');
@@ -388,6 +391,7 @@ class UAnalyCustomLand extends UAnaly {
     /**
      * 편집한 지형을 추가하는 기능
      * @param {DataOPT_Input} options
+     * @returns {Promise<void>} 추가 완료. 잘못된 입력이나 처리 오류는 거부합니다.
      *
      * @example
      * analy.addCustomLand({
@@ -397,7 +401,7 @@ class UAnalyCustomLand extends UAnaly {
      * });
      */
     addCustomLand(options) {
-        const promise = /** @type {DeferredObject<void>} */ (deferred());
+        const promise = /** @type {DeferredPromise<void>} */ (deferredPromise());
         const self = this;
         try {
             if (!self._draw && self._app) {
@@ -413,15 +417,16 @@ class UAnalyCustomLand extends UAnaly {
                     return acc.then(() => cur());
                 }, Promise.resolve())
                     .then(() => { promise.resolve(); })
-                    .catch(() => { promise.reject(); });
+                    .catch(promise.reject);
             } else if (options instanceof Object) {
                 this.#addCustomLand_(options).then(function () {
                     promise.resolve();
-                }).catch(function () {
-                    promise.reject();
-                });
+                }).catch(promise.reject);
+            } else {
+                promise.reject(new TypeError('편집지형 옵션은 객체 또는 객체 배열이어야 합니다.'));
             }
         } catch (e) {
+            promise.reject(e);
             U3dMessage.error(self._classtype, 'AddCustomLand 실행 중 오류가 발생 하였습니다.', '2613781');
         }
         return promise;
@@ -431,6 +436,7 @@ class UAnalyCustomLand extends UAnaly {
      * 편집한 지형을 수정하는 기능
      * @param {string} id 수정할 편집지형 ID
      * @param {DataOPT_Input} option
+     * @returns {Promise<void> | undefined} 수정 완료 또는 입력·대상 지형이 없으면 undefined
      *
      * @example
      * analy.editCustomLand("editLand", { id: "editLand_update", height: 55, geoVertex: [{x: 129.154, y: 35.164, z: 15}] });
@@ -443,7 +449,7 @@ class UAnalyCustomLand extends UAnaly {
         const customLand = self.getCustomLand(id);
         if (!customLand) return;
         const oriCenter = /** @type {import('three').Vector3} */ (customLand.getCenter());
-        const promise = /** @type {DeferredObject<void>} */ (deferred());
+        const promise = /** @type {DeferredPromise<void>} */ (deferredPromise());
 
         self.removeEditLandById(id);
 
@@ -562,7 +568,7 @@ class UAnalyCustomLand extends UAnaly {
      *
      * @example
      * analy.getVolume('customLand_ID').then(function(land){
-     *   var volume = land.getVolume();
+     *   var volume = land.volume;
      *   var difference = land.getDifference();
      * });
      */
@@ -860,7 +866,7 @@ class UAnalyCustomLand extends UAnaly {
      */
     #addCustomLand_(options) {
         const self = this;
-        const promise = /** @type {DeferredObject<void>} */ (deferred());
+        const promise = /** @type {DeferredPromise<void>} */ (deferredPromise());
         try {
             const layers = /** @type {import('@UDrawArg').UDrawArg} */ (self._drawArg)?._app?.getHeightLayers();
             if (!defined(layers) || layers.length === 0) {

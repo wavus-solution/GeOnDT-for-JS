@@ -75,7 +75,7 @@ export const apiHelp = Object.freeze({
     },
     'frustum.path-style': {
         title: 'U3dAnimationComponent.setCumulativePathStyle()',
-        description: '누적 경로의 색상, 투명도와 폭을 현재 선택한 드론에 즉시 적용합니다.',
+        description: '누적 경로의 색상, 투명도, 선 반폭을 현재 선택한 드론에 즉시 적용합니다.',
         mode: 'dynamic',
         getCode(context) {
             return createCumulativePathStyleApiCode(getCurrentCumulativePathSettings(context));

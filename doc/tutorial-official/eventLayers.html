@@ -355,7 +355,7 @@
             self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
             self._app.addLayer(this.layer);
         }
-        this.layer.then(() => {
+        this.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -385,7 +385,7 @@
     HeightLayer.prototype.create = function () {
         let self = this;
         self.layer = this._app.createHeightXYZLayer(self.options);
-        self.layer.then(() => {
+        self.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -696,7 +696,7 @@
 
             let subLayer = app.create3DFModelLayer(options);
 
-            subLayer.then(function (layer) {
+            subLayer.ready.then(function (layer) {
                 app.showLayer(layer.getName(), true).then(function (param) {
                     // console.info(param);
                     // console.info('u3f showlayer then');
@@ -706,7 +706,7 @@
                 //+ select bar list 추가
                 addSelectOption(count + ':' + subLayer.getName());
                 count++;
-            }).fail(function (layer) {
+            }).catch(function (layer) {
 
             });
             return subLayer;

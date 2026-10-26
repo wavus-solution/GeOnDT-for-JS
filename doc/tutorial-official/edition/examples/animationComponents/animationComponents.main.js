@@ -313,7 +313,7 @@ export async function initialize(context) {
             },
             width: {
                 title: '누적 경로 두께 API',
-                description: '누적 경로의 기본 폭을 설정합니다. 값을 올리면 멀리서도 잘 보이지만 주변 지형을 더 많이 가립니다. 기본값은 5입니다.',
+                description: '실선 경로의 반폭(px)을 설정합니다. 전체 두께는 약 2배이며 0이면 경로를 숨깁니다. 기본값은 5입니다.',
                 code: settings => `component.setCumulativePathStyle({\n    width: ${formatApiNumber(settings.width)}\n});`
             },
             fadeEnabled: {
@@ -975,7 +975,7 @@ export async function initialize(context) {
 
             // createMultipleComponentLayer는 모델 파일 로딩을 포함하므로 Promise처럼 then/catch로 완료 시점을 받는다.
             // 레이어가 준비되기 전 addPosition을 호출하면 모델을 찾지 못할 수 있다.
-            animationLayer.then(function () {
+            animationLayer.ready.then(function () {
                 // 레이어 가시화
                 app.showLayer(animationLayer.getName(), true);
                 isAnimationLayerReady = true;
@@ -3176,6 +3176,7 @@ export async function initialize(context) {
                 // 검출된 hit/miss cell의 경계만 추가 이분 정제한다. 격자/stamp 수를 늘리지 않아
                 // 128 stamp 상한을 지키면서 큰 far 외곽선의 world 오차와 단계적 튐을 줄일 수 있다.
                 terrainBoundaryRefinementSteps: frustumSettings.terrainBoundaryRefinementSteps,
+                //useFastStamp:true,
                 fill: {
                     // true이면 far plane 내부를 채운다.
                     enabled: true,

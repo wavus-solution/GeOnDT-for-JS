@@ -1,330 +1,432 @@
-/** 사용자가 직접 그린 도형과 WKT 입력을 담는 레이어 이름입니다. */
+/** 사용자 도형과 WFS 피처를 함께 담는 검색 대상 레이어입니다. */
 const MAIN_LAYER_NAME = 'vectorLayer';
-
-/** GeoJSON·TopoJSON 입력과 공전하는 원을 담는 보조 레이어 이름입니다. */
+/** 데이터 입력과 초기 도형을 담는 보조 레이어입니다. 검색 대상에 포함하지 않습니다. */
 const SUB_LAYER_NAME = 'subVectorLayer';
-
-/** 교차검색 모드에서 만드는 검색용 도형의 색입니다. 검색 대상과 구분하려고 따로 둡니다. */
-const SEARCH_GEOMETRY_STYLE = {fillColor: '#7AFF7A', strokeColor: '#ffff00'};
-
-/** 교차검색으로 찾은 도형에 적용할 강조 스타일입니다. */
+/** 동적 반경 설정이 일반 포인트에 적용되지 않도록 전용 레이어에 분리합니다. */
+const DYNAMIC_LAYER_NAME = 'dynamicCircleLayer';
+const SEARCH_GEOMETRY_STYLE = {fillColor: '#7aff7a', strokeColor: '#ffff00'};
 const HIGHLIGHT_STYLE = {fillColor: 'rgba(0,255,0,0.5)', strokeColor: '#ffff00', strokeWidth: 1.5};
-
-/** 공전하는 원의 중심이 도는 기준점입니다. 홈 위치와 같습니다. */
-const ORBIT_CENTER = [127.54986578024146, 36.70378269796982];
-
-/** 원 자체의 반경(위도 기준 도 단위)입니다. */
-const CIRCLE_RADIUS_LATITUDE = 0.00036;
-
-/** 원 중심이 도는 공전 반경(위도 기준 도 단위)입니다. */
-const ORBIT_RADIUS_LATITUDE = 0.0012;
-
-/** 원을 몇 개의 정점으로 나눌지입니다. */
+const ORBIT_CENTER = [126.9395, 37.52];
+const INITIAL_ORBIT_RADIUS = 70;
+const INITIAL_CIRCLE_RADIUS = 30;
+const INITIAL_DYNAMIC_CIRCLE_RADIUS = 15;
 const CIRCLE_SEGMENT_COUNT = 64;
-
-/** 한 번 갱신할 때 진행하는 공전 각도입니다. */
 const ORBIT_ANGLE_STEP = Math.PI / 360;
-
-/** 공전 좌표 갱신 주기입니다. */
+const ROTATION_ANGLE_STEP = Math.PI / 180;
 const ANIMATION_INTERVAL_MS = 1000 / 40;
-
-/** 좌표를 갱신한 뒤 idle로 돌아가지 않고 유지할 프레임 수입니다. */
 const ANIMATION_DRAW_WORK_FRAME = 20;
-
-const DEGREE_TO_RADIAN = Math.PI / 180;
 const TWO_PI = Math.PI * 2;
 
 /**
- * 2D 객체 그리기 예제의 레이어와 도형 조작을 초기화합니다.
+ * 2D 도형 그리기·개별 편집·좌표 검색·교차 검색의 상태와 자원을 관리합니다.
  *
  * @param {GeOnDTExampleContext} context 공통 런타임 컨텍스트
- * @returns {Promise<Record<string, unknown>>} UI와 API Help에서 사용할 예제 동작
+ * @returns {Promise<Record<string, unknown>>} UI와 API Help에 제공할 예제 동작
  */
 export async function initialize(context) {
     const app = context.app;
     const settings = {
-        drawType: 'Point',
-        strokeColor: '#000000',
-        fillColor: '#ff0000',
-        strokeOpacity: 1,
-        fillOpacity: 0.7,
-        strokeWidth: 1.5,
-        radius: 10,
-        selectMode: false,
-        sourceCRS: 'EPSG:3857',
-        importFormat: 'wkt'
+        drawType: 'Point', strokeColor: '#000000', fillColor: '#ff0000',
+        strokeOpacity: 1, fillOpacity: 0.7, strokeWidth: 1.5, radius: 10,
+        selectMode: false, drawing: false, sourceCRS: 'EPSG:3857', importFormat: 'wkt'
     };
-    const resultListeners = new Set();
+    const stateListeners = new Set();
+    const drawings = new Map();
+    let nextDrawingId = 1;
+    let targetGeom;
+    let selectedDrawingId;
+    let searchResults = [];
+    let searchOpen = false;
+    let overlay;
+    let overlayPositionFrame = 0;
+    let disposed = false;
+    let animationTimer;
+    let orbitAngle = 0;
+    const home = context.config?.home;
+    const center = app._drawArg.getGeographicToGoogle(home?.longitude ?? ORBIT_CENTER[0], home?.latitude ?? ORBIT_CENTER[1]);
 
     // @example-code:start layer.create
-    /** @type {U2dVectorShaderLayer} */
     const vectorLayer = new GeOnDT.vector.U2dVectorShaderLayer({
-        name: MAIN_LAYER_NAME,
-        // 지형 tile에 합성하기 시작하는 최소 레벨입니다. 생성자 Key는 camelCase인 minLevel입니다.
-        minLevel: 15,
-        transparent: true,
-        layername: 'z_kais_tl_spbd_buld_202007', // 건물
-        baseurl: 'https://3d.geon.kr/geoserver/digitaltwin/ows',
-        // 도형이 추가될 때마다 호출되어 그 도형의 표시 스타일을 결정합니다.
+        name: MAIN_LAYER_NAME, minLevel: 15, transparent: true,
+        layerName: 'z_kais_tl_spbd_buld_202007',
+        // 로컬 예제는 개발 서버의 고정 WFS 프록시를 사용해 서버의 출처 제한을 피합니다.
+        baseUrl: ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
+            ? '/geoserver/digitaltwin/ows'
+            : 'https://3d.geon.kr/geoserver/digitaltwin/ows',
         styleFunction: () => ({
-            fillColor: settings.fillColor,
-            fillOpacity: settings.fillOpacity,
-            strokeColor: settings.strokeColor,
-            strokeOpacity: settings.strokeOpacity,
-            strokeWidth: settings.strokeWidth,
-            // true이면 교차검색 대상에서 빠집니다.
-            excludeSearch: false,
-            // true이면 생성 이후의 외부 스타일 변경을 받지 않습니다.
-            nonChanged: false
+            fillColor: settings.fillColor, fillOpacity: settings.fillOpacity,
+            strokeColor: settings.strokeColor, strokeOpacity: settings.strokeOpacity,
+            strokeWidth: settings.strokeWidth, excludeSearch: false, nonChanged: false
         })
     });
     app.addLayer(vectorLayer);
     app.showLayer(MAIN_LAYER_NAME, true);
     // @example-code:end layer.create
-
-    /** @type {U2dVectorShaderLayer} */
-    const subVectorLayer = new GeOnDT.vector.U2dVectorShaderLayer({
-        name: SUB_LAYER_NAME,
-        minLevel: 15,
-        transparent: true
-    });
+    const subVectorLayer = new GeOnDT.vector.U2dVectorShaderLayer({name: SUB_LAYER_NAME, minLevel: 15, transparent: true});
     app.addLayer(subVectorLayer);
     app.showLayer(SUB_LAYER_NAME, true);
+    // @example-code:start geometry.dynamic-circle
+    const dynamicCircleLayer = new GeOnDT.vector.U2dVectorShaderLayer({
+        name: DYNAMIC_LAYER_NAME, minLevel: 15, transparent: true,
+        isDynamicRadius: true, dynamicRadius: INITIAL_DYNAMIC_CIRCLE_RADIUS
+    });
+    app.addLayer(dynamicCircleLayer);
+    app.showLayer(DYNAMIC_LAYER_NAME, true);
+    // @example-code:end geometry.dynamic-circle
 
-    /** 그리는 중인 도형입니다. 라인·폴리곤은 더블클릭으로 끝날 때까지 여기에 점을 더합니다. */
-    let targetGeom;
+    /** UI 구독자가 현재 상태를 읽을 수 있도록 참조 목록을 새로 만듭니다. */
+    function getState() {
+        return {settings: {...settings}, drawings: [...drawings.values()], animationEnabled: animationTimer !== undefined,
+            selectedDrawingId, searchResults: [...searchResults], searchOpen};
+    }
+
+    /** 이미 해제된 UI로 이벤트가 전달되지 않도록 수명 종료 후 알림을 막습니다. */
+    function notifyState() {
+        if (!disposed) stateListeners.forEach(listener => listener(getState()));
+    }
+
+    /** 이 예제가 만든 정보 오버레이만 제거합니다. */
+    function closeOverlay() {
+        cancelAnimationFrame(overlayPositionFrame);
+        overlayPositionFrame = 0;
+        if (!overlay) return;
+        const previous = overlay;
+        overlay = undefined;
+        app.removeOverlay(previous);
+    }
+
+    /** 새 검색·목록 닫기 전에 이전 검색의 색과 오버레이를 함께 복원합니다. */
+    function clearSearch() {
+        closeOverlay();
+        // @example-code:start layer.highlight-clear
+        for (const item of searchResults) {
+            for (const feature of item.highlightFeatures) vectorLayer.removeHigLight(feature);
+        }
+        // @example-code:end layer.highlight-clear
+        searchResults = [];
+        searchOpen = false;
+        notifyState();
+    }
 
     /**
-     * 현재 설정으로 도형을 만들어 메인 레이어에 추가합니다.
+     * 한 번의 검색 결과를 저장하고 강조합니다. 새 검색은 이전 검색을 대체합니다.
+     *
+     * @param {Array<import('@UMeasureFeature').UMeasureFeature>} features 검색된 피처 목록
+     * @param {{x: number, y: number} & Partial<{z: number}>} [position] 클릭 검색에서 얻은 지형 위의 위경도 좌표계(EPSG:4326) 위치
+     */
+    function showSearch(features, position) {
+        clearSearch();
+        const registered = vectorLayer.getFeatures();
+        searchResults = features.map(feature => {
+            const origin = feature.getOLFeature();
+            const sourceId = origin?._searchFeatureId;
+            // 목록은 원본당 한 행이고 색상은 표시용으로 분리된 모든 외곽선·구멍에 함께 적용합니다.
+            const highlightFeatures = sourceId === undefined ? [feature] : registered.filter(candidate =>
+                candidate._isWfsService && candidate.getOLFeature()?._searchFeatureId === sourceId);
+            return {feature, highlightFeatures, position: position ? {x: position.x, y: position.y, z: position.z ?? 0} : undefined,
+                id: sourceId ?? feature.getId(),
+                type: origin?._searchGeometry?.type ?? feature.getType(), properties: feature.getProperties() ?? {}};
+        });
+        for (const item of searchResults) {
+            for (const feature of item.highlightFeatures) vectorLayer.setHighLight(feature, HIGHLIGHT_STYLE);
+        }
+        // 한 건이면 선택 단계 없이 정보를 열고, 여러 건 또는 빈 결과는 목록에서 안내합니다.
+        searchOpen = searchResults.length !== 1;
+        notifyState();
+        if (searchResults.length === 1) showFeatureInfo(0);
+    }
+
+    /**
+     * 선택한 피처의 속성을 안전한 DOM 텍스트로 만들어 지도 오버레이에 표시합니다.
+     * 한 건 검색의 자동 표시와 여러 건 검색 목록의 선택에서 같은 경로를 사용합니다.
+     *
+     * @param {number} index 검색 결과의 순번
+     */
+    function showFeatureInfo(index) {
+        const item = searchResults[index];
+        if (!item || disposed) return;
+        const position = getOverlayPosition(item);
+        if (!position) return;
+        closeOverlay();
+        const element = document.createElement('section');
+        element.className = 'vector2d-feature-overlay';
+        const header = document.createElement('header');
+        const title = document.createElement('strong');
+        title.textContent = '피처 ' + item.id;
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.textContent = '×';
+        close.setAttribute('aria-label', '피처 정보 닫기');
+        close.addEventListener('click', () => {
+            // 단일 결과는 목록 닫기가 없으므로 정보 창 닫기에서 검색 강조도 함께 해제합니다.
+            if (searchOpen) closeOverlay();
+            else clearSearch();
+        });
+        header.append(title, close);
+        const table = document.createElement('dl');
+        const properties = {ID: item.id, 도형종류: item.type, ...item.properties};
+        for (const [key, value] of Object.entries(properties)) {
+            // OpenLayers의 geometry는 순환 참조를 가질 수 있으며 사용자 속성 표에는 넣지 않습니다.
+            if (key === 'geometry') continue;
+            const row = document.createElement('div');
+            const name = document.createElement('dt');
+            const content = document.createElement('dd');
+            name.textContent = key;
+            content.textContent = value && typeof value === 'object' ? JSON.stringify(value) : String(value ?? '');
+            row.append(name, content);
+            table.append(row);
+        }
+        element.append(header, table);
+        for (const event of ['click', 'dblclick', 'pointerdown', 'mousedown', 'touchstart', 'wheel']) {
+            element.addEventListener(event, e => e.stopPropagation());
+        }
+        // @example-code:start search.overlay
+        // 기준점은 피처에 고정하고 오버레이의 현재 위치만 드래그로 이동합니다.
+        // endPosition을 지정하면 SDK가 드래그를 활성화하며 useLine으로 두 위치를 연결합니다.
+        overlay = new GeOnDT.overlay.U3dOverlay({
+            name: 'vector2d-feature-info', element, position, endPosition: {...position},
+            anchor: [0, 1], useAnchor: true, useLine: true, linecolor: '#ffff00'
+        });
+        app.addOverlay(overlay);
+        // @example-code:end search.overlay
+        const current = overlay;
+        // SDK가 첫 화면 좌표를 적용한 뒤 크기를 읽습니다. 오른쪽 패널에 닫기 버튼이 가려지거나
+        // 화면 위로 잘릴 때에는 지도 좌표를 유지하면서 오버레이를 펼치는 방향만 바꿉니다.
+        overlayPositionFrame = requestAnimationFrame(() => {
+            overlayPositionFrame = 0;
+            if (overlay !== current) return;
+            const bounds = element.getBoundingClientRect();
+            const map = app.container().getBoundingClientRect();
+            const panel = context.elements.root.querySelector('#vector2d-draw-panel').getBoundingClientRect();
+            const right = panel.width ? Math.min(map.right, panel.left) : map.right;
+            if (bounds.right > right) current.anchor[0] = 1;
+            if (bounds.left < map.left) current.anchor[0] = 0;
+            if (bounds.top < map.top) current.anchor[1] = 0;
+            if (bounds.bottom > map.bottom) current.anchor[1] = 1;
+            current.callOnchange();
+        });
+    }
+
+    /**
+     * 클릭 검색은 실제 클릭한 지형 위치를 사용하고 교차 검색은 피처 중심의 지형 높이를 사용합니다.
+     * 첫 꼭짓점의 높이 0을 그대로 쓰면 지형에 붙은 도형과 정보 위치가 어긋나 화면 밖에서 숨겨질 수 있습니다.
+     *
+     * @param {Record<string, unknown>} item 검색 결과 항목
+     * @returns {({x: number, y: number} & Partial<{z: number}>) | undefined} 오버레이의 위경도 좌표계(EPSG:4326) 위치
+     */
+    function getOverlayPosition(item) {
+        if (item.position) return item.position;
+        const first = item.feature.getMeasureVectors()[0];
+        if (!first) return undefined;
+        const world = first.clone();
+        const extent = item.feature.getWorldExtent();
+        if (extent && !extent.isEmpty()) extent.getCenter(world);
+        const position = app.vector3ToGeoGraphic(world);
+        const height = app.getHeightAtPoint(world);
+        if (Number.isFinite(height) && height !== GeOnDT.UDEF.TERRAIN_NO_DATA && height !== GeOnDT.UDEF.INVALID) {
+            position.z = height;
+        }
+        return position;
+    }
+
+    /** 그리기를 취소하면 미완성 도형만 제거하고 이미 완성한 도형은 보존합니다. */
+    function cancelDrawing() {
+        if (targetGeom) vectorLayer.removeGeometry(targetGeom);
+        targetGeom = undefined;
+    }
+
+    /**
+     * 완성한 도형을 목록에 등록합니다. 검색용 도형도 같은 편집·삭제 수명을 갖습니다.
+     *
+     * @param {import('@U2dGeometry').U2dGeometry} geometry 완성한 도형
+     * @param {string} type 도형 종류
+     * @param {boolean} isSearch 교차검색용 도형인지 여부
+     * @param {import('@U2dVectorShaderLayer').U2dVectorShaderLayer} [layer=vectorLayer] 도형을 소유한 레이어
+     * @param {string} [label] 목록에 표시할 이름
+     * @returns {Record<string, unknown>} 등록한 목록 항목
+     */
+    function registerDrawing(geometry, type, isSearch, layer = vectorLayer, label) {
+        const id = String(nextDrawingId++);
+        if (type === 'WKT') {
+            type = geometry instanceof GeOnDT.geom.U2dPoint ? 'Point'
+                : geometry instanceof GeOnDT.geom.U2dLine ? 'LineString' : 'Polygon';
+        }
+        const param = geometry.getParam();
+        const item = {id, geometry, type, isSearch, layer, attached: true, transform: {x: 0, y: 0, rotation: 0, scale: 1},
+            label: label ?? (isSearch ? '검색 ' : '') + type + ' ' + id,
+            style: {fillColor: param.fillColor ?? settings.fillColor, strokeColor: param.strokeColor ?? settings.strokeColor,
+                fillOpacity: param.fillOpacity ?? settings.fillOpacity, strokeOpacity: param.strokeOpacity ?? settings.strokeOpacity,
+                strokeWidth: param.strokeWidth ?? settings.strokeWidth, radius: param.radius ?? settings.radius}};
+        drawings.set(id, item);
+        notifyState();
+        return item;
+    }
+
+    /**
+     * 선택한 종류의 도형을 만들고 검색용 여부를 지정합니다.
      *
      * @param {string} type 도형 종류
-     * @returns {U2dGeometry} 생성한 도형
+     * @returns {import('@U2dGeometry').U2dGeometry} 새 도형
      */
     function createGeometry(type) {
         // @example-code:start geometry.create
-        const option = {
-            fillColor: settings.fillColor,
-            fillOpacity: settings.fillOpacity,
-            strokeColor: settings.strokeColor,
-            strokeOpacity: settings.strokeOpacity,
-            strokeWidth: settings.strokeWidth
-        };
+        const option = {fillColor: settings.fillColor, fillOpacity: settings.fillOpacity,
+            strokeColor: settings.strokeColor, strokeOpacity: settings.strokeOpacity, strokeWidth: settings.strokeWidth};
         if (settings.selectMode) {
-            // 검색용 도형은 스스로 검색 결과에 걸리면 안 되므로 검색에서 빼고 스타일도 고정합니다.
-            option.fillColor = SEARCH_GEOMETRY_STYLE.fillColor;
-            option.strokeColor = SEARCH_GEOMETRY_STYLE.strokeColor;
-            option.excludeSearch = true;
-            option.nonChanged = true;
+            Object.assign(option, SEARCH_GEOMETRY_STYLE, {excludeSearch: true});
         }
-
         let geometry;
-        if (type === 'Point') {
-            option.radius = settings.radius;
-            geometry = new GeOnDT.geom.U2dPoint(option);
-        } else if (type === 'LineString') {
-            geometry = new GeOnDT.geom.U2dLine(option);
-        } else {
-            geometry = new GeOnDT.geom.U2dPolygon(option);
-        }
+        if (type === 'Point') geometry = new GeOnDT.geom.U2dPoint({...option, radius: settings.radius});
+        else if (type === 'LineString') geometry = new GeOnDT.geom.U2dLine(option);
+        else geometry = new GeOnDT.geom.U2dPolygon(option);
+        geometry.setMeta({이름: (settings.selectMode ? '교차검색 ' : '') + type, 사용자도형: true});
         vectorLayer.addGeometry(geometry);
         // @example-code:end geometry.create
         return geometry;
     }
 
     /**
-     * 클릭 좌표를 현재 도형 종류에 맞게 반영합니다.
+     * 완성 도형을 목록에 남기고 교차검색 모드이면 같은 결과 목록을 사용합니다.
      *
-     * 포인트는 한 번의 클릭으로 끝나고, 라인·폴리곤은 더블클릭 전까지 점을 이어 붙입니다.
-     *
-     * @param {{x: number, y: number}} lonlat 클릭 지점의 위경도
+     * @returns {boolean} 유효한 도형을 완성했으면 true
      */
-    function drawGeometry(lonlat) {
-        if (targetGeom === undefined) targetGeom = createGeometry(settings.drawType);
-        if (settings.drawType === 'Point') targetGeom.setPosition([lonlat.x, lonlat.y]);
-        else targetGeom.addPosition([lonlat.x, lonlat.y]);
-    }
-
-    /**
-     * 그린 도형과 겹치는 객체를 찾아 강조합니다.
-     *
-     * @param {U2dGeometry | undefined} geometry 검색 기준 도형
-     * @returns {number} 강조한 객체 수
-     */
-    function highlightIntersects(geometry) {
-        if (!geometry) return 0;
-        // @example-code:start geometry.intersects
-        const geomList = vectorLayer.getIntersects(geometry) || [];
-        for (const geom of geomList) {
-            // styleOption을 넘기지 않으면 기본 검색 스타일이 적용됩니다.
-            vectorLayer.setHighLight(geom, HIGHLIGHT_STYLE);
+    function finishDrawing() {
+        if (!targetGeom) return false;
+        const minimum = settings.drawType === 'Polygon' ? 3 : settings.drawType === 'LineString' ? 2 : 1;
+        if (settings.drawType !== 'Point' && targetGeom.coordinates.length < minimum) return false;
+        const geometry = targetGeom;
+        targetGeom = undefined;
+        registerDrawing(geometry, settings.drawType, settings.selectMode);
+        if (settings.selectMode) {
+            // @example-code:start geometry.intersects
+            const geometries = vectorLayer.getIntersects(geometry) ?? [];
+            showSearch(geometries.map(item => item.getFeature()));
+            // @example-code:end geometry.intersects
         }
-        // @example-code:end geometry.intersects
-        return geomList.length;
+        return true;
     }
 
     /**
-     * 클릭·더블클릭 결과를 UI 구독자에게 전달합니다.
+     * 지도 이벤트를 위경도로 변환합니다. UI에서 발생한 클릭은 지도 입력으로 전파하지 않습니다.
      *
-     * @param {{x: number, y: number}} lonlat 클릭 지점의 위경도
-     * @param {number | null} intersectCount 교차검색으로 찾은 객체 수
-     */
-    function emitResult(lonlat, intersectCount) {
-        // @example-code:start layer.feature-query
-        const feature = vectorLayer.getFeatureByXY(lonlat.x, lonlat.y);
-        // @example-code:end layer.feature-query
-        const result = {
-            lon: lonlat.x.toFixed(6),
-            lat: lonlat.y.toFixed(6),
-            feature: feature ? String(feature.id ?? feature.name ?? '조회됨') : null,
-            intersectCount
-        };
-        resultListeners.forEach(listener => listener(result));
-    }
-
-    /**
-     * 마우스 이벤트에서 지형 위 위경도를 계산합니다.
-     *
-     * @param {U3dMouseEvent} event 마우스 이벤트
-     * @returns {{x: number, y: number} | undefined} 위경도. 지형을 맞히지 못하면 undefined입니다.
+     * @param {import('@U3dMouseEvent').U3dMouseEvent} event 지도 이벤트
+     * @returns {({x: number, y: number} & Partial<{z: number}>) | undefined} 지형 위의 위경도와 실제 높이
      */
     function toLonLat(event) {
         const world = app.closestPointAtPixel(event);
-        return app.vector3ToGeoGraphic(world);
+        return world ? app.vector3ToGeoGraphic(world) : undefined;
     }
 
     const clickKey = app.on('click', event => {
         const lonlat = toLonLat(event);
-        if (lonlat === undefined) return;
-
-        drawGeometry(lonlat);
-
-        // 포인트는 클릭 한 번으로 도형이 완성되므로 여기서 교차검색까지 끝냅니다.
-        let intersectCount = null;
-        if (settings.drawType === 'Point') {
-            if (settings.selectMode) intersectCount = highlightIntersects(targetGeom);
-            targetGeom = undefined;
+        if (!lonlat || disposed) return;
+        if (!settings.drawing) {
+            // @example-code:start layer.feature-query
+            const features = vectorLayer.getFeatureByXY(lonlat.x, lonlat.y, 1);
+            showSearch(features, lonlat);
+            // @example-code:end layer.feature-query
+            return;
         }
-        emitResult(lonlat, intersectCount);
+        if (!targetGeom) targetGeom = createGeometry(settings.drawType);
+        if (settings.drawType === 'Point') {
+            targetGeom.setPosition([lonlat.x, lonlat.y]);
+            finishDrawing();
+        } else targetGeom.addPosition([lonlat.x, lonlat.y]);
+    });
+    const dblClickKey = app.on('dblclick', () => {
+        if (settings.drawing && settings.drawType !== 'Point') finishDrawing();
     });
 
-    const dblClickKey = app.on('dblclick', event => {
-        const lonlat = toLonLat(event);
-        if (lonlat === undefined) return;
-
-        // 더블클릭은 라인·폴리곤 그리기를 끝내는 시점이므로 완성된 도형으로 교차검색합니다.
-        const intersectCount = settings.selectMode ? highlightIntersects(targetGeom) : null;
-        targetGeom = undefined;
-        emitResult(lonlat, intersectCount);
-    });
-
-    const movingCircle = createMovingCircle();
-    /** 공전하는 원이 지금 보조 레이어에 등록되어 있는지입니다. clear()와 데이터 입력이 함께 지우기 때문입니다. */
-    let circleRegistered = false;
-
-    /** 공전하는 원을 보조 레이어에 한 번만 등록합니다. */
-    function ensureMovingCircle() {
-        if (circleRegistered) return;
-        subVectorLayer.addGeometry(movingCircle.geometry);
-        circleRegistered = true;
+    /** 초기 도형의 공통 갱신 타이머를 정리합니다. */
+    function stopInitialAnimation() {
+        if (animationTimer === undefined) return;
+        window.clearInterval(animationTimer);
+        animationTimer = undefined;
     }
 
-    ensureMovingCircle();
-    movingCircle.start();
+    /** 초기 도형의 목록·선택·원본을 함께 정리하며 입력 데이터는 보존합니다. */
+    function clearInitialDrawings() {
+        stopInitialAnimation();
+        for (const [id, item] of drawings) {
+            if (!item.motion) continue;
+            item.layer.removeGeometry(item.geometry);
+            item.geometry.dispose();
+            drawings.delete(id);
+            if (selectedDrawingId === id) selectedDrawingId = undefined;
+        }
+    }
+
+    /** 홈 위치 주변에 초기 도형을 배치하고 공통 편집 API로 움직입니다. */
+    function createInitialDrawings() {
+        if (disposed) return;
+        clearInitialDrawings();
+        orbitAngle = 0;
+        dynamicCircleLayer.setDynamicRadius(true, INITIAL_DYNAMIC_CIRCLE_RADIUS);
+        const circle = Array.from({length: CIRCLE_SEGMENT_COUNT}, (_, index) => {
+            const angle = TWO_PI * index / CIRCLE_SEGMENT_COUNT;
+            return [INITIAL_CIRCLE_RADIUS * Math.cos(angle), INITIAL_CIRCLE_RADIUS * Math.sin(angle)];
+        });
+        const samples = [
+            {name: '공전 원', type: 'Polygon', coordinates: circle,
+                geometry: new GeOnDT.geom.U2dPolygon({fillColor: '#ffff00', fillOpacity: 0, strokeColor: '#ffff00', strokeWidth: 3})},
+            {name: '포인트', type: 'Point', coordinates: [[0, 0]],
+                geometry: new GeOnDT.geom.U2dPoint({fillColor: '#00c2ff', strokeColor: '#ffffff', strokeWidth: 2, radius: 14})},
+            {name: '라인', type: 'LineString', coordinates: [[-35, -20], [-10, 25], [20, -15], [35, 20]],
+                geometry: new GeOnDT.geom.U2dLine({strokeColor: '#ff6aa2', strokeWidth: 5})},
+            {name: '폴리곤', type: 'Polygon', coordinates: [[-35, -25], [35, -25], [20, 30], [-20, 15]],
+                geometry: new GeOnDT.geom.U2dPolygon({fillColor: '#7aff7a', fillOpacity: 0.55, strokeColor: '#ffffff', strokeWidth: 3})},
+            {name: '동적 원', type: 'Point', coordinates: [[0, 0]], layer: dynamicCircleLayer,
+                geometry: new GeOnDT.geom.U2dPoint({fillColor: '#a55bff', fillOpacity: 0.8, strokeColor: '#ffffff', strokeWidth: 2, radius: INITIAL_DYNAMIC_CIRCLE_RADIUS})}
+        ];
+        samples.forEach((sample, index) => {
+            const phase = index * TWO_PI / samples.length;
+            const anchor = [center.x + INITIAL_ORBIT_RADIUS * Math.cos(phase), center.y + INITIAL_ORBIT_RADIUS * Math.sin(phase)];
+            const coordinates = sample.coordinates.map(([x, y]) => [x + anchor[0], y + anchor[1]]);
+            const geometry = sample.geometry;
+            geometry.setPosition(sample.type === 'Point' ? coordinates[0] : sample.type === 'Polygon' ? [coordinates] : coordinates, 'EPSG:3857');
+            geometry.setMeta({이름: '초기 ' + sample.name, 초기예제: true});
+            const layer = sample.layer ?? subVectorLayer;
+            layer.addGeometry(geometry);
+            const item = registerDrawing(geometry, sample.type, false, layer, '초기 ' + sample.name);
+            item.motion = {phase, anchor, offset: [0, 0]};
+        });
+        animationTimer = window.setInterval(updateInitialDrawings, ANIMATION_INTERVAL_MS);
+        notifyState();
+    }
+
+    /** 원본의 이동·회전만 변경하며 목록과 편집 중인 입력창은 매 프레임 다시 만들지 않습니다. */
+    function updateInitialDrawings() {
+        orbitAngle = (orbitAngle - ORBIT_ANGLE_STEP) % TWO_PI;
+        for (const item of drawings.values()) {
+            if (!item.motion) continue;
+            const angle = orbitAngle + item.motion.phase;
+            const anchor = [center.x + item.motion.offset[0] + INITIAL_ORBIT_RADIUS * Math.cos(angle),
+                center.y + item.motion.offset[1] + INITIAL_ORBIT_RADIUS * Math.sin(angle)];
+            const geometry = item.geometry;
+            // @example-code:start feature.update
+            geometry.translate(anchor[0] - item.motion.anchor[0], anchor[1] - item.motion.anchor[1]);
+            geometry.rotate(ROTATION_ANGLE_STEP, anchor);
+            // @example-code:end feature.update
+            item.motion.anchor = anchor;
+        }
+        app.drawWork(ANIMATION_DRAW_WORK_FRAME);
+    }
+
+    createInitialDrawings();
 
     /**
-     * 공전하는 원을 만들고 좌표 갱신 루프를 제공합니다.
+     * 수동 편집 후 공전 중심도 옮겨 재개 첫 프레임에서 원래 위치로 돌아가지 않게 합니다.
      *
-     * @returns {{geometry: U2dPolygon, start: function(): void, stop: function(): void}} 원 도형과 제어 함수
+     * @param {Record<string, unknown>} item 편집한 도형 항목
      */
-    function createMovingCircle() {
-        // 원의 중심을 [0, 0]에 둔 로컬 좌표를 한 번만 만들어 두고 중심점만 더해 씁니다.
-        const longitudeRadius = CIRCLE_RADIUS_LATITUDE / Math.cos(ORBIT_CENTER[1] * DEGREE_TO_RADIAN);
-        const localCoordinates = [];
-        for (let index = 0; index < CIRCLE_SEGMENT_COUNT; index++) {
-            const angle = TWO_PI * index / CIRCLE_SEGMENT_COUNT;
-            localCoordinates.push([longitudeRadius * Math.cos(angle), CIRCLE_RADIUS_LATITUDE * Math.sin(angle)]);
-        }
-        const orbitLongitudeRadius = ORBIT_RADIUS_LATITUDE / Math.cos(ORBIT_CENTER[1] * DEGREE_TO_RADIAN);
-
-        /** @type {U2dPolygon} */
-        const geometry = new GeOnDT.geom.U2dPolygon({
-            fillColor: 'rgba(255, 255, 0, 0.0)',
-            strokeColor: '#ffff00',
-            strokeWidth: 2
-        });
-        let orbitAngle = 0;
-        let intervalId;
-        let commitInFlight = false;
-        let pendingCoordinates;
-
-        /**
-         * 이전 합성이 끝나지 않은 동안 들어온 좌표는 마지막 값만 남기고 순서대로 커밋합니다.
-         *
-         * @returns {Promise<void>} 대기 좌표를 모두 반영한 뒤 완료됩니다.
-         */
-        async function commitPosition() {
-            if (commitInFlight) return;
-            commitInFlight = true;
-            try {
-                while (pendingCoordinates) {
-                    const nextCoordinates = pendingCoordinates;
-                    pendingCoordinates = undefined;
-                    // @example-code:start feature.update
-                    subVectorLayer.beginFeatureUpdate(geometry);
-                    geometry.setPosition(nextCoordinates);
-                    await subVectorLayer.commitFeatureUpdate();
-                    // @example-code:end feature.update
-                }
-            } finally {
-                commitInFlight = false;
-            }
-        }
-
-        /** 현재 공전 각도로 원의 월드 좌표를 계산해 도형에 반영합니다. */
-        function update() {
-            const circleCenter = [
-                ORBIT_CENTER[0] + orbitLongitudeRadius * Math.cos(orbitAngle),
-                ORBIT_CENTER[1] + ORBIT_RADIUS_LATITUDE * Math.sin(orbitAngle)
-            ];
-            const worldCoordinates = localCoordinates.map(local => [
-                circleCenter[0] + local[0],
-                circleCenter[1] + local[1]
-            ]);
-
-            // 각도를 줄이면 지도에서 시계 방향으로 돕니다.
-            orbitAngle = (orbitAngle - ORBIT_ANGLE_STEP) % TWO_PI;
-
-            if (intervalId === undefined) {
-                // 아직 레이어에 등록하기 전에는 갱신 계약 없이 좌표만 설정합니다.
-                geometry.setPosition([worldCoordinates]);
-                return;
-            }
-            // 합성이 느린 동안에는 대기 좌표를 덮어써 중간 revision이 worker queue에 쌓이지 않게 합니다.
-            pendingCoordinates = [worldCoordinates];
-            void commitPosition().catch(error => console.error('동적 원 위치 커밋에 실패했습니다.', error));
-
-            // 20프레임 동안은 idle로 내려가지 말고 계속 그리도록 요청합니다.
-            app.drawWork(ANIMATION_DRAW_WORK_FRAME);
-        }
-
-        update();
-
-        return {
-            geometry,
-            start() {
-                if (intervalId !== undefined) return;
-                intervalId = window.setInterval(update, ANIMATION_INTERVAL_MS);
-            },
-            stop() {
-                if (intervalId === undefined) return;
-                window.clearInterval(intervalId);
-                intervalId = undefined;
-                pendingCoordinates = undefined;
-            },
-            isRunning() {
-                return intervalId !== undefined;
-            }
-        };
+    function rebaseMotion(item) {
+        if (!item.motion) return;
+        const extent = item.geometry.getGeometry().getExtent();
+        const anchor = [(extent[0] + extent[2]) / 2, (extent[1] + extent[3]) / 2];
+        const angle = orbitAngle + item.motion.phase;
+        item.motion.anchor = anchor;
+        item.motion.offset = [anchor[0] - center.x - INITIAL_ORBIT_RADIUS * Math.cos(angle),
+            anchor[1] - center.y - INITIAL_ORBIT_RADIUS * Math.sin(angle)];
     }
 
     return {
@@ -342,19 +444,185 @@ export async function initialize(context) {
          * @param {function(Record<string, unknown>): void} listener 결과 수신 함수
          * @returns {function(): void} 구독 해제 함수
          */
-        subscribeResult(listener) {
-            resultListeners.add(listener);
-            return () => resultListeners.delete(listener);
+        subscribeState(listener) {
+            stateListeners.add(listener);
+            listener(getState());
+            return () => stateListeners.delete(listener);
         },
+        /** 그리기 종료 시 미완성 도형을 취소하고 기본 클릭 검색으로 돌아갑니다. */
+        setDrawing(enabled) {
+            cancelDrawing();
+            settings.drawing = enabled;
+            notifyState();
+        },
+        /** 도형 목록에서 선택한 한 건만 상세 편집 대상으로 바꿉니다. */
+        selectDrawing(id) {
+            selectedDrawingId = drawings.has(id) ? id : undefined;
+            notifyState();
+        },
+        /** 상세 패널을 닫습니다. 도형과 검색 결과는 보존합니다. */
+        closeDrawingInfo() {
+            selectedDrawingId = undefined;
+            notifyState();
+        },
+        /**
+         * 선택한 도형의 편집 이동량·각도·배율을 적용하고 초기 애니메이션을 일시정지합니다.
+         *
+         * @param {string} id 도형 목록 ID
+         * @param {{x: number, y: number, rotation: number, scale: number}} transform 누적 편집값이며 각도는 도 단위입니다.
+         * @throws {RangeError} 값이 유한수가 아니거나 배율이 허용 범위를 벗어나면 발생합니다.
+         */
+        transformDrawing(id, transform) {
+            const item = drawings.get(id);
+            if (!item || disposed) return;
+            if (!['x', 'y', 'rotation', 'scale'].every(key => Number.isFinite(transform[key])) || transform.scale < 0.1 || transform.scale > 5) {
+                throw new RangeError('이동·회전은 숫자, 배율은 0.1~5 사이로 입력하세요.');
+            }
+            clearSearch();
+            if (item.motion) stopInitialAnimation();
+            const geometry = item.geometry;
+            const previous = item.transform;
+            // @example-code:start geometry.transform
+            geometry.translate(transform.x - previous.x, transform.y - previous.y);
+            const extent = geometry.getGeometry().getExtent();
+            const anchor = [(extent[0] + extent[2]) / 2, (extent[1] + extent[3]) / 2];
+            geometry.rotate((transform.rotation - previous.rotation) * Math.PI / 180, anchor);
+            geometry.scale(transform.scale / previous.scale, transform.scale / previous.scale, anchor);
+            // @example-code:end geometry.transform
+            item.transform = {...transform};
+            rebaseMotion(item);
+            app.drawWork(ANIMATION_DRAW_WORK_FRAME);
+            notifyState();
+        },
+        /**
+         * 숨김·검색 제외·레이어 등록 상태를 바꿉니다. 숨김은 검색 제외와 독립적입니다.
+         *
+         * @param {string} id 도형 목록 ID
+         * @param {'visible'|'excludeSearch'|'attached'} key 변경할 상태
+         * @param {boolean} value 적용값
+         */
+        setDrawingState(id, key, value) {
+            const item = drawings.get(id);
+            if (!item || disposed) return;
+            clearSearch();
+            if (key === 'visible') {
+                if (value) item.geometry.show();
+                else item.geometry.hide();
+            } else if (key === 'excludeSearch') {
+                item.geometry.setExcludeSearch(value);
+            } else if (key === 'attached' && item.attached !== value) {
+                if (value) item.layer.addGeometry(item.geometry);
+                else item.layer.removeGeometry(item.geometry);
+                item.attached = value;
+            }
+            notifyState();
+        },
+        /**
+         * 사용자 속성을 JSON 객체로 교체합니다. 빠진 키는 삭제되며 형상과 ID는 유지합니다.
+         *
+         * @param {string} id 도형 목록 ID
+         * @param {string} text 속성 JSON 문자열
+         * @throws {Error} JSON 문법이나 속성 객체가 유효하지 않으면 발생합니다.
+         */
+        updateDrawingProperties(id, text) {
+            const item = drawings.get(id);
+            if (!item || disposed) return;
+            const properties = JSON.parse(text);
+            if (!properties || typeof properties !== 'object' || Array.isArray(properties)) {
+                throw new Error('속성은 JSON 객체로 입력하세요.');
+            }
+            item.geometry.setProperties(properties);
+            notifyState();
+        },
+        /**
+         * 원본 형상 교체 또는 점 추가를 수행하고 측정값을 즉시 다시 조회하게 합니다.
+         *
+         * @param {string} id 도형 목록 ID
+         * @param {'replace'|'append'} operation 좌표 편집 동작
+         * @param {string} text EPSG:3857 좌표 JSON 문자열
+         * @throws {Error} 좌표 구조 또는 도형 종류가 유효하지 않으면 발생합니다.
+         */
+        updateDrawingCoordinates(id, operation, text) {
+            const item = drawings.get(id);
+            if (!item || disposed) return;
+            const coordinates = JSON.parse(text);
+            const point = value => Array.isArray(value) && value.length === 2 && value.every(Number.isFinite);
+            const native = item.geometry.getGeometry();
+            const type = native.getType();
+            const line = value => Array.isArray(value) && value.length >= 2 && value.every(point);
+            const ring = value => line(value) && value.length >= 4
+                && value[0][0] === value.at(-1)[0] && value[0][1] === value.at(-1)[1];
+            const polygon = value => Array.isArray(value) && value.length > 0 && value.every(ring);
+            const valid = operation === 'append' ? item.type !== 'Point' && point(coordinates)
+                : type === 'Point' ? point(coordinates)
+                    : type === 'MultiPoint' ? Array.isArray(coordinates) && coordinates.length > 0 && coordinates.every(point)
+                    : type === 'LineString' ? line(coordinates)
+                    : type === 'MultiLineString' ? Array.isArray(coordinates) && coordinates.length > 0 && coordinates.every(line)
+                    : type === 'Polygon' ? polygon(coordinates)
+                        : type === 'MultiPolygon' && Array.isArray(coordinates) && coordinates.length > 0 && coordinates.every(polygon);
+            if (!valid) throw new Error('도형에 맞는 좌표를 입력하세요. 면의 각 링은 시작점과 끝점이 같아야 합니다.');
+            clearSearch();
+            if (item.motion) stopInitialAnimation();
+            if (operation === 'append') item.geometry.addPosition(coordinates, 'EPSG:3857');
+            else {
+                const replacement = native.clone();
+                replacement.setCoordinates(coordinates);
+                item.geometry.getFeature().setGeometry(replacement);
+            }
+            item.transform = {x: 0, y: 0, rotation: 0, scale: 1};
+            rebaseMotion(item);
+            notifyState();
+        },
+        /**
+         * 선택한 도형의 공개 파라미터 API로 스타일을 부분 변경합니다.
+         *
+         * @param {string} id 사용자 또는 초기 도형의 목록 ID
+         * @param {Record<string, unknown>} style 바꿀 스타일
+         * @returns {Promise<void>} 원본 도형과 목록의 상태 변경 완료이며, 지형 표시 완료는 기다리지 않습니다.
+         */
+        async updateDrawingStyle(id, style) {
+            const item = drawings.get(id);
+            if (!item || disposed) return;
+            clearSearch();
+            const geometry = item.geometry;
+            const feature = item.layer.getFeatureById(geometry.getFeature().getId());
+            geometry.setParam({...style, nonChanged:false});
+            if (item.layer === dynamicCircleLayer) dynamicCircleLayer.setDynamicRadius(true, style.radius);
+            // OL 스타일만 바꾸면 레이어의 캐시 스타일이 우선하여 이전 색으로 표시됩니다.
+            // 명시적 피처 스타일도 변경하여 표시용 상태와 원본 도형을 함께 갱신합니다.
+            if (feature) item.layer.setFeatureStyle(feature, {
+                fillColor: style.fillColor, strokeColor: style.strokeColor,
+                fillOpacity: style.fillOpacity, strokeOpacity: style.strokeOpacity, strokeWidth: style.strokeWidth,
+                visible: geometry.getParam().visible, excludeSearch: geometry.getExcludeSearch(), nonChanged: false
+            });
+            item.style = {...style};
+            notifyState();
+        },
+        /** 선택한 도형을 소유 레이어·목록·상세 패널에서 함께 제거합니다. */
+        deleteDrawing(id) {
+            const item = drawings.get(id);
+            if (!item) return;
+            clearSearch();
+            item.layer.removeGeometry(item.geometry);
+            item.geometry.dispose();
+            drawings.delete(id);
+            if (selectedDrawingId === id) selectedDrawingId = undefined;
+            if (![...drawings.values()].some(drawing => drawing.motion)) stopInitialAnimation();
+            notifyState();
+        },
+        /** 검색 목록과 강조, 정보 오버레이를 함께 닫습니다. */
+        closeSearch: clearSearch,
+        showFeatureInfo,
         /**
          * 새로 그릴 도형 종류를 바꿉니다.
          *
          * @param {string} type 도형 종류
          */
         setDrawType(type) {
+            cancelDrawing();
             settings.drawType = type;
-            // 그리던 도형은 그대로 두고 다음 클릭부터 새 종류로 시작합니다.
-            targetGeom = undefined;
+            // 이전 종류의 미완성 도형을 취소하고 다음 클릭부터 새 종류로 시작합니다.
+            notifyState();
         },
         /**
          * 다음에 만들 도형에 적용할 설정값을 바꿉니다.
@@ -363,16 +631,16 @@ export async function initialize(context) {
          */
         setStyleValues(values) {
             Object.assign(settings, values);
-            targetGeom = undefined;
         },
         /**
-         * 교차검색 모드를 켜고 끕니다.
+         * 다음에 그릴 도형의 교차검색 여부를 선택합니다. 그리기 시작·종료 상태는 바꾸지 않습니다.
          *
          * @param {boolean} enabled 사용 여부
          */
         setSelectMode(enabled) {
+            cancelDrawing();
             settings.selectMode = enabled;
-            targetGeom = undefined;
+            notifyState();
         },
         /**
          * 입력 데이터의 원본 좌표계를 바꿉니다.
@@ -395,9 +663,11 @@ export async function initialize(context) {
          *
          * @returns {Promise<void>} 스타일 적용 완료
          */
-        applyStyle() {
+        async applyStyle() {
+            clearSearch();
+            const previousParams = new Map([...drawings].map(([id, item]) => [id, item.geometry.getParam()]));
             // @example-code:start layer.style
-            return vectorLayer.setStyle({
+            await vectorLayer.setStyle({
                 fillColor: settings.fillColor,
                 fillOpacity: settings.fillOpacity,
                 strokeColor: settings.strokeColor,
@@ -405,47 +675,53 @@ export async function initialize(context) {
                 strokeWidth: settings.strokeWidth
             });
             // @example-code:end layer.style
+            for (const item of drawings.values()) {
+                if (item.layer !== vectorLayer) continue;
+                const param = previousParams.get(item.id) ?? item.geometry.getParam();
+                item.geometry.setParam({excludeSearch: param.excludeSearch, visible: param.visible});
+                vectorLayer.getFeatureById(item.geometry.getFeature().getId())?.setExcludeSearch(param.excludeSearch);
+                Object.assign(item.style, {fillColor: settings.fillColor, fillOpacity: settings.fillOpacity,
+                    strokeColor: settings.strokeColor, strokeOpacity: settings.strokeOpacity, strokeWidth: settings.strokeWidth});
+            }
+            notifyState();
         },
-        /** 교차검색으로 강조한 표시를 모두 해제합니다. */
-        clearHighlight() {
-            // @example-code:start layer.highlight-clear
-            // 개별 해제는 vectorLayer.removeHigLight(geom)을 사용합니다.
-            vectorLayer.removeHigLightAll();
-            // @example-code:end layer.highlight-clear
-        },
-        /** 두 레이어의 도형을 모두 지웁니다. */
+        /** 목록의 모든 도형과 진행 중인 도형을 지우고 WFS·외부 입력 데이터는 유지합니다. */
         clear() {
+            clearSearch();
+            cancelDrawing();
+            stopInitialAnimation();
             // @example-code:start layer.clear
-            vectorLayer.clear();
-            subVectorLayer.clear();
+            for (const [id, item] of drawings) {
+                item.layer.removeGeometry(item.geometry);
+                item.geometry.dispose();
+                drawings.delete(id);
+            }
             // @example-code:end layer.clear
-            targetGeom = undefined;
-            // 공전하는 원도 함께 지워지므로 같은 도형을 다시 등록합니다.
-            circleRegistered = false;
-            ensureMovingCircle();
-            resultListeners.forEach(listener => listener(null));
+            selectedDrawingId = undefined;
+            notifyState();
         },
         /**
-         * 공전하는 원의 좌표 갱신을 켜고 끕니다.
+         * 현재 남아 있는 초기 도형의 이동·회전을 켜고 끕니다. 삭제한 도형은 다시 만들지 않습니다.
          *
          * @param {boolean} enabled 사용 여부
          */
         setAnimationEnabled(enabled) {
             if (!enabled) {
-                movingCircle.stop();
-                return;
+                stopInitialAnimation();
+            } else if (animationTimer === undefined && [...drawings.values()].some(item => item.motion)) {
+                animationTimer = window.setInterval(updateInitialDrawings, ANIMATION_INTERVAL_MS);
             }
-            // 데이터 입력으로 원이 지워진 뒤 다시 켜는 경우가 있어 등록 상태부터 맞춥니다.
-            ensureMovingCircle();
-            movingCircle.start();
+            notifyState();
         },
+        /** 초기 도형만 원래 위치·스타일로 다시 만들고 이동·회전을 시작합니다. */
+        resetInitialDrawings: createInitialDrawings,
         /**
-         * 공전하는 원이 지금 돌고 있는지 알려 줍니다.
+         * 초기 도형의 좌표 갱신이 진행 중인지 알려 줍니다.
          *
          * @returns {boolean} 좌표 갱신 여부
          */
         isAnimationEnabled() {
-            return movingCircle.isRunning();
+            return animationTimer !== undefined;
         },
         /**
          * 선택한 형식의 문자열을 읽어 2D 객체로 만듭니다.
@@ -462,18 +738,17 @@ export async function initialize(context) {
             let count = 0;
 
             if (format !== 'wkt') {
-                // 보조 레이어를 비우면 공전하는 원도 함께 사라지므로 좌표 갱신을 멈춥니다.
-                movingCircle.stop();
-                circleRegistered = false;
+                clearInitialDrawings();
+                notifyState();
             }
 
             // @example-code:start import.data
             if (format === 'wkt') {
                 await vectorLayer.addGeometryAsWKT(data, settings.sourceCRS, (geometry, index) => {
                     geometry.setMeta({순서: index});
-                    geometry.setFillColor(settings.fillColor);
-                    geometry.setStrokeColor(settings.strokeColor);
-                    geometry.setStrokeWidth(settings.strokeWidth);
+                    geometry.setParam({fillColor:settings.fillColor,strokeColor:settings.strokeColor,
+                        strokeWidth:settings.strokeWidth,fillOpacity:settings.fillOpacity,strokeOpacity:settings.strokeOpacity});
+                    registerDrawing(geometry, 'WKT', false);
                     count++;
                 });
             } else if (format === 'geojson') {
@@ -492,14 +767,20 @@ export async function initialize(context) {
         },
         /** 예제가 만든 이벤트와 레이어를 정리합니다. */
         dispose() {
-            movingCircle.stop();
-            resultListeners.clear();
+            if (disposed) return;
+            clearSearch();
+            disposed = true;
+            stopInitialAnimation();
+            stateListeners.clear();
+            drawings.clear();
             app.unkey('click', clickKey);
             app.unkey('dblclick', dblClickKey);
             vectorLayer.clear();
             subVectorLayer.clear();
+            dynamicCircleLayer.clear();
             app.removeLayer(MAIN_LAYER_NAME);
             app.removeLayer(SUB_LAYER_NAME);
+            app.removeLayer(DYNAMIC_LAYER_NAME);
         }
     };
 }

@@ -489,18 +489,16 @@ createTileFeature(sourceFeature: U3dVectorPBFSourceFeature, tileKey: string, poi
     처리 기준:
         기반 클래스 processMaterial() 은 `id`, `geometry.type`, `geometry.coordinates`, `properties` 와 `getId()` 를 읽고, 예제 스타일 함수는 ol.Feature 규격의 `get(key)`, `getProperties()`, `getGeometry().getType()` 을 읽으므로 두 규격을 모두 제공한다.
         `getGeometry().getType()` 은 MVT 타입(`Polygon` | `LineString` | `Point`)을 반환한다.
-        Point 피처의 geometry 에는 기반 클래스 #processPoint() 가 원을 만들 때 읽는 `radius` 를 pointRadius 로 넣는다.
+        Point 피처의 geometry 에는 기반 클래스 #processPoint() 가 Point의 표시 반경으로 읽는 `radius` 를 pointRadius 로 넣는다.
         홀 표식 `_isInner` 는 기반 클래스가 ring 을 분할할 때 부여하므로 여기서 넣지 않는다.
         `getId()`, `get(key)`, `getProperties()` 는 클로저에 값을 가두지 않고 반드시 `this` 의 `id`·`properties` 를 읽는다. 기반 클래스의 `splitPolygonFeatureByRing()` 이 `{...feature, id: 링별ID}` 로 얕은 복사 후 `id` 만 덮어쓰는데, 값을 가둔 접근자는 원본 id 를 계속 돌려준다. 기반 클래스와 terrain manager 는 모두 `getId()` 를 우선 사용하므로 그 경우 한 MVT 피처에서 나온 링 전체가 같은 ID 를 갖게 되고, manager 의 tile source feature Map 에서 마지막 하나만 남아 화면에서 사라진다.
         합성 순서 identity 는 타일 키를 뺀 소스 피처 id 를 `compositionFeatureId` 로 따로 실어 보낸다. 타일 피처 id 에는 타일 키가 들어 있어 그대로 쓰면 같은 원본 피처가 타일 수만큼 합성 순서 registry(`UTerrainDecalCompositionOrderRegistry`)에 쌓인다. 이 registry 는 피처 단위 회수가 없고 layer dispose 시 group 통째 해제만 하므로 팬·줌 중 계속 증가한다. 타일 키를 빼면 registry 크기가 소스 피처 수로 묶이고, 같은 피처가 타일 경계를 넘어도 같은 렌더 순서를 유지한다.
         소스 피처의 lodPriority 와 lodGroupKey 를 그대로 복사해 기반 클래스의 LOD 선별이 읽게 한다.
-        기반 클래스가 정의한 `PBF_DEFERRED_SHAPE_KEY` 표식을 computed property 로 true 로 붙여 폴리곤 Shape 곡선 계산을 실제 소비 시점까지 미뤄도 된다고 알린다. 표식 이름은 기반 클래스에서만 정의하며 이 레이어는 문자열을 다시 쓰지 않는다.
 
     의존:
-        U2dVectorShaderLayer(모듈) — 지연 Shape 표식 이름; 상수: {PBF_DEFERRED_SHAPE_KEY}
 
     동작:
-        `타일키:소스피처id` 를 id 로, 소스 피처 id 를 `compositionFeatureId` 로 하고 lodPriority·lodGroupKey·지연 Shape 표식·소스 피처의 지오메트리(Point 는 radius 포함)·속성을 담은 객체에 네 메서드를 붙여 반환한다.
+        `타일키:소스피처id` 를 id 로, 소스 피처 id 를 `compositionFeatureId` 로 하고 lodPriority·lodGroupKey·소스 피처의 지오메트리(Point 는 radius 포함)·속성을 담은 객체에 네 메서드를 붙여 반환한다.
 
 normalizeOlColor(color: unknown) -> string | undefined
     역할: ol 색상 표현을 기반 클래스의 validateStyle 이 해석할 수 있는 문자열로 바꾼다.
@@ -651,8 +649,6 @@ U3dVectorPBFTileFeature 타입 정의
         LOD 상한이 걸릴 때 남길 우선순위
     lodGroupKey?: string
         면과 외곽선 선 피처를 묶는 LOD 선별 그룹 키
-    _pbfDeferShape: true
-        기반 클래스가 정의한 지연 Shape 표식(PBF_DEFERRED_SHAPE_KEY)
     geometry: {type: string, coordinates: Array<number> | Triple_Array<number> | Array<Triple_Array<number>>, radius?: number}
         GeoJSON 지오메트리. Point 는 원 반경 radius(3857 단위)를 가진다.
     properties: KeyValue
@@ -676,6 +672,9 @@ U3dVectorPBFStyleState 타입 정의
 
 ## 4. 공통 처리 기준과 제약
 
+- MVT 원본 ID와 원본 레이어 이름을 표시용 타일 ID·분할 ID와 별도로 보존하여 기반 벡터 레이어에 전달한다. 점·선·면·외곽선으로 나누어도 같은 MVT 원본의 안정 식별자는 유지한다.
+- 원본 ID 없는 피처에 사용하는 타일 내부 순번은 표시 구분에만 사용하며 지속 편집의 식별자로 사용하지 않는다. 합성 순서와 표시용 ID의 기존 규칙은 유지한다.
+
 ```spec
 이 레이어가 기반 클래스에 넘기는 피처 좌표는 모두 EPSG:3857 이며 타일 로컬 좌표를 밖으로 노출하지 않는다.
 워커 요청은 소스 타일 키 단위로 공유하며, 같은 소스 타일에 대해 동시에 둘 이상의 워커 다운로드를 시작하지 않는다.
@@ -685,8 +684,6 @@ U3dVectorPBFStyleState 타입 정의
 소스 피처 하나가 담는 폴리곤 coverage 는 항상 하나(`외곽 ring + 소속 홀 ring`)다. bbox 는 그 coverage 의 범위이며, 여러 coverage 를 한 소스 피처로 합치지 않는다.
 소스 피처 id 는 MVT 레이어명을 포함해 한 소스 타일 안에서 유일하다. MVT raw ID 공간은 layer 마다 독립이므로 레이어명 없이는 유일성이 보장되지 않는다.
 같은 MVT 피처에서 나온 coverage·파트·외곽선 선 피처는 소스 피처 목록에서 연속으로 놓이며 properties 객체를 공유한다. 이 순서와 공유는 스타일 계산을 묶는 기준이므로 geometry type 별 재정렬로 깨뜨리지 않는다.
-타일 피처는 기반 클래스가 가져온 `PBF_DEFERRED_SHAPE_KEY` 표식을 computed property 로 붙여, 폴리곤 Shape 곡선을 실제 소비 시점까지 미뤄도 된다는 것을 알린다. 표식 이름은 기반 클래스에서만 정의하며 이 레이어는 문자열을 다시 쓰지 않는다. 표식은 기반 클래스의 ring 분할 얕은 복사에서 링마다 보존되어야 한다.
-이 표식은 곡선 생성 시점만 바꾸고 표시 결과·좌표·스타일·합성 순서를 바꾸지 않는다. 이 레이어가 만든 `UMeasureFeature` 도 `getFeatures()`·`getFeatureById()` 로 노출되므로 기반 클래스의 지연 Shape 가 일반 Shape 관찰 계약을 보존해야 한다. 계약 내용은 `union3d/2dLayer/U2dVectorShaderLayer.spec.md` 의 공개 계약 절에 있다.
 ```
 
 > 공개 참조용 발췌본입니다. 비공개 구현 설명과 내부 관리 정보는 생략했습니다.

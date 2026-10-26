@@ -55,7 +55,7 @@ export async function initialize(context) {
      */
     function createWmtsLayer(options, status) {
         return new Promise(function (resolve, reject) {
-            const wmtsLayer = app.create3dImageWMTSLayer(options);
+            const wmtsLayer = app.createWMTSImageLayer(options);
             if (!wmtsLayer) {
                 reject(new Error('WMTS 레이어를 생성하지 못했습니다: ' + options.name));
                 return;
@@ -68,8 +68,7 @@ export async function initialize(context) {
                     + '인증키, 프록시 및 서버 상태를 확인하세요. (' + (event.data.lastTile.url || 'URL 확인 불가') + ')';
                 status.hidden = false;
             });
-            wmtsLayer.ready(function () { resolve(wmtsLayer); });
-            wmtsLayer.catch(function (error) { reject(error); });
+            wmtsLayer.ready.then(resolve, reject);
         });
     }
 

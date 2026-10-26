@@ -18,7 +18,9 @@
 
 ### 1.3 주요 동작 방식
 
-클릭 측정은 `active()`가 등록한 click callback이 모델 우선, 지형 fallback으로 교차 높이를 구해 POI를 만든다. 범례는 `setUserStyle()`이 저장한 스타일을 `setHeightVisible(true)` 시점에 DataTexture로 변환해 HeightPass uniform에 기록하고 패스를 활성화한다.
+클릭 측정은 `active()`가 등록한 click callback이 모델 우선, 지형 fallback으로 교차 높이를 구해 POI를 만든다.
+
+범례는 `setUserStyle()`이 스타일을 검증·복사해 저장한 뒤 HeightPass uniform에 즉시 반영을 시도하며, 앱이나 패스 uniform이 준비되지 않았으면 변경 상태를 유지한다. `setHeightVisible(true)`는 아직 반영되지 않은 스타일과 저장된 제외 목록을 반영한 뒤 패스를 활성화한다. 이미 반영된 스타일의 텍스처는 재생성하지 않으며, 스타일 설정과 범례 표시 여부는 별도로 제어한다.
 
 ### 1.4 주요 사용처와 연계 대상
 
@@ -46,7 +48,7 @@ defaultStyle: Record<string, string>
 MAX_STYLE_ENTRIES: number = 256
     setUserStyle()이 허용하는 최대 숫자 키 항목 수의 모듈 원본 값이다.
 
-isExceptTarget(target: any) -> boolean
+isExceptTarget(target: unknown) -> boolean
     역할: 고도 후처리 제외 대상으로 허용하는 값인지 판정하는 모듈 함수다.
     동작: isObject3D가 true인 객체이거나, getObject와 getInstancedId가 모두 함수인 컴포넌트 포지션 계약 객체이면 true를 반환한다.
 
@@ -58,8 +60,18 @@ UAnalyHeightCO_Content 부분 타입 명세
 UAnalyHeightCO extends UAnalyCO 부분 타입 명세
     UAnalyCO 전체 필드에 UAnalyHeightCO_Content를 합성한 생성자 옵션 타입이다.
 
+UAnalyHeightStyleEntry 부분 타입 명세
+    이 명세에서 사용하는 필드:
+        height: number
+            범례 기준 고도
+        color: string
+            해당 고도의 색상 문자열
+
 UAnalyHeight extends UAnaly 클래스 정의
     의존: UAnaly — 분석 공통 상태(_app, _isActive)와 활성·비활성·정리·교차 조회 제공; 상속: {UAnaly}
+
+    static OPT_KEYS: Array<string> = UAnaly.OPT_KEYS와 'name'
+        의존: UAnaly — 부모 생성 옵션 정본; 속성 읽기: {OPT_KEYS}
 
     static MAX_STYLE_ENTRIES: number = 256
         모듈 상수를 공개한 최대 범례 스타일 항목 수다.
@@ -93,10 +105,13 @@ UAnalyHeight extends UAnaly 클래스 정의
 
     constructor(opt?: UAnalyHeightCO)
         의존:
+            UAnaly — 부모 생성; 생성자: {new UAnaly()}
             defaultValue — 이름 기본값 대체; 함수: {defaultValue()}
+            normalizeOptionKeys — 생성 옵션 정규화; 함수: {normalizeOptionKeys()}
             UGroup — POI 그룹 생성; 생성자: {new UGroup()}
         동작:
-            상위 분석 상태를 초기화하고 이름을 옵션 또는 'Height'로 정한다.
+            부모 생성자에는 옵션을 전달하지 않으며 falsy opt를 빈 객체로 대체하고 new.target의 OPT_KEYS로 정규화한다.
+            name이 undefined이면 'Height'를 저장하며 그 밖의 값은 그대로 사용한다.
             클릭 이벤트 ID를 미등록 상태로, POI 그룹을 빈 그룹으로 준비한다.
             기본 범례 스타일을 저장한다.
 
@@ -108,6 +123,7 @@ UAnalyHeight extends UAnaly 클래스 정의
             U3dApp(_app) — 이벤트 등록·해제와 모드 전환; 함수: {on(), unkey()}; 속성 쓰기: {_mode}; 속성 읽기: {_sceneComment}
             UDEF — 높이 측정 모드 상수; 상수: {APP_MODE._HEIGHT}
             defined — 기존 클릭 이벤트 ID의 null·undefined 제외 판정; 함수: {defined()}
+            UScene — POI 그룹 연결; 함수: {add()}
         동작:
             상위 분석을 활성화한다.
             _app이 falsy이면 종료한다.
@@ -233,48 +249,42 @@ UAnalyHeight extends UAnaly 클래스 정의
             U3dApp(_app) — 렌더러 조회와 갱신 시각 변경; 함수: {getRenderer(), setUpdateDate()}
             URenderer — 패스 조회; 함수: {getPass()}
             DataTexture(previousTexture) — 교체된 이전 스타일 텍스처 처분; 함수: {dispose()}
+            UDEF — HEIGHT 패스 이름; 상수: {POSTPASS.HEIGHT}
         동작:
             pass.uniforms가 falsy이면 dirty를 유지하고 종료한다.
             pass.uniforms가 truthy이면 다음을 수행한다.
                 스타일에서 정렬된 고도·색 항목을 얻는다.
                 uniforms.styleMode가 truthy이면 band일 때 1, 아니면 0을 기록한다.
                 uniforms.styleCount가 truthy이면 항목 수를 0개 그대로 포함해 기록한다.
-                uniforms.userStyleData가 truthy이면 새 스타일 텍스처로 교체하고 이전 텍스처에 dispose가 있으면 호출한다.
+                uniforms.userStyleData가 truthy이면 다음을 수행한다.
+                    새 텍스처를 uniform에 연결한 다음 이전 텍스처에 dispose가 있으면 호출한다.
                 개별 uniform 존재 여부와 관계없이 dirty를 해제하고 앱 갱신 시각을 변경한다.
-
-    #createStyleTexture(entries: Array<{height: number, color: string}>) -> DataTexture
-        역할: 정렬된 스타일 항목을 GHeightShader의 2행 스타일 텍스처 계약으로 변환한다.
-        처리 기준: rgba() 색상은 알파를 분리해 0~1로 clamp하고 알파가 없거나 숫자가 아니면 1을 사용한다.
-        의존:
-            THREE.Color — css 색상 문자열 해석; 생성자: {new THREE.Color()}
-            THREE.MathUtils — 투명도 clamp; 정적 함수: {clamp()}
-            THREE.DataTexture — 스타일 텍스처 생성; 생성자: {new THREE.DataTexture()}
-            RGBAFormat — 포맷 상수; 상수: {THREE.RGBAFormat}
-            FloatType — 픽셀 타입 상수; 상수: {THREE.FloatType}
-        동작:
-            항목별로 0행에 RGB와 투명도를, 1행 r에 기준 고도를 쌓고 폭(항목 수, 최소 1) 크기로 0 패딩한다.
-            Float RGBA DataTexture를 만들어 needsUpdate를 켜고 반환한다.
 
     #click(e: U3dMouseEvent) -> void
         역할: 클릭 위치의 높이를 측정해 텍스트 POI로 표출한다.
         의존:
             UAnaly — 모델·지형 교차 조회, 앱 참조와 분석 갱신; 함수: {intersectModel(), intersectTerrain(), update()}; 속성 읽기: {_app}
             UMathEngine — EPSG:3857 실축척 환산; 정적 함수: {getRealScaleAtGoogle()}
-            U3dBilboard — 높이 텍스트 POI 생성; 정적 함수: {makeBilboard()}
             defined — 모델 POI 생성 여부의 null·undefined 제외 판정; 함수: {defined()}
             UGroup(_poiGroup) — POI 보관; 함수: {add()}
             U3dApp(_app) — 장면 갱신 요청과 주석 장면 접근; 함수: {draw(), setUpdateDate()}; 속성 읽기: {_sceneComment}
+            UScene — POI 그룹 연결; 함수: {add()}
         동작:
-            앱이 없으면 종료한다.
-            모델 교차 목록에서 z가 유효한 첫 교차점으로 실축척 환산 높이 텍스트 POI를 만들어 그룹과 주석 장면에 추가한다.
-            모델 POI를 만들지 못한 경우에만 지형 교차 높이로 같은 형식의 POI를 만들고, 지형 위치도 없으면 종료한다.
-            장면 다시 그리기와 갱신 시각 변경, 분석 update를 요청한다.
+            앱이 falsy이면 종료한다.
+            _app이 truthy이면 다음을 수행한다.
+                모델 교차 목록을 순서대로 읽어 전역 isNaN(point.z)가 true인 후보를 건너뛴다.
+                첫 허용 교차점에서 UMathEngine의 실축척을 z에 곱하고 toFixed(1)과 'm'으로 측정 문자열을 만든다.
+                    반환 라벨을 그룹에 추가하고 그룹을 주석 장면에 연결한 뒤 모델 탐색을 끝낸다.
+                모델 라벨이 null·undefined이면 지형을 조회하고 위치가 falsy이면 종료한다.
+                모델 라벨이 null·undefined이고 지형 위치가 truthy이면 같은 환산과 문자열·라벨 생성·그룹 및 장면 연결을 수행한다.
+                장면 다시 그리기와 갱신 시각 변경, 분석 update를 요청한다.
 
-    #getStyleEntries() -> Array<{height: number, color: string}>
+    #getStyleEntries() -> Array<UAnalyHeightStyleEntry>
         동작: 저장된 스타일(없으면 기본 스타일)에서 mode를 제외한 유한 숫자 키를 고도 오름차순 항목으로 변환해 반환한다.
 
     #getStyleMode() -> string
         동작: 저장된 스타일 mode가 "band"이면 "band", 아니면 "mix"를 반환한다.
+
 ```
 
 ## 4. 공통 처리 기준과 제약

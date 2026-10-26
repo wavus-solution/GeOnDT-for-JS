@@ -19,6 +19,7 @@ import {UFrustumHelper} from '@union3d/helpers/UFrustumHelper.js';
 import {UFrustumTerrainProjectionHelper} from '@union3d/helpers/UFrustumTerrainProjectionHelper';
 import {U3dOverviewMap} from '@union3d/core/U3dOverviewMap';
 import {U3dQuadTile} from '@union3d/quadtree/U3dQuadTile';
+import {U3dQuadModelTile} from '@U3dQuadModelTile';
 import {U3dQuadSet} from '@union3d/quadtree/U3dQuadSet';
 import {UMathEngine} from '@union3d/math/UMathEngine';
 import {UGeoRect} from '@union3d/math/UGeoRect';
@@ -36,6 +37,7 @@ import {U3dShaderMeasureLayer} from '@union3d/3dLayer/U3dShaderMeasureLayer';
 import {U3dOpenLayer} from '@union3d/3dLayer/U3dOpenLayer';
 import {U3dModelU3FLayer} from '@union3d/3dLayer/U3dModelU3FLayer';
 import {U3dModelI3FLayer} from '@union3d/3dLayer/U3dModelI3FLayer';
+import {U3dModelA3FLayer} from '@union3d/3dLayer/U3dModelA3FLayer';
 import {U3dGroupLayer} from '@union3d/3dLayer/U3dGroupLayer';
 import {U3dModelBasicLayer} from '@union3d/3dLayer/U3dModelBasicLayer';
 import {U3dModelStaticLayer} from '@union3d/3dLayer/U3dModelStaticLayer';
@@ -77,8 +79,24 @@ import {U3dCloud} from '@union3d/env/U3dCloud';
 import {VolumetricFire} from '@union3d/env/VolumetricFire';
 import {UUnderground} from '@union3d/env/UUnderground';
 import {UPointLockFlyControls} from '@union3d/mode/UPointLockFlyControls';
-import {deferred} from '@union3d/util/deferred';
+import {deferredPromise} from '@union3d/util/deferredPromise';
+import {UErrorCollector} from '@union3d/util/UErrorCollector';
 import {captureDomLayer} from '@union3d/util/captureDomLayer';
+import {
+    calculateNonMercatorTMSMinLevel,
+    copyWithoutTMSLevelAliases,
+    DEFAULT_TMS_ENGINE_MAX_LEVEL,
+    DEFAULT_TMS_MAX_ZOOM,
+    DEFAULT_TMS_MIN_ZOOM,
+    DEFAULT_TMS_TILE_SIZE,
+    MAX_TMS_ENGINE_LEVEL,
+    MAX_TMS_SOURCE_ZOOM,
+    normalizeTMSBoundingBox,
+    normalizeTMSOrigin,
+    parseFiniteTMSNumber,
+    parseTMSBoolean,
+    parseTMSLevel
+} from '@union3d/util/TMSUtil';
 import {UBox3} from '@union3d/core/UBox3';
 import {acceleratedRaycast, computeBoundsTree, disposeBoundsTree} from '@union3d/lib/meshBVH/src/index';
 import {UBufferGeometry} from '@union3d/core/geometry/UBufferGeometry';
@@ -98,6 +116,7 @@ import {DEFAULT_MAX_SUN_INTENSITY} from "@union3d/env/USunLight.js";
 import {UMixerManager} from "@union3d/manager/UMixerManager.js";
 import {UDevToolView} from '@union3d/app/UDevToolView.js';
 import {INTERNAL} from '@union3d/app/U3dApp.internal';
+import {trailMemoryGuard} from '@union3d/effect/UTrailMemoryGuard.js';
 
 function makeName() {
     if(UDEF.appNameCount === undefined)
@@ -106,7 +125,6 @@ function makeName() {
 }
 
 const DEFAULT_WORLD_SIZE = Math.round(UDEF.GoogleCoordWidth / 5);
-const DEFAULT_WORLD_INDEX = {x: 27, y: 19, level: 5};
 const DEFAULT_MIN_ZOOM_LEVEL = 6;
 /** 줌 버튼 한 번에 적용할 카메라 거리 배율이며 0.5는 zoom 한 단계(거리 절반 또는 2배)에 해당한다 */
 const ZOOM_BUTTON_SCALE = 0.5;
@@ -151,7 +169,8 @@ const WORLD_SIZE = UDEF.HALF_WORLD * 2;
  * @typedef {object} TargetRectOption
  * @property {number} x 특정지역 구글맵 인덱스 x 값
  * @property {number} y 특정지역 구글맵 인덱스 y 값
- * @property {number} z 특정지역 구글맵 인덱스 level 값
+ * @property {number} [level=5] 타일 확대·분할 단계
+ * @property {number} [z] 기존 타일 레벨 입력의 별칭. level을 함께 지정하면 level이 우선합니다.
  */
 
 /**
@@ -199,43 +218,18 @@ const WORLD_SIZE = UDEF.HALF_WORLD * 2;
  */
 
 /**
- * WMTS 레이어 생성용 공통 옵션
- * @typedef {object} U3dWMTSLayerCO_Content
- * @property {string} [name] 레이어 이름
- * @property {string} [url] WMTS 서비스 URL
- * @property {string} [baseurl] WMTS 기본 URL
- * @property {string} [layername] WMTS 레이어 이름
- * @property {string} [ext] 응답 포맷
- * @property {string} [srs] 좌표계
- * @property {object} [boundingbox] 서비스 경계 박스
- * @property {Array<number>} [geoextent] 지리 범위
- * @property {string} [matrixsetname] WMTS matrixSet 이름
- * @property {string} [stylename] WMTS 스타일 이름
- * @property {boolean} [useProxy=false] 프록시 사용 여부
- * @property {string} [proxy='proxy.jsp?url='] 프록시 주소
- * @property {import('@UDrawArg').UDrawArg} [drawarg] 드로잉 인자
- * @property {number} [maxlevel] 최대 줌 레벨
- * @property {Array<number>} [resolutions] WMTS 해상도 배열
- * @property {boolean} [needXml=false] capabilities XML 조회 여부
- * @property {string} [matrixSet] WMTS matrixSet 별칭 입력값
- * @property {string} [re] 내부 보정용 문자열
+ * ~extends U3dOpenLayerCO <br>
  *
- * @memberof U3dApp
- * @inner
+ * TMS 레이어 생성용 옵션입니다.
  *
- * @typedef {Omit<U3dOpenLayerCO, never> & U3dWMTSLayerCO_Content} U3dWMTSLayerCO
- */
-
-/**
- * TMS 레이어 생성용 옵션
  * @typedef {object} U3dTMSImageLayerCO_Content
  * @property {string} [name] 레이어 이름
  * @property {string} baseurl 타일 서비스 주소
  * @property {object} metadata TMS 메타데이터
  * @property {boolean} [useproxy=false] 프록시 사용 여부
  * @property {string} [proxyurl='./proxy.jsp?url='] 프록시 주소
- * @property {number} [minlevel] 최소 줌 레벨
- * @property {number} [maxlevel] 최대 줌 레벨
+ * @property {number} [minlevel] TMS 원본 타일 격자의 포함형 최소 줌 레벨
+ * @property {number} [maxlevel] TMS 원본 타일 격자의 최대 줌(0~32). mercator는 포함형이고, raster는 1~32의 배타형 값으로 마지막 줌이 maxlevel-1입니다
  * @property {import('@UDrawArg.js').UDrawArg} [drawarg] 드로잉 인자
  *
  * @memberof U3dApp
@@ -468,7 +462,7 @@ const WORLD_SIZE = UDEF.HALF_WORLD * 2;
  * @typedef {object} U3dAppCO
  *
  * @property {string} containername 지도 화면을 그려 넣을 div 엘리먼트의 id
- * @property {string | undefined} [type=undefined] 출력 지도의 타입. 입력하지 않으면 한반도 범위 지도만 출력하고, 'world'를 입력하면,전세계 범위로 확장하여 지도를 출력합니다.
+ * @property {MapRegion} [type='korea'] 지도 영역. world는 전세계, korea는 한반도, custom은 targetrectopt 범위이며 타일 옵션을 지정하면 custom으로 처리합니다.
  * @property {string} [name] 여러 U3dApp을 구분하기 위한 이름입니다.<br>
  * 생략하면 'U3dApp_'에 생성 순번을 붙인 이름이 자동으로 지정됩니다.
  * @property {string} [idoverview] 인덱스맵(overview, 현재 보는 곳을 넓은 범위에서 보여 주는 보조 2D 지도)을 그려 넣을 div 엘리먼트의 id입니다.<br>
@@ -512,10 +506,10 @@ const WORLD_SIZE = UDEF.HALF_WORLD * 2;
  * @property {boolean} [usePostProcess] 렌더링 결과에 후처리 효과를 적용할지 여부이며, 기본값은 기기 성능에 따라 결정
  * @property {PostProcessParam} [postOption] 후처리 효과의 세부 설정이며 생략하면 각 효과의 기본 설정 사용
  *
- * @property {number} [maxlevel=19] 지형을 나누는 쿼드타일의 최대 분할 레벨이며 값이 클수록 가까이에서 더 세밀하게 표현됨
+ * @property {number} [maxlevel=19] 지형을 나누는 쿼드타일의 최대 분할 레벨이며 지도 영역의 시작 레벨 이상이어야 합니다. 값이 클수록 가까이에서 더 세밀하게 표현됩니다.
  * @property {number} [near=1] 카메라 프러스텀에서 가장 가까운 평면까지의 거리이며 미터 단위
  * @property {number} [far=4007502] 카메라 프러스텀에서 가장 먼 평면까지의 거리이며 미터 단위이고 기본값은 월드 영역 크기
- * @property {TargetRectOption} [targetrectopt] 앱이 다룰 영역을 특정 타일 하나로 한정할 때 사용하는 타일 인덱스 옵션이며 생략하면 전체 영역 사용
+ * @property {TargetRectOption} [targetrectopt] custom 영역의 타일 인덱스이며 지정하면 custom으로 처리합니다. 생략 시 type별 기본 타일을 사용합니다.
  * @property {boolean} [skirt=true] 타일 경계에 생기는 틈을 가리는 스커트를 생성할지 여부
  * @property {number} [passlevel] 데이터를 불러오고 그리기 시작하는 최소 타일 레벨이며, 이보다 낮은 레벨의 타일은 화면에 나타나지 않습니다.<br>
  * 생략하면 레벨 제한을 두지 않습니다.
@@ -531,7 +525,7 @@ const WORLD_SIZE = UDEF.HALF_WORLD * 2;
  * @property {number} [viewportratio=1] 카메라 종횡비(화면 가로 길이를 세로 길이로 나눈 값)에 곱하는 보정 배율이며 1은 컨테이너 비율을 그대로 사용
  * @property {number} [zoomLevel=10] 지도 확대 단계를 세는 Zoom 레벨의 시작값입니다.<br>
  * zoomIn()과 zoomOut()이 이 값을 1씩 올리거나 내려 화면을 확대·축소합니다.
- * @property {number} [minZoomLevel=6] zoomOut()으로 내려갈 수 있는 Zoom 레벨의 하한
+ * @property {number} [minZoomLevel=6] 원근 버튼의 최소 줌과 지역 기본 최대 거리 계산 기준. 직교 축소는 현재 영역의 최대 거리 제한을 사용
  * @property {number} [maxZoomLevel=19] zoomIn()으로 올라갈 수 있는 Zoom 레벨의 상한
  * @property {boolean} [useautospeed=true] 지면과 카메라 사이의 거리에 따라 확대·이동·회전 속도를 자동으로 조절할지 여부
  * @property {boolean} [auto=true] 앱을 만들면서 렌더러·카메라·컨트롤·광원·하늘을 자동으로 생성하고 렌더링을 시작할지 여부입니다.<br>
@@ -562,7 +556,6 @@ export const U3dAppAnalysis = {
     LAND_SCAPE: 'LandScape',
     SURFACE_VOLUME: 'SurfaceVolume',
     SLOPE: 'Slope',
-    OBJECT_INFO: 'ObjectInfo',
     GIZMO_MODEL: 'GizmoModel',
     ALIGN_MODEL: 'AlignModel',
     MULTIPLE_COMPONENT: 'multipleComponent',
@@ -594,6 +587,11 @@ export const U3dAppAnalysis = {
  * @group app
  * @extends {U3dObject}
  */
+/// <summary>
+/// 뷰·카메라·렌더러와 레이어 목록을 연결하여 웹 3D 지도를 실행합니다.
+/// 앱 초기화 후 등록한 레이어에 앱 문맥과 공통 표시 설정을 전달하고 화면 갱신과 자원 수명을 관리합니다.
+/// GeOnDT.U3dAPP 진입점과 각 레이어·분석 모듈에서 사용하는 앱 실행 객체입니다.
+/// </summary>
 class U3dApp extends U3dObject {
     /** @type {U3dAppEMI} */ static EVENT = U3dAppEMD;
     /** @type {U3dApp_Analysis} */ static ANALYSIS = U3dAppAnalysis;
@@ -603,7 +601,29 @@ class U3dApp extends U3dObject {
     // 쿼드트리가 없거나 다시 생성되는 동안에도 앱에서 설정한 민감도를 유지합니다.
     /** @type {number} */
     #tileUpdateSensitivity = 1;
-
+    /**
+     * 앱별 모델 탐색 상한입니다. 미지정 시 모델 타일의 공용 기본값을 사용합니다.
+     * @type {number | undefined}
+     *
+     * @ignore
+     */
+    _modelMaxLevel;
+    /**
+     * 영역 적용 중 재진입한 그리기와 갱신을 차단합니다.
+     *
+     * @type {boolean}
+     *
+     * @ignore
+     */
+    _mapRegionApplying = false;
+    /**
+     * 트리 교체 중 재진입한 그리기·갱신·재시작을 차단합니다.
+     *
+     * @type {boolean}
+     *
+     * @ignore
+     */
+    _quadTreeChanging = false;
     // 페이지를 닫을 때 앱을 정리하는 beforeunload 리스너입니다. dispose()에서 떼어 내야 하므로 함수를 보관합니다.
     /** @type {(() => void) | undefined} */
     #beforeUnloadHandler;
@@ -703,10 +723,10 @@ class U3dApp extends U3dObject {
     }
     /** @type {U3dAppDebugState} */
     #debug = {
-        canvasLoading: undefined,
-        canvasLoadingContext: undefined,
-        canvasLoadingVisible: false,
-        canvasLoadingColor: "rgba(7,85,156,0.7)",
+        loadingBar: undefined,
+        loadingBarFill: undefined,
+        loadingBarEventKey: undefined,
+        loadingVisible: false,
         loadingFrame: 0,
         loadingDelayCount: 4,
         loadingProcessTotal: 0,
@@ -986,7 +1006,8 @@ class U3dApp extends U3dObject {
             return self._selected
         }
 
-        const regionOption = getOptionRegion(opt);
+        opt = {...opt};
+        const regionOption = INTERNAL.getOptionRegion(opt);
 
         /** @type {TargetRectOption | undefined} */
         self._targetrectopt = defaultValue(opt.targetrectopt, undefined);
@@ -1003,6 +1024,7 @@ class U3dApp extends U3dObject {
         self._startlevel = defaultValue(regionOption.startlevel, undefined); //사용자 옵션으로 받지 않고 getOptionRegion에서 설정됨
 
         self._box = self.createBox();
+        INTERNAL.initializeMapRegion(self, regionOption.type, type => self.#rebuildQuadTree(type));
         //+ camera option ///////////////////////////////////////////////////
         /** @type {number} */
         self._viewportRatio = defaultValue(opt.viewportratio, 1);
@@ -1053,8 +1075,7 @@ class U3dApp extends U3dObject {
         self._minlevel = 0; //minlevel은 사용자 옵션으로 받지않고 0 고정으로 넣는다.
         /** @type {number} */
         self._maxlevel = defaultValue(opt.maxlevel, 19);
-        U3dQuadTile.setMinLevel(self._minlevel);
-        U3dQuadTile.setMaxLevel(self._maxlevel);
+        // 타일 제한은 소속 앱에서 조회하여 다른 앱의 설정과 분리합니다.
 
         //+ sun Flare settitng /////////////
         /** @type {boolean} */
@@ -1142,11 +1163,13 @@ class U3dApp extends U3dObject {
 
             self.#manager.testManager = new UTestManager(self);
 
-            self.createMeasureLayer({  //+ 측정(거리, 면적)
+            self._measureLayer = self._createMeasureLayer({  //+ 측정(거리, 면적)
                 name: UDEF.LAYER_NAME.MEASURE,
                 maxlevel: 19
             });
-            self.createTerrainLayer({name: UDEF.LAYER_TYPE.TERRAIN}); //+ 지형
+            // 측정 레이어 참조를 저장한 뒤 갱신하여 초기화 중에도 같은 레이어를 조회하게 합니다.
+            self.updateData();
+            self._createTerrainLayer({name: UDEF.LAYER_TYPE.TERRAIN}); //+ 지형
             self._bInitialized = true;
         }
 
@@ -1156,9 +1179,9 @@ class U3dApp extends U3dObject {
         self._fires = [];
 
         /** @type {import('three').Plane} */
-        self._globalPlaneX = new THREE.Plane(new THREE.Vector3(-1, 0, 0), self._rectangle.width);
+        self._globalPlaneX = new THREE.Plane(new THREE.Vector3(-1, 0, 0), self._rectangle.nWidth);
         /** @type {import('three').Plane} */
-        self._globalPlaneY = new THREE.Plane(new THREE.Vector3(0, -1, 0), self._rectangle.height);
+        self._globalPlaneY = new THREE.Plane(new THREE.Vector3(0, -1, 0), self._rectangle.nHeight);
         /** @type {import('three').Plane} */
         self._globalPlaneZ = new THREE.Plane(new THREE.Vector3(0, 0, -1), MAX_PLANE_HEIGHT);
         /** @type {Array<import('three').Plane>} */
@@ -1270,6 +1293,32 @@ class U3dApp extends U3dObject {
         self._overlayManager = null;
     }
 
+    /**
+     * 동일 앱에서 지도 영역을 전환하고 관련 상태와 시점 적용까지 완료합니다.
+     * korea는 한반도 기본 범위, world는 전세계, custom은 사용자 타일 범위입니다.
+     * custom 범위를 생략하면 마지막 성공 범위를 사용하며 저장된 범위가 없으면 기본 타일을 사용합니다.
+     * 범위가 바뀌면 목적 영역의 기본 줌·최대 거리·far를 계산하고 현재 최소 거리를 유지합니다. 동일 범위는 현재 제한을 유지합니다.
+     * 시점은 WGS84 도, 거리는 EPSG:3857 미터입니다. 위도는 약 ±85.05112878도까지 허용합니다.
+     * 방위 0은 북쪽, 양수는 서쪽이며 기울기 0은 수직 하향, 90은 수평입니다.
+     * 기본 이동 시간은 100ms이고 0은 즉시 적용합니다. 투영·2D/3D 모드와 홈은 유지합니다.
+     * @param {MapRegion} region 목적 영역
+     * @param {MapRegionTransitionOptions} [options={}] 등록 배경과 시점·시간
+     * @returns {Promise<boolean>} 적용과 이동 완료는 true, 대체·사용자 조작·해제 취소는 false. 타일 다운로드는 기다리지 않습니다.
+     * @throws {Error} 미준비·해제·입력·적용 오류. 적용 후 이동 실패에서는 적용 영역을 유지합니다.
+     */
+    setMapRegion(region, options = {}) {
+        return INTERNAL.setMapRegion(this, region, options);
+    }
+
+    /**
+     * 실제 적용된 지도 영역을 반환합니다. 취소 결과 false는 이전 영역 복원을 뜻하지 않습니다.
+     * @returns {MapRegion} korea, world 또는 custom
+     * @throws {Error} 준비되지 않았거나 해제된 앱에서 조회한 경우
+     */
+    getMapRegion() {
+        return INTERNAL.getMapRegion(this);
+    }
+
     //Constructor End
 
     getParam() {
@@ -1353,20 +1402,26 @@ class U3dApp extends U3dObject {
     /**
      * 작업 처리기와 측정을 먼저 종료한 뒤 앱이 소유한 자원을 정리합니다.
      * 종료 콜백에서 다시 호출하거나 이미 종료된 경우에는 중복 정리를 하지 않습니다.
+     * 동기 해제 오류가 발생해도 다음 자원의 정리를 시도한 뒤 수집한 오류를 전달합니다.
+     *
+     * @throws {unknown} 단일 실패의 원래 사유 또는 복수 실패를 호출 순서대로 errors에 담은 Error
      */
     dispose() {
         if (this._disposed) return;
         // 작업 취소 알림에서 앱 종료를 다시 요청할 수 있으므로 외부 콜백보다 먼저 차단합니다.
         this._disposed = true;
+        // 기존 동기 종료 순서를 유지합니다. 각 자원의 실패는 수집하고 참조 제거까지 마친 뒤 전달합니다.
+        const errors = new UErrorCollector('앱 자원 해제에 실패했습니다.');
+        errors.attempt(() => INTERNAL.cancelMapRegion(this));
         const self = this;
 
         self._bInitialized = false;
         // 취소 콜백은 레이어와 그리기 인자를 사용하므로 해당 자원이 살아 있을 때 종결합니다.
-        self.#manager.processManager?.dispose();
+        errors.attempt(() => self.#manager.processManager?.dispose());
 
         // 페이지를 닫기 전에 dispose()를 부른 경우에도 window가 이 앱을 계속 참조하지 않도록 리스너를 뗍니다.
         if (self.#beforeUnloadHandler) {
-            window.removeEventListener('beforeunload', self.#beforeUnloadHandler);
+            errors.attempt(() => window.removeEventListener('beforeunload', self.#beforeUnloadHandler));
             self.#beforeUnloadHandler = undefined;
         }
 
@@ -1380,87 +1435,90 @@ class U3dApp extends U3dObject {
         self._measureLayer = undefined;
 
         if (defined(self._eventHandler)) {
-            self._eventHandler.dispose();
+            errors.attempt(() => self._eventHandler?.dispose());
             self._eventHandler = undefined;
         }
 
-        self.#removeFpsDom();
+        errors.attempt(() => self.#removeFpsDom());
 
-        self.removeEventListenerAll();
+        errors.attempt(() => self.removeEventListenerAll());
 
         self._editHeightBoxList = undefined;
 
         if (self._isTwenning) {
             if (defined(self._tweenfrom2To))
-                self._tweenfrom2To.stop();
+                errors.attempt(() => self._tweenfrom2To?.stop());
 
             if (defined(self._tweenMid2To))
-                self._tweenMid2To.stop();
+                errors.attempt(() => self._tweenMid2To?.stop());
 
             if (defined(self._tweenFrom2Mid))
-                self._tweenFrom2Mid.stop();
+                errors.attempt(() => self._tweenFrom2Mid?.stop());
 
             if (defined(self._tweenFrom2Mid2))
-                self._tweenFrom2Mid2.stop();
+                errors.attempt(() => self._tweenFrom2Mid2?.stop());
 
             self._isTwenning = false;
         }
 
         self._gizmoType = undefined;
 
-        self.removeAllPOI();
+        errors.attempt(() => self.removeAllPOI());
 
-        self.removeAllObject();
+        errors.attempt(() => self.removeAllObject());
 
-        self.removeAllOverlay();
+        errors.attempt(() => self.removeAllOverlay());
 
-        self.removeAllView();
+        errors.attempt(() => self.removeAllView());
 
-        self.removeAllViewLight();
+        errors.attempt(() => self.removeAllViewLight());
 
         // UMapControls dispose
         if (defined(self._mapControl))
-            self._mapControl.dispose();
+            errors.attempt(() => self._mapControl?.dispose());
 
         /** @type {{_mapControl: import('@union3d/mode/UMapControls').UMapControls | undefined}} */ (self)._mapControl = undefined;
 
         // QuadTree dispose
-        self.disposeQuadTree();
+        errors.attempt(() => self.disposeQuadTree());
 
         // layerlist dispose
         if (defined(self._layerlist))
-            self._layerlist.disposeAll();
+            errors.attempt(() => self._layerlist?.disposeAll());
 
         self._layerlist = undefined;
 
-        self._terrainDecalManager?.dispose();
+        errors.attempt(() => self._terrainDecalManager?.dispose());
         self._terrainDecalManager = undefined;
 
         // scene dispose
-        if (defined(self._scene)) {
-            U3dBilboard.removeAll(self._scene);
-            self._scene.dispose();
+        const scene = self._scene;
+        if (defined(scene)) {
+            errors.attempt(() => U3dBilboard.removeAll(scene));
+            errors.attempt(() => scene.dispose());
         }
 
         /** @type {{_scene: import('@UScene').UScene | undefined}} */ (self)._scene = undefined;
 
-        if (defined(self._sceneComment)) {
+        const sceneComment = self._sceneComment;
+        if (defined(sceneComment)) {
             // sceneComment dispsoe
-            U3dBilboard.removeAll(self._sceneComment);
-            self._sceneComment.dispose();
+            errors.attempt(() => U3dBilboard.removeAll(sceneComment));
+            errors.attempt(() => sceneComment.dispose());
         }
         /** @type {{_sceneComment: import('@UScene').UScene | undefined}} */ (self)._sceneComment = undefined;
 
         if (defined(self._overviewmap))
-            self._overviewmap.dispose();
+            errors.attempt(() => self._overviewmap?.dispose());
 
         // renderer dispose
-        if (defined(self._renderer)) {
-            self._renderer.clear();
-            self._renderer.domElement.remove();
+        const renderer = self._renderer;
+        if (defined(renderer)) {
+            errors.attempt(() => renderer.clear());
+            errors.attempt(() => renderer.domElement.remove());
             // self._renderer.context = undefined;
-            self._renderer.domElement = undefined;
-            self._renderer.dispose();
+            renderer.domElement = undefined;
+            errors.attempt(() => renderer.dispose());
             /** @type {{_renderer: import('@URenderer').URenderer | undefined}} */ (self)._renderer = undefined;
         }
 
@@ -1478,25 +1536,25 @@ class U3dApp extends U3dObject {
 
         // drawArg dispose
         if (defined(self._drawArg))
-            self._drawArg.dispose();
+            errors.attempt(() => self._drawArg?.dispose());
 
         /** @type {{_drawArg: import('@UDrawArg').UDrawArg | undefined}} */ (self)._drawArg = undefined;
 
-        self.removeSky();
+        errors.attempt(() => self.removeSky());
 
         self._sunSphere = undefined;
 
         self._camera = undefined;
 
         if (self.#env.light)
-            self.#env.light.dispose();
+            errors.attempt(() => self.#env.light?.dispose());
         self.#env.light = undefined;
 
         self._frustum = undefined;
         self._overviewmap = undefined;
 
         if (self.#settingGUI)
-            self.removeDevToolView();
+            errors.attempt(() => self.removeDevToolView());
 
         self._appUpdate3d = false;
 
@@ -1508,23 +1566,11 @@ class U3dApp extends U3dObject {
         self._idLoad = undefined;
         self._rectangle = undefined;
 
-        //+ webworker height ..
-        if (defined(U3dHeightLayer.g_taskProcessor)) {
-            U3dHeightLayer.g_taskProcessor.dispose();
-            U3dHeightLayer.g_taskProcessor = undefined;
-        }
+        // 등록 객체와 콜백을 붙들고 있는 인덱스는 앱 해제 뒤 재사용하지 않습니다.
+        self.#manager.indexManager = undefined;
+        // 공유 파서 풀은 레이어의 마지막 사용자 해제 시 종료하며, 앱별 작업은 processManager에서 정리합니다.
 
-        //+ webworker model ..
-        if (defined(U3dModelU3FLayer.g_taskProcessor)) {
-            U3dModelU3FLayer.g_taskProcessor.dispose();
-            U3dModelU3FLayer.g_taskProcessor = undefined;
-        }
-
-        if (defined(U3dImagePBFLayer.g_taskProcessor)) {
-            U3dImagePBFLayer.g_taskProcessor.dispose();
-            U3dImagePBFLayer.g_taskProcessor = undefined;
-        }
-
+        errors.finish();
     };
 
     getMetaData() {
@@ -2694,32 +2740,16 @@ class U3dApp extends U3dObject {
     }
 
     /**
-     * @description 고도가 로드되었을때 addAutoHeightUpdate로 등록된 업데이트 함수를 실행시켜주는 함수, 고도가 로드되었을때 실행된다.
+     * 기존 고도 갱신 호출을 현재 쿼드셋에 전달합니다.
      *
-     * @param {event} event  U3dQuadSet이 initialize 할때 tile loaded 이벤트에 등록 시킨다
+     * @param {{data: import('@U3dQuadTile').U3dQuadTile}} event 지형 타일 로드 알림
+     * @returns {void}
+     * @throws {Error} 고도 조회 또는 등록 콜백 실행에 실패한 경우
      *
      * @ignore
      */
     execAutoHeightUpdate(event) {
-        const tile = event.data;
-
-        if (!tile || (tile._childTiles && tile._childTiles?.length !== 0) || !tile.isHeightLoaded()) {
-            return;
-        }
-
-        const boundingBox = tile.getBoundingbox();
-        const results = this.getIndexManager().search(
-            boundingBox.min.x, boundingBox.min.y, boundingBox.max.x, boundingBox.max.y, U3dEvent.MESH.UPDATE_HEIGHT_MESH);
-        //!!데이터 정리를 위해 순회하는 함수 concat등의 함수를 안쓰고 그냥 [[],[],[]] 구조로 리턴된다
-        for (let result of results) {
-            for (let item of result) {
-                if (item.level && item.level === tile._rlevel) {
-                    continue;
-                }
-                item.level = tile._rlevel;
-                item.value(item.key, tile, tile.getHeightAtPoint(item.minX + 0.5, item.minY + 0.5)); //확인됨. 타일z (3857스케일) 그대로 넣는다.
-            }
-        }
+        this._quadtreeSet?.updateAutoHeight(event.data);
     }
 
     /**
@@ -3061,20 +3091,20 @@ class U3dApp extends U3dObject {
         let loadingRate = now / total;
         if (loadingRate > 1) loadingRate = 1;
 
-        let isChange = this.#debug.loadingRate !== loadingRate;
-        if (!isChange && this.#debug.loadingFrame === 0)
+        const isChange = this.#debug.loadingRate !== loadingRate;
+        if (!isChange && this.#debug.loadingFrame === 0) {
+            this.#updateLoadingBar();
             return;
+        }
 
         this.#debug.loadingRate = loadingRate;
 
         if (loadingRate === 1) {
             if (this.#debug.loadingFrame === this.#debug.loadingDelayCount) {
-                if (this.#debug.canvasLoading && (this.#debug.canvasLoadingVisible || this.#debug.loadingUserTotal !== 0)) {
-                    this.#debug.canvasLoadingContext?.clearRect(0, 0, this.#debug.canvasLoading.width, this.#debug.canvasLoading.height);
-                }
                 this.clearUserLoading();
                 this.clearLoadingCount();
                 this.#debug.loadingRate = 0;
+                this.#updateLoadingBar();
                 return;
             } else {
                 this.#debug.loadingFrame++;
@@ -3083,11 +3113,22 @@ class U3dApp extends U3dObject {
             this.#debug.loadingFrame = 0;
         }
 
-        if (!this.#debug.canvasLoading || (!this.#debug.canvasLoadingVisible && this.#debug.loadingUserTotal === 0)) return;
+        this.#updateLoadingBar();
+    }
 
-        if (isChange) {
-            this.#debug.canvasLoadingContext.clearRect(0, 0, this.#debug.canvasLoading.width, this.#debug.canvasLoading.height);
-            this.#debug.canvasLoadingContext.fillRect(0, 0, this.#debug.canvasLoading.width * loadingRate, this.#debug.canvasLoading.height);
+    #updateLoadingBar() {
+        const bar = this.#debug.loadingBar;
+        const fill = this.#debug.loadingBarFill;
+        if (!bar || !fill) return;
+
+        const rate = this.#debug.loadingVisible || this.#debug.loadingUserTotal !== 0
+            ? this.#debug.loadingRate : 0;
+        const percent = rate > 0 ? rate * 100 : 0;
+        const value = String(percent);
+        // CSSStyleDeclaration의 소수점 반올림 때문에 같은 진행률을 매 프레임 다시 쓰지 않습니다.
+        if (bar.getAttribute('aria-valuenow') !== value) {
+            fill.style.width = `${percent}%`;
+            bar.setAttribute('aria-valuenow', value);
         }
     }
 
@@ -3226,69 +3267,125 @@ class U3dApp extends U3dObject {
         return this._mapControl;
     }
 
+    /**
+     * CSS 스타일을 지정할 수 있는 로딩 바 컨테이너를 반환합니다.
+     *
+     * @returns {HTMLDivElement | undefined} 로딩 바 컨테이너. 생성 전이나 제거 후에는 undefined
+     */
     getLodingDom() {
-        if (this.#debug.canvasLoading)
-            return;
-
-        return this.#debug.canvasLoading.parentElement;
+        return this.#debug.loadingBar;
     }
 
     /**
-     * GeOnDT for JS 의 메모리 및 작업 상태, 프레임 상태 등을 화면에 출력합니다.
-     * @param {string} [id='loading-canvas'] 출력할 캔버스의 DOM ID 입니다.
+     * 엔진 작업과 사용자 작업의 진행률을 표시하는 DOM 로딩 바를 생성합니다.
+     * `.u3d-loading-bar`로 위치와 크기, `.u3d-loading-bar__fill`로 색상과 모양을 지정할 수 있습니다.
+     * 이미 생성된 로딩 바는 재사용하며 ID와 표시 상태를 갱신합니다.
+     *
+     * @param {string} [id='loading-canvas'] 로딩 바 컨테이너의 DOM ID
      */
     createLoadingCanvas(id = 'loading-canvas') {
-        if (this.#debug.canvasLoading) {
+        if (this.#debug.loadingBar) {
             this.setVisibleLoading(true);
-            const div = this.#debug.canvasLoading.parentElement;
-            if (div)
-                div.id = id;
+            this.#debug.loadingBar.id = id;
             return;
         }
 
-        const divNew = document.createElement('div');
-        divNew.id = id;
-        divNew.style = `position:absolute; bottom:0px; width:100%; height:7px;overflow:hidden;`;
-        divNew.addEventListener('contextmenu', function (e) {
+        const bar = document.createElement('div');
+        bar.id = id;
+        bar.className = 'u3d-loading-bar';
+        bar.setAttribute('role', 'progressbar');
+        bar.setAttribute('aria-label', '로딩 진행률');
+        bar.setAttribute('aria-valuemin', '0');
+        bar.setAttribute('aria-valuemax', '100');
+        bar.setAttribute('aria-valuenow', '0');
+        bar.addEventListener('contextmenu', (e) => {
             e.preventDefault();
         });
-        const self = this;
-        self.#debug.canvasLoading = document.createElement('canvas');
-        self.#debug.canvasLoading.style = `width:100%; height:100%;float:left;`;
 
-        divNew.appendChild(self.#debug.canvasLoading);
-        document.getElementById(self._container.id).appendChild(divNew);
+        // 사용자 CSS의 선언 순서와 관계없이 기본 위치·크기·색상을 재정의할 수 있게 합니다.
+        const style = document.createElement('style');
+        style.textContent = `
+            :where(.u3d-loading-bar) {
+                position: absolute;
+                bottom: 5px;
+                left: 16px;
+                width: calc(100% - 32px);
+                height: 5px;
+                border-radius: 999px;
+                background: rgba(174,206,216,0.2);
+                box-shadow: 0 1px 4px rgba(12,24,34,0.08);
+                overflow: hidden;
+                pointer-events: none;
+                opacity: 1;
+                transition: opacity 140ms ease-out;
+            }
+            :where(.u3d-loading-bar[aria-valuenow="0"]) {
+                opacity: 0;
+            }
+            :where(.u3d-loading-bar) > :where(.u3d-loading-bar__fill) {
+                width: 0;
+                height: 100%;
+                border-radius: inherit;
+                background-color: rgba(105,190,214,0.98);
+                background-image: linear-gradient(90deg, rgba(134,218,184,0), rgba(134,218,184,0.98));
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.14);
+            }
+            @media (prefers-reduced-motion: reduce) {
+                :where(.u3d-loading-bar) {
+                    transition: none;
+                }
+            }
+        `;
+        const fill = document.createElement('div');
+        fill.className = 'u3d-loading-bar__fill';
+        fill.style.width = '0%';
+        bar.appendChild(style);
+        bar.appendChild(fill);
+        document.getElementById(this._container.id).appendChild(bar);
 
-        self.#debug.canvasLoadingContext = self.#debug.canvasLoading.getContext('2d');
-        self.#debug.canvasLoadingContext.fillStyle = self.#debug.canvasLoadingColor;
-        self.setVisibleLoading(true);
+        this.#debug.loadingBar = bar;
+        this.#debug.loadingBarFill = fill;
+        this.setVisibleLoading(true);
 
-        self.#debug.canvasLoading.eventKey = self.on(self.constructor.EVENT.LOADED, () => {
-            if (self.#debug.loadingTotal || self.#debug.loadingNow)
-                self.clearLoadingCount();
+        this.#debug.loadingBarEventKey = this.on(this.constructor.EVENT.LOADED, () => {
+            if (this.#debug.loadingTotal || this.#debug.loadingNow)
+                this.clearLoadingCount();
         });
 
-        setGlobalFunction('__GLoadingAddTotal__', self.addTotalUserLoading.bind(self));
-        setGlobalFunction('__GLoadingAddNow__', self.addNowUserLoading.bind(self));
+        setGlobalFunction('__GLoadingAddTotal__', this.addTotalUserLoading.bind(this));
+        setGlobalFunction('__GLoadingAddNow__', this.addNowUserLoading.bind(this));
     }
 
+    /**
+     * 로딩 바 DOM과 로딩 완료 이벤트의 등록을 해제합니다.
+     * 다시 표시하려면 createLoadingCanvas()를 호출하십시오.
+     */
     removeLoadingCanvas() {
-        if (!this.#debug.canvasLoading) return;
-        const div = this.#debug.canvasLoading.parentElement;
-        this.unkey(this.constructor.EVENT.LOADED, this.#debug.canvasLoading.eventKey);
+        if (!this.#debug.loadingBar) return;
+        if (typeof this.#debug.loadingBarEventKey === 'string') {
+            this.unkey(this.constructor.EVENT.LOADED, this.#debug.loadingBarEventKey);
+        }
 
         this.setVisibleLoading(false);
-        this.#debug.canvasLoadingContext = undefined;
-        this.#debug.canvasLoading.remove();
-        this.#debug.canvasLoading = undefined;
-
-        if (div) div.remove();
+        this.#debug.loadingBar.remove();
+        this.#debug.loadingBar = undefined;
+        this.#debug.loadingBarFill = undefined;
+        this.#debug.loadingBarEventKey = undefined;
     }
 
+    /**
+     * 엔진 작업의 진행률 표시 여부를 설정합니다.
+     * false이면 현재 채움 영역을 지우며, 등록된 사용자 작업은 다음 갱신에서 계속 표시합니다.
+     *
+     * @param {boolean} [visible=true] 엔진 작업 진행률 표시 여부
+     */
     setVisibleLoading(visible = true) {
-        this.#debug.canvasLoadingVisible = visible;
+        this.#debug.loadingVisible = visible;
         if (!visible) {
-            this.#debug.canvasLoadingContext?.clearRect(0, 0, this.#debug.canvasLoading.width, this.#debug.canvasLoading.height);
+            if (this.#debug.loadingBarFill) this.#debug.loadingBarFill.style.width = '0%';
+            if (this.#debug.loadingBar) this.#debug.loadingBar.setAttribute('aria-valuenow', '0');
+        } else {
+            this.#updateLoadingBar();
         }
     }
 
@@ -3501,16 +3598,32 @@ class U3dApp extends U3dObject {
     }
 
     /**
-     * QuadTree level 설정 공통 처리 함수
-     * @param {number} level 설정할 level 값
+     * 지형 최소·최대와 모델 최대 레벨은 앱 설정을 변경하고 나머지 호출은 기존 루트 메서드로 전달합니다.
+     * 유효하지 않은 레벨이나 범위는 기존 설정을 유지하고 거절합니다.
+     *
+     * @param {number} level 0 이상의 정수 레벨
      * @param {string} type 대상 quadTree 타입
      * @param {'setMinLevel' | 'setMaxLevel'} setterName 호출할 setter 함수명
-     * @returns {boolean} 적용 여부
-     *
-     * @ignore
+     * @returns {boolean} 유효한 설정을 적용했으면 true, 잘못된 입력이거나 대상이 없으면 false
      */
     #setQuadTreeLevel(level, type, setterName) {
-        const listQuadtree = this._quadtreeSet?._listQuadtree;
+        if (!Number.isInteger(level) || level < 0) return false;
+        if (type === UDEF.TILE_TYPE.TERRAIN) {
+            if (setterName === 'setMinLevel') {
+                if (level > this._maxlevel) return false;
+                this._minlevel = level;
+            } else {
+                if (level < this._minlevel || level < this._datalevel) return false;
+                this._maxlevel = level;
+            }
+            return true;
+        }
+        if (type === UDEF.TILE_TYPE.MODEL && setterName === 'setMaxLevel') {
+            if (level < U3dQuadModelTile.g_minLevel || level < this._datalevel) return false;
+            this._modelMaxLevel = level;
+            return true;
+        }
+        const listQuadtree = this._quadtreeSet?.getQuadTrees(type);
         if (!Array.isArray(listQuadtree) || listQuadtree.length === 0) {
             __GError__('해당 type의 QuadTree가 생성되지 않아 작업이 중단되었습니다.', '1799350');
             return false;
@@ -3531,10 +3644,11 @@ class U3dApp extends U3dObject {
 
     /**
      * QuadTree의 업데이트 min level을 설정하는 함수
-     * QuadTree의 업데이트 대상 최소 레벨을 설정합니다.
+     * 지형 최소 레벨은 앱 설정으로 보관하여 트리가 없어도 적용하고 재생성 후에도 유지합니다.
+     * 실제 타일 레벨이 설정 최소 레벨 미만이면 해당 타일의 하위 탐색을 중단합니다.
      * @param {number} level min level 값
      * @param {string} type 대상 quadTree ( U3dQuadTile : 'terrain', U3dQuadModelTile : 'model')
-     * @returns {boolean} 적용 여부
+     * @returns {boolean} 적용 여부. 0 이상의 정수가 아니거나 지형 상한을 넘으면 기존 설정을 유지하고 false를 반환합니다.
      */
     setMinQuadTreeLevel(level, type = UDEF.TILE_TYPE.TERRAIN) {
         return this.#setQuadTreeLevel(level, type, 'setMinLevel');
@@ -3543,13 +3657,22 @@ class U3dApp extends U3dObject {
     /**
      * QuadTree의 업데이트 max level을 설정하는 함수
      * QuadTree의 업데이트 대상 최대 레벨을 설정합니다.
-     * model type의 레이어 생성시 maxlevel이 기본 설정된 (기본값 17) 보다 높을 경우 해당 함수를 호출하여 maxLevel을 높여서 사용을 권장합니다.
+     * 지형·모델 상한은 앱 설정으로 보관하며 트리 생성 전·해제 후에도 설정할 수 있습니다.
+     * 생성 옵션이 없을 때 지형 기본값은 19이며, 모델은 공용 초기 기본값 17을 따릅니다.
      * @param {number} level max level 값
      * @param {string} type 대상 quadTree ( U3dQuadTile : 'terrain', U3dQuadModelTile : 'model')
-     * @returns {boolean} 적용 여부
+     * @returns {boolean} 적용 여부. 0 이상의 정수가 아니거나 해당 최소·시작 레벨보다 낮으면 기존 설정을 유지하고 false를 반환합니다.
      */
     setMaxQuadTreeLevel(level, type = UDEF.TILE_TYPE.TERRAIN) {
         return this.#setQuadTreeLevel(level, type, 'setMaxLevel');
+    }
+
+    /**
+     * 앱별 탐색 상한을 반환하며 미지정 시 모델 타일의 공용 기본값을 사용합니다.
+     * @returns {number} 모델 탐색 최대 레벨
+     */
+    getModelMaxLevel() {
+        return this._modelMaxLevel ?? U3dQuadModelTile.g_maxLevel;
     }
 
 
@@ -3637,36 +3760,22 @@ class U3dApp extends U3dObject {
      * 기본적으로 WebGL 화면 위에 겹쳐진 DOM 레이어(U3dPOI의 라벨·마커, U3dOverlay 등)도 함께 합성됩니다. <br>
      * DOM 합성에 실패하면 WebGL 화면만 반환합니다. (리소스 제약은 captureDomLayer 참고)
      * @param {Partial<{dom: boolean}>} [opt={}] 캡처 옵션. dom: DOM 레이어 합성 여부, defaultValue(opt.dom, true)
-     * @returns {Promise} then의 파라메터로 스크린샷 이미지의 dataURL 문자열 반한
+     * @returns {Promise<string>} 스크린샷 이미지의 dataURL 문자열
      */
-    capture(opt = {}) {
+    async capture(opt = {}) {
         const self = this;
-        const promise = deferred();
-        const basePromise = deferred();
-
+        /** @type {DeferredPromise<string>} */
+        const basePromise = deferredPromise();
         self._renderer.capture(basePromise);
-
-        if (defaultValue(opt.dom, true) === false) {
-            basePromise.then(function (baseImageUrl) {
-                    promise.resolve(baseImageUrl);
-                },
-                function (error) {
-                    promise.reject(error);
-                });
-            return promise;
+        // 기반 캡처 자체의 실패는 호출자에게 전달하고, DOM 합성 실패만 대체 처리합니다.
+        const baseImageUrl = await basePromise;
+        if (defaultValue(opt.dom, true) === false) return baseImageUrl;
+        try {
+            const canvas = await self.#compositeDomLayer(baseImageUrl);
+            return canvas.toDataURL('image/png');
+        } catch (error) {
+            return baseImageUrl;
         }
-
-        basePromise.then(function (baseImageUrl) {
-            self.#compositeDomLayer(baseImageUrl).then(function (canvas) {
-                promise.resolve(canvas.toDataURL('image/png'));
-            }).catch(function () {
-                promise.resolve(baseImageUrl); //+ DOM 합성 실패 시 WebGL 화면만 반환
-            });
-        }, function (error) {
-            promise.reject(error);
-        });
-
-        return promise;
     }
 
     /**
@@ -3674,32 +3783,29 @@ class U3dApp extends U3dObject {
      * 기본적으로 WebGL 화면 위에 겹쳐진 DOM 레이어(U3dPOI의 라벨·마커, U3dOverlay 등)도 함께 합성됩니다. <br>
      * DOM 합성에 실패하면 WebGL 화면만 반환합니다. (리소스 제약은 captureDomLayer 참고)
      * @param {Partial<{dom: boolean}>} [opt={}] 캡처 옵션. dom: DOM 레이어 합성 여부, defaultValue(opt.dom, true)
-     * @returns {Promise} then의 파라메터로 스크린샷 이미지의 Blob 반환
+     * @returns {Promise<Blob | null>} 스크린샷 Blob. 브라우저가 이미지를 만들지 못하면 null
      */
-    captureToBlob(opt = {}) {
+    async captureToBlob(opt = {}) {
         const self = this;
-        const promise = deferred();
+        /** @type {DeferredPromise<Blob | null>} */
+        const promise = deferredPromise();
 
         if (defaultValue(opt.dom, true) === false) {
             self._renderer.captureToBlob(promise);
             return promise;
         }
 
-        const basePromise = deferred();
+        /** @type {DeferredPromise<string>} */
+        const basePromise = deferredPromise();
         self._renderer.capture(basePromise);
-
-        // webGlImageUrl : WebGL 캔버스만 찍은 순수 3D 화면 캡처
-        basePromise.then(function (baseImageUrl) {
-            self.#compositeDomLayer(baseImageUrl).then(function (canvas) {
-                canvas.toBlob(function (blob) {
-                    promise.resolve(blob);
-                });
-            }).catch(function () {
-                self._renderer.captureToBlob(promise); //+ DOM 합성 실패 시 기존 동작으로 폴백
-            });
-        }, function (error) {
-            promise.reject(error);
-        });
+        const baseImageUrl = await basePromise;
+        try {
+            const canvas = await self.#compositeDomLayer(baseImageUrl);
+            canvas.toBlob(promise.resolve);
+        } catch (error) {
+            // DOM 합성 또는 인코딩 시작에 실패하면 렌더러의 Blob 캡처로 대체합니다.
+            self._renderer.captureToBlob(promise);
+        }
 
         return promise;
     }
@@ -3712,40 +3818,31 @@ class U3dApp extends U3dObject {
      */
     #compositeDomLayer(baseImageUrl) {
         const self = this;
-        // 이 메서드의 최종 결과(합성 Canvas) 또는 오류를 호출자에게 전달한다.
-        const promise = deferred();
+        /** @type {DeferredPromise<HTMLCanvasElement>} */
+        const promise = deferredPromise();
         const baseImage = new Image();
 
         // renderer.capture()가 만든 WebGL dataURL을 먼저 Image로 디코딩해야
         // 이후 2D Canvas에 drawImage()로 그릴 수 있다.
-        baseImage.onload = function () {
-            const container = self.container();
-            //+ DOM은 CSS pixel, WebGL Canvas는 devicePixelRatio가 반영된 buffer pixel을 사용하므로
-            //+ 두 레이어의 출력 해상도가 일치하도록 배율을 계산한다.
-            const scale = self._renderer.domElement.width / container.clientWidth; //+ WebGL 버퍼 해상도와 일치
+        baseImage.onload = async function () {
+            try {
+                const container = self.container();
+                // DOM은 CSS pixel, WebGL은 buffer pixel이므로 합성 해상도를 맞춥니다.
+                const scale = self._renderer.domElement.width / container.clientWidth;
+                const domCanvas = await captureDomLayer(container, scale);
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = baseImage.naturalWidth || baseImage.width;
+                canvas.height = baseImage.naturalHeight || baseImage.height;
 
-            // U3dPOI·U3dOverlay 등 WebGL Scene 밖의 DOM을 투명 Canvas로 래스터화한다.
-            captureDomLayer(container, scale).then(function (domCanvas) {
-                try {
-                    //+ 최종 Canvas는 WebGL 캡처 이미지와 동일한 buffer 크기로 생성한다.
-                    const canvas = document.createElement('canvas');
-                    const context = canvas.getContext('2d');
-                    canvas.width = baseImage.naturalWidth || baseImage.width;
-                    canvas.height = baseImage.naturalHeight || baseImage.height;
-
-                    // 실제 화면의 쌓임 순서와 같게 WebGL을 배경으로 먼저 그리고,
-                    // 투명 배경의 DOM Canvas를 그 위에 덮어 하나의 이미지로 합성한다.
-                    context.drawImage(baseImage, 0, 0, canvas.width, canvas.height);
-                    context.drawImage(domCanvas, 0, 0, canvas.width, canvas.height);
-                    promise.resolve(canvas);
-                } catch (error) {
-                    // 합성 실패는 capture()/captureToBlob()의 WebGL-only 폴백으로 전달된다.
-                    promise.reject(error);
-                }
-            }, function (error) {
-                // DOM 래스터화 실패도 동일하게 호출자의 폴백 경로로 전달한다.
+                // 화면의 쌓임 순서대로 WebGL 배경 위에 투명한 DOM 캔버스를 그립니다.
+                context.drawImage(baseImage, 0, 0, canvas.width, canvas.height);
+                context.drawImage(domCanvas, 0, 0, canvas.width, canvas.height);
+                promise.resolve(canvas);
+            } catch (error) {
+                // 이벤트 안의 동기 예외와 비동기 실패 모두 호출자의 대체 처리로 전달합니다.
                 promise.reject(error);
-            });
+            }
         };
         baseImage.onerror = function (error) {
             // WebGL dataURL 자체를 디코딩하지 못한 경우에는 합성을 진행할 수 없다.
@@ -4010,19 +4107,6 @@ class U3dApp extends U3dObject {
         );
     }
 
-    create2DShapeLayer(opt, featureCollection) {
-        let layer = new (/** @type {any} */ (globalThis)).Union3D.image.U2dShpLayer(opt);
-        this.addLayer(layer);
-        this.showLayer(layer.getName(), true);
-        try {
-            layer.addFeatureCollection(featureCollection);
-        } catch (e) {
-            console.error("add featureCollection is fail. " + e.message);
-        }
-
-        return layer;
-    }
-
     /**
      * 해당 레이어 범위로 지도 화면을 위치시키는 함수
      * @param {string} layername 레이어 이름
@@ -4030,12 +4114,12 @@ class U3dApp extends U3dObject {
      * @param {number} [offsetZ=0] 이동 시 카메라 타겟과 카메라와의 거리
      * @param {number} [leftrotate=0] 이동 시 카메라 좌우 각도
      * @param {number} [downrotate=0] 이동 시 카메라 상하 각도
-     * @returns {Promise<boolean>} 수행여부
+     * @returns {Promise<boolean | void>} 수행여부
      */
     fitLayerExtent(layername, useFly, offsetZ, leftrotate = 0, downrotate = 0) {
         const self = this;
-        /** @type {DeferredObject<boolean>} */
-        const promise = deferred();
+        /** @type {DeferredPromise<boolean | void>} */
+        const promise = deferredPromise();
 
         if (!defined(layername)) {
             promise.reject(false);
@@ -4065,7 +4149,7 @@ class U3dApp extends U3dObject {
 
     drawLayerExtent(layername, color) {
         const self = this;
-        let promise = deferred();
+        let promise = deferredPromise();
 
         if (!defined(layername)) {
             promise.reject(false);
@@ -4114,7 +4198,7 @@ class U3dApp extends U3dObject {
             return;
 
         if (!defined(minlevel)) minlevel = this._drawArg.getPassLevel();
-        if (!defined(maxlevel)) maxlevel = U3dQuadTile.getMaxLevel();
+        if (!defined(maxlevel)) maxlevel = this._maxlevel;
 
         const layers = this.getInstanceHeightLayers();
         if (layers.length === 0)
@@ -4267,12 +4351,13 @@ class U3dApp extends U3dObject {
      * @param {string} [opt.label] POI 출력 라벨
      * @param {import('three').Vector3} [opt.heightOffset] 텍스트 높이 보정 값
      * @param {boolean} [opt.select=false] POI 츌력 박스 여부
-     * @param {boolean} [opt.depthTest=fals]e POI 출력시, 다른 객체에 의해 가려지는지 깊이 계산 실행 여부
+     * @param {boolean} [opt.depthTest=false] POI 출력시, 다른 객체에 의해 가려지는지 깊이 계산 실행 여부
      * @returns {Promise<import('@U3dPOI').U3dPOI> | null} 실행 완료 여부
      */
     createPOI(opt) {
         const self = this;
-        const promise = deferred();
+        /** @type {DeferredPromise<import('@U3dPOI').U3dPOI>} */
+        const promise = deferredPromise();
         const poi = new U3dPOI({
             name: opt.name,
             position: opt.position,
@@ -5171,13 +5256,13 @@ class U3dApp extends U3dObject {
      * @param {WorldPosition} position 이동할 3D 월드 좌표
      * @param {WorldPosition} [target] 바라볼 3D 월드 좌표 (생략 시 현재 타겟 유지)
      * @param {number} [duration] 이동에 걸리는 시간 (밀리초)
-     * @returns {Promise<boolean>} 이동 완료 시점의 Promise
+     * @returns {Promise<void>} 이동 완료 시점의 Promise
      */
     flyToPosition(position, target, duration) {
         const self = this;
         self.stopFly();
         const mapControl = self._mapControl;
-        const promise = deferred();
+        const promise = deferredPromise();
         const callbacks = {
             stop: promise.resolve,
             complete: promise.resolve
@@ -5407,14 +5492,15 @@ class U3dApp extends U3dObject {
      * @param {number} height 고도값
      * @param {number} [rotateleft] 방위각
      * @param {number} [rotatedown] 고도각
-     * @returns {Promise<boolean>} 이동 완료 promise 반환
      */
     setHomePosition(geox, geoy, height, rotateleft, rotatedown) {
-        var self = this;
-        self._homePosition = new THREE.Vector3(geox, geoy, height);
-        self._homeRotateLeft = rotateleft;
-        self._homeRotateDown = rotatedown;
+        this._homePosition = new THREE.Vector3(geox, geoy, height);
 
+        if(defined(rotateleft) && Number.isFinite(rotateleft))
+            this._homeRotateLeft = rotateleft;
+
+        if(defined(rotatedown) && Number.isFinite(rotatedown))
+            this._homeRotateDown = rotatedown;
     }
 
     /**
@@ -5437,53 +5523,49 @@ class U3dApp extends U3dObject {
     }
 
     /**
-     * OpenLayers 기반 이미지 타일 레이어 생성 함수
+     * OpenLayers 기반 이미지 타일 레이어를 생성하여 앱에 추가합니다.
+     * 같은 이름의 레이어가 이미 등록되어 있으면 새로 생성하지 않고 null을 반환합니다.
+     *
      * @param {U3dOpenLayerCO} opt U3dOpenLayer 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | undefined} U3dOpenLayer 레이어 객체
+     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | null} 생성한 레이어 또는 이름 중복 시 null
      */
-    create3dOpenLayer(opt) {
-        var self = this;
+    createOpenLayer(opt) {
+        const options = defined(opt) ? opt : {};
 
-        if (!defined(opt)) opt = {};
-
-        var layer = self._layerlist.getLayer(opt.name);
-        if (!defined(layer)) {
-            layer = new U3dOpenLayer(opt);
-            if (defined(layer)) {
-                self.addLayer(layer);
-                return layer;
-            }
+        if (defined(this._layerlist.getLayer(options.name))) {
+            return null;
         }
 
-        return undefined;
+        const layer = new U3dOpenLayer(options);
+        this.addLayer(layer);
+        return layer;
     }
 
     /**
-     * `OGC WMTS`를 이용한 이미지 레이어로를 생성합니다.
+     * OGC WMTS 이미지 레이어를 생성하여 앱에 추가합니다.
+     * 같은 이름의 레이어가 이미 등록되어 있으면 새로 생성하지 않고 null을 반환합니다.
+     *
      * @param {U3dImageWMTSLayerCO} opt U3dImageWMTSLayer 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dImageWMTSLayer').U3dImageWMTSLayer | undefined} U3dImageWMTSLayer 레이어 객체 반환
+     * @returns {import('@union3d/3dLayer/U3dImageWMTSLayer').U3dImageWMTSLayer | null} 생성한 레이어 또는 이름 중복 시 null
      */
-    create3dImageWMTSLayer(opt) {
-        const self = this;
+    createWMTSImageLayer(opt) {
+        const options = defined(opt) ? opt : {};
 
-        if (!defined(opt)) opt = {};
-
-        let layer = self._layerlist.getLayer(opt.name);
-        if (!defined(layer)) {
-            layer = new U3dImageWMTSLayer(opt);
-            if (defined(layer)) {
-                self.addLayer(layer);
-                return layer;
-            }
+        if (defined(this._layerlist.getLayer(options.name))) {
+            return null;
         }
 
-        return undefined;
+        const layer = new U3dImageWMTSLayer(options);
+        this.addLayer(layer);
+        return layer;
     }
 
     /**
-     * 데칼 영역 및 데칼 표현 레이어 생성 함수입니다.
+     * 데칼 영역 및 데칼 표현 레이어를 생성합니다.
+     * 같은 이름의 레이어가 이미 등록되어 있으면 오류를 안내하고 null을 반환합니다.
+     *
      * @param {U3dPatternXYZLayerCO} opt U3dPatternXYZLayer 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dPatternXYZLayer').U3dPatternXYZLayer | undefined} U3dPatternXYZLayer 레이어 객체 반환
+     * @returns {import('@union3d/3dLayer/U3dPatternXYZLayer').U3dPatternXYZLayer | null} 생성한 레이어 또는 이름 중복 시 null
      */
     createPatternLayer(opt) {
         const self = this;
@@ -5493,7 +5575,7 @@ class U3dApp extends U3dObject {
 
         if (self._layerlist.getLayer(opt.name)) {
             U3dMessage.error('U3dApp', U3dMessage.CNT.CMM.EXIST_LAYER);
-            return undefined;
+            return null;
         }
 
         const layer = new U3dPatternXYZLayer(opt);
@@ -5505,21 +5587,25 @@ class U3dApp extends U3dObject {
     }
 
     /**
-     * Emap 기본 지도를 생성하는 레이어 함수입니다.
-     * @param {U3dEmapLayerCO} opt Emap 기본 지도 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | undefined} 생성된 U3dOpenLayer 레이어
+     * Emap 기본 지도 레이어를 생성하여 앱에 추가합니다.
+     * 같은 이름의 레이어가 이미 등록되어 있으면 새로 생성하지 않고 null을 반환합니다.
+     *
+     * @param {import('@U3dApp').U3dEmapLayerCO} opt Emap 기본 지도 생성 옵션
+     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | null} 생성한 레이어 또는 이름 중복 시 null
      */
     createEmapBaseLayer(opt) {
         opt = opt || {};
-        const self = this;
-        const layer = self.getLayerByName(opt.name);
-        if (defined(layer)) return undefined;
+
+        if (defined(this.getLayerByName(opt.name))) {
+            return null;
+        }
+
         opt.layername = defaultValue(opt.layername, 'korean_map');
         opt.ext = defaultValue(opt.ext, 'image/png');
         opt.apikey = defaultValue(opt.apikey, '04trYP9_xwLAfALjwZ-B8g');
         opt.useProxy = defaultValue(opt.useProxy, false);
         opt.proxy = defaultValue(opt.proxy, 'proxy.jsp?url=');
-        opt.drawarg = defaultValue(opt.drawarg, self._drawArg);
+        opt.drawarg = defaultValue(opt.drawarg, this._drawArg);
 
         // 기본 지도와 같은 범위를 사용한다.
         opt.geoextent = defaultValue(opt.geoextent, getEmapGeoExtent_());
@@ -5528,48 +5614,55 @@ class U3dApp extends U3dObject {
         opt.stylename = 'korean';
         opt.ekind = UDEF._EMAP_KIND._BASE;
 
-        return self.createEmapTemplateLayer(opt);
+        return this.createEmapTemplateLayer(opt);
     }
 
     /**
-     * Emap 위성 지도를 생성하는 레이어 함수입니다.
-     * @param {U3dEmapSatLayerCO} opt Emap 위성 지도 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | undefined} 생성된 U3dOpenLayer 레이어
+     * Emap 위성 지도 레이어를 생성하여 앱에 추가합니다.
+     * 같은 이름의 레이어가 이미 등록되어 있으면 새로 생성하지 않고 null을 반환합니다.
+     *
+     * @param {import('@U3dApp').U3dEmapSatLayerCO} opt Emap 위성 지도 생성 옵션
+     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | null} 생성한 레이어 또는 이름 중복 시 null
      */
     createEmapSatLayer(opt) {
         opt = opt || {};
-        const self = this;
-        const layer = self.getLayerByName(opt.name);
-        if (defined(layer)) return undefined;
+
+        if (defined(this.getLayerByName(opt.name))) {
+            return null;
+        }
+
 
         opt.layername = defaultValue(opt.layername, 'AIRPHOTO');
         opt.ext = defaultValue(opt.ext, 'image/jpg');
         opt.apikey = defaultValue(opt.apikey, '04trYP9_xwLAfALjwZ-B8g');
         opt.useProxy = defaultValue(opt.useProxy, false);
         opt.proxy = defaultValue(opt.proxy, 'proxy.jsp?url=');
-        opt.drawarg = defaultValue(opt.drawarg, self._drawArg);
+        opt.drawarg = defaultValue(opt.drawarg, this._drawArg);
 
-        //+ 영역
+        // 기본 지도와 같은 범위를 사용한다.
         opt.geoextent = defaultValue(opt.geoextent, getEmapGeoExtent_());
 
         opt.matrixsetname = 'NGIS_AIR';
         opt.stylename = '';
         opt.ekind = UDEF._EMAP_KIND._SAT;
 
-        return self.createEmapTemplateLayer(opt);
-
+        return this.createEmapTemplateLayer(opt);
     }
 
     /**
-     * Emap 공통 WMTS 템플릿 레이어를 생성하는 함수입니다.
-     * @param {U3dEmapLayerCO} opt Emap 템플릿 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | undefined} 생성된 U3dOpenLayer 레이어
+     * Emap 공통 WMTS 템플릿 레이어를 생성하여 앱에 추가합니다.
+     * 같은 이름의 레이어가 이미 등록되어 있으면 새로 생성하지 않고 null을 반환합니다.
+     *
+     * @param {import('@U3dApp').U3dEmapLayerCO} opt Emap 공통 WMTS 템플릿 생성 옵션
+     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | null} 생성한 레이어 또는 이름 중복 시 null
      */
     createEmapTemplateLayer(opt) {
         opt = opt || {};
-        const self = this;
-        const layer = self._layerlist.getLayer(opt.name);
-        if (defined(layer)) return undefined;
+
+        if (defined(this._layerlist.getLayer(opt.name))) {
+            return null;
+        }
+
         opt.ekind = defaultValue(opt.ekind, UDEF._EMAP_KIND._SAT);
         opt.apikey = defaultValue(opt.apikey, '04trYP9_xwLAfALjwZ-B8g');
         opt.xyorder = defaultValue(opt.xyorder, 'xy');
@@ -5580,8 +5673,8 @@ class U3dApp extends U3dObject {
         } else if (defined(opt.baseurl)) {
             url = opt.baseurl;
         } else {
-            __GInfo__(self, "생성 옵션 중 baseurl(또는 url)이 누락되었습니다. 기본이미지로 대체합니다.", '4123252');
-            url = 'http://210.117.198.120:8081/o2map/services'
+            __GInfo__(this, "생성 옵션 중 baseurl(또는 url)이 누락되었습니다. 기본이미지로 대체합니다.", '4123252');
+            url = 'http://210.117.198.120:8081/o2map/services';
         }
         opt.url = url;
 
@@ -5596,13 +5689,10 @@ class U3dApp extends U3dObject {
                 });
             }
             const proj5179 = ol.proj.get('EPSG:5179');
-            const projectionExtent = proj5179.getExtent();
-            const size = ol.extent.getWidth(projectionExtent) / 256;
-            let resolutions = new Array(14);
-            const matrixIds = new Array(14);
-            for (let z = 0; z < 14; ++z) {
-                // WMTS용 해상도와 매트릭스 ID를 계산한다.
-                resolutions[z] = size / Math.pow(2, z);
+            // 서비스의 고정 해상도에 맞춰 기본 지도와 위성 지도의 매트릭스 ID를 구성합니다.
+            const resolutions = [2088.96, 1044.48, 522.24, 261.12, 130.56, 65.28, 32.64, 16.32, 8.16, 4.08, 2.04, 1.02, 0.51, 0.255];
+            const matrixIds = new Array(resolutions.length);
+            for (let z = 0; z < resolutions.length; z++) {
                 if (opt.ekind === UDEF._EMAP_KIND._BASE) {
                     const level = pad(z + 5, 2);
                     matrixIds[z] = 'L' + level;
@@ -5611,7 +5701,6 @@ class U3dApp extends U3dObject {
                 }
             }
 
-            resolutions = [2088.96, 1044.48, 522.24, 261.12, 130.56, 65.28, 32.64, 16.32, 8.16, 4.08, 2.04, 1.02, 0.51, 0.255];
 
             function loadTileUrl(imageTile, url) {
                 if (defined(opt.apikey)) {
@@ -5622,7 +5711,7 @@ class U3dApp extends U3dObject {
                 }
 
                 if (opt.xyorder === 'yx') {
-                    //Col Row 반전 해서 보내기
+                    // 서비스가 yx 순서를 요구하면 요청의 열·행 인덱스를 교환합니다.
                     const tmp = url.split('&');
                     const paramMap = {};
                     for (let i = 1; i < tmp.length; i++) {
@@ -5643,7 +5732,7 @@ class U3dApp extends U3dObject {
                 imageTile.getImage().src = url;
             }
 
-            const tilegrid = new ol.tilegrid.WMTS({
+            const tileGrid = new ol.tilegrid.WMTS({
                 origin: [-200000.000000000, 4000000],
                 resolutions: resolutions,
                 matrixIds: matrixIds,
@@ -5652,22 +5741,19 @@ class U3dApp extends U3dObject {
                 opacity: 1,
                 transition: 0
             });
-            //+jykim
-            // WMTS 파라미터 변경위해 임시 추가
-            parameter = parameter || {};
-            Object.assign(opt, parameter);
+            // 타일별 파라미터를 원본 옵션에 반영해 서비스 설정과 URL 로더가 같은 값을 사용합니다.
+            Object.assign(opt, parameter || {});
             const source = new ol.source.WMTS({
                 url: opt.url,
                 layer: opt.layername,
                 matrixSet: opt.matrixsetname,
                 format: opt.ext,
                 projection: proj5179,
-                tileGrid: tilegrid,
+                tileGrid,
                 style: opt.stylename,
                 crossOrigin: "Anonymous",
                 opacity: 1,
                 transition: 0
-                // wrapX     : true, //+ x축으로 무한대로 표출
             });
 
             source.setTileLoadFunction(loadTileUrl);
@@ -5678,359 +5764,345 @@ class U3dApp extends U3dObject {
             });
         };
 
-        const layers = [];
-        layers.push({name: 'emap', callback: callback});
-
-        opt.layers = layers;
-
-        return self.create3dOpenLayer(opt);
-    }
-
-
-    /**
-     * XML capabilities 조회가 필요한 WMTS 레이어를 생성하는 함수입니다.
-     * @param {U3dWMTSLayerCO} opt WMTS 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | undefined} 생성된 U3dOpenLayer 레이어
-     */
-    createWMTSLayer(opt) {
-        opt = opt || {};
-        var self = this;
-        var layer = self.getLayerByName(opt.name);
-        if (defined(layer)) return undefined;
-
-        opt.useProxy = defaultValue(opt.useProxy, false);
-        opt.proxy = defaultValue(opt.proxy, 'proxy.jsp?url=');
-        opt.drawarg = defaultValue(opt.drawarg, self._drawArg);
-        // opt.proj = defaultValue(opt.proj, undefined);
-        opt.matrixsetname = opt.matrixSet
-        opt.stylename = ''
-        opt.re = ''
-
-        if (opt.needXml) {
-            getWMTSLayerCapabilities.call(this, opt).then((xml) => {
-                const xmlDoc = xml.responseXML;
-                opt.geoextent = [
-                    Number(xmlDoc.getElementsByTagName("LatLonBoundingBox")[0].getAttribute('minx')),
-                    Number(xmlDoc.getElementsByTagName("LatLonBoundingBox")[0].getAttribute('miny')),
-                    Number(xmlDoc.getElementsByTagName("LatLonBoundingBox")[0].getAttribute('maxx')),
-                    Number(xmlDoc.getElementsByTagName("LatLonBoundingBox")[0].getAttribute('maxy'))
-                ];
-
-                if (opt.srs === undefined)
-                    opt.srs = xmlDoc.getElementsByTagName("BoundingBox")[0].getAttribute('SRS')
-
-                opt.boundingbox = {
-                    minx: Number(xmlDoc.getElementsByTagName("BoundingBox")[0].getAttribute('minx')),
-                    miny: Number(xmlDoc.getElementsByTagName("BoundingBox")[0].getAttribute('miny')),
-                    maxx: Number(xmlDoc.getElementsByTagName("BoundingBox")[0].getAttribute('maxx')),
-                    maxy: Number(xmlDoc.getElementsByTagName("BoundingBox")[0].getAttribute('maxy'))
-                };
-                return this.createWMTSTemplateLayer(opt);
-            }).catch(() => {
-                console.error('Capabilities 파일을 불러오는데 실패했습니다. 다시 시도해주세요');
-            });
-        }
-    }
-
-    /**
-     * WMTS 공통 템플릿 레이어를 생성하는 함수입니다.
-     * @param {U3dWMTSLayerCO} opt WMTS 템플릿 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | undefined} 생성된 U3dOpenLayer 레이어
-     */
-    createWMTSTemplateLayer(opt) {
-        opt = opt || {};
-        const self = this;
-        let layer = self._layerlist.getLayer(opt.name);
-        if (defined(layer)) return undefined;
-        let url;
-        if (defined(opt.url)) {
-            url = opt.url;
-        } else if (defined(opt.baseurl)) {
-            url = opt.baseurl;
-        } else {
-            __GInfo__(self, "생성 옵션 중 baseurl(또는 url)이 누락되었습니다.", '4129769');
-        }
-        opt.url = url;
-        const callback = function (parameter) {
-            //const box = parameter.boundingbox;
-            const maxLevel = opt.maxlevel
-            const projSrs = ol.proj.get(opt.srs);
-            let tilegrid;
-
-            if (projSrs.code_ === "EPSG:5179") {
-                const proj3857 = ol.proj.get("EPSG:3857");
-                let projectionExtent = projSrs.getExtent();
-                //const proj3857Extent = proj3857.getExtent();
-
-                // let extent = [box.minx, box.miny, box.maxx, box.maxy];
-                // extent = ol.proj.transformExtent(extent, projSrs, proj3857);
-                // const size = ol.extent.getWidth(extent) / 256;
-
-                let extent = ol.proj.transformExtent(projectionExtent, projSrs, proj3857);
-                const size = ol.extent.getWidth(extent) / 256;
-
-                let resolutions = new Array(14);
-                let matrixIds = new Array(14);
-                for (let z = 0; z < maxLevel; ++z) {
-                    resolutions[z] = size / Math.pow(2, z);
-                    matrixIds[z] = z + 5;
-                }
-
-                if (defined(opt.resolutions))
-                    resolutions = opt.resolutions;
-
-                tilegrid = new ol.tilegrid.WMTS({
-                    // extent: projectionExtent,
-                    tileSize: 256,
-                    resolutions: resolutions,
-                    origin: ol.extent.getTopLeft(projectionExtent),
-                    matrixIds: matrixIds,
-                });
-            } else {
-                const projectionExtent = projSrs.getExtent();
-                const size = ol.extent.getWidth(projectionExtent) / 256;
-
-                let resolutions = new Array(maxLevel);
-                let matrixIds = new Array(maxLevel);
-                for (let z = 0; z < maxLevel; ++z) {
-                    resolutions[z] = size / Math.pow(2, z);
-                    matrixIds[z] = z;
-                }
-
-                tilegrid = new ol.tilegrid.WMTS({
-                    // extent: projectionExtent,
-                    tileSize: 256,
-                    resolutions: resolutions,
-                    origin: ol.extent.getTopLeft(projectionExtent),
-                    matrixIds: matrixIds,
-                });
-            }
-
-
-            if (tilegrid === undefined)
-                return
-
-            // WMTS 파라미터를 전달받아 임시로 반영한다.
-            parameter = parameter || {};
-            Object.assign(opt, parameter);
-            const source = new ol.source.WMTS({
-                url: opt.url,
-                layer: opt.layername,
-                matrixSet: opt.matrixsetname,
-                format: opt.ext,
-                projection: projSrs,
-                tileGrid: tilegrid,
-                style: opt.stylename,
-            });
-
-            function loadTileUrl(imageTile, url) {
-                if (opt.useProxy) {
-                    url = opt.proxy + url;
-                }
-
-                let tmp = url.split('&');
-                let paramMap = {};
-                for (let i = 1; i < tmp.length; i++) {
-                    let kv = tmp[i].split('=');
-                    paramMap[kv[0]] = kv[1];
-                }
-                let tileMatrix = paramMap['TileMatrix'];
-                let tilematrixset = paramMap['tilematrixset'];
-                paramMap['TileMatrix'] = tilematrixset + ":" + tileMatrix
-
-
-                let newUrl = tmp[0];
-                let keys = Object.keys(paramMap);
-                for (let i = 0; i < keys.length; i++) {
-                    newUrl += '&' + keys[i] + '=' + paramMap[keys[i]];
-                }
-                url = newUrl;
-                imageTile.getImage().src = url;
-            }
-
-            source.setTileLoadFunction(loadTileUrl);
-
-            return new ol.layer.Tile({
-                opacity: 1,
-                source: source,
-                transition: false
-            });
-        };
-
-        const layers = [];
-        layers.push({name: 'wmts', callback: callback});
-
-        opt.layers = layers;
-        return self.create3dImageWMTSLayer(opt);
+        opt.layers = [{name: 'emap', callback}];
+        return this.createOpenLayer(opt);
     }
 
     /**
      * TMS 이미지 레이어를 생성하는 함수입니다.
-     * @param {U3dTMSImageLayerCO} opt TMS 이미지 레이어 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | undefined} 생성된 U3dOpenLayer 레이어
+     * `minlevel`과 `maxlevel`은 TMS 원본 타일의 줌 범위입니다. `mercator` 프로필에서는 줌 번호 체계가
+     * 엔진 쿼드타일 레벨과 같으므로 계산된 값을 레이어의 `minLevel`, `maxLevel`에도 그대로 적용합니다.
+     * raster 프로필에서는 `maxlevel`을 배타 상한으로 사용해 `0..maxlevel-1` 해상도를 만들고, 원본의
+     * `minlevel` 해상도를 월드 좌표(EPSG:3857) 엔진 레벨로 환산해 안전한 `minLevel` 하한을 자동 적용합니다.
+     * 비-Mercator에서 camelCase `minLevel`은 자동 하한보다 더 높은 범위를 요청할 때만 반영합니다.
+     * 비-Mercator의 `maxLevel`은 엔진의 포함형 상한이며 앱의 최대 레벨과 지원 상한 32를 넘지 않습니다.
+     * 이때 요청한 `maxLevel`이 자동 하한보다 낮으면 안전한 최초 레벨까지 올립니다.
+     * 비-Mercator를 안전하게 환산할 레벨이 앱 상한 안에 없으면 타일을 요청하지 않습니다.
+     * Mercator는 월드 좌표(EPSG:3857)와 동등한 좌표계만 허용하고 실제 타일 너비를 OpenLayers 격자에 반영합니다.
+     * `metadata.tileFormat.reverseY`는 boolean 또는 `"true"`·`"false"` 문자열을 허용하며 생략하면 false입니다.
+     * 좌표계·프로필·경계·타일 크기·격자 입력을 검증할 수 없으면 오류를 출력하고 레이어를 생성하지 않습니다.
+     *
+     * @param {import('@U3dApp').U3dTMSImageLayerCO} opt TMS 이미지 레이어 생성 옵션
+     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | null} 생성한 레이어 또는 생성하지 못한 경우 null
      */
     createTMSImageLayer(opt) {
-        opt = opt || {};
-        var self = this;
-        var layer = self._layerlist.getLayer(opt.name);
-        if (defined(layer)) return undefined;
-
-        var o3dLayer = undefined;
+        opt ||= {};
+        if (defined(this._layerlist.getLayer(opt.name))) return null;
 
         UDEF.assert(defined(opt.name), '[name]param is null!');
         UDEF.assert(defined(opt.baseurl), '[baseurl]param is null!');
 
-        var meta = opt.metadata;
-        UDEF.assert(defined(meta), '[metadata]param is null!');
-        UDEF.assert(defined(meta.srs), '[srs]param is null!');
-        UDEF.assert(defined(meta.tileFormat), '[tileFormat]param is null!');
-        UDEF.assert(defined(meta.raster), '[raster]param is null!');
-        UDEF.assert(defined(meta.boundingBox), '[boundingBox]param is null!');
-        UDEF.assert(defined(meta.profile), '[profile]param is null!');
-        let srs = meta.srs.toUpperCase();
-        let baseurl = opt.baseurl;
-        let ext = meta.tileFormat.ext;
-        let reverseY = meta.tileFormat.reverseY;
-        if (!reverseY)
-            reverseY = false;
-        else {
-            if (typeof (reverseY) === "string") {
-                reverseY = JSON.parse(reverseY);
-            }
+        const metadata = opt.metadata;
+        UDEF.assert(defined(metadata), '[metadata]param is null!');
+        UDEF.assert(defined(metadata.srs), '[srs]param is null!');
+        UDEF.assert(defined(metadata.tileFormat), '[tileFormat]param is null!');
+        UDEF.assert(defined(metadata.raster), '[raster]param is null!');
+        UDEF.assert(defined(metadata.boundingBox), '[boundingBox]param is null!');
+        UDEF.assert(defined(metadata.profile), '[profile]param is null!');
+
+        const boundingBox = normalizeTMSBoundingBox(metadata.boundingBox);
+        const profile = typeof metadata.profile === 'string'
+            ? metadata.profile.trim().toLowerCase()
+            : undefined;
+        if (typeof metadata.srs !== 'string'
+            || metadata.srs.trim() === ''
+            || (profile !== 'mercator' && profile !== 'raster')
+            || !defined(boundingBox)) {
+            __GError__(
+                this,
+                'createTMSImageLayer(): TMS의 srs·profile·boundingBox 입력이 올바르지 않아 레이어를 생성하지 않습니다.'
+            );
+            return null;
         }
 
-        let majorFolder = meta.majorFolder;
-        let origin = meta.origin;
+        const srs = metadata.srs.trim().toUpperCase();
+        const baseurl = opt.baseurl;
+        const ext = metadata.tileFormat.ext;
+        const metadataReverseY = metadata.tileFormat.reverseY;
+        const reverseY = defined(metadataReverseY)
+            ? parseTMSBoolean(metadataReverseY)
+            : false;
+        if (!defined(reverseY)) {
+            __GError__(
+                this,
+                'createTMSImageLayer(): TMS의 tileFormat.reverseY는 boolean 또는 "true"/"false" 문자열이어야 하므로 레이어를 생성하지 않습니다.'
+            );
+            return null;
+        }
+
+        const majorFolder = metadata.majorFolder;
+        const isMercatorProfile = profile === 'mercator';
+        const metadataOrigin = metadata.origin;
+        const origin = defined(metadataOrigin) ? normalizeTMSOrigin(metadataOrigin) : undefined;
+        if (!isMercatorProfile && defined(metadataOrigin) && !defined(origin)) {
+            __GError__(
+                this,
+                'createTMSImageLayer(): 비-Mercator TMS의 origin.x·origin.y가 유한수가 아니어서 레이어를 생성하지 않습니다.'
+            );
+            return null;
+        }
+        const metadataTileSize = metadata.tileFormat.width;
+        const tileSize = !defined(metadataTileSize)
+            ? DEFAULT_TMS_TILE_SIZE
+            : parseTMSLevel(metadataTileSize);
+        if (!defined(tileSize) || tileSize === 0) {
+            __GError__(
+                this,
+                'createTMSImageLayer(): TMS의 tileFormat.width가 양의 정수가 아니어서 레이어를 생성하지 않습니다.'
+            );
+            return null;
+        }
 
         opt.srs = srs;
-        opt.boundingbox = Object.assign(meta.boundingBox);
-        let profile = meta.profile;
+        opt.boundingbox = boundingBox;
         opt.profile = profile;
 
-        if (opt.useproxy) {
-            if (!defined(opt.proxyurl) || opt.proxyurl === '') {
-                opt.proxyurl = './proxy.jsp?url=';
-            }
-        } else {
+        if (!opt.useproxy) {
             opt.proxyurl = '';
+        } else if (!defined(opt.proxyurl) || opt.proxyurl === '') {
+            opt.proxyurl = './proxy.jsp?url=';
         }
 
-        let maxZoom = parseInt(meta.raster.maxlevel);
-        if (defined(opt.maxlevel)) {
-            maxZoom = parseInt(opt.maxlevel);
+        const isValidSourceMax = (value) => defined(value)
+            && value <= MAX_TMS_SOURCE_ZOOM
+            && (isMercatorProfile || value > 0);
+        const metadataMaxZoom = parseTMSLevel(metadata.raster.maxlevel);
+        let maxZoom = parseTMSLevel(opt.maxlevel);
+        if (!isValidSourceMax(maxZoom)) {
+            maxZoom = isValidSourceMax(metadataMaxZoom)
+                ? metadataMaxZoom
+                : DEFAULT_TMS_MAX_ZOOM;
         }
-        if (!defined(maxZoom))
-            maxZoom = 19;
 
+        // Mercator maxZoom은 포함형, 비-Mercator maxZoom은 배타형이므로 유효한 마지막 source z가 다릅니다.
+        const lastSourceZoom = isMercatorProfile ? maxZoom : maxZoom - 1;
+        const optionMinZoom = parseTMSLevel(opt.minlevel);
+        const metadataMinZoom = parseTMSLevel(metadata.raster.minlevel);
+        const isValidSourceMin = (value) => defined(value) && value <= lastSourceZoom;
         let minZoom;
-        if (!defined(opt.minlevel)) {
-            minZoom = 14;
-            if (minZoom >= maxZoom) {
-                if (defined(meta.tilesets) && defined(meta.tilesets.list) && meta.tilesets.list instanceof Array) {
-                    for (let tileset of meta.tilesets.list) {
-                        if (defined(tileset.order) && minZoom > tileset.order) {
-                            minZoom = tileset.order;
-                        }
-                    }
-                } else {
-                    minZoom = maxZoom - 1;
-                }
-            }
-            opt.minlevel = minZoom;
+        if (isValidSourceMin(optionMinZoom)) {
+            minZoom = optionMinZoom;
+        } else if (isValidSourceMin(metadataMinZoom)) {
+            minZoom = metadataMinZoom;
+        } else if (DEFAULT_TMS_MIN_ZOOM <= lastSourceZoom) {
+            minZoom = DEFAULT_TMS_MIN_ZOOM;
         } else {
-            minZoom = parseInt(opt.minlevel);
+            let tilesetMinZoom;
+            const tilesetList = metadata.tilesets?.list;
+            if (Array.isArray(tilesetList) && tilesetList.length <= MAX_TMS_SOURCE_ZOOM + 1) {
+                // 지원 가능한 줌 수보다 긴 목록은 비정상 입력으로 보고 순회하지 않아 메인 스레드 정지를 막습니다.
+                // 인덱스 순회는 사용자 배열이 재정의한 iterator를 실행하지 않게 합니다.
+                for (let index = 0; index < tilesetList.length; index++) {
+                    const tileset = tilesetList[index];
+                    const order = parseTMSLevel(tileset?.order);
+                    if (isValidSourceMin(order)
+                        && (!defined(tilesetMinZoom) || order < tilesetMinZoom)) {
+                        tilesetMinZoom = order;
+                    }
+                }
+            }
+            // 빈 tileset 목록에서도 maxZoom과 역전되지 않도록 기존 maxZoom-1 보완 규칙을 확정적으로 적용합니다.
+            minZoom = defined(tilesetMinZoom)
+                ? tilesetMinZoom
+                : Math.max(0, maxZoom - 1);
         }
-        //+ 전지구 좌표에 격자로 쓰여지므로 3d에 대입 할 수 있다
-        if (profile === 'mercator') {
-            var proj3857 = ol.proj.get('EPSG:3857');
-            var proj4326 = ol.proj.get('EPSG:4326');
-            var minxy = ol.proj.transform([opt.boundingbox.minx, opt.boundingbox.miny], proj4326, proj3857);
-            var maxxy = ol.proj.transform([opt.boundingbox.maxx, opt.boundingbox.maxy], proj4326, proj3857);
-            let extent = [minxy[0], minxy[1], maxxy[0], maxxy[1]];
+        // 기존 호출자가 기본 계산 결과를 opt에서 확인할 수 있었던 동작을 유지하고 잘못된 입력도 정규화합니다.
+        opt.minlevel = minZoom;
 
-            let callback = function (parameter, sharedSources) {
-                if (defined(sharedSources?.[0]))
-                    return new ol.layer.Tile({opacity: 1, source: sharedSources[0], extent: extent});
+        // Mercator TMS의 줌 번호는 엔진 쿼드타일 레벨과 같은 전지구 격자를 가리킵니다.
+        if (isMercatorProfile) {
+            const proj3857 = ol.proj.get('EPSG:3857');
+            const proj4326 = ol.proj.get('EPSG:4326');
+            const metadataProjection = ol.proj.get(srs);
+            if (!defined(proj3857)
+                || !defined(proj4326)
+                || !defined(metadataProjection)
+                || !ol.proj.equivalent(metadataProjection, proj3857)) {
+                __GError__(
+                    this,
+                    'createTMSImageLayer(): mercator 프로필의 srs는 EPSG:3857과 동등한 좌표계여야 합니다.'
+                );
+                return null;
+            }
+            let minxy;
+            let maxxy;
+            try {
+                minxy = ol.proj.transform([boundingBox.minx, boundingBox.miny], proj4326, proj3857);
+                maxxy = ol.proj.transform([boundingBox.maxx, boundingBox.maxy], proj4326, proj3857);
+            } catch (_error) {
+                __GError__(this, 'createTMSImageLayer(): Mercator TMS 경계를 변환할 수 없어 레이어를 생성하지 않습니다.');
+                return null;
+            }
+            if (!Number.isFinite(minxy?.[0])
+                || !Number.isFinite(minxy?.[1])
+                || !Number.isFinite(maxxy?.[0])
+                || !Number.isFinite(maxxy?.[1])
+                || minxy[0] >= maxxy[0]
+                || minxy[1] >= maxxy[1]) {
+                __GError__(this, 'createTMSImageLayer(): Mercator TMS 변환 경계가 올바르지 않아 레이어를 생성하지 않습니다.');
+                return null;
+            }
+            const extent = [minxy[0], minxy[1], maxxy[0], maxxy[1]];
 
-                let url;
-                let reverseStr = '-';
-                if (reverseY) {
-                    reverseStr = '';
+            const callback = (_parameter, sharedSources) => {
+                if (defined(sharedSources?.[0])) {
+                    return new ol.layer.Tile({opacity: 1, source: sharedSources[0], extent});
                 }
 
-                if (defined(majorFolder) && majorFolder !== '' && majorFolder === UDEF.MAJORFOLDER.ROW) {
-                    url = opt.proxyurl + baseurl + '/{z}/{' + reverseStr + 'y}/{x}' + "." + ext;
-                } else {
-                    url = opt.proxyurl + baseurl + '/{z}/{x}/{' + reverseStr + 'y}' + "." + ext;
-                }
-                //상수값 UDEF에 작성 예정
-                if (minZoom < 7) {
-                    minZoom = 7;
-                }
-                if (maxZoom < 8) {
-                    maxZoom = 8;
-                }
-                var xyzSource = new ol.source.XYZ({
-                    url: url,
-                    minZoom: minZoom,
-                    maxZoom: maxZoom,
+                const yToken = reverseY ? '{y}' : '{-y}';
+                const isRowMajor = defined(majorFolder)
+                    && majorFolder !== ''
+                    && majorFolder === UDEF.MAJORFOLDER.ROW;
+                const url = isRowMajor
+                    ? `${opt.proxyurl}${baseurl}/{z}/${yToken}/{x}.${ext}`
+                    : `${opt.proxyurl}${baseurl}/{z}/{x}/${yToken}.${ext}`;
+                const xyzSource = new ol.source.XYZ({
+                    url,
+                    // Mercator는 엔진과 동일한 줌 번호 체계이므로 source에도 같은 범위를 전달합니다.
+                    minZoom,
+                    maxZoom,
+                    tileSize,
                     transition: 1,
-                    crossOrigin: "Anonymous"
+                    crossOrigin: 'Anonymous'
                 });
-                return new ol.layer.Tile({opacity: 1, source: xyzSource, extent: extent});
+                return new ol.layer.Tile({opacity: 1, source: xyzSource, extent});
+            };
+
+            const params = {
+                ...copyWithoutTMSLevelAliases(opt),
+                // 위에서 이미 EPSG:3857로 변환한 경계를 U3dOpenLayer가 다시 변환하지 않도록 정규화합니다.
+                srs: 'EPSG:3857',
+                minLevel: minZoom,
+                maxLevel: maxZoom,
+                boundingbox: {
+                    ...opt.boundingbox,
+                    minx: minxy[0],
+                    miny: minxy[1],
+                    maxx: maxxy[0],
+                    maxy: maxxy[1]
+                },
+                layers: [{name: opt.name, callback}],
+                transparent: true
+            };
+            const tmsLayer = this.createOpenLayer(params);
+            if (tmsLayer !== null) {
+                tmsLayer.tms_ = true;
             }
-
-            let params = Object.assign({}, opt);
-            params.boundingbox = Object.assign({}, opt.boundingbox);
-            params.boundingbox.minx = minxy[0];
-            params.boundingbox.miny = minxy[1];
-            params.boundingbox.maxx = maxxy[0];
-            params.boundingbox.maxy = maxxy[1];
-
-            params.layers = [{name: params.name, callback: callback}];
-            params.transparent = true;
-            o3dLayer = self.create3dOpenLayer(params);
-            o3dLayer.tms_ = true;
-            return o3dLayer;
+            return tmsLayer;
         }
 
-        //+ 다른 tms는 전지구좌표의 격자에 맞게 바운더리가 재설정되어야 한다. (참조: 글로벌-타일-오버뷰.PNG)
-
-        var tileSize = meta.tileFormat.width;
-        var matrixIds = [];
-        var resolutions = [];
-        for (var i = 0; i <= maxZoom - 1; i++) {
-            matrixIds[i] = i;
-            resolutions[i] = meta.raster.maxresolution / Math.pow(2, i);
+        // 비-Mercator TMS의 줌 번호는 아래 사용자 투영 TileGrid의 인덱스이며 엔진 레벨과 일치하지 않습니다.
+        const maxResolution = parseFiniteTMSNumber(metadata.raster.maxresolution);
+        if (!defined(maxResolution) || maxResolution <= 0) {
+            __GError__(
+                this,
+                'createTMSImageLayer(): 비-Mercator TMS의 raster.maxresolution 입력이 올바르지 않아 레이어를 생성하지 않습니다.'
+            );
+            return null;
+        }
+        const matrixIds = [];
+        const resolutions = [];
+        for (let level = 0; level <= maxZoom - 1; level++) {
+            matrixIds[level] = level;
+            resolutions[level] = maxResolution / (2 ** level);
         }
 
-        var callback = function (param, sharedSources) {
-            let boundingBox = param.originBox;
-            let extent = [boundingBox.minx, boundingBox.miny, boundingBox.maxx, boundingBox.maxy];
-            let projection = undefined;
-            if (defined(meta.proj) && defined(meta.proj.proj)) {
-                projection = meta.proj.proj;
-            }
-            return self.createTempleteTMSImageLayer(baseurl, srs, profile, extent, tileSize, matrixIds, resolutions, ext, projection, minZoom, opt.proxyurl, opt.useproxy, reverseY, majorFolder, origin, sharedSources?.[0]);
-        }
+        const callback = (parameter, sharedSources) => {
+            const boundingBox = parameter.originBox;
+            const extent = [boundingBox.minx, boundingBox.miny, boundingBox.maxx, boundingBox.maxy];
+            const projection = defined(metadata.proj) && defined(metadata.proj.proj)
+                ? metadata.proj.proj
+                : undefined;
+            return this.createTemplateTMSImageLayer(
+                baseurl,
+                srs,
+                profile,
+                extent,
+                tileSize,
+                matrixIds,
+                resolutions,
+                ext,
+                projection,
+                minZoom,
+                opt.proxyurl,
+                opt.useproxy,
+                reverseY,
+                majorFolder,
+                origin,
+                sharedSources?.[0]
+            );
+        };
 
         opt.minresolution = resolutions[maxZoom - 1];
         opt.maxresolution = resolutions[0];
         opt.transparent = true;
-        opt.layers = [{name: opt.name, callback: callback}];
+        opt.layers = [{name: opt.name, callback}];
+
+        const appMaxLevel = parseTMSLevel(this._maxlevel) ?? DEFAULT_TMS_ENGINE_MAX_LEVEL;
+        const requestedEngineMaxLevel = parseTMSLevel(opt.maxLevel) ?? DEFAULT_TMS_ENGINE_MAX_LEVEL;
+        // 자동 안전 하한은 사용자의 표시 maxLevel과 독립적으로, 앱이 실제 처리할 수 있는 전체 범위에서 찾습니다.
+        const availableEngineMaxLevel = Math.min(
+            appMaxLevel,
+            MAX_TMS_ENGINE_LEVEL
+        );
+        const configuredEngineMaxLevel = Math.min(requestedEngineMaxLevel, availableEngineMaxLevel);
+        const configuredEngineMinLevel = parseTMSLevel(opt.minLevel);
+        const automaticEngineMinLevel = calculateNonMercatorTMSMinLevel({
+            srs,
+            projectionDefinition: metadata.proj?.proj,
+            boundingBox,
+            sourceMinResolution: resolutions[minZoom],
+            maxEngineLevel: availableEngineMaxLevel
+        });
+        if (automaticEngineMinLevel === undefined) {
+            __GError__(
+                this,
+                `createTMSImageLayer(): ${srs} TMS의 투영·경계·해상도 입력을 검증할 수 없어 레이어를 생성하지 않습니다.`
+            );
+            return null;
+        }
+
+        const hasSafeEngineLevel = automaticEngineMinLevel <= availableEngineMaxLevel;
+        if (!hasSafeEngineLevel) {
+            __GError__(
+                this,
+                `createTMSImageLayer(): ${srs} TMS를 안전하게 재투영할 엔진 레벨이 앱 범위에 없어 타일 요청을 차단했습니다.`
+            );
+        }
+        const engineMinLevel = hasSafeEngineLevel
+            ? Math.min(
+                availableEngineMaxLevel,
+                Math.max(automaticEngineMinLevel, configuredEngineMinLevel ?? automaticEngineMinLevel)
+            )
+            : appMaxLevel + 1;
+        // 잘못 지정된 maxLevel 때문에 자동 안전 하한이 낮아지지 않도록, 가능한 경우 표시 상한을 함께 올립니다.
+        const engineMaxLevel = hasSafeEngineLevel
+            ? Math.max(configuredEngineMaxLevel, engineMinLevel)
+            : availableEngineMaxLevel;
+
         delete opt.metadata;
-        o3dLayer = self.create3dOpenLayer(opt);
-        o3dLayer.tms_ = true;
-        return o3dLayer;
+        const params = {
+            ...copyWithoutTMSLevelAliases(opt),
+            minLevel: engineMinLevel,
+            maxLevel: engineMaxLevel
+        };
+
+        const tmsLayer = this.createOpenLayer(params);
+        if (tmsLayer !== null) {
+            tmsLayer.tms_ = true;
+        }
+        return tmsLayer;
     }
 
     /**
-     * 입력받은 값으로 TMS 이미지 레이어를 생성하는 함수
+     * 입력받은 값으로 TMS 이미지 레이어를 생성합니다.
+     *
      * @param {string} name 레이어 이름
+     *
      * @param {string} baseurl 레이어 데이터 주소
      * @param {string} srs 데이터 소스 좌표계
      * @param {object} boundingBox 타일 경계 박스
-     * @param {'raster' | 'mercator' | undefined} profile 타일 프로필. 기본값 'raster'
+     * @param {'raster' | 'mercator'} profile 타일 프로필
      * @param {string} ext 데이터 포맷 확장자
      * @param {number} minlevel 최소 줌 레벨
      * @param {number} maxlevel 최대 줌 레벨
@@ -6042,13 +6114,13 @@ class U3dApp extends U3dObject {
      * @param {boolean | undefined} reverseY Y 반전 여부. 기본값 false
      * @param {string | undefined} majorFolder 폴더 구조 방식 (ColumFirst:z/x/y ,RowFirst:z/y/x). 기본값 'ColumFirst'
      * @param {{ x: number, y: number } | undefined} origin 원점 좌표
-     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | undefined} 생성된 U3dOpenLayer 레이어
+     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | null} 생성한 레이어 또는 생성하지 못한 경우 null
      */
     createTMSImageLayerAsXML(name, baseurl, srs, boundingBox, profile, ext, minlevel, maxlevel, tileWidth, maxresolution, proj, proxyurl, useproxy, reverseY, majorFolder, origin) {
         let opt = {};
         var self = this;
         var layer = self._layerlist.getLayer(name);
-        if (defined(layer)) return undefined;
+        if (defined(layer)) return null;
 
         var o3dLayer = undefined;
 
@@ -6059,7 +6131,6 @@ class U3dApp extends U3dObject {
         UDEF.assert(defined(srs), '[srs]param is null!');
         UDEF.assert(defined(boundingBox), '[boundingBox]param is null!');
         UDEF.assert(defined(ext), '[ext]param is null!');
-        UDEF.assert(defined(tileWidth), '[tileWidth]param is null!');
         UDEF.assert(defined(profile), '[profile]param is null!');
 
         if (useproxy) {
@@ -6143,12 +6214,15 @@ class U3dApp extends U3dObject {
 
             params.transparent = true;
             params.layers = [{name: params.name, callback: callback}];
-            o3dLayer = self.create3dOpenLayer(params);
-            o3dLayer.tms_ = true;
+            o3dLayer = self.createOpenLayer(params);
+            if (o3dLayer !== null) {
+                o3dLayer.tms_ = true;
+            }
             return o3dLayer;
         }
         //+ 다른 tms는 전지구좌표의 격자에 맞게 바운더리가 재설정되어야 한다. (참조: 글로벌-타일-오버뷰.PNG)
-        const tileSize = defaultValue(tileWidth, 256);
+        // 공개 계약대로 타일 너비를 생략하면 OpenLayers의 정사각 타일 기본값 256을 사용합니다.
+        const tileSize = defaultValue(tileWidth, DEFAULT_TMS_TILE_SIZE);
         var matrixIds = [];
         var resolutions = [];
         for (var i = 0; i <= maxZoom - 1; i++) {
@@ -6162,15 +6236,17 @@ class U3dApp extends U3dObject {
             if (proj && proj.proj) {
                 proj = proj.proj;
             }
-            return self.createTempleteTMSImageLayer(baseurl, srs.toUpperCase(), profile, extent, tileSize, matrixIds, resolutions, ext, proj, minZoom, proxyurl, useproxy, reverseY, majorFolder, origin, sharedSources?.[0]);
+            return self.createTemplateTMSImageLayer(baseurl, srs.toUpperCase(), profile, extent, tileSize, matrixIds, resolutions, ext, proj, minZoom, proxyurl, useproxy, reverseY, majorFolder, origin, sharedSources?.[0]);
         }
 
         opt.minresolution = resolutions[maxZoom - 1];
         opt.maxresolution = resolutions[0];
         opt.transparent = true;
         opt.layers = [{name: name, callback: callback}];
-        o3dLayer = self.create3dOpenLayer(opt);
-        o3dLayer.tms_ = true;
+        o3dLayer = self.createOpenLayer(opt);
+        if (o3dLayer !== null) {
+            o3dLayer.tms_ = true;
+        }
         return o3dLayer;
     }
 
@@ -6194,7 +6270,7 @@ class U3dApp extends U3dObject {
      * @param {object} [sharedSource] U3dOpenLayer가 등록 레이어 단위로 재사용하는 기존 OL source
      * @returns {object} 생성된 타일 레이어 {ol.layer.Tile}
      */
-    createTempleteTMSImageLayer(baseurl, srs, profile, extent, tileSize, matrixIds, resolutions, ext, proj, minZoom, proxyurl, useproxy, reverseY, majorFolder, origin, sharedSource) {
+    createTemplateTMSImageLayer(baseurl, srs, profile, extent, tileSize, matrixIds, resolutions, ext, proj, minZoom, proxyurl, useproxy, reverseY, majorFolder, origin, sharedSource) {
         // 공유 source가 있으면 타일그리드와 XYZ source를 다시 만들지 않고 타일 전용 layer만 생성합니다.
         if (defined(sharedSource))
             return new ol.layer.Tile({source: sharedSource});
@@ -6234,6 +6310,8 @@ class U3dApp extends U3dObject {
             minZoom: minZoom,
             resolutions: resolutions,
             matrixIds: matrixIds,
+            // 사용자 TileGrid를 직접 전달하면 XYZ의 tileSize 옵션보다 grid 설정이 우선하므로 여기에 적용합니다.
+            tileSize,
             transition: 1
         });
 
@@ -6293,61 +6371,59 @@ class U3dApp extends U3dObject {
     }
 
     /**
-     * 지형을 표시하는 레이어를 생성해 앱에 추가합니다.
-     * 이미 지형 레이어가 있으면 새로 만들지 않습니다.
+     * 앱 초기화에 사용할 지형 레이어를 생성·등록하고 보관합니다.
+     * 지형 레이어 또는 같은 이름의 레이어가 이미 있으면 null을 반환합니다.
      *
      * @param {U3dModelLayerCO} [opt={}] 지형 레이어 생성 옵션
+     * @returns {import('@union3d/3dLayer/U3dTerrainLayer').U3dTerrainLayer | null} 생성한 지형 레이어 또는 생성하지 못한 경우 null
      *
-     * @example
-     * app.createTerrainLayer({
-     *     name: 'terrain'
-     * });
+     * @ignore
      */
-    createTerrainLayer(opt = {}) {
-        const self = this;
-
-        if (self._terrainLayer) {
+    _createTerrainLayer(opt = {}) {
+        if (this._terrainLayer) {
             __GInfo__(this, "이미 TerrainLayer가 생성되어 등록되어 있습니다.", '0162978');
-            return;
+            return null;
+        }
+
+        if (!defined(opt) || this._layerlist.getLayer(opt.name)) {
+            return null;
         }
 
         const layer = new U3dTerrainLayer(opt);
-
-        if (defined(layer)) {
-            self.addLayer(layer);
-            self._terrainLayer = layer;
-            //self._scene.add(layer.getScene());
-        }
+        this.addLayer(layer);
+        this._terrainLayer = layer;
+        return layer;
     }
 
     /**
      * 현재 U3dApp에 등록된 측정(Measure) 레이어를 반환하는 함수
-     * @returns {import('@union3d/3dLayer/U3dShaderMeasureLayer').U3dShaderMeasureLayer | undefined} 측정 레이어
+     *
+     * @returns {import('@union3d/3dLayer/U3dShaderMeasureLayer').U3dShaderMeasureLayer | null | undefined} 측정 레이어. 생성 실패 시 null이며 초기화 전이나 해제 후에는 undefined입니다.
      */
     getMeasureLayer() {
         return this._measureLayer;
     }
 
     /**
-     * U3dApp에 측정(Measure) 레이어를 생성하고 등록하는 함수
-     * @param {object} opt 측정 레이어 생성 옵션
-     * @returns {boolean} 생성 성공 여부
+     * 앱 초기화에 사용할 측정 레이어를 생성하여 등록합니다.
+     * 반환한 레이어의 _measureLayer 저장과 데이터 갱신은 호출자가 수행합니다.
+     * 같은 이름의 레이어가 이미 있으면 null을 반환합니다.
+     *
+     * @param {object} opt 측정 레이어 생성 옵션. null·undefined이면 빈 옵션을 사용합니다.
+     * @returns {import('@union3d/3dLayer/U3dShaderMeasureLayer').U3dShaderMeasureLayer | null} 생성한 측정 레이어 또는 생성하지 못한 경우 null
+     *
+     * @ignore
      */
-    createMeasureLayer(opt) {
-        var self = this;
-
+    _createMeasureLayer(opt) {
         if (!defined(opt)) opt = {};
 
-        var layer = new U3dShaderMeasureLayer(opt);
-
-        if (defined(layer)) {
-            self.addLayer(layer);
-            self._measureLayer = layer;
+        if (this._layerlist.getLayer(opt.name)) {
+            return null;
         }
 
-        self.updateData();
-
-        return true;
+        const layer = new U3dShaderMeasureLayer(opt);
+        this.addLayer(layer);
+        return layer;
     }
 
 
@@ -6485,14 +6561,15 @@ class U3dApp extends U3dObject {
     /**
      * 지도를 한 단계 축소합니다.<br>
      * 카메라와 화면 중심 사이의 거리를 두 배로 늘려 줌 레벨 1칸에 해당하는 만큼 멀어집니다.<br>
-     * 현재 레벨이 이미 최소 줌 레벨 이하이면 아무것도 하지 않으며, 그 밖의 동작 방식은 zoomIn()과 같습니다.
+     * 원근에서는 최소 줌 레벨, 직교에서는 현재 영역의 최대 거리까지 축소하며, 그 밖의 동작 방식은 zoomIn()과 같습니다.
      *
      * @see {@link U3dApp#zoomIn}
      */
     zoomOut() {
         const mapControl = this._mapControl;
         if (!defined(mapControl)) return;
-        if (this.getZoomFromResolution(mapControl.getFocalDistance()) <= this._minZoomLevel) return;
+        if (!this._camera?.isOrthographicCamera
+            && this.getZoomFromResolution(mapControl.getFocalDistance()) <= this._minZoomLevel) return;
 
         mapControl.zoomOut(ZOOM_BUTTON_SCALE);
     }
@@ -6592,34 +6669,24 @@ class U3dApp extends U3dObject {
     }
 
     /**
-     * 고도 레이어를 생성하는 함수
-     * @param {string} name 고도 레이어 이름
-     * @param {U3dHeightXYZLayerCO} opt  U3dHeightXYZLayer 레이어를 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dHeightXYZLayer').U3dHeightXYZLayer} U3dHeightXYZLayer 레이어 객체 반환
+     * 옵션 객체로 고도 레이어를 생성하여 앱에 추가합니다.
+     * 장면이나 옵션이 없거나 같은 이름의 레이어가 이미 있으면 null을 반환합니다.
+     *
+     * @param {U3dHeightXYZLayerCO} opt 이름을 포함한 고도 레이어 생성 옵션
+     * @returns {import('@union3d/3dLayer/U3dHeightXYZLayer').U3dHeightXYZLayer | null} 생성한 고도 레이어 또는 생성하지 못한 경우 null
      */
-    createHeightXYZLayer(name, opt) {
-        const self = this;
-        if (!defined(self._scene) || !defined(name))
-            return undefined;
-
-        if (name instanceof Object) {
-            opt = name;
-        } else {
-            if (!defined(opt))
-                return undefined;
-
-            opt.name = name;
+    createHeightXYZLayer(opt) {
+        if (!defined(this._scene) || !defined(opt)) {
+            return null;
         }
 
-        if (self._layerlist.findLayer(opt.name)) {
-            __GWarn__(this, '[' + opt.name + '] 이름의 레이어가 이미 존재 합니다.', '*code=>');
-            return undefined;
+        if (this._layerlist.findLayer(opt.name)) {
+            __GWarn__(this, '[' + opt.name + '] 이름의 레이어가 이미 존재 합니다.', '3229172');
+            return null;
         }
 
         const layer = new U3dHeightXYZLayer(opt);
-        if (defined(layer))
-            self.addLayer(layer);
-
+        this.addLayer(layer);
         return layer;
     }
 
@@ -6700,6 +6767,7 @@ class U3dApp extends U3dObject {
     }
 
     createWorkingEndEvent(name) {
+        if (this.isDisposed() || this._quadTreeChanging || this._mapRegionApplying) return;
         var self = this;
         if (defined(self._eventHandler)) {
             //   console.info(self._eventHandler._id);
@@ -6805,7 +6873,8 @@ class U3dApp extends U3dObject {
      * app.keepModelByDistance(true).then(() => console.log('적용 완료'));
      * */
     keepModelByDistance(tileloadall, maxDistance) {
-        let promise = deferred();
+        /** @type {DeferredPromise<boolean>} */
+        const promise = deferredPromise();
         var save = this._maxDistanceModel;
         if (defined(maxDistance)) {
             this._maxDistanceModel = maxDistance;
@@ -6905,21 +6974,221 @@ class U3dApp extends U3dObject {
     }
 
     /**
-     * 쿼드타일(QuadTile)울 새로고침합니다. <br>
-     * 타일 출력을 초기화하고 현제 카메라 상태에 따른 타일을 다시 출력합니다.
+     * 현재 영역과 표시를 유지하며 지형·모델 트리를 모두 재시작합니다.
+     *
+     * @returns {void}
+     * @throws {Error} 트리 해제 또는 생성에 실패한 경우
      */
     restartQuadTree() {
-        this.disposeQuadTree();
-        this.createQuadTreeSet();
-
-        this.updateData();
+        INTERNAL.restartQuadTree(this);
     }
 
+    /**
+     * 모델 타일과 진행 작업을 유지하며 지형·영상 트리만 재시작합니다.
+     *
+     * @returns {void}
+     * @throws {Error} 트리 해제 또는 생성에 실패한 경우
+     */
+    restartTerrainQuadTree() {
+        INTERNAL.restartQuadTree(this, UDEF.TILE_TYPE.TERRAIN);
+    }
+
+    /**
+     * 지형 타일과 고도 캐시를 유지하며 모델 트리만 재시작합니다.
+     *
+     * @returns {void}
+     * @throws {Error} 트리 해제 또는 생성에 실패한 경우
+     */
+    restartModelQuadTree() {
+        INTERNAL.restartQuadTree(this, UDEF.TILE_TYPE.MODEL);
+    }
+
+    /**
+     * 두 종류의 타일과 소유 작업을 해제합니다.
+     *
+     * @returns {void}
+     * @throws {Error} 자원 정리에 실패한 경우
+     */
     disposeQuadTree() {
-        if (defined(this._quadtreeSet)) {
-            this.#tileUpdateSensitivity = this._quadtreeSet.getUpdateSensitivity();
-            this._quadtreeSet.dispose();
+        this.#disposeQuadTree();
+    }
+
+    /**
+     * 모델을 유지하며 지형·영상 타일과 해당 완료 대기를 해제합니다.
+     *
+     * @returns {void}
+     * @throws {Error} 자원 정리에 실패한 경우
+     */
+    disposeTerrainQuadTree() {
+        this.#disposeQuadTree(UDEF.TILE_TYPE.TERRAIN);
+    }
+
+    /**
+     * 지형을 유지하며 모델 타일과 소유 작업을 해제합니다.
+     *
+     * @returns {void}
+     * @throws {Error} 자원 정리에 실패한 경우
+     */
+    disposeModelQuadTree() {
+        this.#disposeQuadTree(UDEF.TILE_TYPE.MODEL);
+    }
+
+    /**
+     * 앱 연결을 해제한 뒤 쿼드셋에 대상 종류의 재생성을 요청합니다.
+     *
+     * @param {string} [type] 대상 종류. 생략하면 두 종류
+     * @returns {void}
+     * @throws {Error} 입력 검사 또는 트리 교체에 실패한 경우
+     */
+    #rebuildQuadTree(type) {
+        if (this.isDisposed() || this._quadTreeChanging) return;
+        if (!U3dQuadSet.isValidRegion(this._rectangle, this._datalevel, this._maxlevel)) {
+            throw new RangeError('타일 트리를 재시작할 영역이나 시작 레벨이 유효하지 않습니다.');
+        }
+        const tree = this._quadtreeSet;
+        const errors = [];
+        this._quadTreeChanging = true;
+        try {
+            this.#disconnectQuadTree(type, errors);
+            const next = tree ? tree.restartQuadTree(this._rectangle, this._datalevel, type)
+                : U3dQuadSet.createQuadTreeSet(this._rectangle, this._datalevel, this._drawArg, this._scene, undefined, type);
+            this.#connectQuadTree(next, type);
+        } catch (error) { errors.push(error); }
+        finally {
+            if (!type && tree) {
+                try {
+                    this._drawArg?.resetSearchTileCount();
+                } catch (error) {
+                    errors.push(error);
+                }
+            }
+            this.#finishQuadTreeOperation(type ? tree : undefined, errors);
+        }
+    }
+
+    /**
+     * 대상 종류의 앱 연결과 타일 자원만 해제합니다.
+     *
+     * @param {string} [type] 대상 종류. 생략하면 두 종류
+     * @returns {void}
+     * @throws {Error} 자원 정리에 실패한 경우
+     */
+    #disposeQuadTree(type) {
+        if (this._quadTreeChanging) return;
+        const tree = this._quadtreeSet;
+        if (type && !tree?.hasQuadTree(type)) return;
+        const errors = [];
+        this._quadTreeChanging = true;
+        try {
+            this.#disconnectQuadTree(type, errors);
+            tree?.disposeQuadTree(type);
+        } catch (error) { errors.push(error); }
+        finally {
+            if (!type && tree) {
+                try {
+                    this._drawArg?.resetSearchTileCount();
+                } catch (error) {
+                    errors.push(error);
+                }
+            }
+            this.#finishQuadTreeOperation(type ? tree : undefined, errors);
+        }
+    }
+
+    /**
+     * 누락된 종류를 생성하고 해당 레이어에 연결합니다.
+     *
+     * @param {import('@UGeoRect').UGeoRect} rectangle 생성 영역
+     * @param {number} level 시작 레벨
+     * @param {string} [type] 대상 종류. 생략하면 두 종류
+     * @returns {import('@U3dQuadSet').U3dQuadSet | null} 활성 쿼드셋 또는 생성 불가
+     * @throws {Error} 트리 생성에 실패한 경우
+     */
+    #createQuadTreeSet(rectangle, level, type) {
+        if (this.isDisposed() || this._quadTreeChanging || this._mapRegionApplying) return null;
+        const tree = this._quadtreeSet;
+        const errors = [];
+        this._quadTreeChanging = true;
+        try {
+            const next = tree ? tree.createQuadTreeSet(rectangle, level, type)
+                : U3dQuadSet.createQuadTreeSet(rectangle, level, this._drawArg, this._scene, undefined, type);
+            return this.#connectQuadTree(next, type);
+        } catch (error) { errors.push(error); }
+        finally { this.#finishQuadTreeOperation(tree, errors); }
+        return null;
+    }
+
+    /**
+     * 생성된 컨테이너를 대상 레이어에 연결합니다.
+     *
+     * @param {import('@U3dQuadSet').U3dQuadSet | null} tree 연결할 쿼드셋
+     * @param {string} [type] 대상 종류. 생략하면 두 종류
+     * @returns {import('@U3dQuadSet').U3dQuadSet | null} 연결한 쿼드셋 또는 앱 해제
+     * @throws {Error} 앱 해제 중 새 컨테이너 정리에 실패한 경우
+     */
+    #connectQuadTree(tree, type) {
+        if (!tree) return null;
+        if (this.isDisposed()) { tree.dispose(); return null; }
+        this._quadtreeSet = tree;
+        tree.setUpdateSensitivity(this.#tileUpdateSensitivity);
+        for (const layer of this._layerlist?.getInstanceLayers() ?? []) {
+            if (!type || (layer.getType() === UDEF.LAYER_TYPE.MODEL) === (type === UDEF.TILE_TYPE.MODEL)) layer._quadtreeSet = tree;
+        }
+        this._appUpdate3d = false;
+        return tree;
+    }
+
+    /**
+     * 종료 중 남은 자원을 정리하고 가드를 복원한 뒤 수집한 오류를 전달합니다.
+     *
+     * @param {import('@U3dQuadSet').U3dQuadSet | undefined} tree 종료 시 정리할 남은 컨테이너
+     * @param {Array<unknown>} errors 작업과 정리 중 발생한 오류
+     * @returns {void}
+     * @throws {Error} 수집한 단일 오류 또는 errors 배열을 가진 복수 오류
+     */
+    #finishQuadTreeOperation(tree, errors) {
+        try {
+            if (this.isDisposed() && tree && !tree.isDisposed()) tree.dispose();
+        } catch (error) { errors.push(error); }
+        finally {
+            if (this.isDisposed() || this._quadtreeSet?.isDisposed()) {
+                /** @type {{_quadtreeSet: import('@U3dQuadSet').U3dQuadSet | undefined}} */ (this)._quadtreeSet = undefined;
+            }
+            this._quadTreeChanging = false;
+        }
+        if (errors.length === 1) throw errors[0];
+        if (errors.length) throw Object.assign(new Error('타일 트리 작업에 실패했습니다.'), {errors});
+    }
+
+    /**
+     * 대상 종류의 앱·레이어 참조와 완료 대기만 분리합니다.
+     *
+     * @param {string | undefined} type 대상 종류. 생략하면 두 종류
+     * @param {Array<unknown>} errors 정리 오류를 수집할 배열
+     * @returns {void}
+     */
+    #disconnectQuadTree(type, errors) {
+        /**
+         * 한 정리 단계의 실패가 나머지 단계를 막지 않게 합니다.
+         *
+         * @param {() => void} work 정리할 작업
+         * @returns {void}
+         */
+        const cleanup = work => { try { work(); } catch (error) { errors.push(error); } };
+        const tree = this._quadtreeSet;
+        if (tree) this.#tileUpdateSensitivity = tree.getUpdateSensitivity();
+        if (!type) {
             /** @type {{_quadtreeSet: import('@U3dQuadSet').U3dQuadSet | undefined}} */ (this)._quadtreeSet = undefined;
+        }
+        const event = this.constructor.EVENT;
+        let events;
+        if (type === UDEF.TILE_TYPE.TERRAIN) events = [event.LOADED, event.IMAGE_LOADED, event.HEIGHT_LOADED];
+        else if (type === UDEF.TILE_TYPE.MODEL) events = [event.LOADED, event.MODEL_LOADED, event.DISTANCE_2KM_LOADED, event.DISTANCE_4KM_LOADED];
+        cleanup(() => this._eventHandler?.resetWorkingEndEvent(events));
+        for (const layer of this._layerlist?.getInstanceLayers() ?? []) {
+            if (type && (layer.getType() === UDEF.LAYER_TYPE.MODEL) !== (type === UDEF.TILE_TYPE.MODEL)) continue;
+            if (layer._quadtreeSet === tree) layer._quadtreeSet = undefined;
+            cleanup(() => layer._resetWorkingEndEvent());
         }
     }
 
@@ -6946,8 +7215,7 @@ class U3dApp extends U3dObject {
         if (self._layerlist.removeLayer(layer.getName())) {
             //레이어 제거 성공 후 동작
             if (layer instanceof U3dHeightLayer) {
-                self.disposeQuadTree();
-                self.createQuadTreeSet();
+                self.restartTerrainQuadTree();
             }
         }
     }
@@ -7317,12 +7585,20 @@ class U3dApp extends U3dObject {
         return this._layerlist.getInstanceImageLayers();
     }
 
+    /**
+     * 이름이 일치하는 첫 번째 이미지 레이어를 반환합니다.
+     *
+     * @param {string} layername 등록된 레이어 이름
+     * @returns {import('@U3dLayer').U3dLayer | null} 일치하는 이미지 레이어. 없으면 `null`
+     */
     getImageLayer(layername) {
         const layers = this._layerlist.getInstanceImageLayers();
-        for (let layer of layers) {
-            if (layer.getName() === layername)
+        for (const layer of layers) {
+            if (layer.getName() === layername) {
                 return layer;
+            }
         }
+        return null;
     }
 
     getInstanceClassifiedLayers(opt) {
@@ -7347,12 +7623,20 @@ class U3dApp extends U3dObject {
         return self._layerlist.getInstanceTypeLayers(array);
     }
 
+    /**
+     * 이름이 일치하는 첫 번째 높이 레이어를 반환합니다.
+     *
+     * @param {string} layername 등록된 레이어 이름
+     * @returns {import('@U3dLayer').U3dLayer | null} 일치하는 높이 레이어. 없으면 `null`
+     */
     getHeightLayer(layername) {
         const layers = this._layerlist.getInstanceHeightLayers();
-        for (let layer of layers) {
-            if (layer.getName() === layername)
+        for (const layer of layers) {
+            if (layer.getName() === layername) {
                 return layer;
+            }
         }
+        return null;
     }
 
     /**
@@ -7367,7 +7651,12 @@ class U3dApp extends U3dObject {
         return this._layerlist.getHeightLayers();
     }
 
-    getImageLayers(layername) {
+    /**
+     * 등록된 전체 이미지 레이어 배열을 반환합니다.
+     *
+     * @returns {Array<import('@U3dLayer').U3dLayer>} 이미지 레이어 배열. 등록된 이미지 레이어가 없으면 빈 배열
+     */
+    getImageLayers() {
         return this._layerlist.getImageLayers();
     }
 
@@ -7525,221 +7814,183 @@ class U3dApp extends U3dObject {
     }
 
     /**
-     * 3D 그룹 모델 레이어를 생성하는 함수입니다.
-     * @param {U3dModelGroupLayerCO} opt 그룹 레이어 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dGroupLayer').U3dGroupLayer | false} 생성된 그룹 레이어
+     * 그룹 레이어를 생성하여 앱에 추가합니다.
+     * 옵션이 없거나 같은 이름의 레이어가 이미 등록되어 있으면 null을 반환합니다.
+     *
+     * @param {import('@U3dApp').U3dModelGroupLayerCO} opt 그룹 레이어 생성 옵션
+     * @returns {import('@union3d/3dLayer/U3dGroupLayer').U3dGroupLayer | null} 생성한 그룹 레이어 또는 생성하지 못한 경우 null
      */
-    createModelGroupLayer(opt) {
-        var self = this;
+    createGroupLayer(opt) {
         if (!defined(opt)) {
             console.info('opt is null! ');
-            return false;
+            return null;
         }
 
-        if (self._layerlist.getLayer(opt.name)) {
+        if (this._layerlist.getLayer(opt.name)) {
             U3dMessage.error('U3dApp', U3dMessage.CNT.CMM.EXIST_LAYER);
-            return false;
+            return null;
         }
 
         opt.app = this;
         opt.drawarg = this._drawArg;
 
-        var layer = new U3dGroupLayer(opt);
-
-        if (defined(layer))
-            self.addLayer(layer);
-
+        const layer = new U3dGroupLayer(opt);
+        this.addLayer(layer);
         return layer;
     }
 
     /**
      * 격자 타일 레이어를 생성해 앱에 추가합니다. <br>
-     * 옵션이 없거나 같은 이름의 레이어가 이미 있으면 생성하지 않고 `false`를 반환하므로, 반환값을 확인한 뒤 사용합니다.
+     * 옵션이 없거나 같은 이름의 레이어가 이미 있으면 null을 반환하므로, 반환값을 확인한 뒤 사용합니다.
      *
      * @param {U3dGridTileLayerCO} opt 레이어 생성 옵션. `name`이 이미 등록된 이름이면 생성하지 않습니다
-     * @returns {import('@union3d/3dLayer/U3dGridTileLayer').U3dGridTileLayer | boolean} 생성된 레이어. 생성하지 못하면 `false`
+     * @returns {import('@union3d/3dLayer/U3dGridTileLayer').U3dGridTileLayer | null} 생성한 격자 타일 레이어 또는 생성하지 못한 경우 null
      *
      * @example
      * const gridLayer = app.createGridTileLayer(opt);
      * if (gridLayer) app.showLayer(opt.name);
      */
     createGridTileLayer(opt) {
-        var self = this;
         if (!defined(opt)) {
             console.info('opt is null! ');
-            return false;
+            return null;
         }
 
-        if (self._layerlist.getLayer(opt.name)) {
+        if (this._layerlist.getLayer(opt.name)) {
             U3dMessage.error('U3dApp', U3dMessage.CNT.CMM.EXIST_LAYER);
-            return false;
+            return null;
         }
 
         opt.app = this;
         opt.drawarg = this._drawArg;
 
-        var layer = new U3dGridTileLayer(opt);
-
-        if (defined(layer))
-            self.addLayer(layer);
-
+        const layer = new U3dGridTileLayer(opt);
+        this.addLayer(layer);
         return layer;
     }
 
     /**
-     * U3F 포맷의 건물 레이어를 생성하는 함수
-     * @param opt
-     * @param {string} opt.name U3F 3D 모델 레이어 이름
-     * @param {string} opt.layername U3F 레이어의 이름
-     * @param {string} opt.baseurl U3F 모델 데이터 기본 URL 경로
-     * @param {string} opt.basename U3F 데이터 dml 정보가 있는 U3G 파일 이름
-     * @param {string} opt.ext U3F 데이터 형식(format)
-     * @param {string} opt.grouplayer 그룹레이어 객체
-     * @param {string} opt.renderorder U3F 모델 레이어 랜더 우선순위 (클수록 우선적으로 랜더링)
-     * @param {number} [opt.minlevel] 가시화 최소레벨
-     * @param {number} [opt.maxlevel] 가시화 최대레벨
-     * @param {boolean} [opt.useproxy] 프록시 사용 여부
-     * @param {boolean} [opt.reverseY] Y축 반전(reverse) 여부
-     * @param {boolean} [opt.usetexture] 텍스쳐 사용 여부
-     * @param {string} [opt.proxyurl] 프록시 URL
-     * @param {number} [opt.opacity] 모델의 투명도 값
-     * @param {Number} [opt.makeU3FPackage=1] 병합된 u3f.package 파일을 사용할 건지의 여부 (1 사용, 0 미사용)
-     * @param {Number} [opt.isShareMaterial=0] 텍스쳐가 없은 u3f일경우 머터리얼을 공유할건지의 여부 (1 사용, 0 미사용)
-     * @param {Boolean} [opt.isTextureUpdate=true] 텍스쳐가 있는 u3f일경우 텍스쳐 업데이트를 사용하는지의 여부
-     * @param {Number} [opt.textureDistance] 텍스터 업데이트 시 업데이트 거리 강제 설정
-     * @returns {import('@union3d/3dLayer/U3dModelU3FLayer').U3dModelU3FLayer} U3dModelU3FLayer
-     */
-    /**
-     * U3F 3D 모델 레이어를 생성하는 함수입니다.
-     * @param {U3d3DFModelLayerCO} opt U3F 3D 모델 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dModelU3FLayer').U3dModelU3FLayer | false} 생성된 U3F 모델 레이어
+     * U3F 3D 모델 레이어를 생성하여 앱에 추가합니다.
+     * 옵션이 없거나 같은 이름의 레이어가 이미 등록되어 있으면 null을 반환합니다.
+     *
+     * @param {import('@U3dApp').U3d3DFModelLayerCO} opt U3F 3D 모델 생성 옵션
+     * @returns {import('@union3d/3dLayer/U3dModelU3FLayer').U3dModelU3FLayer | null} 생성한 U3F 모델 레이어 또는 생성하지 못한 경우 null
      */
     create3DFModelLayer(opt) {
-        var self = this;
         if (!defined(opt)) {
             U3dMessage.info('U3dApp', U3dMessage.CNT.CMM.NON_PARAM_1, '9258952');
-            return false;
+            return null;
         }
 
-        if (self._layerlist.getLayer(opt.name)) {
+        if (this._layerlist.getLayer(opt.name)) {
             U3dMessage.error('U3dApp', U3dMessage.CNT.CMM.EXIST_LAYER, '9259141');
-            return false;
+            return null;
         }
 
-        var layer = new U3dModelU3FLayer(opt);
-
-        if (defined(layer))
-            self.addLayer(layer);
+        const layer = new U3dModelU3FLayer(opt);
+        this.addLayer(layer);
         return layer;
     }
 
 
     /**
-     * 여러 컴포넌트로 구성된 모델 레이어를 생성하는 함수입니다.
+     * 여러 컴포넌트로 구성된 모델 레이어를 생성하여 앱에 추가합니다.
+     * 옵션이 없거나 같은 이름의 레이어가 이미 등록되어 있으면 null을 반환합니다.
+     *
      * @param {import('@union3d/3dLayer/U3dMultipleComponentLayer').U3dMultipleComponentLayerCO} opt 다중 컴포넌트 레이어 옵션
-     * @returns {import('@union3d/3dLayer/U3dMultipleComponentLayer').U3dMultipleComponentLayer | false} 생성된 레이어
+     * @returns {import('@union3d/3dLayer/U3dMultipleComponentLayer').U3dMultipleComponentLayer | null} 생성한 다중 컴포넌트 레이어 또는 생성하지 못한 경우 null
      */
     createMultipleComponentLayer(opt) {
-        var self = this;
         if (!defined(opt)) {
             __GInfo__(this, '파라메터가 입력되지 않았습니다.', '4201742');
-            return false;
+            return null;
         }
-        var layer = new U3dMultipleComponentLayer(opt);
-        if (defined(layer))
-            self.addLayer(layer);
+
+        if (this._layerlist.getLayer(opt.name)) {
+            U3dMessage.error('U3dApp', U3dMessage.CNT.CMM.EXIST_LAYER);
+            return null;
+        }
+
+        const layer = new U3dMultipleComponentLayer(opt);
+        this.addLayer(layer);
         return layer;
     }
 
     /**
-     * BIM 객체 모델 레이어를 생성하는 함수입니다.
+     * BIM 객체 모델 레이어를 생성하여 앱에 추가합니다.
+     * 옵션이 없거나 같은 이름의 레이어가 이미 등록되어 있으면 null을 반환합니다.
+     *
      * @param {U3dModelBIMObjLayerCO} opt BIM 객체 모델 레이어 옵션
-     * @returns {import('@union3d/3dLayer/U3dModelBIMObjLayer').U3dModelBIMObjLayer | undefined} 생성된 레이어
+     * @returns {import('@union3d/3dLayer/U3dModelBIMObjLayer').U3dModelBIMObjLayer | null} 생성한 BIM 객체 모델 레이어 또는 생성하지 못한 경우 null
      */
-    createModelBIMObjLayer(opt) {
-        let self = this;
+    createBIMObjModelLayer(opt) {
         if (!defined(opt)) {
             console.info('opt is null! ');
-            return;
+            return null;
         }
-        let layer = new U3dModelBIMObjLayer(opt);
-        if (defined(layer)) {
-            if (defined(layer._classtype) && layer._classtype === 'U3dModelBIMObjLayer') {
-                if (self.addLayer(layer)) {
-                    return layer;
-                }
-            }
+
+        if (this._layerlist.getLayer(opt.name)) {
+            U3dMessage.error('U3dApp', U3dMessage.CNT.CMM.EXIST_LAYER);
+            return null;
         }
+
+        const layer = new U3dModelBIMObjLayer(opt);
+        if (layer._classtype !== 'U3dModelBIMObjLayer') {
+            return null;
+        }
+
+        if (!this.addLayer(layer)) {
+            return null;
+        }
+
+        return layer;
     }
 
     /**
-     * 3D 모델 레이어를 생성하는 함수
-     * @param option
-     * @param {string} option.name 레이어 이름
-     * @param {string} option.baseurl 모델 데이터의 기본경로
-     * @param {string} [option.type] 레이어 타입
-     * @param {string} option.ext 모델 데이터 확장자
-     * @param {boolean} [option.drawline] 모델의 테두리 가시화 유무
-     * @param {boolean} [option.needtexture] 모델의 텍스쳐 가시화 유무
-     * @param {boolean} [option.needxml] 모델의 메타데이터(XML) 유무
-     * @param {boolean} [option.xmlurl] 모델의 메타데이터(XML) 경로
-     * @param {boolean} [option.useu3f] U3F 모델 사용 유무
-     * @param {string} [option.u3furl] U3F 모델의 경로
-     * @param {object[]} option.listmodel 모델 레이어를 구성할 모델 데이터 리스트
-     * @param {object[]} [option.listmodel.name] 모델의 이름
-     * @param {object[]} option.listmodel.baseurl 모델 데이터의 기본경로
-     * @param {object[]} option.listmodel.fileName 모델 데이터의 이름
-     * @param {import('three').Vector3Like} [option.position] 3D 모델의 위치
-     * @param {import('three').Vector3Like} [option.scale] 3D 모델의 스케일(크기)
-     * @param {import('three').Vector3Like} [option.rotation] 3D 모델의 회전
-     * @returns {*}
-     */
-    /**
-     * TDS 모델 레이어를 생성하는 함수입니다.
-     * @param {U3dTdsModelLayerCO} option TDS 모델 레이어 옵션
-     * @returns {import('@union3d/3dLayer/U3dModelTdsLayer').U3dModelTdsLayer | false} 생성된 레이어
+     * TDS 모델 레이어를 생성하여 앱에 추가합니다.
+     * 옵션이 없거나 같은 이름의 레이어가 이미 등록되어 있으면 null을 반환합니다.
+     *
+     * @param {import('@U3dApp').U3dTdsModelLayerCO} option TDS 모델 레이어 옵션
+     * @returns {import('@union3d/3dLayer/U3dModelTdsLayer').U3dModelTdsLayer | null} 생성한 TDS 모델 레이어 또는 생성하지 못한 경우 null
      */
     createTdsModelLayer(option) {
-        var self = this;
         if (!defined(option)) {
             console.info('opt is null! ');
-            return false;
+            return null;
         }
 
-        if (self._layerlist.getLayer(option.name)) {
-            //    console.log('layer is existed!! failure!');
-            return false;
+        if (this._layerlist.getLayer(option.name)) {
+            return null;
         }
 
-        var layer = new U3dModelTdsLayer(option);
-        if (defined(layer)) {
-            self.addLayer(layer);
-        }
-
+        const layer = new U3dModelTdsLayer(option);
+        this.addLayer(layer);
         return layer;
     }
 
     /**
      * 일반 XYZ 이미지 레이어를 생성하는 함수입니다.
-     * @param {U3dImageLayerCO} opt XYZ 이미지 레이어 옵션
-     * @returns {import('@union3d/3dLayer/U3dImageXYZLayer').U3dImageXYZLayer | false | undefined} 생성된 레이어
+     *
+     * @param {U3dImageXYZLayerCO} opt XYZ 이미지 레이어 옵션
+     * @returns {import('@union3d/3dLayer/U3dImageXYZLayer').U3dImageXYZLayer | null} 생성한 레이어 또는 생성하지 못한 경우 null
      */
     createXYZImageLayer(opt) {
         return this.createImageLayer(opt);
     }
 
     /**
-     * 단순 이미지 레이어를 생성하는 함수
-     * @param {U3dImageLayerCO} opt 이미지 레이어 옵션
-     * @returns {import('@union3d/3dLayer/U3dImageXYZLayer').U3dImageXYZLayer | false | undefined} 생성된 레이어
+     * XYZ 이미지 레이어를 생성하여 앱에 추가합니다.
+     *
+     * @param {U3dImageXYZLayerCO} opt 이미지 레이어 옵션
+     * @returns {import('@union3d/3dLayer/U3dImageXYZLayer').U3dImageXYZLayer | null} 생성한 레이어 또는 생성하지 못한 경우 null
      */
     createImageLayer(opt) {
         if (!defined(opt))
-            return undefined;
+            return null;
 
         if (this._layerlist.getLayer(opt.name)) {
             U3dMessage.error('U3dApp', U3dMessage.CNT.CMM.EXIST_LAYER);
-            return undefined;
+            return null;
         }
 
         const layer = new U3dImageXYZLayer(opt);
@@ -7752,16 +8003,17 @@ class U3dApp extends U3dObject {
 
     /**
      * WMS 이미지 레이어를 생성하는 함수입니다.
-     * @param {U3dWMSImageLayerCO} opt WMS 이미지 레이어 옵션
-     * @returns {import('@union3d/3dLayer/U3dImageWMSLayer').U3dImageWMSLayer | false} 생성된 레이어
+     *
+     * @param {import('@U3dApp').U3dWMSImageLayerCO} opt WMS 이미지 레이어 옵션
+     * @returns {import('@union3d/3dLayer/U3dImageWMSLayer').U3dImageWMSLayer | null} 생성한 레이어 또는 생성하지 못한 경우 null
      */
     createWMSImageLayer(opt) {
         if (!defined(opt))
-            return false;
+            return null;
 
         if (this._layerlist.getLayer(opt.name)) {
             U3dMessage.error('U3dApp', U3dMessage.CNT.CMM.EXIST_LAYER);
-            return false;
+            return null;
         }
 
         if (defined(opt.layernames))
@@ -7780,20 +8032,19 @@ class U3dApp extends U3dObject {
     }
 
     /**
-     * WFS 모델 레이어를 생성하는 함수입니다.
-     * @param {U3dWFSModelLayerCO} opt WFS 모델 레이어 옵션
-     * @returns {import('@union3d/3dLayer/U3dModelWFSLayer').U3dModelWFSLayer | false} 생성된 레이어
+     * WFS 모델 레이어를 생성하여 앱에 추가합니다.
+     * 옵션이 없거나 같은 이름의 레이어가 이미 등록되어 있으면 null을 반환합니다.
+     *
+     * @param {import('@U3dApp').U3dWFSModelLayerCO} opt WFS 모델 레이어 옵션
+     * @returns {import('@union3d/3dLayer/U3dModelWFSLayer').U3dModelWFSLayer | null} 생성한 WFS 모델 레이어 또는 생성하지 못한 경우 null
      */
     createWFSModelLayer(opt) {
-        var self = this;
-
         if (!defined(opt))
-            return false;
+            return null;
 
-        if (self._layerlist.getLayer(opt.name)) {
+        if (this._layerlist.getLayer(opt.name)) {
             U3dMessage.error('U3dApp', U3dMessage.CNT.CMM.EXIST_LAYER);
-            return self.getLayer(opt.name);
-            // return false;
+            return null;
         }
 
 
@@ -7805,11 +8056,8 @@ class U3dApp extends U3dObject {
 
         opt.transparent = true;
 
-        var layer = new U3dModelWFSLayer(opt);
-
-        if (defined(layer))
-            self.addLayer(layer);
-
+        const layer = new U3dModelWFSLayer(opt);
+        this.addLayer(layer);
         return layer;
     }
 
@@ -7930,7 +8178,6 @@ class U3dApp extends U3dObject {
         self.addAnalysis(new (/** @type {any} */ (globalThis)).GeOnDT.analysis.UAnalyLandScape());
         self.addAnalysis(new (/** @type {any} */ (globalThis)).GeOnDT.analysis.UAnalySurfaceVolume());
         self.addAnalysis(new (/** @type {any} */ (globalThis)).GeOnDT.analysis.UAnalySlope());
-        self.addAnalysis(new (/** @type {any} */ (globalThis)).GeOnDT.analysis.UAnalyObjectInfo());
         self.addAnalysis(new (/** @type {any} */ (globalThis)).GeOnDT.analysis.UAnalyGizmoModel());
         self.addAnalysis(new (/** @type {any} */ (globalThis)).GeOnDT.analysis.UAnalyAlignModel());
         self.addAnalysis(new (/** @type {any} */ (globalThis)).GeOnDT.analysis.UAnalyMultipleComponent());
@@ -7996,10 +8243,6 @@ class U3dApp extends U3dObject {
                 break;
             case 'Slope': {
                 analy = new (/** @type {any} */ (globalThis)).GeOnDT.analysis.UAnalySlope({name: name});
-            }
-                break;
-            case 'ObjectInfo': {
-                analy = new (/** @type {any} */ (globalThis)).GeOnDT.analysis.UAnalyObjectInfo({name: name});
             }
                 break;
             case 'GizmoModel': {
@@ -8260,6 +8503,7 @@ class U3dApp extends U3dObject {
                 drawarg: this._drawArg
             };
             this._camera = new UOrthographicCamera(cameraOpt);
+            this._camera._fov = fov || 50;
         } else {
             const cameraOpt = {
                 fov: fov,
@@ -8283,7 +8527,7 @@ class U3dApp extends U3dObject {
 
     /**
      * 요청한 유형으로 카메라를 교체합니다.<br>
-     * 전환한 카메라는 위치와 방향을 유지하고, 화면상 시야 크기를 맞춥니다.<br>
+     * 전환한 카메라는 타깃과 방향을 유지하고, 화각·배율에 맞는 거리로 화면상 시야 크기를 맞춥니다.<br>
      * 카메라 또는 지도 제어기가 준비되지 않았으면 카메라를 교체하지 않고 현재 값을 반환합니다.
      *
      * @param {'perspective' | 'orthographic'} type 교체할 카메라 유형. perspective(원근) 또는 orthographic(직교)
@@ -8297,10 +8541,13 @@ class U3dApp extends U3dObject {
         if (!oldCamera || !control) return oldCamera;
 
         const isOrtho = type === 'orthographic';
-        if (isOrtho === oldCamera.isOrthographicCamera) return oldCamera; // 이미 같은 타입
+        if (isOrtho === (oldCamera.isOrthographicCamera === true)) return oldCamera; // 이미 같은 타입
+        INTERNAL.cancelMapRegion(this);
+        control.stopFly();
+        this._isTwenning = false;
 
         const aspect = self._container.clientWidth / self._container.clientHeight || 1;
-        const fovDeg = oldCamera._fov ?? 50;
+        const fovDeg = oldCamera.isPerspectiveCamera ? oldCamera.fov : oldCamera._fov;
         const fovRad = THREE.MathUtils.degToRad(fovDeg);
 
         // 현재 카메라 상태 보존
@@ -8314,7 +8561,7 @@ class U3dApp extends U3dObject {
         if (isOrtho) {
             // perspective → orthographic
             // 현재 거리와 FOV로부터 지면 기준 뷰 크기 계산
-            const halfH = dist * Math.tan(fovRad * 0.5);
+            const halfH = dist * Math.tan(fovRad * 0.5) / oldCamera.zoom;
             const halfW = halfH * aspect;
             const cameraOpt = {
                 left: -halfW,
@@ -8324,6 +8571,9 @@ class U3dApp extends U3dObject {
                 drawarg: self._drawArg
             };
             newCamera = new UOrthographicCamera(cameraOpt);
+            newCamera._fov = fovDeg;
+            const dir = oldPos.clone().sub(target).normalize();
+            oldPos.copy(target).addScaledVector(dir, newCamera._getDistanceAtViewHeight());
         } else {
             // orthographic → perspective
             const cameraOpt = {
@@ -8337,7 +8587,7 @@ class U3dApp extends U3dObject {
 
             // 오쏘의 뷰 폭에 맞춰 퍼스펙티브 카메라 거리 재배치
             const orthoViewH = (oldCamera.top - oldCamera.bottom) / oldCamera.zoom;
-            const newDist = orthoViewH / (2 * Math.tan(fovRad * 0.5));
+            const newDist = oldCamera._getDistanceAtViewHeight(orthoViewH);
             const dir = oldPos.clone().sub(target).normalize();
             oldPos.copy(target).addScaledVector(dir, newDist);
         }
@@ -8371,6 +8621,8 @@ class U3dApp extends U3dObject {
         }
 
         // 화면 비율 재적용
+        // 직교 판정이 구 프러스텀으로 전체 트리를 탐색하지 않도록 먼저 새 카메라를 반영합니다.
+        self._frustum?.update(newCamera);
         self.resize();
 
         return newCamera;
@@ -8766,7 +9018,8 @@ class U3dApp extends U3dObject {
         if (!defined(position)) {
             return;
         }
-        const promise = deferred();
+        /** @type {DeferredPromise<boolean>} */
+        const promise = deferredPromise();
         let target;
 
         if (positionType === UDEF.POINT_TYPE.GEOGRAPHIC) {
@@ -8840,11 +9093,15 @@ class U3dApp extends U3dObject {
         downrotate = downrotate ?? 60;
         targetZ = targetZ ?? 100;
         durationTime = durationTime ?? 100;
-        const promise = deferred();
+        const promise = deferredPromise();
         self.stopFly();
         // 카메라를 직접 이동시키므로 진행 중인 2D/3D 모드 전환은 취소한다.
         self.#cancelViewAngleChange();
-        if (!defined(self._camera) || !defined(self._mapControl)) return promise.reject();
+        if (!defined(self._camera) || !defined(self._mapControl)) {
+            // 완료 제어 메서드는 값을 반환하지 않으므로 실패한 Promise 자체를 돌려줍니다.
+            promise.reject();
+            return promise;
+        }
 
         try {
             downrotate = THREE.MathUtils.clamp(downrotate, 0.1, 179.9);
@@ -8888,7 +9145,10 @@ class U3dApp extends U3dObject {
 
     setCameraPositionDirect(x, y, z, leftrotate, downrotate) {
         try {
-            this.setCameraGeographicPosition(x, y, z, leftrotate, downrotate, undefined, 0);
+            // 반환 boolean은 호출 접수 여부입니다. 실제 이동의 비동기 실패는 이 래퍼가 처리합니다.
+            this.setCameraGeographicPosition(x, y, z, leftrotate, downrotate, undefined, 0).catch(error => {
+                __GError__(this, `카메라 즉시 이동 중 오류가 발생하였습니다. ${error}`, '9327869');
+            });
             return true;
         } catch (e) {
             return false;
@@ -9449,36 +9709,39 @@ class U3dApp extends U3dObject {
     }
 
     /**
-     * Quad Tile Tree Set을 생성하는 함수
-     * @param {import('@UGeoRect').UGeoRect} [rectangle] 실제 화면에 가시화할 3차원 영역 나타내는 Rectangle
-     * @param {number} [minlevel=5] 타일 서버에서 받아 올 타일의 최소 레벨. (데이터 가시화 레벨)
-     * @return {null|import('@U3dQuadSet').U3dQuadSet} 생성된 Quad Tile Tree Set
-     * @ignore
+     * 누락된 지형·모델 트리를 생성하고 컨테이너를 반환합니다.
+     *
+     * @param {import('@UGeoRect').UGeoRect} [rectangle=this._rectangle] 생성 영역
+     * @param {number} [minlevel=this._datalevel] 시작 레벨
+     * @returns {import('@U3dQuadSet').U3dQuadSet | null} 활성 쿼드셋 또는 생성 불가
+     * @throws {Error} 트리 생성에 실패한 경우
      */
     createQuadTreeSet(rectangle = this._rectangle, minlevel = this._datalevel) {
-        if (defined(this._quadtreeSet))
-            return this._quadtreeSet;
+        return this.#createQuadTreeSet(rectangle, minlevel);
+    }
 
-        if (!defined(rectangle) || !defined(minlevel)) {
-            __GError__(this, '타일을 생성할 영역이나 레벨을 인식 할 수 없습니다.', '7273841');
-            return null
-        }
+    /**
+     * 모델을 유지하며 누락된 지형·영상 트리를 생성합니다.
+     *
+     * @param {import('@UGeoRect').UGeoRect} [rectangle=this._rectangle] 생성 영역
+     * @param {number} [minlevel=this._datalevel] 시작 레벨
+     * @returns {import('@U3dQuadSet').U3dQuadSet | null} 활성 쿼드셋 또는 생성 불가
+     * @throws {Error} 트리 생성에 실패한 경우
+     */
+    createTerrainQuadTreeSet(rectangle = this._rectangle, minlevel = this._datalevel) {
+        return this.#createQuadTreeSet(rectangle, minlevel, UDEF.TILE_TYPE.TERRAIN);
+    }
 
-        this._quadtreeSet = new U3dQuadSet(
-            rectangle.ptLeftTop.x, //minX
-            rectangle.ptRightBottom.x, //maxX
-            rectangle.ptLeftTop.y, //minY
-            rectangle.ptRightBottom.y, //maxY
-            minlevel,
-            null,
-            this._drawArg,
-            this._scene
-        );
-        this._quadtreeSet.setUpdateSensitivity(this.#tileUpdateSensitivity);
-
-        this._appUpdate3d = false;
-
-        return this._quadtreeSet;
+    /**
+     * 지형을 유지하며 누락된 모델 트리를 생성합니다.
+     *
+     * @param {import('@UGeoRect').UGeoRect} [rectangle=this._rectangle] 생성 영역
+     * @param {number} [minlevel=this._datalevel] 시작 레벨
+     * @returns {import('@U3dQuadSet').U3dQuadSet | null} 활성 쿼드셋 또는 생성 불가
+     * @throws {Error} 트리 생성에 실패한 경우
+     */
+    createModelQuadTreeSet(rectangle = this._rectangle, minlevel = this._datalevel) {
+        return this.#createQuadTreeSet(rectangle, minlevel, UDEF.TILE_TYPE.MODEL);
     }
 
     /**
@@ -9591,44 +9854,8 @@ class U3dApp extends U3dObject {
         return this._appUpdate3d;
     }
 
-    /**
-     * 3D 애니메이션 모델 레이어를 생성해 앱에 추가합니다. <br>
-     * 3ds 파일 시퀀스를 불러와 애니메이션으로 재생하는 레이어입니다. <br>
-     * 옵션이 없거나 같은 이름의 레이어가 이미 있으면 생성하지 않고 `false`를 반환하므로, 반환값을 확인한 뒤 사용합니다.
-     *
-     * @param {object} opt 레이어 생성 옵션
-     * @param {string} opt.name 레이어 이름. 이미 등록된 이름이면 생성하지 않습니다
-     * @param {string} opt.baseurl 애니메이션 모델 URL
-     * @param {import('three').Vector3Like} [opt.position] 모델의 위치
-     * @param {import('three').Vector3Like} [opt.scale] 모델의 크기
-     * @param {import('three').Vector3Like} [opt.rotation] 모델의 회전
-     * @param {number} [opt.animationspeed=1] 애니메이션 속도
-     * @returns {import('@union3d/3dLayer/U3dModelTdsLayer').U3dModelTdsLayer | boolean} 생성된 레이어. 생성하지 못하면 `false`
-     *
-     * @example
-     * const layer = app.createModelTdsLayer(opt);
-     * if (layer) app.showLayer(opt.name);
-     */
-    createModelTdsLayer(opt) {
-        var self = this;
-        if (!defined(opt)) {
-            console.info('opt is null! ');
-            return false;
-        }
-
-        if (self._layerlist.getLayer(opt.name)) {
-            //    console.log('layer is existed!! failure!');
-            return false;
-        }
-        var layer = new U3dModelTdsLayer(opt);
-        if (defined(layer)) {
-            self.addLayer(layer);
-        }
-
-        return layer;
-    }
-
     update(list, event, force, change) {
+        if (this._mapRegionApplying || this._quadTreeChanging) return;
         var self = this;
         //+ 이동/조망권 모드일 때, 마우스클릭으로 제한 업데이트한다.
         if (!self.isUpdateFrame()) {
@@ -9668,7 +9895,8 @@ class U3dApp extends U3dObject {
      */
     forceUpdate() {
         let self = this;
-        let promise = deferred();
+        /** @type {DeferredPromise<this>} */
+        const promise = deferredPromise();
         self.once(self.constructor.EVENT.LOADED, function () {
             promise.resolve(self);
         });
@@ -9687,93 +9915,92 @@ class U3dApp extends U3dObject {
 
     /**
      * 생성된 모델 레이어들에게서 입력된 박스 영역의 모델 객체를 타일단위로 강제 로드 하는 함수
+     * 표시 자원 정리 실패도 수집하여 갱신 중지를 복원한 뒤 Promise를 거절합니다.
+     *
      * @param {boolean} visible 검색 영역 표시 여부
      * @param {number} minx box 영역의 min X 좌표 값 (월드 좌표)
      * @param {number} maxx box 영역의 max X 좌표 값 (월드 좌표)
      * @param {number} miny box 영역의 min Y 좌표 값 (월드 좌표)
      * @param {number} maxy box 영역의 max Y 좌표 값 (월드 좌표)
-     * @return {Promise} 업데이트 수행 Promise
+     * @returns {Promise<void> | undefined} 완료 또는 취소·정리 오류. 기존 작업 중에는 undefined
+     * @throws {Error} 범위 오류, 내부 오류 또는 트리 교체·해제에 따른 취소
      * @ignore
      */
     forceLoadModel(visible = true, minx = -213890.2, maxx = -212195.6, miny = 102175.8, maxy = 104582.4) {
-        if (!minx || !maxx || !miny || !maxy) {
-            U3dMessage.error(this._classtype, U3dMessage.CNT.CMM.NON_PARAM, '5378050');
+        const tree = this._quadtreeSet;
+        if (!tree?.hasQuadTree(UDEF.TILE_TYPE.MODEL) || this.isStopUpdate() || this.isDisposed() || this._quadTreeChanging || this._mapRegionApplying) return;
+        if (![minx, maxx, miny, maxy].every(Number.isFinite) || minx > maxx || miny > maxy) {
+            return Promise.reject(new RangeError('강제 모델 로딩 범위가 유효하지 않습니다.'));
         }
-        let self = this;
-        if (defined(self._quadtreeSet) && !self.isStopUpdate()) {
-            let eventName = 'forceLoadModel';
-            let addList = [];
-            let tileList = [];
-            return new Promise(function (resolve, reject) {
-                try {
-                    U3dMessage.info(self._classtype, U3dMessage.CNT.TILE.FORCE_MODEL_LOAD_START, '5378485');
-                    self.setStopUpdate(true);
-                    if (visible) {
-                        let geometry = new THREE.BoxGeometry(maxx - minx, maxy - miny, 1);
-                        let material = new THREE.MeshBasicMaterial({color: 0xdd0000, opacity: 0.5, transparent: true});
-                        let cube = new THREE.Mesh(geometry, material);
-                        cube.position.x = (maxx + minx) / 2;
-                        cube.position.y = (maxy + miny) / 2;
-                        cube.position.z = self.getRenderHeightAtPoint({x: cube.position.x, y: cube.position.y}) + 30; //확인됨
-                        self._scene.add(cube);
-                        addList.push(cube);
-                    }
-
-                    self._quadtreeSet.on(U3dEvent.TILE.FORCE_MODEL_LOADED, function (e) {
-                        let tile = e.data.item;
-                        if (!tile) return;
-                        tileList.push(tile);
-                        if (visible) {
-                            let min = tile._boundingbox.min;
-                            let max = tile._boundingbox.max;
-                            let geometry = new THREE.BoxGeometry(max.x - min.x, max.y - min.y, 1);
-                            let material = new THREE.MeshBasicMaterial({
-                                color: 0x00ff00,
-                                opacity: 0.5,
-                                transparent: true
-                            });
-                            let cube = new THREE.Mesh(geometry, material);
-                            cube.position.x = tile._center.x;
-                            cube.position.y = tile._center.y;
-                            cube.position.z = self.getRenderHeightAtPoint({
-                                x: cube.position.x,
-                                y: cube.position.y
-                            }) + 50; //확인됨
-                            self._scene.add(cube);
-                            addList.push(cube);
-                        }
-                    }, false, eventName);
-
-                    self.once(self.constructor.EVENT.LOADED, function () {
-                        if (visible) {
-                            self._quadtreeSet.off(U3dEvent.TILE.FORCE_MODEL_LOADED, eventName);
-                            for (let cube of addList) {
-                                self._scene.remove(cube);
-                                cube.material.dispose();
-                                cube.geometry.dispose();
-                            }
-                        }
-                        resolve(tileList);
-                        self.setStopUpdate(false);
-                    });
-                    let box3 = new THREE.Box3(new THREE.Vector3(minx, miny, 0), new THREE.Vector3(maxx, maxy, 1))
-                    self._quadtreeSet.updateModel(box3);
-                } catch (e) {
-                    self._quadtreeSet.off(U3dEvent.TILE.FORCE_MODEL_LOADED, eventName);
-                    if (addList.length > 0) {
-                        for (let cube of addList) {
-                            self._scene.remove(cube);
-                            cube.material.dispose();
-                            cube.geometry.dispose();
-                        }
-                    }
-                    self.setStopUpdate(false);
-                    reject();
+        const roots = tree.getQuadTrees(UDEF.TILE_TYPE.MODEL);
+        const self = this;
+        const addList = [];
+        return new Promise((resolve, reject) => {
+            let settled = false;
+            const loaded = () => {
+                if (!self.isDisposed() && !self._quadTreeChanging && roots.every(root => !root._disposed)) finish();
+            };
+            /**
+             * 일부 정리가 실패해도 갱신 중지를 복원하고 작업을 종료합니다.
+             * @param {unknown} [error] 작업 실패 또는 취소 원인
+             */
+            const finish = (error) => {
+                if (settled) return;
+                settled = true;
+                /** @type {Array<unknown>} */
+                const errors = error === undefined ? [] : [error];
+                /**
+                 * 한 정리 단계가 실패해도 나머지 자원을 처리합니다.
+                 * @param {() => void} work 자원 정리 또는 상태 복원 작업
+                 */
+                const cleanup = work => { try { work(); } catch (error) { errors.push(error); } };
+                cleanup(() => tree.off(U3dEvent.TILE.FORCE_MODEL_LOADED, collect));
+                cleanup(() => self.off(self.constructor.EVENT.MODEL_LOADED, loaded));
+                for (const root of roots) cleanup(() => root.off(U3dEvent.TILE.DISPOSE, cancel));
+                for (const cube of addList) {
+                    cleanup(() => cube.removeFromParent());
+                    cleanup(() => cube.material.dispose());
+                    cleanup(() => cube.geometry.dispose());
                 }
-            }).then(function () {
-                U3dMessage.info(self._classtype, U3dMessage.CNT.TILE.FORCE_MODEL_LOAD_END, '5381998');
-            });
-        }
+                addList.length = 0;
+                cleanup(() => self.setStopUpdate(false));
+                if (errors.length === 1) reject(errors[0]);
+                else if (errors.length) reject(Object.assign(new Error('강제 모델 로딩 종료 중 자원 정리에 실패했습니다.'), {errors}));
+                else resolve();
+            };
+            const cancel = () => finish(new Error('타일 트리 변경으로 강제 모델 로딩을 취소했습니다.'));
+            /**
+             * 강제 로딩 범위를 지정한 높이에 표시합니다.
+             * @param {import('three').Box3} box 표시 범위
+             * @param {number} color 표시 색상
+             * @param {number} heightOffset 지표면 기준 높이 여유값
+             * @returns {void}
+             */
+            const addBox = (box, color, heightOffset) => {
+                if (!visible) return;
+                const size = box.getSize(new THREE.Vector3());
+                const cube = new THREE.Mesh(new THREE.BoxGeometry(size.x, size.y, 1),
+                    new THREE.MeshBasicMaterial({color, opacity: 0.5, transparent: true}));
+                box.getCenter(cube.position);
+                cube.position.z = self.getRenderHeightAtPoint(cube.position) + heightOffset;
+                self._scene.add(cube);
+                addList.push(cube);
+            };
+            const collect = (event) => {
+                if (!settled && !self._quadTreeChanging && self._quadtreeSet === tree && roots.every(root => !root._disposed) && event.data.item) {
+                    addBox(event.data.item._boundingbox, 0x00ff00, 50);
+                }
+            };
+            try {
+                for (const root of roots) root.on(U3dEvent.TILE.DISPOSE, cancel);
+                self.setStopUpdate(true);
+                const box = new THREE.Box3(new THREE.Vector3(minx, miny, 0), new THREE.Vector3(maxx, maxy, 1));
+                addBox(box, 0xdd0000, 30);
+                tree.on(U3dEvent.TILE.FORCE_MODEL_LOADED, collect);
+                self.on(self.constructor.EVENT.MODEL_LOADED, loaded);
+                tree.updateModel(box);
+            } catch (error) { finish(error); }
+        });
     }
 
     /**
@@ -9900,6 +10127,7 @@ class U3dApp extends U3dObject {
 
     //function draw_(clear, type, camera, renderer, sceneRoot)
     draw(clear) {
+        if (this._mapRegionApplying || this._quadTreeChanging) return;
         if (!this._renderer) return;
         if (!this._drawArg) return;
 
@@ -9954,6 +10182,8 @@ class U3dApp extends U3dObject {
                 view.drawViewImage();
             }
         }
+        // 모든 기본 화면·스와이프·보조 뷰의 draw가 끝난 뒤 app별 유지보수를 한 번 진행합니다.
+        if (!self.getStopRender()) trailMemoryGuard.onDraw(self);
     }
 
     /**
@@ -10018,7 +10248,8 @@ class U3dApp extends U3dObject {
         let self = this;
         self.stopFly();
 
-        let promise = deferred();
+        /** @type {DeferredPromise<boolean | void>} */
+        const promise = deferredPromise();
         if (!boundingBox || !boundingBox.min || !boundingBox.max || isWrong(boundingBox.max) || isWrong(boundingBox.min)) {
             __GError__(self, "바운딩 박스의 정보가 올바르지 않습니다.", '9325283');
             promise.resolve();
@@ -10093,7 +10324,10 @@ class U3dApp extends U3dObject {
     fitExtentToObject(object, useFly, offsetZ, leftrotate = 0, downrotate = 0) {
         const boundingBox = new THREE.Box3().setFromObject(object);
 
-        this.fitExtentToBoundingBox(boundingBox, useFly, offsetZ, leftrotate, downrotate);
+        // 이 API는 Promise를 반환하지 않으므로 위임한 이동의 실패는 여기서 처리합니다.
+        this.fitExtentToBoundingBox(boundingBox, useFly, offsetZ, leftrotate, downrotate).catch(() => {
+            __GError__(this, '오브젝트 범위로 카메라를 이동하지 못했습니다.', '9327869');
+        });
     }
 
     refresh() {
@@ -10103,7 +10337,15 @@ class U3dApp extends U3dObject {
     /**
      * 지도화면 이동 애니매이션 정지 함수
      */
+    /** 영역 이동이 자체 요청을 취소하지 않고 기존 비행·모드 전환을 중단합니다. @ignore */
+    _stopMapRegionMotion() {
+        this.#cancelViewAngleChange();
+        this._mapControl.stopFly();
+        this._isTwenning = false;
+    }
+
     stopFly() {
+        INTERNAL.cancelMapRegion(this);
         stopFly_.call(this);
         stopTween_.call(this);
     }
@@ -10265,14 +10507,14 @@ class U3dApp extends U3dObject {
      * @param {Degree|null} [azimuthDegree=null] 목표 방위각 (0은 정북). null이면 현재 방위각을 유지한다.
      * @param {function():void} [onArrived] 회전이 모두 끝난 직후 실행할 처리
      * @param {function():void} [onCanceled] 전환이 취소되었을 때 실행할 처리
-     * @returns {DeferredObject<void>} 전환 완료 promise 객체
+     * @returns {Promise<void>} 전환 완료 promise 객체
      *
      * @ignore
      */
     #changeViewAngle(polarDegree, azimuthDegree = null, onArrived, onCanceled) {
         const self = this;
         const control = self._mapControl;
-        const promise = deferred();
+        const promise = deferredPromise();
         if (!defined(control) || !control.lookAtPolar) {
             promise.reject();
             return promise;
@@ -10280,18 +10522,22 @@ class U3dApp extends U3dObject {
 
         const changeId = self.#cancelViewAngleChange();
         self.#viewAngleCanceled = onCanceled;
-        // 컨트롤러의 회전 tween은 중단될 때에도 완료와 동일하게 resolve 되고,
-        // 그 콜백이 다음 전환의 stopFly() 안에서 동기 실행된다.
-        // 취소된 전환이 다음 단계를 시작하거나 각도 제한을 덮어쓰지 않도록 식별자로 걸러낸다.
+        // 컨트롤러는 중단도 resolve로 알립니다. await 후에는 새 조작이 시작되었을 수 있으므로
+        // 취소된 전환이 다음 회전을 시작하거나 각도 제한을 덮어쓰지 않도록 식별자를 검사합니다.
         const isCanceled = () => changeId !== self.#viewAngleChangeId;
 
-        const fail = () => {
-            if (!isCanceled()) {
-                self._isTwenning = false;
-                self.#viewAngleCanceled = undefined;
-                onCanceled?.();
+        const fail = (error) => {
+            try {
+                if (!isCanceled()) {
+                    self._isTwenning = false;
+                    self.#viewAngleCanceled = undefined;
+                    onCanceled?.();
+                }
+            } catch (cancelError) {
+                // 취소 후처리가 실패해도 호출자에게 전달할 Promise를 대기 상태로 남기지 않습니다.
+                error = cancelError;
             }
-            promise.reject();
+            promise.reject(error);
         };
 
         const complete = () => {
@@ -10309,17 +10555,19 @@ class U3dApp extends U3dObject {
         };
 
         self._isTwenning = true;
-        control.lookAtPolar(polarDegree, MODE_CHANGE_DURATION).then(() => {
+        const rotate = async () => {
+            await control.lookAtPolar(polarDegree, MODE_CHANGE_DURATION);
             if (isCanceled()) {
                 promise.reject();
                 return;
             }
-            if (!defined(azimuthDegree)) {
-                complete();
-                return;
+            if (defined(azimuthDegree)) {
+                await control.lookAtAzimuth(azimuthDegree, MODE_CHANGE_DURATION);
             }
-            control.lookAtAzimuth(azimuthDegree, MODE_CHANGE_DURATION).then(complete, fail);
-        }, fail);
+            complete();
+        };
+        // 회전 시작의 동기 예외와 도착 후처리의 예외도 동일한 실패 경로로 전달합니다.
+        rotate().catch(fail);
 
         return promise;
     }
@@ -10414,10 +10662,10 @@ class U3dApp extends U3dObject {
     set2DMode() {
         const self = this;
         if (self.#viewMode === VIEW_MODE.TWO_D) {
-            return deferred().resolve();
+            return Promise.resolve();
         }
         if (!defined(self._mapControl)) {
-            return deferred().reject();
+            return Promise.reject();
         }
 
         self.#viewMode = VIEW_MODE.TWO_D;
@@ -10446,8 +10694,8 @@ class U3dApp extends U3dObject {
      *
      * @param {null|WorldPositionVector3} [target=null] 카메라가 바라볼 목표 좌표이며 월드 좌표(EPSG:3857)로 입력합니다.<br>
      * null을 입력하면 목표 좌표를 바꾸지 않고 카메라 각도만 3D 시점으로 되돌립니다.
-     * @returns {Promise<void|boolean>} 전환 결과를 알리는 promise 객체입니다.<br>
-     * 전환이 끝나면 resolve()되며, target을 입력한 경우에는 resolve() 값으로 true가 전달됩니다.<br>
+     * @returns {Promise<void>} 전환 결과를 알리는 promise 객체입니다.<br>
+     * 전환이 끝나면 target 지정 여부와 관계없이 값 없이 resolve()됩니다.<br>
      * 지도 조작 컨트롤이 준비되지 않았거나 전환이 취소되면 reject()됩니다.
      */
     set3DMode(target = null) {
@@ -10457,7 +10705,7 @@ class U3dApp extends U3dObject {
 
         // 목표 좌표 없이 호출한 경우, 이미 3D 지도 모드이면 화면을 움직이지 않는다.
         if (!hasTarget && self.#viewMode === VIEW_MODE.THREE_D) {
-            return deferred().resolve();
+            return Promise.resolve();
         }
 
         self.#viewMode = VIEW_MODE.THREE_D;
@@ -10490,9 +10738,11 @@ class U3dApp extends U3dObject {
      * @param {import('@union3d/3dLayer/U3dLayer').U3dLayer} layer 추가할 레이어 객체 (예: U3dImageXYZLayer, U3dHeightXYZLayer 등)
      * @returns {import('@union3d/3dLayer/U3dLayer').U3dLayer | undefined} 추가된 레이어 객체
      */
+    /// <summary>레이어를 앱에 등록·초기화하고 해당 종류의 앱 공통 투명도 설정을 적용합니다.</summary>
+    /// <param name="layer">U3dLayer 형식의 추가할 레이어이며 null·undefined 또는 중복 등록은 기존 거부 경로로 처리하고, 성공 시 앱이 레이어 연결을 관리합니다.</param>
     addLayer(layer) {
         if (!layer || !this._layerlist.addLayer(layer)) {
-            layer?.reject?.();
+            layer?._rejectReady(new Error('레이어를 앱에 추가하지 못했습니다.'));
             return layer;
         }
         layer.setApp(this);
@@ -10502,31 +10752,42 @@ class U3dApp extends U3dObject {
             const enable = this.getProperties(UDEF.APP_PROP.IMAGE.USE_OPACITY);
             const value = this.getProperties(UDEF.APP_PROP.IMAGE.OPACITY);
             if (enable === true) {
-                if (defined(layer.ready)) {
-                    layer.ready(function () {
-                        layer.setOpacity(value);
-                    });
-                } else {
+                layer.ready.then(
+                /// <summary>영상 레이어 준비 완료 후 앱과 현재 레이어의 수명을 확인하여 공통 투명도를 적용합니다.</summary>
+                () => {
+                    // Promise 콜백은 다음 마이크로태스크에서 실행됩니다. 그 사이 해제·교체된 레이어는 건드리지 않습니다.
+                    if (this.isDisposed() || layer.isDisposed() || this.getLayerByName(layer.getName()) !== layer) return;
                     layer.setOpacity(value);
-                }
+                }).catch(
+                /// <summary>레이어 초기화 또는 투명도 적용 실패를 앱 오류 처리기로 전달합니다.</summary>
+                /// <param name="error">unknown 형식의 Promise 거부 사유이며 초기화 실패의 Error 또는 투명도 적용 중 발생한 예외를 변경 없이 전달합니다.</param>
+                error => {
+                    __GError__(this, error, '2506418');
+                });
             }
         } else if (layer instanceof U3dModelTilesLayer ||
             layer instanceof U3dModelBasicLayer ||
             layer instanceof U3dModelStaticLayer ||
             layer instanceof U3dModelWFSLayer ||
             layer instanceof U3dModelU3FLayer ||
-            layer instanceof U3dModelI3FLayer
+            layer instanceof U3dModelI3FLayer ||
+            layer instanceof U3dModelA3FLayer
         ) {
             const enable = this.getProperties(UDEF.APP_PROP.MODEL.USE_OPACITY);
             const value = this.getProperties(UDEF.APP_PROP.MODEL.OPACITY);
             if (enable === true) {
-                if (defined(layer.ready)) {
-                    layer.ready(function () {
-                        layer.setOpacity(value);
-                    });
-                } else {
+                layer.ready.then(
+                /// <summary>A3F를 포함한 모델 레이어 준비 완료 후 앱과 현재 레이어의 수명을 확인하여 공통 투명도를 적용합니다.</summary>
+                () => {
+                    // 준비 완료 직후 제거된 모델에 초기 투명도가 뒤늦게 적용되는 것을 막습니다.
+                    if (this.isDisposed() || layer.isDisposed() || this.getLayerByName(layer.getName()) !== layer) return;
                     layer.setOpacity(value);
-                }
+                }).catch(
+                /// <summary>레이어 초기화 또는 투명도 적용 실패를 앱 오류 처리기로 전달합니다.</summary>
+                /// <param name="error">unknown 형식의 Promise 거부 사유이며 초기화 실패의 Error 또는 투명도 적용 중 발생한 예외를 변경 없이 전달합니다.</param>
+                error => {
+                    __GError__(this, error, '2506418');
+                });
             }
         }
 
@@ -10546,7 +10807,8 @@ class U3dApp extends U3dObject {
      * app.addView(view).then((added) => console.log(added));
      */
     addView(view) {
-        let promise = deferred();
+        /** @type {DeferredPromise<import('@U3dView').U3dView>} */
+        const promise = deferredPromise();
         if (!defined(view) || !view.isView) {
             promise.reject('input param is not view');
             return promise;
@@ -10894,7 +11156,8 @@ class U3dApp extends U3dObject {
     }
 
     /**
-     * 설정된 홈 위치로 이동하는 함수
+     * 설정된 홈 위치로 이동합니다. 이동 Promise를 반환하지 않으며 비동기 실패는 오류 로그에 기록합니다.
+     *
      * @param {number} [duration] 홈 위치로 이동 시 애니메이션 시간(ms)
      */
     goToHome(duration) {
@@ -10912,7 +11175,10 @@ class U3dApp extends U3dObject {
             self._homeRotateDown,
             undefined,
             duration ? duration : 3000
-        )
+        ).catch(error => {
+            // 이 메서드는 이동 Promise를 반환하지 않으므로 실패 처리도 여기서 끝냅니다.
+            __GError__(this, `홈 위치로 카메라를 이동하지 못했습니다. ${error}`, '9327869');
+        });
     }
 
     /**
@@ -11727,12 +11993,19 @@ class U3dApp extends U3dObject {
         }
     }
 
+    /**
+     * 현재 지도 영역의 기본 카메라 거리 제한으로 복원합니다.
+     * @returns {void}
+     */
     resetCameraLimitDistance() {
         const self = this;
 
         if (self._mapControl && self._mapControl.getFactor) {
-            self._mapControl.getFactor().minDistance = DEFAULT_CONTROL_FACTOR.MIN_DISTANCE;
-            self._mapControl.getFactor().maxDistance = self.getResolutionFromZoom(self._minZoomLevel) * 0.7;
+            const limits = INTERNAL.getDefaultMapRegionLimits(self);
+            Object.assign(self._mapControl.getFactor(), {
+                minDistance: limits.minDistance,
+                maxDistance: limits.maxDistance
+            });
         }
     }
 
@@ -12269,47 +12542,6 @@ function checkCollision(mesh, cubeBox) {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-function getOptionRegion(option = {}) {
-    const regionOption = {};
-
-    if (!option.passlevel)
-        option.passlevel = 0;
-
-    if (option.type === 'world') {
-        option.targetrectopt = {x: 0, y: 0, level: 0};
-        option.minZoomLevel = 3;
-    } else if (option.targetrectopt || option.rectangle) {
-        option.type = 'custom';
-        if (option.targetrectopt) {
-            option.targetrectopt.x = option.targetrectopt.x || DEFAULT_WORLD_INDEX.x;
-            option.targetrectopt.y = option.targetrectopt.y || DEFAULT_WORLD_INDEX.y;
-            option.targetrectopt.level = option.targetrectopt.level || DEFAULT_WORLD_INDEX.level;
-        }
-    }
-
-    if (!option.targetrectopt)
-        option.targetrectopt = DEFAULT_WORLD_INDEX;
-
-    regionOption.startlevel = regionOption.datalevel = option.targetrectopt.level; //사용자 옵션으로 받지 않는다.
-    regionOption.size = Math.round(WORLD_SIZE / Math.pow(2, regionOption.startlevel));  //사용자 옵션으로 받지 않는다.
-
-    if (!option.far)
-        option.far = regionOption.size * 2;
-
-    if (!defined(option.minZoomLevel))
-        option.minZoomLevel = DEFAULT_MIN_ZOOM_LEVEL;
-
-    regionOption.rectangle = UMathEngine.getGoogleRectangleDefine(
-        option.targetrectopt.x,
-        option.targetrectopt.y,
-        option.targetrectopt.level
-    );  //사용자 옵션으로 받지 않는다.
-
-    regionOption.rectangle.round();
-
-    return regionOption;
-}
-
 function removeModelByObject(obj) {
     var uid = obj.uid;
     var layer = obj.layer;
@@ -12635,6 +12867,13 @@ function createFlyControls() {
     self._controls['fly'] = control;
 }
 
+/**
+ * 앱 작업이 끝날 때까지 대기한 뒤 완료 콜백을 실행합니다.
+ *
+ * @param {import('@U3dApp').U3dApp} self 작업량을 확인할 앱
+ * @param {function} callback 앱을 this로 호출할 완료 콜백
+ * @param {unknown} param 완료 콜백에 전달할 값
+ */
 function listenEndWork(self, callback, param) {
     if (self.getWorkingLevel2() <= 0) {
         if (defined(callback))
@@ -12688,30 +12927,6 @@ function pad(n, width, z) {
     z = z || '0';
     n = n + '';
     return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
-}
-
-function getWMTSLayerCapabilities(opt) {
-    const promise = deferred();
-    const req = new XMLHttpRequest();
-
-    if (!defined(opt.xmlUrl)) {
-        promise.reject();
-    }
-
-    const xmlUrl = "proxy.jsp?url=" + opt.xmlUrl;
-
-    if (defined(xmlUrl)) {
-        req.overrideMimeType('text/xml');
-        req.onload = function () {
-            if (this.status === 200) {
-                promise.resolve(this);
-            } else if (this.status === 404)
-                console.error(xmlUrl + ' 파일이 존재하지 않습니다.');
-        };
-        req.open("GET", xmlUrl, true);
-        req.send();
-    }
-    return promise;
 }
 
 export {U3dApp};

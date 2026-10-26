@@ -549,7 +549,7 @@ export async function initialize(context) {
     
             function createU3fModelLayers() {
                 try {
-                    modelayers = app.createModelGroupLayer({
+                    modelayers = app.createGroupLayer({
                         maxlevel: 19,
                         minlevel: 17,
                         name: 'u3f'
@@ -586,14 +586,14 @@ export async function initialize(context) {
                                     makeU3FPackage: 1
                                 };
                                 let subLayer = app.create3DFModelLayer(options);
-                                if(subLayer !== false){
-                                    subLayer.then(function (layer) {
+                                if(subLayer){
+                                    subLayer.ready.then(function (layer) {
                                         modelayers.addLayer(subLayer);
                                         if(i === infos.length -1){
                                             console.log("u3f model layer load");
                                             app.showLayer(modelayers.getName(),true);
                                         }
-                                    }).fail(function (layer) {
+                                    }).catch(function (layer) {
     
                                     });
                                 }

@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -10,6 +10,11 @@ import type { U3dProcess } from "../core/U3dProcess.js";
 import type { U3dQuadTile } from "./U3dQuadTile.js";
 import type { U3dQuadTileTask } from "./U3dQuadTileTask.js";
 
+/**
+ * ~extends U3dProcess <br>
+ *
+ * 타일 작업의 시작 예약과 단일 종결을 관리합니다.
+ */
 declare class U3dQuadTileProcess extends U3dProcess {
     /**
      * @type {Set<() => void>}
@@ -59,6 +64,27 @@ declare class U3dQuadTileProcess extends U3dProcess {
      */
     _discard(work: U3dQuadTileTask): void;
     /**
+     * 공통 예약은 태스크 경계를 지났으므로 실제 호출까지 추가 양보하지 않습니다.
+     * 기존 직접 디큐 호출은 개별 비동기 시작을 유지합니다.
+     *
+     * @param {boolean} startImmediately 공통 실행 조정에서 호출했는지 여부
+     * @returns {boolean} 작업을 실행 경로로 전달했는지 여부
+     *
+     * @ignore
+     */
+    _dequeueTask(startImmediately: boolean): boolean;
+    /**
+     * 슬롯 점유와 단일 종결을 공유하되 실제 호출 경계만 예약 경로에 맞춥니다.
+     * 공통 예산 대기는 진입 전이므로 30초 응답 제한에 포함되지 않습니다.
+     *
+     * @param {import('@union3d/quadtree/U3dQuadTileTask').U3dQuadTileTask} obj 실행할 작업
+     * @param {import('@U3dQuadTile').U3dQuadTile} tile 대상 타일
+     * @param {boolean} startImmediately 공통 실행 조정이 허가한 현재 태스크에서 호출할지 여부
+     *
+     * @ignore
+     */
+    _executeTask(obj: U3dQuadTileTask, tile: U3dQuadTile, startImmediately: boolean): void;
+    /**
      * 타일 작업을 등록하며 등록 예외나 폐기 상태에서도 실패 통지를 시도합니다.
      *
      * @override
@@ -67,7 +93,7 @@ declare class U3dQuadTileProcess extends U3dProcess {
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 거리별 큐를 선택할 기준 타일
      */
     override enqueueWork(work: U3dQuadTileTask, tile: U3dQuadTile): void;
-    getWorkingInDistance(opt: any): any;
+    getWorkingInDistance(opt: any): number;
     checkQueue(work: any): boolean;
     /**
      * 다음 작업의 비동기 시작을 요청하고 현재 사용 중인 슬롯 수를 반환합니다.

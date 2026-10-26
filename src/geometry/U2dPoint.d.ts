@@ -1,12 +1,13 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { U2dGeometry, U2dGeometryCO } from "./U2dGeometry.js";
+import type { U2dGeometry, U2dGeometryCO, U2dGeometryParam } from "./U2dGeometry.js";
+import type { Double_Array } from "../types/global.js";
 import type { OLFill, OLStroke } from "../types/ol.js";
 
 /**
@@ -33,7 +34,7 @@ declare class U2dPoint extends U2dGeometry {
     constructor(opt?: U2dPointCO);
     /**
      * 점을 그리는 원의 반지름입니다(픽셀). <br>
-     * 생성 옵션의 `radius`로 정해지며, `setRadius`로 화면의 원을 키우거나 줄여도 이 값은 그대로 남습니다. <br>
+     * 생성 옵션의 `radius`로 정해지며, `setRadius`로 변경한 값도 함께 보관합니다. <br>
      * 색상·두께·스타일을 바꾸는 함수들이 원을 다시 그릴 때 이 값을 기준으로 삼습니다. <br>
      *
      * @type {number}
@@ -53,28 +54,46 @@ declare class U2dPoint extends U2dGeometry {
      *
      * @override
      *
-     * @param {Array<number>} position 점을 놓을 좌표 `[x, y]`. 기본 좌표계에서는 `[경도, 위도]`입니다 <br>
+     * @param {Array<number> | Double_Array<number>} position 단일 점 또는 복합 점의 좌표입니다. 기본 좌표계는 위경도입니다. <br>
      * @param {string} [srs='EPSG:4326'] 넘긴 좌표가 어떤 좌표계인지 나타내는 코드 <br>
      */
-    override setPosition(position: Array<number>, srs?: string): void;
+    override setPosition(position: Array<number> | Double_Array<number>, srs?: string): void;
     /**
      * 현재 좌표를 점 좌표 형식으로 돌려주는 함수 <br>
      *
      * @override
      *
-     * @returns {Array<number>} 이 도형이 들고 있는 지도 좌표 `[x, y]` (EPSG:3857) <br>
+     * @returns {Array<number> | Double_Array<number>} 지도 좌표의 단일 점 또는 점 목록입니다. <br>
      *
      * @ignore
      */
-    override buildCoordinates(): Array<number>;
+    override buildCoordinates(): Array<number> | Double_Array<number>;
     /**
      * 화면에 그리는 원의 반지름을 바꿉니다. <br>
-     * `radius` 프로퍼티는 그대로 두고 원만 다시 그리므로, 이후 색상·두께·스타일을 바꾸면 `radius` 프로퍼티 값으로 되돌아갑니다. <br>
-     * 바꾼 크기를 계속 유지하려면 `radius` 프로퍼티도 함께 지정합니다. <br>
+     * 이후 색상·스타일을 바꾸어도 지정한 반지름을 유지합니다. <br>
      *
      * @param {number} radius 새로 그릴 원의 반지름 (픽셀) <br>
      */
     setRadius(radius: number): void;
+    /** @returns {number} 현재 원형 마커의 반지름입니다. 다중점은 같은 반지름을 공유합니다. */
+    getRadius(): number;
+    /**
+     * 공통 상태와 현재 마커 반지름을 반환합니다.
+     *
+     * @override
+     *
+     * @returns {U2dPointParam} 다중점 전체가 공유하는 현재 값입니다.
+     */
+    override getParam(): U2dPointParam;
+    /**
+     * 공통 항목과 반지름을 부분 변경합니다. 모든 입력을 검증한 뒤 적용합니다.
+     *
+     * @override
+     *
+     * @param {U2dPointParam} [param={}] 다중점 전체에 적용할 값입니다.
+     * @throws {TypeError|RangeError} 값이 잘못되면 변경 전에 발생합니다.
+     */
+    override setParam(param?: U2dPointParam): void;
 }
 
 /**
@@ -133,6 +152,18 @@ declare class U2dPoint extends U2dGeometry {
          */
         setRadius: (radius: number) => void;
         /**
+         * 현재 원의 반지름을 반환하는 함수입니다.
+         */
+        getRadius: () => number;
+        /**
+         * 현재 원의 채움 스타일입니다.
+         */
+        getFill: () => (OLFill | null);
+        /**
+         * 현재 원의 외곽선 스타일입니다.
+         */
+        getStroke: () => (OLStroke | null);
+        /**
          * 원 내부를 채우는 스타일 객체 <hidden> <br>
          */
         fill_: OLFill;
@@ -142,4 +173,11 @@ declare class U2dPoint extends U2dGeometry {
         stroke_: OLStroke;
     };
 
-export type { OlCircleStyle, U2dPoint, U2dPointCO, U2dPointCO_Content };
+/**
+     * 공통 파라미터에 원형 마커의 반지름을 추가합니다. 다중점은 모든 점에 함께 적용합니다.
+     */
+    type U2dPointParam = U2dGeometryParam & Partial<{
+        radius: number;
+    }>;
+
+export type { OlCircleStyle, U2dPoint, U2dPointCO, U2dPointCO_Content, U2dPointParam };

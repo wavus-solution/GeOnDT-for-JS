@@ -73,7 +73,7 @@ async function runManifestExample(source) {
     await loadExampleDependencies(Array.isArray(source.dependencies) ? source.dependencies : []);
     await waitForGeOnDT();
     const config = source.runtime || {};
-    const app = new Union3D.U3dAPP(createRuntimeAppOptions(config, 'map'));
+    const app = new GeOnDT.U3dAPP(createRuntimeAppOptions(config, 'map'));
     window.app = app;
     applyRuntimeHome(app, config);
     const cleanupRuntimeUi = applyRuntimeUiConfig(config);

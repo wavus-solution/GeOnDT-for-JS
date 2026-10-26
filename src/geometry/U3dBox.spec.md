@@ -282,7 +282,7 @@ U3dBox extends U3dGeometry 클래스 정의
         동작:
             기존 _outline이 있으면 자식에서 제거하고 그 geometry와 material을 해제한 뒤 참조를 비운다.
             useline이 false이면 반환한다.
-            현재 geometry로 임계각 OUTLINE_THRESHOLD_ANGLE의 EdgesGeometry와 _lineColor 기반 LineBasicMaterial로 LineSegments를 만들어 자식으로 추가하고 _outline에 보관한다.
+            현재 geometry로 임계각 OUTLINE_THRESHOLD_ANGLE의 EdgesGeometry와 _lineColor 기반 LineBasicMaterial로 LineSegments를 만들어 자식으로 추가하고 _outline에 보관한다. 외곽선 재질에도 현재 opacity와 transparent=(opacity<1)를 적용한다.
 
     #applyWireframe(enabled: boolean) -> void
         역할: 단일·배열 재질 모두에 wireframe을 반영하고 기반 wireframe 필드를 맞춘다.

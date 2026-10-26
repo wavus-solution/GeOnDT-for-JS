@@ -110,19 +110,20 @@ class UAnalyArea extends UAnaly {
         if (self._clickId !== undefined || self._dblClickId !== undefined) {
             if (self._clickId != null) app.unkey('click', self._clickId);
             if (self._dblClickId != null) app.unkey('dblclick', self._dblClickId);
-            this.off();
+            // 완료·선택 구독은 활성화 재호출로 제거하지 않습니다.
         }
         app.setMode(UDEF.APP_MODE._AREA);
         app.setPolygonMeasureType();
         app.getSceneComment()?.add(self._poiGroup);
-        self._clickId = app.on('click', self.onClick.bind(self));
-        self._dblClickId = app.on('dblclick', self.onDblClick.bind(self));
+        self._clickId = app.on('click', self.onClick.bind(self), false, UDEF.createUUID());
+        self._dblClickId = app.on('dblclick', self.onDblClick.bind(self), false, UDEF.createUUID());
+        this._bindMeasureInput(this.onClick.bind(this), this.drawStop.bind(this));
         document.addEventListener('mousemove', self._boundMouseMove, false);
     }
 
     /**
      * 활성 분석의 입력 이벤트를 해제하고 현재 측정을 확정합니다. <br>
-     * 비활성 상태이면 아무 작업도 하지 않습니다. 앱 미연결 시 부모 비활성화만 수행합니다.
+     * 점이 부족하면 현재 임시 도형만 취소하며 소비자의 결과 구독은 유지합니다.
      *
      * @override
      */
@@ -130,7 +131,10 @@ class UAnalyArea extends UAnaly {
         if (!this._isActive) {
             return;
         }
-        super.deactive.call(this);
+        // 화면 구독은 모드 전환 뒤에도 유지하고 이 분석이 등록한 입력만 해제합니다.
+        this._isActive = false;
+        this._unbindMeasureInput();
+        this.clearMeasureFeatureSelection();
         const self = this;
         const app = /** @type {import('@union3d/app/U3dApp').U3dApp} */ (self._app);
         if (!app) return;
@@ -139,26 +143,48 @@ class UAnalyArea extends UAnaly {
         document.removeEventListener('mousemove', self._boundMouseMove, false);
         self._clickId = undefined;
         self._dblClickId = undefined;
-        self._poi = undefined;
-        self._commitFeature();
-        self._setMouseMove = false;
+        this.drawStop();
     }
 
     /**
      * 결과 라벨을 정리하고 현재 측정과 보관한 측정 피처를 제거합니다. <br>
-     * 연결 앱에 화면 갱신을 요청하며 마우스 가이드 상태는 변경하지 않습니다.
+     * 가이드와 라벨 소유 상태를 초기화하고 활성 상태이면 빈 라벨 그룹을 다시 연결합니다.
      *
      * @override
      */
     clear() {
         const self = this;
         super.clear.call(self);
+        this._poiGroup.removeFromParent();
         if (defined(self._app)) {
             self._clearMeasureFeature();
+            if (self.isActive()) self._app.getSceneComment()?.add(self._poiGroup);
         }
         const app = /** @type {import('@union3d/app/U3dApp').U3dApp} */ (self._app);
         if (!app) return;
         app.update();
+    }
+
+    /**
+     * 이 분석에서 확정한 피처 목록을 새 배열로 반환합니다.
+     *
+     * @override
+     * @returns {Array<import('@UMeasureFeature').UMeasureFeature>} 확정 피처 목록의 사본입니다.
+     */
+    getFeatures() { return [...this._features]; }
+
+    /**
+     * 삭제한 피처의 라벨과 소유 목록을 함께 정리합니다.
+     *
+     * @override
+     * @param {import('@UMeasureFeature').UMeasureFeature} feature 삭제한 피처입니다.
+     *
+     * @ignore
+     */
+    _forgetMeasureFeature(feature) {
+        super._forgetMeasureFeature(feature);
+        const index = this._features.indexOf(feature);
+        if (index >= 0) this._features.splice(index, 1);
     }
 
     /**
@@ -181,12 +207,14 @@ class UAnalyArea extends UAnaly {
         });
 
         self.drawTextLabel();
+        app.getSceneComment()?.add(self._poiGroup);
         self._commitFeature();
     }
 
     /**
      * 클릭 교차점을 지리 좌표로 추가하고 라벨을 갱신합니다.
      * 첫 클릭에서는 같은 좌표 참조를 가이드 끝점으로 한 번 더 추가합니다.
+     * 진행 중인 native 더블클릭의 두 번째 클릭은 첫 클릭과 중복되므로 점을 추가하지 않습니다.
      *
      * @param {import('@U3dMouseEvent').U3dMouseEvent} e 사용자 클릭 이벤트
      *
@@ -194,6 +222,9 @@ class UAnalyArea extends UAnaly {
      */
     onClick(e) {
         const self = this;
+        // 종료 제스처의 첫 클릭에서 이미 끝점을 확정했으므로 두 번째 native 클릭은 추가하지 않습니다.
+        if (self._setMouseMove && e.origin?.isTrusted === true && e.origin.detail === 2) return;
+        if (!self._setMouseMove && self.pickMeasureFeature(e)) return;
         const drawArg = /** @type {import('@UDrawArg').UDrawArg} */ (this._drawArg);
         if (!drawArg) return;
 
@@ -203,8 +234,11 @@ class UAnalyArea extends UAnaly {
             return;
         }
 
+        if (self._setMouseMove && this._isRepeatedMeasureRightClick(e, point3d)) return;
+
         const geo = drawArg.getWorldToGeographic(point3d.x, point3d.y, point3d.z);
-        drawArg.addMeasurePoint(geo);
+        if (self._setMouseMove) this._app?.getMeasureLayer()?.addMeasurePoint(geo, true);
+        else drawArg.addMeasurePoint(geo);
         self.drawTextLabel();
 
         if (!self._setMouseMove) {
@@ -246,14 +280,38 @@ class UAnalyArea extends UAnaly {
     }
 
     /**
-     * 마우스 가이드를 먼저 종료하고 현재 측정점을 피처로 확정합니다.
+     * 현재 입력을 종료하며 고정 점이 부족하면 임시 도형을 취소합니다.
      *
      * @ignore
      */
     onDblClick() {
         const self = this;
-        self._setMouseMove = false;
-        self._commitFeature();
+        self.drawStop();
+    }
+
+    /**
+     * 현재 입력을 종료하며 고정 점이 세 개 미만이면 임시 도형과 라벨만 취소합니다.
+     * 완료한 다른 도형과 라벨은 보존하고 안내 끝점은 확정 목록에서 제외합니다.
+     * 점이 부족한 취소도 피처 없이 measureend 이벤트를 전달합니다.
+     */
+    drawStop() {
+        const layer = this._app?.getMeasureLayer();
+        if (!layer || !this._setMouseMove) return;
+        const count = Math.max(0, layer.getMeasureVectors().length - 1);
+        this._setMouseMove = false;
+        if (count < 3) {
+            layer.clearDrawFeature();
+            this._disposeMeasureLabels(this._currentMeasureLabels);
+            this._currentMeasureLabels = [];
+        } else {
+            layer.cancelLastPosition();
+            this.drawTextLabel();
+            this._commitFeature();
+        }
+        this._poi = undefined;
+        this.update();
+        // 취소도 종료 사실을 전달하되 확정 피처와 값은 만들지 않습니다.
+        if (count < 3) this.dispatchEvent('measureend', {feature: undefined, type: undefined, value: 0, target: this});
     }
 
     /**
@@ -294,6 +352,7 @@ class UAnalyArea extends UAnaly {
                 text: text,
                 value: msize
             });
+            self._currentMeasureLabels.push(self._poi);
             self._poiGroup.add((self._poi));
         }
         if (!self._poi) return;
@@ -315,6 +374,10 @@ class UAnalyArea extends UAnaly {
             app.removeMeasureFeature(f);
         }
         this._features = [];
+        this._measureFeatureLabels.clear();
+        this._currentMeasureLabels = [];
+        this.clearMeasureFeatureSelection();
+        this._setMouseMove = false;
     }
 
     /**
@@ -332,6 +395,7 @@ class UAnalyArea extends UAnaly {
         // defined(false)는 참이므로 앱의 명시적인 실패 반환값은 별도로 제외한다.
         if (feature !== false && defined(feature)) {
             this._features.push(feature);
+            this._registerMeasureFeature(feature);
         }
     }
 }

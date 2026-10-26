@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -8,6 +8,7 @@ import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/e
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dModelLayer, U3dModelLayerCO } from "./U3dModelLayer.js";
 import type { U3DTileset } from "../3dTiles/U3DTileset.js";
+import type { UModelTileMaterialStateVo } from "../3dTiles/vo/UModelTileMaterialStateVo.js";
 import type { UCheckTime } from "../core/UCheckTime.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
 import type { UFrustum } from "../core/UFrustum.js";
@@ -22,7 +23,9 @@ import type { DeferredObject } from "../util/deferred.js";
 /**
  * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayer <br>
  *
- * 3D Tiles 콘텐츠를 로드하여 계층별로 표시하는 모델 레이어입니다.
+ * 3D Tiles 콘텐츠를 로드하여 계층별로 표시하는 모델 레이어입니다. <br>
+ * 원본 타일 경계 또는 선택적 콘텐츠 이동 범위로 탐색·LOD·표시 수명을 판정합니다. <br>
+ * 모델 레이어와 시퀀스 확장에서 사용하며 파일 로딩·배치·캐시와 선택 경계 설정을 관리합니다.
  *
  * @group 3dLayer
  *
@@ -35,6 +38,28 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
      * @param {U3dModelTilesLayerCO} opt 타일 데이터 주소와 표시·요청 설정
      */
     constructor(opt: U3dModelTilesLayerCO);
+    /**
+     * 원본 경계에 더할 선택적 월드 이동 범위입니다.
+     *
+     * @type {ModelContentOffsetBounds | null}
+     *
+     * @ignore
+     */
+    _contentOffsetBounds: ModelContentOffsetBounds | null;
+    /**
+     * 경계 변경 후 카메라 정지 상태에서도 다음 판정을 갱신할지 여부입니다.
+     *
+     * @type {boolean}
+     *
+     * @ignore
+     */
+    _contentOffsetBoundsDirty: boolean;
+    /** @type {WeakMap<import('three').Material, import('/union3d/3dTiles/vo/UModelTileMaterialStateVo.js').UModelTileMaterialStateVo>} */
+    _materialStateMap: WeakMap<three.Material, UModelTileMaterialStateVo>;
+    /** @param {WeakMap<import('three').Material, import('/union3d/3dTiles/vo/UModelTileMaterialStateVo.js').UModelTileMaterialStateVo>} value 연결 전 사용할 원본 상태 저장소입니다. */
+    set materialStateMap(value: WeakMap<three.Material, UModelTileMaterialStateVo>);
+    /** @returns {WeakMap<import('three').Material, import('/union3d/3dTiles/vo/UModelTileMaterialStateVo.js').UModelTileMaterialStateVo>} 원본 상태 참조입니다. */
+    get materialStateMap(): WeakMap<three.Material, UModelTileMaterialStateVo>;
     /**
      * 콘텐츠 캐시의 최대 항목 수입니다.
      *
@@ -174,6 +199,45 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
      * @ignore
      */
     get _BIMLevelLengthList(): Record<number, number> | Array<number> | undefined;
+    /**
+     * 0 이동을 포함하는 선택적 월드 이동 범위를 설정합니다.
+     *
+     * @param {ModelContentOffsetBounds | null} [bounds=null] 원본 형상에 더할 월드 X/Y/Z 최소·최대 이동량. 배열을 복사하며 null이면 기존 판정입니다.
+     * @returns {void}
+     */
+    setContentOffsetBounds(bounds?: ModelContentOffsetBounds | null): void;
+    /**
+     * 현재 선택 경계 이동 범위를 독립 배열로 반환합니다.
+     *
+     * @returns {ModelContentOffsetBounds | null} 호출자 소유의 범위 사본 또는 null
+     */
+    getContentOffsetBounds(): ModelContentOffsetBounds | null;
+    /**
+     * 선택 경계 이동 범위를 검증 후 설정합니다.
+     *
+     * @param {ModelContentOffsetBounds | null} value 원본을 변경하지 않을 범위. null이면 기존 판정으로 복귀합니다.
+     * @returns {void}
+     */
+    set contentOffsetBounds(value: ModelContentOffsetBounds | null);
+    /**
+     * 선택 경계 이동 범위를 독립 배열로 반환합니다.
+     *
+     * @returns {ModelContentOffsetBounds | null} 호출자 소유의 범위 사본 또는 null
+     */
+    get contentOffsetBounds(): ModelContentOffsetBounds | null;
+    /**
+     * 갱신 대기 상태의 직접 변경을 거부합니다.
+     *
+     * @param {boolean} value 요청한 상태. setContentOffsetBounds와 update만 관리합니다.
+     * @returns {void}
+     */
+    set contentOffsetBoundsDirty(value: boolean);
+    /**
+     * 경계 변경 후 갱신 대기 여부를 반환합니다.
+     *
+     * @returns {boolean} 다음 유효 update에서 판정 갱신이 필요하면 true
+     */
+    get contentOffsetBoundsDirty(): boolean;
     /**
      * 자동 타일 갱신의 중지 여부를 설정합니다.
      *
@@ -718,6 +782,10 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
      */
     type TileCheckContext = {
         /**
+         * 같은 탐색 주기의 선택적 이동 경계 문맥. 없으면 원본 경계 판정입니다.
+         */
+        contentOffsetContext?: ModelContentOffsetContext | null;
+        /**
          * 문맥을 만든 탐색 세대 ID
          */
         updateId: string | number;
@@ -1041,7 +1109,7 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
 /**
      * 타일 내부 처리에 필요한 상태·조작 범위를 한정합니다.
      */
-    type ModelTileMeshOwner = Pick<U3dModelTilesLayer, "_app" | "_opacity" | "getName">;
+    type ModelTileMeshOwner = Pick<U3dModelTilesLayer, "_app" | "_opacity" | "_materialStateMap" | "getName">;
 
 /**
      * 타일 내부 처리에 필요한 상태·조작 범위를 한정합니다.
@@ -1051,7 +1119,7 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
 /**
      * 타일 내부 처리에 필요한 상태·조작 범위를 한정합니다.
      */
-    type ModelTileOpacityOwner = Pick<U3dModelTilesLayer, "_rootTileSet" | "_dataCache">;
+    type ModelTileOpacityOwner = Pick<U3dModelTilesLayer, "_rootTileSet" | "_dataCache" | "_materialStateMap">;
 
 /**
      * 타일 내부 처리에 필요한 상태·조작 범위를 한정합니다.
@@ -1135,4 +1203,53 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
         batchTable: unknown;
     };
 
-export type { ModelTileBatchOwner, ModelTileBatchResult, ModelTileBoundInfo, ModelTileCalculationInfo, ModelTileCameraOwner, ModelTileContentQueueInfo, ModelTileContentRequestPhase, ModelTileContentRequestState, ModelTileDepthOwner, ModelTileErrorOwner, ModelTileMeshOwner, ModelTileOpacityOwner, ModelTileParserQueueItem, ModelTilePriorityOwner, ModelTileTransformInfo, ModelTileTraversalOwner, TileCheckContext, U3dModelTilesLayer, U3dModelTilesLayerCO, U3dModelTilesLayerCO_Content, viewSizeOffsetFunction };
+/**
+     * 원본 형상 위치와 독립된 월드 이동량의 보수적 범위입니다.
+     */
+    type ModelContentOffsetBounds = {
+        /**
+         * 월드 X/Y/Z 최소 이동량. 유한 숫자이며 각 값은 0 이하입니다.
+         */
+        min: [number, number, number];
+        /**
+         * 월드 X/Y/Z 최대 이동량. 유한 숫자이며 각 값은 0 이상입니다.
+         */
+        max: [number, number, number];
+    };
+
+/**
+     * 같은 탐색 주기에서 재사용할 이동 경계 계산 문맥입니다.
+     */
+    type ModelContentOffsetContext = {
+        /**
+         * 독립 최소 이동 벡터
+         */
+        min: three.Vector3;
+        /**
+         * 독립 최대 이동 벡터
+         */
+        max: three.Vector3;
+        /**
+         * 이동 범위 박스의 중심
+         */
+        center: three.Vector3;
+        /**
+         * 이동 범위 박스 대각선 길이의 절반
+         */
+        radius: number;
+        /**
+         * 이 문맥이 소유하는 재사용 판정 박스
+         */
+        box: three.Box3;
+        /**
+         * 이 문맥이 소유하는 재사용 판정 구
+         */
+        sphere: three.Sphere;
+    };
+
+/**
+     * 재질별 원본 상태 저장소에만 접근하는 내부 보정 문맥입니다.
+     */
+    type ModelTileMaterialOwner = Pick<U3dModelTilesLayer, "_materialStateMap">;
+
+export type { ModelContentOffsetBounds, ModelContentOffsetContext, ModelTileBatchOwner, ModelTileBatchResult, ModelTileBoundInfo, ModelTileCalculationInfo, ModelTileCameraOwner, ModelTileContentQueueInfo, ModelTileContentRequestPhase, ModelTileContentRequestState, ModelTileDepthOwner, ModelTileErrorOwner, ModelTileMaterialOwner, ModelTileMeshOwner, ModelTileOpacityOwner, ModelTileParserQueueItem, ModelTilePriorityOwner, ModelTileTransformInfo, ModelTileTraversalOwner, TileCheckContext, U3dModelTilesLayer, U3dModelTilesLayerCO, U3dModelTilesLayerCO_Content, viewSizeOffsetFunction };

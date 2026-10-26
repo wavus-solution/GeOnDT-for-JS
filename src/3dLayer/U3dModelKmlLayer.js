@@ -128,6 +128,7 @@ class U3dModelKmlLayer extends U3dVectorLayer {
 
         this._heightField = defaultValue(opt.heightField, 'height');
         this._styleFunction = typeof opt.styleFunction === 'function' ? opt.styleFunction : undefined;
+        this.setRenderOrder(this.getRenderOrder());
 
         if (defined(opt.kmlText) && opt.kmlText !== '') {
             this._loadingPromise = this.#loadFromText(opt.kmlText);
@@ -140,7 +141,7 @@ class U3dModelKmlLayer extends U3dVectorLayer {
             }
         }
         this._loadingPromise?.catch((err) => {
-            __GError__(this, `kml load failed. ${err}`, '*code=>');
+            __GError__(this, `kml load failed. ${err}`, '4644376');
         });
     }
 
@@ -273,6 +274,23 @@ class U3dModelKmlLayer extends U3dVectorLayer {
      */
     reload() {
         return this.#load(this._baseUrl);
+    }
+
+    /**
+     * KML 형상을 담는 그룹에 레이어의 렌더 순서를 적용합니다. <br>
+     * 기존 형상과 이후 불러오는 형상에 함께 적용하며, 도형별 렌더 순서와 외곽선의 순서 차이는 유지합니다.
+     *
+     * @override
+     *
+     * @param {number} val 렌더 순서
+     */
+    setRenderOrder(val) {
+        super.setRenderOrder(val);
+        this._scene.renderOrder = val;
+        // Three.js는 그룹의 공개 renderOrder를 자식 렌더 목록의 groupOrder로 사용합니다.
+        this._group.renderOrder = val;
+        (/** @type {import('@UGroup').UGroup & {_renderOrder: number}} */ (this._group))._renderOrder = val;
+        this._app?.changeUpdate?.();
     }
 
     /**

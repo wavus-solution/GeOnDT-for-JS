@@ -420,7 +420,7 @@ async function ensureRuntimeLayer(app, name, config = {}) {
         const adapter = getRuntimeLayerAdapter(canonicalName);
         if (adapter && typeof adapter.create === 'function') {
             if (!adapter.layer) await waitForRuntimeAsyncResult(adapter.create());
-            await waitForRuntimeAsyncResult(adapter.ready || adapter.layer);
+            await waitForRuntimeAsyncResult(adapter.ready || adapter.layer?.ready);
             const adaptedLayer = getRuntimeLayer(app, canonicalName) || adapter.layer;
             if (adaptedLayer) return {layer: adaptedLayer};
         }
@@ -717,7 +717,8 @@ export async function createRuntimeLayers(app, config) {
 
 /**
  * 서울 U3F 서브 레이어를 준비하고 그룹을 반환합니다. 일부 실패 시 준비된 모델은 유지합니다.
- * 레이어는 then 메서드를 가지므로 Promise 결과에는 레이어 대신 래퍼 객체를 전달합니다.
+ * 각 서브 레이어의 ready를 기다린 뒤, 호출부에서 사용하는 {layer: 그룹} 형태로 결과를 전달합니다.
+ *
  * @param {Record<string, unknown>} app GeOnDT 앱
  * @param {string} presetName 모델 프리셋 이름
  * @returns {Promise<{layer: Record<string, unknown>}>} 모델 그룹
@@ -726,7 +727,7 @@ async function createRuntimeModelLayer(app, presetName) {
     const preset = MODEL_LAYER_PRESETS[presetName];
     const existing = getRuntimeLayer(app, preset.name);
     if (existing) return {layer: existing};
-    const group = app.createModelGroupLayer({
+    const group = app.createGroupLayer({
         name: preset.name,
         visible: false,
         minlevel: preset.options.minlevel,
@@ -742,7 +743,7 @@ async function createRuntimeModelLayer(app, presetName) {
         });
         if (!layer) throw new Error(`${basename} U3F 서브 레이어 생성 실패`);
         await new Promise((resolve, reject) => {
-            layer.then(() => { resolve(); }).catch(reject);
+            layer.ready.then(() => { resolve(); }).catch(reject);
         });
         group.addLayer(layer);
     }));

@@ -4,7 +4,7 @@
 
 ## 1. 개요
 
-3DS 모델의 XML 또는 모델 목록을 기반 로더로 읽고, 모델 이름에 따른 층별 사용자 그룹 생성과 위치 이동을 제공한다. 파일·그룹·메시 메타데이터 조회·갱신과 선택 그룹 연결도 담당한다. `U3dApp.createTdsModelLayer()`와 `createModelTdsLayer()`에서 생성하며 실제 파일 로딩은 `U3dModelBasicLayer`에 맡긴다.
+3DS 모델의 XML 또는 모델 목록을 기반 로더로 읽고, 모델 이름에 따른 층별 사용자 그룹 생성과 위치 이동을 제공한다. 파일·그룹·메시 메타데이터 조회·갱신과 선택 그룹 연결도 담당한다. `U3dApp.createTdsModelLayer()`에서 생성하며 실제 파일 로딩은 `U3dModelBasicLayer`에 맡긴다.
 
 ## 3. 정규 자연어 수도코드
 
@@ -161,6 +161,8 @@ U3dModelTdsLayer extends U3dModelBasicLayer 클래스 정의
             U3dModelLayer.initialize를 현재 레이어에 적용한다. _needXml이 정확히 true이면 XML 요청 완료 후 모델 로딩을 시작한다.
             그 외에는 _location이 정의되지 않았을 때만 _geoLocation을 월드 좌표로 변환한다. _object._xml을 새 객체로 만들고 제목을 기록한다.
             _boundingBox로 만든 새 _bbox3D의 중심을 구하여 min과 max에서 빼고 _location을 더한다. 이후 모델 로딩을 시작한다.
+            초기화 설정의 동기 예외와 기존 XML·모델 작업에서 전달된 거부를 레이어 _rejectReady에 연결한다. 원래 작업의 반환값·실패값과 내부의 미종결 경로는 변경하지 않는다.
+            이미 완료한 레이어의 즉시 초기화 설정에서 발생한 동기 예외는 호출자에게 다시 전달한다. 완료 뒤 도착한 비동기 실패는 로그에 남기고 완료 상태를 유지한다.
 
     setUserGroupParams(params: U3dModelTdsGroupParams) -> void
         인터페이스: 기본 층 분류 콜백이 읽을 설정 객체를 저장한다.
@@ -417,11 +419,11 @@ loadModel() -> Promise<U3dModelTdsLayer | undefined>
         UDEF — Promise 생성; 정적 함수: {createPromise()}
         U3dModelBasicLayer — U3F 초기화; 함수: {initializeU3f()}
         UDrawArg — 화면 갱신 요청; 함수: {setUpdateDate()}
-        U3dLayer — 레이어 완료 알림; 함수: {resolve()}
+        U3dLayer — 레이어 완료 알림; 함수: {_resolveReady()}
     동작:
         createPromise 실행기에서 _useU3f가 정의되고 truthy이면 initializeU3f 완료 후 자신으로 resolve한다. 그 외에는 목록 로딩에 resolve를 전달한다.
-        UDEF.createPromise는 deferred 기반 완료 객체를 반환하며 then은 같은 완료 객체를 반환한다. 성공 시 _isLoaded=true, setUpdateDate, 레이어 resolve(self)를 순서대로 실행한다. 완료 값은 U3F 경로의 레이어 또는 목록 경로의 undefined이며 콜백의 반환값으로 치환되지 않는다.
-        완료를 기다리며 등록한 성공 콜백의 예외는 deferred가 __GSError__로 기록하며 이미 반영한 상태는 남는다. UDEF 실행기의 동기 예외는 인수 없는 reject로 종결되지만 이 함수는 모델 비동기 실패를 바깥 reject로 연결하지 않는다. [확인 Q-005]
+        UDEF.createPromise는 표준 Promise를 반환한다. 성공 콜백에서 _isLoaded=true, setUpdateDate, 레이어 _resolveReady()를 순서대로 실행한 뒤 받은 결과를 반환한다. 따라서 새 체인의 완료값도 U3F 경로의 레이어 또는 목록 경로의 undefined를 유지한다.
+        성공 콜백의 예외와 UDEF 실행기의 예외는 반환 Promise의 거부로 전달되며 이미 반영한 상태는 남는다. 이 함수는 모델의 별도 비동기 실패를 실행기 바깥 reject로 연결하지 않는다. [확인 Q-005]
 
 loadListModel(resolve?: function) -> void
     인터페이스: this 레이어의 선택된 시작 인덱스부터 모델을 병렬 로딩한다.

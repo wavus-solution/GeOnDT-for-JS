@@ -44,6 +44,8 @@ VctrTile_Content 부분 타입 명세
             메시 목록과 좌표 참조를 보관한다.
         visible?, disposed?, needPositionUpdate?: boolean
             장면 연결 상태·해제 여부·부모 위치 미준비 상태다.
+        boundingVolume?: Partial<{region: object}>
+            이 레이어는 region의 존재만 읽는다. 원본 region 배열과 공간 판정용 OBB 객체를 모두 허용한다.
         promise?: DeferredObject<U3dQuadTile>
             선언상 쿼드 타일 완료 객체지만 실제 부모 setPromise는 U3DTileset을 전달한다. [확인 Q-003]
         complete?: boolean
@@ -242,7 +244,7 @@ U3dVectorTileLayer extends U3dModelTilesLayer 클래스 정의
             0개는 실패로 판정하지 않으며 showLog이면 정상 개수도 기록한다.
 
 _parseVCTR(obj: ModelTileParserQueueItem) -> DeferredObject<U3DTileset>
-    인터페이스: 레이어를 this로 받아 콘텐츠 버퍼를 해석하며 resolve·reject 값은 타일이다.
+    인터페이스: 레이어를 this로 받아 콘텐츠 버퍼를 해석하며 resolve·reject 값은 타일이다. 공통 큐의 info.tile은 이 진입점에서 VctrTile이며 파서 결과는 points·batchTable 객체 또는 빈 타일의 undefined다.
     의존:
         deferred — 완료 객체; 함수: {deferred()}
         defined — 입력 판정; 함수: {defined()}

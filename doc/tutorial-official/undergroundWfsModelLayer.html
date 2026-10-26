@@ -512,7 +512,7 @@
             self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
             self._app.addLayer(this.layer);
         }
-        this.layer.then(() => {
+        this.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -542,7 +542,7 @@
     HeightLayer.prototype.create = function () {
         let self = this;
         self.layer = this._app.createHeightXYZLayer(self.options);
-        self.layer.then(() => {
+        self.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -778,7 +778,23 @@
         /////////////////////////////////////////////////////
         $(document).on('click', 'input[type=checkbox]', checked);
 
-        var analy = app.getAnalysis('ObjectInfo');
+        // 지하 시설과 건물 레이어만 정밀 클릭으로 선택하며, hover 강조는 사용하지 않는다.
+        const modelSelector = new Union3D.select.U3dSelect({
+            mode: 'point',
+            selectType: 'color',
+            targetLayer: Object.values(LAYER_OPT_).map(option => option.name),
+            pickBufferPx: 0,
+            pickBufferVisible: false,
+            hover: {enabled: false}
+        });
+        app.addSelect(modelSelector);
+        // 정보 창과 선택 객체를 항상 일대일로 유지한다.
+        modelSelector.on('start', function () {
+            if (modelSelector.getSelectCount() > 0) modelSelector.clearSelect();
+        });
+        window.addEventListener('pagehide', function (event) {
+            if (!event.persisted) app.removeSelect(modelSelector);
+        });
         initSlider('opacity');
         initSlider('m-opacity');
 
@@ -793,9 +809,11 @@
             var name = $checkbox.attr('target');
             if (name == 'useinfo') {
                 if ($checkbox[0].checked) {
-                    analy.active();
+                    modelSelector.active();
                 } else {
-                    analy.deactive();
+                    modelSelector.deactive();
+                    modelSelector.clearSelect();
+                    app.removeAllOverlay();
                 }
 
             } else if (name == 'opacity_yn') {
@@ -890,19 +908,17 @@
         }
 
 
-        app.on('click', function (e) {
-            if (analy.isActive()) {
-                var obj = analy.intersectModel(e);
-                if (obj === undefined || obj.length === 0) {
-                    // analy.clear();
-                    return;
-                }
-
-                // var world = app.closestPointAtPixel(e);
-                var latlon = app.vector3ToGeoGraphic(obj[0].point);
-                var overlay = createOverlay('overlay', obj[0], latlon);
-                overlay.show();
+        // 선택 객체와 위치를 같은 선택 완료 이벤트에서 가져와 중복 검색을 피한다.
+        modelSelector.on('end', function (event) {
+            const model = event.data[0];
+            const point = event.work?.worlds?.[0];
+            if (!model || !point) {
+                app.removeAllOverlay();
+                return;
             }
+            const position = app.vector3ToGeoGraphic(point);
+            const overlay = createOverlay('overlay', model, position);
+            overlay.show();
         });
 
         function createOverlay(name, obj, position) {
@@ -923,7 +939,6 @@
         }
 
         function printOverlayHtml(obj) {
-            var obj = obj.object;
             var str = '';
             str += '<div class="u3-popup" id=' + obj.uuid + '>';
             str += '<div class="u3-popup-content">';
@@ -945,7 +960,7 @@
         function popUpCloseClick() {
             $(this.element).off('click', '.close', popUpCloseClick);
             app.removeOverlay(this);
-            analy.clear();
+            modelSelector.clearSelect();
         }
     });
 </script>

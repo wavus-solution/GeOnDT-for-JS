@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -83,6 +83,8 @@ declare class UFileLoader extends three.FileLoader<any> {
      * 같은 URL의 취소되지 않은 요청이 진행 중이면 콜백만 등록하며, three `Cache`에 있으면 즉시 그 데이터를 반환합니다. <br>
      * 취소 직후 같은 URL을 다시 요청할 수 있으므로, 비동기 응답 처리는 URL의 현재 등록값이 아닌
      * 각 네트워크 요청이 소유한 콜백 목록을 사용합니다. 이전 요청의 종료가 새 요청을 정리하지 않도록 보호합니다.
+     * 요청 주소·헤더·Request 생성 또는 fetch 시작의 동기 실패도 원래 사유로 onError에 전달합니다. <br>
+     * 시작 전 실패에는 itemStart·itemEnd를 호출하지 않으며, 진행 중인 다른 소비자 등록을 정리하지 않습니다.
      *
      * @override
      *

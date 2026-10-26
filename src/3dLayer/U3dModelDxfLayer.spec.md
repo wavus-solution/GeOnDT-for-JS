@@ -107,7 +107,7 @@ U3dModelDxfLayer extends U3dModelLayer 클래스 정의
     U3dModelDxfLayer.constructor(opt: Partial<U3dModelDxfLayerCO> = {})
         의존:
             U3dModelLayer — 부모 초기화; 생성자: {new U3dModelLayer()}
-            U3dLayer — 준비 완료; 함수: {resolve()}
+            U3dLayer — 준비 완료; 함수: {_resolveReady()}
             UDEF — 레이어 종류; 상수: {LAYER_TYPE.MODEL}
             Guid — 기본 이름 생성; 함수: {Guid()}
             defaultValue — nullish 기본값; 함수: {defaultValue()}
@@ -117,7 +117,7 @@ U3dModelDxfLayer extends U3dModelLayer 클래스 정의
             drawLine·crs·sourceCRS·소문자 minlevel이 nullish이면 각각 false·'EPSG:3857'·'EPSG:5179'·17을 사용하고, 입력값이 있으면 그대로 저장한다. maxlevel은 minlevel과 같게 둔다. type은 nullish이면 MODEL이며 startlevel·transparent는 이 생성자가 직접 읽지 않는다.
             properties·entity를 각각 빈 배열로, 2dLayer·layerLabel을 undefined로 시작한다. url·소문자 dxfinfo는 nullish이면 undefined이고 labelInfo는 nullish이면 빈 배열이다. dxfinfo를 저장만 하며 여기서 형상을 만들지 않는다.
             useEdge·useExtrude·setAutoHeight는 nullish일 때 true이고 extrudeHeight=2, heightOffset=0이다. style 전체가 nullish일 때만 기본 객체를 만들고 부분 스타일은 보충하지 않는다.
-            styleFunction을 저장하고 상속 resolve가 정의되어 있으면 레이어 자체로 준비 상태를 완료한다. 이 완료는 DXF 객체 생성 완료가 아니다.
+            styleFunction을 저장하고 상속 _resolveReady가 정의되어 있으면 레이어 자체로 준비 상태를 완료한다. 이 완료는 DXF 객체 생성 완료가 아니다.
 
     override U3dModelDxfLayer.dispose() -> void
         의존:

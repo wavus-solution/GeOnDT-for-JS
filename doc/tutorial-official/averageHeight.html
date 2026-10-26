@@ -454,10 +454,10 @@
         Object.assign(buldLayerConstruct, {renderorder: 0}); //+ 렌더링 순서, 숫자가 클수록 앞에 나온다
         Object.assign(buldLayerConstruct, {useproxy: false}); //+ 프록시 사용 여부, defaultValue(opt.useproxy, false);
         let subLayer = app.create3DFModelLayer(buldLayerConstruct);
-        subLayer.then(function (layer) {
+        subLayer.ready.then(function (layer) {
             app.showLayer(layer.getName(), true);
             count++;
-        }).fail(function (layer) {
+        }).catch(function (layer) {
 
         });
         modelayers = modelayers || [];

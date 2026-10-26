@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -19,25 +19,27 @@ import type { WorldPositionVector3 } from "../types/global.js";
 type UPolygonColliderCO_Content = {
     /**
      * 입체의 바닥면 둘레를 이루는 정점 목록이며 월드 좌표(EPSG:3857)로 해석합니다.<br>
-     * top과 정점 수가 같아야 하고 3개 이상이어야 하며, 충족하지 않으면 생성자가 `Error`를 던집니다.
+     * top과 정점 수가 같아야 하고 3개 이상이어야 하며, 충족하지 않으면 생성자가 `Error`를 던집니다.<br>
+     * z를 생략하면 입력의 최소 높이를 사용하고 모든 정점에 z가 없으면 target 경계 상자의 최소 높이(없으면 0)를 사용합니다.
      */
     bottom?: Array<three.Vector2Like | three.Vector3Like>;
     /**
      * 입체의 윗면 둘레를 이루는 정점 목록이며 월드 좌표(EPSG:3857)로 해석합니다.<br>
-     * i번째 정점이 bottom의 i번째 정점과 이어져 옆면을 만듭니다.
+     * i번째 정점이 bottom의 i번째 정점과 이어져 옆면을 만듭니다.<br>
+     * z를 생략하면 입력의 최대 높이를 사용하고 모든 정점에 z가 없으면 target 경계 상자의 최대 높이(없으면 0)를 사용합니다.
      */
     top?: Array<three.Vector2Like | three.Vector3Like>;
     /**
-     * 높이 방향으로 형상을 몇 단계까지 잘라 계산할지 정하는 값이며, 클수록 교차 판정과 부피 계산이 정밀해지고 계산량이 늘어납니다.
+     * 높이 적분의 초기 구간 수와 적응 세분 깊이를 정하는 값이며, 클수록 부피 계산이 정밀해지고 계산량이 늘어납니다.
      */
     precision?: number;
     /**
-     * 입력 정점에 처음부터 적용할 Z축 회전 각도이며 단위는 라디안(rad), +X 방향을 0으로 한 반시계 방향입니다.<br>
-     * `{z: 각도}` 형태의 객체로도 지정할 수 있고 setRotation·setTransform이 갱신하는 각도와 같습니다.
+     * 입력 월드 정점에 이미 적용된 초기 방향입니다. 생성 시 정점을 다시 회전하지 않습니다.<br>
+     * 숫자와 `{z: 각도}`는 Z축 회전(rad, +X 기준 반시계)이며 Quaternion은 전체 방향입니다. 이후 setTransform에 전달하는 절대 방향의 기준으로 사용합니다.
      */
     rotation?: number | {
         z: number;
-    };
+    } | three.QuaternionLike;
 };
 
 /**
@@ -54,12 +56,14 @@ type UPolygonColliderCO = Omit<Omit<UColliderCO, never> & UPolygonColliderCO_Con
  *
  * @typedef {object} UPolygonColliderCO_Content
  * @property {Array<import('three').Vector2Like | import('three').Vector3Like>} [bottom] 입체의 바닥면 둘레를 이루는 정점 목록이며 월드 좌표(EPSG:3857)로 해석합니다.<br>
- * top과 정점 수가 같아야 하고 3개 이상이어야 하며, 충족하지 않으면 생성자가 `Error`를 던집니다.
+ * top과 정점 수가 같아야 하고 3개 이상이어야 하며, 충족하지 않으면 생성자가 `Error`를 던집니다.<br>
+ * z를 생략하면 입력의 최소 높이를 사용하고 모든 정점에 z가 없으면 target 경계 상자의 최소 높이(없으면 0)를 사용합니다.
  * @property {Array<import('three').Vector2Like | import('three').Vector3Like>} [top] 입체의 윗면 둘레를 이루는 정점 목록이며 월드 좌표(EPSG:3857)로 해석합니다.<br>
- * i번째 정점이 bottom의 i번째 정점과 이어져 옆면을 만듭니다.
- * @property {number} [precision=6] 높이 방향으로 형상을 몇 단계까지 잘라 계산할지 정하는 값이며, 클수록 교차 판정과 부피 계산이 정밀해지고 계산량이 늘어납니다.
- * @property {number | {z: number}} [rotation=0] 입력 정점에 처음부터 적용할 Z축 회전 각도이며 단위는 라디안(rad), +X 방향을 0으로 한 반시계 방향입니다.<br>
- * `{z: 각도}` 형태의 객체로도 지정할 수 있고 setRotation·setTransform이 갱신하는 각도와 같습니다.
+ * i번째 정점이 bottom의 i번째 정점과 이어져 옆면을 만듭니다.<br>
+ * z를 생략하면 입력의 최대 높이를 사용하고 모든 정점에 z가 없으면 target 경계 상자의 최대 높이(없으면 0)를 사용합니다.
+ * @property {number} [precision=6] 높이 적분의 초기 구간 수와 적응 세분 깊이를 정하는 값이며, 클수록 부피 계산이 정밀해지고 계산량이 늘어납니다.
+ * @property {number | {z: number} | import('three').QuaternionLike} [rotation=0] 입력 월드 정점에 이미 적용된 초기 방향입니다. 생성 시 정점을 다시 회전하지 않습니다.<br>
+ * 숫자와 `{z: 각도}`는 Z축 회전(rad, +X 기준 반시계)이며 Quaternion은 전체 방향입니다. 이후 setTransform에 전달하는 절대 방향의 기준으로 사용합니다.
  *
  * @memberof UPolygonCollider
  * @inner
@@ -67,21 +71,11 @@ type UPolygonColliderCO = Omit<Omit<UColliderCO, never> & UPolygonColliderCO_Con
  * @typedef {Omit<UColliderCO, never> & UPolygonColliderCO_Content} UPolygonColliderCO
  */
 /**
- * 높이 z에서 자른 단면을 이루는 2D 선분 하나입니다.<br>
- * 단면 다각형을 조립하는 이 모듈의 내부 계산에만 사용합니다.
- *
- * @typedef {object} Slice2DSegment
- * @property {import('three').Vector2} start 선분의 시작점이며 월드 좌표(EPSG:3857)의 XY 성분입니다.
- * @property {import('three').Vector2} end 선분의 끝점이며 월드 좌표(EPSG:3857)의 XY 성분입니다.
- *
- * @ignore
- */
-/**
  * ~extends import('@union3d/collision/UCollider').UCollider <br>
  *
  * 바닥면과 윗면의 다각형(polygon)을 위아래로 이어 만든 입체 영역으로 충돌을 판정하는 충돌체(collider)입니다.<br>
  * 다른 충돌체와 겹치는지, 자기 부피의 얼마만큼이 겹쳤는지, 겹친 부분의 부피가 얼마인지를 계산합니다.<br>
- * 바닥면과 윗면의 평면 모양이 같으면 기둥(prism)으로 보고 빠른 계산 경로를, 모양이 다르면 높이별 단면을 만드는 계산 경로를 사용합니다.
+ * 바닥·윗면 링이 수평이고 XY 정점이 같으면 기둥(prism)의 빠른 계산 경로를, 기울어지거나 모양이 다르면 높이별 단면을 만드는 계산 경로를 사용합니다.
  *
  * @group collision
  */
@@ -99,7 +93,7 @@ declare class UPolygonCollider extends UCollider {
      * 바닥·윗면 정점을 새 형상으로 교체합니다.<br>
      * 두 배열의 정점 수가 같고 3개 이상이어야 하며, 정점은 월드 좌표(EPSG:3857)로 해석합니다.<br>
      * 성공하면 2D 단면, 경계 상자, 높이 범위와 단면·부피 캐시를 다시 만듭니다.<br>
-     * 이때 기준 위치는 target의 월드 좌표(EPSG:3857)가 있으면 그 값, 없으면 새 정점의 평균 위치가 되고 Z축 회전은 0으로 돌아갑니다.<br>
+     * 이때 기준 위치는 target의 월드 좌표(EPSG:3857)가 있으면 그 값, 없으면 새 정점의 평균 위치가 되고 전체 회전은 항등 Quaternion으로 돌아갑니다.<br>
      * 검증에 실패하면 기존 형상과 캐시를 그대로 두고 false를 반환합니다.
      *
      * @param {Array<import('three').Vector2Like | import('three').Vector3Like>} bottom 월드 좌표(EPSG:3857)로 지정한 새 바닥면 둘레 정점 목록
@@ -118,38 +112,46 @@ declare class UPolygonCollider extends UCollider {
         top: Array<three.Vector3>;
     };
     /**
-     * 충돌체의 Z축 회전을 설정합니다.<br>
+     * 충돌체의 절대 방향을 설정합니다.<br>
      * 회전 중심은 getPosition()이 반환하는 현재 기준 위치이며 그 위치는 바뀌지 않습니다.
      *
-     * @param {number | {z: number}} rotation 새 Z축 회전 각도(rad, +X 방향을 0으로 한 반시계) 또는 `{z: 각도}` 형태의 객체
+     * @param {number | {z: number} | import('three').QuaternionLike} rotation 전체 방향 Quaternion 또는 Z축 회전(rad, +X 기준 반시계). 숫자·`{z}` 입력은 pitch·roll이 없는 Z축 방향으로 설정합니다.
      */
     setRotation(rotation: number | {
         z: number;
-    }): void;
+    } | three.QuaternionLike): void;
     /**
-     * 현재 Z축 회전 각도를 반환합니다.
+     * 현재 Z축 회전 각도를 반환합니다. Quaternion으로 설정한 방향은 ZYX 분해의 yaw를 반환합니다.
      *
      * @returns {number} 라디안(rad) 단위의 Z축 회전 각도이며 +X 방향을 0으로 한 반시계 방향
      */
     getRotation(): number;
     /**
+     * 현재 전체 방향을 복사해 반환합니다. 반환값을 바꾸어도 충돌체의 방향은 변하지 않습니다.
+     *
+     * @param {import('three').Quaternion} [target] 복사 결과를 받을 Quaternion이며 생략하면 새로 생성합니다.
+     * @returns {import('three').Quaternion} 현재 정규화된 절대 방향을 복사한 target 또는 새 Quaternion
+     */
+    getQuaternion(target?: three.Quaternion): three.Quaternion;
+    /**
      * 현재 기준 위치에서 대상 지점을 바라보도록 Z축 회전을 맞춥니다.<br>
-     * 기준 위치는 바뀌지 않으며 형상의 +X 방향이 대상을 향하게 됩니다.<br>
+     * 기준 위치는 바뀌지 않으며 pitch·roll이 없는 방향으로 형상의 +X 방향이 대상을 향하게 됩니다.<br>
      * 대상이 현재 기준 위치와 XY 평면에서 같은 자리면 회전을 바꾸지 않습니다.
      *
      * @param {import('three').Vector2Like} point 월드 좌표(EPSG:3857)로 지정한 바라볼 지점
      */
     lookAt(point: three.Vector2Like): void;
     /**
-     * 충돌체의 기준 위치와 Z축 회전을 함께 설정합니다.<br>
-     * 현재 기준 위치를 중심으로 회전 변화량만큼 XY 평면에서 정점을 회전한 뒤 이동량만큼 평행이동합니다.
+     * 충돌체의 기준 위치와 절대 방향을 함께 설정합니다.<br>
+     * 기준 로컬 정점에 Quaternion을 적용하므로 pitch·roll·yaw를 지원하고 반복 갱신 시 회전 오차가 누적되지 않습니다.<br>
+     * 형상이 바뀌지 않으면 삼각분할과 전체 부피 캐시를 재사용하고, 현재 방향에 의존하는 단면·경계만 갱신합니다.
      *
      * @param {WorldPositionVector3} [position] 월드 좌표(EPSG:3857)로 지정한 새 기준 위치이며, 생략하면 target의 현재 월드 좌표(EPSG:3857)를 쓰고 target도 없으면 위치 유지
-     * @param {number | {z: number}} [rotation] 새 Z축 회전 각도(rad, +X 방향을 0으로 한 반시계) 또는 `{z: 각도}` 형태의 객체. 생략하면 현재 회전 유지
+     * @param {number | {z: number} | import('three').QuaternionLike} [rotation] 정규화 가능한 전체 방향 Quaternion 또는 Z축 회전(rad, +X 기준 반시계). 숫자·`{z}`는 pitch·roll을 해제합니다. 생략하거나 유효하지 않으면 현재 방향을 유지합니다.
      */
     setTransform(position?: WorldPositionVector3, rotation?: number | {
         z: number;
-    }): void;
+    } | three.QuaternionLike): void;
     /**
      * 바닥면을 XY 평면에 투영한 다각형(polygon) 정점의 복사본을 반환합니다.
      *
@@ -196,6 +198,7 @@ declare class UPolygonCollider extends UCollider {
      *
      * @param {import('@union3d/collision/USphereCollider').USphereCollider} sphere 겹친 부피를 구할 상대 구 충돌체
      * @returns {number} 두 형상이 겹치는 부분의 부피이며 겹치지 않으면 0
+     * @throws {Error} 단면 경계가 닫히지 않거나 유효한 단면 교차를 계산할 수 없는 경우
      */
     _computeSphereInterVolume(sphere: USphereCollider): number;
     /**
@@ -225,7 +228,7 @@ declare class UPolygonCollider extends UCollider {
      * 폴리곤(polygon)–폴리곤 교차율의 기준값을 계산하기 위해 교차 부피를 구간 분할 Gauss–Legendre로 적분합니다.
      *
      * 두 로프트(loft)의 단면 정점은 높이에 대해 선형으로 움직이므로 단면 교차 면적은 높이의 구간별 매끄러운<br>
-     * 유리함수이고, 한 로프트의 모서리가 다른 로프트의 측면 삼각형을 뚫는 높이와 정점 높이에서만 꺾입니다.<br>
+     * 유리함수이고, 한 로프트의 모서리가 다른 로프트의 바닥·윗면을 포함한 표면 삼각형을 뚫는 높이와 정점 높이에서만 꺾입니다.<br>
      * 이 높이들을 모두 구간 경계로 삼으면 구간마다 Gauss–Legendre가 빠르게 수렴합니다.<br>
      * 단면 교차 자체는 JSTS 다각형 연산이므로 높이 방향 수치 적분 외의 근사는 없지만 참값을 보장하지는 않습니다.
      *

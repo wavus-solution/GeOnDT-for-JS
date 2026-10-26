@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -352,7 +352,7 @@ declare class U3dMultipleComponentLayer extends U3dModelBasicLayer {
     _componentMap: Map<any, any>;
     labelVisible: any;
     /**
-     * 레이어에 배치된 컴포넌트를 한꺼번에 화면에 나타내는 메서드입니다. <br>
+     * 원본 모델을 제외하고 레이어에 배치된 컴포넌트를 한꺼번에 화면에 나타내는 메서드입니다. <br>
      * 개별 컴포넌트를 hideComponent로 숨겨 둔 경우 그 컴포넌트는 숨겨진 상태로 남습니다.
      *
      * @override
@@ -426,28 +426,6 @@ declare class U3dMultipleComponentLayer extends U3dModelBasicLayer {
      */
     getInstancedInfo(): InstancedInfoStore;
     /**
-     * 화면에 그려진 누적 경로(trail)를 눌러 그 경로의 주인 컴포넌트를 찾는 메서드입니다. <br>
-     * 마우스 위치와 각 컴포넌트의 누적 경로가 겹치는지 검사해 겹친 컴포넌트를 모아 돌려줍니다. <br>
-     * 누적 경로를 남기지 않도록 만들어졌거나 아직 지나온 자취가 없는 컴포넌트는 검사 대상에서 빠집니다. <br>
-     * 컴포넌트 자체를 클릭해 고르는 것이 아니라 경로 선을 클릭해 고르는 용도입니다.
-     *
-     * @param {MouseEvent} e 클릭 위치를 담고 있는 마우스 이벤트 <br>
-     * @returns {Array<ComponentObject>} 누른 지점에 누적 경로가 걸린 컴포넌트 목록이며 걸린 것이 없으면 빈 배열 <br>
-     */
-    selectComponentByTrails(e: MouseEvent): Array<ComponentObject>;
-    /**
-     * 컴포넌트를 마우스로 고르기 쉽도록 선택용 보조 영역을 켜는 메서드입니다. <br>
-     * 가늘거나 작은 컴포넌트도 넉넉한 영역으로 집을 수 있게 됩니다. <br>
-     * 호출 시점의 컴포넌트에만 적용됩니다.
-     */
-    onSelectHelperMeshes(): void;
-    /**
-     * 선택용 보조 영역을 끄는 메서드입니다. <br>
-     * 끄면 컴포넌트의 실제 형상에 닿아야만 고를 수 있습니다. <br>
-     * 호출 시점의 컴포넌트에만 적용됩니다.
-     */
-    offSelectHelperMeshes(): void;
-    /**
      * 각 컴포넌트의 경계영역을 화면에 선으로 그려 확인하는 개발용 메서드입니다. <br>
      * 켜 두면 매 프레임 현재 컴포넌트들의 경계영역을 다시 그립니다.
      *
@@ -490,9 +468,9 @@ declare class U3dMultipleComponentLayer extends U3dModelBasicLayer {
      */
     getComponentByName(name: string): ComponentObject | undefined;
     /**
-     * Raycaster 교차(intersect) 결과로 교차되는 컴포넌트를 찾아 반환하는 메서드
+     * 모델이나 누적 경로의 교차(intersect) 결과로 소유 컴포넌트를 찾아 반환하는 메서드
      *
-     * @param {import('three').Intersection} intersect  Raycaster 교차 결과 객체
+     * @param {import('three').Intersection} intersect Raycaster 또는 U3dSelect 버퍼 검색의 교차 결과 객체
      * @returns {ComponentObject | undefined} 찾은 컴포넌트. 없으면 `undefined`
      *
      * @ignore

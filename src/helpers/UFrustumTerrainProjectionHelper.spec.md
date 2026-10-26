@@ -17,11 +17,12 @@
 - 광선별 hit/miss와 이분 정제한 경계 위치를 프레임 사이에서 중앙값·거리 제한·시간 EMA로 안정화한다.
 - marching squares로 hit 격자를 잘라 footprint polygon 집합과 그 합집합 외곽선을 만든다.
 - 개별 UV 영역의 카메라 선택과 원거리 내부 분할 LOD는 Helper가 소유한다. 공용 `UTerrainStamp`와 `load()`로 복원한 Stamp에는 이 정책을 적용하지 않는다. 지형 높이 범위를 확인할 수 있는 단색 접촉 경로에서만 적용하며 외곽선 해상도와 hit/miss 정제 횟수는 유지한다.
-- footprint polygon이 내부 상한을 넘으면 격자 해상도를 낮춰 다시 만들고, 외곽선 stamp가 image layer나 채움과 공유하는 예산을 확보하지 못하면 외곽선만 `LineSegments2` 출력으로 되돌린다.
+- footprint polygon이 내부 상한을 넘으면 격자 해상도를 낮춰 다시 만든다. 외곽선 stamp가 채움과 공유하는 예산을 확보하지 못하거나 기존 backend에 image layer가 없으면 외곽선만 `LineSegments2` 출력으로 되돌린다.
 - 외곽선의 각 지면점과 같은 UV의 near 점을 이어 옆면 curtain과 대표 구조선을 만든다.
 - 대상 Frustum 자세를 히스테리시스와 far 적응형 반감기로 시간 안정화하여 helper의 world matrix로 확정한다.
 - 선·채움·옆면·투영선의 색상, 두께, 투명도와 표시 상태 및 자원 해제를 제공한다.
-- 책임 경계: 지형 타일의 수명과 공용 높이 API는 `UDrawArg`가, stamp 등록과 shader 출력은 `UTerrainStamp`가 소유한다. helper는 drawArg의 타일 목록을 공유 숫자 색인으로 검색하고 조회 시 현재 로드 상태와 높이를 읽는다. 정지 광선은 목록 revision과 실제 의존 타일의 상태가 같을 때 높이를 재사용한다. 표준 tile cache가 없는 provider는 기존 batch API로 조회한다. 고도 레이어의 로드나 대상 `Frustum`의 target·matrix 갱신은 수행하지 않는다.
+- 생성 옵션 useFastStamp가 true이어도 기존 최초 지면 접점·대표 구조선·옆면·중심점 계산을 그대로 사용한다. 채움 polygon과 외곽 polyline의 세계좌표를 UFastTerrainStamp 한 개에 전달하며 save도 그 마지막 표시 도형을 복사한다. 기본 false는 기존 UTerrainStamp 출력을 유지한다. 빠른 출력은 색상·투명도와 두 색 그라데이션을 지원한다. 이미지·mask·대상 레이어 요청은 기능별 한 번 경고하고 무시하며 생성 후 backend 선택은 고정이다.
+- 책임 경계: 지형 타일의 수명과 공용 높이 API는 `UDrawArg`가, stamp 등록과 출력은 선택한 `UTerrainStamp` 또는 `UFastTerrainStamp`가 소유한다. helper는 drawArg의 타일 목록을 공유 숫자 색인으로 검색하고 조회 시 현재 로드 상태와 높이를 읽는다. 정지 광선은 목록 revision과 실제 의존 타일의 상태가 같을 때 높이를 재사용한다. 표준 tile cache가 없는 provider는 기존 batch API로 조회한다. 고도 레이어의 로드나 대상 `Frustum`의 target·matrix 갱신은 수행하지 않는다.
 
 ### 1.3 주요 동작 방식
 
@@ -52,6 +53,10 @@ UFrustumTerrainProjectionRetiredResource 타입 정의
     isObject3D?: boolean
         true이면 자식까지 포함한 공통 Object3D 소유권 정리 경로를 사용한다.
 
+UFrustumTerrainProjectionStamp 타입 정의
+    UTerrainStamp | UFastTerrainStamp
+        실시간 지면 출력과 기존 복원 Stamp의 공통 연결 타입이다.
+
 UFrustumTerrainProjectionLifecycleJob 타입 정의
     sequence: number
         회차 시작 뒤 접수된 요청을 다음 회차로 넘기기 위한 순서이다.
@@ -61,7 +66,7 @@ UFrustumTerrainProjectionLifecycleJob 타입 정의
         소유자의 대기 큐 참조와 렌더 활성 표시를 비운다.
 
 UFrustumTerrainProjectionLifecyclePublication 타입 정의
-    stamps: Array<UTerrainStamp>
+    stamps: Array<UFrustumTerrainProjectionStamp>
         같은 묶음에서 표시할 실시간 채움·외곽선 Stamp이며 복원 목록은 포함하지 않는다.
     publish: Function
         현재 표시·Scene·app 자격과 저장한 객체 identity를 확인하여 준비한 출력을 표시한다.
@@ -137,7 +142,7 @@ UFrustumTerrainProjectionHelper_Fill_Content 부분 타입 명세
         terrainStamp?: boolean
             false이면 지면 채움 stamp를 만들지 않는다.
         terrainOutlineStamp?: boolean
-            기본값 true이며 지형 표면에 밀착한 stamp 외곽선이다. false이면 접촉 외곽선을 생략한다. 영상 레이어 부재나 stamp 예산 부족 시 접점을 잇는 선으로 대체한다.
+            기본값 true이며 지형 표면에 밀착한 stamp 외곽선이다. false이면 접촉 외곽선을 생략한다. 기존 backend의 영상 레이어 부재나 stamp 예산 부족 시 접점을 잇는 선으로 대체한다.
         terrainOutlineWidthUnits?: 'pixels' | 'meters' = 'pixels'
             stamp 외곽선 두께 단위이다.
         terrainStampGridSize?: number = 9
@@ -222,6 +227,8 @@ UFrustumTerrainProjectionHelperCO_Content 부분 타입 명세
             fill 옵션과 같은 의미이며 fill 쪽 값이 우선한다.
         cullByMainCamera?: boolean = true
             메인 카메라 밖의 Helper와 단색 지면의 개별 영역·Stamp를 선택하고 원거리 내부 LOD를 적용한다. 이미지·그라데이션·mask·미터 단위 선·높이 범위 미확인·큰 격자·예산 fallback에서는 개별 영역 정책을 적용하지 않는다.
+        useFastStamp?: boolean = false
+            true이면 기존 높이 조회·UV 격자·지면 경계 필터에서 확정한 footprint와 단색 표현을 한 Fast carrier에 전달하고 생성 후 전환하지 않는다. 대표선·옆면·중심점은 기존 backend와 같은 지면 결과를 사용한다. 저장은 마지막 표시 도형의 사본이며 복원 Stamp는 기존 backend를 유지한다.
         smoothing?: boolean = false
             모든 layout 샘플이 지면과 교차한 호환 drape 경로의 외곽선 내부점만 완화한다. fill grid와 기본 접촉 전용 경로에는 적용하지 않는다.
         smoothingIterations?: number = 2
@@ -255,7 +262,7 @@ UFrustumTerrainProjectionHelperCO_Content 부분 타입 명세
         terrain?: boolean = false
             true이면 near→far 광선과 현재 렌더 지면의 교차점으로 실제 지면 footprint를 만든다. 좌표별 고도 데이터가 없으면 기본 평면 높이 0을 사용한다.
         terrainOutlineStamp?: boolean
-            기본값 true이며 지형 표면에 밀착한 stamp 외곽선이다. false이면 접촉 외곽선을 생략한다. 영상 레이어 부재나 stamp 예산 부족 시 접점을 잇는 선으로 대체한다.
+            기본값 true이며 지형 표면에 밀착한 stamp 외곽선이다. false이면 접촉 외곽선을 생략한다. 기존 backend의 영상 레이어 부재나 stamp 예산 부족 시 접점을 잇는 선으로 대체한다.
         terrainOutlineWidthUnits?: 'pixels' | 'meters' = 'pixels'
             stamp 외곽선 두께 단위이다.
         fill?: UFrustumTerrainProjectionHelper_Fill_Content
@@ -266,6 +273,15 @@ UFrustumTerrainProjectionHelperCO 타입 정의
 
 UFrustumTerrainProjectionHelper extends LineSegments2 클래스 정의
     의존: LineSegments2 — 굵은 선 렌더 객체의 geometry·material·Object3D 수명주기 제공; 상속: {LineSegments2}
+
+    static OPT_KEYS: Array<string>
+        생성자가 읽는 top-level 옵션의 정본 키 목록이며 useFastStamp를 포함한다.
+
+    #useFastStamp: boolean = false
+        생성 시 정한 실시간 지면 backend이며 이후 바꾸지 않는다.
+
+    get useFastStamp() -> boolean
+        동작: 생성 시 고정한 backend 선택값을 반환한다.
 
     #implementation: UFrustumTerrainProjectionImplementation
         인스턴스마다 한 번 생성하는 비공개 계산 상태이며 공개 렌더 객체의 동일성·접근 계약은 바꾸지 않는다.
@@ -416,6 +432,7 @@ UFrustumTerrainProjectionHelper extends LineSegments2 클래스 정의
             fill.terrainStampGridSize를 terrainStampGridSize보다 우선하고 fill.terrainBoundaryRefinementSteps를 terrainBoundaryRefinementSteps보다 우선하지만, terrainOutlineStamp를 fill.terrainOutlineStamp보다 우선하고 terrainOutlineWidthUnits를 fill.terrainOutlineWidthUnits보다 우선한다.
 
         처리 기준:
+            정적 OPT_KEYS의 top-level 생성 옵션 키를 normalizeOptionKeys로 정규화한 뒤 읽는다. useFastStamp는 엄격한 true만 활성화하고 private 필드에 고정한다.
             선 geometry는 외곽선 최대 선분 수만큼 고정 buffer로 미리 할당하여 갱신마다 재할당하지 않는다.
             lineWidth는 유한한 양수만 사용하고 그 밖의 값은 2로 정규화하여 선 재질과 stamp 외곽선 상태에 함께 저장한다.
             depthOffset은 생략하면 0.005를 사용하고 0이면 shader 주입 없이 재질을 그대로 쓴다.
@@ -431,7 +448,7 @@ UFrustumTerrainProjectionHelper extends LineSegments2 클래스 정의
             LineSegmentsGeometry — 선 geometry 생성; 생성자: {new LineSegmentsGeometry()}
             LineMaterial — 선 재질 생성; 생성자: {new LineMaterial()}
             THREE — 기본 프러스텀과 색상 생성, removed 리스너 등록, 자식 추가; 생성자: {new Frustum(), new Color()}; 함수: {Object3D.addEventListener(), Object3D.add()}
-            UTerrainStamp — 지면 채움 stamp 준비와 tile 상한 설정; 생성자: {new UTerrainStamp()}; 함수: {setMaxStampsPerTile()}
+            UTerrainStamp, UFastTerrainStamp — 선택된 backend의 지면 채움 stamp와 tile 상한 설정; 함수: {setMaxStampsPerTile()}
 
         동작:
             선 geometry를 만들고 최대 선분 수만 지연 등록한다. 큰 instance buffer는 첫 유효 형상 갱신에서 할당한다.
@@ -668,14 +685,14 @@ UFrustumTerrainProjectionHelper extends LineSegments2 클래스 정의
             코너가 없으면 지면 이력을 버리고 선 geometry를 비운 뒤 채움·옆면·stamp를 정리하고 숨긴다.
 
             메인 카메라와 겹치지 않으면 지면 이력을 버리고 stamp와 출력을 숨긴다.
-            지형 모드이면 지면 접촉 형상을 계산한다.
+            backend와 무관하게 지형 모드이면 기존 지면 접촉 형상을 계산한다.
             footprint가 없다고 판정되면 선 geometry를 비우고 채움·옆면·stamp를 정리한 뒤 숨긴다.
-            접촉 전용 결과이면 그 결과의 선분 배열을 그대로 쓰고, 지형 drape 결과이면 near 코너와 지면 코너를 잇는 외곽선을 앞에 더하며, 지형 모드가 아니면 near·far 코너를 12개 모서리 쌍으로 펼친 고정 배열을 만든다.
+            접촉 전용 결과이면 그 결과의 선분 배열을 그대로 쓰고, 지형 drape 결과이면 near 코너와 지면 코너를 잇는 외곽선을 앞에 더하며, 비지형이면 near·far 코너를 12개 모서리 쌍으로 펼친 고정 배열을 만든다.
             선 재질을 표시하고 확정한 선분 배열로 선 geometry를 갱신한다.
             채움과 옆면 mesh를 현재 코너·지형 결과로 갱신한다.
-            지면 외곽선 stamp와 채움 stamp를 갱신한다.
+            Fast 지형도 같은 접점의 선·옆면을 사용하며 지면 도형은 한 footprint carrier에 전달한다. 기존 backend는 지면 외곽선 stamp와 채움 stamp를 갱신한다.
 
-            투영 점선이 있으면 표시하고 도착점을 footprint 중심으로 갱신한 뒤 자기 자신을 반환한다.
+            투영 점선이 있으면 표시하고 두 backend 모두 같은 footprint 중심으로 도착점을 갱신한 뒤 자기 자신을 반환한다.
 
     선 스타일 책임 그룹
         역할: helper 선과 지면 외곽선 stamp의 색상·두께·불투명도를 함께 바꾼다.
@@ -684,29 +701,29 @@ UFrustumTerrainProjectionHelper extends LineSegments2 클래스 정의
             의존:
                 THREE — 색상 사본과 재질 색상 갱신; 함수: {Color.set()}
                 LineSegments2 — 선 재질 조회; 속성 읽기: {material}
-                UTerrainStamp — 외곽선 stamp 색상 갱신; 함수: {setColor()}
+                UTerrainStamp, UFastTerrainStamp — 외곽선 stamp 색상 갱신; 함수: {setColor()}
             동작:
                 보관 색상과 선 재질 색상을 같은 값으로 설정한다.
-                외곽선 stamp 풀 전체에 같은 색상을 적용하고 자기 자신을 반환한다.
+                외곽선 stamp 풀 전체에 같은 색상을 적용한다. Fast 지형은 마지막 footprint의 외곽선 표현만 다시 반영하며 표시 상태는 바꾸지 않고 자기 자신을 반환한다.
 
         setLineWidth(lineWidth: number) -> UFrustumTerrainProjectionHelper
             처리 기준: 입력이 양수인 유한값이 아니면 마지막 정상 두께를 유지하고 선과 stamp 외곽선에 같은 값을 적용한다.
             의존:
                 LineSegments2 — 선 재질 두께 설정; 속성 쓰기: {material.linewidth}
-                UTerrainStamp — 외곽선 stamp 두께 갱신; 함수: {setStyle()}
+                UTerrainStamp, UFastTerrainStamp — 외곽선 stamp 두께 갱신; 함수: {setStyle()}
             동작:
                 입력을 양수인 유한값으로 확인하고 유효하지 않으면 현재 stamp 외곽선 두께를 유지한다.
                 확정한 같은 두께를 선 재질과 stamp 외곽선 상태에 저장한다.
-                외곽선 stamp 풀 전체에 새 두께를 적용하고 자기 자신을 반환한다.
+                외곽선 stamp 풀 전체에 새 두께를 적용한다. Fast 지형이면 마지막 footprint의 선 표현도 표시 상태를 바꾸지 않고 반영한 뒤 자기 자신을 반환한다.
 
         setOpacity(opacity: number) -> UFrustumTerrainProjectionHelper
             처리 기준: 불투명도가 1보다 작을 때만 선 재질을 투명으로 전환한다.
             의존:
                 LineSegments2 — 선 재질 불투명도와 투명 여부 설정; 속성 쓰기: {material.opacity, material.transparent}
-                UTerrainStamp — 외곽선 stamp 불투명도 갱신; 함수: {setOpacity()}
+                UTerrainStamp, UFastTerrainStamp — 외곽선 stamp 불투명도 갱신; 함수: {setOpacity()}
             동작:
                 선 재질 불투명도를 설정하고 1보다 작으면 투명으로 전환한다.
-                외곽선 stamp 풀 전체에 같은 불투명도를 적용하고 자기 자신을 반환한다.
+                외곽선 stamp 풀 전체에 같은 불투명도를 적용한다. Fast 지형이면 마지막 footprint의 선 표현도 표시 상태를 바꾸지 않고 반영한 뒤 자기 자신을 반환한다.
 
     채움 스타일 책임 그룹
         역할: 지면 채움과 비지형 채움의 색상·투명도·그라데이션 옵션을 조회하고 변경한다.
@@ -718,6 +735,7 @@ UFrustumTerrainProjectionHelper extends LineSegments2 클래스 정의
             의존: UTerrainStamp — 채움 stamp 그라데이션 설정과 해제; 함수: {setGradient(), clearGradient()}
             동작:
                 옵션에 그라데이션 색상을 저장한다.
+                빠른 backend이면 지형 모드에서 마지막 footprint의 표현만 갱신하고 자기 자신을 반환한다. 높이 조회·교차 계산은 반복하지 않는다.
                 색상이 undefined이면 채움 stamp의 그라데이션을 해제하고, 아니면 현재 방향과 함께 설정한다.
                 갱신 결과를 반환한다.
 
@@ -730,6 +748,7 @@ UFrustumTerrainProjectionHelper extends LineSegments2 클래스 정의
             의존: UTerrainStamp — 채움 stamp 그라데이션 방향 설정; 함수: {setGradient(), setGradientDirection()}
             동작:
                 옵션에 그라데이션 방향을 저장한다.
+                빠른 backend이면 지형 모드에서 마지막 footprint의 표현만 갱신하고 자기 자신을 반환한다.
                 그라데이션 색상이 있으면 색상과 방향을 함께, 없으면 방향만 채움 stamp에 적용한다.
                 갱신 결과를 반환한다.
 
@@ -802,13 +821,16 @@ UFrustumTerrainProjectionHelper extends LineSegments2 클래스 정의
         역할: 현재 프러스텀이 만든 표시 중인 지면 채움·외곽선 stamp를 월드 좌표 스냅샷으로 반환한다.
         인터페이스: 개별 영역 선택 중에는 현재 선택한 영역만 저장한다. 전체 footprint를 저장하려면 cullByMainCamera를 false로 설정한 뒤 update()한다. 복원 목록은 카메라 영역 선택과 원거리 LOD의 대상이 아니다.
         처리 기준: terrain이 true가 아니거나 선택한 두 stamp 목록이 모두 비어 있으면 안내 메시지를 남기고 undefined를 반환한다. 불러온 stamp는 저장하지 않는다. 기본 지면 stamp 외곽선도 저장하며 영상 레이어 부재나 예산 부족으로 대체한 선 geometry 구간은 저장하지 않는다.
-        의존: UTerrainStamp — 도형·표현 직렬화; 함수: {getVisible(), getParam()}
+        의존: UTerrainStamp — 기존 portable 형식의 도형·표현 직렬화; 함수: {getVisible(), getParam()}
         동작:
-            includeFill과 includeOutline이 false인 목록은 제외하고 활성 도형을 수집한다.
+            기존 backend는 includeFill과 includeOutline이 false인 목록은 제외하고 활성 도형을 수집한다. Fast는 마지막 carrier의 footprint를 복사하며 동기 반환 형식은 유지한다.
+            Fast의 저장은 추가 높이 조회 없이 마지막 표시 polygon·polyline을 사용한다. live carrier·선·면과 자세·교차 필터, 다음 갱신 시각은 바꾸지 않는다.
+            빠른 backend는 유효 단색 fill 옵션으로 메타 정보를 만든다. 무시한 원본 texture·mask·targetLayer를 저장 결과에 되살리지 않는다.
             UFrustumHelper.terrainStamps 형식·버전 1, 저장 시각, EPSG:3857 좌표계, fill·outline과 메타 정보를 반환한다.
 
     load(snapshot: UFrustumHelperTerrainStampSnapshot | string, options: UFrustumHelperLoadOption = {}) -> boolean
         역할: 저장된 지면 stamp를 현재 프러스텀 갱신과 독립적인 소유 목록으로 복원한다.
+        인터페이스: useFastStamp와 무관하게 기존 UTerrainStamp로 복원한다. portable snapshot의 기존 표현과 복원 Stamp의 독립 표시 계약을 유지한다.
         처리 기준: terrain이 true가 아니거나 app이 없거나 형식이 잘못되면 오류 메시지를 남기고 false를 반환한다. 복원에 성공한 stamp가 하나 이상이면 true, 하나도 없으면 false를 반환한다.
         의존: UTerrainStamp — 저장 파라미터와 visible 값으로 stamp 복원; 함수: {fromParam()}
         동작:
@@ -830,6 +852,7 @@ UFrustumTerrainProjectionHelper extends LineSegments2 클래스 정의
 
         처리 기준:
             이미 처분되었으면 아무 것도 하지 않는다.
+            부모의 해제 알림 순서를 유지하며 리스너가 오류를 던져도 예약·등록·소유 자원 정리를 수행한다. 정리가 끝나면 리스너의 오류를 호출자에게 그대로 전달한다.
             timer callback이 해제 중인 자원에 접근하지 않도록 처분 표시와 timer 중지를 자원 해제보다 먼저 수행한다.
             heartbeat mesh의 렌더 callback은 해제 뒤에도 호출될 수 있으므로 안전한 빈 함수로 교체한다.
             소유한 자식은 참조 필드와 children에서 중복을 제거해 한 번씩 정리하며, 공통 호출부의 추가 순회에 의존하지 않는다.
@@ -839,11 +862,12 @@ UFrustumTerrainProjectionHelper extends LineSegments2 클래스 정의
         의존:
             THREE — 해제 알림, 리스너 해제, 부모·자식 분리; 함수: {Object3D.dispose(), Object3D.removeEventListener(), Object3D.removeFromParent(), Object3D.clear()}
             LineSegments2 — 본체 geometry와 재질 접근; 속성 읽기: {geometry, material}
-            UTerrainStamp — stamp 자원 해제; 함수: {dispose()}
+            UTerrainStamp, UFastTerrainStamp — stamp 자원 해제; 함수: {dispose()}
             UFrustumTerrainProjectionImplementation — 공유 높이 조회 자원 반납; 함수: {releaseTerrainHeightResources()}
 
         동작:
-            처분 표시를 켜고 부모 dispose로 해제 이벤트를 전달한 뒤 removed 리스너를 해제한다.
+            처분 표시를 켜고 부모 dispose로 해제 이벤트를 전달한다. 이벤트 성공·실패와 관계없이 finally에서 다음 정리를 수행한다.
+            removed 리스너를 해제한다. 이 단계에서 제거한 리스너를 실행하지 않는다.
             timer를 중지하고 렌더 기록도 함께 지운다.
             부모에서 분리하고 visible을 끈 뒤 본체 geometry와 재질의 소유권을 반납한다.
             heartbeat mesh의 렌더 callback을 빈 함수로 바꾼다. 투영선·채움·옆면·heartbeat와 나머지 자식의 중복을 제거하고 각각 부모에서 분리한 뒤 소유권을 반납하고 children을 비운다.
@@ -866,7 +890,7 @@ Scene 이탈, 사용자 숨김과 렌더 중단은 처분이 아니므로 geomet
 UV 샘플은 정수화한 단일 숫자 key로 식별하고 near·far 코너의 이중선형 보간으로 world 좌표를 만든다.
 접촉 전용 경로는 near에서 far 방향으로 위에서 아래로 처음 들어가는 구간만 인정하고 높이를 확인할 수 없는 구간 뒤의 교차를 확정하지 않는다. drape 경로는 near에서 far로 순회하며 양방향 부호 변화와 정확히 지면에 놓인 첫 유효 지점을 교차로 인정한다.
 채움·외곽선·옆면과 구조선은 같은 논리적 footprint 외곽과 UV 대응에서 파생하며, 각 출력에 필요한 좌표는 복제하거나 local 좌표로 변환할 수 있다.
-footprint polygon이 128개를 넘으면 격자 해상도를 절반으로 낮춰 다시 만든다. footprint polygon 자료는 유지하고 채움 stamp가 활성인 경우에만 그 polygon을 stamp로 출력하며, 외곽선 stamp는 image layer가 없거나 채움과 합친 stamp 예산을 넘을 때만 굵은 선 출력으로 되돌린다.
+footprint polygon이 128개를 넘으면 격자 해상도를 절반으로 낮춰 다시 만든다. footprint polygon 자료는 유지하고 채움 stamp가 활성인 경우에만 그 polygon을 stamp로 출력하며, 외곽선 stamp는 기존 backend에 image layer가 없거나 채움과 합친 stamp 예산을 넘을 때만 굵은 선 출력으로 되돌린다.
 사용자 표시 상태는 setVisible과 서비스 코드가 소유하며 내부 컬링과 범위 밖 판정은 재질과 자식 표시만 끈다.
 ```
 

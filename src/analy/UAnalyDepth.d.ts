@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -14,17 +14,23 @@ import type { EventCallBack, GeoPosition, WorldPositionVector3 } from "../types/
 
 /**
  * ~extends import('@union3d/analy/UAnaly').UAnaly <br>
- * 실시간 `고도` / `심도` 분석 클래스 <br>
- * 두 지점과의 거리, 높이 등의 기능을 제공한다.
+ *
+ * 고도·심도와 두 지점 사이의 거리를 측정하는 분석 클래스입니다.
+ *
  * @group analysis
- * @extends UAnaly
+ * @extends {UAnaly}
  *
  * @example
- * let analy = app.activeAnalysis('Depth');
+ * const analy = app.activeAnalysis('Depth');
  * analy.active();
  */
 declare class UAnalyDepth extends UAnaly {
-    /** @param {UAnalyDepthCO} [opt={}] */
+    /**
+     * UAnalyDepth 클래스 생성자입니다. <br>
+     * 고도·심도 측정의 표시 옵션을 초기화하며 앱 연결은 부모의 별도 설정을 따릅니다.
+     *
+     * @param {UAnalyDepthCO} [opt={}] 이름·교차 표시 색상·라벨 가시화 옵션
+     */
     constructor(opt?: UAnalyDepthCO);
     /**
      * @type {Array<import('three').Vector3>}
@@ -152,129 +158,134 @@ declare class UAnalyDepth extends UAnaly {
     _clickId: string;
     _dblClickId: string;
     /**
-     * 격자 SPRITE의 IMAGE 설정과 크기, 투명도를 설정하는 함수
-     * @param {string} url 설정하려는 격자 이미지 url
-     * @param {number} [size=1000] 설정하려는 격자 크기
-     * @param {number} [opacity=0.7] 설정하려는 격자 투명도
+     * 격자 스프라이트의 이미지·크기·투명도를 설정합니다. <br>
+     * 크기와 투명도는 누락·null·음수일 때 기본값을 사용하며 0은 유지합니다. <br>
+     * 기존 스프라이트의 장면 교체나 자원 해제는 수행하지 않습니다.
      *
-     * @example
-     * let url ='../../tutorial-official/image/grid2.png';
-     * let size = 1000;
-     * let opacity = 0.7;
-     * let analy = app.getAnalysis('Depth');
-     *  analy.setGridSpriteImage(url, size, opacity);
+     * @param {string} url 격자 이미지 주소
+     * @param {number} [size=1000] 월드 좌표(EPSG:3857)에서 적용할 스프라이트 크기
+     * @param {number} [opacity=0.7] 재질 투명도
      */
     setGridSpriteImage(url: string, size?: number, opacity?: number): void;
     /**
-     * 선 두께를 설정하는 함수
-     * @param {number} width 선 두께
+     * 이후 생성할 측정선의 반지름을 설정합니다. <br>
+     * 이미 생성된 선을 즉시 다시 만들지는 않습니다.
+     *
+     * @param {number} width 월드 좌표(EPSG:3857) 기준 원기둥 반지름
      */
     setLineWidth(width: number): void;
     /**
-     * 선 두께를 반환하는 함수
-     * @return {number} 선 두께
+     * 설정된 측정선 반지름을 반환합니다.
+     *
+     * @returns {number} 월드 좌표(EPSG:3857) 기준 원기둥 반지름
      */
     getLineWidth(): number;
     /**
-     * ID에 해당하는 POI 삭제하고, 측정 영역을 원래대로 되돌리는 함수
-     * @param {string} id 삭제하려는 POI의 ID
+     * ID에 해당하는 측정 객체와 연결된 라벨·결과를 삭제합니다. <br>
+     * 객체를 찾지 못하면 변경하지 않으며 ID는 객체 조회 시 숫자로 변환합니다.
+     *
+     * @param {string} id 삭제할 측정 객체 ID
      */
     removePOI(id: string): void;
     /**
-     * 측정된 거리의 POI ID 리스트를 반환하는 함수
-     * @return {Array<string | number>} POI ID가 담긴 배열
+     * 완료된 측정 객체 ID 목록을 반환합니다. <br>
+     * 반환 배열은 내부 목록과 같은 참조이므로 호출자가 수정하면 내부 상태도 변경됩니다.
+     *
+     * @returns {Array<string | number>} 측정 객체 ID 목록
      */
     getDistanceList(): Array<string | number>;
     /**
-     * 측정된 거리의 Object 객체를 반환하는 함수
-     * @param {string} [id] Object 객체 id
-     * @return {UAnalyDepthResult | Record<string | number, UAnalyDepthResult | undefined> | undefined} 거리(length), 지점 목록(points)을 가지는 객체
+     * ID별 측정 결과 또는 전체 결과 저장소를 반환합니다. <br>
+     * ID 생략 시 저장소 자체를 반환하며 결과 객체와 메시 참조를 복사하지 않습니다.
+     *
+     * @param {string} [id] 조회할 측정 객체 ID
+     * @returns {UAnalyDepthResult | Record<string | number, UAnalyDepthResult | undefined> | undefined} 측정 결과·전체 저장소 또는 결과 부재
      */
     getDistanceObject(id?: string): UAnalyDepthResult | Record<string | number, UAnalyDepthResult | undefined> | undefined;
     /**
-     * 라벨 가시화를 설정하는 함수
-     * @param {Array<boolean>} [valueList=[true,true,true,true]] 가시화 설정 리스트
+     * 라벨 종류별 가시화 설정을 저장하고 기존 추적 라벨에 적용합니다. <br>
+     * 배열 순서는 지형 고도·수직 거리·지점 고도·지점 간 거리입니다. <br>
+     * 입력 배열을 복사하지 않으며 미리보기 갱신 시 일부 라벨은 다시 표시됩니다.
+     *
+     * @param {Array<boolean>} [valueList=[true,true,true,true]] 종류별 라벨 표시 여부
      */
     setLabelVisibility(valueList?: Array<boolean>): void;
     /**
-     * 라벨 가시화 속성 값을 반환하는 함수
-     * @return {Array<boolean>} 가시화 여부 목록
+     * 라벨 종류별 가시화 설정 배열을 반환합니다. <br>
+     * 반환값은 내부 설정과 같은 배열 참조입니다.
+     *
+     * @returns {Array<boolean>} 지형 고도·수직 거리·지점 고도·지점 간 거리의 표시 여부
      */
     getLabelVisibility(): Array<boolean>;
     /**
-     * 두 위경도 좌표를 입력 받아 지도상에 출력하고, 거리측정 목록에 추가하는 함수
-     * @param {GeoPosition} point1 첫번째 지점 좌표값 (경도, 위도, 높이)
-     * @param {GeoPosition} point2 두번째 지점 좌표값 (경도, 위도, 높이)
+     * 두 위경도 좌표를 월드 좌표(EPSG:3857)로 변환하여 측정 결과와 표시 객체를 등록합니다. <br>
+     * 결과 저장 후 click·end 이벤트를 순서대로 보내고 진행 중 지점 상태를 초기화합니다.
      *
-     * @example
-     * let analy = app.getAnalysis('Depth');
-     * let point1={x: 129.1531330187, y:35.1587087531, z: 15};
-     * let point2={x: 129.1551362618, y:35.1591494079, z: 35};
-     * analy.getResultFromCoordinate(point1, point2);
+     * @param {GeoPosition} point1 첫 지점의 경도·위도(도)와 고도(m)
+     * @param {GeoPosition} point2 끝 지점의 경도·위도(도)와 고도(m)
      */
     getResultFromCoordinate(point1: GeoPosition, point2: GeoPosition): void;
     /**
-     * 두 위경도 좌표를 입력 받아 두 좌표사이의 거리를 반환하는 함수
-     * @param {GeoPosition} point1 첫번째 지점 좌표값 (경도, 위도, 높이)
-     * @param {GeoPosition} point2 두번째 지점 좌표값 (경도, 위도, 높이)
-     * @return {number | undefined} 두 점 사이의 거리
+     * 두 위경도 좌표를 월드 좌표(EPSG:3857)로 변환하여 실제 거리를 구합니다. <br>
+     * 표시 객체나 측정 결과 목록은 생성하지 않습니다.
      *
-     * @example
-     * let point1={x: 129.1531330187, y:35.1587087531, z: 15};
-     * let point2={x: 129.1551362618, y:35.1591494079, z: 35};
-     * analy.getDistanceFromCoordinate(point1, point2);
+     * @param {GeoPosition} point1 첫 지점의 경도·위도(도)와 고도(m)
+     * @param {GeoPosition} point2 끝 지점의 경도·위도(도)와 고도(m)
+     * @returns {number | undefined} 두 지점 사이 거리(m), 지점 누락 시 undefined
      */
     getDistanceFromCoordinate(point1: GeoPosition, point2: GeoPosition): number | undefined;
     /**
-     * 두 지점 사이의 거리를 구하고 그리는 함수입니다.
-     * @param {WorldPositionVector3} start 첫 지점의 좌표 (월드 좌표, EPSG:3857)
-     * @param {WorldPositionVector3} end 끝 지점의 좌표 (월드 좌표, EPSG:3857)
-     * @param {boolean} [visible] 생성 라인의 출력 여부
-     * @return {import('@UMesh').UMesh | undefined} 거리 라인
+     * 두 지점 사이의 측정선과 거리 라벨을 생성합니다. <br>
+     * visible이 참이면 표시 그룹에만 추가하고 거짓이면 진행 중 결과를 집계·등록합니다. <br>
+     * 입력은 Vector3 인스턴스여야 하며 선은 공유 재질을 사용합니다.
+     *
+     * @param {WorldPositionVector3} start 시작 월드 좌표(EPSG:3857)
+     * @param {WorldPositionVector3} end 끝 월드 좌표(EPSG:3857)
+     * @param {boolean} [visible] 표시 전용 등록 여부
+     * @returns {import('@UMesh').UMesh | undefined} 생성된 선, 입력 부적합 시 undefined
      */
     getDistanceLine(start: WorldPositionVector3, end: WorldPositionVector3, visible?: boolean): UMesh | undefined;
     /**
-     * 해당 지점에서 지형과 만나는 점과 수직선을 지도상에 나타내는 함수입니다.
-     * @param {WorldPositionVector3} position 해당 지점의 좌표 (월드 좌표, EPSG:3857)
-     * @param {boolean} [visible=false] 생성 라인의 출력 여부
-     * @param {boolean} [addList=true] 라벨 가시화 설정 목록에 추가 여부
-     * @return {import('three').Object3D | undefined} 생성된 라인 또는 POI
+     * 해당 지점과 지형 사이의 수직선·거리·고도 라벨을 생성합니다. <br>
+     * 지형 높이가 없거나 무효이면 0을 사용하며 수직 거리는 부호를 유지합니다. <br>
+     * visible이 참이면 바닥 POI를 표시 그룹에 등록하고, 거짓이면 그 POI의 자식 선을 반환합니다.
      *
-     * @example
-     * const analy = app.getAnalysis('Depth');
-     * // 위경도 좌표를 월드 좌표로 변환한 뒤 전달합니다.
-     * const position = app.geographicToVector3({x: 129.1531330187, y: 35.1587087531, z: 50});
-     * analy.drawVerticalLine(position);
+     * @param {WorldPositionVector3} position 측정 지점의 월드 좌표(EPSG:3857)
+     * @param {boolean} [visible=false] 바닥 POI의 표시 그룹 등록 여부
+     * @param {boolean} [addList=true] 생성 라벨의 가시화 추적 목록 등록 여부
+     * @returns {import('three').Object3D | undefined} 바닥 POI 또는 수직선, 지점 누락 시 undefined
      */
     drawVerticalLine(position: WorldPositionVector3, visible?: boolean, addList?: boolean): three.Object3D | undefined;
     /**
-     * 입력받은 함수를 화면 클릭 이벤트로 등록하는 함수
-     * @param {EventCallBack} func 이벤트 동작시 실행 함수
-     * @param {string} [event] 이벤트 지정
+     * 분석 이벤트 콜백을 등록합니다. <br>
+     * 이벤트 종류를 생략하면 click에 등록합니다.
      *
-     * @example
-     *  function printDistanceList (){
-     *     let list = analy.getDistanceList();
-     *     list.forEach((distance)=> { console.log(distance) });
-     *  }
-     *  analy.passToClickEvent(printDistanceList);
+     * @param {EventCallBack} func 이벤트 처리 함수
+     * @param {string} [event] 이벤트 종류
      */
     passToClickEvent(func: EventCallBack, event?: string): void;
     /**
-     * 분석 대상을 설정하는 함수
-     * @param {import('three').Object3D | Array<import('three').Object3D>} target 분석 대상의 scene 목록
+     * 교차 검사 대상을 설정합니다. <br>
+     * 배열은 복사하지 않으며 단일 객체는 배열로 감쌉니다. <br>
+     * null 또는 undefined를 전달하면 대상을 해제합니다.
+     *
+     * @param {import('three').Object3D | Array<import('three').Object3D> | null | undefined} target 교차 검사 대상, null·undefined이면 해제
      */
-    setIntersectTarget(target: three.Object3D | Array<three.Object3D>): void;
+    setIntersectTarget(target: three.Object3D | Array<three.Object3D> | null | undefined): void;
     /**
-     * 클릭 이벤트시 분석 대상을 사용자 지정 함수로 설정하는 함수
-     * @param {(intersects: Array<import('three').Intersection>) => ({point: WorldPositionVector3} | null | undefined)} func 대상 세부 설정 함수
+     * 클릭 시 교차 목록에서 측정 지점을 선택할 콜백을 설정합니다. <br>
+     * 콜백은 분석 객체를 this로 사용하며 point가 있는 결과를 반환해야 지점을 추가합니다. <br>
+     * undefined를 전달하면 선택 콜백을 해제합니다.
+     *
+     * @param {undefined|function(Array<import('three').Intersection>): ({point: WorldPositionVector3}|null|undefined)} func 교차점 선택 함수 또는 해제
      */
-    setIntersectFunction(func: (intersects: Array<three.Intersection>) => ({
+    setIntersectFunction(func: undefined | ((arg0: Array<three.Intersection>) => ({
         point: WorldPositionVector3;
-    } | null | undefined)): void;
+    } | null | undefined))): void;
     /**
-     * 사용자가 지정한 세부 설정 함수를 반환하는 함수
-     * @return {undefined|function(Array<import('three').Intersection>): ({point: WorldPositionVector3}|null|undefined)} 대상 세부 설정 함수
+     * 설정된 교차점 선택 콜백을 반환합니다.
+     *
+     * @returns {undefined|function(Array<import('three').Intersection>): ({point: WorldPositionVector3}|null|undefined)} 교차점 선택 함수 또는 미설정
      */
     getIntersectFunction(): undefined | ((arg0: Array<three.Intersection>) => ({
         point: WorldPositionVector3;
@@ -284,7 +295,9 @@ declare class UAnalyDepth extends UAnaly {
 
 /**
      * ~extends import('@union3d/analy/UAnaly').UAnalyCO <br>
-     * UAnalyDepth 생성자 옵션
+     *
+     * UAnalyDepth 생성자 옵션입니다. <br>
+     * 이전 소문자 키도 수용하며 입력 객체와 라벨 배열을 직접 변경하지 않습니다.
      */
     type UAnalyDepthCO_Content = {
         /**
@@ -303,16 +316,30 @@ declare class UAnalyDepth extends UAnaly {
          * 라벨 가시화 설정 목록
          */
         labelVisibilityList?: Array<boolean>;
+        /**
+         * intersectColor1의 이전 소문자 키
+         */
+        intersectcolor1?: number;
+        /**
+         * intersectColor2의 이전 소문자 키
+         */
+        intersectcolor2?: number;
+        /**
+         * labelVisibilityList의 이전 소문자 키
+         */
+        labelvisibilitylist?: Array<boolean>;
     };
 
 /**
      * ~extends import('@union3d/analy/UAnaly').UAnalyCO <br>
-     * UAnalyDepth 생성자 옵션
+     *
+     * UAnalyDepth 생성자 옵션입니다. <br>
+     * 이전 소문자 키도 수용하며 입력 객체와 라벨 배열을 직접 변경하지 않습니다.
      */
     type UAnalyDepthCO = Omit<Omit<UAnalyCO, never> & UAnalyDepthCO_Content, never>;
 
 /**
-     * 측정 지점의 결과 데이터 정보
+     * 측정 지점의 결과 데이터입니다.
      */
     type UAnalyDepthPointData = {
         /**
@@ -342,7 +369,8 @@ declare class UAnalyDepth extends UAnaly {
     };
 
 /**
-     * 측정 결과 정보
+     * 측정 결과입니다. <br>
+     * points 항목은 결과 집계 시 복사하지만 각 mesh 참조는 공유합니다.
      */
     type UAnalyDepthResult = {
         /**
@@ -355,4 +383,36 @@ declare class UAnalyDepth extends UAnaly {
         points: Array<UAnalyDepthPointData>;
     };
 
-export type { UAnalyDepth, UAnalyDepthCO, UAnalyDepthCO_Content, UAnalyDepthPointData, UAnalyDepthResult };
+/**
+     * 거리선 조립에 필요한 표시 설정과 라벨 추적 상태입니다.
+     */
+    type UAnalyDepthLineState = {
+        /**
+         * 원기둥 반지름
+         */
+        _lineWidth: number;
+        /**
+         * 라벨 종류별 가시화 설정
+         */
+        _labelVisibilityList: Array<boolean>;
+        /**
+         * 거리 라벨 추적 목록
+         */
+        _distanceLabelList: Array<UCssBilboard>;
+    };
+
+/**
+     * 지점 표시 조립에 필요한 고도 라벨 설정과 추적 상태입니다.
+     */
+    type UAnalyDepthPointState = {
+        /**
+         * 라벨 종류별 가시화 설정
+         */
+        _labelVisibilityList: Array<boolean>;
+        /**
+         * 지점 고도 라벨 추적 목록
+         */
+        _baseLabelList: Array<UCssBilboard>;
+    };
+
+export type { UAnalyDepth, UAnalyDepthCO, UAnalyDepthCO_Content, UAnalyDepthLineState, UAnalyDepthPointData, UAnalyDepthPointState, UAnalyDepthResult };

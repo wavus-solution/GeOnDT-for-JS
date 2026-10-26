@@ -1,14 +1,249 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
+import type { U3dLayer } from "../3dLayer/U3dLayer.js";
 import type { U3dApp } from "../app/U3dApp.js";
-import type { U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam, U3dOutlineAliasCO } from "./U3dGeometry.js";
-import type { Double_Array, WorldPositionVector3 } from "../types/global.js";
+import type { DispatchInputEvent, Listeners } from "../core/UEventDispatcher.js";
+import type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam, U3dOutlineAliasCO } from "./U3dGeometry.js";
+import type { UMeta } from "../meta/UMeta.js";
+import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
+import type { Double_Array, EventCallBack, GeoPositionVector3, KeyValue, WorldPositionVector3 } from "../types/global.js";
+
+/** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
+interface GeOnDTMixedInstance_U3dPolygonLoftGeometry {
+"name": any;
+"color": three.ColorRepresentation;
+"opacity": number;
+readonly "type": string;
+"wireframe": boolean;
+"depthOffset": number | undefined;
+"dynamicDepthOffset": boolean;
+"_heightOffset": number;
+"_beforeRenderCallbacks": Map<any, any> | undefined;
+"_vertices": WorldPositionVector3[];
+"_coordinates": GeoPositionVector3[];
+"_needTransform": boolean;
+"_ulayer": U3dLayer | undefined;
+"_showLabel": boolean;
+"_properties": KeyValue;
+"geometry": three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>;
+"needUpdates": boolean;
+"_size": number;
+"_url": string;
+"_classtype": string;
+"_lineColor": any;
+"init"(): void;
+"setLayer"(layer: U3dLayer | undefined): void;
+"getLayer"(): U3dLayer | undefined;
+"updateVertex"(): void;
+"updateColor"(): void;
+"updateGeometry"(): void;
+"updateMaterial"(): void;
+"setVertex"(vertex: WorldPositionVector3[]): void;
+"getVertex"(): WorldPositionVector3[];
+"addVertex"(vec3: WorldPositionVector3): void;
+"removeVertex"(idx: number): void;
+"getVertexIndex"(vec3: GeoPositionVector3): number;
+"getGeometry"(): three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap> | undefined;
+"setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
+"getPositions"(): GeoPositionVector3[];
+"addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
+"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
+"setLineColor"(lineColor: three.ColorRepresentation): void;
+"getLineColor"(): three.ColorRepresentation;
+"addWorldPosition"(x: number, y: number, z: number): void;
+"setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
+"setHeightOffset"(z?: number | undefined): void;
+"getHeightOffset"(): number;
+"_getGroundHeight"(x: number, y: number): number;
+"setPositions"(coordinates: GeoPositionVector3[]): void;
+"setRotation"(rotation: three.Euler): void;
+"setTransparent"(val: boolean): void;
+"setOpacity"(opacity: any): void;
+"_setGeometryOpacity"(opacity: number): void;
+"_applyChildrenOpacity"(opacity: number): void;
+"getOpacity"(): any;
+"_getGeometryOpacity"(): number;
+"setBrightness"(input: any): void;
+"_setGeometryBrightness"(brightness: number): void;
+"getBrightness"(): number;
+"setContrast"(contrast?: number | undefined): void;
+"getContrast"(): number;
+"removePosition"(idx: number): void;
+"getMaterial"(): three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[] | undefined;
+"setMaterial"(material: any): void;
+"material": three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[];
+"setDepthOffset"(depthOffset: number | null | undefined): void;
+"getDepthOffset"(): number | undefined;
+"setDynamicDepthOffset"(enabled: boolean): void;
+"getDynamicDepthOffset"(): boolean;
+"setDepthOffsetFunction"(func: U3dDepthOffsetFunction): void;
+"getDepthOffsetFunction"(): U3dDepthOffsetFunction | undefined;
+"setColor"(color: any): void;
+"getColor"(): any;
+"setWireframe"(wireframe: boolean): void;
+"getWireframe"(): boolean;
+"setImage"(url: string): void;
+"getImage"(): string | undefined;
+"needTransform"(): boolean;
+"getCenter"(): three.Vector3;
+"setRelativePosition"(): void;
+"setShowLabel"(val: boolean): void;
+"getShowLabel"(): boolean;
+"setShadow"(enabled?: boolean | undefined): void;
+"isShadow"(): boolean;
+"getProperties"(): KeyValue;
+"setProperties"(input: string | KeyValue): void;
+"addProperties"(key: string, value: any): void;
+"removeProperties"(key: string): void;
+"setParam"(param?: U3dGeometryStyleParam | undefined): void;
+"getParam"(): U3dGeometryStyleParam;
+"changeProperties"(key: string, value: any): void;
+"_listeners": Listeners | undefined;
+"addEventListener"<T extends keyof three.Object3DEventMap>(type: T, listener: three.EventListener<three.Object3DEventMap[T], T, this>): void;
+"on"(type: string, listener: EventCallBack, once?: boolean | undefined, name?: string | undefined): string | null;
+"once"(type: string, listener: EventCallBack, name?: string | undefined): string | null;
+"hasEventListener"<T extends keyof three.Object3DEventMap>(type: T, listener: three.EventListener<three.Object3DEventMap[T], T, this>): boolean;
+"hasEventType"(type: string): boolean;
+"removeEventListener"<T extends keyof three.Object3DEventMap>(type: T, listener: three.EventListener<three.Object3DEventMap[T], T, this>): void;
+"off"(type?: string | undefined, listener?: string | Function | undefined): void;
+"unkey"(type: string, key?: string | undefined): void;
+"removeEventListenerAll"(): void;
+"dispatchEvent"<T extends keyof three.Object3DEventMap>(event: three.BaseEvent<T> & three.Object3DEventMap[T]): void;
+"emit"(event: string | DispatchInputEvent, data?: any): void;
+"addBeforeRenderCallback"(key: string, callback: Function): void;
+"removeBeforeRenderCallback"(key: string): void;
+"getTile"(): U3dQuadTile | undefined;
+"getParent"(): three.Object3D<three.Object3DEventMap> | null;
+"getVertexes"(isAbsolute: any): number[] | NonNullable<three.BufferAttribute<three.BufferAttributeEventMap> | three.InterleavedBufferAttribute> | undefined;
+"getAbsoluteVertex"(vertexX: any, vertexY: any, vertexZ: any): three.Vector3;
+"traverseFace"(callback: any): void;
+"getMaterialIndexAsFace"(face: any): number | undefined;
+"getNormalAsFace"(face: any): any[] | undefined;
+"getVertexAsFace"(face: any, isAbsolute: any): any[] | undefined;
+"getMetaDataGroupName"(): any;
+"getUType"(): number | undefined;
+"setUType"(type: any): void;
+"setType"(type: any): void;
+"getType"(): number | undefined;
+"distanceToCameraPosition"(vec3: any, useSphere: any): number;
+"animationOpacity"(layer: U3dLayer, min?: number | undefined, max?: number | undefined): void;
+"computeBoundingBox"(): void;
+"getBoundingBox"(): three.Box3;
+"getBBox"(): three.Box3;
+"raycast"(a: any, b: any): void;
+"getUid"(): any;
+"getOid"(): any;
+"getLayerName"(): string | undefined;
+"setLayerName"(layername: any): void;
+"setLabelText"(labelText: any): void;
+"getLabel"(): any;
+"hasReachedShadowTime"(updateTime: any): boolean;
+"applyShadow"(apply: any, updateTime: any): void;
+"updateMorphTargets"(): void;
+"getVertexPosition"(index: number, target: three.Vector3): three.Vector3;
+"intersectsFrustum"(frustum: three.Frustum | three.FrustumArray): boolean;
+"toJSON"(meta?: three.JSONMeta | undefined): three.MeshJSON;
+"onBeforeShadow"(renderer: three.WebGLRenderer, scene: three.Scene<three.Object3DEventMap>, camera: three.Camera, shadowCamera: three.Camera, geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, depthMaterial: three.Material<three.MaterialEventMap>, group: three.Group<three.Object3DEventMap>): void;
+"onAfterShadow"(renderer: three.WebGLRenderer, scene: three.Scene<three.Object3DEventMap>, camera: three.Camera, shadowCamera: three.Camera, geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, depthMaterial: three.Material<three.MaterialEventMap>, group: three.Group<three.Object3DEventMap>): void;
+"onAfterRender"(renderer: three.WebGLRenderer, scene: three.Scene<three.Object3DEventMap>, camera: three.Camera, geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, material: three.Material<three.MaterialEventMap>, group: three.Group<three.Object3DEventMap>): void;
+"applyMatrix4"(matrix: three.Matrix4): void;
+"applyQuaternion"(quaternion: three.Quaternion): this;
+"setRotationFromAxisAngle"(axis: three.Vector3, angle: number): void;
+"setRotationFromEuler"(euler: three.Euler): void;
+"setRotationFromMatrix"(m: three.Matrix4): void;
+"setRotationFromQuaternion"(q: three.Quaternion): void;
+"rotateOnAxis"(axis: three.Vector3, angle: number): this;
+"rotateOnWorldAxis"(axis: three.Vector3, angle: number): this;
+"rotateX"(angle: number): this;
+"rotateY"(angle: number): this;
+"rotateZ"(angle: number): this;
+"translateOnAxis"(axis: three.Vector3, distance: number): this;
+"translateX"(distance: number): this;
+"translateY"(distance: number): this;
+"translateZ"(distance: number): this;
+"localToWorld"(vector: three.Vector3): three.Vector3;
+"worldToLocal"(vector: three.Vector3): three.Vector3;
+"lookAt"(vector: three.Vector3): void;
+"lookAt"(x: number, y: number, z: number): void;
+"add"(...object: three.Object3D<three.Object3DEventMap>[]): this;
+"remove"(...object: three.Object3D<three.Object3DEventMap>[]): this;
+"removeFromParent"(): this;
+"clear"(): this;
+"attach"(object: three.Object3D<three.Object3DEventMap>): this;
+"getObjectById"(id: number): three.Object3D<three.Object3DEventMap> | undefined;
+"getObjectByName"(name: string): three.Object3D<three.Object3DEventMap> | undefined;
+"getObjectByProperty"(name: string, value: any): three.Object3D<three.Object3DEventMap> | undefined;
+"getObjectsByProperty"(name: string, value: any, optionalTarget?: three.Object3D<three.Object3DEventMap>[] | undefined): three.Object3D<three.Object3DEventMap>[];
+"getWorldPosition"(target: three.Vector3): three.Vector3;
+"getWorldQuaternion"(target: three.Quaternion): three.Quaternion;
+"getWorldScale"(target: three.Vector3): three.Vector3;
+"getWorldDirection"(target: three.Vector3): three.Vector3;
+"traverse"(callback: (object: three.Object3D<three.Object3DEventMap>) => any): void;
+"traverseVisible"(callback: (object: three.Object3D<three.Object3DEventMap>) => any): void;
+"traverseAncestors"(callback: (object: three.Object3D<three.Object3DEventMap>) => any): void;
+"updateMatrix"(): void;
+"updateMatrixWorld"(force?: boolean | undefined): void;
+"updateWorldMatrix"(updateParents: boolean, updateChildren: boolean, force?: boolean | undefined): void;
+"clone"(recursive?: boolean | undefined): this;
+"copy"(object: three.Object3D<three.Object3DEventMap>, recursive?: boolean | undefined): this;
+"_utype": number | undefined;
+"_ulayername": string | undefined;
+"_sphere": three.Sphere | undefined;
+"_bbox": three.Box3 | undefined;
+"_tile": U3dQuadTile | undefined;
+"_opt": any;
+"_uproperties": any;
+"_metaDataGroupName": any;
+"_uMemoryMaterialName": any;
+"_meta": UMeta | null | undefined;
+"castShadow": boolean;
+"receiveShadow": boolean;
+"_intersect": any;
+"onBeforeRender"(...args: any[]): void;
+readonly "isMesh": true;
+"morphTargetInfluences"?: number[] | undefined;
+"morphTargetDictionary"?: { [key: string]: number; } | undefined;
+"count": number;
+readonly "isObject3D": true;
+readonly "id": number;
+"uuid": string;
+"parent": three.Object3D<three.Object3DEventMap> | null;
+"children": three.Object3D<three.Object3DEventMap>[];
+"up": three.Vector3;
+readonly "position": three.Vector3;
+readonly "rotation": three.Euler;
+readonly "quaternion": three.Quaternion;
+readonly "scale": three.Vector3;
+readonly "modelViewMatrix": three.Matrix4;
+readonly "normalMatrix": three.Matrix3;
+"matrix": three.Matrix4;
+"matrixWorld": three.Matrix4;
+"matrixAutoUpdate": boolean;
+"matrixWorldAutoUpdate": boolean;
+"matrixWorldNeedsUpdate": boolean;
+"layers": three.Layers;
+"visible": boolean;
+"frustumCulled": boolean;
+"renderOrder": number;
+"animations": three.AnimationClip[];
+"customDepthMaterial"?: three.Material<three.MaterialEventMap> | undefined;
+"customDistanceMaterial"?: three.Material<three.MaterialEventMap> | undefined;
+"static": boolean;
+"userData": Record<string, any>;
+"pivot": three.Vector3 | null;
+"occlusionTest"?: boolean | undefined;
+}
+
+declare const U3dPolygonLoftGeometry_base: Omit<typeof U3dGeometry, "prototype"> & {
+    new (opt?: U3dGeometryCO, isInit?: boolean): GeOnDTMixedInstance_U3dPolygonLoftGeometry & InstanceType<typeof U3dGeometry>;
+    prototype: GeOnDTMixedInstance_U3dPolygonLoftGeometry & InstanceType<typeof U3dGeometry>;
+};
 
 /**
  * ~extends import('@U3dGeometry').U3dGeometry <br>
@@ -20,13 +255,15 @@ import type { Double_Array, WorldPositionVector3 } from "../types/global.js";
  * 좌표가 3개 미만이면 형상을 생성하지 않습니다. <br>
  * 윗면은 `topVertices`로 지정합니다. <br>
  * 지정하지 않으면 바닥면을 정점 평균 중심 기준으로 `topScale`만큼 확대·축소하고 `height`만큼 올린 형태를 윗면으로 사용합니다. <br>
- * 외곽선은 기본으로 표시하며, 인접한 두 면의 각도가 45도 이상인 모서리에만 표시합니다. <br>
+ * 외곽선은 기본으로 표시하며, 윗면·아랫면 테두리와 실제 측면 모서리를 표시합니다. <br>
+ * 측면 패널 내부의 삼각분할선은 평면 여부와 관계없이 표시하지 않습니다. <br>
  *
  * @group geometry
  *
- * @extends {U3dGeometry}
+ * @extends {__GeOnDTMixinBase_U3dPolygonLoftGeometry}
+ 
  */
-declare class U3dPolygonLoftGeometry extends U3dGeometry {
+declare class U3dPolygonLoftGeometry extends U3dPolygonLoftGeometry_base {
     /**
      * 로프트 도형을 생성합니다. <br>
      * 생성 옵션 `vertices`가 있으면 생성 시 형상과 외곽선을 생성합니다. <br>
@@ -82,13 +319,22 @@ declare class U3dPolygonLoftGeometry extends U3dGeometry {
     getBottomSlice(): Array<WorldPositionVector3>;
     /**
      * 형상 생성 시 계산한 윗면 정점 목록을 반환합니다. <br>
-     * `topVertices`를 지정한 경우 해당 좌표를 시계 방향으로 정렬하고, 옆면 삼각형 면적의 합이 최소가 되도록 시작 정점을 맞춘 결과입니다. <br>
+     * `topVertices`를 지정한 경우 해당 좌표를 시계 방향으로 정렬합니다. <br>
+     * 바닥면과 정점 수 및 순환 순서의 XY가 모두 같으면 같은 XY 정점끼리 맞추고, 그 외에는 옆면 삼각형 면적의 합이 최소가 되도록 시작 정점을 맞춥니다. <br>
      * 지정하지 않은 경우 바닥면을 `topScale`만큼 확대·축소하고 `height`만큼 올린 결과입니다. <br>
      * 형상을 생성하지 않았으면 빈 배열을 반환합니다. <br>
      *
-     * @returns {Array<WorldPositionVector3>} 윗면 정점 목록 (월드 좌표, EPSG:3857). 호출할 때마다 배열과 벡터를 복사해 반환 <br>
+     * @returns {Array<WorldPositionVector3>} 윗면 정점 목록 (월드 좌표(EPSG:3857)). 호출할 때마다 배열과 벡터를 복사해 반환 <br>
      */
     getTopSlice(): Array<WorldPositionVector3>;
+    /**
+     * 현재 바닥면 좌표와 높이·윗면 설정으로 형상을 다시 생성합니다. <br>
+     * `setVertex`와 `setParam`이 내부에서 호출하므로 일반적으로 직접 호출할 필요가 없습니다. <br>
+     * 바닥면 좌표나 `topVertices`가 3개 미만이면 형상을 비우고 외곽선을 제거하며, `topVertices`가 부족한 경우 오류 메시지를 출력합니다. <br>
+     *
+     * @override
+     */
+    override updateVertex(): void;
     /**
      * 도형 공통 속성과 로프트 고유 속성을 일괄 변경하고 형상을 다시 생성합니다. <br>
      * 지정하지 않은 항목은 현재 값을 유지하며, 허용 범위를 벗어난 항목은 변경 전에 오류를 발생시킵니다. <br>
@@ -163,13 +409,15 @@ declare class U3dPolygonLoftGeometry extends U3dGeometry {
     getTopArea(): number;
     /**
      * 현재 형상으로 외곽선을 생성해 도형의 자식 객체로 추가합니다. <br>
-     * 기존 외곽선을 먼저 제거하며, 인접한 두 면의 각도가 45도 이상인 모서리만 표시합니다. <br>
+     * 윗면·아랫면 테두리와 측면 패널의 경계를 표시하고, 패널 내부의 삼각분할선은 제외합니다. <br>
+     * 이 도형이 생성한 기존 외곽선만 제거하며, 다른 자식 선 객체는 유지합니다. <br>
      * 선 색상은 `lineColor`를 사용하며, 선 두께는 대부분의 브라우저에서 1픽셀로 렌더링됩니다. <br>
      * 외곽선 표시 여부(`useLine`)는 변경하지 않으며, 표시 여부는 `setUseLine`으로 변경합니다. <br>
      */
     setOutline(): void;
     /**
-     * 도형의 자식 객체 중 선분 객체(`THREE.LineSegments`)를 모두 제거하고 자원을 해제합니다. <br>
+     * 이 도형이 생성한 외곽선(`_outline`)을 제거하고 자원을 해제합니다. <br>
+     * 사용자가 추가한 다른 자식 선 객체는 유지합니다. <br>
      * 외곽선 표시 여부(`useLine`)는 변경하지 않으므로 다음 형상 갱신 시 외곽선이 다시 생성될 수 있습니다. <br>
      * 외곽선 표시를 끄는 경우에는 `setUseLine(false)`를 사용합니다. <br>
      */
@@ -260,6 +508,10 @@ declare class U3dPolygonLoftGeometry extends U3dGeometry {
             bottomIndex: number;
             topIndex: number;
         }>;
+        /**
+         * 삼각분할 대각선을 제외한 측면 패널 경계 선분 <br>
+         */
+        sideEdges: Double_Array<WorldPositionVector3>;
     };
 
 /**
@@ -286,6 +538,10 @@ declare class U3dPolygonLoftGeometry extends U3dGeometry {
          * 측면을 구성하는 삼각형 face 목록 <br>
          */
         sideFaces: Double_Array<WorldPositionVector3>;
+        /**
+         * 삼각분할 대각선을 제외한 측면 패널 경계 선분 <br>
+         */
+        sideEdges: Double_Array<WorldPositionVector3>;
     };
 
 /**
@@ -321,4 +577,4 @@ declare class U3dPolygonLoftGeometry extends U3dGeometry {
      */
     type U3dPolygonLoftGeometryParam = U3dPolygonLoftGeometryParam_Content & U3dGeometryStyleParam;
 
-export type { Loft_Bridge, Loft_Geom_Slices, U3dPolygonLoftGeometry, U3dPolygonLoftGeometryCO, U3dPolygonLoftGeometryCO_Content, U3dPolygonLoftGeometryParam, U3dPolygonLoftGeometryParam_Content };
+export type { GeOnDTMixedInstance_U3dPolygonLoftGeometry, Loft_Bridge, Loft_Geom_Slices, U3dPolygonLoftGeometry, U3dPolygonLoftGeometryCO, U3dPolygonLoftGeometryCO_Content, U3dPolygonLoftGeometryParam, U3dPolygonLoftGeometryParam_Content, U3dPolygonLoftGeometry_base };

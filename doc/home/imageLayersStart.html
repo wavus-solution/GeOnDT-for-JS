@@ -50,13 +50,13 @@
         </div>
         <!------------------------------------------------------------------------------------------------->
         <div class="explane1">
-            * 모든 레이어 객체는 생성 후 <mark><strong>.ready()</strong> 또는 <strong>.then()</strong> 을 포함하는 promise 함수를 지원</mark>합니다. 해당 함수를 이용해 후처리를 수행할 수 있습니다.
+            * 모든 레이어 객체는 <mark><strong>초기화 완료를 기다리는 ready Promise 속성</strong></mark>을 제공합니다. <strong>await layer.ready</strong> 또는 <strong>layer.ready.then(...)</strong>으로 완료 후 처리를 수행합니다.
         </div>
         <label class="code-label">이미지 레이어 생성 후 이벤트</label>
         <div class="code" id="text4-code">
         </div>
         <div class="code-text" id="text4" hidden="hidden">
-            layer.ready(() => {
+            layer.ready.then(() => {
                 console.log(name + " create success.");
             }).then(() => {
                 console.log(name + " create success.");
@@ -74,7 +74,7 @@
         <div class="code" id="text5-code">
         </div>
         <div class="code-text" id="text5" hidden="hidden">
-            layer.ready(() => {
+            layer.ready.then(() => {
                 app.showLayer(name, true).then(()=>{
                     console.log(name + " show.");
                 });

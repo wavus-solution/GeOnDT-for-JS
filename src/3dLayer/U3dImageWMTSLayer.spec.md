@@ -16,7 +16,7 @@ Capabilities 요청·검증·파싱, Layer와 TileMatrixSet 선택, source 옵�
 
 ### 1.3 주요 동작 방식
 
-`xmlUrl`과 `layer`를 지정하면 초기화 시 Capabilities를 요청한다. 대신 `capabilities` 옵션에 이미 파싱된 문서(또는 그것을 resolve하는 Promise)를 주면 요청 없이 그 문서를 사용하며, 정적 `fetchCapabilities()`로 한 번 받은 문서를 같은 서비스의 여러 레이어가 공유할 수 있다. 명시한 TileMatrixSet이 있으면 해당 격자를 선택하고, 없으면 OpenLayers가 레이어 CRS와 호환되는 링크를 우선하며 일치하는 링크가 없으면 첫 링크를 선택한다. 선택 결과에서 source 옵션, 레벨 범위와 WGS84 영역을 만들고 타일별 OL layer callback을 등록한 뒤 `ready()`를 완료한다.
+`xmlUrl`과 `layer`를 지정하면 초기화 시 Capabilities를 요청한다. 대신 `capabilities` 옵션에 이미 파싱된 문서(또는 그것을 resolve하는 Promise)를 주면 요청 없이 그 문서를 사용하며, 정적 `fetchCapabilities()`로 한 번 받은 문서를 같은 서비스의 여러 레이어가 공유할 수 있다. 명시한 TileMatrixSet이 있으면 해당 격자를 선택하고, 없으면 OpenLayers가 레이어 CRS와 호환되는 링크를 우선하며 일치하는 링크가 없으면 첫 링크를 선택한다. 선택 결과에서 source 옵션, 레벨 범위와 WGS84 영역을 만들고 타일별 OL layer callback을 등록한 뒤 `ready`를 완료한다.
 
 유효 레벨과 연결되는 TileMatrixSetLimits가 있으면 해당 Matrix만 레벨 계산에 사용한다. 행·열 제한은 격자 정의와 연결되는 제한 목록이 있을 때 적용한다. 생성한 WMTS source는 등록 슬롯에서 공유하며 타일마다 새 OL Tile layer만 만든다.
 
@@ -408,7 +408,7 @@ U3dImageWMTSLayer extends U3dOpenLayer 클래스 정의
         처리 기준:
             url이 공백이 아닌 문자열이 아니면 TypeError를 던진다.
             fetchTimeout이 유한한 양수 number가 아니면 15000을 사용하며 생성자와 달리 문자열을 숫자로 변환하지 않는다.
-            타이머 만료로 취소된 경우 제한 시간을 포함한 Error로, 외부 signal 취소나 그 외 실패는 원래 오류로 reject한다.
+            타이머 만료로 취소된 경우 제한 시간을 포함한 Error로, 외부 signal 취소나 그 외 실패는 _rejectReady로 원래 오류를 전달한다.
             성공·실패 모두 타이머와 외부 signal 리스너를 정리한다.
         의존:
             Web API — HTTP 요청·응답, 제한 시간과 외부 취소 연동; 생성자: {AbortController}; 함수: {fetch(), setTimeout(), clearTimeout(), AbortController.abort(), AbortSignal.addEventListener(), AbortSignal.removeEventListener(), Response.text()}
@@ -423,11 +423,11 @@ U3dImageWMTSLayer extends U3dOpenLayer 클래스 정의
         처리 기준: 요청 try 블록을 벗어날 때 제어기가 현재 요청과 같으면 참조를 비우며 #loading을 false로 되돌린다.
         의존:
             Web API — 취소 제어기 생성과 요청 취소 여부 확인; 생성자: {AbortController}; 속성 읽기: {AbortSignal.aborted}
-            U3dLayer — 해제·그리기 상태와 부모 생성자에서 주입한 준비 완료 함수; 함수: {resolve(), reject()}; 속성 읽기: {_disposed, _drawArg}
+            U3dLayer — 해제·그리기 상태와 초기화 완료·실패 제어; 함수: {_resolveReady(), _rejectReady()}; 속성 읽기: {_disposed, _drawArg}
             U3dObject — 실패 로그의 레이어 이름; 함수: {getName()}
             __GError__ — 구성 정보 누락과 Capabilities 실패 기록; 함수: {__GError__()}
         동작:
-            서비스 옵션이 없거나 URL과 capabilities 입력이 모두 없으면 구성 정보 누락 오류를 기록하고 `ready()`를 그 오류로 reject한 뒤 종료한다. 이 경로에서는 조용히 끝내지 않아 `ready()`가 미완료로 남지 않는다.
+            서비스 옵션이 없거나 URL과 capabilities 입력이 모두 없으면 구성 정보 누락 오류를 기록하고 `ready`를 _rejectReady로 실패를 전달한 뒤 종료한다. 이 경로에서는 조용히 끝내지 않아 `ready`가 미완료로 남지 않는다.
             로딩 상태와 새 AbortController를 저장한다.
             capabilities 입력이 있으면 그 값(Promise면 결과)을 문서로 사용하고, 없으면 fetchTimeout과 취소 신호를 전달해 URL을 요청한다.
             문서를 얻은 뒤 레이어가 해제됐거나 요청이 취소됐으면 메타데이터를 적용하지 않고 종료한다.
@@ -435,7 +435,7 @@ U3dImageWMTSLayer extends U3dOpenLayer 클래스 정의
             문서로 source와 레이어 속성을 구성한다.
             구성에 성공하면 #ready를 true로 바꾸고 ready를 자신으로 완료한다.
             drawArg가 있으면 오류 통계와 타일 상태를 초기화한다.
-            실패 시 레이어가 해제됐으면 종료하고, 그 외에는 출처(URL 또는 capabilities 옵션)와 오류 메시지를 로그에 기록한 뒤 `ready()`를 원래 오류로 reject한다.
+            실패 시 레이어가 해제됐으면 종료하고, 그 외에는 출처(URL 또는 capabilities 옵션)와 오류 메시지를 로그에 기록한 뒤 `ready`를 _rejectReady로 원래 오류를 전달한다.
             finally에서 현재 요청과 일치하는 제어기 참조를 비우고 #loading을 false로 바꾼다.
 
     #applyCapabilities(capabilities: OLWMTSCapabilities, service: U3dImageWMTSLayerServiceOptions) -> void

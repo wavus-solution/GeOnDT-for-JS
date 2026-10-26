@@ -206,11 +206,8 @@ class U3dHeightLayer extends U3dLayer {
             if (!tileKey) continue;
 
             const tile = this._drawArg?.getTile(tileKey);
-            const mesh = tile?.getMesh();
-
-            if (!mesh) continue;
-
-            mesh.scale.z = this._heightScale;
+            // 적용 대상은 이 레이어의 활성 타일이며, 표시 행렬과 경계의 일관성은 타일이 관리한다.
+            tile?._setHeightScale(this._heightScale);
         }
     }
 
@@ -514,9 +511,7 @@ class U3dHeightLayer extends U3dLayer {
         if (!defined(geometry) || !defined(tile._mesh))
             return;
 
-        // 위에서 기반 메시의 존재를 확인했으며 표준 getMesh()는 같은 _mesh를 반환합니다.
-        const mesh = /** @type {import('@union3d/core/mesh/UTileMesh').UTileMesh} */ (tile.getMesh());
-        mesh.scale.z = this.getHeightScale();
+        tile._setHeightScale(this.getHeightScale());
 
         tile.changeGeometry(geometry);
         tile.setHeightLoaded();
@@ -567,6 +562,8 @@ class U3dHeightLayer extends U3dLayer {
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 해제할 타일
      * @param {Partial<{deletefunc: Function}>} [opt] 상위 레이어에 그대로 전달할 타일 해제 옵션
+     * @returns {void}
+     * @throws {Error} 단일 실패는 원래 오류를, 복수 실패는 errors 배열을 가진 오류를 전달합니다.
      */
     disposeTile(tile, opt) {
         const constructor = /**
@@ -577,16 +574,20 @@ class U3dHeightLayer extends U3dLayer {
         const _tile = /** @type {import('@U3dQuadTile').U3dQuadTile} */(tile);
         const headerCache = /** @type {import('@union3d/core/UCache').UCache | undefined} */this._headerCache;
         const geometry = constructor.getTerrains(_tile._key);
+        /** @type {unknown[]} */
+        const errors = [];
         if (geometry) {
-            geometry.dispose();
+            // 해제 이벤트의 재진입과 실패 뒤에도 정적 저장소에 이전 격자가 남지 않도록 먼저 분리합니다.
             constructor.deleteTerrains(_tile._key);
+            try { geometry.dispose(); } catch (error) { errors.push(error); }
         }
 
-        // geometry 생성 전 실패한 타일도 헤더가 남을 수 있으므로 geometry 존재 여부와 무관하게 제거한다.
-        if (headerCache?.has(_tile._key))
-            headerCache.remove(_tile._key);
-
-        super.disposeTile(tile, opt);
+        try {
+            if (headerCache?.has(_tile._key)) headerCache.remove(_tile._key);
+        } catch (error) { errors.push(error); }
+        try { super.disposeTile(tile, opt); } catch (error) { errors.push(error); }
+        if (errors.length === 1) throw errors[0];
+        if (errors.length) throw Object.assign(new Error('고도 타일 자원 해제에 실패했습니다.'), {errors});
     }
 
     /**
@@ -606,8 +607,7 @@ class U3dHeightLayer extends U3dLayer {
         if (!defined(app))
             return;
 
-        app.disposeQuadTree();
-        app.createQuadTreeSet();
+        app.restartTerrainQuadTree();
         U3dLayer.prototype.show.call(this, show);
     }
 

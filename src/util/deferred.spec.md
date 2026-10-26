@@ -109,13 +109,14 @@ deferred(scope: Partial<DeferredObject<T>> = {}) -> DeferredObject<T>
         기존 resolve·reject·ready·then·catch·fail·done·isReady가 truthy이면 각각 충돌 오류를 출력하고 계속해서 메서드를 덮어쓴다. 기존 _readyPromise나 구독자에게 별도 완료 통지를 하지 않는다.
         isReady는 현재 state가 PENDING과 다른지 반환하도록 설치한다.
         takeOver는 입력의 _readyPromise가 없으면 그대로 반환한다. 있으면 성공·실패·공통 콜백 목록을 현재 목록 뒤에 복사하며 입력 객체의 목록이나 상태는 바꾸지 않는다.
-        reset은 상태를 PENDING으로, 세 목록 길이를 0으로, param을 undefined로 만든다. id와 avoidSelfCheck는 변경하지 않는다.
-        resolve는 isReady가 참이면 즉시 반환한다. 그 외에는 param과 RESOLVE 상태를 먼저 저장하고 성공 콜백, 공통 콜백 순으로 동기 호출한다. 각 콜백의 동기 예외는 호출 종류와 원본 오류 정보를 엔진 로그에 기록하고 다음 콜백을 계속 호출하며, 순회가 끝나면 세 목록을 비운다. 개별 콜백 처리 밖의 예외를 reject에 전달하는 기존 외곽 catch는 유지하며 이미 완료 상태이면 reject가 즉시 반환한다.
-        reject는 isReady가 참이면 즉시 반환한다. 그 외에는 param과 REJECT 상태를 먼저 저장하고 실패 콜백, 공통 콜백 순으로 동기 호출한다. 각 콜백의 동기 예외는 호출 종류와 원본 오류 정보를 엔진 로그에 기록하고 다음 콜백을 계속 호출하며, 순회가 끝나면 세 목록을 비운다.
+        reset은 id를 유지한 새 상태 객체로 _readyPromise를 교체한다. 상태는 PENDING, 세 목록은 빈 배열, param과 avoidSelfCheck는 undefined다. 이전 회차의 통지 중 목록은 변경하지 않는다.
+        resolve는 isReady가 참이면 즉시 반환한다. 그 외에는 현재 상태 객체를 보관하고 param과 RESOLVE 상태를 먼저 저장한 뒤 성공 콜백, 공통 콜백 순으로 동기 호출한다. 각 콜백의 동기 예외는 호출 종류와 원본 오류 정보를 엔진 로그에 기록하고 다음 콜백을 계속 호출한다. 통지 중 reset해도 시작 시 보관한 객체의 세 목록만 비운다. 개별 콜백 처리 밖의 예외는 같은 상태 객체가 현재일 때만 reject에 전달하며 이미 완료 상태이면 reject가 즉시 반환한다.
+        reject는 isReady가 참이면 즉시 반환한다. 그 외에는 현재 상태 객체를 보관하고 param과 REJECT 상태를 먼저 저장한 뒤 실패 콜백, 공통 콜백 순으로 동기 호출한다. 각 콜백의 동기 예외는 호출 종류와 원본 오류 정보를 엔진 로그에 기록하고 다음 콜백을 계속 호출한다. 통지 중 reset해도 이전 회차의 남은 수신자에게 통지를 마치고 시작 시 보관한 객체의 세 목록만 비운다.
         resolve와 reject 함수의 _id에는 생성 시 id를 저장한다.
-        then·ready·done은 같은 등록 함수를 참조하도록 설치한다. success가 함수이면 RESOLVE 상태에서는 저장한 param으로 즉시 호출하고 PENDING 상태에서는 성공 목록에 추가한다. REJECT 상태에서는 success를 호출하거나 보관하지 않는다.
-        성공 즉시 호출에서 param이 scope 자신이면 then을 avoidSelfCheck에 보관하고 then을 undefined로 만든 뒤 success를 호출한다. 정상 반환 후 avoidSelfCheck가 truthy이면 then을 복원하고 임시 보관값을 지운다. 이 즉시 콜백의 예외는 그대로 전달되며 뒤의 복원과 error 등록까지 진행하지 않는다.
-        error가 함수이면 catch를 통해 실패 콜백으로 등록한다. catch·fail은 같은 함수이며 콜백이 함수일 때 REJECT 상태에서는 param으로 즉시 호출하고 PENDING 상태에서는 실패 목록에 추가한다. RESOLVE 상태에서는 호출하거나 보관하지 않는다.
+        then·ready·done은 같은 등록 함수를 참조하도록 설치하고 호출 시작 시 상태 객체를 보관한다. success가 함수이면 RESOLVE 상태에서는 저장한 param으로 즉시 호출하고 PENDING 상태에서는 성공 목록에 추가한다. REJECT 상태에서는 success를 호출하거나 보관하지 않는다.
+        성공 즉시 호출에서 param이 scope 자신이면 then을 해당 상태의 avoidSelfCheck에 보관하고 then을 undefined로 만든 뒤 success를 호출한다. finally에서 then을 복원하고 임시 보관값을 지우므로 수신자의 reset·예외로 메서드를 잃지 않는다. 즉시 콜백의 예외는 그대로 전달하며 error 등록은 진행하지 않는다.
+        error가 함수이면 호출 시작 시 보관한 상태가 REJECT일 때 즉시 호출하고 PENDING이면 그 상태의 실패 목록에 추가한다. 성공 수신자가 reset해도 같은 then의 실패 수신자를 새 회차에 연결하지 않는다.
+        catch·fail은 같은 함수이며 콜백이 함수일 때 현재 상태가 REJECT이면 param으로 즉시 호출하고 PENDING이면 실패 목록에 추가한다. RESOLVE에서는 호출하거나 보관하지 않는다.
         finally는 콜백이 함수이면 PENDING 상태에서 공통 목록에 추가하고 그 밖의 상태에서는 param으로 즉시 호출한다. catch와 finally의 즉시 호출도 콜백 예외를 그대로 전달한다.
         ready.then은 ready 자신을, ready.catch와 ready.fail은 실패 등록 함수를 참조하도록 연결한다.
         promise는 scope 자체를 Promise 타입으로 반환하도록 설치한 뒤 모든 구성이 끝난 scope를 반환한다.

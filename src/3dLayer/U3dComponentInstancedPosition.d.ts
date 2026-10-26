@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -221,25 +221,34 @@ declare class U3dComponentInstancedPosition extends U3dComponentPosition {
      */
     override setPosition(position: WorldPosition, lookAt?: WorldPosition, fixedOverlay?: boolean): void;
     /**
-     * [pickMaterial] 대상을 선택하거나 지정 했을 경우에 해당 객체의 색상을 변경해주거나 highlight 해주는 함수
+     * 이 컴포넌트에 선택 강조 색상과 투명도를 적용합니다. <br>
+     * 같은 모델을 사용하는 다른 인스턴스의 표시는 변경하지 않습니다. <br>
+     * 선택 강조를 해제하려면 restoreMaterial()을 호출하십시오.
      *
-     * @param {unknown} [intersect] 선택 교차 정보. 현재 구현에서는 사용하지 않습니다.
-     * @param {import('three').ColorRepresentation} [color='#ffffff'] 설정 색상
-     * @param {number} [opacity=1] 설정 투명도 수치
+     * @override
      *
-     * @returns {boolean} 색상 적용 여부
+     * @param {unknown} [intersect] 선택 교차 정보(현재 구현에서는 사용하지 않음)
+     * @param {import('three').ColorRepresentation} [color='#ffffff'] 선택 강조 색상
+     * @param {number} [opacity=1] 선택 강조 투명도
      *
-    * @ignore
+     * @returns {boolean} 선택 강조가 적용되면 true, 인스턴스가 없거나 적용에 실패하면 false
+     *
+               
+                                                                            
      */
-    pickMaterial(intersect?: unknown, color?: three.ColorRepresentation, opacity?: number): boolean;
+    override pickMaterial(intersect?: unknown, color?: three.ColorRepresentation, opacity?: number): boolean;
     /**
-     * [restoreMaterial] 색상을 이전에 설정하여 변경 하였다면 다시 원래의 색상으로 복구하는 함수
+     * 선택 강조를 해제하고 강조 전의 색상과 투명도로 복원합니다. <br>
+     * setColor()로 지정한 색상이 있으면 그 색상을 사용하며, 설정된 밝기·대비·채도도 다시 적용합니다.
      *
-     * @returns {boolean} 색상 복구 적용 여부
+     * @override
      *
-    * @ignore
+     * @returns {boolean} 복원이 적용되면 true, 인스턴스가 없거나 적용에 실패하면 false
+     *
+               
+                                                                             
      */
-    restoreMaterial(): boolean;
+    override restoreMaterial(): boolean;
     /**
      * [updateAnimationAt] 해당 componentPosition이 지정한 mesh의 animation을 업데이트 해주는 함수
      * 업데이트 하려는 대상이 animation에 대한 정보가 설정된 상태( animations 속성이 있을 경우 ) 업데이트 하여 갱신

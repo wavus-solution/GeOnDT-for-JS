@@ -1,15 +1,99 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
+import type { DispatchInputEvent, Listeners } from "../core/UEventDispatcher.js";
 import type { URaycaster } from "../core/URaycaster.js";
+import type { UScene } from "../core/UScene.js";
+import type { TWEEN } from "../lib/Tween.js";
 import type { FirstPersonControls } from "../lib/three/controls/FirstPersonControls.js";
-import type { WorldPosition } from "../types/global.js";
+import type { UMeta } from "../meta/UMeta.js";
+import type { UControls } from "./UControls.js";
+import type { EventCallBack, WorldPosition } from "../types/global.js";
 import type { DeferredObject } from "../util/deferred.js";
+
+/** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
+interface GeOnDTMixedInstance_UWalkControls {
+"object": any;
+"target": three.Vector3;
+"domElement": any;
+"enabled": boolean;
+"movementSpeed": number;
+"lookSpeed": number;
+"lookVertical": boolean;
+"autoForward": boolean;
+"activeLook": boolean;
+"heightSpeed": boolean;
+"heightCoef": number;
+"heightMin": number;
+"heightMax": number;
+"constrainVertical": boolean;
+"verticalMin": number;
+"verticalMax": number;
+"autoSpeedFactor": number;
+"mouseX": number;
+"mouseY": number;
+"lat": number;
+"lon": number;
+"phi": number;
+"theta": number;
+"moveForward": boolean;
+"moveBackward": boolean;
+"moveLeft": boolean;
+"moveRight": boolean;
+"mouseDragOn": boolean;
+"viewHalfX": number;
+"viewHalfY": number;
+"handleResize": Function;
+"onMouseDown": Function;
+"onMouseUp": Function;
+"onMouseMove": Function;
+"onKeyDown": Function;
+"onKeyUp": Function;
+"update": Function;
+"dispose": Function;
+"addControl"(control: UControls): void;
+"bind"(scope: any, fn: any): (...args: any[]) => void;
+"getIntersectsFromScenes"(raycaster: URaycaster, scenes: UScene): any[];
+"getName"(): string;
+"has"(type: string, listener: EventCallBack): boolean;
+"dispatch"(type: string): void;
+"getUpdateDate"(): number;
+"setUpdateDate"(date: number): void;
+"getLastUpdateDate"(): number;
+"setLastUpdateDate"(date: number): void;
+"getMetaData"(): UMeta;
+"createMeta"(name: string, val?: any): UMeta;
+"addEventListener"(type: string, listener: EventCallBack, once?: boolean | undefined, name?: string | undefined): string | null;
+"on"(type: string, listener: EventCallBack, once?: boolean | undefined, name?: string | undefined): string | null;
+"once"(type: string, listener: EventCallBack, name?: string | undefined): string | null;
+"hasEventListener"(type: string, listener: string | EventCallBack): boolean;
+"hasEventType"(type: string): boolean;
+"removeEventListener"(type: string, listener?: string | EventCallBack | undefined): void;
+"off"(type?: string | undefined, listener?: string | Function | undefined): void;
+"unkey"(type: string, key?: string | undefined): void;
+"removeEventListenerAll"(): void;
+"dispatchEvent"(event: string | DispatchInputEvent, data?: any): void;
+"emit"(event: string | DispatchInputEvent, data?: any): void;
+"isUControl": boolean;
+"_drawArg": any;
+"_controlCam": any;
+"_controlList": any[];
+"_name": string;
+"_curUpdateDate": number;
+"_lastUpdateDate": number;
+"_meta": UMeta | null;
+"_listeners": Listeners | undefined;
+}
+
+declare const UWalkControls_base: Omit<typeof FirstPersonControls, "prototype"> & {
+    new (object?: any, domElement?: any): GeOnDTMixedInstance_UWalkControls;
+    prototype: GeOnDTMixedInstance_UWalkControls;
+};
 
 /**
  * @classdesc `보행 모드`(WalkMode) 관련 함수
@@ -28,18 +112,18 @@ import type { DeferredObject } from "../util/deferred.js";
  *                 camera: app._camera,
  *                  domelement: app._renderer.domElement
  *             });
- * @extends {FirstPersonControls}
+ * @extends {__GeOnDTMixinBase_UWalkControls}
+ 
  */
-declare class UWalkControls extends FirstPersonControls {
+declare class UWalkControls extends UWalkControls_base {
     constructor(opt?: {});
-    _drawArg: any;
     _app: any;
     _container: any;
     _isInit: boolean;
     moveX: number;
     moveY: number;
     velocityZ: number;
-    tween: any;
+    tween: TWEEN.Tween;
     isTweening: boolean;
     targetPos: any;
     mouseDragStop: boolean;
@@ -60,18 +144,17 @@ declare class UWalkControls extends FirstPersonControls {
      * 추가되는 이벤트 종류에는 ['mousemove' | 'mousedown' | 'mouseup' | 'mouseout' | 'keydown' | 'keyup' | 'dblclick']가 있다.
      */
     addEventHandler(): void;
-    _mousemove: any;
-    _mouseup: any;
-    _mousedown: any;
-    _mouseout: any;
-    _dblclick: any;
-    _keydown: any;
-    _keyup: any;
+    _mousemove: (...args: any[]) => void;
+    _mouseup: (...args: any[]) => void;
+    _mousedown: (...args: any[]) => void;
+    _mouseout: (...args: any[]) => void;
+    _dblclick: (...args: any[]) => void;
+    _keydown: (...args: any[]) => void;
+    _keyup: (...args: any[]) => void;
     /**
      * 이벤트 리스너를 제거하는 함수
      */
     removeEventHandler(): void;
-    _listeners: {};
     keyup(event: any): void;
     moveUp: boolean;
     moveDown: boolean;
@@ -112,4 +195,4 @@ declare class UWalkControls extends FirstPersonControls {
     getMinHeight(): number;
 }
 
-export type { UWalkControls };
+export type { GeOnDTMixedInstance_UWalkControls, UWalkControls, UWalkControls_base };

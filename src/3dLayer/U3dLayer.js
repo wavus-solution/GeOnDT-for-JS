@@ -76,6 +76,159 @@ export const U3dLayerEMD = {
  */
 class U3dLayer extends U3dObject {
     /**
+     * 초기화 완료 통지 상태입니다. 외부 단위는 isReady()로 종결 여부를 확인합니다.
+     *
+     * @type {'pending' | 'fulfilled' | 'rejected'}
+     *
+     * @ignore
+     */
+    _readyState = 'pending';
+    /**
+     * 자신을 전달하는 네이티브 Promise의 성공 통지 함수입니다.
+     *
+     * @type {() => void}
+     *
+     * @ignore
+     */
+    _readyResolve;
+    /**
+     * 네이티브 Promise의 실패 통지 함수입니다.
+     *
+     * @type {(reason: Error) => void}
+     *
+     * @ignore
+     */
+    _readyReject;
+
+    /**
+     * 레이어 초기화가 완료되면 이 레이어 자신을 전달하는 Promise입니다. <br>
+     * `await layer.ready` 또는 `layer.ready.then(layer => { ... })`로 완료를 기다립니다.
+     * 생성만으로 초기화를 시작하지는 않으며 실제 완료 시점은 각 하위 레이어의 초기화 계약을 따릅니다.
+     *
+     * @returns {Promise<this>} 현재 초기화 회차의 완료 Promise
+     */
+    get ready() {
+        return this._readyPromise;
+    }
+
+    /**
+     * 현재 초기화 회차의 네이티브 Promise입니다.
+     *
+     * @type {Promise<this>}
+     *
+     * @ignore
+     */
+    _readyPromise;
+
+    /**
+     * 초기화 완료 대기를 새 회차로 시작합니다. 실제 로딩은 시작하지 않습니다.
+     * 레이어 내부의 재시도 경로는 새 ready를 만든 뒤 initialize()를 다시 호출합니다.
+     *
+     * @returns {this} 이 레이어
+     *
+     * @protected
+     * @ignore
+     */
+    _resetReady() {
+        this._readyState = 'pending';
+        this._readyPromise = new Promise((resolve, reject) => {
+            this._readyResolve = () => resolve(this);
+            this._readyReject = reject;
+        });
+        return this;
+    }
+
+    /**
+     * 현재 초기화 회차가 성공 또는 실패로 종결되었는지 확인합니다.
+     *
+     * @returns {boolean} 성공·실패 통지가 끝났으면 true, 대기 중이면 false
+     */
+    isReady() {
+        return this._readyState !== 'pending';
+    }
+
+    /**
+     * 하위 레이어의 최종 초기화 성공을 알립니다. 중간 단계에서 호출하지 않습니다.
+     * 최초 통지만 반영하며, 구독 콜백은 네이티브 Promise의 마이크로태스크에서 실행됩니다.
+     *
+     * @returns {this} 이 레이어
+     *
+     * @ignore
+     */
+    _resolveReady() {
+        if (this._readyState !== 'pending') return this;
+        this._readyState = 'fulfilled';
+        this._readyResolve();
+        return this;
+    }
+
+    /**
+     * 하위 레이어의 초기화 실패를 알리고 타일 처리 대상에서 제외합니다.
+     * 기존 Error는 보존하고, 나머지 실패값은 cause에 보관하여 원인을 추적할 수 있게 합니다.
+     *
+     * @param {unknown} reason 초기화 실패 원인
+     * @returns {this} 이 레이어
+     *
+     * @ignore
+     */
+    _rejectReady(reason) {
+        if (this._readyState !== 'pending') return this;
+        this._readyState = 'rejected';
+        this._initialized = false;
+        if (reason instanceof Error) {
+            this._readyReject(reason);
+            return this;
+        }
+        const message = typeof reason === 'string' && reason.trim() !== ''
+            ? reason : `${this._classtype}: 레이어 초기화에 실패했습니다.`;
+        const error = Object.assign(new Error(message), {cause: reason});
+        // DOMException이 Error를 상속하지 않는 브라우저에서도 취소 식별 정보를 보존합니다.
+        if (typeof DOMException !== 'undefined' && reason instanceof DOMException) {
+            error.name = reason.name;
+            error.message = reason.message || message;
+        }
+        this._readyReject(error);
+        return this;
+    }
+
+    /** 사용 중인 공유 파서 풀입니다. @type {Set<import('@union3d/core/UTaskProcessor').UTaskProcessor>} @ignore */
+    _taskProcessors = new Set();
+    /** 해제 중 지연 콜백의 새 풀 사용을 차단합니다. @type {boolean} @ignore */
+    _taskProcessorDisposing = false;
+
+    /**
+     * 첫 실제 요청에서 공유 파서 풀의 소유권을 등록합니다.
+     * U3dApp 별로 관리하기 위해 등록합니다.
+     * @param {import('@union3d/core/UTaskProcessor').UTaskProcessor} processor 사용할 풀
+     * @returns {import('@union3d/core/UTaskProcessor').UTaskProcessor} 등록한 풀
+     * @throws {Error} 해제 중이거나 해제된 레이어·앱의 요청
+     *
+     * @ignore
+     */
+    _useTaskProcessor(processor) {
+        if (this._taskProcessorDisposing || this._disposed || this._app?.isDisposed()) {
+            throw new Error('해제된 레이어는 워커 작업을 시작할 수 없습니다.');
+        }
+        if (!this._taskProcessors.has(processor)) {
+            processor._retain(this);
+            this._taskProcessors.add(processor);
+        }
+        return processor;
+    }
+
+    /**
+     * 레이어 정리의 성공·실패와 관계없이 공유 풀 소유권을 한 번 반환합니다.
+     * @returns {void}
+     * @ignore
+     */
+    _releaseTaskProcessors() {
+        this._taskProcessorDisposing = true;
+        for (const processor of this._taskProcessors ?? []) processor._release(this);
+        this._taskProcessors?.clear();
+    }
+
+
+    /**
      * 생성자 옵션에서 인식하는 키 목록입니다. <br>
      * `normalizeOptionKeys`가 이 목록을 기준으로 옵션 키의 대소문자 표기를 정규화하므로,
      * 하위 레이어가 새 옵션을 추가하면 이 배열을 확장해 등록해야 합니다.
@@ -122,6 +275,8 @@ class U3dLayer extends U3dObject {
      * @ignore
      */
     _workCheckId = null;
+    /** 재시작 전 로딩 완료 예약과 준비 콜백을 구분합니다. @type {number} @ignore */
+    _workCheckGeneration = 0;
 
     /**
      * 레이어의 기존 바운드 디버그 상태와 성능 로그 공통 설정을 함께 보관합니다. <br>
@@ -440,7 +595,7 @@ class U3dLayer extends U3dObject {
         self._animation = defaultValue(opt.animation, false);
         self._baseUrl = defaultValue(opt.baseUrl, undefined);
         self._useShadowUpdate = opt.useShadowUpdate ?? true;
-        deferred(/** @type {Partial<DeferredObject<typeof self>>} */(/** @type {unknown} */(self)));
+        this._resetReady();
 
         self._groupLayer = defaultValue(opt.groupLayer, undefined);
 
@@ -664,7 +819,8 @@ class U3dLayer extends U3dObject {
      * @ignore
      */
     createWorkingEndEvent() {
-        if (this._workCheckId)
+        if (this._disposed || this._app?.isDisposed() || this._app?._quadTreeChanging || this._app?._mapRegionApplying
+            || this._workCheckId !== null)
             return;
 
         if (!this.hasEventType((/** @type {typeof U3dLayer} */ (this.constructor)).EVENT.LOADED)) {
@@ -672,6 +828,18 @@ class U3dLayer extends U3dObject {
         }
 
         this.#checkWorking(this._name, true);
+    }
+
+    /**
+     * 이 레이어의 로딩 완료 예약만 취소하고 등록 이벤트와 사용자 표시 상태는 유지합니다.
+     * @returns {void}
+     * @ignore
+     */
+    _resetWorkingEndEvent() {
+        this._workCheckGeneration++;
+        if (this._workCheckId !== null) clearTimeout(this._workCheckId);
+        this._workCheckId = null;
+        this._countloading = _WAIT_COUNT;
     }
 
     /**
@@ -1726,57 +1894,63 @@ class U3dLayer extends U3dObject {
      * @returns {Promise<boolean>} 해제가 끝나면 true로 완료되는 Promise
      */
     dispose() {
-        /** @type {DeferredObject<boolean>} */
-        const promise = deferred();
-        const self = this;
-        const selfLayer = /** @type {{dispatch: (function(string, ...unknown): void), removeEventListener: (function(unknown): void)} & Partial<{_eventHandler: {dispose: (function(): void)}}>} */ (/** @type {unknown} */ (self));
+        this._taskProcessorDisposing = true;
+        try {
+            this._resetWorkingEndEvent();
+            /** @type {DeferredObject<boolean>} */
+            const promise = deferred();
+            const self = this;
+            const selfLayer = /** @type {{dispatch: (function(string, ...unknown): void), removeEventListener: (function(unknown): void)} & Partial<{_eventHandler: {dispose: (function(): void)}}>} */ (/** @type {unknown} */ (self));
 
-        selfLayer.dispatch((/** @type {typeof U3dLayer} */ (self.constructor)).EVENT.BEFORE_DISPOSE);
-        self.debugBound(false);
+            selfLayer.dispatch((/** @type {typeof U3dLayer} */ (self.constructor)).EVENT.BEFORE_DISPOSE);
+            self.debugBound(false);
 
-        //+ 이벤트 해제
-        if (defined(self._idReloaded))
-            selfLayer.removeEventListener(self._idReloaded);
+            //+ 이벤트 해제
+            if (defined(self._idReloaded))
+                selfLayer.removeEventListener(self._idReloaded);
 
-        self._idReloadEnd = undefined;
+            self._idReloadEnd = undefined;
 
-        /** @type {{ _name: string | undefined }} */ (/** @type {unknown} */ (self))._name = undefined;
-        self._camera = undefined;
-        self._stateTiles = {};
-        self._workBuffer = {};
+            /** @type {{ _name: string | undefined }} */ (/** @type {unknown} */ (self))._name = undefined;
+            self._camera = undefined;
+            self._stateTiles = {};
+            self._workBuffer = {};
 
-        if (defined(selfLayer._eventHandler)) {
-            selfLayer._eventHandler.dispose();
-            selfLayer._eventHandler = undefined;
+            if (defined(selfLayer._eventHandler)) {
+                selfLayer._eventHandler.dispose();
+                selfLayer._eventHandler = undefined;
+            }
+
+            self.cancelAllTile();
+
+            if (defined(self._scene))
+                self._scene.dispose();
+
+            (/** @type {{_scene: import('@UScene').UScene | undefined}} */(/** @type {unknown} */(self)))._scene = undefined;
+
+            if (defined(self._tileProcess))
+                delete /** @type {Record<string, unknown>} */(/** @type {unknown} */(self))._tileProcess;
+
+            self._tileProcess = undefined;
+
+            self._visible = false;
+
+            if (self._cache)
+                /** @type {UCache} */ (self._cache).deleteAll(self, self.fncDeleteGroup);
+
+            self._disposed = true;
+
+            selfLayer.dispatch((/** @type {typeof U3dLayer} */ (self.constructor)).EVENT.DISPOSE);
+
+            //+ layer 전체 이벤트 삭제
+            self.off();
+
+            promise.resolve(true);
+
+            return promise;
+        } finally {
+            this._releaseTaskProcessors();
         }
-
-        self.cancelAllTile();
-
-        if (defined(self._scene))
-            self._scene.dispose();
-
-        (/** @type {{_scene: import('@UScene').UScene | undefined}} */(/** @type {unknown} */(self)))._scene = undefined;
-
-        if (defined(self._tileProcess))
-            delete /** @type {Record<string, unknown>} */(/** @type {unknown} */(self))._tileProcess;
-
-        self._tileProcess = undefined;
-
-        self._visible = false;
-
-        if (self._cache)
-            /** @type {UCache} */ (self._cache).deleteAll(self, self.fncDeleteGroup);
-
-        self._disposed = true;
-
-        selfLayer.dispatch((/** @type {typeof U3dLayer} */ (self.constructor)).EVENT.DISPOSE);
-
-        //+ layer 전체 이벤트 삭제
-        self.off();
-
-        promise.resolve(true);
-
-        return promise;
     }
 
     /**
@@ -1985,7 +2159,15 @@ class U3dLayer extends U3dObject {
                 self._tileProcess._callback.push({scope: self, fnc: callback});
             }
         }
-        return self.initialize();
+        try {
+            return self.initialize();
+        } catch (error) {
+            // 비동기 완료를 기다리는 사용자가 동기 초기화 실패도 같은 catch에서 받게 합니다.
+            // 이미 완료한 레이어는 다시 거부할 수 없으므로 기존 동기 예외를 숨기지 않습니다.
+            if (self.isReady()) throw error;
+            self._rejectReady(error);
+            return undefined;
+        }
     }
 
     /**
@@ -2146,6 +2328,10 @@ class U3dLayer extends U3dObject {
      */
     #checkWorking(name, reset = false) {
         const self = this;
+        const generation = self._workCheckGeneration;
+        const current = () => generation === self._workCheckGeneration && !self._disposed && !self._app?.isDisposed()
+            && !self._app?._quadTreeChanging && !self._app?._mapRegionApplying;
+        if (!current()) return;
 
         if (defined(reset) && reset === true) {
             self._countloading = _WAIT_COUNT;
@@ -2153,14 +2339,18 @@ class U3dLayer extends U3dObject {
 
         if (self._workCheckId !== null && self._workCheckId !== undefined) clearTimeout(self._workCheckId);
         self._workCheckId = setTimeout(function () {
+            if (!current()) return;
+            self._workCheckId = null;
             const EVENT = (/** @type {typeof U3dLayer} */ (self.constructor)).EVENT;
-            const selfCheck = /** @type {{hasEventType: (function(string): boolean), dispatchEvent: (function(string, ...unknown): void)} & Partial<{ready: (function((function(): void)): void), then: (function((function(): void)): void)}>} */ (/** @type {unknown} */ (self));
+            const selfCheck = /** @type {{hasEventType: (function(string): boolean), dispatchEvent: (function(string, ...unknown): void)}} */ (/** @type {unknown} */ (self));
             if (!selfCheck.hasEventType(EVENT.LOADED)) {
                 self._workCheckId = null;
                 return;
             }
 
-            if ((self.getWorkingLevel3?.() ?? 0) > 0) {
+            const working = self.getWorkingLevel3?.() ?? 0;
+            if (!current()) return;
+            if (working > 0) {
                 self.#checkWorking(name, true);
                 return;
             }
@@ -2171,15 +2361,11 @@ class U3dLayer extends U3dObject {
                 return;
             }
 
-            if (defined(selfCheck.ready)) {
-                selfCheck.ready(selfCheck.dispatchEvent.bind(selfCheck, EVENT.LOADED));
-            } else if (defined(selfCheck.then)) {
-                selfCheck.then(selfCheck.dispatchEvent.bind(selfCheck, EVENT.LOADED));
-            } else {
-                selfCheck.dispatchEvent(EVENT.LOADED);
-            }
-
-            self._workCheckId = null;
+            const notify = () => { if (current()) selfCheck.dispatchEvent(EVENT.LOADED); };
+            // 실패한 레이어에는 LOADED를 발생시키지 않습니다. 원래 ready의 오류는 호출자가 관찰합니다.
+            self.ready.then(notify, () => {}).catch(error => {
+                __GInfo__(self, `레이어 완료 이벤트 처리 중 오류: ${error}`, '9515164');
+            });
         }, _REFRESH_TIME);
     }
 

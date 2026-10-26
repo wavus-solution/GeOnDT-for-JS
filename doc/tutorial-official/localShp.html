@@ -478,7 +478,7 @@
             self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
             self._app.addLayer(this.layer);
         }
-        this.layer.then(() => {
+        this.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -508,7 +508,7 @@
     HeightLayer.prototype.create = function () {
         let self = this;
         self.layer = this._app.createHeightXYZLayer(self.options);
-        self.layer.then(() => {
+        self.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -713,7 +713,7 @@
                         });
                         app.addLayer(layer);
                         try {
-                            layer.ready(()=>{
+                            layer.ready.then(()=>{
                                 app.showLayer(layer.getName(), true);
                                 layer.addFeatureCollection(featureCollection);
 
@@ -723,6 +723,8 @@
                                 printShpModels();
                                 window.layer = layer;
                                 confirm("설계건물(shp)이 로드되었습니다.\n\n (※ 지도상에 잘못된 위치에 로드되었다면 prj 파일을 확인하세요.)");
+                            }).catch(error => {
+                                console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
                             })
                         } catch (e) {
                             confirm(e.message);

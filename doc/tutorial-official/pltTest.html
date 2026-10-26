@@ -360,7 +360,7 @@
             console.error(e);
         }
     }).then(async (result) => {
-        buildingLayer = self.app.createModelGroupLayer({
+        buildingLayer = self.app.createGroupLayer({
             name: 'buildingLayer',
             maxlevel: 15,
             minlevel: 15,
@@ -377,7 +377,7 @@
                 isShareMaterial: true,
                 makeU3FPackage: 0
             });
-            await u3fLayer;
+            await u3fLayer.ready;
             buildingLayer.addLayer(u3fLayer);
         }
 

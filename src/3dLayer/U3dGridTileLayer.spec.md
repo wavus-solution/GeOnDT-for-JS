@@ -92,7 +92,7 @@ U3dGridTileLayer extends U3dModelLayer 클래스 정의
         중복 검사를 통과한 첫 생성에서 만드는 검정 재질이다. 격자 상자에 사용하거나 이 클래스에서 직접 해제하지 않는다. [확인 Q-007]
 
     constructor(opt: U3dGridTileLayerCO = {})
-        인터페이스: 기반 레이어가 설치한 resolve 멤버가 정의되어 있으면 현재 레이어를 인수로 호출한다. 일반 함수의 this는 현재 레이어이며 함수 여부를 별도로 검사하지 않는다.
+        인터페이스: 기반 레이어의 _resolveReady 멤버가 정의되어 있으면 호출하여 ready에 현재 레이어를 전달한다. 일반 함수의 this는 현재 레이어이며 함수 여부를 별도로 검사하지 않는다.
         처리 기준: 격자 옵션 기본값은 undefined일 때만 적용한다. null·0·false를 일괄 기본값으로 바꾸지 않는다.
         의존:
             U3dModelLayer — 기반 상태 초기화; 생성자: {new U3dModelLayer()}
@@ -101,13 +101,13 @@ U3dGridTileLayer extends U3dModelLayer 클래스 정의
             defined — 완료 수신자 존재 판정; 함수: {defined()}
             UCache — 격자 캐시 생성; 생성자: {new UCache()}
             UCheckTime — 시간 상태 객체 생성; 생성자: {new UCheckTime()}
-            U3dLayer — 상속된 완료 상태 종결; 함수: {resolve()}
+            U3dLayer — 상속된 완료 상태 종결; 함수: {_resolveReady()}
         동작:
             opt를 기반 생성자에 전달한 뒤 _type·_tileName을 MODEL 계열로, _className을 U3dGridTileLayer로 설정한다.
             _meshGeometry·_meshMaterial·_boxMaterial을 undefined로 초기화한다.
             여섯 격자 옵션을 읽어 현재 필드에 저장하고 그 값을 _GridConfig의 별도 객체에 복사한다.
             _gridCache와 _checkTime을 생성한다. _checkTime과 _meshGeometry는 이 클래스의 후속 실행에서 사용하지 않는다.
-            resolve가 null·undefined가 아니면 resolve(this)를 호출한다. 타일 생성 완료를 기다리는 절차는 없다.
+            _resolveReady가 null·undefined가 아니면 호출한다. 타일 생성 완료를 기다리는 절차는 없다.
 
     override refresh() -> void
         처리 기준: _drawArg와 그 _cacheTiles._items가 준비되어 있어야 한다. 이 구현은 해당 경로의 존재를 검사하지 않는다.

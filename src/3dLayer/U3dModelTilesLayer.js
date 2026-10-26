@@ -10,7 +10,7 @@ import { UGroup } from '@union3d/core/UGroup';
 import { U3DTileset } from '@union3d/3dTiles/U3DTileset';
 import { UFileLoader } from '@union3d/core/loader/UFileLoader';
 import { UCheckTime } from '@union3d/core/UCheckTime';
-import { UB3dmParser } from '@union3d/core/parser/UB3dmParser';
+import { UB3dmParser, prepareTileMeshMaterials } from '/union3d/core/parser/UB3dmParser.js';
 import { UI3dmParser } from "@union3d/core/parser/UI3dmParser";
 import { UPntsParser } from '@union3d/core/parser/UPntsParser';
 import { Coordinates } from '@union3d/3dTiles/Coordinates';
@@ -48,12 +48,15 @@ const DEFAULT_MAX_SCREEN_SPACE_ERROR = 32;
 /**
  * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayer <br>
  *
- * 3D Tiles 콘텐츠를 로드하여 계층별로 표시하는 모델 레이어입니다.
+ * 3D Tiles 콘텐츠를 로드하여 계층별로 표시하는 모델 레이어입니다. <br>
+ * 원본 타일 경계 또는 선택적 콘텐츠 이동 범위로 탐색·LOD·표시 수명을 판정합니다. <br>
+ * 모델 레이어와 시퀀스 확장에서 사용하며 파일 로딩·배치·캐시와 선택 경계 설정을 관리합니다.
  *
  * @group 3dLayer
  *
  * @extends {U3dModelLayer}
  */
+/// <summary>3D Tiles 콘텐츠를 로드하여 계층별로 표시하는 모델 레이어입니다.  원본 타일 경계 또는 선택적 콘텐츠 이동 범위로 탐색·LOD·표시 수명을 판정합니다.  모델 레이어와 시퀀스 확장에서 사용하며 파일 로딩·배치·캐시와 선택 경계 설정을 관리합니다. </summary>
 class U3dModelTilesLayer extends U3dModelLayer {
     /**
      * 옵션 입력의 기존 표기를 정본 키로 연결합니다.
@@ -67,6 +70,38 @@ class U3dModelTilesLayer extends U3dModelLayer {
         'makeLevel', 'maximumScreenSpaceError', 'rotation', 'heightOffset',
         'viewSizeOffset', 'cacheSize', 'updateCycleTime'
     ];
+    /**
+     * 원본 경계에 더할 선택적 월드 이동 범위입니다.
+     *
+     * @type {ModelContentOffsetBounds | null}
+     *
+     * @ignore
+     */
+    _contentOffsetBounds = null;
+    /**
+     * 경계 변경 후 카메라 정지 상태에서도 다음 판정을 갱신할지 여부입니다.
+     *
+     * @type {boolean}
+     *
+     * @ignore
+     */
+    _contentOffsetBoundsDirty = false;
+    /** @type {WeakMap<import('three').Material, import('/union3d/3dTiles/vo/UModelTileMaterialStateVo.js').UModelTileMaterialStateVo>} */
+    _materialStateMap = new WeakMap();
+
+    /** @returns {WeakMap<import('three').Material, import('/union3d/3dTiles/vo/UModelTileMaterialStateVo.js').UModelTileMaterialStateVo>} 원본 상태 참조입니다. */
+    /// <summary>레이어가 소유하는 재질별 원본 상태 WeakMap 참조를 반환합니다. 재질 수명을 연장하지 않으며 호출자는 원본 항목을 임의로 제거하지 않아야 합니다.</summary>
+    get materialStateMap() { return this._materialStateMap; }
+
+    /** @param {WeakMap<import('three').Material, import('/union3d/3dTiles/vo/UModelTileMaterialStateVo.js').UModelTileMaterialStateVo>} value 연결 전 사용할 원본 상태 저장소입니다. */
+    /// <summary>타일 트리가 연결되기 전에 원본 상태 저장소를 교체합니다. 연결 중 교체는 원본 유실을 막기 위해 거부합니다.</summary>
+    /// <param name="value">Material을 키로 UModelTileMaterialStateVo를 보관하는 WeakMap이며 null을 허용하지 않습니다. 레이어가 참조를 보관하고 항목을 추가합니다.</param>
+    set materialStateMap(value) {
+        if (!(value instanceof WeakMap)) throw new TypeError('재질 원본 상태 저장소는 WeakMap이어야 합니다.');
+        if (this._rootTileSet && value !== this._materialStateMap) throw new Error('타일 연결 중에는 재질 원본 상태 저장소를 교체할 수 없습니다.');
+        this._materialStateMap = value;
+    }
+
     #stopUpdate = false;
     #scaledHeightOffset = 0; //3857스케일 적용된 heightOffset
     /**
@@ -104,6 +139,8 @@ class U3dModelTilesLayer extends U3dModelLayer {
      *
      * @param {U3dModelTilesLayerCO} opt 타일 데이터 주소와 표시·요청 설정
      */
+    /// <summary>타일 주소·파서·캐시·경계와 재질 원본 상태 저장소를 준비하여 3D Tiles 표시 수명을 구성합니다.</summary>
+    /// <param name="opt">타일 주소·표시·요청 설정을 가진 U3dModelTilesLayerCO object이며 null을 허용하지 않습니다. 정규화 후 값을 보관하며 외부 자원 소유권은 이전하지 않습니다.</param>
     constructor(opt) {
         opt = normalizeOptionKeys(opt, new.target);
         super(opt);
@@ -294,19 +331,76 @@ class U3dModelTilesLayer extends U3dModelLayer {
     }
 
     /**
-     * 레이어와 로드된 타일(tile)의 불투명도를 설정합니다. <br>
-     * 배열 재질을 사용하는 타일은 기존 재질 갱신 경로에서 예외가 발생할 수 있습니다.
-     *
+     * 원본 재질 불투명도에 레이어 불투명도를 곱합니다.
+     * @param {number} val 레이어 불투명도이며 0~1로 보정합니다.
      * @override
-     *
-     * @param {number} val 불투명도
      */
+    /// <summary>현재 트리와 캐시에 원본 불투명도 × 레이어 불투명도를 적용합니다. 1로 복원하면 원본 transparent·depthWrite 설정으로 되돌리고 기존 resetOpacity 경로도 유지합니다.</summary>
+    /// <param name="val">단위 없는 유한 number이며 0 미만은 0, 1 초과는 1로 보정합니다. null·undefined는 기존처럼 무시하고 다른 자료형·NaN·무한수는 거부합니다.</param>
     setOpacity(val) {
+        if (!defined(val)) return;
+        if (typeof val !== 'number' || !Number.isFinite(val)) throw new TypeError('레이어 불투명도는 유한수여야 합니다.');
+        const originalOpacity = this._oriOpacity;
         U3dLayer.prototype.setOpacity.call(this, val);
+        // 부모 구현은 0을 미보관 값으로 취급하므로 이미 보관한 원본 0도 유지합니다.
+        if (defined(originalOpacity)) this._oriOpacity = originalOpacity;
         if (!this._rootTileSet) return;
-        // 현재 트리와 캐시에 표시 설정을 반영합니다.
-        INTERNAL.applyTileOpacity(this, val);
+        INTERNAL.applyTileOpacity(this, this._opacity);
     }
+
+    /**
+     * 0 이동을 포함하는 선택적 월드 이동 범위를 설정합니다.
+     *
+     * @param {ModelContentOffsetBounds | null} [bounds=null] 원본 형상에 더할 월드 X/Y/Z 최소·최대 이동량. 배열을 복사하며 null이면 기존 판정입니다.
+     * @returns {void}
+     */
+    /// <summary>0 이동을 포함하는 선택적 월드 이동 범위를 설정합니다. </summary>
+    /// <param name="bounds">원본 형상에 더할 월드 X/Y/Z 최소·최대 이동량. 배열을 복사하며 null이면 기존 판정입니다. 자료형: ModelContentOffsetBounds | null. 생략 시 기본값: null.</param>
+    setContentOffsetBounds(bounds = null) {
+        const candidate=INTERNAL.copyContentOffsetBounds(bounds);
+        if(JSON.stringify(candidate)===JSON.stringify(this._contentOffsetBounds))return;
+        this._contentOffsetBounds=candidate;
+        this._contentOffsetBoundsDirty=true;
+    }
+    /**
+     * 현재 선택 경계 이동 범위를 독립 배열로 반환합니다.
+     *
+     * @returns {ModelContentOffsetBounds | null} 호출자 소유의 범위 사본 또는 null
+     */
+    /// <summary>현재 선택 경계 이동 범위를 독립 배열로 반환합니다. </summary>
+    getContentOffsetBounds() {return this._contentOffsetBounds===null?null:{min:[...this._contentOffsetBounds.min],max:[...this._contentOffsetBounds.max]};}
+    /**
+     * 선택 경계 이동 범위를 독립 배열로 반환합니다.
+     *
+     * @returns {ModelContentOffsetBounds | null} 호출자 소유의 범위 사본 또는 null
+     */
+    /// <summary>선택 경계 이동 범위를 독립 배열로 반환합니다. </summary>
+    get contentOffsetBounds() {return this.getContentOffsetBounds();}
+    /**
+     * 선택 경계 이동 범위를 검증 후 설정합니다.
+     *
+     * @param {ModelContentOffsetBounds | null} value 원본을 변경하지 않을 범위. null이면 기존 판정으로 복귀합니다.
+     * @returns {void}
+     */
+    /// <summary>선택 경계 이동 범위를 검증 후 설정합니다. </summary>
+    /// <param name="value">원본을 변경하지 않을 범위. null이면 기존 판정으로 복귀합니다. 자료형: ModelContentOffsetBounds | null.</param>
+    set contentOffsetBounds(value) {this.setContentOffsetBounds(value);}
+    /**
+     * 경계 변경 후 갱신 대기 여부를 반환합니다.
+     *
+     * @returns {boolean} 다음 유효 update에서 판정 갱신이 필요하면 true
+     */
+    /// <summary>경계 변경 후 갱신 대기 여부를 반환합니다. </summary>
+    get contentOffsetBoundsDirty() {return this._contentOffsetBoundsDirty;}
+    /**
+     * 갱신 대기 상태의 직접 변경을 거부합니다.
+     *
+     * @param {boolean} value 요청한 상태. setContentOffsetBounds와 update만 관리합니다.
+     * @returns {void}
+     */
+    /// <summary>갱신 대기 상태의 직접 변경을 거부합니다. </summary>
+    /// <param name="value">요청한 상태. setContentOffsetBounds와 update만 관리합니다. 자료형: boolean.</param>
+    set contentOffsetBoundsDirty(value) {throw new Error('경계 갱신 상태는 레이어가 관리합니다.');}
 
     /**
      * 자동 타일 갱신의 중지 여부를 설정합니다.
@@ -348,6 +442,10 @@ class U3dModelTilesLayer extends U3dModelLayer {
      * @param {number} [curTime] 사용하지 않는 매개변수. 다른 레이어와 같은 호출 형태를 위해 유지
      * @param {boolean} [force=false] `true`면 갱신 주기를 무시하고 즉시 갱신
      */
+    /// <summary>매 프레임 타일셋의 가시 범위와 갱신 주기를 확인하고 자식 없는 콘텐츠 루트를 포함한 3D Tiles 트리를 탐색·갱신합니다.  앱은 `drawArg` 하나만 넘기며, 내부에서 갱신 주기를 무시해야 할 때 `force`를 `true`로 호출합니다. </summary>
+    /// <param name="drawArg">현재 프레임의 렌더링 문맥 자료형: import('@UDrawArg').UDrawArg.</param>
+    /// <param name="curTime">사용하지 않는 매개변수. 다른 레이어와 같은 호출 형태를 위해 유지 자료형: number.</param>
+    /// <param name="force">`true`면 갱신 주기를 무시하고 즉시 갱신 자료형: boolean. 생략 시 기본값: false.</param>
     update(drawArg, curTime, force = false) {
         const self = this;
 
@@ -359,6 +457,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
             || !self._box3
         ) { return; }
 
+        force = force || self._contentOffsetBoundsDirty;
         if (!self._checkTime.isUpdate() && !force) {
             self._checkTime.updateTime(self._updateCycleTime);
             return;
@@ -373,7 +472,11 @@ class U3dModelTilesLayer extends U3dModelLayer {
 
         const limit = self._geometricError * viewSizeOffset * 2;
         const curPosition = self._drawArg.getCameraPosition();
-        if (!self._drawArg.intersectsBox(self._box3) || self._sphere.distanceToPoint(curPosition) > limit) {
+        const contentOffsetContext = INTERNAL.createContentOffsetContext(self._contentOffsetBounds);
+        const contentBox = INTERNAL.contentOffsetBox(self._box3, contentOffsetContext);
+        const contentSphere = INTERNAL.contentOffsetSphere(self._sphere, contentOffsetContext);
+        self._contentOffsetBoundsDirty = false;
+        if (!self._drawArg.intersectsBox(contentBox) || contentSphere.distanceToPoint(curPosition) > limit) {
             // 화면 밖으로 완전히 벗어난 경우에는 캐시 등록 전인 진행 요청도 제거해야 네트워크 슬롯과
             // 파서 작업이 현재 화면에 필요 없는 타일에 계속 사용되지 않습니다.
             if (self._dataCache.length() > 0 || self._activeTileContentRequests.size > 0) {
@@ -391,12 +494,20 @@ class U3dModelTilesLayer extends U3dModelLayer {
         self.updateCancel();
         const updateId = self.getUpdateId();
         // update 1회 동안 반복 조회되는 카메라/frustum/SSE 기준값을 묶어 tile 판정 비용을 줄인다.
-        const checkContext = self.#createCheckContext(curPosition, updateId);
+        const checkContext = self.#createCheckContext(curPosition, updateId, contentOffsetContext);
 
         const rootChildren = self._rootTileSet.children;
         for (let i = 0; i < rootChildren.length; i++) {
             const rootChild = rootChildren[i];
-            const children = rootChild.children;
+            // 루트 자체가 콘텐츠인 단일 타일은 자식 배열 없이 직접 탐색합니다.
+            // 로딩 집계는 별도 최상위 컨테이너에 두어 자기 자신을 부모로 사용하지 않습니다.
+            if (rootChild.content) {
+                self._rootTileSet.loadCount = 0;
+                self._rootTileSet.loadList = [rootChild];
+                self.searchTiles(rootChild, self._rootTileSet, updateId, true, checkContext);
+                continue;
+            }
+            const children = rootChild.children || [];
             rootChild.loadCount = 0;
             rootChild.loadList = children;
             for (let j = 0; j < children.length; j++) {
@@ -621,129 +732,138 @@ class U3dModelTilesLayer extends U3dModelLayer {
             url,
             //+ onLoad
             function(json) {
-                if (!defined(json)) {
-                    U3dMessage.error(self._classtype, U3dMessage.CNT.CMM.NON_SERVER_DATA_1, '9614544');
-                    promise.reject(false);
-                    self.reject(false);
-                    return;
-                }
-
-                if (!defined(self._drawArg)) {
-                    U3dMessage.error(self._classtype, U3dMessage.CNT.CMM.NON_DRAWARG_1, '9614803');
-                    promise.reject(false);
-                    self.reject(false);
-                    return;
-                }
-                const clonedJson = JSON.parse(JSON.stringify(json));
-                self._rootTileSet = new U3DTileset(clonedJson, self._baseUrl);
-                //   console.info(self._rootTileSet);
-                // console.info(self._rootTileSet.geometricError);
-
-                let geographicBox = undefined;
-                if (defined(self._rootTileSet.children[0].boundingVolume.region)) {
-                    geographicBox = self._rootTileSet.children[0].boundingVolume.region.geographicBox;
-                } else if (defined(self._rootTileSet.children[0].boundingVolume.sphere)) {
-                    geographicBox = self._rootTileSet.children[0].boundingVolume.sphere.geographicBox;
-                } else if (defined(self._rootTileSet.children[0].boundingVolume.box)) {
-                    geographicBox = self._rootTileSet.children[0].boundingVolume.box.geographicBox;
-                } else {
-                    U3dMessage.error(self._classtype, U3dMessage.CNT.TILES.NOT_SUPPORTED_BOUND, '9615911');
-                    promise.reject(false);
-                    self.reject(false);
-                    return;
-                }
-
-                self._boundingBox = {};
-                self._boundingBox.minx = geographicBox.min.x;
-                self._boundingBox.miny = geographicBox.min.y;
-                self._boundingBox.maxx = geographicBox.max.x;
-                self._boundingBox.maxy = geographicBox.max.y;
-                self._boundingBox.minz = geographicBox.min.z ?? 0;
-                self._boundingBox.maxz = geographicBox.max.z ?? 0;
-                self.#computeRectangle();
-
-                self._geometricError = self._rootTileSet.geometricError;
-                if (defined(self._rootTileSet.children)) {
-                    const tiles = self._rootTileSet.children;
-                    for (let i = 0; i < tiles.length; i++) {
-                        const obb = tiles[i].boundingVolume.region;
-                        const sphere = tiles[i].boundingVolume.sphere;
-                        const box = tiles[i].boundingVolume.box;
-
-                        let object;
-                        let bbox;
-                        const center = new THREE.Vector3();
-                        if (defined(obb) && defined(obb.geographicBox)) {
-                            obb.geographicBox.getCenter(center);
-                            const googleScale = 1 / UMathEngine.getRealScaleAtGeographic(center);
-                            self._box3.min.z = Math.min(obb.geographicBox.min.z * googleScale, self._box3.min.z);
-                            self._box3.max.z = Math.max(obb.geographicBox.max.z * googleScale, self._box3.max.z);
-                            if (self.isUseBox()) {
-                                object = self.#createBoxHelper(obb.geographicBox, 0x00ffff);
-                                self.#addUserBox(tiles[i], object.bbox, object.helper);
-                            } else {
-                                bbox = self.#createBox(obb.geographicBox);
-                                self.#addUserBox(tiles[i], bbox);
-                            }
-                        } else if (defined(sphere) && defined(sphere.geographicBox)) {
-                            sphere.geographicBox.getCenter(center);
-                            const googleScale = 1 / UMathEngine.getRealScaleAtGeographic(center);
-                            self._box3.min.z = Math.min(sphere.geographicBox.min.z * googleScale, self._box3.min.z);
-                            self._box3.max.z = Math.max(sphere.geographicBox.max.z * googleScale, self._box3.max.z);
-                            if (self.isUseBox()) {
-                                object = self.#createBoxHelper(sphere.geographicBox, 0x00ffff);
-                                self.#addUserBox(tiles[i], object.bbox, object.helper);
-                            } else {
-                                bbox = self.#createBox(sphere.geographicBox);
-                                self.#addUserBox(tiles[i], bbox);
-                            }
-                        } else if (defined(box) && defined(box.geographicBox)) {
-                            box.geographicBox.getCenter(center);
-                            const googleScale = 1 / UMathEngine.getRealScaleAtGeographic(center);
-                            self._box3.min.z = Math.min(box.geographicBox.min.z * googleScale, self._box3.min.z);
-                            self._box3.max.z = Math.max(box.geographicBox.max.z * googleScale, self._box3.max.z);
-                            if (self.isUseBox()) {
-                                object = self.#createBoxHelper(box.geographicBox, 0x00ffff);
-                                self.#addUserBox(tiles[i], object.bbox, object.helper);
-                            } else {
-                                bbox = self.#createBox(box.geographicBox);
-                                self.#addUserBox(tiles[i], bbox);
-                            }
-                        }
-
-                        if (self._heightOffset) {
-                            self._box3.getCenter(center);
-                            const googleScale = 1 / UMathEngine.getRealScaleAtGoogle(center);
-                            self.#scaledHeightOffset = self._heightOffset * googleScale;
-                            self._box3.min.z = self._box3.min.z + self.#scaledHeightOffset;
-                            self._box3.max.z = self._box3.max.z + self.#scaledHeightOffset;
-                        }
-                        self._box3.getBoundingSphere(self._sphere);
-
-                        if (self.isUseBox()) {
-                            self.#searchChildren(tiles[i], drawArg, 0xffff00);
-                        }
-                        // break;
+                try {
+                    if (!defined(json)) {
+                        U3dMessage.error(self._classtype, U3dMessage.CNT.CMM.NON_SERVER_DATA_1, '9614544');
+                        promise.reject(false);
+                        self._rejectReady(false);
+                        return;
                     }
-                }
-                self._initializedJson = true;
-                self.update(self._drawArg, undefined, true);
-                promise.resolve(self._rootTileSet);
 
-                if (defined(self.resolve))
-                    self.resolve(self);
+                    if (!defined(self._drawArg)) {
+                        U3dMessage.error(self._classtype, U3dMessage.CNT.CMM.NON_DRAWARG_1, '9614803');
+                        promise.reject(false);
+                        self._rejectReady(false);
+                        return;
+                    }
+                    const clonedJson = JSON.parse(JSON.stringify(json));
+                    self._rootTileSet = new U3DTileset(clonedJson, self._baseUrl);
+                    //   console.info(self._rootTileSet);
+                    // console.info(self._rootTileSet.geometricError);
+
+                    let geographicBox = undefined;
+                    if (defined(self._rootTileSet.children[0].boundingVolume.region)) {
+                        geographicBox = self._rootTileSet.children[0].boundingVolume.region.geographicBox;
+                    } else if (defined(self._rootTileSet.children[0].boundingVolume.sphere)) {
+                        geographicBox = self._rootTileSet.children[0].boundingVolume.sphere.geographicBox;
+                    } else if (defined(self._rootTileSet.children[0].boundingVolume.box)) {
+                        geographicBox = self._rootTileSet.children[0].boundingVolume.box.geographicBox;
+                    } else {
+                        U3dMessage.error(self._classtype, U3dMessage.CNT.TILES.NOT_SUPPORTED_BOUND, '9615911');
+                        promise.reject(false);
+                        self._rejectReady(false);
+                        return;
+                    }
+
+                    self._boundingBox = {};
+                    self._boundingBox.minx = geographicBox.min.x;
+                    self._boundingBox.miny = geographicBox.min.y;
+                    self._boundingBox.maxx = geographicBox.max.x;
+                    self._boundingBox.maxy = geographicBox.max.y;
+                    self._boundingBox.minz = geographicBox.min.z ?? 0;
+                    self._boundingBox.maxz = geographicBox.max.z ?? 0;
+                    self.#computeRectangle();
+
+                    self._geometricError = self._rootTileSet.geometricError;
+                    if (defined(self._rootTileSet.children)) {
+                        const tiles = self._rootTileSet.children;
+                        for (let i = 0; i < tiles.length; i++) {
+                            const obb = tiles[i].boundingVolume.region;
+                            const sphere = tiles[i].boundingVolume.sphere;
+                            const box = tiles[i].boundingVolume.box;
+
+                            let object;
+                            let bbox;
+                            const center = new THREE.Vector3();
+                            if (defined(obb) && defined(obb.geographicBox)) {
+                                obb.geographicBox.getCenter(center);
+                                const googleScale = 1 / UMathEngine.getRealScaleAtGeographic(center);
+                                self._box3.min.z = Math.min(obb.geographicBox.min.z * googleScale, self._box3.min.z);
+                                self._box3.max.z = Math.max(obb.geographicBox.max.z * googleScale, self._box3.max.z);
+                                if (self.isUseBox()) {
+                                    object = self.#createBoxHelper(obb.geographicBox, 0x00ffff);
+                                    self.#addUserBox(tiles[i], object.bbox, object.helper);
+                                } else {
+                                    bbox = self.#createBox(obb.geographicBox);
+                                    self.#addUserBox(tiles[i], bbox);
+                                }
+                            } else if (defined(sphere) && defined(sphere.geographicBox)) {
+                                sphere.geographicBox.getCenter(center);
+                                const googleScale = 1 / UMathEngine.getRealScaleAtGeographic(center);
+                                self._box3.min.z = Math.min(sphere.geographicBox.min.z * googleScale, self._box3.min.z);
+                                self._box3.max.z = Math.max(sphere.geographicBox.max.z * googleScale, self._box3.max.z);
+                                if (self.isUseBox()) {
+                                    object = self.#createBoxHelper(sphere.geographicBox, 0x00ffff);
+                                    self.#addUserBox(tiles[i], object.bbox, object.helper);
+                                } else {
+                                    bbox = self.#createBox(sphere.geographicBox);
+                                    self.#addUserBox(tiles[i], bbox);
+                                }
+                            } else if (defined(box) && defined(box.geographicBox)) {
+                                box.geographicBox.getCenter(center);
+                                const googleScale = 1 / UMathEngine.getRealScaleAtGeographic(center);
+                                self._box3.min.z = Math.min(box.geographicBox.min.z * googleScale, self._box3.min.z);
+                                self._box3.max.z = Math.max(box.geographicBox.max.z * googleScale, self._box3.max.z);
+                                if (self.isUseBox()) {
+                                    object = self.#createBoxHelper(box.geographicBox, 0x00ffff);
+                                    self.#addUserBox(tiles[i], object.bbox, object.helper);
+                                } else {
+                                    bbox = self.#createBox(box.geographicBox);
+                                    self.#addUserBox(tiles[i], bbox);
+                                }
+                            }
+
+                            if (self._heightOffset) {
+                                self._box3.getCenter(center);
+                                const googleScale = 1 / UMathEngine.getRealScaleAtGoogle(center);
+                                self.#scaledHeightOffset = self._heightOffset * googleScale;
+                                self._box3.min.z = self._box3.min.z + self.#scaledHeightOffset;
+                                self._box3.max.z = self._box3.max.z + self.#scaledHeightOffset;
+                            }
+                            self._box3.getBoundingSphere(self._sphere);
+
+                            if (self.isUseBox()) {
+                                self.#searchChildren(tiles[i], drawArg, 0xffff00);
+                            }
+                            // break;
+                        }
+                    }
+                    self._initializedJson = true;
+                    self.update(self._drawArg, undefined, true);
+                    promise.resolve(self._rootTileSet);
+
+                    if (defined(self._resolveReady))
+                        self._resolveReady();
+                } catch (error) {
+                    // 타일·요청 Deferred의 계약을 건드리지 않고 레이어 준비 실패만 통지합니다.
+                    if (self.isReady()) {
+                        console.error('완료된 3D Tiles 레이어의 초기화 후처리에서 오류가 발생했습니다.', error);
+                        return;
+                    }
+                    self._rejectReady(error);
+                }
             }
             //+ onProgress 속도가 느려진다. 콜백함수가 없어야 한다.
             , null
             //+ error
             , function() {
                 promise.reject(false);
-                self.reject(false);
+                self._rejectReady(false);
             }
             //+ abort
             , function() {
                 promise.reject(false);
-                self.reject(false);
+                self._rejectReady(false);
             }
         );
         return promise;
@@ -1074,6 +1194,12 @@ class U3dModelTilesLayer extends U3dModelLayer {
      *
      * @ignore
      */
+    /// <summary>타일(tile)을 선택하여 콘텐츠 로딩과 부모·자식 표시 전환을 연결합니다.  반환값은 현재 타일의 요청이며 자손 전체의 완료를 뜻하지 않습니다. </summary>
+    /// <param name="tile">탐색할 타일 자료형: import('@U3DTileset').U3DTileset.</param>
+    /// <param name="parent">형제 로딩 상태를 집계할 부모 자료형: import('@U3DTileset').U3DTileset.</param>
+    /// <param name="updateId">현재 갱신 세대 ID 자료형: string | number.</param>
+    /// <param name="isFirst">최초 경계 교차 검사를 수행할지 여부 자료형: boolean. 생략 시 기본값: true.</param>
+    /// <param name="checkContext">같은 탐색 주기에서 공유할 판정 문맥 자료형: TileCheckContext.</param>
     searchTiles(tile, parent, updateId, isFirst = true, checkContext = this.#createCheckContext(undefined, updateId)) {
         const self = this;
         if (self.isCancel(updateId)) return;
@@ -1082,7 +1208,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
             self.createViewBox(tile);
 
         if (isFirst) {
-            if (!self.#intersectsSphere(checkContext.frustum, tile.worldSphere, tile.geometricError)) {
+            if (!self.#intersectsSphere(checkContext.frustum, tile.worldSphere, tile.geometricError, checkContext.contentOffsetContext)) {
                 self.disposeTile(tile);
                 parent.loadCount++;
                 return;
@@ -2326,13 +2452,19 @@ class U3dModelTilesLayer extends U3dModelLayer {
      * @param {import('@UFrustum').UFrustum} frustum 카메라 프러스텀
      * @param {import('three').Sphere} sphere 타일 구
      * @param {number} geometricError 기존 호출 형식으로 전달되는 값이며 판정에는 사용하지 않음
+     * @param {ModelContentOffsetContext | null} [contentOffsetContext=null] 같은 탐색 주기의 이동 경계 문맥. 원본 구는 변경하지 않습니다.
      * @returns {boolean} 교차 여부
      *
      * @ignore
      */
-    #intersectsSphere(frustum, sphere, geometricError) {
+    /// <summary>타일 경계가 카메라 표시 범위와 겹치는지 판정합니다. </summary>
+    /// <param name="frustum">카메라 프러스텀 자료형: import('@UFrustum').UFrustum.</param>
+    /// <param name="sphere">타일 구 자료형: import('three').Sphere.</param>
+    /// <param name="geometricError">기존 호출 형식으로 전달되는 값이며 판정에는 사용하지 않음 자료형: number.</param>
+    /// <param name="contentOffsetContext">같은 탐색 주기의 이동 경계 문맥. 원본 구는 변경하지 않습니다. 자료형: ModelContentOffsetContext | null. 생략 시 기본값: null.</param>
+    #intersectsSphere(frustum, sphere, geometricError, contentOffsetContext = null) {
         // 타일 경계가 카메라 표시 범위와 겹치는지 판정합니다.
-        return INTERNAL.intersectsSphere(frustum, sphere, geometricError);
+        return INTERNAL.intersectsSphere(frustum, INTERNAL.contentOffsetSphere(sphere, contentOffsetContext), geometricError);
     }
 
     /**
@@ -2340,9 +2472,14 @@ class U3dModelTilesLayer extends U3dModelLayer {
      *
      * @param {import('three').Vector3} [campos] 판정에 사용할 카메라 위치
      * @param {string | number} [updateId] 문맥을 소유할 탐색 세대 ID
+     * @param {ModelContentOffsetContext | null} [contentOffsetContext] 이 탐색이 소유하는 이동 경계 문맥. 생략하면 현재 설정에서 생성합니다.
      * @returns {TileCheckContext} 공유 판정 문맥
      */
-    #createCheckContext(campos = this._drawArg.getCameraPosition(), updateId = this.getUpdateId()) {
+    /// <summary>한 탐색 주기에서 재귀 타일 판정이 공유할 카메라·SSE 스냅샷을 만듭니다. </summary>
+    /// <param name="campos">판정에 사용할 카메라 위치 자료형: import('three').Vector3.</param>
+    /// <param name="updateId">문맥을 소유할 탐색 세대 ID 자료형: string | number.</param>
+    /// <param name="contentOffsetContext">이 탐색이 소유하는 이동 경계 문맥. 생략하면 현재 설정에서 생성합니다. 자료형: ModelContentOffsetContext | null.</param>
+    #createCheckContext(campos = this._drawArg.getCameraPosition(), updateId = this.getUpdateId(), contentOffsetContext = INTERNAL.createContentOffsetContext(this._contentOffsetBounds)) {
         // checkTileDepth/#checkTileDetail 핫패스에서 매 tile마다 같은 값을 다시 조회하지 않기 위한 스냅샷이다.
         const viewSizeOffset = this._viewSizeOffset;
         const maximumScreenSpaceError = this.maximumScreenSpaceError;
@@ -2352,6 +2489,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
             frustum: this._drawArg._frustum,
             drawBufferHeight: this._app.getDrawBufferHeight(),
             cameraDenominator: this._drawArg._camera.getDenominator(),
+            contentOffsetContext: contentOffsetContext,
             viewSizeOffset: viewSizeOffset,
             isViewSizeOffsetFunction: viewSizeOffset instanceof Function,
             maximumScreenSpaceError: maximumScreenSpaceError,
@@ -2714,6 +2852,9 @@ class U3dModelTilesLayer extends U3dModelLayer {
      *
      * @ignore
      */
+    /// <summary>파싱된 메시의 배치 정보와 원본 기반 재질 표시 설정을 내부 공통 처리에 연결합니다.</summary>
+    /// <param name="mesh">변경할 ModelMesh이며 null을 허용하지 않습니다. 형상과 원본 색상은 유지하고 배치 참조·재질 표시 속성을 변경합니다.</param>
+    /// <param name="result">batchTable을 가진 ModelTileBatchResult object이며 읽기 전용입니다.</param>
     #redefineMesh(mesh, result) {
         // 파싱 결과에 레이어 식별 정보와 현재 표시 설정을 적용합니다.
         return INTERNAL.redefineMesh(this, mesh, result);
@@ -3282,6 +3423,8 @@ class U3dModelTilesLayer extends U3dModelLayer {
         return promise;
     }
 
+    /// <summary>직접 GLB 콘텐츠를 읽어 B3DM과 같은 재질 보존·배치 후처리로 연결합니다.</summary>
+    /// <param name="obj">다운로드한 buf·타일·요청 세대를 가진 ModelTileParserQueueItem이며 null을 허용하지 않습니다. 자원은 레이어가 관리합니다.</param>
     #parseGLB(obj) {
         const self = this;
         const { buf, info, tile, updateId } = obj;
@@ -3320,39 +3463,17 @@ class U3dModelTilesLayer extends U3dModelLayer {
             }
         }
 
-        self._glbLoader.parse(buf, url, function(result) {
+        self._glbLoader.parse(buf, url,
+            /// <summary>파싱한 GLB를 원본 재질 보존·배치 후처리에 전달합니다.</summary>
+            /// <param name="result">scene을 가진 GLTF 결과 object이며 레이어가 장면을 소유하고 type·byteLength를 추가합니다.</param>
+            function(result) {
 
             const object = result.scene;
-            object.traverse(function(mesh) {
-                if (mesh.material) {
-                    if (option.overrideMaterials) {
-
-                        if (Array.isArray(mesh.material)) {
-                            for (const material of mesh.material) {
-                                material.dispose();
-                            }
-                        } else {
-                            mesh.material.dispose();
-                        }
-                        if (typeof (option.overrideMaterials) === 'object' &&
-                            option.overrideMaterials.isMaterial) {
-                            mesh.material = option.overrideMaterials;
-                        } else {
-                            mesh.material.depthWrite = true;
-                        }
-                    } else {
-                        throw new Error('no ');
-                    }
-
-                    if (defined(option.opacity)) {
-                        mesh.material.transparent = option.opacity < 1.0;
-                        mesh.material.opacity = option.opacity;
-                    } else {
-                        mesh.material.transparent = mesh.material.opacity < 1.0;
-                    }
-                }
-
-            });
+            object.traverse(
+                /// <summary>직접 GLB 경로에도 B3DM과 같은 원본 재질 보존 처리를 적용합니다.</summary>
+                /// <param name="mesh">파싱된 Three.js Object3D이며 컬링·명시적 재질 옵션만 변경할 수 있습니다.</param>
+                function prepareMesh(mesh) { prepareTileMeshMaterials(mesh, option); }
+            );
 
             if (tile.disposed) {
                 promise.reject(tile);
@@ -3370,7 +3491,10 @@ class U3dModelTilesLayer extends U3dModelLayer {
             self.#afterParseGLB(result, info);
 
             promise.resolve(tile);
-        }, function(e) {
+        },
+        /// <summary>GLB 해석 실패를 현재 타일 요청 실패로 전달합니다.</summary>
+        /// <param name="e">로더가 전달한 Error 또는 오류 정보이며 원본을 변경하지 않습니다.</param>
+        function(e) {
             promise.reject(tile);
         }, undefined, 0, undefined, {
             // 3D Tiles의 직접 GLB 타일은 화면 렌더에 scene만 사용하므로 animation/camera 파싱을 선택적으로 생략한다.

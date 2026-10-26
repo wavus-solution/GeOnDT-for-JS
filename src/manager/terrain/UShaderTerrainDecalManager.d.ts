@@ -1,21 +1,22 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { U2dVectorShaderLayer } from "../../2dLayer/U2dVectorShaderLayer.js";
+import type { U2dVectorShaderLayer, U2dVectorSourceEntry } from "../../2dLayer/U2dVectorShaderLayer.js";
 import type { U3dImageLayer } from "../../3dLayer/U3dImageLayer.js";
 import type { U3dLayer } from "../../3dLayer/U3dLayer.js";
 import type { U3dApp } from "../../app/U3dApp.js";
 import type { UTaskProcessor } from "../../core/UTaskProcessor.js";
 import type { UMesh } from "../../core/mesh/UMesh.js";
 import type { UTerrainMesh } from "../../core/mesh/UTerrainMesh.js";
+import type { U2dGeometry } from "../../geometry/U2dGeometry.js";
 import type { TerrainDecalConfig } from "./UShaderTerrainDecalConfig.js";
-import type { TerrainPresentationState, TerrainTileReadinessSelector, TerrainTileReadinessSnapshot } from "./UShaderTerrainDecalTileStateManager.js";
-import type { TerrainAtomicPresentationGroup, TerrainAtomicPresentationOutcome, TerrainBufferState, TerrainCompositeVariant, TerrainDecalComposer, TerrainDynamicRadiusEntry, TerrainFeature, TerrainManagerOption, TerrainMaterial, TerrainPendingWorkerJob, TerrainPresentEntry, TerrainSwapWaiter, TerrainTileEntry, TerrainWorkerResult } from "./UShaderTerrainDecalUtils.js";
+import type { TerrainPresentationState, TerrainRuntimeTile, TerrainTileReadinessSelector, TerrainTileReadinessSnapshot } from "./UShaderTerrainDecalTileStateManager.js";
+import type { TerrainAtomicPresentationGroup, TerrainAtomicPresentationOutcome, TerrainBufferState, TerrainCompositeVariant, TerrainDecalComposer, TerrainDynamicRadiusEntry, TerrainFeature, TerrainManagerOption, TerrainMaterial, TerrainPendingWorkerJob, TerrainPreparedBuild, TerrainPresentEntry, TerrainSwapWaiter, TerrainTileEntry, TerrainWorkerResult } from "./UShaderTerrainDecalUtils.js";
 import type { TerrainComposeSchedulerState, TerrainCompositeJob } from "./UTerrainDecalComposeScheduler.js";
 import type { UTerrainDecalCompositionOrderRegistry } from "./UTerrainDecalCompositionOrderRegistry.js";
 import type { TerrainDecalCompositionStability } from "./UTerrainDecalCompositionPlan.js";
@@ -23,7 +24,10 @@ import type { UTerrainFrameScheduler } from "./UTerrainFrameScheduler.js";
 import type { UTerrainPayloadBuilder } from "./UTerrainPayload.js";
 import type { TerrainShaderProgramDiagnosticBinding, UTerrainShaderPrewarm } from "./UTerrainShaderPrewarm.js";
 import type { UTerrainWorkerScheduler } from "./UTerrainWorkerScheduler.js";
+import type { UMeasureFeature } from "../../ol/UMeasureFeature.js";
+import type { U3dQuadTile } from "../../quadtree/U3dQuadTile.js";
 import type { UTerrainMaterial } from "../../shader/UTerrainMaterial.js";
+import type { OLFeature } from "../../types/ol.js";
 import type { LRUCache } from "../../util/LRUCache.js";
 
 /**
@@ -149,10 +153,6 @@ type TerrainManagerPresentState = {
      */
     swapReadyPromises: Map<string, Set<TerrainSwapWaiter>>;
     /**
-     * tile별 활성 GPU buffer 상태입니다.
-     */
-    gpuBufferState: Map<string, TerrainBufferState>;
-    /**
      * 분리된 GPU buffer 상태 cache입니다.
      */
     gpuStateCache: LRUCache;
@@ -244,7 +244,6 @@ type TerrainManagerDiagnosticsState = {
  * @property {Map<string, TerrainAtomicPresentationGroup>} atomicGroups 한 프레임에 함께 교체하는 원자 표시 그룹입니다.
  * @property {number} flushDepth presentation flush 재진입 깊이입니다.
  * @property {Map<string, Set<TerrainSwapWaiter>>} swapReadyPromises tile별 swap-ready 대기자입니다.
- * @property {Map<string, TerrainBufferState>} gpuBufferState tile별 활성 GPU buffer 상태입니다.
  * @property {import('@util/LRUCache').LRUCache} gpuStateCache 분리된 GPU buffer 상태 cache입니다.
  * @property {number} frameBudgetMs 프레임당 presentation 시간 예산(ms)입니다.
  */
@@ -410,10 +409,6 @@ declare class UShaderTerrainDecalManager {
     set TERRAIN_SWAP_READY_PROMISES(value: Map<string, Set<TerrainSwapWaiter>>);
     /** @returns {Map<string, Set<TerrainSwapWaiter>>} `present.swapReadyPromises` 입니다. */
     get TERRAIN_SWAP_READY_PROMISES(): Map<string, Set<TerrainSwapWaiter>>;
-    /** @param {Map<string, TerrainBufferState>} value 새 값입니다. */
-    set TERRAIN_GPU_BUFFER_STATE(value: Map<string, TerrainBufferState>);
-    /** @returns {Map<string, TerrainBufferState>} `present.gpuBufferState` 입니다. */
-    get TERRAIN_GPU_BUFFER_STATE(): Map<string, TerrainBufferState>;
     /** @param {import('@util/LRUCache').LRUCache} value 새 값입니다. */
     set TERRAIN_GPU_STATE_CACHE(value: LRUCache);
     /** @returns {import('@util/LRUCache').LRUCache} `present.gpuStateCache` 입니다. */
@@ -521,7 +516,7 @@ declare class UShaderTerrainDecalManager {
      */
     flushTerrainPresentationResults(): boolean;
     /**
-     * 카메라 이동 또는 투영 배율 변경에 따라 등록된 vector layer의 동적 원형 반경 갱신을 요청합니다.
+     * 카메라와 표시 지형의 변화에 맞춰 등록된 vector layer의 동적 원형 반경을 주기적으로 확인합니다.
      *
      * @returns {boolean} 하나 이상의 layer가 변경되었으면 `true`입니다.
      */
@@ -703,7 +698,7 @@ declare class UShaderTerrainDecalManager {
      */
     setTerrainTileTextureReady(tileKey: string, ready: boolean, opt?: TerrainManagerOption): boolean;
     /**
-     * tile/source 단위 데이터 로딩 pending 상태를 갱신합니다.
+     * tile/source 요청 상태와 표시 전환을 차단하는 pending 집합을 갱신합니다.
      *
      * @param {string} tileKey pending 상태를 갱신할 terrain tile key 입니다.
      * @param {boolean} pending `true`이면 source pending 등록, `false`이면 해제입니다.
@@ -781,10 +776,198 @@ declare class UShaderTerrainDecalManager {
      */
     releaseTerrainTileHandoffLease(tileKey: string, opt?: TerrainManagerOption): boolean;
     /**
+     * 원본 등록부와 변경 병합을 레이어 수명에 연결합니다. 같은 레이어의 재등록은 대기 작업을 보존합니다.
+     *
+     * @param {object} owner 등록 소유자
+     * @param {TerrainFeatureOwnerCallbacks} callbacks 입력 동기화·배치 적용 어댑터
+     * @param {Map<string, U2dVectorSourceEntry>} [sources] 초기화 전 등록부이며 복사하지 않고 인수합니다.
+     *
+     * @ignore
+     */
+    _registerTerrainFeatureOwner(owner: object, callbacks: TerrainFeatureOwnerCallbacks, sources?: Map<string, U2dVectorSourceEntry>): void;
+    /**
+     * 등록 소유자의 원본 목록을 반환합니다. 레이어는 같은 목록을 별도로 복제하지 않습니다.
+     *
+     * @param {object} owner 등록 소유자
+     * @returns {Map<string, U2dVectorSourceEntry> | undefined} 수명을 공유하는 원본 등록부
+     *
+     * @ignore
+     */
+    _getTerrainSourceEntries(owner: object): Map<string, U2dVectorSourceEntry> | undefined;
+    /**
+     * 원본별 문맥에는 소유자 단위로 공유하는 편집 창구만 연결합니다.
+     *
+     * @param {object} owner 등록 소유자
+     * @param {TerrainFeatureSourceContext} context 원본 종류와 레이어 문맥
+     * @returns {TerrainFeatureSourceContext} 공유 편집 창구가 연결된 같은 문맥
+     *
+     * @ignore
+     */
+    _getTerrainSourceContext(owner: object, context: TerrainFeatureSourceContext): TerrainFeatureSourceContext;
+    /**
+     * 현재 수명의 표시 적용 작업이 진행 중인지 반환합니다.
+     *
+     * @param {object} owner 등록 소유자
+     * @returns {boolean} 배치 적용 진행 여부
+     *
+     * @ignore
+     */
+    _hasTerrainFeatureUpdateInFlight(owner: object): boolean;
+    /**
+     * 기존 원본 구독을 해제한 뒤 새 구독 하나만 등록합니다.
+     *
+     * @param {object} owner 등록 소유자
+     * @param {Pick<U2dVectorSourceEntry, 'changeListener'>} entry 원본 또는 내부 표시의 구독 기록
+     * @param {OLFeature} source 변경을 통지하는 원본
+     * @param {function():void} listener 원본 변경 어댑터
+     *
+     * @ignore
+     */
+    _observeTerrainSource(owner: object, entry: Pick<U2dVectorSourceEntry, "changeListener">, source: OLFeature, listener: () => void): void;
+    /**
+     * 소유자가 등록한 변경 구독을 한 번 해제합니다.
+     *
+     * @param {object} owner 등록 소유자
+     * @param {Pick<U2dVectorSourceEntry, 'changeListener'>} entry 구독을 해제할 원본 또는 내부 표시 기록
+     *
+     * @ignore
+     */
+    _unobserveTerrainSource(owner: object, entry: Pick<U2dVectorSourceEntry, "changeListener">): void;
+    /**
+     * 같은 원본의 마지막 편집만 보관하고 같은 실행 구간의 변경을 합칩니다.
+     *
+     * @param {object} owner 등록 소유자
+     * @param {string | object} key 편집 식별자
+     * @param {object | function(object=):(undefined | object)} update 최종 편집 또는 병합 함수이며 undefined를 반환하면 대기 항목 교체·재시도 초기화·새 예약을 수행하지 않습니다.
+     *
+     * @ignore
+     */
+    _queueTerrainFeatureUpdate(owner: object, key: string | object, update: object | ((arg0: object | undefined) => (undefined | object))): void;
+    /**
+     * 원본 동기화를 표시 편집보다 먼저 실행할 묶음에 등록합니다.
+     *
+     * @param {object} owner 등록 소유자
+     * @param {object} source 동기화할 원본 대표
+     *
+     * @ignore
+     */
+    _queueTerrainSourceUpdate(owner: object, source: object): void;
+    /**
+     * 원본의 미반영 변경 유무를 조회합니다.
+     *
+     * @param {object} owner 등록 소유자
+     * @param {object} source 원본 대표
+     * @returns {boolean} 동기화를 기다리면 참
+     *
+     * @ignore
+     */
+    _hasTerrainSourceUpdate(owner: object, source: object): boolean;
+    /**
+     * 삭제된 원본의 대기 변경을 제거합니다.
+     *
+     * @param {object} owner 등록 소유자
+     * @param {string | object} key 표시 편집 식별자
+     * @param {object} [source] 원본 대표
+     *
+     * @ignore
+     */
+    _deleteTerrainFeatureUpdate(owner: object, key: string | object, source?: object): void;
+    /**
+     * 현재 묶음과 호출 시 대기하던 다음 묶음의 적용을 공유합니다.
+     *
+     * @param {object} owner 등록 소유자
+     * @returns {Promise<Array<boolean>>} 해당 수명의 적용 결과
+     *
+     * @ignore
+     */
+    _commitTerrainFeatureUpdates(owner: object): Promise<Array<boolean>>;
+    /**
+     * 예약된 변경을 무효화하고 원본 등록과 변경 구독은 보존합니다.
+     *
+     * @param {object} owner 등록 소유자
+     *
+     * @ignore
+     */
+    _cancelTerrainFeatureUpdates(owner: object): void;
+    /**
+     * 등록 소유자의 예약과 변경 구독을 종료하며 빌린 원본은 해제하지 않습니다.
+     *
+     * @param {object} owner 등록 소유자
+     *
+     * @ignore
+     */
+    _releaseTerrainFeatureOwner(owner: object): void;
+    /**
+     * 현재 연결과 교차하는 캐시 타일을 합쳐 원본의 표시 후보를 확정합니다.
+     * 숨은 자식도 미리 연결해 부모에서 자식으로 전환할 때 입력 공백을 만들지 않습니다.
+     *
+     * @param {object} owner 등록 소유자
+     * @param {TerrainFeatureTileSelectionOption} opt 형상 교차 사실과 현재 연결
+     * @returns {Set<string>} 기존 연결과 새 표시 후보의 타일 식별자
+     *
+     * @ignore
+     */
+    _collectTerrainFeatureTiles(owner: object, opt: TerrainFeatureTileSelectionOption): Set<string>;
+    /**
+     * 레이어 입력과 관리자의 표시 상태로 전환 준비와 기존 표시 유지를 판정합니다.
+     *
+     * @param {TerrainRuntimeTile} tile 확인할 타일
+     * @param {TerrainLayerTilePresentationOption} opt 입력과 장면 관측값
+     * @param {TerrainLayerTilePresentationQuery} [query='all'] 필요한 판정이며 지정한 필드만 사용
+     * @returns {TerrainLayerTilePresentationState} 표시 판정
+     *
+     * @ignore
+     */
+    _getTerrainLayerTilePresentation(tile: TerrainRuntimeTile, opt: TerrainLayerTilePresentationOption, query?: TerrainLayerTilePresentationQuery): TerrainLayerTilePresentationState;
+    /**
+     * 타일 전환이 원본 레이어의 준비 정책을 역호출하지 않고 같은 관리자 판정을 사용합니다.
+     *
+     * @param {object | undefined} owner 입력 소유자
+     * @param {TerrainRuntimeTile} tile 확인할 타일
+     * @param {Array<string>} sourceKeys 전환에 필요한 Source 식별자
+     * @returns {TerrainLayerTilePresentationState} 공통 표시 판정
+     *
+     * @ignore
+     */
+    _getTerrainOwnerTilePresentation(owner: object | undefined, tile: TerrainRuntimeTile, sourceKeys: Array<string>): TerrainLayerTilePresentationState;
+    /**
+     * 변환을 끝낸 입력의 승인을 GPU 적용 완료와 별도로 판정합니다.
+     *
+     * @param {string} tileKey 타일 식별자
+     * @param {TerrainManagerOption} [opt={}] Source 버전·기준점·LOD·표시 대상
+     * @returns {boolean} 같은 입력이 이미 승인됐으면 참
+     *
+     * @ignore
+     */
+    _isTerrainTileSourceInputCurrent(tileKey: string, opt?: TerrainManagerOption): boolean;
+    /**
+     * Source 입력 비교값으로 다음 버전을 구하고 필요할 때 같은 Source 기록에 확정합니다.
+     *
+     * @param {string} tileKey 타일 식별자
+     * @param {string} sourceKey Source 식별자
+     * @param {string | number} signature 입력 비교값
+     * @param {boolean} [commit=false] 입력 버전을 확정하면 참
+     * @returns {number} 단조 증가하는 입력 버전
+     *
+     * @ignore
+     */
+    _resolveTerrainSourceRevision(tileKey: string, sourceKey: string, signature: string | number, commit?: boolean): number;
+    /**
+     * 해당 타일에서 기대하는 source 데이터가 모두 준비됐는지 확인합니다.
+     *
+     * @param {string} tileKey 데이터를 확인할 타일 key입니다.
+     * @param {Array<string>} sourceKeys 해당 타일에 필요한 source key 목록입니다.
+     * @returns {boolean} 모든 source가 데이터 준비 판정을 허용하면 참입니다.
+     *
+     * @ignore
+     */
+    _areTerrainTileSourcesReady(tileKey: string, sourceKeys: Array<string>): boolean;
+    /**
      * 기존 호환 이름을 유지하면서 texture와 decal Presentation의 준비 여부를 반환합니다.
      *
      * `sourceKeys`가 지정되면 각 source의 revision뿐 아니라 표시 feature가 선택한 target material의
-     * active commit까지 확인합니다. 빈 source는 target material 적용을 요구하지 않습니다.
+     * active commit까지 확인합니다. 빈 source는 target material 적용 대신 최신 clear 적용을 기다립니다.
+     * 연속 편집의 적용본 재사용은 해당 source의 첫 성공 snapshot 이후에 허용하며 숨긴 source는 차단하지 않습니다.
      *
      * @param {string} tileKey 준비 상태를 확인할 terrain tile key 입니다.
      * @param {TerrainManagerOption} [opt={}] source, mesh 또는 material binding 조회 옵션입니다.
@@ -792,10 +975,10 @@ declare class UShaderTerrainDecalManager {
      */
     isTerrainTileSwapReady(tileKey: string, opt?: TerrainManagerOption): boolean;
     /**
-     * tile에 아직 준비되지 않은 terrain source가 있는지 반환합니다.
+     * tile에 표시 전환을 차단하는 terrain source 대기가 있는지 반환합니다.
      *
      * @param {string} tileKey 조회할 terrain tile key입니다.
-     * @returns {boolean} 하나 이상의 source가 pending이면 `true`입니다.
+     * @returns {boolean} 대체 표시를 허용한 재요청을 제외한 source 대기가 있으면 `true`입니다.
      */
     isTerrainTileSourcePending(tileKey: string): boolean;
     /**
@@ -838,6 +1021,17 @@ declare class UShaderTerrainDecalManager {
      * @returns {boolean} 하나 이상의 tile 상태가 변경되었으면 `true`입니다.
      */
     removeFeatures(featureIds?: Array<string>, opt?: TerrainManagerOption): boolean;
+    /**
+     * Source 변경이 필요할 때만 입력을 갱신하고 기존 적용본의 재사용과 재적용을 결정합니다.
+     *
+     * @param {string} tileKey 동기화할 지형 타일 키입니다.
+     * @param {() => boolean} updateSource 최신 입력을 동기화하고 변경 여부를 반환하는 함수입니다.
+     * @param {TerrainManagerOption} [opt={}] Source 식별 정보와 표시 대상입니다.
+     * @returns {boolean} 입력을 변경하거나 재적용을 요청했으면 참입니다.
+     *
+     * @ignore
+     */
+    _updateTerrainTileSource(tileKey: string, updateSource: () => boolean, opt?: TerrainManagerOption): boolean;
     /**
      * 한 tile/source의 feature 전체를 최신 revision 기준으로 동기화합니다.
      *
@@ -907,10 +1101,12 @@ declare class UShaderTerrainDecalManager {
     requestTileRebuild(tileKey: string, opt?: TerrainManagerOption): Promise<boolean> | Promise<false>;
     /**
      * 지정한 tile의 대기 중인 변경을 즉시 rebuild 요청으로 전환합니다.
+     * 표시 그룹이 다른 owner의 tile과 겹치면 연결된 전체 범위의 준비와 표시 교체를 함께 기다립니다.
+     * 반환 Promise는 표시 그룹의 준비와 이번 요청의 모든 대상 build 완료를 함께 기다립니다.
      *
      * @param {Array<string>|Set<string>} [tileKeys] flush할 terrain tile key 목록입니다.
      * @param {TerrainManagerOption} [opt={}] rebuild 옵션입니다.
-     * @returns {Promise<Array<boolean>>} tile별 rebuild 결과입니다.
+     * @returns {Promise<Array<boolean>>} 이번 요청 대상 전체의 순서에 따른 rebuild 결과입니다.
      */
     flushTileUpdates(tileKeys?: Array<string> | Set<string>, opt?: TerrainManagerOption): Promise<Array<boolean>>;
     /**
@@ -1029,6 +1225,7 @@ declare class UShaderTerrainDecalManager {
     recordTerrainStabilityCounter(name: string, count?: number): boolean;
     /**
      * Terrain 세부 성능 통계를 반환합니다.
+     * 표시 대기 크기는 합성 RTT를 포함한 상태별 논리 크기이며 공유 자원이 중복될 수 있어 물리 VRAM과 다릅니다.
      *
      * @returns {Record<string, unknown>} 성능 통계입니다.
      */
@@ -1056,4 +1253,321 @@ declare class UShaderTerrainDecalManager {
     #private;
 }
 
-export type { TerrainManagerDiagnosticsState, TerrainManagerFlushState, TerrainManagerPresentState, TerrainManagerTileState, TerrainManagerWorkerState, UShaderTerrainDecalManager };
+/**
+     * 총순서에서 연속한 하나의 정적 또는 동적 합성 구간입니다.
+     */
+    type TerrainCompositionRun = {
+        /**
+         * 좌표·스타일·순서·기준점을 포함한 구간의 재사용 식별자입니다.
+         */
+        key: string;
+        /**
+         * 실제 지형 타일과 충돌하지 않는 구간 전용 Worker 입력 key입니다.
+         */
+        workerKey: string;
+        /**
+         * source의 갱신 분류입니다.
+         */
+        stability: "static" | "dynamic";
+        /**
+         * 이 구간만을 위한 불변 빌드 입력입니다.
+         */
+        prepared: TerrainPreparedBuild;
+        /**
+         * 구간을 준비할 때 사용한 합성기입니다.
+         */
+        composer: TerrainDecalComposer;
+        /**
+         * 캐시 소유권이 종료됐는지 여부입니다.
+         */
+        _disposed: boolean;
+        /**
+         * 정적 구간 캐시가 소유한 RTT 결과입니다.
+         */
+        gpuState: TerrainBufferState | undefined;
+        /**
+         * 같은 구간의 합성이 진행 중일 때 재사용할 Worker 결과입니다.
+         */
+        workerResult: TerrainWorkerResult | undefined;
+    };
+
+/**
+     * 레이어가 관측한 입력·장면 사실입니다. Source 승인과 GPU 상태는 관리자가 직접 확인합니다.
+     */
+    type TerrainLayerTilePresentationOption = {
+        /**
+         * 입력 소유자
+         */
+        ownerLayer?: U3dLayer;
+        /**
+         * 레이어가 소유한 Source 식별자
+         */
+        sourceKeys: Array<string>;
+        /**
+         * 기존 공개 표시 계약
+         */
+        mode: "vector" | "measure";
+        /**
+         * 네 자식의 현재 표시 판정
+         */
+        childrenVisible?: Array<boolean>;
+        /**
+         * 로컬 도형 연결 존재 여부
+         */
+        hasBindings?: boolean;
+        /**
+         * 관련 타일의 로컬 도형 연결 조회
+         */
+        hasBindingsForTile?: (arg0: string) => boolean;
+        /**
+         * 이번 표시 의도 적용값
+         */
+        desiredVisible?: boolean;
+        /**
+         * 기존 기대 Source 선택에 사용한 로컬 캐시 타일
+         */
+        sourceSelectionTile?: TerrainRuntimeTile;
+        /**
+         * 레이어 표시 의도
+         */
+        visible?: boolean;
+        /**
+         * 해당 타일 표시 의도
+         */
+        presentationTracked?: boolean;
+        /**
+         * 원격 입력이 적용되는 시작 레벨
+         */
+        minLevel?: number;
+        /**
+         * 직접 보유한 기존 이미지 경로의 준비 상태
+         */
+        baseImageReady?: boolean;
+        /**
+         * 원격 입력을 기다리는 타일 여부
+         */
+        expectsRemoteSource?: boolean;
+        /**
+         * 레이어가 직접 보유한 이미지 메시
+         */
+        mesh?: three.Mesh & Partial<{
+            _disposed: boolean;
+            _classtype: string;
+        }>;
+    };
+
+/**
+     * 한 표시 조회에서 계산할 필드입니다. all은 전체 판정을 계산합니다.
+     */
+    type TerrainLayerTilePresentationQuery = "all" | "ready" | "visible" | "attached" | "retainedSafe" | "confirmedEmpty" | "sourceKeys" | "sceneProvider" | "participates" | "deferredRemoval" | "visibilityCommit" | "runtimeParticipation";
+
+/**
+     * 입력 레이어와 공통 타일 전환이 사용하는 표시 판정입니다. 단일 조회에서는 지정한 필드만 사용합니다.
+     */
+    type TerrainLayerTilePresentationState = {
+        /**
+         * 표시 판정 참여 여부
+         */
+        participates: boolean;
+        /**
+         * 현재 타일 전환에서 실제 화면 제공자로 참여하는지 여부
+         */
+        sceneProvider: boolean;
+        /**
+         * 그릴 내용 없는 결과의 적용 여부
+         */
+        confirmedEmpty: boolean;
+        /**
+         * 새 표시로 전환 가능한지 여부
+         */
+        ready: boolean;
+        /**
+         * 현재 입력이 화면에 표시되는지 여부
+         */
+        visible: boolean;
+        /**
+         * 기존 화면이 장면에 붙어 있는지 여부
+         */
+        attached: boolean;
+        /**
+         * 현재 부모 표시의 제거 보류 여부
+         */
+        deferredRemoval: boolean;
+        /**
+         * 기존 적용본을 유지해도 되는지 여부
+         */
+        retainedSafe: boolean;
+        /**
+         * 현재 타일에서 기다릴 Source 식별자
+         */
+        sourceKeys: Array<string>;
+        /**
+         * 공유 영상에 입력만 제공하는 표시 경로 여부
+         */
+        sourceOnly: boolean;
+        /**
+         * 이번 표시 의도 적용 허용 여부
+         */
+        commitAllowed: boolean;
+        /**
+         * 적용 전에 선택한 binding의 현재 물리 표시값
+         */
+        bindingVisible?: boolean;
+        /**
+         * 부모 또는 등록된 직계 자식의 runtime 참여 여부
+         */
+        runtimeParticipation: boolean;
+    };
+
+/**
+     * 원본 입력을 동기화하고 병합한 변경만 적용하는 레이어 어댑터입니다.
+     */
+    type TerrainFeatureOwnerCallbacks = {
+        /**
+         * 병합한 표시 변경 적용
+         */
+        commitUpdates: (arg0: Array<object>) => Array<boolean> | Promise<Array<boolean>>;
+        /**
+         * 원본 형상 변경 동기화
+         */
+        syncSource?: (arg0: object) => void;
+        /**
+         * 자동 적용 시 화면 갱신 요청
+         */
+        wake?: () => void;
+        /**
+         * 자동 적용 실패 통지
+         */
+        onError?: (arg0: unknown) => void;
+        /**
+         * 현재 캐시 타일 목록
+         */
+        getCandidateTiles?: () => Array<U3dQuadTile>;
+        /**
+         * 선택한 타일의 입력 연결
+         */
+        bindTile?: (arg0: string | number, arg1: U3dQuadTile) => void;
+        /**
+         * 원본 요청·구독·소유 도형의 최종 정리
+         */
+        disposeSource?: (arg0: UMeasureFeature) => void;
+        /**
+         * 원본 레이어가 관측한 입력·장면 사실
+         */
+        getTileFacts?: (arg0: TerrainRuntimeTile) => TerrainLayerTilePresentationOption;
+        /**
+         * 기존 어댑터가 요구하는 실패 재시도 횟수
+         */
+        retryLimit?: number;
+        /**
+         * 원본 스타일 편집 창구
+         */
+        setStyle?: (arg0: UMeasureFeature, arg1: object) => void;
+        /**
+         * 원본 형상 조회 창구
+         */
+        loadSourceGeometry?: TerrainSourceGeometryLoader;
+    };
+
+/**
+     * 한 입력 소유자의 원본 수명과 변경 병합 상태입니다.
+     */
+    type TerrainFeatureOwnerRecord = {
+        /**
+         * 초기화 전 등록부와 같은 원본 목록
+         */
+        sources: Map<string, U2dVectorSourceEntry>;
+        /**
+         * 입력·표시 적용 어댑터
+         */
+        callbacks: TerrainFeatureOwnerCallbacks;
+        /**
+         * 원본별 마지막 표시 변경
+         */
+        updates: Map<string | object, object>;
+        /**
+         * 표시 변경 전에 동기화할 원본
+         */
+        sourceUpdates: Set<object>;
+        /**
+         * 현재 적용 완료
+         */
+        promise: Promise<Array<boolean>> | undefined;
+        /**
+         * 자동 적용 예약 여부
+         */
+        scheduled: boolean;
+        /**
+         * 원본 등록을 최종 해제 중인지 여부
+         */
+        _disposed: boolean;
+        /**
+         * 현재 실패 묶음의 재시도 횟수
+         */
+        retryCount: number;
+    };
+
+/**
+     * 대표 매개체가 원본의 출처와 편집 창구를 공유하는 문맥입니다.
+     */
+    type TerrainFeatureSourceContext = {
+        /**
+         * 원본 레이어 이름
+         */
+        sourceLayer: string;
+        /**
+         * 원본 종류
+         */
+        origin: string;
+        /**
+         * 원본 스타일 편집
+         */
+        setStyle?: (arg0: UMeasureFeature, arg1: object) => void;
+        /**
+         * 원본 형상 조회
+         */
+        loadSourceGeometry?: TerrainSourceGeometryLoader;
+    };
+
+/**
+     * 캐시 타일 중 형상 입력이 걸치는 후보를 고르는 관측값입니다.
+     */
+    type TerrainFeatureTileSelectionOption = {
+        /**
+         * 원본 대표 매개체
+         */
+        feature: UMeasureFeature;
+        /**
+         * 현재 표시 연결 기록
+         */
+        entry?: {
+            tileKeys: Set<string>;
+        };
+        /**
+         * 한 타일만 확인할 때의 후보
+         */
+        candidateTile?: U3dQuadTile;
+        /**
+         * 한 묶음에서 공유하는 캐시 목록
+         */
+        candidateTiles?: Array<U3dQuadTile>;
+        /**
+         * 입력 레이어의 시작 레벨
+         */
+        minLevel: number;
+        /**
+         * 자식 준비 중인 대체 부모 여부
+         */
+        isFallbackTile: (arg0: U3dQuadTile) => boolean;
+        /**
+         * 형상과 외곽선이 후보 영역에 걸치는지 여부
+         */
+        containsTile: (arg0: U3dQuadTile) => boolean;
+    };
+
+/**
+     * 완전 원본 형상을 비동기로 조회하는 소유자 공통 창구입니다.
+     */
+    type TerrainSourceGeometryLoader = (feature: UMeasureFeature) => Promise<undefined | U2dGeometry>;
+
+export type { TerrainCompositionRun, TerrainFeatureOwnerCallbacks, TerrainFeatureOwnerRecord, TerrainFeatureSourceContext, TerrainFeatureTileSelectionOption, TerrainLayerTilePresentationOption, TerrainLayerTilePresentationQuery, TerrainLayerTilePresentationState, TerrainManagerDiagnosticsState, TerrainManagerFlushState, TerrainManagerPresentState, TerrainManagerTileState, TerrainManagerWorkerState, TerrainSourceGeometryLoader, UShaderTerrainDecalManager };

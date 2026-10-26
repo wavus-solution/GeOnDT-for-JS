@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -11,7 +11,8 @@ import type { U3dImageLayer } from "../../3dLayer/U3dImageLayer.js";
 import type { U3dLayer } from "../../3dLayer/U3dLayer.js";
 import type { U3dApp } from "../../app/U3dApp.js";
 import type { TerrainDecalConfig } from "./UShaderTerrainDecalConfig.js";
-import type { TerrainCompositeStepStopReason } from "./UTerrainDecalCompositeComposer.js";
+import type { TerrainCompositionRun } from "./UShaderTerrainDecalManager.js";
+import type { TerrainCompositeStepStopReason, TerrainCompositionLayer } from "./UTerrainDecalCompositeComposer.js";
 import type { TerrainDecalCompositionPlan, TerrainDecalCompositionStability } from "./UTerrainDecalCompositionPlan.js";
 
 /**
@@ -706,6 +707,14 @@ type TerrainPathSegment = {
      */
     type TerrainWorkerResult = {
         /**
+         * 실제 빌드에서 확정한 입력과 Source 참여 이력입니다.
+         */
+        preparedBuild?: TerrainPreparedBuild;
+        /**
+         * 총순서 구간별 결과입니다. 재사용 가능한 정적 GPU 결과가 있으면 해당 Worker 결과는 생략합니다.
+         */
+        compositionRuns?: Array<TerrainCompositionRun>;
+        /**
          * tile key입니다.
          */
         tileKey: string;
@@ -759,6 +768,26 @@ type TerrainPathSegment = {
      * GPU에 적용할 terrain 버퍼 상태입니다.
      */
     type TerrainBufferState = {
+        /**
+         * 이 결과를 실제로 만든 입력의 서명입니다.
+         */
+        featureSignature?: string;
+        /**
+         * 전체 교체 후 다음 빌드에 넘길 비활성 자료입니다.
+         */
+        reusableUniforms?: Record<string, three.IUniform>;
+        /**
+         * 이 결과에 실제 참여한 Source의 승인 버전입니다.
+         */
+        sourceRevisions?: Map<string, number>;
+        /**
+         * 이 결과의 동적 피처 편집 버전이며 부모·자식 표시본 비교에 사용합니다.
+         */
+        featureRevisions?: Map<string, number>;
+        /**
+         * 합성 scheduler가 소유한 순서 있는 구간 입력입니다. 최종 결과는 별도 target을 소유합니다.
+         */
+        compositionLayers?: Array<TerrainCompositionLayer>;
         /**
          * shader 정의입니다.
          */
@@ -1001,6 +1030,15 @@ type TerrainPathSegment = {
             forceMaterialUpdate: boolean;
         }>) => void;
         /**
+         * 버퍼 소유의 공통 자료를 빌려 적용하는 내부 함수입니다.
+         */
+        applySharedTerrainDecalState?: (state: Partial<{
+            defines: Record<string, number>;
+            uniforms: Record<string, three.IUniform>;
+            hasTranslucentDecal: boolean;
+            forceMaterialUpdate: boolean;
+        }>) => void;
+        /**
          * terrain texture입니다.
          */
         map?: three.Texture;
@@ -1134,7 +1172,7 @@ type TerrainPathSegment = {
          */
         requestToken?: string;
         /**
-         * 최신 source revision입니다.
+         * 최신 요청의 source 버전입니다.
          */
         revision?: number;
         /**
@@ -1142,13 +1180,47 @@ type TerrainPathSegment = {
          */
         status: TerrainSourceStatus;
         /**
+         * 마지막으로 승인한 source 데이터 버전입니다.
+         */
+        dataRevision?: number;
+        /**
+         * 실제 적용한 결과의 source 버전입니다.
+         */
+        appliedRevision?: number;
+        /**
+         * LOD 선별 전 feature 수입니다.
+         */
+        featureCount?: number;
+        /**
+         * 실제 표시 feature 수입니다.
+         */
+        renderFeatureCount?: number;
+        /**
+         * 승인한 LOD profile입니다.
+         */
+        lodProfile?: {
+            id: string;
+            version: number;
+        };
+        /**
          * 실패 또는 취소 사유입니다.
          */
         errorReason?: string;
         /**
+         * 요청 실패 이후 이전 벡터 또는 벡터 없는 지형 표시를 허용합니다. 첫 요청 대기와 GPU 처리 실패는 완화하지 않습니다.
+         */
+        allowFailureFallback?: boolean;
+        /**
          * 최신 권위 source identity입니다.
          */
         sourceIdentity?: TerrainSourceIdentity;
+        /**
+         * 입력 비교값과 확정한 입력 버전입니다. 데이터 승인·GPU 적용 버전과 분리합니다.
+         */
+        inputRevision?: {
+            signature: string | number;
+            revision: number;
+        };
         /**
          * 마지막으로 승인한 tile-local source snapshot입니다.
          */
@@ -1278,21 +1350,6 @@ type TerrainPathSegment = {
          */
         renderFeatureCount?: number;
         /**
-         * source별 선별 전 feature 수입니다.
-         */
-        sourceFeatureCounts: Map<string, number>;
-        /**
-         * source별 실제 표시 feature 수입니다.
-         */
-        sourceRenderFeatureCounts: Map<string, number>;
-        /**
-         * source별 LOD profile 상태입니다.
-         */
-        sourceLodProfiles: Map<string, {
-            id: string;
-            version: number;
-        }>;
-        /**
          * 생성 대기 여부입니다.
          */
         pendingBuild?: boolean;
@@ -1300,10 +1357,6 @@ type TerrainPathSegment = {
          * source 대기 여부입니다.
          */
         pendingSourceData?: boolean;
-        /**
-         * source 대기 key입니다.
-         */
-        pendingSourceKeys: Set<string>;
         /**
          * source별 최신 요청 상태입니다.
          */
@@ -1408,41 +1461,17 @@ type TerrainPathSegment = {
             direction?: "refine" | "coarsen";
         };
         /**
-         * source별 버전입니다.
+         * 준비 캐시와 빌드 입력의 기준입니다.
          */
-        sourceRevisions: Map<string, number>;
-        /**
-         * 화면에 적용된 source별 버전입니다.
-         */
-        appliedSourceRevisions: Map<string, number>;
+        preparedBuild?: TerrainPreparedBuild;
         /**
          * 준비된 버전입니다.
          */
         preparedRevision?: number;
         /**
-         * 준비된 feature 서명입니다.
+         * 현재 타일의 연속 구간별 준비·Worker·정적 RTT 캐시입니다.
          */
-        preparedFeatureSignature?: string;
-        /**
-         * 준비된 tile 기준 좌표입니다.
-         */
-        preparedTileOrigin?: TerrainPoint;
-        /**
-         * 준비된 feature 기본 정보입니다.
-         */
-        preparedFeatureBases?: Array<TerrainFeature>;
-        /**
-         * 준비된 tile별 feature 참조입니다.
-         */
-        preparedFeatureRefs?: Array<TerrainFeatureRef>;
-        /**
-         * 준비된 Feature 합성 계획입니다.
-         */
-        preparedCompositionPlan?: TerrainDecalCompositionPlan;
-        /**
-         * 준비된 정적 합성 재사용 cache key입니다. hybrid 계획이 아니면 없습니다.
-         */
-        preparedStaticCompositeKey?: string;
+        compositionRuns?: Array<TerrainCompositionRun>;
         /**
          * tile 기준 좌표입니다.
          */
@@ -1521,6 +1550,10 @@ type TerrainPathSegment = {
      * terrain manager 메서드의 공통 옵션입니다.
      */
     type TerrainManagerOption = {
+        /**
+         * 동등성이 승인된 이번 작업의 입력입니다.
+         */
+        preparedBuild?: TerrainPreparedBuild;
         /**
          * manager를 소유한 앱입니다.
          */
@@ -1603,6 +1636,10 @@ type TerrainPathSegment = {
          * 요청 종료 상태입니다.
          */
         sourceStatus?: TerrainSourceStatus;
+        /**
+         * source 요청 실패 이후의 대체 표시 허용 여부입니다.
+         */
+        allowFailureFallback?: boolean;
         /**
          * 요청 실패 또는 취소 사유입니다.
          */
@@ -1807,7 +1844,7 @@ type TerrainPathSegment = {
          */
         acceptAppliedPresentation?: boolean;
         /**
-         * 직전 revision 이 적용됐고 현재 revision 의 build·present 가 진행 중인 한 단계 지연을 swap-ready 로 인정할지 여부입니다. 연속 갱신 tile 은 어느 프레임에서도 최신 revision 이 적용된 상태가 되지 않으므로, 화면에 없는 자식을 붙여야 하는 LOD 훅이 사용하는 완화 조건입니다.
+         * 현재 화면의 부모·자식과 동적 피처 편집본이 일치하면 진행 중 revision의 적용 지연을 허용할지 여부입니다. 연속 편집 중 최신 입력을 항상 요구하지 않으면서 이전 빈 결과나 서로 다른 편집본으로의 전환은 차단합니다.
          */
         acceptInFlightRevision?: boolean;
         /**
@@ -2001,13 +2038,19 @@ type TerrainPendingWorkerJob = {
         cancelled: boolean;
     }>;
 
-type TerrainPresentEntry = Partial<{
+/**
+     * 세대·리비전과 표시 대상에 묶인 apply/clear 예약 정보입니다.
+     * changeType은 명시적 삭제 사유이며 같은 세대·리비전의 clear 재예약에서 보존합니다.
+     */
+    type TerrainPresentEntry = Partial<{
         type: "apply" | "clear";
         revision: number;
         generation: number;
+        changeType: string;
         featureSignature: string;
         targetActiveBuffer: TerrainBufferState;
         targetAppliedSignature: string;
+        sourceRevisions: Map<string, number>;
         presentationOwnerKey: string;
         presentationOwnerRevision: number;
         presentationGroupId: string;
@@ -2026,9 +2069,6 @@ type TerrainDynamicRadiusEntry = {
         lastUpdateTime: number;
     } & Partial<{
         radius: number;
-        lastCameraPosition: three.Vector3;
-        lastProjectionScale: number;
-        lastDrawingBufferHeight: number;
     }>;
 
 /**
@@ -2177,6 +2217,18 @@ type TerrainCacheValue = TerrainWorkerResult | TerrainGpuCacheEntry;
      * tile buffer 생성에 필요한 준비 데이터입니다.
      */
     type TerrainPreparedBuild = {
+        /**
+         * 입력 확정 시 참여한 Source와 승인 버전의 불변 이력입니다.
+         */
+        sourceRevisions?: Map<string, number>;
+        /**
+         * 같은 빌드 입력의 동적 피처 편집 버전입니다.
+         */
+        featureRevisions?: Map<string, number>;
+        /**
+         * 전체 타일 대신 독립적으로 빌드할 연속 구간입니다.
+         */
+        compositionRuns?: Array<TerrainCompositionRun>;
         /**
          * feature 구성 서명입니다.
          */

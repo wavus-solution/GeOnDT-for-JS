@@ -8,7 +8,7 @@ summary: "브이월드의 Base·Hybrid WMTS 레이어와 GeoServer의 도로 WMT
 tags: []
 apis:
   - "addLayer"
-  - "create3dImageWMTSLayer"
+  - "createWMTSImageLayer"
   - "on"
   - "setHomePosition"
   - "setIntensityLight"

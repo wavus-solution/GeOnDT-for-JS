@@ -104,6 +104,22 @@ const LOCAL_MAT =  new THREE.Matrix4() ;
  *  });
  */
 class U3dComponentPosition {
+    /**
+     * 논리 위치와 독립적으로 적용하는 모델 전체의 로컬 이동량입니다.
+     *
+     * @type {import('three').Vector3}
+     *
+     * @ignore
+     */
+    _modelOffset = new THREE.Vector3();
+    /**
+     * 일반 모델이 소유하는 기준점 보정 전용 변환 노드입니다.
+     *
+     * @type {import('three').Group | undefined}
+     *
+     * @ignore
+     */
+    _modelOffsetObject;
     /** @type {number} */
     #brightness = 1;
     /** @type {number} */
@@ -1328,7 +1344,7 @@ class U3dComponentPosition {
         }
 
         if(defined(updateInfo.exceptTexture)) {
-            if (!defined(this.instanceId) && typeof updateInfo.exceptTexture === "boolean") {
+            if (typeof updateInfo.exceptTexture === "boolean") {
                 this.exceptTexture(updateInfo.exceptTexture);
             }
         }
@@ -1460,6 +1476,61 @@ class U3dComponentPosition {
      */
     getInstanced() {
         return this._setInstanced
+    }
+
+    /**
+     * 논리 위치를 유지하면서 모델 전체의 로컬 이동량을 절대값으로 설정합니다. <br>
+     * 이동량은 모델의 부모 좌표계 단위이며 컴포넌트의 회전·크기보다 먼저 적용합니다.
+     * 일반·인스턴스 타입 모두 구성 메시 전체에 적용하고, 다른 컴포넌트와 공유하는 모델은 변경하지 않습니다. <br>
+     * 같은 값을 반복 설정해도 누적되지 않으며, 생략하거나 0 벡터를 지정하면 보정을 해제합니다.
+     * 위치·회전·크기 갱신 후에도 유지되고, 경계 상자와 선택에 쓰는 렌더 변환에 함께 반영합니다.
+     * 라벨·오버레이·경로의 기준인 논리 위치는 변경하지 않습니다. <br>
+     * x·y·z가 숫자가 아니면 TypeError, 비유한 값이면 RangeError가 발생하며 이전 설정은 유지합니다.
+     * 해제된 컴포넌트에는 Error가 발생합니다.
+     *
+     * @param {import('three').Vector3Like} [offset={x:0,y:0,z:0}] 모델 전체에 적용할 로컬 이동량
+     * @returns {this} 설정한 컴포넌트
+     *
+     * @example
+     * // 모델 좌표의 기준점 z:500을 논리 원점에 맞춥니다.
+     * component.setModelOffset({x: 0, y: 0, z: -500});
+     * component.setModelOffset(); // 보정을 해제합니다.
+     */
+    setModelOffset(offset = {x: 0, y: 0, z: 0}) {
+        if (!offset || typeof offset !== 'object'
+            || typeof offset.x !== 'number' || typeof offset.y !== 'number' || typeof offset.z !== 'number') {
+            throw new TypeError('모델 오프셋의 x, y, z는 숫자여야 합니다.');
+        }
+        if (!Number.isFinite(offset.x) || !Number.isFinite(offset.y) || !Number.isFinite(offset.z)) {
+            throw new RangeError('모델 오프셋의 x, y, z는 유한한 값이어야 합니다.');
+        }
+        if (this.isDisposed()) {
+            throw new Error('해제된 컴포넌트에는 모델 오프셋을 설정할 수 없습니다.');
+        }
+        this._modelOffset.copy(offset);
+        this._applyModelOffset();
+        this.getRectangle();
+        this.drawArg?.setUpdateDate?.();
+        return this;
+    }
+
+    /**
+     * 모델 전체의 로컬 이동량을 복사하여 반환합니다. 반환 벡터를 변경해도 설정은 바뀌지 않습니다.
+     *
+     * @returns {import('three').Vector3} 현재 모델 오프셋의 복사본
+     */
+    getModelOffset() {
+        return this._modelOffset.clone();
+    }
+
+    /**
+     * 일반 모델의 기준점 보정을 전용 하위 변환에 반영합니다.
+     *
+     * @ignore
+     */
+    _applyModelOffset() {
+        // 논리 루트와 부착 컴포넌트를 유지한 채 모델 형상만 보정합니다.
+        INTERNAL.applyModelOffset(this);
     }
 
     /**
@@ -1624,6 +1695,7 @@ class U3dComponentPosition {
 
     /**
      * 누적 경로(궤적)의 초기 좌표 값(이전 히스토리)을 설정하는 함수.
+     * 이미 경로가 있으면 현재 스타일과 표시 설정을 사용해 새 초기 이력으로 교체합니다.
      * @param {Array<GeoPositionVector3>} positions 위경도 좌표 배열
      */
     setInitPathPositions(positions) {
@@ -1684,6 +1756,14 @@ class U3dComponentPosition {
             });
             this.#cumulativeProperty.lastInfo = info;
 
+        }
+
+        // addPosition의 첫 위치 기록에서 경로가 먼저 만들어질 수 있습니다.
+        // 이때도 새 초기 이력이 기존 경로와 별개의 대기 배열에 남지 않게 합니다.
+        if (this.#initPathPositions.length > 0 && this.#cumulativePath) {
+            this.#cumulativePath.dispose();
+            this.#cumulativePath = undefined;
+            this.#createCumulativePath();
         }
     }
 
@@ -1792,7 +1872,7 @@ class U3dComponentPosition {
     /**
      * 현재 위치에서 목표 위경도 좌표까지 보간 이동을 시작하거나 이동 대기열에 추가합니다.<br>
      * 이동 중 다시 호출하면 현재 목표를 중단하지 않고 새 목표를 대기열 끝에 추가합니다.<br>
-     * `drawCumulativePath`가 true이면 이동 중인 위치를 누적 경로에 기록합니다.<br>
+     * `drawCumulativePath`가 true이면 이동 중인 위치를 연결해 실선 경로로 기록합니다.<br>
      * 유효한 목표 좌표 또는 이동 거리를 만들 수 없으면 이동을 예약하지 않고 완료합니다.
      *
      * @param {MoveSmoothlyOpt} [opt={}] 목표 위치, 회전, 이동 시간 등을 지정하는 옵션
@@ -1858,6 +1938,15 @@ class U3dComponentPosition {
             this.#smoothAniContext.useLookAt = useLookAt;
         }
         if (dist <= 0) return;
+
+        // 새 이동의 출발점부터 경로가 이어지도록 현재 위치를 기록합니다.
+        if (!animation || (!animation.isRunning && !animation.isPaused)) {
+            const recorded = this.#cumulativeProperty.startPosition;
+            if (!this.#cumulativePath?.getTail()?.currentLength ||
+                recorded?.x !== start.x || recorded?.y !== start.y || recorded?.z !== start.z) {
+                this.recordCumulativePathFrame(start);
+            }
+        }
 
         // -------- 애니메이션 최초 생성  --------//
         if (!defined(animation)) {
@@ -2006,10 +2095,9 @@ class U3dComponentPosition {
             if (!defined(last)) return;
             const geoPosition = this.getGeographicPosition();
             if (!defined(geoPosition)) return;
-            this.#initPathPositions.push({
-                position : geoPosition,
-                time : Date.now()
-            })
+            if (last.position.x !== geoPosition.x || last.position.y !== geoPosition.y || last.position.z !== geoPosition.z) {
+                this.#initPathPositions.push({position: geoPosition, time: Date.now()});
+            }
         }
         const pathColor = defined(style.color) ? style.color : this.pathColor;
         const pathOpacity = defined(style.opacity) ? style.opacity : this.pathOpacity;
@@ -2020,6 +2108,7 @@ class U3dComponentPosition {
             app: app,
             scene: this.scene,
             targetName: this.name,
+            layerName: this.getLayerName(),
             precision : this.#cumulativeProperty.precision,
             positionOffsetQuaternion: TEMP_CUMULATIVE_PATH_QUATERNION.setFromEuler(
                 defined(this.lookAt) ? this.getPitchYaw(this.lookAt, this.position) : this.rotation
@@ -2028,8 +2117,6 @@ class U3dComponentPosition {
                 color: pathColor,
                 opacity: pathOpacity,
                 width: pathWidth,
-                type: /** @type {'tail' | 'pipe'} */ (style.type),
-                lineType: style.lineType,
                 colorGradation: style.colorGradation,
                 styleFunc: /** @type {U3dCumulativePathStyleFunc} */ (style.styleFunc),
                 ...(Object.prototype.hasOwnProperty.call(style, 'drawFunc') ? {drawFunc: style.drawFunc} : {}),
@@ -2563,52 +2650,6 @@ class U3dComponentPosition {
     }
 
     /**
-     * 누적 경로를 통해 해당하는 컴포넌트를 선택하는 함수
-     * @param {event | Record<string, unknown>} e 클릭 이벤트
-     * @returns {this | undefined} 컴포넌트
-     *
-     * @ignore
-     */
-    selectedByTrail (e) {
-        if(!this.#drawCumulativePath || !defined(this.#cumulativePath )) return;
-
-        const trail = this.#cumulativePath;
-        const isIntersected = /** @type {{raycast: (Function|undefined)}} */ (/** @type {unknown} */ (trail)).raycast?.(e) === true;
-
-        if(isIntersected) {
-            return this;
-        }
-        return undefined;
-    }
-
-    /**
-     * 누적 경로(궤적)의 선택 강조용 helper 메시를 표시합니다. 궤적 표시가 꺼져 있거나 궤적이 없으면 아무 동작도 하지 않습니다.
-     */
-    onSelectHelperMesh () {
-        if(!this.#drawCumulativePath || !defined(this.#cumulativePath )) return;
-
-        const trail = this.#cumulativePath;
-        const helper = trail.getHelperMesh(true);
-        if(!defined(helper)) return;
-
-        helper.visible = true;
-        helper.frustumCulled = false;
-    }
-
-    /**
-     * `onSelectHelperMesh`로 표시한 궤적 강조 helper 메시를 숨깁니다.
-     */
-    offSelectHelperMesh () {
-        if(!this.#drawCumulativePath || !defined(this.#cumulativePath )) return;
-
-        const trail = this.#cumulativePath;
-        const helper = trail.getHelperMesh(false);
-        if(!defined(helper)) return;
-
-        helper.visible = false;
-    }
-
-    /**
      * 컴포넌트를 씬에서 제거하고 모델·경로·라벨·오버레이·애니메이션 리소스를 해제하는 함수. <br>
      * 주의 사항: 호출 후 이 객체는 다시 사용할 수 없으며 `isDisposed()`가 true가 됩니다.
      */
@@ -2893,28 +2934,31 @@ class U3dComponentPosition {
     }
 
     /**
-     * 컴포넌트의 실 객체는 gruop들로 감싸져 있는 경우가 많다. Mesh의 머터리얼의 속성을 조회하거나 변경할때
-     * 순회하며 머터리얼을 모두 가져오는 함수이다.
-     * 이걸로 컴포넌트 형상객체의 색상, 투명도 등의 정보를 확인하고 수정하는데 사용할 수 있다.
-     * @param {import('three').Object3D & MaterialableExt} object
-     * @param {Array<import('three').Material>} result 검색된 머터리얼이 적재되는 결과 리스트
+     * 그룹으로 감싸진 모델 계층을 순회하여 재질을 수집합니다.
+     * 기본 조회는 현재 출력 재질만 포함하고, 텍스처 정책 변경 시에는 복원용 재질도 포함합니다.
+     *
+     * @param {import('three').Object3D & MaterialableExt} object 순회할 모델 객체
+     * @param {Array<import('three').Material>} [result=[]] 검색된 재질을 적재할 결과 리스트
+     * @param {boolean} [includeOriginal=false] 선택 해제 시 사용할 복원용 재질도 포함할지 여부
      *
      * @ignore
      */
-    #searchObjectMaterial(object, result = []){
+    #searchObjectMaterial(object, result = [], includeOriginal = false){
         if(!object) return;
         if(object.children){
             for(const child of object.children){
-                this.#searchObjectMaterial(child, result);
+                this.#searchObjectMaterial(child, result, includeOriginal);
             }
         }
-        if(!object.material) return;
-        if(object.material instanceof Array){
-            for(const material of object.material){
-                result.push(material);
-            }
-        }else{
-            result.push(object.material);
+        if (object.material) {
+            if (Array.isArray(object.material)) result.push(...object.material);
+            else result.push(object.material);
+        }
+        // exceptTexture는 선택의 임시 재질과 복원용 재질에 같은 정책을 적용해야 합니다.
+        // 일반 조회는 이전처럼 현재 출력 재질만 반환합니다.
+        if (includeOriginal && object._oriMaterial) {
+            if (Array.isArray(object._oriMaterial)) result.push(...object._oriMaterial);
+            else result.push(object._oriMaterial);
         }
     }
 
@@ -3002,9 +3046,16 @@ class U3dComponentPosition {
     }
 
     /**
-     * 컴포넌트가 출력하고있는 모델의 색상을 설정 합니다.
-     * @param {import('three').ColorRepresentation} color 설정할 색상값
+     * 컴포넌트가 표시하는 모델의 기본 색상을 설정합니다. <br>
+     * 텍스처와 조명 등의 영향으로 화면에 보이는 색상은 지정한 값과 다를 수 있습니다. <br>
+     * 선택 강조를 해제한 뒤에도 마지막으로 설정한 색상을 유지합니다.
+     *
+     * @param {import('three').ColorRepresentation} [color='#ffffff'] 모델에 적용할 기본 색상
      * @returns {boolean} 색상이 적용되면 true, 모델이 없거나 적용에 실패하면 false
+     *
+               
+                                                                   
+                                                           
      */
     setColor(color = '#ffffff') {
         if(!this._object) return false;
@@ -3018,8 +3069,8 @@ class U3dComponentPosition {
                         this.#applyMaterial(model._oriMaterial, {color: parsedColor});
                     } else {
                         model._oriMaterial = Array.isArray(model.material)
-                            ? model.material.map((/** @type {MutableMaterial} */ m) => m.clone())
-                            : model.material.clone();
+                            ? model.material.map((/** @type {MutableMaterial} */ m) => INTERNAL.cloneRestorableMaterial(m))
+                            : INTERNAL.cloneRestorableMaterial(model.material);
                     }
                 }
             });
@@ -3163,8 +3214,8 @@ class U3dComponentPosition {
                         this.#applyMaterial(model._oriMaterial, {opacity});
                     }else {
                         model._oriMaterial = Array.isArray(model.material)
-                            ? model.material.map((/** @type {MutableMaterial} */ m) => m.clone())
-                            : model.material.clone();
+                            ? model.material.map((/** @type {MutableMaterial} */ m) => INTERNAL.cloneRestorableMaterial(m))
+                            : INTERNAL.cloneRestorableMaterial(model.material);
                     }
                 }
             });
@@ -3195,8 +3246,8 @@ class U3dComponentPosition {
                         this.#applyMaterial(model._oriMaterial, {depthWrite});
                     }else {
                         model._oriMaterial = Array.isArray(model.material)
-                            ? model.material.map((/** @type {MutableMaterial} */ m) => m.clone())
-                            : model.material.clone();
+                            ? model.material.map((/** @type {MutableMaterial} */ m) => INTERNAL.cloneRestorableMaterial(m))
+                            : INTERNAL.cloneRestorableMaterial(model.material);
                     }
                 }
             })
@@ -3281,8 +3332,11 @@ class U3dComponentPosition {
     }
 
     /**
-     * 컴포넌트가 출력하고 있는 모델의 텍스쳐 출력을 끄거나 켭니다.
-     * @param {boolean} [isExcept=false] true이면 텍스처를 숨기고 단색으로 그리며, false이면 텍스처를 다시 표시합니다
+     * 이 컴포넌트의 색상 텍스처 출력을 끄거나 켭니다. <br>
+     * true이면 색상 텍스처를 제외하고, false이면 각 재질의 원래 텍스처 사용 상태로 되돌립니다. <br>
+     * 기본색·조명과 다른 종류의 텍스처는 유지하며, 선택을 해제해도 마지막 설정을 유지합니다.
+     *
+     * @param {boolean} [isExcept=false] 색상 텍스처를 제외할지 여부
      * @returns {boolean} 적용되면 true, 모델이 없거나 적용에 실패하면 false
      */
     exceptTexture(isExcept = false){
@@ -3290,7 +3344,7 @@ class U3dComponentPosition {
         try{
             /** @type {Array<MutableMaterial>} */
             const materials = [];
-            this.#searchObjectMaterial(this._object, materials);
+            this.#searchObjectMaterial(this._object, materials, true);
 
             if(isExcept){
                 for(const material of materials){
@@ -3396,15 +3450,16 @@ class U3dComponentPosition {
             return;
         }
 
-        // --- THREE.Object3D ---
-        if (child instanceof THREE.Object3D) {
+        // U3dSphere·U3dAdaptedGeometry는 Object3D 메서드를 혼합하므로 instanceof가 성립하지 않습니다.
+        const objectChild = /** @type {ExtendedObject3D} */ (child);
+        if (objectChild.isObject3D) {
             // 중복이면 추가하지 않고 종료
             if (self.children.includes(child)) {
                 return;
             }
 
             // 기존 월드 스냅샷
-            child.updateMatrixWorld(true);
+            objectChild.updateMatrixWorld(true);
             const childMat = child.matrixWorld.clone();
 
             // 부모 월드 매트릭스
@@ -3420,7 +3475,7 @@ class U3dComponentPosition {
             /** @type{ComponentChildObject3D} */(child).parent = /**@type{import('three').Object3D & U3dComponentPosition}*/ (/**@type{unknown}*/(self)) ?? null;
 
             // 적용
-            child.matrixAutoUpdate = false;
+            objectChild.matrixAutoUpdate = false;
             child.matrix.copy(localMat);
             child.matrix.decompose(child.position, child.quaternion, child.scale);
             child.matrixWorld.copy(parentMat).multiply(child.matrix);
@@ -3518,12 +3573,11 @@ class U3dComponentPosition {
                 continue;
             }
 
-            if (/**@type{ComponentChildObject3D}*/(child) instanceof THREE.Object3D) {
+            const childObject = /** @type {import('three').Object3D} */ (
+                /** @type {unknown} */ (child)
+            );
+            if (childObject.isObject3D) {
                 const localMat = LOCAL_MAT.copy(invert).multiply(mat);
-
-                const childObject = /** @type {import('three').Object3D} */ (
-                    /** @type {unknown} */ (child)
-                );
 
                 childObject.matrixAutoUpdate = false;
                 childObject?.matrix?.copy(localMat);
@@ -3538,8 +3592,8 @@ class U3dComponentPosition {
             const recurseChild = recurseList[i];
             if (recurseChild instanceof U3dComponentPosition) {
                 recurseChild.updateChildrenMatrix();
-            } else if (recurseChild instanceof THREE.Object3D) {
-                recurseChild.updateMatrixWorld(true);
+            } else if (/** @type {ExtendedObject3D} */ (recurseChild).isObject3D) {
+                /** @type {ExtendedObject3D} */ (recurseChild).updateMatrixWorld(true);
             }
         }
     }
@@ -3777,6 +3831,13 @@ class U3dComponentPosition {
         const self = this;
         const object = self._object;
         if (!object) return new THREE.Box3();
+        if (this._modelOffsetObject?.parent === object) {
+            // 전용 변환 노드를 포함한 모델 내부 계층을 경계에도 반영합니다.
+            const bounds = INTERNAL.getOffsetModelBounds(object);
+            const result = /** @type {Box3WithCenter} */ (bounds);
+            result._center = bounds.getCenter(new THREE.Vector3());
+            return result;
+        }
         const bbox = new THREE.Box3();
         object.updateMatrixWorld();
         object.traverse(/** @param {ModelMesh} child */ function (child) {
@@ -5814,7 +5875,7 @@ function pickMaterial(intersect, color = HIGH_LIGHT_COLOR, opacity = HIGH_LIGHT_
                 mesh._oriMaterial = mesh.material;
                 mesh.material = [];
                 for(const oriMaterial of mesh._oriMaterial) {
-                    mesh.material.push(oriMaterial.clone()||material);
+                    mesh.material.push(INTERNAL.cloneRestorableMaterial(oriMaterial)||material);
                 }
             }else if(material){
                 for(let i =0; i< mesh.material.length; i++) {
@@ -5836,7 +5897,7 @@ function pickMaterial(intersect, color = HIGH_LIGHT_COLOR, opacity = HIGH_LIGHT_
         //단일
         if(!mesh._oriMaterial){
             mesh._oriMaterial = mesh.material;
-            mesh.material = material || mesh.material.clone();
+            mesh.material = material || INTERNAL.cloneRestorableMaterial(mesh.material);
         }else if(material){
             mesh.material.dispose();
             mesh.material = material;

@@ -810,19 +810,19 @@ export async function initialize(context) {
     }
 
     /**
-     * Deferred(then)를 제공하는 레이어의 모델 로드 완료를 기다립니다.
-     * 모델 서버가 응답하지 않으면 Deferred가 끝나지 않으므로 대기 시간을 제한합니다.
-     * @param {unknown} target then을 제공하는 대상
+     * 레이어의 ready Promise로 모델 로드 완료를 기다립니다.
+     * 모델 서버가 응답하지 않으면 초기화가 끝나지 않으므로 대기 시간을 제한합니다.
+     * @param {{ready: Promise<unknown>}} target 초기화 완료를 기다릴 레이어
      * @returns {Promise<'ready'|'error'|'timeout'|'disposed'>} 대기 결과
      */
     async function waitForModelReady(target) {
-        if (!target || typeof target.then !== 'function') return 'ready';
+        if (!target || typeof target.ready?.then !== 'function') return 'ready';
         let timeoutTimer;
-        // Deferred를 그대로 resolve하면 다시 해석되므로 완료 여부 문자열만 전달합니다.
-        const ready = new Promise(resolve => target.then(() => resolve('ready'), error => {
+        // 성공·실패를 대기 결과 문자열로 바꾸어 시간 제한·해제와 함께 비교합니다.
+        const ready = target.ready.then(() => 'ready', error => {
             state.lastError = toMessage(error);
-            resolve('error');
-        }));
+            return 'error';
+        });
         const timeout = new Promise(resolve => {
             timeoutTimer = setTimeout(() => resolve('timeout'), CONFIG.modelLoadTimeoutMs);
         });

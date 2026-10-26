@@ -35,7 +35,7 @@ frame 예산은 작업 하나가 아니라 그 frame 의 모든 대기 작업이
 한 draw 가 frame 예산보다 큰 작업도 굶지 않고 다음 frame 에 진행할 기회를 얻어야 한다.
 진행한 작업은 큐 뒤로 보내 다음 기회를 다른 tile 도 얻어야 한다.
 합성 실패는 순서가 어긋난 direct 결과를 만들지 않고 현재 revision 의 pipeline 실패로 끝내야 한다.
-host 구간 서명이 바뀌면 아직 시작하지 않은 작업은 서명만 갱신하고, 이미 시작한 작업은 취소한 뒤 다시 만들어야 한다.
+host 구간 서명이 바뀌면 아직 시작하지 않은 단일 packed 작업은 서명만 갱신한다. 이미 시작한 작업이나 compositionLayers 입력은 취소한 뒤 다시 만들어야 한다. 구간 입력은 이전 host용 RTT를 빌렸을 수 있기 때문이다.
 manager 종료 시 결과가 오지 않을 수 있으므로 남은 작업의 소유권과 자원을 그 시점에 모두 회수해야 한다.
 ```
 
@@ -145,8 +145,6 @@ UShaderTerrainDecalManager 부분 타입 명세
             이 단위가 소유하는 상태를 manager 가 보관하는 자리이며 모든 공개 함수가 여기로 상태에 접근한다.
         TERRAIN_TILE_REGISTRY: Map<string, TerrainTileEntry>
             진행 권한 확인과 host 구간 무효화에서 tile 을 조회한다.
-        TERRAIN_GPU_BUFFER_STATE: Map<string, TerrainBufferState>
-            준비된 host 구간을 찾을 때 마지막 대체 경로로 읽는다.
         TERRAIN_PROGRESS_TILE_KEYS: Set<string> | undefined
             예약한 tile key 를 넣는 진행 표시이며 없으면 만들어 넣는다.
         _app: object | undefined
@@ -413,6 +411,7 @@ commitTerrainCompositeResult(manager, job, state) -> boolean
         stale 하거나 결과가 없으면 이번에 새로 만든 자원만 정리하고 기존 화면을 유지한다.
         결과가 packed 입력의 소유권까지 가져왔다고 알리면 자원 회수 전에 작업의 packed 입력 참조를 비운다. hybrid 결과는 정적 합성 texture 와 동적 packed 입력을 함께 안고 표시되므로 같은 자원을 두 번 해제하지 않아야 한다. stale 경로에서도 같은 규칙을 적용해 결과 상태 해제 한 번으로 정리한다.
         정적 합성 결과를 다음 revision 이 물려받을 수 있도록, 완료 결과에 작업의 정적 cache key 와 그 결과를 만든 합성기·renderer texture 상한을 함께 남긴다. 조건이 하나라도 달라지면 재사용 판정이 실패해야 하므로 세 값을 함께 기록한다.
+        입력 sourceState의 featureRevisions snapshot을 결과에 전달한 뒤 입력 자원을 회수한다. 직접·hybrid·구간 합성 여부와 관계없이 결과가 실제 표현하는 피처 편집 버전을 유지한다.
         결과 revision 이 유한하지 않으면 작업의 revision 으로 채운다.
         이전 inactive buffer 가 active 와 다르고 이번 결과와도 다르면 해제한다.
         빌드 완료 revision 은 기존 값과 이번 revision 중 큰 값으로 둔다.
@@ -532,20 +531,20 @@ invalidateTerrainCompositeHostVariants(manager, tileKey, scheduleFlush) -> boole
     처리 기준:
         composer 나 tile key 가 없으면 아무 것도 하지 않는다.
         tile 이 없거나 취소됐으면 아무 것도 하지 않는다.
-        준비된 host 구간은 tileEntry.inactiveBuffer.compositeVariants 를 우선하고, 없으면 tileEntry.activeBuffer.compositeVariants 로, 그래도 없으면 manager.TERRAIN_GPU_BUFFER_STATE 에 담긴 compositeVariants 로 대체한다.
+        준비된 host 구간은 tileEntry.inactiveBuffer.compositeVariants 를 우선하고, 없으면 tileEntry.activeBuffer.compositeVariants 로 확인한다.
         대기 작업도 없고 준비된 host 구간도 없으면 아무 것도 하지 않는다.
         Image host 선택이 그대로여도 binding set 서명이 달라지면 시각 변경으로 본다.
         현재 서명과 다음 서명이 같으면 아무 것도 하지 않는다.
-        아직 시작하지 않은 대기 작업은 최신 host 구간 서명만 갱신해 다음 frame 에 그대로 진행한다.
+        아직 시작하지 않은 단일 packed 대기 작업은 최신 host 구간 서명만 갱신해 다음 frame 에 그대로 진행한다. compositionLayers가 있는 대기 작업은 이 단축 경로를 사용하지 않고 기존 표시를 보존한 채 취소·재예약한다.
 
     의존:
-        UShaderTerrainDecalManager — tile 조회와 dirty 표시, 다음 frame 요청; 함수: {markTileDirty()}; 속성 읽기: {TERRAIN_TILE_REGISTRY, TERRAIN_GPU_BUFFER_STATE, _app}
+        UShaderTerrainDecalManager — tile 조회와 dirty 표시, 다음 frame 요청; 함수: {markTileDirty()}; 속성 읽기: {TERRAIN_TILE_REGISTRY, _app}
         UShaderTerrainDecalTileStateManager — host 구간 조회·서명 계산과 준비 데이터 정리; 함수: {resolveTerrainCompositeVariants(), buildTerrainCompositeVariantSignature(), clearTerrainPreparedTileBuildData()}
 
     동작:
         tile 과 대기 작업, 준비된 host 구간을 확인한다.
         다음 서명과 현재 서명을 비교해 같으면 끝낸다.
-        시작 전 작업이면 서명만 갱신하고 다음 frame 을 요청한다.
+        시작 전 작업이고 compositionLayers 입력이 없으며 다음 host 구간이 있으면 서명만 갱신하고 다음 frame 을 요청한다.
         그 밖에는 composite-host-variant-changed 로 취소하고 준비 데이터를 지운 뒤 dirty 표시와 flush 예약을 남긴다.
 
 disposeTerrainCompositeJobs(manager) -> void

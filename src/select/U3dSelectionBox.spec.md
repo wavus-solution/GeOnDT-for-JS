@@ -22,6 +22,8 @@
 
 인스턴스 메시 중 `instances` 배열이 없는 메시(`InstancedMesh2.addLOD()`가 만든 하위 LOD 메시처럼 상위 메시의 인스턴스를 공유해 그리기만 하는 메시)는 인스턴스 판정을 건너뛰고 자식 순회만 계속한다.
 
+`U3dSelect`는 박스 입력의 시작·이동·종료마다 현재 앱 카메라를 `setCamera()`로 전달한다. 입력 사이에 원근·직교 카메라가 교체되어도 이전 카메라로 검색하지 않는다. 직교 선택 절두체의 원거리 평면은 역투영한 세 정점의 순서로 이미 안쪽을 향하므로 법선을 추가로 반전하지 않는다.
+
 ### 1.4 주요 사용처와 연계 대상
 
 - `U3dSelect`(`union3d/select/U3dSelect.js`): 박스 선택 모드에서 생성·이벤트 전달·`setScene()`·`getStartPointNormalized()`·`getEndPointNormalized()`·`dispose()`를 사용하는 유일한 저장소 내 호출자다.

@@ -29,6 +29,18 @@
 ## 3. 정규 자연어 수도코드
 
 ```spec
+U3FLoadState 타입 정의
+    initialization: {request: DeferredObject<object> | undefined, cancel: function(unknown): void} | undefined
+        현재 초기화의 정보 요청과 취소 함수다. 완료·실패·취소 시 참조를 먼저 해제한다.
+    requests: Map<DeferredObject<object>, {loader: UFileLoader, id: string}>
+        레이어가 소유한 U3G·JSON 정보 요청별 로더와 소비자 ID다. 요청 통지 또는 삭제 시 제거한다.
+
+LAYER_LOAD_STATES: WeakMap<U3dModelU3FLayer, U3FLoadState> = 빈 WeakMap
+    파일 내부에서 레이어별 로딩 상태를 관리하며 레이어를 강하게 보관하지 않는다.
+
+getLayerLoadState(layer: U3dModelU3FLayer) -> U3FLoadState
+    동작: 기존 로딩 상태를 반환한다. 없으면 initialization이 undefined이고 requests가 빈 Map인 상태를 등록하여 반환한다.
+
 U3dModelU3FLayer extends U3dModelLayer 클래스 정의
     의존: U3dModelLayer — 모델 레이어 기반 기능; 상속: {U3dModelLayer}
 
@@ -114,16 +126,26 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
             UDEF — 패키지 방식; 상수: {NON_PACKAGED_MODEL, PACKAGED_MODEL}
             U3fPackagedInfo — JSON 반영; 함수: {set()}
             U3dMessage — 로딩 실패; 정적 함수: {error()}
-            DeferredObject — 외부에서 부착한 초기화 종결 함수; 콜백: {resolve(), reject()}
+            U3dLayer — 초기화 ready의 종결; 함수: {_resolveReady(), _rejectReady()}
+            UFileLoader — 초기화 소비자 취소; 함수: {cancelById()}
+            DOMException — 레이어 삭제 취소 사유; 생성자: {new DOMException()}
+            U3dLayer — 레이어 수명 확인; 함수: {isDisposed()}; 속성 읽기: {_taskProcessorDisposing}
         동작:
-            _needXml이 참이면 다음 정보 요청 체인을 반환한다.
+            레이어가 폐기되었거나 _taskProcessorDisposing이면 AbortError로 레이어를 거부한다. _needXml이면 같은 사유로 거부된 완료 객체를, 아니면 undefined를 반환한다.
+            파일 내부 로딩 상태를 가져온다. 현재 초기화가 진행 중이면 그 정보 요청을 그대로 반환한다.
+            현재 초기화의 취소 함수를 등록한다. 취소 시 현재 참조를 먼저 해제하고 원래 사유로 레이어를 거부한다.
+                같은 초기화가 소유한 미완료 정보·JSON 요청을 거부하고 소비자 ID로 취소한다. 다른 소비자는 취소하지 않는다.
+            초기화 결과 반영 전과 부모 완료 후에는 현재 초기화인지와 레이어 수명을 확인한다. 취소·삭제된 이전 작업의 결과는 적용하지 않는다.
+            _needXml이 참이면 다음 정보 요청을 반환한다.
                 basename에 .u3g가 포함되지 않았을 때만 접미사를 추가하고 정보를 요청한다.
                 정보의 bbox가 있으면 경계와 _info를 저장하고 패키지 사용 여부 및 makeJson을 반영한 뒤 영역을 계산한다.
-                패키지 방식이며 makeJson이 참이면 JSON 로딩을 별도로 시작한다. 성공 시 패키지 정보를 설정하고 실패 시 makeJson을 0으로 변경한다.
-                    JSON 요청의 finally에서 부모 initialize를 인수 없이 호출한 뒤 외부 resolve가 있으면 self를 전달한다. JSON 완료는 반환 체인에 연결하지 않는다.
-                그 외 정보 성공 경로는 부모 initialize를 인수 없이 호출한 뒤 외부 resolve가 있으면 self를 전달한다.
-                정보 요청 체인 실패 시 3610581 오류를 출력하고 외부 reject가 있으면 self를 전달한다.
-            _needXml이 거짓이면 영역을 계산하고 부모 초기화·외부 resolve를 실행한 뒤 undefined를 반환한다.
+                패키지 방식이며 makeJson이 참이면 JSON 로딩을 별도로 시작한다. 성공 시 패키지 정보를 설정하고 요청 실패 시 makeJson을 0으로 바꾸어 바이너리 패키지로 대체한다.
+                정보 또는 JSON 준비 후 부모 initialize를 인수 없이 호출한다. CREATE 수신자가 삭제하지 않았을 때 현재 초기화 참조를 해제하고 _resolveReady로 레이어 자신을 전달한다. JSON 완료는 반환 정보 요청에 연결하지 않는다.
+                정보 요청·경계 계산·JSON 반영·부모 초기화의 예외는 해당 실행 위치에서 직접 받아 3610581 오류를 기록하고 취소 함수로 원래 사유를 전달한다.
+                부모 초기화의 예외는 해당 초기화가 현재이고 레이어가 폐기 중이 아닐 때만 _initialized를 false로 되돌린 뒤 실패를 통지한다. 장면의 그룹은 제거하지 않는다.
+            _needXml이 거짓이면 영역 계산과 부모 초기화를 같은 보호 범위에서 수행하고 undefined를 반환한다.
+            실패 뒤 완료 객체를 reset하여 새 초기화를 시작할 수 있으며 이전에 종결된 응답은 새 초기화의 상태를 변경하지 않는다.
+            레이어 자체의 실패는 공통 완료 인터페이스가 Error로 정규화한다. 원래 Error는 보존하고 그 밖의 사유는 cause에 보관한다. 반환한 정보 요청과 별도 JSON 요청의 실패값은 그대로 유지한다.
 
     getBoundingBox() -> Box3
         동작: _box3 원본 참조를 반환한다.
@@ -141,16 +163,31 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
             defined — URL 확인; 함수: {defined()}
             deferred — 결과 종결; 함수: {deferred()}
             UFileLoader — 정보 파일 요청; 함수: {load()}
+            UDEF — 소비자 ID 생성; 함수: {createUUID()}
+            U3dLayer — 레이어 수명 확인; 함수: {isDisposed()}; 속성 읽기: {_taskProcessorDisposing}
+            DOMException — 삭제된 요청의 취소 사유; 생성자: {new DOMException()}
         동작:
-            url이 nullish이면 기본 정보 주소를 만들고 기존 파일 로더로 요청한다.
-            응답의 레이어 정보를 복원하고 같은 완료 객체에 전달한다.
-            progress 콜백은 null이며 로딩 실패와 취소는 false 사유로 거부한다. 해석 예외는 별도로 잡지 않는다.
+            완료 객체를 만들고 삭제·처분 중이면 AbortError로 거부하여 반환한다.
+            파일 내부의 해당 레이어 요청 목록을 가져와 요청과 완료 콜백이 같은 목록을 사용한다.
+            url이 nullish이면 기본 정보 주소를 만들고 소비자 ID와 기존 파일 로더를 요청별로 보관한 뒤 요청한다.
+            완료 통지에서 요청 등록을 제거한다. 이미 종결된 요청의 늦은 응답은 해석하지 않고, 그 외 응답의 레이어 정보를 복원하여 같은 완료 객체에 전달한다.
+            복원 호출에서 예외가 발생하면 완료 콜백 밖으로 던지지 않고 같은 완료 객체를 원래 예외 사유로 거부한다. 오류 객체뿐 아니라 문자열 등으로 던진 사유도 변환하지 않는다.
+            progress 콜백은 null이며 비동기 로딩 실패와 취소는 false 사유로 거부한다. 요청 생성 중의 동기 실패는 원래 사유로 거부한다.
+            요청 생성 자체의 예외도 등록을 제거하고 거부한다. 형식 식별 실패의 undefined 사유와 정상 복원 결과는 해석기가 전달한 그대로 보존한다.
 
     getLayerJson(url: string) -> Promise<object>
         의존:
             UFileLoader — JSON 요청; 생성자: {new UFileLoader()}; 함수: {setResponseType(), load()}; 속성 쓰기: {crossOrigin}
             deferred — 결과 종결; 함수: {deferred()}
-        동작: 새 anonymous JSON 로더로 요청하고 결과를 resolve하며 오류·취소는 사유 없이 reject한다.
+            UDEF — 소비자 ID 생성; 함수: {createUUID()}
+            U3dLayer — 레이어 수명 확인; 함수: {isDisposed()}; 속성 읽기: {_taskProcessorDisposing}
+            DOMException — 삭제된 요청의 취소 사유; 생성자: {new DOMException()}
+        동작:
+            삭제·처분 중이면 AbortError로 거부하여 반환한다.
+            파일 내부의 해당 레이어 요청 목록을 가져와 요청과 완료 콜백이 같은 목록을 사용한다.
+            새 anonymous JSON 로더와 소비자 ID를 보관하여 요청한다. 성공·실패 통지에서 해당 요청 등록을 제거한다.
+            성공 결과는 resolve하며 비동기 오류·취소는 사유 없이 reject한다. 요청 구성의 동기 실패는 원래 사유로 reject한다.
+            레이어 삭제는 아직 미완료인 공개 JSON 요청도 AbortError로 거부하고 해당 소비자만 취소한다.
 
     getTileInfo(tile: U3dQuadTile, indexX: number, indexY: number, level: number, url: string) -> Promise<TileInfo>
         의존:
@@ -175,7 +212,7 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
     getModelInfo(tile: U3dQuadTile, index: number, url: string, baseurl: string, drawArg: UDrawArg, tileInfo: TileInfo) -> Promise<unknown> | undefined
         의존:
             defined — 결과 확인; 함수: {defined()}
-            deferred — 호출 결과; 함수: {deferred()}
+            Promise — 읽기·변환·병합 결과; 정적 함수: {all()}
             U3dModelLayer — 타일 유효성과 캐시; 함수: {isTileDisposed(), getCache()}; 속성 읽기: {_cacheModeles, _compressModel}
             U3dQuadTile — 부모 진행 가능 여부; 함수: {getParent(), updatePossible()}
             UCache — 로딩 중복 표식; 함수: {get(), add(), remove()}
@@ -184,20 +221,22 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
             UFileLoader — 직접 로딩; 함수: {load()}
             U3FParser — 모델 복원; 생성자: {new U3FParser()}; 함수: {parse()}
             U3FPackageParser — 패키지 복원; 생성자: {new U3FPackageParser()}; 함수: {parse()}
-            UDEF — 변환 체인; 정적 함수: {createPromise()}; 상수: {PACKAGED_MODEL}
+            UDEF — 패키지 구분; 상수: {PACKAGED_MODEL}
+            Yield — 파싱·변환 전 양보; 함수: {Yield()}
             U3dMessage — 일부 모델 실패; 정적 함수: {error()}
             Web API — 전역 압축 도구; 속성 읽기: {globalThis.__UNION3D__}; 함수: {pako.inflate()}
         동작:
             타일이 해제되었거나 URL이 모델 캐시에 있으면 undefined를 반환한다.
             Worker 사용 시 현재 레이어 정보·인덱스·분할·압축·패키지 옵션으로 작업을 예약한다.
             Worker 결과 도착 시 타일 해제 또는 부모 갱신 불가이면 타일을 정리하고 reject한다.
-            직접 로딩은 응답 후 타일 해제 여부만 확인하며 압축 시 inflate하고 패키지 또는 단일 파서를 선택한다.
-            파싱 결과가 도착하면 URL 캐시에 true를 먼저 등록한다. undefined 또는 빈 결과는 false로 거부한다.
-            패키지는 하위 배열마다 modelurl·baseurl·index를 첫 항목에 기록하여 메시 변환을 시작한다. Worker 경로만 빈 첫 항목을 false로 거부한다.
-            패키지 성공·비치명 실패 수를 누적하며 마지막 성공 경로에서 mergeInfos가 있으면 병합을 기다린 뒤 결과 배열을 resolve한다. Worker의 V25_TEST 경로는 병합 대신 캐시 그룹을 숨긴다.
-            truthy 실패는 URL 표식을 제거하고 즉시 reject한다. 그 외 실패는 로그 후 누적하며 모두 끝났을 때 일부 성공이 있으면 resolve하고 없으면 표식을 제거하여 reject한다.
-            단일 모델은 첫 항목의 주소·인덱스를 설정하고 변환 결과를 전달한다. 변환 실패 시 URL 표식을 제거한다.
-            Worker 예약 실패와 직접 다운로드 실패는 URL 표식을 제거하고 false로 reject한다. 직접 파싱 체인의 실패와 다운로드 취소는 바깥 deferred로 연결되지 않는 경로가 있다. [확인 Q-005]
+            직접 로딩은 UFileLoader 콜백을 Promise로 연결하고 Yield 뒤 타일 해제를 다시 확인한다. 압축 시 inflate하고 패키지 또는 단일 파서를 선택한다.
+            비어 있지 않은 파싱 결과의 URL을 캐시에 등록한다. undefined 또는 빈 결과는 false로 거부한다.
+            단일 모델과 패키지 하위 모델은 공통 변환 함수에서 Yield 뒤 첫 항목에 modelurl·baseurl·index를 기록하고 변환 결과를 기다린다. 빈 첫 항목은 false로 거부한다.
+            단일 모델은 변환 결과를 그대로 반환한다. 패키지는 완료된 순서로 정상 결과를 모으고 Promise.all로 모든 비치명 실패의 정리까지 기다린다.
+            패키지의 truthy 실패는 전체 작업을 거부하고, falsy 실패는 로그를 남기고 해당 모델을 건너뛴다. 전체 정상 결과가 없으면 undefined로 거부한다.
+            패키지 변환 완료 후 타일 해제를 다시 확인하며 해제됐으면 true로 거부한다. mergeInfos가 있으면 마지막 개별 작업의 성공 여부와 관계없이 병합을 한 번 기다린다. Worker의 V25_TEST 경로는 병합 대신 캐시 그룹을 숨긴다.
+            Worker 예약·직접 다운로드 실패와 다운로드 취소는 false로 거부한다. 파싱·변환·병합의 실패는 반환 Promise로 전파하며 실패 시 URL 표식을 제거한다.
+            별도 외부 Deferred와 수동 완료 카운터를 만들지 않으며, 병합의 falsy 실패도 부분 모델 실패로 세지 않고 전체 실패로 전달한다.
 
     setForceUpdate(force: boolean) -> void
         동작: _forceUpdate를 전달값으로 변경한다.
@@ -250,9 +289,17 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
             U3dModelLayer — 기반 해제; 함수: {prototype.dispose.call()}
             UDEF — 공간 인덱스와 공유 자원; 속성 읽기: {RBUSH}; 정적 함수: {disposeResource()}
             UDEF.RBUSH — 전역 인덱스 초기화; 함수: {clear()}
+            UFileLoader — 정보 요청 소비자 취소; 함수: {cancelById()}
+            U3dLayer — Worker 소유권 해제; 함수: {_releaseTaskProcessors()}
+            DOMException — 초기화·정보 요청의 취소 사유; 생성자: {new DOMException()}
         동작:
-            부모 dispose를 먼저 호출하고 전역 RBUSH가 있으면 즉시 비운다.
+            _taskProcessorDisposing을 먼저 true로 설정하여 취소 수신자의 재초기화도 차단한다.
+            파일 내부 로딩 상태가 있으면 WeakMap에서 제거한다. 진행 중인 초기화를 AbortError로 종결하고 남은 공개 정보 요청을 보관 목록에서 먼저 제거한 뒤 같은 사유로 거부하여 소비자 ID로 취소한다.
+            늦은 응답은 요청 시작 시 캡처한 요청 목록만 정리하며 파일 보관소에 레이어를 다시 등록하지 않는다.
+            같은 URL의 다른 레이어 소비자가 남아 있으면 다운로드를 유지하며 마지막 소비자의 취소만 실제 중단으로 이어진다.
+            부모 dispose를 호출하고 전역 RBUSH가 있으면 즉시 비운다.
             부모 성공 후 _sharedMaterial 참조를 undefined로 끊고 재질이 있으면 해제하며 부모 결과를 반환한다. 부모 실패 시 성공 콜백은 실행하지 않는다.
+            finally에서 Worker 소유권을 해제한다.
 
     getTexture(self: U3dModelU3FLayer, tile: U3dQuadTile, url: string) -> Promise<Texture>
         인터페이스: 명시적으로 전달한 self의 로더를 사용하며 tile은 사용하지 않는다.
@@ -303,8 +350,8 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
                 기본 갱신 시간을 10으로 갱신한다.
                 대기열이 있으면 이미지 갱신 시간 도달 시 비동기 반복을 시작하고 이미지 갱신 시간은 5로 갱신한다.
                     반복마다 Yield를 기다린 후 진행 중 수가 3 이상이거나 큐가 비면 중단한다.
-                    미해제 또는 경계 교차인 타일은 진행 수를 늘려 상세 갱신을 시작한다. 완료 finally에서 등록을 지우고 진행 수를 줄인다.
-                    그 외 타일은 등록만 지우고 반복 인덱스를 되돌린다. 반환은 작업 완료를 기다리지 않는 void다.
+                    미해제 또는 경계 교차인 타일은 진행 수를 늘려 상세 갱신을 시작한다. 완료 finally에서 등록을 지우고 진행 수를 줄인다. finally가 반환한 체인의 거부는 오류 로그로 처리한다.
+                    그 외 타일은 등록만 지우고 반복 인덱스를 되돌린다. 비동기 반복 자체의 실패도 오류 로그로 처리한다. 반환은 작업 완료를 기다리지 않는 void다.
 
     override updateDetailByFrustum(tile: U3dQuadTile, opt?: UDrawArg, curTime?: boolean | number, resolve?: any) -> any
         인터페이스: resolve는 인수와 명시적 수신 객체 없이 call하며 메시별로 여러 번 실행될 수 있다. curTime은 사용하지 않는다.

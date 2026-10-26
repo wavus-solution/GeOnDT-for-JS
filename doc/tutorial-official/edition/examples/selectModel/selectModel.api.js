@@ -4,7 +4,7 @@
 export const apiHelp = Object.freeze({
     'select.create': createSourceHelp(
         'U3dSelect',
-        '객체 선택 인스턴스를 생성하고 앱의 선택 기능으로 등록합니다.',
+        '객체 선택 인스턴스를 앱에 등록하고, 점 선택에서 마우스 주변 원형 범위의 대상을 노란색으로 강조합니다.',
         'select.create'
     ),
     'model.u3f-visibility': createVisibilityHelp(
@@ -23,9 +23,33 @@ export const apiHelp = Object.freeze({
     ),
     'select.type': createHybridHelp(
         'U3dSelect.setSelectType()',
-        '선택 객체를 외곽선으로 강조할지 색상으로 강조할지 전환합니다. 생성자 기본값은 외곽선입니다.',
+        '외곽선·색상·링 강조를 전환합니다. 링 효과에서 회전 애니메이션(animate: true) 또는 네온 테두리만(animate: false)을 선택하고 도형, 방향, 높이 오프셋, 지름, 속도와 두께를 설정합니다. 생성자 기본값은 외곽선입니다.',
         'select.type',
-        settings => `selector.setSelectType('${String(settings.selectType)}', {});`
+        settings => `selector.setSelectType('${String(settings.selectType)}', ${settings.selectType === 'ring' ? JSON.stringify(settings.ringOptions, null, 4) : '{}'});`
+    ),
+    'select.buffer': createHybridHelp(
+        'U3dSelect.setPickBufferPx()',
+        '점 선택과 hover의 원형 검색 반경(CSS 픽셀)을 즉시 변경합니다. 0이면 기존 레이 검색을 사용합니다. 예제의 원은 같은 반경을 표시합니다.',
+        'select.buffer',
+        settings => `selector.setPickBufferPx(${formatNumber(settings.pickBufferEnabled ? settings.pickBufferPx : 0)});`
+    ),
+    'select.buffer-enabled': createHybridHelp(
+        '버퍼 검색 사용 설정',
+        '버퍼 검색을 끄면 레이 클릭 검색만 유지하고 반경·범위 표시·hover UI를 잠급니다. 다시 켜면 이전 설정을 복원합니다.',
+        'select.buffer-enabled',
+        settings => `selector.setHover({enabled: ${Boolean(settings.pickBufferEnabled && settings.hover.enabled)}});\nselector.setPickBufferVisible(${Boolean(settings.pickBufferEnabled && settings.pickBufferVisible)});\nselector.setPickBufferPx(${formatNumber(settings.pickBufferEnabled ? settings.pickBufferPx : 0)});`
+    ),
+    'select.buffer-visibility': createHybridHelp(
+        'U3dSelect.setPickBufferVisible()',
+        '엔진이 관리하는 검색 범위 원의 표시 여부를 변경합니다. 검색 반경과 hover 설정은 유지합니다.',
+        'select.buffer-visibility',
+        settings => `selector.setPickBufferVisible(${Boolean(settings.pickBufferEnabled && settings.pickBufferVisible)});`
+    ),
+    'select.hover': createHybridHelp(
+        'U3dSelect.setHover()',
+        'hover 검색을 켜거나 끕니다. 이 예제는 자동 색상 적용을 끄고 hoverchange의 applyColor()로 강조하며, 대상 전환과 이탈 시 선택기가 복원합니다.',
+        'select.hover',
+        settings => `selector.setHover({enabled: ${Boolean(settings.pickBufferEnabled && settings.hover.enabled)}, color: ${formatNumber(settings.hover.color)}});`
     ),
     'select.area-style': createHybridHelp(
         'U3dSelect.setSelectorColor()',

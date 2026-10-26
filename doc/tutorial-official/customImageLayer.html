@@ -1702,7 +1702,7 @@
             });
 
             app.addLayer(basePatternLayer);
-            await basePatternLayer;
+            await basePatternLayer.ready;
 
             app.showLayer(basePatternLayer.getName());
 
@@ -1752,7 +1752,7 @@
                 debugLog: false
             });
 
-            await baseTMSLayer;
+            await baseTMSLayer.ready;
             app.showLayer(baseTMSLayer.getName());
 
         }catch (e){
@@ -1776,7 +1776,7 @@
                 maxlevel: 17, //+ 가시화 최대 레벨
             });
 
-            await baseHeightLayer;
+            await baseHeightLayer.ready;
 
             app.showLayer(baseHeightLayer.getName());
         }catch (e){
@@ -1817,7 +1817,7 @@
                 useproxy: (window.location.hostname !== 'localhost'),
             });
             app.addLayer(hillSideType1Layer);
-            await hillSideType1Layer;
+            await hillSideType1Layer.ready;
         }catch (e){
             console.error('hillSideType1Layer 생성 오류');
             console.error(e);
@@ -1856,7 +1856,7 @@
                 debugLog: false
             });
             app.addLayer(hillSideType2Layer);
-            await hillSideType2Layer;
+            await hillSideType2Layer.ready;
         }catch (e){
             console.error('hillSideType2Layer 생성 오류');
             console.error(e);
@@ -1894,7 +1894,7 @@
                 useproxy: (window.location.hostname !== 'localhost'),
             });
             app.addLayer(hillSideType3Layer);
-            await hillSideType3Layer;
+            await hillSideType3Layer.ready;
         }catch (e){
             console.error('hillSideType3Layer 생성 오류');
             console.error(e);
@@ -1932,7 +1932,7 @@
                 useproxy: (window.location.hostname !== 'localhost'),
             });
             app.addLayer(baseHillSideLayer);
-            await baseHillSideLayer;
+            await baseHillSideLayer.ready;
         }catch (e){
             console.error('baseHillSideLayer 생성 오류');
             console.error(e);
@@ -1965,7 +1965,7 @@
                 useproxy: (window.location.hostname !== 'localhost'),
             });
             app.addLayer(osmRoadLayer);
-            await osmRoadLayer;
+            await osmRoadLayer.ready;
         }catch (e){
             console.error('osmRoadLayer 생성 오류');
             console.error(e);
@@ -1997,7 +1997,7 @@
                 useproxy: (window.location.hostname !== 'localhost'),
             });
             app.addLayer(osmWaterWayLayer);
-            await osmWaterWayLayer;
+            await osmWaterWayLayer.ready;
         }catch (e){
             console.error('osmWaterWayLayer 생성 오류');
             console.error(e);
@@ -2029,7 +2029,7 @@
                 useproxy: (window.location.hostname !== 'localhost'),
             });
             app.addLayer(osmBoundaryLayer);
-            await osmBoundaryLayer;
+            await osmBoundaryLayer.ready;
         }catch (e){
             console.error('osmBoundaryLayer 생성 오류');
             console.error(e);

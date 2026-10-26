@@ -622,7 +622,7 @@
             self.layer = new self._geondt.image.U3dImageXYZLayer(this.options);
             self._app.addLayer(this.layer);
         }
-        this.layer.then(() => {
+        this.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -652,7 +652,7 @@
     HeightLayer.prototype.create = function () {
         let self = this;
         self.layer = this._app.createHeightXYZLayer(self.options);
-        self.layer.then(() => {
+        self.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -774,7 +774,7 @@
 
         function initModelLayers() {
             try {
-                let modelayers = app.createModelGroupLayer({
+                let modelayers = app.createGroupLayer({
                     maxlevel: 19,
                     minlevel: 17,
                     name: 'u3f'
@@ -811,13 +811,13 @@
                                 makeU3FPackage: 1
                             };
                             let subLayer = app.create3DFModelLayer(options);
-                            subLayer.then(function (layer) {
+                            subLayer.ready.then(function (layer) {
                                 modelayers.addLayer(subLayer);
                                 if (i === infos.length - 1) {
                                     console.log("u3f model layer load");
                                     app.showLayer(modelayers.getName(), true);
                                 }
-                            }).fail(function (layer) {
+                            }).catch(function (layer) {
 
                             });
                         }

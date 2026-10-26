@@ -180,9 +180,13 @@
                 baseurl: imageBaseUrl, //+ 이미지 데이터 URL, *필수 입력
                 reverseY: true //+ Y축 반전 여부, defaultValue(opt.reverseY, false)
             });
-            app.addLayer(imageLayer).then(()=>{
-                app.showLayer('satellite', true);
-            });
+
+            try{
+                await app.addLayer(imageLayer).ready;
+                await app.showLayer('satellite', true);
+            }catch(error){
+                console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
+            }
 
             heightLayer = app.createHeightXYZLayer({
                 name: 'korea_terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
@@ -193,9 +197,13 @@
                 maxlevel: 17, //+ 가시화 최대 레벨
                 useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
             });
-            heightLayer.then(()=>{
-                app.showLayer(heightLayer.getName(), true);
-            })
+
+            try{
+                await heightLayer.ready;
+                await app.showLayer(heightLayer.getName(), true);
+            }catch (error){
+                console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
+            }
 
             componentLayer = app.createMultipleComponentLayer({
                 name: 'ComponentLayer',
@@ -204,6 +212,7 @@
                 listmodel:[drone1Option],
                 setInstanced:false
             });
+            await componentLayer.ready;
             await app.showLayer(componentLayer.getName(), true );
             await componentLayer.loadModel(drone2Option);
 
@@ -240,7 +249,7 @@
             vectorLayer = new GeOnDT.vector.U3dVectorLayer({
                 name: 'vector',
             });
-            await app.addLayer(vectorLayer);
+            await app.addLayer(vectorLayer).ready;
             await app.showLayer(vectorLayer.getName(), true);
 
             app.endloadingBar();

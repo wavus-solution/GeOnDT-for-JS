@@ -455,15 +455,17 @@ class U3dMaskLayer extends U3dModelLayer {
 
     /**
      * 참조 레이어의 모델 높이를 격자 셀에 반영하고 요청 타일의 박스를 표시합니다.
-     * 공유 메시와 이미 처리한 메시를 제외하고, 모든 점 검사 이후 타일 상태와 완료 객체를 갱신합니다.
+     * 공유 메시와 이미 처리한 메시를 제외하고, 모든 점 검사 이후 타일 상 태와 완료 객체를 갱신합니다.
      * infoLayer가 없으면 완료되지 않는 기존 경로도 유지합니다.
      *
      * @param {string} tileKey 높이를 반영할 타일 키
-     * @returns {Promise<void>} 기반 비동기 실행의 완료 객체
+     * @param {AbortSignal} [signal] 모델 작업의 취소 신호
+     * @returns {Promise<void>} 완료 객체. 취소된 계산은 값을 반영하지 않고 종료합니다.
      */
-    createMaskValue(tileKey) {
+    createMaskValue(tileKey, signal) {
         const self = this;
         return UDEF.createPromise(function (resolve, reject) {
+            if (signal?.aborted) { resolve(); return; }
             try {
                 if (defined(self._infoLayer)) { //수정
                     let infoLayer = self._infoLayer;
@@ -491,12 +493,13 @@ class U3dMaskLayer extends U3dModelLayer {
                     }
                     if (defined(cacheGroup)) {
                         let promiseList = [];
+                        const processedMeshes = [];
                         let bbox = tempBBox.setFromObject(cacheGroup);
                         let tileList = getIntersectTile.call(self, bbox);
                         cacheGroup.traverse(function (child) {
                             if (!(child instanceof USharedMesh) && child instanceof UMesh) {
                                 let mesh = child;
-                                if ((self._meshLoadList.includes(mesh.getUid())))
+                                if (self._meshLoadList.includes(mesh.getUid()) || processedMeshes.includes(mesh.getUid()))
                                     return;
 
                                 let csgMesh = CSG.fromGeometry(mesh.geometry, 0);
@@ -540,15 +543,20 @@ class U3dMaskLayer extends U3dModelLayer {
                                 })
                                 if (intersectList.length > 0 && keyList.length > 0) {
                                     keyList.forEach(function (key_) {// polygon 안에 점이 내접해 있는지 확인
-                                        promiseList.push(checkPolygonInPoint.call(self, key_, intersectList, mesh, INIT_HEIGHT_VALUE));
+                                        promiseList.push(checkPolygonInPoint.call(self, key_, intersectList, mesh, INIT_HEIGHT_VALUE, signal));
                                     })
-                                    self._meshLoadList.push(mesh.getUid());
+                                    processedMeshes.push(mesh.getUid());
 
                                 }
                             }
                         })
                         Promise.all(promiseList).then(function () {
+                            if (signal?.aborted) { resolve(); return; }
+                            for (const uid of processedMeshes) {
+                                if (!self._meshLoadList.includes(uid)) self._meshLoadList.push(uid);
+                            }
                             createMaskBoxMesh.call(self, tileKey);
+                            if (signal?.aborted) { resolve(); return; }
                             self.setStateTileByKey(tileKey, UDEF.TILE_STATE._end);
                             resolve();
                         }).catch(function (error) {
@@ -668,13 +676,15 @@ function createGridHelper(tile) {
  * @param {Array<U3dMaskLayerPolygon>} intersectList 높이 값을 반영할 폴리곤 목록
  * @param {import('@UMesh').UMesh} mesh 폴리곤을 소유한 메시
  * @param {number} val 최소 높이 기준
+ * @param {AbortSignal} [signal] 모델 작업의 취소 신호
  * @returns {Promise<void>} 점 검사 완료 객체
  *
  * @ignore
  */
-function checkPolygonInPoint(key, intersectList, mesh, val) {
+function checkPolygonInPoint(key, intersectList, mesh, val, signal) {
     const self = this;
     return UDEF.createPromise(function (resolve, reject) {
+        if (signal?.aborted) { resolve(); return; }
         let maskGrid = self._masks[key];
         let plane = maskGrid.planeGeometry.clone();
         let positionList = Array.from(plane.attributes.position.array);

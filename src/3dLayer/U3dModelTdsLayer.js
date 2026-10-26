@@ -89,25 +89,47 @@ class U3dModelTdsLayer extends U3dModelBasicLayer {
      * @override
      */
     initialize() {
-        U3dModelLayer.prototype.initialize.call(this);
-        // xml이 있을 때
-        const self = this;
-        if (self._needXml === true) {
-            const promise = initWithXML.call(self);
-            promise.then(loadModel.bind(self));
-        }
-        else {
-            if (!defined(self._location)) {
-                self._location = self._drawArg.getGeographicToWorld(self._geoLocation.x, self._geoLocation.y, self._geoLocation.z);
+        try {
+            U3dModelLayer.prototype.initialize.call(this);
+            // xml이 있을 때
+            const self = this;
+            const startModel = () => {
+                try {
+                    // 기존 로딩 작업은 그대로 두고, 전달된 실패만 레이어의 실패로 연결합니다.
+                    loadModel.call(self).catch((error) => {
+                        if (self.isReady()) {
+                            console.error('완료된 TDS 레이어의 초기화 작업에서 오류가 발생했습니다.', error);
+                            return;
+                        }
+                        self._rejectReady(error);
+                    });
+                } catch (error) {
+                    if (self.isReady()) throw error;
+                    self._rejectReady(error);
+                }
+            };
+            if (self._needXml === true) {
+                const promise = initWithXML.call(self);
+                promise.then(startModel, (error) => {
+                    self._rejectReady(error);
+                });
             }
-            self._object._xml = {};
-            self._object._xml._title = self._title;
-            self._bbox3D = self.get3DBoxFromGoogleBox(self._boundingBox);
-            const boxCenter = new THREE.Vector3();
-            self._bbox3D.getCenter(boxCenter);
-            self._bbox3D.min.sub(boxCenter).add(self._location);
-            self._bbox3D.max.sub(boxCenter).add(self._location);
-            loadModel.call(self);
+            else {
+                if (!defined(self._location)) {
+                    self._location = self._drawArg.getGeographicToWorld(self._geoLocation.x, self._geoLocation.y, self._geoLocation.z);
+                }
+                self._object._xml = {};
+                self._object._xml._title = self._title;
+                self._bbox3D = self.get3DBoxFromGoogleBox(self._boundingBox);
+                const boxCenter = new THREE.Vector3();
+                self._bbox3D.getCenter(boxCenter);
+                self._bbox3D.min.sub(boxCenter).add(self._location);
+                self._bbox3D.max.sub(boxCenter).add(self._location);
+                startModel();
+            }
+        } catch (error) {
+            if (this.isReady()) throw error;
+            this._rejectReady(error);
         }
     }
 
@@ -955,10 +977,12 @@ function loadModel() {
         else {
             loadListModel.call(self, resolve);
         }
-    }).then(function () {
+    }).then(function (result) {
         self._isLoaded = true;
         self._drawArg.setUpdateDate();
-        self.resolve(self);
+        self._resolveReady();
+        // 표준 체이닝은 콜백 반환값을 다음 결과로 쓰므로 기존 완료값을 명시적으로 유지합니다.
+        return result;
     });
 }
 /**

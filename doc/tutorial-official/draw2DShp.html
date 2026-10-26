@@ -211,9 +211,11 @@
             reverseY: true
         });
         app.addLayer(baseLayer);
-        baseLayer.then(function () {
+        baseLayer.ready.then(function () {
             app.setNameBaseLayer('satellite');
             app.showLayer('satellite', true);
+        }).catch(error => {
+            console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
         });
 
         Object.values(styleControls).forEach(function (control) {

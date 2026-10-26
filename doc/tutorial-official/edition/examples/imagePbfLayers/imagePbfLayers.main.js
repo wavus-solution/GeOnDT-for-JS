@@ -18,7 +18,7 @@ const TILE_BASE_URL = 'https://3d-dev.geon.kr/data/pbf/osm';
  * 예: 서울 z=11 타일의 서버 좌표는 y=793 인데 엔진이 넘기는 값은 y=1254 이고,
  *     `{-y}` 가 2^11 - 1 - 1254 = 793 으로 바꿔 줍니다.
  */
-const TILE_SOURCES = {
+export const TILE_SOURCES = {
     buildings: {
         folder: 'buildings',
         title: '건물',
@@ -78,7 +78,7 @@ const REAL_MAX_LEVEL = 15;
 
 /**
  * 스타일 함수가 사용하는 OpenLayers 네임스페이스입니다.
- * Common Runtime 페이지에는 전역 `ol`이 없고 번들이 `window.__GEONDT__.ol`로 노출하므로 initialize()에서 채웁니다.
+ * Common Runtime 페이지에는 전역 `ol`이 없고 번들이 `window.__GEONDT__.ol`로 노출하므로 초기화 또는 레이어 생성 시 채웁니다.
  *
  * @type {any}
  */
@@ -371,12 +371,14 @@ function createImagePbfLayer(name, source) {
  *
  * @param {string} name 지도에 등록할 레이어 이름
  * @param {object} source TILE_SOURCES 의 항목
+ * @param {string} [baseUrl] 생략하면 예제 서버를 사용하며, 측정 시 원본 샘플 주소로 바꿀 수 있습니다.
  * @returns {any} 만든 레이어
  */
-function createVectorPbfLayer(name, source) {
+export function createVectorPbfLayer(name, source, baseUrl = createTileUrl(source.folder)) {
+    ol = window.__GEONDT__.ol;
     return new GeOnDT.image.U3dVectorPBFLayer({
         name: name,
-        baseurl: createTileUrl(source.folder),      //+ 이미지 레이어와 같은 타일을 씁니다
+        baseurl: baseUrl,                          //+ 이미지 레이어와 같은 타일을 씁니다
         minlevel: MIN_LEVEL,
         maxlevel: MAX_LEVEL,
         realMaxlevel: REAL_MAX_LEVEL,

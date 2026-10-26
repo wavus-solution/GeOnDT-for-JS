@@ -1,21 +1,452 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { U3dMultipleComponentLayer } from "./U3dMultipleComponentLayer.js";
+import type { ComponentParam, U3dComponentPosition } from "./U3dComponentPosition.js";
+import type { U3dGroupLayer } from "./U3dGroupLayer.js";
+import type { TileProcess, U3dLayerTileCallback } from "./U3dLayer.js";
+import type { BoundingBox2D, ModelInfo, ModelObject3D, U3dModelBasicMeshMetaData } from "./U3dModelBasicLayer.js";
+import type { EditedEvent, FaceIndexInfo, RGBColor, SplitInfo, U3dModelLayer, WorkProcess } from "./U3dModelLayer.js";
+import type { CameraViewOption, ChangeObjectOpt, ComponentCreateOption, ComponentObject, ComponentSaveDate, InstancedInfoStore, InstancedMeshLike, U3dMultipleComponentLayer, U3dMultipleComponentLayerCO, U3dMultipleComponentLayerStyle, U3dMultipleComponentModelInfo } from "./U3dMultipleComponentLayer.js";
+import type { U3dApp } from "../app/U3dApp.js";
+import type { UBox3 } from "../core/UBox3.js";
+import type { UCache } from "../core/UCache.js";
+import type { UCamera } from "../core/UCamera.js";
+import type { UCheckTime } from "../core/UCheckTime.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
+import type { DispatchInputEvent, Listeners, UEventDispatcherListener } from "../core/UEventDispatcher.js";
+import type { UFrustum } from "../core/UFrustum.js";
 import type { UGroup } from "../core/UGroup.js";
-import type { WorldPosition } from "../types/global.js";
+import type { URaycaster } from "../core/URaycaster.js";
+import type { UScene } from "../core/UScene.js";
+import type { UTaskProcessor } from "../core/UTaskProcessor.js";
+import type { UMesh } from "../core/mesh/UMesh.js";
+import type { ModelMaterial } from "../core/mesh/UModelMesh.js";
+import type { ULight } from "../env/ULight.js";
+import type { UBox3HelperGroup } from "../helpers/UBox3HelperGroup.js";
+import type { UGeoRect } from "../math/UGeoRect.js";
+import type { UMeta } from "../meta/UMeta.js";
+import type { U3dQuadSet } from "../quadtree/U3dQuadSet.js";
+import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
+import type { U3dQuadTileWork } from "../quadtree/U3dQuadTileWork.js";
+import type { EventCallBack, GeoPosition, GeoPositionVector3, GooglePositionVector3, KeyValue, ModelMesh, WorldPosition, WorldPositionVector3 } from "../types/global.js";
+import type { DeferredObject } from "../util/deferred.js";
+
+/** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
+interface GeOnDTMixedInstance_U3dLodComponentLayer {
+"_instancedMesh": InstancedMeshLike | undefined;
+"_helperId": string | number | undefined;
+"_componentList": ComponentObject[];
+"_animateList": string[];
+"_bboxMap": Map<string, UBox3>;
+"_type": string;
+"_classtype": string;
+"_renderIndex": number | undefined;
+"_drawPath": any;
+"_typePath": any;
+"_image": any;
+"_axis": any;
+"_scale": any;
+"_rotation": { x: number; y: number; z: number; } | undefined;
+"_helperPosition": WorldPositionVector3 | undefined;
+"_rotateAngle": any;
+"_scenePoi": UScene;
+"_checkTime": UCheckTime | undefined;
+"_collisionDistance": any;
+"_collisionFunction": any;
+"_setInstanced": any;
+"_instancedInfo": Map<any, any> | undefined;
+"_nameInfo": {} | undefined;
+"_instancedObject": UGroup | undefined;
+"_animationPlaybackState": string | undefined;
+"_cacheMeshList": {} | undefined;
+"_instancedMaxCount": any;
+"_componentMap": Map<any, any> | undefined;
+"labelVisible": any;
+"initialize"(): void;
+"show"(): void;
+"hide"(): void;
+"setStyle"(option: U3dMultipleComponentLayerStyle): void;
+"dispose"(): any;
+"setInstanced"(val: boolean): void;
+"isInstanced"(): boolean;
+"getAnimateList"(): string[];
+"addAnimateList"(name: string): void;
+"removeAnimateList"(name: string): void;
+"visibleCumulativeRoute"(isVisible: boolean): void;
+"getInstancedInfo"(): InstancedInfoStore;
+"debugBound"(isDebug: boolean, color?: three.ColorRepresentation | undefined): boolean;
+"getComponents"(): ComponentObject[];
+"getComponentList"(): ComponentObject[];
+"getListModel"(): U3dMultipleComponentModelInfo[];
+"getListModelByName"(name: string): U3dMultipleComponentModelInfo | undefined;
+"getComponentByName"(name: string): ComponentObject | undefined;
+"getComponentByIntersect"(intersect: three.Intersection<three.Object3D<three.Object3DEventMap>>): ComponentObject | undefined;
+"getComponentsByModel"(modelName: string): ComponentObject[];
+"getComponentsByProperty"(callback: (component: ComponentObject, properties: Record<string, any>) => any): ComponentObject[];
+"getComponentsByArea"(points: GeoPosition[]): ComponentObject[];
+"update"(drawArg?: UDrawArg | undefined, curTime?: number | undefined): void;
+"addPosition"(opt: ComponentCreateOption): ComponentObject | undefined;
+"saveWork"(): { component: ComponentSaveDate[]; } | undefined;
+"loadWork"(savedData: ComponentParam | ComponentParam[]): Promise<(U3dComponentPosition | undefined)[]>;
+"setBrightness"(brightness?: number | undefined): boolean;
+"getBrightness"(): number;
+"setContrast"(contrast?: number | undefined): boolean;
+"getContrast"(): number;
+"setSaturation"(saturation?: number | undefined): boolean;
+"getSaturation"(): number;
+"resetColorAdjustment"(): boolean;
+"checkObjectSize"(model: three.Object3D<three.Object3DEventMap>): boolean;
+"getPositionList"(): ComponentObject[];
+"startAnimation"(): void;
+"stopMixers"(): void;
+"startMixers"(): void;
+"stopAnimation"(): void;
+"pauseAnimation"(): void;
+"restartAnimation"(): void;
+"showComponent"(component: ComponentObject): Promise<void>;
+"hideComponent"(component: ComponentObject): Promise<void>;
+"getRenderPosition"(): { position: ComponentObject; needClear: boolean; } | undefined;
+"loadModel"(modelInfo: U3dMultipleComponentModelInfo): Promise<void | ModelObject3D>;
+"addComponent"(opt: any): void;
+"removeAllPosition"(): void;
+"removePositionByName"(name: string): void;
+"removePosition"(selected: ComponentObject): void;
+"removeAllComponent"(): void;
+"removeComponentByName"(name: string): void;
+"removeComponent"(selected: ComponentObject): void;
+"checkIsExistPosition"(component: ComponentObject): boolean;
+"changeObject"(id: string, option: ChangeObjectOpt): void;
+"getMetaData"(): any;
+"showLabel"(): Promise<boolean>;
+"hideLabel"(): Promise<boolean>;
+"removeLabel"(): Promise<boolean>;
+"getLoadedModel"(name: string): three.Object3D<three.Object3DEventMap> | undefined;
+"removeModelAlphaMap"(name: string): void;
+"resetModelAlphaMap"(name: string): void;
+"setModelAlphaTest"(name: string, alphaFilter: number): void;
+"setScale"(scale: number | three.Vector3Like): void;
+"setRotation"(degree: number, axis?: three.Vector3Like | undefined): void;
+"setCameraTrace"(opt: CameraViewOption): void;
+"setHelperPosition"(position?: WorldPositionVector3 | undefined): void;
+"getIntersect"(event: Event & { normalizedX: number; normalizedY: number; }, raycaster: URaycaster): ComponentObject | undefined;
+"setBbox"(key: string, value: UBox3): void;
+"getBbox"(key: string): UBox3 | undefined;
+"_defaultHeight": number;
+"_averagePos": three.Vector3;
+"_setAveragePosition": boolean;
+"_metaDataObject": { metadata: any; files: any[]; };
+"_mixer": three.AnimationMixer<three.AnimationMixerEventMap>;
+"_className": string;
+"_isLoaded": boolean;
+"_objectCenter": three.Vector3;
+"_isGroup": boolean;
+"_visible": boolean;
+"_initialized": boolean;
+"_name": string;
+"_object": ModelObject3D;
+"_drawObject": UGroup;
+"_objectList": ModelObject3D[];
+"_center": three.Vector3;
+"_xmlList": string[];
+"_color": any;
+"_baseUrl": string | undefined;
+"_side": any;
+"_ext": string;
+"_drawLine": any;
+"_needTexture": any;
+"_needXml": any;
+"_listModel": any;
+"_path": any;
+"_useLOD": any;
+"_yUp": any;
+"_srs": any;
+"_title": any;
+"_height": any;
+"_useU3f": any;
+"_u3fUrl": any;
+"_xmlUrl": any;
+"_containMetaData": any;
+"_usePositionOffset": any;
+"modelType": { OBJ: string; TDS: string; DAE: string; U3F: string; FBX: string; JPG: string; PNG: string; GLB: string; GLTF: string; UMESH: string; };
+"_printSprite": any;
+"setApp"(app: U3dApp): void;
+"_app": U3dApp;
+"_camera": UCamera | undefined;
+"_frustum": UFrustum | undefined;
+"_drawArg": UDrawArg;
+"_quadtreeSet": U3dQuadSet | undefined;
+"_light": ULight | three.Light | undefined;
+"reLoad"(): Promise<string>;
+"initializeU3f"(): Promise<boolean>;
+"parseXML"(xml: XMLHttpRequest): void;
+"_geoLocation": { x: number; y: number; z: number; } | undefined;
+"_location": { x: number; y: number; z: number; } | undefined;
+"_boundingBox": three.Box3 | ({ minx: number; miny: number; maxx: number; maxy: number; } & Partial<{ minz: number; maxz: number; }>) | undefined;
+"_bbox3D": UBox3 | undefined;
+"updateHeightTile"(tile: KeyValue, parent: KeyValue, drawArg: UDrawArg): void;
+"updateHeight"(): boolean;
+"updateHeightDetail"(): boolean;
+"refresh"(): void;
+"checkIsExistModel"(name: string, baseurl?: string | undefined): boolean;
+"getModelInfo"(name: string, baseurl?: string | undefined): ModelInfo | undefined;
+"load"(model: ModelInfo, textureUrl?: string | undefined): Promise<ModelObject3D>;
+"getU3FInfo"(model: string | KeyValue | ModelInfo | undefined, baseurl: string): DeferredObject<any>;
+"getTexture"(url: string): Promise<three.Texture<any, three.TextureEventMap>>;
+"getObjectCenter"(): three.Vector3;
+"updateHeightByMetadata"(): void;
+"editUndo"(object: ModelObject3D): void;
+"setOpacity"(val: number): void;
+"setVisibleByName"(name: string, visible: boolean): void;
+"get3DBoxFromGoogleBox"(googleBox: BoundingBox2D): UBox3;
+"getMeshMetaData"(obj: ModelMesh): false | U3dModelBasicMeshMetaData | undefined;
+"skClone"(source: ModelMesh): any;
+"mergeVertices"(tolerance: number, useClone: boolean): void;
+"_workProcess": WorkProcess | undefined;
+"_workProcess2": WorkProcess | undefined;
+"_workProcess3": WorkProcess | undefined;
+"removedList": string[];
+"editedList": string[];
+"editedEvent": Record<string, EditedEvent>;
+"_useTexture": boolean;
+"_setWireframe": boolean | undefined;
+"_compressModel": boolean;
+"_cacheTiles": UCache;
+"_cacheModelInTile": UCache;
+"_cacheModeles": UCache;
+"_toonImgUrl": string | undefined;
+"_labelGroup": UGroup | undefined;
+"_labelVisible": boolean;
+"_emissiveColor": RGBColor;
+"_emissive": three.Color;
+"_useEditMode": boolean;
+"_tileName": string;
+"_renderOrder": number;
+"__testStateTile"(): boolean;
+"_disposed": boolean;
+"addWork"(work: U3dQuadTileWork): void;
+"addWork2"(work: U3dQuadTileWork): void;
+"addWork3"(work: U3dQuadTileWork): void;
+"process"(curTime: number): number;
+"processWork"(curTime: number): number | void;
+"processWork2"(curTime: number): number | void;
+"getWorkingLevel2"(): number;
+"getWorkingLevel3"(): number;
+"containByPosition"(key: string, position: WorldPositionVector3, limit: number, drawArg: UDrawArg, maxHeight?: number | undefined): boolean;
+"registerRemovedUidList"(uid: string | string[]): void;
+"deleteRemovedUidList"(uid: string | string[]): void;
+"removeModelByUid"(uid: string): void;
+"refreshTileFromModel"(id: string): void;
+"removeEditModelAll"(): void;
+"_editWorkBuffer": Record<string, any>;
+"removeFilter"(featureId: string): boolean;
+"editFilter"(featureId: string): boolean;
+"addFaceIndexInfo"(object: ModelMesh, info: FaceIndexInfo, faceIndex: number): EditedEvent | undefined;
+"cancelRemoveByUid"(uid: string): void;
+"cancelRemoveAll"(): void;
+"getRemovedUidList"(): string[];
+"disposeTileByKey"(key: string): void;
+"disposeTile"(tile: U3dQuadTile): void;
+"deleteMesh"(mesh: three.Object3D<three.Object3DEventMap>): void;
+"fncDeleteGroup"(object?: three.Object3D<three.Object3DEventMap> | undefined): void;
+"getTileFromScene"(tile: U3dQuadTile): three.Object3D<three.Object3DEventMap> | undefined;
+"addTileFromScene"(tile: U3dQuadTile): void | three.Object3D<three.Object3DEventMap>;
+"removeTileFromScene"(tile: U3dQuadTile): void | three.Object3D<three.Object3DEventMap>;
+"createGroup"(tile: U3dQuadTile): boolean;
+"createGroupByKey"(key: string): boolean;
+"createModelByFrustum"(tile: U3dQuadTile, drawArg: UDrawArg, force?: boolean | undefined): boolean;
+"disposeTileModelAll"(drawArg?: UDrawArg | undefined): void;
+"disposeTileFromDistance"(limit: number): void;
+"isTileDisposed"(tile: U3dQuadTile, drawArg: UDrawArg): boolean;
+"isTileMeshDisposed"(tile: U3dQuadTile, drawArg: UDrawArg): boolean;
+"updateDetailByFrustum"(tile: U3dQuadTile, drawArg?: UDrawArg | undefined, force?: boolean | undefined): boolean;
+"isUpdate"(): boolean;
+"change"(drawArg: UDrawArg): void;
+"setOriginCenter"(mesh: ModelMesh): void;
+"editedModel"(mesh: ModelMesh, editedEvent: EditedEvent): boolean | void;
+"getModelById"(id: string, isMerged?: boolean | undefined): ModelMesh | undefined;
+"setEmissiveColor"(r: number, g: number, b: number): boolean;
+"getEmissiveColor"(): three.Color;
+"getToonImgUrl"(): string | undefined;
+"setToonImgUrl"(url: string): void;
+"settingModelLayerMaterial"(material: ModelMaterial): void;
+"setWireframe"(setWireframe: boolean): void;
+"setTileFromEditedModel"(mesh: ModelMesh, layer: U3dModelLayer, drawArg: UDrawArg): Promise<U3dQuadTile>;
+"getEditedEventById"(id: string): EditedEvent | undefined;
+"mergedMeshDivision"(object: ModelMesh, afterFunction?: ((mesh: three.Object3D<three.Object3DEventMap>, drawArg: UDrawArg) => void) | undefined): three.Object3D<three.Object3DEventMap>[] | undefined;
+"checkDivisionMeshIdle"(): void;
+"setEditEvent"(meshes: three.Object3D<three.Object3DEventMap>[]): void;
+"removeEdit"(modelId: string): void;
+"getMaterialIndexByFace"(object: three.Object3D<three.Object3DEventMap>, faceIndex: number): void | SplitInfo;
+"removeMaterialIndex"(object: ModelMesh, materialIndex: number): boolean;
+"setSplitEvent"(parent: ModelMesh, child: ModelMesh): EditedEvent | undefined;
+"_readyState": "pending" | "fulfilled" | "rejected";
+"_readyResolve"(): void;
+"_readyReject"(reason: Error): void;
+readonly "ready": Promise<U3dMultipleComponentLayer>;
+"_readyPromise": Promise<U3dMultipleComponentLayer>;
+"_resetReady"(): this;
+"isReady"(): boolean;
+"_resolveReady"(): this;
+"_rejectReady"(reason: unknown): this;
+"_taskProcessors": Set<UTaskProcessor>;
+"_taskProcessorDisposing": boolean;
+"_useTaskProcessor"(processor: UTaskProcessor): UTaskProcessor;
+"_releaseTaskProcessors"(): void;
+"_countloading": number;
+"_workCheckId": number | null;
+"_workCheckGeneration": number;
+"_debug": { layerBound: UBox3HelperGroup | undefined; objectBound: UBox3HelperGroup | undefined; eventId: string | undefined; isWorking: boolean; log: boolean; logLimit: number; };
+"_scene": UScene;
+"_tileProcess": TileProcess | undefined;
+"_box3": three.Box3 | undefined;
+"_cache": UCache | undefined;
+"_stateTiles": Record<string, number>;
+"_cancelTiles": Record<string, any>;
+"_workBuffer": Record<string, any>;
+"_id": string;
+"_initLoading": boolean;
+"_isCache": boolean;
+"_crs": string;
+"_minlevel": number;
+"_maxlevel": number;
+"_useMaxLevel": boolean;
+"_opacity": number;
+"_opacityDist": number;
+"_transparent": boolean;
+"_animation": boolean;
+"_useShadowUpdate": boolean;
+"_groupLayer": U3dGroupLayer | undefined;
+"_idReloaded": UEventDispatcherListener | undefined;
+"_group": UGroup;
+"_rectangle": UGeoRect | undefined;
+"_rectangle3d": UGeoRect | undefined;
+"_countloadingTile": number;
+"_count": number;
+"_checkUpdateTime": UCheckTime;
+"_isDeBug": boolean;
+"_oriOpacity": number | undefined;
+"_idReloadEnd": unknown;
+"initialized": boolean;
+"isDeBug": boolean;
+"isDebugLog"(): boolean;
+"getDebugLog"(): unknown;
+"getDebugLogJson"(space?: number | undefined): string | undefined;
+"clearDebugLog"(): boolean;
+"getScene"(): UScene;
+"isUseShadowUpdate"(): boolean;
+"setUseShadowUpdate"(use?: boolean | undefined): void;
+"createWorkingEndEvent"(): void;
+"_resetWorkingEndEvent"(): void;
+"isInitialized"(): boolean;
+"isMapDisposed"(): boolean;
+"add"(object: three.Object3D<three.Object3DEventMap>): void;
+"remove"(object: three.Object3D<three.Object3DEventMap>): void;
+"isDisposed"(): boolean;
+"getInitLoading"(): boolean;
+"setInitLoading"(val: boolean): void;
+"getCenter"(): GooglePositionVector3 | null;
+"getCenterGeographic"(): GeoPositionVector3 | null;
+"intersectFrustum"(frustum: three.Frustum): boolean;
+"getCacheKeys"(): string[];
+"getCacheLength"(): number;
+"setCancelByTile"(tile: U3dQuadTile, value: DeferredObject<U3dQuadTile>): void;
+"getCancelByTile"(tile: U3dQuadTile): DeferredObject<U3dQuadTile> | undefined;
+"once"(event: string, callback: EventCallBack, name?: string | undefined): string;
+"on"(event: string, callback: EventCallBack, once?: boolean | undefined, name?: string | undefined): string;
+"off"(event?: string | undefined, callback?: string | Function | undefined): void;
+"unkey"(event: string, key: string): void;
+"removeCancelByTile"(tile: U3dQuadTile): void;
+"cancelTile"(tile: U3dQuadTile): void;
+"cancelTileByKey"(key: string): void;
+"cancelAllTile"(): void;
+"setStateTile"(tile: U3dQuadTile, state: number): void;
+"getStateTileLength"(): number;
+"getStateTiles"(): Record<string, number>;
+"getStateTileKeys"(): string[];
+"printStateTiles"(print?: boolean | undefined): number;
+"printNotCompleteStateTiles"(print?: boolean | undefined): number;
+"setStateTileByKey"(key: string, state: number): void;
+"resetStateTileAll"(): void;
+"getStateTile"(tile: U3dQuadTile): number | undefined;
+"getStateTileByKey"(key: string): number | undefined;
+"resetStateTile"(tile: U3dQuadTile): void;
+"resetStateTileByKey"(key: string): void;
+"restartTile"(tile: U3dQuadTile): void;
+"getWorking"(): boolean;
+"getWorkingCount"(): number;
+"getWorkingInDistance"(opt?: { distance?: number | undefined; } | undefined): number;
+"addProcessByTile"(tile: U3dQuadTile): boolean;
+"createKeyFromTile"(tile: U3dQuadTile): string;
+"getCache"(tile: U3dQuadTile): UMesh | undefined;
+"getCacheByKey"(key: string): UMesh | undefined;
+"getGroupLayer"(): U3dGroupLayer | undefined;
+"isGroupLayer"(): boolean;
+"setGroupLayer"(group: U3dGroupLayer): U3dGroupLayer;
+"getGroup"(): UGroup;
+"suspendTilePresentation"(tile: U3dQuadTile): boolean;
+"getVisible"(): boolean;
+"setVisible"(visible: boolean): void;
+"convertGeographicToGoogleRectangle"(array: number[]): UGeoRect | undefined;
+"convertRectangle"(array: number[]): UGeoRect | undefined;
+"setRenderOrder"(val: number): void;
+"getRenderOrder"(): number;
+"getRenderOrderAtTile"(): number;
+"resetOpacity"(): void;
+"getOpacity"(): number;
+"getLoadingTile"(): number;
+"isLoadingTile"(): boolean;
+"plusLoadingTile"(): void;
+"minusLoadingTile"(): void;
+"intersects3D"(rect3d: UGeoRect): boolean;
+"intersects"(rect: UGeoRect, level: number): boolean;
+"contain"(x: number, y: number, level: number): boolean;
+"render"(drawArg?: UDrawArg | undefined): void;
+"disposeCache"(): void;
+"createKey"(tile: U3dQuadTile): string;
+"createKeyByTile"(tile: U3dQuadTile): string;
+"createTexture"(tile: U3dQuadTile, opt?: any): void;
+"createHeight"(tile: U3dQuadTile, opt?: any): void;
+"createComment"(tile: U3dQuadTile, opt?: any): void;
+"updateDetail"(tile: U3dQuadTile, opt?: any): void;
+"getTileCallback"(): U3dLayerTileCallback | undefined;
+"getType"(): string;
+"__testCancelTile"(): boolean;
+"_curUpdateDate": number;
+"_lastUpdateDate": number;
+"_meta": UMeta | null;
+"getName"(): string;
+"has"(type: string, listener: EventCallBack): boolean;
+"dispatch"(type: string): void;
+"getUpdateDate"(): number;
+"setUpdateDate"(date: number): void;
+"getLastUpdateDate"(): number;
+"setLastUpdateDate"(date: number): void;
+"createMeta"(name: string, val?: any): UMeta;
+"_listeners": Listeners | undefined;
+"addEventListener"(type: string, listener: EventCallBack, once?: boolean | undefined, name?: string | undefined): string | null;
+"hasEventListener"(type: string, listener: string | EventCallBack): boolean;
+"hasEventType"(type: string): boolean;
+"removeEventListener"(type: string, listener?: string | EventCallBack | undefined): void;
+"removeEventListenerAll"(): void;
+"dispatchEvent"(event: string | DispatchInputEvent, data?: any): void;
+"emit"(event: string | DispatchInputEvent, data?: any): void;
+}
+
+declare const U3dLodComponentLayer_base: Omit<typeof U3dMultipleComponentLayer, "prototype"> & {
+    new (opt: Partial<U3dMultipleComponentLayerCO>): GeOnDTMixedInstance_U3dLodComponentLayer;
+    prototype: GeOnDTMixedInstance_U3dLodComponentLayer;
+};
 
 /**
  * 3D `컴포넌트` 레이어 관련 클래스
  * @group 3dLayer
  */
-declare class U3dLodComponentLayer extends U3dMultipleComponentLayer {
+declare class U3dLodComponentLayer extends U3dLodComponentLayer_base {
     static EVENT: {
         UPDATE: string;
         CREATED: string;
@@ -153,12 +584,11 @@ declare class U3dLodComponentLayer extends U3dMultipleComponentLayer {
     reloadTileByKey(key: any): void;
     reloadTilesByKeys(keys: any): void;
     /**
-     * 레이어를 표시하고 소유한 instance를 전역 visible 통계에 다시 포함합니다.
+     * 원본 모델을 제외하고 레이어를 표시하며 소유한 instance를 전역 visible 통계에 다시 포함합니다.
      *
      * @override
      *
      * @param {boolean} value true이면 표시하고 false이면 hide()를 호출합니다.
-     * @returns {void} 반환값 없이 레이어와 전역 visible 통계를 갱신합니다.
      */
     override show(value?: boolean): void;
     /**
@@ -168,14 +598,19 @@ declare class U3dLodComponentLayer extends U3dMultipleComponentLayer {
     downloadFeatureToJson(propertiesName?: string): void;
     /**
      * Basic 모델 로드와 LOD InstancedMesh 생성을 순서대로 초기화합니다.
+     * 원본 그룹은 장면에서 분리하여 컴포넌트 생성용으로만 보관합니다.
      * 입력 파라미터는 없습니다.
+     *
+     * @override
+     *
      * @returns {object} LOD 생성 완료 또는 실패 상태를 전달하는 deferred 객체
      */
-    initialize(): object;
+    override initialize(): object;
     _loadedModel: boolean;
-    _initPromise: any;
+    _initPromise: DeferredObject<unknown>;
+    getBoundingBox(): three.Box3;
     getBoundingBoxAt(mesh: any, idx: any): any;
-    createModel(tile: any): any;
+    createModel(tile: any): false | DeferredObject<unknown>;
     /**
      * 레이어의 모델, 작업자, 캐시와 예약된 비동기 작업을 해제합니다.
      *
@@ -184,7 +619,7 @@ declare class U3dLodComponentLayer extends U3dMultipleComponentLayer {
      * @returns {void} 반환값 없이 레이어가 소유한 리소스를 해제합니다.
      */
     override dispose(): void;
-    getTileInfo(tile: any, indexX: any, indexY: any, level: any, baseUrl: any, drawArg: any, tileGen: any): any;
+    getTileInfo(tile: any, indexX: any, indexY: any, level: any, baseUrl: any, drawArg: any, tileGen: any): DeferredObject<unknown>;
     /**
      * 모델 레이어의 프레임 순환 작업을 처리합니다.
      * pending LOD/index 갱신은 auto-height와 분리해 먼저 선처리하고, 고도 보정은 기존 비동기 순환을 유지합니다.
@@ -205,7 +640,7 @@ declare class U3dLodComponentLayer extends U3dMultipleComponentLayer {
      */
     setLodOption(name: string, option: object[]): {
         name: string;
-        key: any;
+        key: string;
         value: any[];
     };
     addPropertiesKey(key: any): void;
@@ -688,4 +1123,4 @@ declare class U3dLodComponentLayer extends U3dMultipleComponentLayer {
         color: three.Color;
     };
 
-export type { U3dLodComponentCameraSnapshot, U3dLodComponentChildSearch, U3dLodComponentCullingContext, U3dLodComponentFeatureLevelSummary, U3dLodComponentFeatureSelectionState, U3dLodComponentFlatSearch, U3dLodComponentLayer, U3dLodComponentPositionInfo, U3dLodComponentRangeSearch };
+export type { GeOnDTMixedInstance_U3dLodComponentLayer, U3dLodComponentCameraSnapshot, U3dLodComponentChildSearch, U3dLodComponentCullingContext, U3dLodComponentFeatureLevelSummary, U3dLodComponentFeatureSelectionState, U3dLodComponentFlatSearch, U3dLodComponentLayer, U3dLodComponentLayer_base, U3dLodComponentPositionInfo, U3dLodComponentRangeSearch };

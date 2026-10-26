@@ -11,7 +11,7 @@ apis:
   - "create3DFModelLayer"
   - "createloadingBar"
   - "createLoadingCanvas"
-  - "createModelGroupLayer"
+  - "createGroupLayer"
   - "dispose"
   - "endloadingBar"
   - "getCameraState"

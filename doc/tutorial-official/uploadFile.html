@@ -1462,7 +1462,7 @@
             self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
             self._app.addLayer(this.layer);
         }
-        this.layer.then(() => {
+        this.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -1492,7 +1492,7 @@
     HeightLayer.prototype.create = function () {
         let self = this;
         self.layer = this._app.createHeightXYZLayer(self.options);
-        self.layer.then(() => {
+        self.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -1705,6 +1705,8 @@
                         app.endloadingBar();
                     }
                 });
+            }).catch(error => {
+                console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
             });
 
             return layer;
@@ -1765,11 +1767,11 @@
 
                 app.addLayer(modellayer);
 
-                //layer.ready.then 이나 layer.then 을 사용하여
+                // layer.ready.then을 사용하여
                 //레이어 로딩 후 기능을 구현합니다.
                 modellayer.ready.then(function () {
                     console.log(modellayer.getBoundingBox());
-                    //fitLayerExtent 함수는 app.addLayer 후 ready.then이나 then을 사용하여 이용합니다.
+                    // fitLayerExtent는 app.addLayer 후 layer.ready의 완료 콜백에서 호출합니다.
                     var position = modellayer.getCenterGeographic();
                     console.info(position);
 
@@ -1781,6 +1783,8 @@
 
                     app.showLayer(name, true);
                     app.endloadingBar();
+                }).catch(error => {
+                    console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
                 });
 
             });
@@ -1826,11 +1830,11 @@
                     apikey: ''
                 });
                 app.addLayer(modellayer);
-                //layer.ready.then 이나 layer.then 을 사용하여
+                // layer.ready.then을 사용하여
                 //레이어 로딩 후 기능을 구현합니다.
-                modellayer.then(function () {
+                modellayer.ready.then(function () {
                     console.log(modellayer.getBoundingBox());
-                    //fitLayerExtent 함수는 app.addLayer 후 ready.then이나 then을 사용하여 이용합니다.
+                    // fitLayerExtent는 app.addLayer 후 layer.ready의 완료 콜백에서 호출합니다.
                     var position = modellayer.getCenterGeographic();
                     console.info(position);
 
@@ -1842,6 +1846,8 @@
 
                     app.showLayer(name, true);
                     app.endloadingBar();
+                }).catch(error => {
+                    console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
                 });
             });
         }
@@ -1854,9 +1860,11 @@
                 metadata: info.metaData,
                 useproxy: true
             });
-            image3dLayer.then(function (layer) {
+            image3dLayer.ready.then(function (layer) {
                 app.showLayer(layer.getName(), true);
                 app.endloadingBar();
+            }).catch(error => {
+                console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
             });
         }
 
@@ -1887,9 +1895,11 @@
                 makeU3FPackage: makeU3FPackage
             });
 
-            u3fLayer.then(function (layer) {
+            u3fLayer.ready.then(function (layer) {
                 app.showLayer(layer.getName(), true);
                 app.endloadingBar();
+            }).catch(error => {
+                console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
             });
         }
 
@@ -1937,9 +1947,11 @@
             app.disposeQuadTree();
             app.createQuadTreeSet();
 
-            layer.then(function (layer) {
+            layer.ready.then(function (layer) {
                 app.showLayer(layer.getName(), true);
                 app.endloadingBar();
+            }).catch(error => {
+                console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
             });
 
             return layer;
@@ -1985,9 +1997,11 @@
             opt.listmodel.push(optlayer);
 
             let layer = app.createTdsModelLayer(opt);
-            layer.then(function (layer) {
+            layer.ready.then(function (layer) {
                 app.showLayer(layer.getName(), true);
                 app.endloadingBar();
+            }).catch(error => {
+                console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
             });
         }
 
@@ -2014,9 +2028,11 @@
             };
             opt.listmodel.push(optlayer);
             let layer = app.createMultipleComponentLayer(opt);
-            layer.then(function (layer) {
+            layer.ready.then(function (layer) {
                 app.showLayer(layer.getName(), true);
                 app.endloadingBar();
+            }).catch(error => {
+                console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
             });
         }
 
@@ -2031,16 +2047,14 @@
                 autoHeight: true,
                 useproxy: false
             };
-            let layer = app.createModelBIMObjLayer(opt);
-            layer.then(function (layer) {
+            let layer = app.createBIMObjModelLayer(opt);
+            layer.ready.then(function (layer) {
                 app.showLayer(layer.getName(), true);
                 app.endloadingBar();
+            }).catch(error => {
+                console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
             });
         }
-
-        // 모델 정보 보기 모드 활성
-        //   var analy = app.getAnalysis('ObjectInfo');
-        //  analy.active();
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////// event 등록 ///////////////////////////////////////////////////

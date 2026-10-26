@@ -6,7 +6,7 @@
 
 ### 1.1 목적과 의미
 
-`UTerrainStamp`는 지형 tile 위에 polygon·circle 기반 fill, gradient, texture와 mask overlay를 적용하거나 polyline을 그리기 위한 stamp 상태를 관리한다. 현재 tile의 후보 metadata를 준비하고, 타일 전체가 같은 단색인 경우에만 CPU에서 계산한 합성색을 재사용한다. 작은 단색 집합의 확정 내부/외부를 float uniform으로 전달하고 경계는 원래 정밀도로 판정한다. 단색 polygon·polyline 후보가 16개 이하이면 4/8/16개 상한의 전용 program을 사용한다. 그 밖의 이미지·gradient·mask·circle·많은 후보는 범용 정밀 경로를 유지한다. raster 해상도는 줄이지 않는다.
+`UTerrainStamp`는 지형 tile 위에 polygon·circle 기반 fill, gradient, texture와 mask overlay를 적용하거나 polyline을 그리기 위한 stamp 상태를 관리한다. 현재 tile의 후보 metadata를 준비하고, 타일 전체가 같은 단색인 경우에만 CPU에서 계산한 합성색을 재사용한다. 작은 단색 집합의 확정 내부/외부를 float uniform으로 전달하고 경계는 원래 정밀도로 판정한다. 단색 polygon·polyline 후보가 16개 이하이면 4/8/16개 상한의 고정 호출, 17~128개이면 공유 metadata를 직접 읽는 동적 반복 program을 사용한다. 이미지·gradient·mask·circle이 섞인 집합은 범용 정밀 경로를 유지한다. raster 해상도는 줄이지 않는다.
 
 ### 1.2 책임 범위
 
@@ -49,7 +49,9 @@ circle 도형은 center와 0보다 큰 유한한 radius를 가져야 한다.
 visible이 false이거나 dispose된 stamp는 registry에서 제거되어 shader 후보에 포함되지 않아야 한다.
 setter가 유효한 변경을 수행하면 관련 layer state를 dirty 처리하여 다음 render에서 uniform texture를 다시 작성해야 한다.
 getPoints(), getCenter(), getCircle(), getStyle(), getColor(), getGradientColor()는 외부 변경이 내부 상태를 직접 흔들지 않도록 복사 가능한 값을 복사해 반환해야 한다.
-texture는 문자열 URL일 때만 이미지 atlas 대상으로 사용하고, texture가 없거나 load되지 않았으면 color 또는 gradient fill 경로를 사용해야 한다.
+texture는 문자열 URL일 때만 이미지 atlas 대상으로 사용하고, URL이 지정된 채움은 atlas에 이미지가 준비되기 전까지 opacity와 무관하게 투명해야 한다.
+준비된 이미지의 alpha는 textureOpacity와 textureUseAlpha로 계산하고, expectTexture가 false일 때 합성 alpha로 사용해야 한다.
+texture가 없을 때만 color 또는 gradient fill과 opacity를 사용해야 한다.
 textureFit은 stretch 또는 contain만 허용하고 그 외 값은 stretch로 보정해야 한다.
 textureFit contain은 texture가 있는 4점 polygon에서만 네 꼭짓점 warp 기준으로 사용해야 한다.
 mappingFrame은 유효한 3~4개의 world 좌표만 사용하고, 존재하면 polygon 포함 영역과 별개로 texture와 gradient가 공유하는 UV 기준 프레임에 우선 적용해야 한다.
@@ -58,6 +60,10 @@ mode는 fill 또는 mask 이름과 shader mode 숫자만 허용하고 그 외 �
 채움 mode의 targetLayer가 있으면 그보다 renderOrder가 높은 image layer만 검색하고 targetLayer 자체에는 등록하지 않아야 한다.
 명시 mask 또는 mode 생략과 targetLayer 조합은 모든 image layer를 검색한다. targetLayer 위에는 mask, targetLayer 자신과 아래에는 낮은 순서의 stamp 합성을 막는 가림 mode로 등록해야 한다. targetLayer 없는 명시 mask는 검색된 layer에 mask mode를 사용한다.
 app의 image layer 목록이 바뀌면 render-before callback 갱신에서 stamp별 검색 layer를 다시 계산해야 한다.
+영상 마스크가 적용되는 재질에 지형 벡터가 합성되어 있으면 배경 영상만 제거하고 벡터의 색·투명도를 유지한다. 벡터가 없는 픽셀은 기존처럼 버린다. 안팎을 함께 표시할 벡터 레이어는 최상위 배경지도보다 높은 renderOrder를 사용하고, 영상 레이어의 투명 합성은 켜 두어야 한다.
+마스크에서 벡터를 유지할 때는 마스크보다 위에서 이미 누적한 채움·외곽선의 premultiplied 색과 alpha도 벡터 위에 합성해야 한다. 마스크보다 아래의 도장은 합성하지 않으며, 불투명 도장의 기존 조기 종료 규칙은 유지한다.
+
+대상 영상이 지정된 mask는 현재 타일 또는 표시 중인 부모의 텍스처·지형 전환·부착이 모두 준비된 경우에만 배경을 가린다. 준비 상태가 바뀌면 도형 revision이 같아도 타일 후보를 다시 선정하며, 타일을 특정할 수 없으면 해당 mask를 보류한다.
 기존 row 경로에서는 tile bounds가 있으면 tile과 겹치지 않는 stamp를 해당 tile metadata texture에서 제외해야 한다.
 기존 row 경로에서 tile과 겹치는 stamp가 maxStampsPerTile을 넘으면 tile 중심에서 overlay bounds까지의 거리 기준으로 가까운 stamp를 우선해야 한다.
 정밀 경로와 상수색 경로는 동일한 tile 후보·상한·renderOrder·0.96 누적 alpha 조기 종료를 적용해야 한다.
@@ -280,10 +286,10 @@ UTerrainStamp 클래스 정의
         polyline 선 두께를 world meter 또는 CSS pixel로 해석하는 단위이다.
 
     color, gradientColor: string | number | Color | undefined
-        texture가 없거나 load 전일 때 사용할 기본 색상과 선택적 gradient 끝 색상이다.
+        texture가 없을 때 사용할 기본 색상과 선택적 gradient 끝 색상이다.
 
     opacity: number = 1
-        color fill alpha의 원본 입력값이다.
+        texture가 없는 color 또는 gradient fill alpha의 원본 입력값이다.
 
     gradientDirection: 'vertical' | 'horizontal' = 'vertical'
         gradient 진행 방향이며 허용되지 않은 값은 vertical로 보정된다.
@@ -304,7 +310,7 @@ UTerrainStamp 클래스 정의
         polygon 포함 영역과 별개로 texture와 gradient의 UV 좌표계를 공유하게 하는 3~4점 world 기준 프레임이다.
 
     expectTexture: boolean = false
-        shader metadata에 texture 기대 여부를 기록하는 값이다.
+        채움 알파 검사에서 제외되지 않은 행의 합성 alpha를 1로 사용할지 정하는 값이며, 이미지 준비 전 투명 대기 여부를 제어하지 않는다.
 
     targetLayer: object | undefined
         검색 layer 범위와 자동 mask mode를 정하는 기준 layer이다.
@@ -395,7 +401,8 @@ UTerrainStamp 클래스 정의
             type은 polygon, circle 또는 polyline이고 생략하면 polygon이다.
             polygon과 polyline은 points를 사용하고 circle은 center와 radius를 사용한다.
             polyline의 lineWidth는 생략하면 1이고 lineWidthUnits는 meters 또는 pixels이다.
-            color·opacity·gradientColor·gradientDirection은 texture가 없거나 아직 load되지 않은 fill 표현을 정한다.
+            color·opacity·gradientColor·gradientDirection은 texture가 없는 fill 표현을 정한다.
+            texture URL이 있으면 이미지가 준비되기 전까지 자동으로 투명하게 대기한다.
             texture·textureOpacity·textureUseAlpha·textureScale·textureFit은 이미지 atlas와 UV 표현을 정한다.
             mappingFrame은 polygon 포함 영역과 별개로 texture·gradient가 공유할 3~4점 world UV 프레임이다.
             targetLayer와 mode는 적용 layer 범위와 fill·mask 처리를 정하고 maxStampsPerTile은 tile별 row 상한을 정한다.
@@ -965,15 +972,16 @@ buildTileOverlayTexture(stampState: object, tileBounds: object, cache?: object) 
             선택한 texture와 count, 새 origin, 초기 revision을 가진 data를 만든다. 이전 tile WeakMap이 참조하는 퇴출 record는 재사용하지 않는다.
             data revision이 현재 revision과 다르면 같은 순서의 후보 객체와 atlas 세대가 달라졌는지 판정한다.
                 달라졌으면 첫 후보 대표점을 origin으로 정하고 선택 후보를 row에 기록한다.
-                    직렬화된 metadata의 단색 적합성과 4/8/16개 상한을 data.plainRowLimit에 저장하고 같은 Float32 색·유효 알파를 rowFill에 기록한다.
+                    직렬화된 metadata의 단색 적합성과 4/8/16/128개 상한을 data.plainRowLimit에 저장한다. 4/8/16 경로만 같은 Float32 색·유효 알파를 rowFill에 기록하고 128 경로는 공유 metadata를 직접 읽는다.
                     texture를 needsUpdate로 표시한다.
                 같으면 origin·metadata·색 배열을 유지한다. 두 경우 모두 data revision을 현재 값으로 저장한다.
             key를 Map의 마지막으로 이동하여 새로 선택된 조합의 보관 순서를 갱신한다.
         기존 cache가 없으면 Vector4 합성색을 가진 cache를 만든다. 재계산에서는 같은 타일의 cache와 합성색을 재사용한다.
-        data.plainRowLimit이 양수이면 cache 소유 Float32Array(16)를 최초 한 번 만들고 0으로 초기화하여 rowCoverage를 끝까지 분류한다.
-        그 외에는 공용 영점 배열을 연결하고 상수색이 불가능한 첫 후보에서 판정을 종료한다. 단색 배열은 같은 타일의 다음 단색 전환에 재사용한다.
-        선택된 float metadata·count·origin·tile bounds로 단색 내부 여부와 합성색을 계산한다.
-        같은 cache에 bounds의 네 숫자를 복사하고 revision, data, compositeEnabled·compositeColor·rowCoverage를 갱신해 반환한다. 다음 draw에서 덮어쓰는 bounds 작업 객체의 참조는 보관하지 않는다.
+        직전 cache의 data 참조·coverageVersion과 현재 texture 버전·bounds 네 숫자가 같으면 기하 판정을 다시 하지 않고 cache.revision만 갱신해 반환한다. 다른 후보 변경 때문에 layer 세대만 증가한 경우도 이 조건으로 재사용한다.
+        data.plainRowLimit이 4/8/16이면 cache 소유 Float32Array(16), 128이면 별도 Float32Array(128)를 최초 한 번 만들고 0으로 초기화한다. 두 저장소는 같은 타일의 다음 경로 전환에 재사용한다.
+        128 경로는 내부·외부와 CSS 픽셀 선의 거리 하한을 분류한다.
+        나머지는 선택된 float metadata·count·origin·tile bounds로 단색 내부 여부와 합성색을 계산한다. 4/8/16만 coverage를 전달하며, 범용 경로는 공용 영점 배열을 연결하고 상수색이 불가능한 첫 후보에서 판정을 종료한다.
+        같은 cache에 bounds 네 숫자·revision·texture 버전인 coverageVersion과 data·compositeEnabled·compositeColor·rowCoverage를 갱신해 반환한다. 다음 draw에서 덮어쓰는 bounds 작업 객체의 참조는 보관하지 않는다.
 
 isTargetMaskOverlayForState(stampState: object, overlay: object) -> boolean
     역할: mask overlay가 자신의 target layer state에 잘못 포함되는 경우를 식별한다.
@@ -1007,7 +1015,10 @@ writeOverlayToTexture(texture: DataTexture, row: number, overlay: object) -> voi
         type, pointCount, hasTexture와 textureOpacity를 column 0에 쓴다.
         circle이면 center와 radius 및 radius 제곱을 column 1에 쓴다.
         polygon 또는 polyline이면 각 점을 상대 좌표로 바꿔 column 1부터 순서대로 쓴다.
-        color와 alpha 또는 texture alpha 사용 여부를 column 17에 쓴다.
+        color를 column 17의 RGB에 쓴다.
+        column 17의 alpha에는 hasTexture가 1이면 textureUseAlpha의 0/1 값을 쓴다.
+        hasTexture가 0이고 texture URL이 있으면 opacity와 무관하게 alpha 0을 쓴다.
+        hasTexture가 0이고 texture URL이 없으면 opacity를 0~1로 제한한 alpha를 쓴다.
         atlas UV rect 또는 기본 rect를 column 18에 쓴다.
         mode와 expectTexture를 column 22의 앞 두 값에 쓴다.
         polyline이면 lineWidth와 pixels 단위 여부를 column 22의 나머지 두 값에 쓰고, 다른 도형이면 0을 쓴다.
@@ -1403,7 +1414,8 @@ layer별 render binding은 별도 WeakMap에서 state 수명보다 오래 유지
 layer state 생성·해제와 stamp 좌표·스타일 update는 app render 또는 QuadTileSet update를 강제로 요청하지 않아야 한다.
 app별 stamp set은 WeakMap으로 관리하고 마지막 stamp가 제거되면 render-before callback과 app state를 제거해야 한다.
 registry cache는 외부 입력 Vector3와 Color 객체를 직접 공유하지 않고 등록 시점의 복사본과 정규화 값을 사용해야 한다.
-texture atlas는 URL별 cell을 공유하고 atlas가 가득 차면 texture fill 대신 color fill fallback이 가능하도록 undefined entry를 반환해야 한다.
+texture atlas는 URL별 cell을 공유하고 atlas가 가득 차 새 URL의 cell을 할당할 수 없으면 undefined entry를 반환해야 한다.
+entry를 얻지 못한 URL의 채움도 이미지 준비 전과 동일하게 투명해야 한다.
 tile bounds를 알 수 없는 object는 overlay 누락을 피하기 위해 전역 overlay texture 기준으로 처리해야 한다.
 bounds 정보가 불완전하면 overlay 후보를 제거하지 않아야 한다.
 tile 후보 교차 판정은 overlay bounds에 32 world unit margin을 적용해야 한다.

@@ -20,9 +20,9 @@
             * 실내 (3ds) 모델 레이어는 <mark>.3ds (3D Studio) 형식의 3D 모델을 불러와 지도 위에 출력</mark>하는 레이어입니다.<br>
             * 클래스 이름의 <mark><strong>TDS 는 곧 3DS</strong></mark> 를 뜻합니다. (식별자는 숫자로 시작할 수 없어 <mark>3ds → Tds</mark> 로 표기)<br>
             * 주로 <mark><strong>실내 건물</strong></mark> 데이터를 다루는 데 사용하며, 모델을 <mark><strong>사용자가 원하는 단위로 그룹화</strong></mark>하거나 <mark><strong>층별로 분리</strong></mark>해서 볼 수 있는 것이 특징입니다.<br>
-            * 레이어는 <mark><strong>app.createModelTdsLayer(opt)</strong></mark> 함수로 생성합니다.
+            * 레이어는 <mark><strong>app.createTdsModelLayer(opt)</strong></mark> 함수로 생성합니다.
             <div class="explane_api">
-                app.<span class="api_name">createModelTdsLayer</span>(<span class="param_name">opt</span>);
+                app.<span class="api_name">createTdsModelLayer</span>(<span class="param_name">opt</span>);
                 <div class="explane_api_param">
                     <span class="param_name">opt.name</span>
                     <span class="param_type">string</span> : 레이어 이름 <span class="important_tg">*필수 입력</span><br>
@@ -46,7 +46,7 @@
             </div>
         </div>
         <div class="explane1">
-            * 생성한 레이어는 <mark><strong>.ready().then()</strong></mark> 안에서 <mark><strong>app.showLayer(name, true)</strong></mark> 로 가시화합니다.<br>
+            * 생성한 레이어는 <mark><strong>layer.ready.then(...)</strong></mark> 안에서 <mark><strong>app.showLayer(name, true)</strong></mark> 로 가시화합니다.<br>
             * 그룹화·이동 기능을 쓰려면, 로딩이 끝난 뒤 <mark><strong>setGroupOriginPosition()</strong></mark> 으로 <mark>각 모델의 원래 위치를 먼저 저장</mark>해 두어야 합니다. (나중에 원위치로 되돌릴 때 기준이 됩니다.)
         </div>
         <label class="code-label"> 실내 (3ds) 모델 레이어 생성 </label>
@@ -59,7 +59,7 @@
                 ext: '3ds',                              // 파일 확장자
             };
 
-            const layer = app.createModelTdsLayer(opt);
+            const layer = app.createTdsModelLayer(opt);
 
             // 로딩이 끝난 후 실행
             layer.ready.then((tds) => {

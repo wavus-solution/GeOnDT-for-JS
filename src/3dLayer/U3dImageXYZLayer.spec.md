@@ -101,10 +101,10 @@ U3dImageXYZLayer extends U3dImageLayer 클래스 정의
         처리 기준: needXml이 true여도 XML 읽기 완료를 기다리지 않고 기반 초기화 상태를 반환한다. [확인 Q-002]
         의존:
             U3dImageLayer — scene·group 연결과 공통 초기화 상태 확정; 함수: {initialize()}
-            U3dLayer — 현재 초기화 상태 조회; 속성 읽기: {_initialized}
+            U3dLayer — 현재 초기화 상태 조회와 ready 완료 통지; 함수: {_resolveReady(), _rejectReady()}; 속성 읽기: {_initialized}
         동작:
             기반 이미지 레이어를 초기화한다.
-            needXml이 true이면 XML 읽기를 시작하고 성공하면 geographic 영역을 Google 좌표 영역과 Box3로 변환하도록 callback을 연결한다. 초기화 반환과 기반 생성 promise는 이 작업을 기다리지 않으며 readXml rejection을 처리하는 callback도 연결하지 않는다. [확인 Q-002]
+            needXml이 true이면 XML 읽기를 시작하고 성공하면 geographic 영역을 Google 좌표 영역과 Box3로 변환한 뒤 _resolveReady로 초기화 완료를 통지한다. XML 읽기 또는 범위 계산 실패는 _rejectReady로 전달한다. initialize 자체는 이 비동기 작업을 기다리지 않고 기반 초기화 상태를 반환한다. [확인 Q-002]
 
             baseUrl의 문자 또는 숫자 범위를 URL template 목록으로 펼치고 초기화 상태를 반환한다.
 

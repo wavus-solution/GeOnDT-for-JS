@@ -1,12 +1,14 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
+import type { TerrainCompositionRun } from "./UShaderTerrainDecalManager.js";
 import type { TerrainBufferState, TerrainCompositeInput, TerrainCompositeVariant } from "./UShaderTerrainDecalUtils.js";
+import type { TerrainDecalCompositionPlan } from "./UTerrainDecalCompositionPlan.js";
 
 /**
  * Worker가 준비한 packed terrain 도형 texture를 Layer/Feature 총순서대로 offscreen 합성합니다.
@@ -38,8 +40,8 @@ declare class UTerrainDecalCompositeComposer {
     _geometry: three.PlaneGeometry;
     /** @type {import('three').Camera} */
     _camera: three.Camera;
-    /** @type {Set<TerrainCompositeRasterJob>} */
-    _jobs: Set<TerrainCompositeRasterJob>;
+    /** @type {Set<TerrainCompositeRasterJob | TerrainCompositeLayersJob>} */
+    _jobs: Set<TerrainCompositeRasterJob | TerrainCompositeLayersJob>;
     /**
      * renderer별 define 집합 key → program anchor입니다. job material이 dispose될 때 three가 `usedTimes === 0`인
      * program을 파괴하지 않도록, 같은 program key를 가진 material을 합성기가 붙잡아 둡니다.
@@ -87,10 +89,10 @@ declare class UTerrainDecalCompositeComposer {
      * 여러 frame에 걸쳐 재개할 수 있는 합성 job을 생성합니다.
      *
      * @param {TerrainCompositeInput} input 합성 입력입니다.
-     * @returns {TerrainCompositeRasterJob} 미완성 target과 진행 상태를 소유한 job입니다.
+     * @returns {TerrainCompositeRasterJob | TerrainCompositeLayersJob} 미완성 target과 진행 상태를 소유한 job입니다.
      * @throws {TypeError} 입력 계약이 유효하지 않거나 이미 정리된 합성기이면 발생합니다.
      */
-    createJob(input: TerrainCompositeInput): TerrainCompositeRasterJob;
+    createJob(input: TerrainCompositeInput): TerrainCompositeRasterJob | TerrainCompositeLayersJob;
     /**
      * hybrid 실행에서 정적 합성 결과가 자기 범위 밖으로 번질 수 있는 최대 폭을 계산합니다.
      *
@@ -109,14 +111,14 @@ declare class UTerrainDecalCompositeComposer {
      *
      * renderer 상태는 이번 step에서 변경한 범위만 `try`/`finally`로 반드시 복구합니다.
      *
-     * @param {TerrainCompositeRasterJob} job 진행할 합성 job입니다.
+     * @param {TerrainCompositeRasterJob | TerrainCompositeLayersJob} job 진행할 합성 job입니다.
      * @param {import('three').WebGLRenderer} renderer 현재 frame renderer입니다.
      * @param {Partial<{maxDrawCalls: number, deadlineMs: number, remainingWeightedMp: number, frameAdmitted: boolean}>} [opt={}] frame 실행 제한입니다.
-     * @returns {{done: boolean, drawCalls: number, progressed: boolean, weightedMpUsed: number, stopReason?: TerrainCompositeStepStopReason, state?: TerrainBufferState}} 진행 결과입니다.
+     * @returns {{done: boolean, drawCalls: number, progressed: boolean, weightedMpUsed: number} & Partial<{stopReason: TerrainCompositeStepStopReason, state: TerrainBufferState}>} 진행 결과입니다.
      * @throws {TypeError} job 또는 renderer 계약이 유효하지 않으면 발생합니다.
      * @throws {Error} GPU 자원 생성, draw 또는 renderer 상태 복구가 실패하면 발생합니다.
      */
-    step(job: TerrainCompositeRasterJob, renderer: three.WebGLRenderer, opt?: Partial<{
+    step(job: TerrainCompositeRasterJob | TerrainCompositeLayersJob, renderer: three.WebGLRenderer, opt?: Partial<{
         maxDrawCalls: number;
         deadlineMs: number;
         remainingWeightedMp: number;
@@ -126,16 +128,17 @@ declare class UTerrainDecalCompositeComposer {
         drawCalls: number;
         progressed: boolean;
         weightedMpUsed: number;
-        stopReason?: TerrainCompositeStepStopReason;
-        state?: TerrainBufferState;
-    };
+    } & Partial<{
+        stopReason: TerrainCompositeStepStopReason;
+        state: TerrainBufferState;
+    }>;
     /**
      * 미완성 job의 임시 material과 RenderTarget을 회수합니다.
      * 완료된 job은 target 소유권을 이미 결과 상태로 넘겼으므로 임시 자원만 정리합니다.
      *
-     * @param {TerrainCompositeRasterJob} job 정리할 합성 job입니다.
+     * @param {TerrainCompositeRasterJob | TerrainCompositeLayersJob} job 정리할 합성 job입니다.
      */
-    disposeJob(job: TerrainCompositeRasterJob): void;
+    disposeJob(job: TerrainCompositeRasterJob | TerrainCompositeLayersJob): void;
     /**
      * 합성기가 소유한 공용 geometry와 남은 job 자원을 정리합니다.
      */
@@ -147,6 +150,142 @@ declare class UTerrainDecalCompositeComposer {
      */
     get programAnchorCount(): number;
 }
+
+/**
+     * 기존 합성 순서에서 연속된 하나의 정적 또는 동적 구간입니다.
+     */
+    type TerrainCompositionLayer = {
+        /**
+         * 이번 요청이 소유한 packed 상태 또는 별도 참조를 보유한 RTT 상태입니다.
+         */
+        state: TerrainBufferState;
+        /**
+         * 이 구간만의 precomposed 계획입니다.
+         */
+        compositionPlan: TerrainDecalCompositionPlan;
+        /**
+         * 정적 RTT를 별도 소유할 재사용 항목입니다.
+         */
+        cache?: TerrainCompositionRun;
+    };
+
+/**
+     * 연속 구간의 준비와 최종 texture 합성을 소유하는 작업입니다.
+     */
+    type TerrainCompositeLayersJob = {
+        /**
+         * 작업 소유자입니다.
+         */
+        composer: UTerrainDecalCompositeComposer;
+        /**
+         * 전체 구간 입력입니다.
+         */
+        input: TerrainCompositeInput;
+        /**
+         * 원래 순서의 구간 목록입니다.
+         */
+        layers: Array<TerrainCompositionLayer>;
+        /**
+         * RTT 준비 중인 구간 순번입니다.
+         */
+        layerIndex: number;
+        /**
+         * 진행 중인 자식 raster 작업입니다.
+         */
+        layerJob: TerrainCompositeRasterJob | TerrainCompositeLayersJob | undefined;
+        /**
+         * 최종 texture 합성 material입니다.
+         */
+        material: three.ShaderMaterial;
+        /**
+         * fullscreen scene입니다.
+         */
+        scene: three.Scene;
+        /**
+         * texture 복사 program의 고정 식별자입니다.
+         */
+        programAnchorKey: string;
+        /**
+         * 전체 합성 local 범위입니다.
+         */
+        bounds: three.Vector4;
+        /**
+         * 최종 target 가로 해상도이며 배치 준비 전에는 `0`입니다.
+         */
+        targetWidth: number;
+        /**
+         * 최종 target 세로 해상도입니다.
+         */
+        targetHeight: number;
+        /**
+         * 최종 host별 결과입니다.
+         */
+        compositeVariants: Array<TerrainCompositeVariant>;
+        /**
+         * 최종 합성 중인 host 순번입니다.
+         */
+        variantIndex: number;
+        /**
+         * 최종 합성 중인 구간 순번입니다.
+         */
+        batchIndex: number;
+        /**
+         * 완성 여부입니다.
+         */
+        done: boolean;
+        /**
+         * 정리 여부입니다.
+         */
+        disposed: boolean;
+        /**
+         * 임시 material 정리 여부입니다.
+         */
+        materialReleased: boolean;
+        /**
+         * 최종 target 소유권 이전 여부입니다.
+         */
+        targetsTransferred: boolean;
+        /**
+         * 완성 결과입니다.
+         */
+        state: TerrainBufferState | undefined;
+    };
+
+/**
+     * 구간 합성이 기존 합성기의 생성·회계·program 수명을 재사용하는 경계입니다.
+     */
+    type TerrainCompositeLayerServices = {
+        /**
+         * target 생성 함수입니다.
+         */
+        createTarget: (width: number, height: number, name: string, mipmapped: boolean, maxAnisotropy: number) => three.WebGLRenderTarget;
+        /**
+         * 기존 해상도·gutter·renderer 상한을 적용하는 함수입니다.
+         */
+        resolveLayout: (arg0: three.Vector4, arg1: number, arg2: number, arg3: number, arg4: number | undefined) => {
+            bounds: three.Vector4;
+            width: number;
+            height: number;
+            coverageFallbackEnabled: boolean;
+        };
+        /**
+         * 가중 픽셀 비용 함수입니다.
+         */
+        weightedMp: (arg0: number, arg1: boolean | undefined) => number;
+        /**
+         * 구간 범위를 샘플링 여유가 포함된 target 픽셀 사각형으로 변환하는 함수입니다.
+         */
+        readDrawRect: (arg0: {
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+        }, arg1: (three.Vector4 | null), arg2: three.Vector4, arg3: number, arg4: number) => boolean;
+        /**
+         * program 준비 여부를 확인하고 참조를 유지하는 함수입니다.
+         */
+        ensureAnchor: (arg0: UTerrainDecalCompositeComposer, arg1: three.WebGLRenderer, arg2: (TerrainCompositeRasterJob | TerrainCompositeLayersJob), arg3: boolean | undefined) => boolean;
+    };
 
 /**
      * 여러 render-before에 걸쳐 합성 진행 상태와 미완성 target을 소유하는 job입니다.
@@ -274,6 +413,10 @@ declare class UTerrainDecalCompositeComposer {
          * compile에만 쓰는 anchor scene입니다.
          */
         scene: three.Scene;
+        /**
+         * 비동기 compile과 지연 reflection이 끝날 때까지 유지하는 Promise입니다.
+         */
+        pending?: Promise<void> | undefined;
     };
 
 /**
@@ -325,6 +468,6 @@ declare class UTerrainDecalCompositeComposer {
      * 발행 도중 멈춘 것이므로 큐 뒤로 보내지 않고 다음 frame에 먼저 기회를 줍니다. `draw-cap`과 `deadline`은
      * 호출자가 이미 frame 상단에서 같은 조건을 검사하므로 기존 진행 처리와 같습니다.
      */
-    type TerrainCompositeStepStopReason = "pixel-budget" | "draw-cap" | "deadline";
+    type TerrainCompositeStepStopReason = "pixel-budget" | "draw-cap" | "deadline" | "shader-prewarm";
 
-export type { TerrainCompositeProgramAnchor, TerrainCompositeRasterJob, TerrainCompositeRendererState, TerrainCompositeStepStopReason, UTerrainDecalCompositeComposer };
+export type { TerrainCompositeLayerServices, TerrainCompositeLayersJob, TerrainCompositeProgramAnchor, TerrainCompositeRasterJob, TerrainCompositeRendererState, TerrainCompositeStepStopReason, TerrainCompositionLayer, UTerrainDecalCompositeComposer };

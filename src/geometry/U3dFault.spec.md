@@ -285,7 +285,7 @@ U3dFault extends U3dGeometry 클래스 정의
 
     override setOpacity(value: number) -> void
         의존: defined — opacity uniform 존재 확인; 함수: {defined()}
-        동작: 객체 opacity와 재질 uniform을 입력값으로 바꾸고, 전체 투명도 또는 깊이 투명도 감소가 활성화되면 투명 재질로 설정한다. 깊이 투명도 감소가 활성화된 면은 뒤쪽 단층의 관통을 막기 위해 깊이 버퍼를 기록한다.
+        동작: 객체 opacity와 재질 uniform을 입력값으로 바꾸고 외곽선을 포함한 모든 하위 자식 재질에도 입력 투명도를 적용한다. 전체 투명도 또는 깊이 투명도 감소가 활성화되면 투명 재질로 설정한다. 깊이 투명도 감소가 활성화된 면은 뒤쪽 단층의 관통을 막기 위해 깊이 버퍼를 기록한다.
 
     setFadeStartDepth(depth: number) -> void
         역할: 단층의 가장 높은 점에서 투명도 감소가 시작되는 깊이(m)를 변경한다.

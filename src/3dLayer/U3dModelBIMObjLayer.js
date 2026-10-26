@@ -134,9 +134,9 @@ class U3dModelBIMObjLayer extends U3dModelLayer {
         }
         U3dModelLayer.prototype.initialize.call(this);
         this.load.call(this).then(() => {
-            this.resolve(this);
+            this._resolveReady();
         }).catch((e) => {
-            this.reject(e);
+            this._rejectReady(e);
         });
     }
 

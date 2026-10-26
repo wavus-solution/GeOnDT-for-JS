@@ -24,7 +24,7 @@ OpenLayers source의 재사용, renderer bundle 풀, 카메라 이동 중 작업
 
 ### 1.4 주요 사용처와 연계 대상
 
-`U3dApp.create3dOpenLayer()`가 일반 OpenLayers 이미지 레이어를 생성하고 앱에 등록한다.
+`U3dApp.createOpenLayer()`가 일반 OpenLayers 이미지 레이어를 생성하고 앱에 등록한다.
 
 `U2dDxfLayer`와 `U2dShpLayer`는 `U3dOpenLayer`를 상속하고, 각 데이터 형식에 맞는 OpenLayers layer 생성 callback을 등록한다.
 
@@ -275,7 +275,7 @@ U3dOpenLayer extends U3dImageLayer 클래스 정의
                 color: 투명 픽셀 뒤에 합성할 배경색이며 null은 투명 처리 의미다.
 
             동작:
-                배경색을 저장하고 refresh를 호출한다.
+                현재 배경색과 같은 값이면 기존 타일을 유지한다. 값이 달라질 때만 배경색을 저장하고 refresh를 호출한다.
 
         getTileBackgroundColor() -> ColorRepresentation | null
             인터페이스: 반환: 현재 타일 배경색

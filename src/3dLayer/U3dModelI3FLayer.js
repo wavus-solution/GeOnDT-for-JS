@@ -285,26 +285,33 @@ class U3dModelI3FLayer extends U3dModelLayer {
 
         const self = this;
         const url = self.ProxyUrl + self._url;// + '/' + 'tilemap' + '.json';
-        const promise = self.getLayerInfo(url);
-        promise.then(function (json) {
-            // 읽어 온 정보로 레이어 범위·재질·레벨을 반영한 뒤 초기화 완료를 알립니다.
-            INTERNAL.applyLayerInfo(self, json, () => self.#computeRectangle());
+        self.getLayerInfo(url).then(function (json) {
+            try {
+                // 읽어 온 정보로 레이어 범위·재질·레벨을 반영한 뒤 초기화 완료를 알립니다.
+                INTERNAL.applyLayerInfo(self, json, () => self.#computeRectangle());
 
-            self.initialized = true;
+                self.initialized = true;
 
-            //+ 이니셜라이즈 종료 호출
-            if (defined(self.resolve)) {
-                self.resolve(self);
+                //+ 이니셜라이즈 종료 호출
+                if (defined(self._resolveReady)) {
+                    self._resolveReady();
+                }
+
+                return true;
+            } catch (error) {
+                if (self.isReady()) {
+                    console.error('완료된 I3F 레이어의 초기화 후처리에서 오류가 발생했습니다.', error);
+                    return false;
+                }
+                self.initialized = false;
+                self._rejectReady(error);
+                return false;
             }
-
-            return true;
-        });
-
-        promise.catch(function (e) {
+        }).catch(function (e) {
             self.initialized = false;
             U3dMessage.info(self,U3dMessage.CNT.LAYER.ERROR_LOAD_LAYER + ' : ' + url,'6811194');
-            if (defined(self.reject)) {
-                self.reject(self);
+            if (defined(self._rejectReady)) {
+                self._rejectReady(e);
             }
 
             return false;
@@ -549,23 +556,28 @@ class U3dModelI3FLayer extends U3dModelLayer {
      * @return {Promise<boolean>} promise 함수. 작업 완료시 true 반환
      */
     dispose() {
-        const disposePromise = super.dispose();
+        this._taskProcessorDisposing = true;
+        try {
+            const disposePromise = super.dispose();
 
-        if (defined(this._rBush))
-            this._rBush.clear();
+            if (defined(this._rBush))
+                this._rBush.clear();
 
-        this.clear();
+            this.clear();
 
-        if (defined(this._materials)) {
-            for(const item in this._materials){
-                if (defined(this._materials[item].texture))
-                    this._materials[item].texture.dispose();
+            if (defined(this._materials)) {
+                for(const item in this._materials){
+                    if (defined(this._materials[item].texture))
+                        this._materials[item].texture.dispose();
+                }
+
+                this._materials = {};
             }
 
-            this._materials = {};
+            return disposePromise;
+        } finally {
+            this._releaseTaskProcessors();
         }
-
-        return disposePromise;
     }
 
     getBoundingBox() {
@@ -628,7 +640,7 @@ class U3dModelI3FLayer extends U3dModelLayer {
 
         self._modelUrlMap[i3fTile.id].push(url); //워커에 들어갈 작업 기록하기 => dispose 시 취소를 위해
 
-        U3dModelI3FLayer.g_TaskProcessor.scheduleTask(new UWorkerParameter({
+        self._useTaskProcessor(U3dModelI3FLayer.g_TaskProcessor).scheduleTask(new UWorkerParameter({
             type: 'I3fLoadTask',
             subType: 'load',
             data: {
@@ -992,7 +1004,7 @@ function processDeleteMesh(self, i3fTile) {
                 type: 'I3fLoadTask',
                 subType: 'abort',
                 data: self._modelUrlMap[i3fTile.id][i]
-            }))
+            }))?.catch(() => {})
         }
         delete self._modelUrlMap[i3fTile.id];
     }

@@ -122,7 +122,7 @@ dependencies: []
 - `UAnalyDistance.drawDistance()`와 `UAnalyArea.drawArea()`로 위경도 좌표 배열을 그대로 그려 측정합니다.
 - `UAnalyDistance.getDistanceFromCoordinate()`로 두 좌표 사이 거리(m)를 화면에 그리지 않고 값으로 얻습니다.
 - `U3dAPP.clearAllAnalysis()`로 화면에 남은 측정 결과를 지웁니다.
-- `U3dAPP.createModelGroupLayer()`와 `create3DFModelLayer()`로 U3F 건물 모델을 올려 건물 높이를 측정합니다.
+- `U3dAPP.createGroupLayer()`와 `create3DFModelLayer()`로 U3F 건물 모델을 올려 건물 높이를 측정합니다.
 
 ## 사전 조건
 
@@ -157,7 +157,7 @@ dependencies: []
 - `U3dAPP.clearAllAnalysis()`: 화면에 그려 둔 측정 결과를 지웁니다. 비활성화만으로는 이미 그린 선·면·라벨이 남습니다.
 - `UAnalyDistance.drawDistance(coordList)`: 위경도 좌표 배열을 이어 그리고 구간 거리를 지도에 표시합니다.
 - `UAnalyDistance.getDistanceFromCoordinate(point1, point2)`: 두 좌표 사이 거리(m)를 반환합니다. 화면에는 아무것도 그리지 않으므로 값만 필요할 때 사용하며, 좌표가 유효하지 않으면 `undefined`가 나올 수 있습니다.
-- `UAnalyArea.drawArea(coordList)`: 위경도 좌표 배열이 둘러싼 면적을 그리고 측정값을 지도에 표시합니다. 거리와 달리 값을 반환하는 함수가 없어 결과는 지도 라벨로 확인합니다.
+- `UAnalyArea.drawArea(coordList)`: 위경도 좌표 배열이 둘러싼 면적을 그리고 측정값을 지도에 표시합니다. 확정 결과의 면적(㎡)은 getFeatureResult() 또는 getFeatureResults()로 조회합니다.
 
 `Height` 모드가 재는 것은 클릭 지점의 고도입니다. 건물 높이는 클릭 지점에 U3F 모델이 실제로 올라와 있을 때만 함께 나오므로, 모델 표시 레벨(17) 아래로 축소한 상태에서는 지형 고도만 표시됩니다.
 
@@ -184,6 +184,30 @@ dependencies: []
 비활성화와 결과 삭제는 서로 다른 동작이라 둘 다 호출합니다.
 
 {{example-code:measure.clear}}
+
+## 개별 측정 관리
+
+거리 또는 면적 모드에서 완성한 도형을 클릭하면 결과 팝업이 열립니다. 지도 클릭 측정과 좌표 입력 측정 모두 선택할 수 있으며, 모드를 바꿔도 완료한 도형과 결과 구독은 유지됩니다.
+
+{{example-code:measure.feature-selection}}
+
+팝업에서 채우기·선 색상, 선 두께와 투명도를 변경합니다. 거리 도형에서는 채우기 입력을 숨깁니다. 선택 강조는 저장된 스타일과 분리되므로 창을 닫아도 지정한 색상이 유지됩니다.
+
+{{example-code:measure.feature-style}}
+
+기본 스타일은 현재 측정 레이어의 스타일로 복원합니다. 개별 삭제는 그 도형과 해당 라벨만 제거합니다.
+
+{{example-code:measure.feature-reset}}
+
+{{example-code:measure.feature-delete}}
+
+확정 결과에는 피처 원본 참조와 거리(m)·면적(㎡), 위경도 좌표 및 색상 객체의 사본이 포함됩니다. 패널의 측정 결과 목록은 지도 클릭과 좌표 입력으로 완료한 거리·면적을 함께 표시하며, 개별 삭제와 초기화도 반영합니다.
+
+{{example-code:measure.feature-results}}
+
+더블클릭, 우클릭 두 번, Esc 또는 현재 측정 종료 버튼으로 입력을 끝냅니다. 거리 두 점·면적 세 점 미만이면 현재 임시 도형만 취소합니다. 우클릭 드래그는 측정점을 추가하지 않습니다. 마지막 고정 점에서 종료용 우클릭을 반복해도 점을 중복 추가하지 않습니다. 미완성 취소 시 패널에 취소 상태를 표시하고 이미 완료한 결과는 목록에 유지합니다.
+
+{{example-code:measure.stop}}
 
 ## API Help
 

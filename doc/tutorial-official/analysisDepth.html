@@ -523,8 +523,10 @@
             }
         });
         app.addLayer(layer);
-        layer.then((layer)=>{
+        layer.ready.then((layer)=>{
             app.showLayer(layer.getName(),true);
+        }).catch(error => {
+            console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
         });
 
         layer = new Union3D.model.U3dModelWFSLayer({
@@ -544,8 +546,10 @@
             }
         });
         app.addLayer(layer);
-        layer.then((layer)=>{
+        layer.ready.then((layer)=>{
             app.showLayer(layer.getName(),true);
+        }).catch(error => {
+            console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
         });
 
         layer = new Union3D.model.U3dModelWFSLayer({
@@ -569,8 +573,10 @@
             }
         })
         app.addLayer(layer);
-        layer.then((layer)=>{
+        layer.ready.then((layer)=>{
             app.showLayer(layer.getName(),true);
+        }).catch(error => {
+            console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
         });
 
         layer = new Union3D.model.U3dModelWFSLayer({
@@ -600,8 +606,10 @@
             }
         })
         app.addLayer(layer);
-        layer.then((layer)=>{
+        layer.ready.then((layer)=>{
             app.showLayer(layer.getName(),true);
+        }).catch(error => {
+            console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
         });
 
         initSlider('opacity');

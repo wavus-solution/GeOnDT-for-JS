@@ -102,7 +102,7 @@ app<span class="token punctuation">.</span><span class="token function">updateHo
     <span class="token literal-property property">reverseY</span><span class="token operator">:</span> <span class="token boolean">true</span>
 <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 app<span class="token punctuation">.</span><span class="token function">addLayer</span><span class="token punctuation">(</span>baseLayer<span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token keyword">await</span> baseLayer<span class="token punctuation">;</span>
+<span class="token keyword">await</span> baseLayer<span class="token punctuation">.</span>ready<span class="token punctuation">;</span>
 app<span class="token punctuation">.</span><span class="token function">setNameBaseLayer</span><span class="token punctuation">(</span><span class="token string">'satellite'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 <span class="token keyword">await</span> app<span class="token punctuation">.</span><span class="token function">showLayer</span><span class="token punctuation">(</span><span class="token string">'satellite'</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 </code></pre>

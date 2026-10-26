@@ -40,6 +40,9 @@
 경로 이동의 속도·시간·반복·회전·보간·완료 callback과 이벤트 발생 조건을 유지해야 한다.
 show()와 hide()는 이미 요청된 표시 상태이면 undefined로 종료하고, 표시 상태 변경을 정상적으로 마치면 true로 완료되는 결과를 반환한다. 공개 반환 선언과 내부 완료 제어의 구분은 해당 메서드의 Q-001에서 확인한다.
 하위 클래스가 상속하거나 명시적으로 U3dComponentPosition.prototype을 호출하는 메서드 계약을 유지해야 한다.
+색상 텍스처 제외는 map의 RGB·알파에만 적용하고 기본색·조명·정점색과 다른 종류의 텍스처는 유지해야 한다. 선택·색상·투명도·깊이 변경으로 복원용 재질이 만들어져도 제외·복원 정책을 유지해야 한다.
+사용자 LOD callback에서 boolean으로 지정한 exceptTexture는 일반·인스턴스에 동일하게 적용하며 생략한 단계에서는 기존 설정을 유지해야 한다. 내부 형상 LOD는 같은 인스턴스 저장값을 공유하되 각 단계 재질의 원래 map 유무를 유지해야 한다.
+인스턴스 그림자 draw가 끝나면 공유 깊이·거리 재질의 프로그램 선택 상태를 복원하여 다른 일반 모델·인스턴스에 설정이 남지 않아야 한다.
 ```
 
 ## 3. 정규 자연어 수도코드
@@ -289,7 +292,9 @@ U3dComponentColorAdjustmentMaterialState 타입 정의
         현재 보정 방식과 인스턴스 uniform 배치에 대응하는 프로그램 구분값
     mode: string
         object, instance 또는 none
-    brightness, contrast: object
+    instanceBaseMap: boolean
+        인스턴스 저장소의 색상 텍스처 제외 표식을 읽는지 여부
+    brightness, contrast, saturation: {value: number}
         기본값과의 차이를 value에 보관하는 재질별 uniform 객체
 
 ComponentParam 타입 정의
@@ -472,7 +477,31 @@ U3dComponentPositionCO 타입 정의
         `'auto'` LOD에서 컴포넌트를 표시할 카메라 최대 거리 (m)
 
 U3dComponentPosition 클래스 정의
+    _modelOffset: Vector3 = (0, 0, 0)
+        논리 위치와 독립적인 모델 전체의 로컬 이동량이며 컴포넌트마다 소유한다.
+    _modelOffsetObject: Group | undefined
+        일반 모델의 애니메이션 노드와 독립적인 기준점 보정 전용 하위 변환 노드다.
 
+    setModelOffset(offset: Vector3Like = {x:0,y:0,z:0}) -> this
+        역할: 모델 전체의 로컬 이동량을 절대값으로 설정한다.
+        처리 기준:
+            x·y·z가 숫자가 아니면 TypeError, 비유한 숫자이면 RangeError를 던지고 이전 상태를 유지한다.
+            해제된 컴포넌트이면 Error를 던진다.
+            같은 값의 반복 설정은 누적되지 않으며 생략 또는 0 벡터는 보정을 해제한다.
+            입력 벡터의 복사본을 보관하므로 호출자가 입력을 변경해도 설정이 바뀌지 않는다.
+        동작:
+            보정은 논리 TRS와 원본 모델 내부 변환 사이에 적용한다. 모델 로컬 이동량은 컴포넌트 회전·크기의 영향을 받는다.
+            논리 위치, 라벨, 오버레이와 경로의 기준 좌표는 유지한다.
+            모델 형상과 선택에 쓰는 렌더 변환을 갱신하고 경계 상자 캐시와 렌더 갱신 시각을 갱신한다.
+            위치·회전·크기 변경과 레이어의 모델 교체 후에도 설정을 유지한다.
+
+    getModelOffset() -> Vector3
+        역할: 모델 오프셋의 복사본을 반환한다.
+        처리 기준: 반환 벡터 변경은 컴포넌트 설정에 영향을 주지 않는다.
+        동작: 현재 모델 오프셋을 clone하여 반환한다.
+
+    _applyModelOffset() -> void
+        처리 기준: 오프셋 0의 최초 설정은 전용 노드를 만들지 않는다. 생성한 전용 노드는 반복 설정과 보정 해제에 재사용한다. 모델 교체 후에는 새 루트에 전용 노드를 다시 만든다.
     도착 이력 소유권: U3dCumulativePath.waypointHistory
         실제 도착 월드 좌표와 epoch 도착 시각을 경로에 최대 100개 보관한다. 컴포넌트에는 이력 배열을 저장하지 않는다.
         경로 표시가 꺼져 있어도 이력용 경로를 생성하며 렌더 자원은 show 시 초기화한다. 경로 제거 시 이력도 제거한다.
@@ -788,18 +817,6 @@ U3dComponentPosition 클래스 정의
             세 결과가 모두 truthy이면 각 결과의 z 각도와 북쪽 기준 반각을 Euler로 조합하고 정규화한 현재 position 방향에 적용하여 새 시선 목표를 반환한다.
             그렇지 않고 _addstartend가 truthy이면 경로 배열 경계를 확인한다. _turnPointIndex가 2 이하인 구간은 pathPosition에서 세 번째 점 방향으로 0.001만큼 보간하고 높이는 현재 높이로 유지한다.
             마지막 index 이상인 구간은 마지막 진입 방향에 _forwardOffset 또는 null·undefined 대체값 500을 곱해 목표를 구한다. 중간 구간과 나머지 경로는 undefined를 반환한다.
-    selectedByTrail(e: event | Record<string, unknown>) -> U3dComponentPosition | undefined
-        의존:
-            defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 누적 경로를 통해 해당하는 컴포넌트를 선택하는 함수
-    onSelectHelperMesh() -> void
-        의존:
-            defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 누적 경로(궤적)의 선택 강조용 helper 메시를 표시합니다. 궤적 표시가 꺼져 있거나 궤적이 없으면 아무 동작도 하지 않습니다.
-    offSelectHelperMesh() -> void
-        의존:
-            defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: `onSelectHelperMesh`로 표시한 궤적 강조 helper 메시를 숨깁니다.
     dispose() -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
@@ -925,17 +942,14 @@ U3dComponentPosition 클래스 정의
         의존:
             THREE.Color — 입력 색상을 재질의 색 객체로 변환; 생성자: {new Color()}
             __GSError__ — 포착한 예외 기록; 함수: {__GSError__()}
-        동작: 컴포넌트가 출력하고있는 모델의 색상을 설정 합니다.
     setOpacity(opacity: number = 1) -> boolean
         의존:
             THREE.MathUtils — 재질 불투명도를 0~1로 제한; 정적 함수: {clamp()}
             __GSError__ — 포착한 예외 기록; 함수: {__GSError__()}
-        동작: 컴포넌트가 출력하고있는 모델의 투명도를 설정 합니다.
     setDepth(depthWrite: boolean = true) -> boolean
         의존:
             __GSError__ — 포착한 예외 기록; 함수: {__GSError__()}
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 모델의 모든 재질에 깊이 버퍼 쓰기(depthWrite)를 설정합니다. false로 두면 이 모델이 다른 객체의 깊이 판정에 영향을 주지 않아 반투명 객체가 겹칠 때 뒤쪽이 사라지는 현상을 줄일 수 있습니다. 첫 호출 시 원본 재질이 복원용으로 보관됩니다.
     setRenderOrder(renderOrder: number) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
@@ -947,7 +961,13 @@ U3dComponentPosition 클래스 정의
     exceptTexture(isExcept: boolean = false) -> boolean
         의존:
             __GSError__ — 포착한 예외 기록; 함수: {__GSError__()}
-        동작: 컴포넌트가 출력하고 있는 모델의 텍스쳐 출력을 끄거나 켭니다.
+            MutableMaterial — 현재·복원용 재질의 색상 텍스처 제외와 복원 예약; 속성 읽기·쓰기: {map, _oriMap}; 속성 쓰기: {needsUpdate}
+        동작:
+            모델이 없으면 false를 반환한다. 모델 계층의 현재 재질과 _oriMaterial을 함께 수집한다.
+            true이면 map이 있는 재질만 처리하고 _oriMap이 없을 때 현재 map 참조를 저장한 뒤 map을 null로 바꾸고 needsUpdate를 설정한다. 반복 제외는 최초 복원 참조를 보존한다.
+            false이면 _oriMap이 있는 재질만 처리하고 map에 원래 참조를 복원한 뒤 _oriMap을 삭제하고 needsUpdate를 설정한다. 원래 map이 없던 재질에는 텍스처를 추가하지 않는다.
+            기본색·정점색·조명과 alphaMap·normalMap 등 다른 텍스처는 변경하지 않으며 텍스처 자체를 복제·해제하지 않는다. 현재·복원용 재질에 같은 설정을 적용하므로 선택 해제 후에도 정책을 유지한다.
+            정상 처리 후 true를 반환하며 예외는 기록한 뒤 false를 반환한다.
     getMatrix() -> import('three').Matrix4
         동작: 컴포넌트의 변환 행렬(`matrix`)을 반환합니다. 부모가 있으면 부모 기준 상대 행렬입니다.
     setParent(parent: U3dComponentPosition) -> void
@@ -1013,7 +1033,6 @@ U3dComponentPosition 클래스 정의
     getBoundBoxObject() -> Box3WithCenter
         의존:
             THREE — 모델 경계 상자와 중심 좌표 생성; 생성자: {new Box3(), new Vector3()}
-        동작: 원래 모델의 geometry bounding box를 반환 ( 위치, 회전, 크기가 반영되지 않은 초기 상태)
     getRectangle() -> {DownLeftTop: import('three').Vector3, DownRightTop: import('three').Vector3, DownLeftBottom: import('three').Vector3, DownRightBottom: import('three').Vector3, UpLeftTop: import('three').Vector3, UpRightTop: import('three').Vector3, UpLeftBottom: import('three').Vector3, UpRightBottom: import('three').Vector3} | undefined
         의존:
             THREE.Vector3 — 월드 행렬을 적용할 경계 모서리 좌표 생성; 생성자: {new Vector3()}
@@ -1293,7 +1312,7 @@ U3dComponentPosition 클래스 정의
             auto 모드이면 거리 제곱 판정 결과를 visible로 사용한다. custom 모드이면 필요한 거리를 보정한 뒤 callback을 실행하고 null·undefined 결과를 빈 설정으로 대체한다.
             visible이 null·undefined이 아니고 현재 _show와 다르면 truthy 여부로 show 또는 hide를 호출하고 verticalObjects의 visible도 visible === true로 설정한다.
             정의된 color를 적용하고 opacity는 숫자 변환 결과가 유한할 때만 적용한다.
-            instanceId가 null·undefined이고 exceptTexture가 boolean일 때만 텍스처 제외를 적용한다. 정의된 depthWrite는 그대로 적용한다.
+            일반·인스턴스 모두 exceptTexture가 boolean일 때만 해당 값을 적용하고 생략된 단계에서는 마지막 설정을 유지한다. 정의된 depthWrite는 그대로 적용한다.
 
     #setAutoUpdate(camDistSq: number) -> boolean
         동작: maxVisibleDistance가 유한하지 않으면 기본 거리 1000을 사용한다. camDistSq가 선택 거리의 제곱 이하인지 반환한다.
@@ -1333,12 +1352,12 @@ U3dComponentPosition 클래스 정의
             defined — null·undefined 여부 판정; 함수: {defined()}
         동작: 이미 생성된 누적 경로에 현재 위치·거리·시간을 반영한다.
 
-    #createCumulativePath(distance: number, time: number) -> void
+    #createCumulativePath() -> void
         의존:
             U3dCumulativePath — 최초 누적 경로 객체 생성; 생성자: {new U3dCumulativePath()}
             THREE.Vector3 — 초기 경로 크기 산출용 벡터 생성; 생성자: {new Vector3()}
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 누적 경로 표시가 활성화된 경우 최초 경로 객체와 기록 상태를 만든다.
+        동작: 최초 누적 경로 객체를 만들고 컴포넌트 이름과 소유 레이어 이름을 전달한다. 궤적 메시의 _ulayername·userData.componentName 정보를 U3dSelect 교차 결과의 소유 컴포넌트 조회에 사용한다. 누적 경로 표시가 꺼져 있으면 궤적 자원 생성을 지연한다.
 
     _initSplineObject(oriSplineObject: ModelMesh | undefined) -> void
         의존:
@@ -1432,8 +1451,8 @@ U3dComponentPosition 클래스 정의
             UDEF — 충돌 대상 종류 선택; 상수: {UMESH_TYPE._building, UMESH_TYPE._tile, UMESH_TYPE._complexBuilding}
         동작: callback이 null·undefined이면 종료한다. 재사용 raycaster로 pathPosition에서 lookAt 방향을 검사하고 building·tile·complexBuilding 교차만 남긴다. 첫 교차가 있고 그 거리가 _collisionDistance 이하이면 callback을 호출한다.
 
-    #searchObjectMaterial(object: import('three').Object3D, result: Array<import('three').Material> = []) -> void
-        동작: Object3D 계층을 순회하여 적용 대상 재질을 수집한다.
+    #searchObjectMaterial(object: Object3D & MaterialableExt, result: Array<Material> = [], includeOriginal: boolean = false) -> void
+        동작: object가 없으면 반환한다. 자식 계층을 먼저 순회한 뒤 현재 material을 단일·배열 형태에 맞춰 result에 추가한다. includeOriginal이 true이면 _oriMaterial도 추가하며 기본 조회에서는 현재 출력 재질만 수집한다. 재귀 호출에 같은 result와 includeOriginal을 전달한다.
 
     #applyMaterial(material: import('three').Material, option: object = {}) -> void
         의존:
@@ -1533,7 +1552,6 @@ pickMaterial(intersect?: unknown, color: import('three').ColorRepresentation = H
     동작:
         자식의 pickMaterial을 먼저 호출하고 현재 객체에 material이 없으면 반환값 없이 종료한다.
         입력 색상을 Color로 준비하고 opacity를 0~1로 제한한다.
-        원본 재질이 아직 저장되지 않았으면 _oriMaterial에 기존 참조를 보관한다. 배열 재질은 각 원본을 복제하고, 단일 재질은 전달된 material 또는 원본 복제를 사용한다.
         이미 강조된 상태에서 material을 다시 전달하면 현재 강조 재질을 dispose한 뒤 전달된 재질로 교체한다.
         각 대상 재질의 color·opacity를 설정한다. userData._keepTransparent가 truthy이면 transparent를 유지하고 아니면 opacity < 1로 설정한다. 단일 재질은 needsUpdate도 true로 바꾼다.
         이 과정의 예외는 __GSError__로 기록하고 정상·조기 종료·예외 처리 모두 반환값 없이 끝낸다.

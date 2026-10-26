@@ -1,0 +1,77 @@
+// 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
+import * as three from "../../../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../../dist/types/three/build/three.module.js";
+import * as three_examples_jsm_lines_LineSegments2_js from "../../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
+import { LineSegments2 } from "../../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
+import GUI from "../../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
+import * as three_examples_jsm_math_ConvexHull_js from "../../../../dist/types/three/examples/jsm/math/ConvexHull.js";
+import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
+
+/** 저장소 PointerLockDriveControls.js 사본의 생성자 필드·메서드 계약입니다. npm의 동명 컨트롤과 구분합니다. */
+declare class PointerLockDriveControls extends three.EventDispatcher<{change: {}; lock: {}; unlock: {}}> {
+    constructor(opt: any);
+    _app: any;
+    _camera: any;
+    domElement: HTMLElement;
+    isLocked: boolean;
+    requestId: number | undefined;
+    speed: number;
+    _overlayID: any;
+    _overlayUI: any;
+    modelFile: string | undefined;
+    shadowFile: any;
+    _view: any;
+    minPolarAngle: number;
+    maxPolarAngle: number;
+    pointerSpeed: number;
+    modelScale: three.Vector3;
+    modelPosition: three.Vector3;
+    driveModel: any;
+    _lookAtPos: three.Vector3;
+    _rootMeshName: string;
+    _wheelsName: { frontLeft: string; backLeft: string; frontRight: string; backRight: string; };
+    _mirrorStat: { left: boolean; right: boolean; back: boolean; };
+    _driverSeatName: string;
+    _model: any;
+    _initModelPos: any;
+    _canJump: boolean;
+    _preHeight: any;
+    _prevTime: number;
+    minHeight: any;
+    connect: () => void;
+    getPrintViewOverlayUI: (id: any) => any;
+    setPrintViewOverlayUI: (overlayUI: any) => void;
+    disconnect: () => void;
+    dispose: () => void;
+    getObject: () => three.PerspectiveCamera;
+    getDirection: (v: three.Vector3) => three.Vector3;
+    setModelFile: (filePath: string, rotate?: three.Euler | {x: number; y: number; z: number}, names?: {wheelsName?: Partial<{frontLeft: string; frontRight: string; backLeft: string; backRight: string}>}) => void;
+    setShadowFile: (filePath: any) => void;
+    getShadowFile: () => any;
+    setSideMirRotation: (name: any, rotate: any) => void;
+    getdriveModel: () => any;
+    removedriveModel: () => void;
+    getModelFile: () => string | undefined;
+    setModelScale: (scale: three.Vector3) => void;
+    getModelScale: () => three.Vector3;
+    setWheelsName: (wheelsName: any) => void;
+    getWheelsName: () => any;
+    setDriverSeatName: (name: string) => void;
+    getDriverSeatName: () => any;
+    getMirrors: () => any;
+    setView: (view: any) => void;
+    getView: () => any;
+    getModelPosition: () => any;
+    setSpeed: (speed: number) => void;
+    setRootMeshName: (name: string) => void;
+    getRootMeshName: () => string;
+    setModelRotate: (rotate: any) => void;
+    getModelRotate: () => any;
+    moveForward: (distance: number) => three.Vector3;
+    moveRight: (distance: number) => three.Vector3;
+    lock: () => void;
+    active: () => void;
+    unlock: () => void;
+}
+
+export type { PointerLockDriveControls };

@@ -12,11 +12,11 @@ Worker가 준비한 packed terrain 도형 texture를 Layer와 Feature의 총순�
 
 합성 job의 진행 상태, 미완성 RenderTarget, 임시 raster material, program anchor와 공용 geometry·camera를 이 단위가 소유한다. 합성 결과를 담은 RenderTarget의 소유권은 완료 시 반환하는 `TerrainBufferState`로 이전되고, 그 뒤의 수명주기는 호출자가 책임진다.
 
-책임 경계: 합성 요청 시점, 프레임 예산 배분, 합성 결과를 tile presentation에 반영하는 순서는 `UTerrainDecalComposeScheduler`가 결정한다. 입력 packed DataTexture와 그 uniform은 호출자가 소유하므로 이 단위는 읽기만 하고 해제하지 않는다.
+책임 경계: 합성 요청 시점, 프레임 예산 배분, 합성 결과를 tile presentation에 반영하는 순서는 `UTerrainDecalComposeScheduler`가 결정한다. 기존 단일 packed 입력은 호출자가 소유한다. `compositionLayers` 입력은 호출자가 각 구간 상태를 소유하되, 이 단위가 구간의 packed 입력을 완성된 RTT 상태로 교체할 때 이전 packed 자원을 회수한다. 호출자는 교체된 현재 구간 상태만 정리한다.
 
 ### 1.3 주요 동작 방식
 
-`createJob`이 packed 도형 범위와 tile 범위로 content 범위를 정하고 공용 batch raster material과 fullscreen scene을 갖춘 job을 만든다. `step`은 renderer 상태를 저장한 뒤 job을 진행하고, 어떤 결과에서도 저장한 상태를 되돌린다. job 진행은 두 단계로 나뉜다. 준비 단계는 packed row를 프레임 deadline 안에서 점진적으로 순회하여 batch별 local 범위와 최소 외곽선 두께를 모으고, 이를 근거로 target 해상도와 gutter를 포함한 합성 범위를 확정한다. 실행 단계는 host 구간마다 RenderTarget을 만들어 한 번 비우고, batch 순번을 uniform으로 바꾸며 batch 수만큼 fullscreen draw를 반복한다. 모든 host 구간을 끝내면 완성 target 소유권을 결과 상태로 넘기고 job을 등록에서 제거한다.
+`createJob`이 packed 도형 범위와 tile 범위로 content 범위를 정하고 공용 batch raster material과 fullscreen scene을 갖춘 job을 만든다. `step`은 실제 renderer 작업 전 상태를 저장하고 진행 후 되돌린다. 같은 프로그램의 예열 대기만 확인한 후속 job은 target 생성과 renderer 작업 없이 양보한다. job 진행은 두 단계로 나뉜다. 준비 단계는 packed row를 프레임 deadline 안에서 점진적으로 순회하여 batch별 local 범위와 최소 외곽선 두께를 모으고, 이를 근거로 target 해상도와 gutter를 포함한 합성 범위를 확정한다. 실행 단계는 host 구간마다 RenderTarget을 만들어 한 번 비우고, batch 순번을 uniform으로 바꾸며 batch 수만큼 fullscreen draw를 반복한다. 모든 host 구간을 끝내면 완성 target 소유권을 결과 상태로 넘기고 job을 등록에서 제거한다.
 
 ### 1.4 주요 사용처와 연계 대상
 
@@ -37,6 +37,10 @@ Worker가 준비한 packed terrain 도형 texture를 Layer와 Feature의 총순�
 합성기가 소유한 공용 geometry는 job 정리로 해제하지 않고 합성기 정리에서만 해제해야 한다.
 입력 계약이 유효하지 않거나 이미 중단된 요청은 job을 만들지 않고 예외로 알려야 한다.
 예외를 밖으로 전달하기 전에는 해당 job의 자원을 회수해야 한다.
+sourceState.compositionLayers가 있으면 목록의 총순서를 보존한 구간 합성을 수행한다. 각 구간은 독립된 precomposed 계획과 packed 또는 완성 RTT 상태를 갖고, 중첩된 구간 입력은 거절한다.
+정적 A, 동적 B, 정적 C가 교차해도 그 순서를 바꾸지 않으며, 구간의 완성 RTT를 premultiplied source-over로 결합한다. 최종 결과는 기존처럼 host별 단일 composite texture를 제공한다.
+정적 구간 cache.gpuState와 이번 요청의 구간 상태는 서로 다른 wrapper를 소유하며, 공유 RTT는 참조 수로 관리한다. 이미 정리된 cache에는 늦게 완성된 RTT를 저장하지 않는다.
+구간 결과를 읽을 때 host render order, 다음 host render order, host 식별자와 texture 준비 revision이 모두 맞아야 한다. 구간들의 tile-local 원점도 전체 입력과 같아야 한다.
 ```
 
 ### 2.2 성능 및 품질 요구사항
@@ -46,7 +50,11 @@ Worker가 준비한 packed terrain 도형 texture를 Layer와 Feature의 총순�
 우선순위: 원본 외곽선 두께를 보존하는 해상도를 우선하되, 기본 해상도 대비 배율 상한과 renderer texture 상한을 넘지 않는다. 상한에 걸려 줄어든 해상도는 shader coverage 보정으로 대신한다.
 제한 조건: content 범위는 tile mesh가 덮는 범위 안으로 잘라 tile 밖 영역에 해상도를 쓰지 않는다.
 제한 조건: 같은 define 집합의 job이 연달아 끝나도 shader program을 다시 link하지 않도록, 어떤 scene에도 그리지 않는 anchor material이 program 참조를 유지한다.
+제한 조건: 유한 deadline의 frame step은 실제 target 색 공간에서 anchor를 비동기 compile하고 uniform·attribute reflection이 끝나기 전에는 clear·draw와 픽셀 예산 차감을 미룬다. 기다리는 동안 기존 presentation은 호출자가 유지한다. 준비된 다른 변형은 해당 예열을 기다리지 않는다. 같은 renderer·program key의 예열이 진행 중이면 후속 job은 새 target을 만들거나 연결하기 전에 양보한다.
+제한 조건: 비동기 예열 실패와 compileAsync 미지원은 기존 첫 draw 준비 경로를 유지하며, 동기 compose와 무제한 step은 기존 동기 compile 계약을 유지한다.
 제한 조건: 준비 단계의 packed row 순회는 일정 row 수마다 deadline을 확인하여 한 프레임을 독점하지 않는다.
+제한 조건: 자식 구간 raster와 최종 texture draw는 하나의 draw 상한, deadline, 가중 픽셀 예산을 나눠 쓴다. 구간 경계에서 최소 진행 보장을 다시 시작하지 않는다. 최종 구간 copy는 기존 draw 사각형 계산 함수의 정수화·샘플링 여유·target 제한을 재사용해 실제 구간 범위만 그린다. 예산에는 copy의 부분 면적을 계상하되 각 host의 첫 clear는 scissor를 끄고 전체 target을 초기화하며 전체 clear 면적으로 계상한다. 전체 viewport·UV·원래 구간 순서·해상도·마지막 구간의 밉 생성은 유지한다. 예산 승인은 최종 target 할당 전에 수행하며 재개 시 이미 끝난 clear를 반복하지 않는다.
+제한 조건: 최종 texture 배치는 구간 RTT의 texel 밀도를 보존하되 renderer texture 상한으로 제한한다. 도형의 외곽선·AA·hole 평가는 기존 구간 raster 경로를 재사용한다.
 검증 기준: 합성기가 보유한 program anchor 수는 진단용 접근자로 확인한다.
 ```
 
@@ -128,10 +136,12 @@ TerrainCompositeProgramAnchor 타입 정의
         job material과 define 집합만 같고 texture uniform이 없는 material
     scene: Scene
         compile에만 사용하는 anchor scene
+    pending?: Promise<void>
+        비동기 compile과 지연 reflection을 기다리는 동안 보관하며 완료하면 비운다. 합성기 정리 중이면 완료 후 material을 해제한다.
 
 TerrainCompositeStepStopReason 타입 정의
-    'pixel-budget' | 'draw-cap' | 'deadline'
-        합성 step 이 이번 프레임에서 더 진행하지 못한 사유다. 호출자는 pixel-budget 만 다르게 처리해 그 작업을 queue 뒤로 보낼지 정하고, draw-cap 과 deadline 은 호출자가 이미 프레임 상단에서 같은 조건을 확인하므로 기존 진행 처리와 같다.
+    'pixel-budget' | 'draw-cap' | 'deadline' | 'shader-prewarm'
+        합성 step 이 이번 프레임에서 더 진행하지 못한 사유다. 호출자는 pixel-budget 만 다르게 처리해 그 작업을 queue 뒤로 보낼지 정하고, shader-prewarm은 프로그램 예열 미완료를 뜻하며 다음 render-before에서 재개한다.
 
 TerrainCompositeRendererState 타입 정의
     renderTarget: WebGLRenderTarget | null
@@ -271,7 +281,7 @@ UTerrainDecalCompositeComposer 클래스 정의
             어느 단계에서든 예외가 발생하면 job 을 정리한 뒤 같은 예외를 다시 던진다.
             완료된 결과 상태를 반환한다.
 
-    createJob(input: TerrainCompositeInput) -> TerrainCompositeRasterJob
+    createJob(input: TerrainCompositeInput) -> TerrainCompositeRasterJob | TerrainCompositeLayersJob
         역할: 여러 프레임에 걸쳐 재개할 수 있는 합성 job과 그 job이 쓸 GPU 자원 계약을 준비한다.
 
         인터페이스:
@@ -281,7 +291,7 @@ UTerrainDecalCompositeComposer 클래스 정의
         처리 기준:
             이미 정리된 합성기이면 TypeError 로 실패한다.
             입력 계약을 확인한 뒤에도 요청이 이미 중단되었으면 job 을 만들지 않고 TypeError 로 실패한다.
-            job material 의 program anchor key 는 define 집합만으로 정한다. shader 문자열과 material 플래그는 모든 job 이 같으므로 defines 가 다르지 않으면 같은 program 을 쓴다.
+            단일 raster material의 program anchor key는 define 집합으로 정하고, 구간 texture 합성 material에는 별도 고정 식별자를 쓴다. 서로 다른 shader의 program 참조를 혼동하지 않는다.
             target 해상도와 batch 범위는 이 단계에서 정하지 않고 첫 진행의 준비 단계로 넘긴다.
             fullscreen mesh 는 합성기가 소유한 공용 geometry 를 사용하므로 job 정리에서 geometry 를 해제하지 않는다.
 
@@ -300,7 +310,7 @@ UTerrainDecalCompositeComposer 클래스 정의
             계획이 투영한 정적 대상 batch 순번으로 실행 목록을 만든다.
             진행 상태와 결과 자리를 초기값으로 채운 job 을 만들어 _jobs 에 등록하고 반환한다.
 
-    step(job: TerrainCompositeRasterJob, renderer: WebGLRenderer, opt: Partial<{maxDrawCalls: number, deadlineMs: number, remainingWeightedMp: number, frameAdmitted: boolean}> = {}) -> {done: boolean, drawCalls: number, progressed: boolean, weightedMpUsed: number, stopReason?: TerrainCompositeStepStopReason, state?: TerrainBufferState}
+    step(job: TerrainCompositeRasterJob | TerrainCompositeLayersJob, renderer: WebGLRenderer, opt: Partial<{maxDrawCalls: number, deadlineMs: number, remainingWeightedMp: number, frameAdmitted: boolean}> = {}) -> {done: boolean, drawCalls: number, progressed: boolean, weightedMpUsed: number, stopReason?: TerrainCompositeStepStopReason, state?: TerrainBufferState}
         역할: 허용된 draw 수와 프레임 deadline 안에서 job을 진행하고, 완료되면 결과 상태를 만들어 돌려준다.
 
         인터페이스:
@@ -327,14 +337,15 @@ UTerrainDecalCompositeComposer 클래스 정의
             job 이 이 합성기의 것이고 실행 가능한지, renderer 가 합성 명령을 실행할 수 있는지 확인한다.
             job.done 이면 보관한 결과 상태와 함께 완료 결과를 돌려준다.
             job.input.signal 이 중단 상태이면 job 을 정리하고 진행 없음 결과를 돌려준다.
+            유한 deadline이 남고 같은 renderer·program key의 anchor가 예열 중이면 새 target 생성·연결 없이 shader-prewarm을 반환한다.
             이번 진행에서 바꿀 renderer 상태를 저장한다.
-            job 을 진행하고 예외는 실패로 보관한다.
+            단일 raster 작업이면 기존 경로로 진행하고, 구간 작업이면 같은 예산으로 구간 합성을 진행한다. 예외는 실패로 보관한다.
             진행 성공·실패와 무관하게 저장한 renderer 상태를 되돌리고, 복구 실패는 보관한 실패가 없을 때만 실패로 삼는다.
             실패가 있으면 job 을 정리한 뒤 그 실패를 던진다.
             진행 결과가 완료이면 완성 target 소유권을 결과 상태로 이전하고, 이전이 실패하면 job 을 정리한 뒤 예외를 던진다.
             진행 결과를 반환한다.
 
-    disposeJob(job: TerrainCompositeRasterJob) -> void
+    disposeJob(job: TerrainCompositeRasterJob | TerrainCompositeLayersJob) -> void
         역할: 미완성 job의 임시 material과 아직 이전하지 않은 RenderTarget을 회수한다.
 
         인터페이스:
@@ -536,7 +547,7 @@ UTerrainDecalCompositeComposer 클래스 정의
             deadline 은 host 구간을 다루기 전에도 확인해 이미 지났으면 발행하지 않는다.
             batch 수는 합성 계획의 batch 목록 길이이며 계획이 없으면 0 이다. batch 수가 0 이면 host 구간마다 target 을 비우기만 하고 완료로 끝난다. [확인 Q-001]
             준비 단계가 끝나지 않았으면 이번 진행에서는 draw 를 하지 않는다. 준비가 끝났더라도 그 시점에 deadline 을 넘었으면 draw 없이 미완료로 돌아간다.
-            host 구간의 target 은 그 구간을 처음 다룰 때 한 번만 비우며, 비우기 전에 program anchor 를 확보한다.
+            host 구간의 target 은 그 구간을 처음 다룰 때 한 번만 비운다. 유한 deadline이면 비우기 전 program anchor의 비동기 예열을 시작·조회하고, 미완료면 clear·draw 없이 shader-prewarm으로 양보한다. 무제한 step은 동기 compile 경로를 사용한다.
             batch 범위 계약이 유효하지 않으면 모든 batch 가 전체 target 을 대상으로 그린다.
             draw 수 상한은 draw 직후에만 확인하고 deadline 은 준비 완료 직후·host 구간 진입 직전·draw 직후에 확인하며, 모든 host 구간을 끝낸 경우에는 모든 제한과 무관하게 완료로 돌아간다.
 
@@ -548,8 +559,9 @@ UTerrainDecalCompositeComposer 클래스 정의
             합성 계획의 batch 수를 확인하고 draw 수 상한과 deadline 을 유한 여부에 따라 확정한다.
             준비가 끝나지 않았으면 준비 단계를 진행하고, 여전히 끝나지 않았거나 준비 직후 deadline 을 넘었으면 미완료로 돌아간다.
             남은 host 구간마다 deadline 을 먼저 확인하고 그 구간의 합성 결과와 target 을 확보해 renderer 에 연결한다.
-            아직 비우지 않은 구간이면 예산이 켜져 있을 때만 clear 비용과 첫 batch draw 비용을 더한 입장 단위를 계산해 판단하고, 거절되면 아무 것도 발행하지 않고 미완료로 돌아간다. 비용 계산은 예산이 켜져 있을 때만 실행하도록 함수로 넘긴다.
-            입장하면 job material 과 같은 program 을 붙잡는 anchor 를 확보한 뒤 scissor 를 해제하고 target 전체를 투명색으로 비운다.
+            아직 비우지 않은 구간이면 같은 program을 붙잡는 anchor가 준비됐는지 확인하고, 기다려야 하면 픽셀 예산 차감 없이 미완료로 돌아간다.
+            anchor가 준비되면 예산이 켜져 있을 때만 clear 비용과 첫 batch draw 비용을 더한 입장 단위를 계산해 판단하고, 거절되면 clear·draw 없이 미완료로 돌아간다. 비용 계산은 예산이 켜져 있을 때만 실행하도록 함수로 넘긴다.
+            입장하면 scissor 를 해제하고 target 전체를 투명색으로 비운다.
             그 구간에 batch 가 있으면 입장 단위에 포함한 첫 batch 를 이어서 그린다.
             현재 batch 순번이 batch 수 이상이면 다음 host 구간으로 넘어가 batch 순번과 비움 표시를 초기화한다.
             이미 비운 구간의 다음 batch 는 예산이 켜져 있을 때만 그 batch 의 scissor 비용으로 판단하고, 거절되면 발행하지 않고 미완료로 돌아간다. 이 비용 계산도 같은 이유로 함수로 넘긴다.
@@ -950,27 +962,34 @@ renderer 연결과 복구 책임 그룹
 program anchor 유지 책임 그룹
     역할: job material이 해제되어도 같은 define 집합의 shader program이 파괴되지 않도록 renderer별 anchor를 유지하고 정리한다.
 
-    ensureTerrainCompositeProgramAnchor(composer: UTerrainDecalCompositeComposer, renderer: WebGLRenderer, job: TerrainCompositeRasterJob) -> void
-        역할: job과 같은 program을 쓰는 anchor material을 renderer마다 define 집합별로 한 번 compile해 둔다.
+    ensureTerrainCompositeProgramAnchor(composer: UTerrainDecalCompositeComposer, renderer: WebGLRenderer, job: TerrainCompositeRasterJob | TerrainCompositeLayersJob, asynchronous: boolean = false) -> boolean
+        역할: job과 같은 program을 쓰는 anchor를 준비하고 현재 step에서 사용할 수 있는지 반환한다.
+
+        인터페이스:
+            asynchronous: 유한 deadline의 frame step이면 비동기 준비를 기다릴지 여부
+            반환: 예열 완료·미지원·실패로 기존 경로를 사용할 수 있으면 true, 비동기 준비 중이면 false
 
         처리 기준:
             three 는 material 을 해제할 때 사용 횟수가 0 이 된 program 을 파괴한다. 같은 define 집합의 job 이 겹치지 않고 연달아 끝나면 job 마다 shader 를 다시 link 하므로, 어떤 scene 에도 그리지 않고 texture uniform 도 없는 anchor material 이 program 참조를 유지한다.
             program cache key 의 출력 색 공간은 연결된 render target 에 따라 달라지므로, job target 을 연결한 뒤에 호출해야 job 과 같은 program 을 붙잡는다.
             compile 을 제공하지 않는 renderer 에서는 anchor 없이 기존 동작을 유지한다.
             같은 define 집합의 anchor 가 이미 있으면 다시 만들지 않는다.
-            compile 이 실패하면 참조가 없는 anchor material 만 해제하고 예외를 job 의 실패 처리로 넘긴다.
+            유한 deadline이고 compileAsync를 지원하면 같은 anchor의 pending을 공유해 compile과 uniform·attribute reflection을 기다린다. 완료 전에는 false이며, 다른 key의 준비 상태는 영향을 받지 않는다.
+            compileAsync가 동기 예외를 내면 기존 compile로 대체한다. 비동기 실패는 pending을 비워 첫 draw의 프로그램 준비로 돌아간다. 기존 동기 compile이 실패하면 anchor 등록과 material을 회수하고 예외를 전달한다.
+            합성기 정리로 등록에서 빠진 anchor는 늦게 완료되어도 reflection이나 재등록을 하지 않으며, 그 완료 callback에서 material을 한 번 해제한다.
             anchor 는 renderer 를 key 로 보관하므로 합성기를 정리할 때까지 유지된다. [확인 Q-004]
 
         의존:
-            THREE — anchor scene·mesh 구성과 program compile; 생성자: {new THREE.Scene(), new THREE.Mesh(), new THREE.Vector4()}; 함수: {Scene.add(), Mesh.updateMatrix(), WebGLRenderer.compile(), ShaderMaterial.dispose()}; 속성 읽기: {ShaderMaterial.defines, WebGLRenderer.compile}; 속성 쓰기: {Mesh.frustumCulled, Mesh.matrixAutoUpdate}
+            THREE — anchor scene·mesh 구성과 program 준비; 생성자: {new THREE.Scene(), new THREE.Mesh(), new THREE.Vector4()}; 함수: {Scene.add(), Mesh.updateMatrix(), WebGLRenderer.compile(), WebGLRenderer.compileAsync(), WebGLProperties.get(), WebGLProgram.getUniforms(), WebGLProgram.getAttributes(), ShaderMaterial.dispose()}; 속성 읽기: {ShaderMaterial.defines, WebGLRenderer.compile, WebGLRenderer.compileAsync}; 속성 쓰기: {Mesh.frustumCulled, Mesh.matrixAutoUpdate}
 
         동작:
-            renderer 가 compile 을 제공하지 않으면 아무것도 하지 않는다.
-            해당 renderer 의 anchor 보관소를 찾거나 새로 만들고, job 의 anchor key 가 이미 있으면 끝낸다.
+            renderer 가 compile 을 제공하지 않으면 true를 반환한다.
+            해당 renderer의 anchor 보관소를 찾거나 새로 만든다. 같은 key가 준비되었으면 true, 비동기 준비 중이면 false를 반환한다. 동기 요청은 진행 중인 anchor도 compile로 마치고 true를 반환한다.
             job material 의 define 만 복제하고 uniform 은 비운 상태로 anchor material 을 만든다.
             공용 geometry 와 그 material 로 mesh 를 만들어 frustum culling 과 matrix 자동 갱신을 끄고 matrix 를 한 번 갱신한 뒤 anchor scene 에 넣는다.
-            공용 camera 로 anchor scene 을 compile 하고, 실패하면 anchor material 을 해제한 뒤 예외를 다시 던진다.
-            성공하면 anchor key 로 material 과 scene 을 보관한다.
+            anchor key로 material과 scene을 먼저 보관한다. 비동기 준비가 가능하면 compileAsync를 시작하고 pending으로 compile과 reflection을 기다리며 false를 반환한다.
+            비동기 완료 시 아직 등록된 anchor일 때만 program의 uniform·attribute를 준비하고 pending을 비운다. 실패도 pending을 비워 기존 draw 경로를 허용하며, 등록이 제거됐으면 material을 해제한다.
+            동기 요청과 비동기 호출의 동기 예외는 공용 camera로 compile하고 true를 반환한다. 동기 compile 실패는 등록과 material을 회수한 뒤 다시 던진다.
 
     disposeTerrainCompositeProgramAnchors(composer: UTerrainDecalCompositeComposer) -> void
         역할: 보유한 program anchor를 모두 정리해 shader program 참조를 놓는다.
@@ -982,7 +1001,7 @@ program anchor 유지 책임 그룹
             THREE — anchor material 해제; 함수: {ShaderMaterial.dispose()}
 
         동작:
-            renderer 별 anchor 보관소를 순회하여 각 anchor material 을 해제하고 보관소를 비운다.
+            renderer 별 anchor 보관소를 순회하여 대기 중이 아닌 material만 해제하고 보관소를 비운다. pending anchor는 compileAsync가 material을 참조하므로 완료 callback에서 해제한다.
             renderer 별 보관소 목록 자체도 비운다.
 
 자원 회수와 결과 이전 책임 그룹
@@ -1002,7 +1021,7 @@ program anchor 유지 책임 그룹
             이미 해제했으면 아무것도 하지 않는다.
             job material 을 해제하고 해제 표시를 세운다.
 
-    finishTerrainCompositeRasterJob(job: TerrainCompositeRasterJob) -> TerrainBufferState
+    finishTerrainCompositeRasterJob(job: TerrainCompositeRasterJob | TerrainCompositeLayersJob) -> TerrainBufferState
         역할: 완료한 job의 RenderTarget 소유권을 결과 buffer 상태로 한 번만 이전하고 job을 등록에서 제거한다.
 
         인터페이스:
@@ -1021,6 +1040,7 @@ program anchor 유지 책임 그룹
 
         동작:
             결과 상태가 이미 있으면 그것을 반환한다.
+            구간 작업은 최종 composite RTT만 소유하며 hybrid의 packed 입력 흡수를 적용하지 않는다. 입력 구간 상태는 호출자가 별도로 정리한다.
             입력 packed 상태의 tileScale uniform 값을 확인한다.
             입력 packed 상태의 tile 기준점을 값 사본으로 만든다.
             hybrid 이면 입력 packed define·uniform 에 composite sampling 과 hybrid define, 합성 범위 uniform, host 구간별 target 목록, 기준점 사본, 소유권 이전 표시를 더해 결과 상태를 만든다.
@@ -1033,7 +1053,7 @@ program anchor 유지 책임 그룹
 ## 4. 공통 처리 기준과 제약
 
 ```spec
-입력 packed DataTexture와 그 uniform은 호출자가 소유하므로 이 단위는 읽기만 하고 해제하지 않는다. hybrid 결과만 예외로 그 uniform 참조를 결과 상태로 물려주고 소유권 이전을 알린다.
+기존 단일 packed DataTexture와 그 uniform은 호출자가 소유하며 hybrid 결과만 그 uniform 참조를 물려받아 소유권 이전을 알린다. compositionLayers에서는 완료된 구간의 packed 자원을 회수하고 layer.state를 RTT 상태로 교체한다. 최종 합성 결과는 입력 구간의 소유권을 흡수하지 않으므로 scheduler가 현재 layer.state들을 정리한다.
 hybrid 계획은 정적 대상 batch만 실행하고 direct 대상은 음수 batch 순번으로 표시되어 합성에서 구조적으로 제외된다. 실행 목록과 음수 표시는 역할이 달라 한쪽만으로는 hybrid를 정확히 실행할 수 없다.
 공용 geometry와 camera는 합성기가 소유하며 job 정리에서 해제하지 않고 합성기 정리에서만 해제한다.
 완성 target 소유권은 결과 buffer 상태로 한 번만 이전하며, 이전하지 않은 target은 job 정리가 회수한다.

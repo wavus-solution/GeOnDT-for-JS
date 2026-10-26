@@ -15,7 +15,7 @@
 - material의 컴파일 전·렌더 전·program cache key 훅을 감싸 기존 훅(terrain decal 등)을 보존한 채 색상 보정과 도장 오버레이 shader를 합성한다.
 - 렌더된 프레임마다 자신을 자원 관리자에 등록한다.
 
-책임 경계: material 자체의 생성과 texture 적용, 메시의 장면 추가·제거와 geometry 공유분 반납은 `U3dImageLayer`가 담당한다. 도장 상태의 보관과 uniform 계산은 `UTerrainStamp`가, geometry 소유자 수는 `UPlaneBufferGeometry`가 담당한다.
+책임 경계: material 자체의 생성과 texture 적용, 메시의 장면 추가·제거와 geometry 공유분 반납은 `U3dImageLayer`가 담당한다. 일반 도장 상태의 보관과 uniform 계산은 `UTerrainStamp`가 담당한다. Fast 도장의 공용 상태는 `UFastTerrainStampManager`, 표시 자료와 GLSL 구성은 `UFastTerrainStampMaterial`이 담당하며 이 메시에는 재생성 뒤에도 유지할 binding만 남긴다. geometry 소유자 수는 `UPlaneBufferGeometry`가 담당한다.
 
 ### 1.3 주요 동작 방식
 
@@ -83,10 +83,16 @@ UTerrainMesh extends UMesh 클래스 정의
         마지막 렌더 전 훅에서 관찰한 현재 타일의 상수색 합성 사용 여부이며 row/합성 shader variant 전환을 결정한다.
 
     #terrainStampPlainRowLimit: number = 0
-        현재 정밀 단색 program의 후보 상한이다. 상수색이면 0으로 두고 0/4/8/16 변경 시 program 선택을 갱신한다.
+        현재 정밀 단색 program의 후보 상한이다. 상수색이면 0으로 두고 0/4/8/16/128 변경 시 program 선택을 갱신한다.
 
     #terrainStampLayer: any = undefined
         도장 상태를 조회할 소유 레이어
+
+    #fastTerrainStampProgramKey: string = ''
+        마지막 표시에서 사용한 Fast page 수·Gradient 구성이며 변경 시 material 갱신을 요청한다.
+
+    #fastTerrainStampUniforms: UFastTerrainStampMaterialUniforms | undefined = undefined
+        Fast 관리자 삭제·재생성 뒤에도 보존하는 지형 메시 소유 binding이며 실제 값은 표시 직전에 현재 Fast 재질에서 받는다.
 
     override geometry: UPlaneBufferGeometry
         기반 메시가 받은 타일 공유 geometry 또는 전용 geometry이며 초기값 없는 재선언이다. [확인 Q-003]
@@ -147,6 +153,8 @@ UTerrainMesh extends UMesh 클래스 정의
             기존 onBeforeCompile은 material을 this로 하여 색상 보정 뒤에 호출한다.
             소유 레이어의 도장 render state가 있고 컴파일 인자의 고정 customProgramCacheKey에 현재 도장 key가 포함되면 그 uniform으로 도장 오버레이 shader를 마지막에 붙인다. key가 없는 직접 호출은 render state 유무를 기준으로 한다.
             prewarm의 key 저장 이후 도장이 등록되어도 도장 없는 key에 오버레이 코드를 넣지 않아야 한다.
+            Fast 구성은 shader에 고정된 customProgramCacheKey를 우선하며, key가 없는 직접 호출에서만 현재 표시 재질의 key를 사용한다.
+            Fast 관리자가 삭제되어도 고정 Fast key의 GLSL을 준비한다. Fast 없는 variant도 기존 binding이 있으면 연결하여 cached program 복귀 시 업로드가 누락되지 않게 한다.
 
         의존:
             GColorToneBlendingShader — 색상톤 GLSL 주입; 함수: {addColorToneShader()}
@@ -156,13 +164,16 @@ UTerrainMesh extends UMesh 클래스 정의
             GSaturationBlendingShader — 채도 GLSL 주입; 함수: {addSaturationShader()}
             UTerrainStamp — 소유 레이어의 도장 render state 조회와 합성 variant 주입; 정적 함수: {getRenderState(), _addCompositeShader()}
             GTerrainOverlayShader — 도장 오버레이 GLSL 주입; 함수: {addTerrainOverlayShader()}
+            UFastTerrainStampManager — 현재 지형 메시의 Fast 표시 재질 조회; 정적 함수: {_getDisplayMaterial()}
+            UFastTerrainStampMaterial — 고정 key의 Fast 구성·binding 연결; 정적 함수: {_applyToTerrainShader()}; 함수: {customProgramCacheKey()}
             기존 onBeforeCompile(prevBeforeCompile) — material에 먼저 등록된 shader 처리 실행; 콜백: {prevBeforeCompile.call()}
 
         동작:
             u_brightness, u_contrast, u_hue_rotation, u_saturation과 여섯 색상톤 uniform을 이 메시의 uniform 객체로 연결한다.
             mask에 켜진 기능만 순서대로 GLSL을 주입한다.
             보관한 기존 onBeforeCompile을 호출한다.
-            도장 render state와 고정 program key가 도장 사용을 지시하면 기본 오버레이 shader를 붙이고 _addCompositeShader로 그 key에 대응하는 상수색·단색 후보·범용 후보 program을 연결한다. 상수색은 후보 반복문 전체를 Vector4 합성으로 대체하며, 단색 후보는 4/8/16개 상한의 정밀 경계 계산을 사용한다. 단색·범용 후보의 polyline은 선폭과 수치 여유를 포함한 보수적 범위 밖에서만 정확 거리 계산을 생략한다. 비동기 prewarm 도중 변한 공유 uniform 값으로 GLSL 구조를 선택하지 않는다. 합성용 raster texture를 만들거나 읽지 않는다.
+            도장 render state와 고정 program key가 도장 사용을 지시하면 기본 오버레이 shader를 붙이고 _addCompositeShader로 그 key에 대응하는 상수색·단색 후보·범용 후보 program을 연결한다. 상수색은 후보 반복문 전체를 Vector4 합성으로 대체하며, 단색 후보는 4/8/16개 고정 호출 또는 최대 128개 동적 반복의 정밀 경계 계산을 사용한다. 단색·범용 후보의 polyline은 선폭과 수치 여유를 포함한 보수적 범위 밖에서만 정확 거리 계산을 생략한다. 비동기 prewarm 도중 변한 공유 uniform 값으로 GLSL 구조를 선택하지 않는다. 합성용 raster texture를 만들거나 읽지 않는다.
+            고정 key 또는 현재 Fast 표시 재질의 key와 기존 #fastTerrainStampUniforms를 _applyToTerrainShader에 전달하고 반환된 binding을 보관한다. Fast 구성과 기존 binding이 모두 없으면 undefined를 유지한다.
 
     material.onBeforeRender(renderer: WebGLRenderer, scene: Scene, camera: Camera, geometry: BufferGeometry, object: Object3D, group: Group) -> void
         역할: 렌더 직전에 도장 오버레이 활성 여부 변화를 반영하고 도장 uniform을 갱신한다.
@@ -174,10 +185,14 @@ UTerrainMesh extends UMesh 클래스 정의
 
         의존:
             UTerrainStamp — 도장 활성 판정과 uniform 갱신; 정적 함수: {getRenderState(), updateRenderUniforms()}
+            UFastTerrainStampManager — 현재 지형 메시의 Fast 표시 재질 조회; 정적 함수: {_getDisplayMaterial()}
+            UFastTerrainStampMaterial — 구성 조회와 지형 binding 갱신; 함수: {customProgramCacheKey(), _createBinding(), _setObject()}
             Three.js Material — 재컴파일 요청; 속성 쓰기: {needsUpdate}
             기존 onBeforeRender(prevBeforeRender) — material에 먼저 등록된 렌더 전 처리 실행; 콜백: {prevBeforeRender.call()}
 
         동작:
+            현재 Fast 표시 재질의 key 또는 빈 문자열을 직전 key와 비교하고 달라졌을 때만 기억한 key와 material.needsUpdate를 갱신한다.
+            Fast 표시 재질이 있으면 binding이 없는 경우에만 만들고, 현재 object·renderer 기준으로 binding의 값을 갱신한다.
             도장 render state를 한 번 조회하고, 있으면 타일이 소유한 renderContext의 object·renderer만 갱신하여 현재 타일의 uniform과 상수색 판정을 갱신한다.
             갱신 후 compositeEnabled·plainRowLimit과 binding 존재 여부를 이전 상태와 비교하고 바뀌면 material 재컴파일을 요청한다.
             보관한 기존 onBeforeRender를 호출한다.
@@ -189,15 +204,17 @@ UTerrainMesh extends UMesh 클래스 정의
             base key는 기존 구현이 Material 기본이면 생성자가 만든 `M_<해시>`, 아니면 기존 훅의 반환값이며 반환값이 없으면 `M_<해시>`로 대체한다.
             base key가 직전과 다르면 mask별 색상 key와 mask·도장 variant별 최종 key 캐시를 함께 비운다.
             mask별 key는 `<base>|UTC_<mask의 36진수>`로 한 번만 만들어 재사용한다.
-            도장 binding이 있으면 오버레이 cache key와 compositeEnabled에 따른 constant1 또는 rows2-<plainRowLimit> 구분값, 범용 선분 범위 검사를 구분하는 linebox1을 붙인다. 단색 후보 상한은 4/8/16, 범용 후보는 0이며 각 경로를 별도 program으로 재사용한다.
+            도장 binding이 있으면 오버레이 cache key와 compositeEnabled에 따른 constant1 또는 rows2-<plainRowLimit> 구분값, 범용 선분 범위 검사를 구분하는 linebox1을 붙인다. 단색 후보 상한은 4/8/16/128, 범용 후보는 0이며 각 경로를 별도 program으로 재사용한다.
 
         의존:
             기존 customProgramCacheKey(prevCustomProgramCacheKey) — 기존 base key 계산; 콜백: {prevCustomProgramCacheKey.call()}
+            UFastTerrainStampManager — 현재 지형 메시의 Fast 표시 재질 조회; 정적 함수: {_getDisplayMaterial()}
+            UFastTerrainStampMaterial — 현재 page 수·Gradient 구성 key; 함수: {customProgramCacheKey()}
             GTerrainOverlayShader — 도장 오버레이 cache key; 상수: {TERRAIN_OVERLAY_SHADER.CACHE_KEY}
             UTerrainStamp — 도장 활성 판정; 정적 함수: {getRenderState()}
 
         동작:
-            base key를 정하고 직전 base key와 다르면 색상·도장 key 캐시를 비운 뒤 기억한다.
+            기존 지형 base key에 현재 Fast 표시 재질이 있으면 그 key를 붙인다. 합쳐진 base key가 직전과 다르면 색상·도장 key 캐시를 비운 뒤 기억한다.
             현재 mask의 색상 key가 없으면 만들어 캐시한다.
             도장 render state를 한 번 조회하여 없으면 색상 key를 반환하고, 있으면 현재 mask·합성/row 구분값의 최종 key를 처음 요청할 때만 만들어 재사용한다.
 

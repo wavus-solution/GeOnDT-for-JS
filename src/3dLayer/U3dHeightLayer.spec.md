@@ -130,12 +130,11 @@ U3dHeightLayer extends U3dLayer 클래스 정의
         의존:
             U3dLayer — 캐시 키와 draw argument 사용; 함수: {getCacheKeys()}; 속성 읽기: {_drawArg}
             UDrawArg — 캐시 키에 해당하는 현재 타일 조회; 함수: {getTile()}
-            U3dQuadTile — 타일 메시 조회; 함수: {getMesh()}
-            UTileMesh — 메시 Z축 배율 변경; 속성 쓰기: {scale.z}
+            U3dQuadTile — 표시 배율과 공간 경계 반영; 함수: {_setHeightScale()}
 
         동작:
             _heightScale에 보정한 값을 저장한다.
-            캐시 키를 순회해 조회 가능한 각 타일 메시의 scale.z에 _heightScale의 보정 배율을 기록한다.
+            캐시 키를 순회해 조회 가능한 타일에 _heightScale의 적용을 요청한다. 실제 메시 배율의 비교·행렬·공간 경계 갱신은 타일에 맡긴다.
 
     createParentHeight(tile: U3dQuadTile, opt: U3dHeightWorkOption) -> undefined
         역할: 부모 타일의 캐시 데이터와 지오메트리에서 자식 타일의 대체 고도를 생성한다.
@@ -259,12 +258,11 @@ U3dHeightLayer extends U3dLayer 클래스 정의
 
         의존:
             defined — 공유 지오메트리와 메시 존재 여부 판정; 함수: {defined()}
-            U3dQuadTile — 타일 키·메시 조회와 지오메트리·로드 상태 변경; 함수: {getKey(), getMesh(), changeGeometry(), setHeightLoaded()}; 속성 읽기: {_mesh}
-            UTileMesh — 메시 Z축 배율 변경; 속성 쓰기: {scale.z}
+            U3dQuadTile — 타일 키와 배율·지오메트리·로드 상태 변경; 함수: {getKey(), _setHeightScale(), changeGeometry(), setHeightLoaded()}; 속성 읽기: {_mesh}
 
         동작:
             타일 키의 공유 지오메트리를 조회한다.
-            지오메트리와 메시가 있으면 현재 높이 배율을 메시 Z축에 적용한다.
+            지오메트리와 메시가 있으면 현재 높이 배율의 적용을 타일에 요청한다.
             공유 지오메트리를 타일에 연결하고 고도 로드 완료 상태로 표시한다.
 
     updateGeometryWidthBoxList(geometry: UPlaneBufferGeometry, tile: U3dQuadTile) -> void
@@ -295,8 +293,9 @@ U3dHeightLayer extends U3dLayer 클래스 정의
         역할: 타일 키의 공유 지형 지오메트리와 상위 레이어의 타일 자원을 정리한다.
 
         처리 기준:
-            공유 지오메트리가 있으면 먼저 dispose()를 호출하고 정적 저장소에서 제거한다.
+            공유 지오메트리가 있으면 정적 저장소에서 먼저 분리하고 dispose()를 호출한다.
             타일 헤더는 공유 지오메트리 존재 여부와 관계없이 활성 헤더 캐시에서 제거한다.
+            격자 해제 오류가 있어도 헤더와 상위 레이어의 타일 정리를 계속한다. 단일 실패는 원래 오류, 복수 실패는 원래 오류들을 담은 errors 배열을 가진 Error로 전달한다.
             terrains는 레이어 식별자 없이 타일 키만 사용하며, 여러 레이어가 공유할 수 있는 지오메트리를 현재 레이어의 disposeTile()이 제거한다. [확인 Q-006]
 
         의존:
@@ -306,12 +305,12 @@ U3dHeightLayer extends U3dLayer 클래스 정의
 
         동작:
             tile._key의 공유 지오메트리를 조회한다.
-            지오메트리가 있으면 처분하고 정적 저장소에서 제거한다.
+            지오메트리가 있으면 정적 저장소에서 제거하고 처분한다.
             같은 타일 키의 활성 헤더를 제거한다.
             나머지 타일 정리를 U3dLayer.disposeTile()에 위임한다.
 
     override show(show: boolean, refresh: boolean = true) -> void
-        역할: 고도 레이어 가시성 변경 전에 애플리케이션 쿼드트리를 다시 생성한다.
+        역할: 고도 레이어 가시성 변경 전에 지형·영상 트리만 재시작한다.
 
         인터페이스:
             show: 적용할 가시성
@@ -325,10 +324,10 @@ U3dHeightLayer extends U3dLayer 클래스 정의
             defined — draw argument와 앱 존재 여부 판정; 함수: {defined()}
             U3dLayer — 현재 레이어 수신자로 상위 가시성 직접 호출; 함수: {prototype.show.call()}; 속성 읽기: {_drawArg}
             UDrawArg — 연결된 앱 조회; 속성 읽기: {_app}
-            U3dApp — 쿼드트리 처분과 재생성; 함수: {disposeQuadTree(), createQuadTreeSet()}
+            U3dApp — 지형·영상 트리 재시작; 함수: {restartTerrainQuadTree()}
 
         동작:
-            앱의 기존 쿼드트리를 처분하고 새 쿼드트리 집합을 생성한다.
+            앱의 지형·영상 트리만 재시작하고 모델 루트·프레임·진행 작업은 유지한다.
             show만 전달하여 U3dLayer.show()를 호출한다.
 
     override getWorkingLevel2() -> number

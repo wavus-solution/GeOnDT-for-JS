@@ -76,9 +76,9 @@ const TERRAIN_STAMP_GRADIENT_DIRECTIONS = new Set([
  * @property {{value: number}} count 지금 그리는 지형 타일과 겹쳐 이번 렌더 호출에서 검사할 도장 개수입니다.
  * @property {{value: boolean}} compositeEnabled 현재 타일 전체에 동일한 합성색을 적용할 수 있는지 여부입니다.
  * @property {{value: import('three').Vector4}} compositeColor 현재 타일의 premultiplied RGB와 누적 alpha입니다.
- * @property {{value: number}} plainRowLimit 단색 전용 program의 후보 상한이며, 0이면 범용 경로입니다.
- * @property {{value: Float32Array}} rowCoverage 현재 타일의 row별 경계·내부·외부 판정입니다.
- * @property {{value: Float32Array}} rowFill 단색 후보의 색상과 유효 알파입니다.
+ * @property {{value: number}} plainRowLimit 단색 전용 program의 후보 상한입니다. 4/8/16은 고정 호출, 128은 동적 반복이며 0이면 범용 경로입니다.
+ * @property {{value: Float32Array}} rowCoverage 현재 타일의 후보별 정밀 판정(0)·내부(1)·외부(2)입니다. 128 경로는 CSS 픽셀 외곽선까지의 월드 거리 하한에 3을 더한 값도 사용합니다.
+ * @property {{value: Float32Array}} rowFill 4/8/16 후보 경로의 색상과 유효 알파입니다. 128 경로는 공유 metadata texture를 직접 읽습니다.
  * @property {{value: import('three').Vector3}} objectRelative 지금 그리는 지형 타일의 원점과, 도장 좌표를 기록할 때 쓴 공통 기준점 사이의 차이이며 단위는 미터입니다.<br>
  * 큰 좌표를 그대로 다룰 때 생기는 어긋남을 줄이기 위해 사용합니다.
  * @property {{value: number}} pixelRatio 화면 배율이며 CSS 픽셀 단위 선 두께를 실제 화면 픽셀로 환산할 때 사용합니다.
@@ -127,7 +127,7 @@ const TERRAIN_STAMP_GRADIENT_DIRECTIONS = new Set([
  * @property {number} [textureScale] 이미지를 배치할 사각 영역의 배율이며 정한 적이 없으면 없습니다.
  * @property {'stretch'|'contain'} [textureFit] 이미지를 도장 영역에 맞추는 방식입니다.
  * @property {Array<UTerrainStampPointParam>} [mappingFrame] 이미지와 그러데이션이 기준으로 삼는 사각 영역이며 지정하지 않았으면 없습니다.
- * @property {boolean} [expectTexture] 이미지가 준비될 때까지 색으로 채우지 않고 기다릴지 여부입니다.
+ * @property {boolean} [expectTexture] 합성 대상 채움의 알파를 1로 취급할지 여부입니다. 이미지 준비 전의 투명 대기에는 영향을 주지 않습니다.
  * @property {number} [lineWidth] 선 도형의 두께입니다.
  * @property {'meters'|'pixels'} [lineWidthUnits] 선 두께를 지상 거리로 볼지 화면 픽셀로 볼지 정하는 단위입니다.
  * @property {'fill'|'mask'} [mode] 채울지 가릴지 명시한 값이며, 명시하지 않아 targetLayer 유무로 자동 결정되는 도장에서는 없습니다.
@@ -295,12 +295,12 @@ class UTerrainStampAtlas {
         }
 
         if (this.freeIndices.length === 0 && this.nextIndex >= this.maxImages) {
-            // atlas가 꽉 차면 texture fill은 포기하고 color fill로 fallback됩니다.
+            // atlas가 꽉 차면 이미지를 사용할 수 없으므로 채움은 투명하게 유지합니다.
             // 호출부는 undefined entry를 받아 기본 atlas rect와 hasTexture=0을 기록합니다.
             console.warn?.(
                 `UTerrainStamp texture atlas is full. `
                 + `Max unique texture URLs: ${this.maxImages}. `
-                + `Texture fallback to color fill: ${textureUrl}`
+                + `Texture fill remains transparent: ${textureUrl}`
             );
             return undefined;
         }
@@ -357,7 +357,7 @@ class UTerrainStampAtlas {
 
     loadEntry(entry, x, y) {
         // atlas canvas가 없는 환경이면 load를 시도하지 않습니다.
-        // entry.loaded=false 상태로 남아 shader는 texture fill 대신 color fill 경로를 사용합니다.
+        // entry.loaded=false 상태로 남아 이미지가 지정된 채움은 투명하게 유지됩니다.
         this.getTexture();
         if (!this.context || typeof Image === 'undefined') {
             return;
@@ -503,7 +503,7 @@ class UTerrainStamp {
      * object는 지금 그리는 지형 타일이며, 이 타일과 겹치는 도장만 남깁니다.<br>
      * renderer는 화면 배율과 렌더 프레임 번호를 제공합니다. 없으면 배율 1과 최대 256개 조합 보관을 사용합니다.<br>
      * 프레임 번호가 있으면 현재·직전 프레임의 후보 조합을 보호하여 256개를 넘는 활성 화면도 재사용합니다.<br>
-     * object를 넘기지 않으면 타일별로 걸러 내지 않고 이 레이어에 등록된 도장 전체를 그대로 사용합니다.
+     * object를 넘기지 않으면 전역 후보를 사용하며, 대상 영상이 지정된 mask는 덮임을 확인할 수 없어 보류합니다.
      */
     static updateRenderUniforms(layer, renderContext = {}) {
         const state = getTerrainStampState(layer, false);
@@ -694,18 +694,18 @@ class UTerrainStamp {
      * @param {object} [opt] 도형과 표현을 한 번에 지정하는 생성 옵션입니다.
      * @param {boolean} [opt.visible=false] 표시 대상으로 삼을지 여부입니다.
      * @param {'polygon'|'circle'|'polyline'} [opt.type='polygon'] 도형 종류이며 다각형, 원, 선 중 하나입니다.
-     * @param {Array<import('three').Vector3|UTerrainStampPointLike>} [opt.points] 다각형의 꼭짓점 또는 선의 경유점 목록이며 월드 좌표(EPSG:3857)입니다.<br>
+     * @param {Array<import('three').Vector3|import('@union3d/helpers/UTerrainStamp').UTerrainStampPointLike>} [opt.points] 다각형의 꼭짓점 또는 선의 경유점 목록이며 월드 좌표(EPSG:3857)입니다.<br>
      * 다각형은 3개 이상, 선은 2개 이상이 필요하고 앞에서부터 16개까지만 사용합니다.
-     * @param {import('three').Vector3|UTerrainStampPointLike} [opt.center] 원의 중심이며 월드 좌표(EPSG:3857)입니다.
+     * @param {import('three').Vector3|import('@union3d/helpers/UTerrainStamp').UTerrainStampPointLike} [opt.center] 원의 중심이며 월드 좌표(EPSG:3857)입니다.
      * @param {number} [opt.radius] 원의 반지름이며 단위는 미터이고 0보다 커야 합니다.
      * @param {number} [opt.lineWidth=1] 선 도형의 두께이며 0보다 커야 합니다.
      * @param {'meters'|'pixels'} [opt.lineWidthUnits='meters'] 선 두께를 지상 거리(미터)로 볼지 화면 픽셀로 볼지 정합니다.<br>
      * meters이면 확대·축소해도 지상에서 같은 폭을 덮고, pixels이면 화면에서 같은 굵기로 보입니다.
-     * @param {string|number|import('three').Color} [opt.color='#00ffff'] 도장을 채울 색이며, 이미지를 쓰는 경우 이미지가 준비되기 전까지 이 색으로 보입니다.
+     * @param {string|number|import('three').Color} [opt.color='#00ffff'] 이미지가 지정되지 않은 도장을 채울 색입니다.
      * @param {number} [opt.opacity=1] 색으로 채울 때의 불투명도이며 0이면 완전히 투명하고 1이면 불투명합니다.
      * @param {string|number|import('three').Color} [opt.gradientColor] 지정하면 color에서 이 색으로 이어지는 그러데이션(gradient)으로 채웁니다.
      * @param {'vertical'|'horizontal'} [opt.gradientDirection='vertical'] 그러데이션이 이어지는 방향이며, 허용하지 않는 값은 vertical로 바뀝니다.
-     * @param {string} [opt.texture] 도장 영역에 입힐 이미지 주소이며, 지정하지 않으면 색으로 채웁니다.
+     * @param {string} [opt.texture] 도장 영역에 입힐 이미지 주소이며, 준비될 때까지 투명하게 기다리고 지정하지 않으면 색으로 채웁니다.
      * @param {number} [opt.textureOpacity=1] 이미지로 채울 때의 불투명도이며 0 이상 1 이하로 제한됩니다.
      * @param {boolean} [opt.textureUseAlpha=true] 이미지 자체의 투명한 부분을 그대로 비칠지 여부이며, false이면 이미지 전체를 textureOpacity로 균일하게 덮습니다.
      * @param {number} [opt.textureScale=1] 이미지를 배치할 사각 영역을 중심 기준으로 넓히거나 좁히는 배율입니다.<br>
@@ -713,9 +713,9 @@ class UTerrainStamp {
      * @param {'stretch'|'contain'} [opt.textureFit='stretch'] 이미지를 도장 영역에 맞추는 방식이며, 허용하지 않는 값은 stretch로 바뀝니다.<br>
      * stretch는 도형을 감싸는 사각 영역에 이미지를 늘려 채우고 도형 밖으로 나간 부분은 보이지 않습니다.<br>
      * contain은 이미지를 꼭짓점 네 개에 맞춰 기울여 넣으며, 이미지를 쓰는 꼭짓점 4개짜리 다각형에서만 적용되고 그 밖에는 stretch처럼 동작합니다.
-     * @param {Array<import('three').Vector3|UTerrainStampPointLike>|null} [opt.mappingFrame] 이미지와 그러데이션이 기준으로 삼을 별도의 사각 영역이며 월드 좌표(EPSG:3857) 3~4개를 넣습니다.<br>
+     * @param {Array<import('three').Vector3|import('@union3d/helpers/UTerrainStamp').UTerrainStampPointLike>|null} [opt.mappingFrame] 이미지와 그러데이션이 기준으로 삼을 별도의 사각 영역이며 월드 좌표(EPSG:3857) 3~4개를 넣습니다.<br>
      * 지정하면 도형과 무관하게 이 영역을 기준으로 이미지가 배치되므로, 움직이는 도장에서도 무늬가 흔들리지 않습니다.
-     * @param {boolean} [opt.expectTexture=false] 이미지가 준비되지 않은 동안 색으로 미리 채우지 않고 기다릴지 여부입니다.
+     * @param {boolean} [opt.expectTexture=false] 합성 대상 채움의 알파를 1로 취급할지 여부이며, 이미지 준비 전에는 값과 관계없이 투명하게 기다립니다.
      * @param {import('@U3dLayer').U3dLayer} [opt.targetLayer] 가림 대상으로 삼을 영상 레이어이며, 지정하면 이 레이어보다 위에 그려지는 레이어에만 도장이 적용됩니다.
      * @param {string|number} [opt.mode] 채울지 가릴지 정하며 fill 또는 mask를 넣습니다.<br>
      * 생략하거나 그 밖의 값을 넣으면 targetLayer가 있을 때 가림, 없을 때 채움으로 동작합니다.
@@ -729,8 +729,7 @@ class UTerrainStamp {
         // false이면 인스턴스 상태는 보존하지만 shader texture 후보에서는 제외됩니다.
         this.visible = defaultValue(opt.visible, false);
 
-        // color/opacity는 texture가 없거나 아직 load되지 않은 overlay의 기본 색상 fill입니다.
-        // texture overlay를 쓰는 경우에도 이미지 load 전 fallback 색으로 쓰일 수 있습니다.
+        // color/opacity는 texture가 지정되지 않은 overlay의 색상 fill에만 사용합니다.
         this.color = defaultValue(opt.color, DEFAULT_COLOR);
         this.opacity = defaultValue(opt.opacity, 1);
         this.gradientColor = defaultValue(opt.gradientColor, undefined);
@@ -767,7 +766,7 @@ class UTerrainStamp {
         }
 
         if (!this.#setShape(opt)) {
-            __GError__(this, '지원하지 않는 overlay 타입이거나 도형 정보가 올바르지 않습니다.', '*code=>');
+            __GError__(this, '지원하지 않는 overlay 타입이거나 도형 정보가 올바르지 않습니다.', '2736436');
             return;
         }
         this.#syncRegistry();
@@ -855,7 +854,7 @@ class UTerrainStamp {
         if (!updated) {
             __GError__(this, isPolyline
                 ? 'polyline overlay는 최소 2개의 point가 필요합니다.'
-                : 'polygon overlay는 최소 3개의 point가 필요합니다.', '*code=>');
+                : 'polygon overlay는 최소 3개의 point가 필요합니다.', '2739754');
             return undefined;
         }
 
@@ -891,13 +890,13 @@ class UTerrainStamp {
      */
     setCenter(center) {
         if (!isValidTerrainStampPoint(center)) {
-            __GError__(this, 'overlay 중심은 올바른 월드 좌표여야 합니다.', '*code=>');
+            __GError__(this, 'overlay 중심은 올바른 월드 좌표여야 합니다.', '2741143');
             return undefined;
         }
 
         if (this.type === 'circle') {
             if (!this.#setCircleShape(center, this.radius)) {
-                __GError__(this, 'circle overlay는 중심을 이동하려면 양수 radius가 필요합니다.', '*code=>');
+                __GError__(this, 'circle overlay는 중심을 이동하려면 양수 radius가 필요합니다.', '3741382');
                 return undefined;
             }
             this.#syncRegistry();
@@ -906,13 +905,13 @@ class UTerrainStamp {
 
         const minimumPointCount = this.type === 'polyline' ? 2 : 3;
         if (!Array.isArray(this.points) || this.points.length < minimumPointCount) {
-            __GError__(this, 'overlay 중심을 이동하려면 먼저 올바른 도형을 지정해야 합니다.', '*code=>');
+            __GError__(this, 'overlay 중심을 이동하려면 먼저 올바른 도형을 지정해야 합니다.', '3741745');
             return undefined;
         }
 
         const sourcePoints = this.points.slice(0, TERRAIN_OVERLAY_SHADER.MAX_POINTS);
         if (!sourcePoints.every(isValidTerrainStampPoint)) {
-            __GError__(this, 'overlay point에 올바르지 않은 월드 좌표가 있습니다.', '*code=>');
+            __GError__(this, 'overlay point에 올바르지 않은 월드 좌표가 있습니다.', '3742019');
             return undefined;
         }
 
@@ -985,7 +984,7 @@ class UTerrainStamp {
      */
     setCircle(center, radius) {
         if (!this.#setCircleShape(center, radius)) {
-            __GError__(this, 'circle overlay는 center와 양수 radius가 필요합니다.', '*code=>');
+            __GError__(this, 'circle overlay는 center와 양수 radius가 필요합니다.', '3744728');
             return undefined;
         }
 
@@ -1021,8 +1020,8 @@ class UTerrainStamp {
      * @param {object} [opt] 바꿀 값만 담은 옵션입니다.
      * @param {'polygon'|'circle'|'polyline'} [opt.type] points를 다각형 꼭짓점으로 볼지 선 경유점으로 볼지 정하며, 생략하면 현재 도형 종류를 따릅니다.<br>
      * points와 함께 넘겨야 반영되고, 혼자 넘기면 아무 것도 바뀌지 않습니다.
-     * @param {Array<import('three').Vector3|UTerrainStampPointLike>} [opt.points] 다각형의 꼭짓점 또는 선의 경유점 목록이며 월드 좌표(EPSG:3857)입니다.
-     * @param {import('three').Vector3|UTerrainStampPointLike} [opt.center] 원의 중심이며 월드 좌표(EPSG:3857)입니다.
+     * @param {Array<import('three').Vector3|import('@union3d/helpers/UTerrainStamp').UTerrainStampPointLike>} [opt.points] 다각형의 꼭짓점 또는 선의 경유점 목록이며 월드 좌표(EPSG:3857)입니다.
+     * @param {import('three').Vector3|import('@union3d/helpers/UTerrainStamp').UTerrainStampPointLike} [opt.center] 원의 중심이며 월드 좌표(EPSG:3857)입니다.
      * @param {number} [opt.radius] 원의 반지름이며 단위는 미터입니다.
      * @param {string|number|import('three').Color} [opt.color] 도장을 채울 색입니다.
      * @param {number} [opt.opacity] 색으로 채울 때의 불투명도입니다.
@@ -1033,14 +1032,14 @@ class UTerrainStamp {
      * @param {boolean} [opt.textureUseAlpha] 이미지 자체의 투명한 부분을 그대로 비칠지 여부입니다.
      * @param {number} [opt.textureScale] 이미지를 배치할 사각 영역의 배율입니다.
      * @param {'stretch'|'contain'} [opt.textureFit] 이미지를 도장 영역에 맞추는 방식입니다.
-     * @param {Array<import('three').Vector3|UTerrainStampPointLike>|null} [opt.mappingFrame] 이미지와 그러데이션이 기준으로 삼을 별도의 사각 영역이며, null이나 점이 3개 미만이면 기준 영역을 해제합니다.
-     * @param {boolean} [opt.expectTexture] 이미지가 준비될 때까지 색으로 미리 채우지 않고 기다릴지 여부입니다.
+     * @param {Array<import('three').Vector3|import('@union3d/helpers/UTerrainStamp').UTerrainStampPointLike>|null} [opt.mappingFrame] 이미지와 그러데이션이 기준으로 삼을 별도의 사각 영역이며, null이나 점이 3개 미만이면 기준 영역을 해제합니다.
+     * @param {boolean} [opt.expectTexture] 합성 대상 채움의 알파를 1로 취급할지 여부이며, 이미지 준비 전의 투명 대기에는 영향을 주지 않습니다.
      * @param {number} [opt.lineWidth] 선 도형의 두께입니다.
      * @param {'meters'|'pixels'} [opt.lineWidthUnits] 선 두께를 지상 거리로 볼지 화면 픽셀로 볼지 정합니다.
      * @param {import('@U3dLayer').U3dLayer} [opt.targetLayer] 가림 대상으로 삼을 영상 레이어입니다.
      * @param {string|number} [opt.mode] 채울지 가릴지 정하며 fill 또는 mask를 넣고, 그 밖의 값은 생략한 것과 같이 처리됩니다.
      * @param {number} [opt.renderOrder] 다른 도장과 겹칠 때 그리는 순서이며 값이 클수록 위에 그려집니다.
-     * @returns {UTerrainStamp|undefined} 바뀌었으면 이 도장 자신을, 도형 입력이 올바르지 않아 아무 것도 바뀌지 않았으면 undefined를 반환합니다.
+     * @returns {this|undefined} 바뀌었으면 이 도장 자신을, 도형 입력이 올바르지 않으면 undefined를 반환합니다.
      */
     update(opt = {}) {
         if (opt.points !== undefined) {
@@ -1051,13 +1050,13 @@ class UTerrainStamp {
             if (!shapeUpdated) {
                 __GError__(this, isPolyline
                     ? 'polyline overlay는 최소 2개의 point와 양수 lineWidth가 필요합니다.'
-                    : 'polygon overlay는 최소 3개의 point가 필요합니다.', '*code=>');
+                    : 'polygon overlay는 최소 3개의 point가 필요합니다.', '3748124');
                 return undefined;
             }
         }
 
         if ((opt.center !== undefined || opt.radius !== undefined) && !this.#setCircleShape(opt.center, opt.radius)) {
-            __GError__(this, 'circle overlay는 center와 양수 radius가 필요합니다.', '*code=>');
+            __GError__(this, 'circle overlay는 center와 양수 radius가 필요합니다.', '3748394');
             return undefined;
         }
 
@@ -1191,7 +1190,7 @@ class UTerrainStamp {
      */
     setParam(param, options = {}) {
         if (!param || typeof param !== 'object' || Array.isArray(param)) {
-            __GError__(this, 'setParam은 getParam()이 돌려준 형식의 객체가 필요합니다.', '*code=>');
+            __GError__(this, 'setParam은 getParam()이 돌려준 형식의 객체가 필요합니다.', '3754145');
             return undefined;
         }
 
@@ -1209,7 +1208,7 @@ class UTerrainStamp {
             if (defined(layer)) {
                 updateOption.targetLayer = layer;
             } else {
-                __GWarn__(this, `targetLayer '${String(targetLayer)}'에 해당하는 레이어를 찾지 못해 대상 레이어는 바꾸지 않습니다.`, '*code=>');
+                __GWarn__(this, `targetLayer '${String(targetLayer)}'에 해당하는 레이어를 찾지 못해 대상 레이어는 바꾸지 않습니다.`, '3755070');
             }
         }
 
@@ -1245,10 +1244,10 @@ class UTerrainStamp {
     /**
      * 도장을 채울 색을 바꿉니다.
      *
-     * 이미지를 쓰는 도장에서는 이미지가 준비되기 전까지 보이는 색으로 사용됩니다.
+     * 이미지가 지정되지 않은 도장에서 사용하는 색이며, 이미지 로딩 중에는 이 색이 표시되지 않습니다.
      *
      * @param {string|number|import('three').Color} color 채울 색이며 CSS 색 문자열, 24비트 정수 또는 three.js Color로 지정합니다.
-     * @returns {UTerrainStamp} 이어서 호출할 수 있도록 이 도장 자신을 반환합니다.
+     * @returns {this} 이어서 호출할 수 있도록 이 도장 자신을 반환합니다.
      */
     setColor(color) {
         this.color = color;
@@ -1349,8 +1348,8 @@ class UTerrainStamp {
     /**
      * 도장 영역에 입힐 이미지 주소를 바꿉니다.
      *
-     * 이미지는 내려받는 즉시가 아니라 준비가 끝난 뒤에 화면에 나타나며, 그때까지는 설정된 색으로 보입니다.<br>
-     * 이미지를 가져오지 못했거나 서로 다른 이미지 주소가 보관소의 최대 개수를 넘으면 경고만 남고 설정된 색으로 채워집니다.<br>
+     * 이미지는 준비가 끝난 뒤에 화면에 나타나며, 그때까지는 opacity와 관계없이 투명하게 기다립니다.<br>
+     * 이미지를 가져오지 못했거나 서로 다른 이미지 주소가 보관소의 최대 개수를 넘으면 경고를 남기고 투명한 상태를 유지합니다.<br>
      * undefined를 넘기면 이미지만 떼어 내고 불투명도·투명 반영·배율·맞춤 방식은 이전 값이 남으므로, 이 값들까지 초기값으로 되돌리려면 clearTexture()를 사용하십시오.
      *
      * @param {string|undefined} texture 입힐 이미지 주소이며, undefined이면 이미지를 쓰지 않고 색으로 채웁니다.
@@ -1359,7 +1358,7 @@ class UTerrainStamp {
      * @param {boolean} [options.textureUseAlpha] 이미지 자체의 투명한 부분을 그대로 비칠지 여부입니다.
      * @param {number} [options.textureScale] 이미지를 배치할 사각 영역을 중심 기준으로 넓히거나 좁히는 배율입니다.
      * @param {'stretch'|'contain'} [options.textureFit] 이미지를 도장 영역에 맞추는 방식이며, 허용하지 않는 값은 stretch로 바뀝니다.
-     * @returns {UTerrainStamp} 이어서 호출할 수 있도록 이 도장 자신을 반환합니다.
+     * @returns {this} 이어서 호출할 수 있도록 이 도장 자신을 반환합니다.
      */
     setTexture(texture, options = {}) {
         this.texture = texture;
@@ -2251,19 +2250,29 @@ function resolveObjectWorldOrigin(target, object) {
     return target;
 }
 
+/**
+ * 타일별 도장 후보와 대상 영상의 현재 표시 상태를 렌더 직전에 반영합니다.
+ *
+ * @param {object} stampState 레이어별 도장 상태입니다.
+ * @param {import('three').Object3D | undefined} object 현재 지형 메시입니다.
+ * @returns {void} 반환값이 없습니다.
+ */
 function applyObjectOverlayTexture(stampState, object) {
     // tile bounds를 알 수 있으면 현재 tile과 겹치지 않는 overlay를 texture에서 제외합니다.
-    // bounds를 알 수 없는 object는 안전하게 전역 texture 전체를 사용합니다.
+    // 범위를 알 수 없으면 전역 후보에서 대상 영상이 필요한 가림만 보류합니다.
     const tileBounds = getObjectTileBoundsXY(object, stampState.tileBoundsScratch);
     if (!tileBounds || stampState.entries.length <= 0) {
-        const fallbackCount = Math.min(stampState.entries.length, TERRAIN_OVERLAY_SHADER.MAX_OVERLAYS);
+        // 타일을 특정할 수 없으면 대상 영상의 덮임을 증명할 수 없어 해당 가림만 보류합니다.
+        const fallbackEntries = stampState.entries.filter(overlay =>
+            overlay.mode !== TERRAIN_STAMP_MODE_MASK || !defined(overlay.targetLayer));
+        const fallbackCount = Math.min(fallbackEntries.length, TERRAIN_OVERLAY_SHADER.MAX_OVERLAYS);
         // 타일 draw만 반복되는 동안 미뤄 둔 전역 row는 실제 fallback 요청에서 한 번만
         // 갱신합니다. 여러 세대를 건너뛰어도 최신 registry와 atlas를 함께 반영합니다.
         if (stampState.globalTextureRevision !== stampState.textureRevision) {
-            resolveOverlayRelativeOrigin(stampState.globalOrigin, stampState.entries, fallbackCount);
+            resolveOverlayRelativeOrigin(stampState.globalOrigin, fallbackEntries, fallbackCount);
             _scratchOrigin.copy(stampState.globalOrigin);
             for (let i = 0; i < fallbackCount; i++) {
-                writeOverlayToTexture(stampState.globalStampDataTexture, i, stampState.entries[i]);
+                writeOverlayToTexture(stampState.globalStampDataTexture, i, fallbackEntries[i]);
             }
             stampState.globalStampDataTexture.needsUpdate = true;
             stampState.globalTextureRevision = stampState.textureRevision;
@@ -2276,6 +2285,7 @@ function applyObjectOverlayTexture(stampState, object) {
 
     let cache = stampState.tileStampDataTextureCache.get(object);
     const sameBounds = cache && areBoundsXYEqual(cache, tileBounds);
+    const tile = object?.getTile?.() ?? object?._tile;
 
     if (cache?.revision === stampState.textureRevision - 1 && stampState.canReuseUnchangedTiles
         && sameBounds && cache.data.texture
@@ -2285,8 +2295,8 @@ function applyObjectOverlayTexture(stampState, object) {
 
     // 타일 cache는 후보 선택 결과만 빌린다. 공유 항목이 퇴출되었으면 같은 revision이라도 다시 선택한다.
     if (!cache || cache.revision !== stampState.textureRevision || !sameBounds
-        || !cache.data.texture) {
-        cache = buildTileOverlayTexture(stampState, tileBounds, cache);
+        || !cache.data.texture || haveTerrainMaskTargetsChanged(cache.maskTargets, tile)) {
+        cache = buildTileOverlayTexture(stampState, tileBounds, cache, tile);
         stampState.tileStampDataTextureCache.set(object, cache);
     }
 
@@ -2301,7 +2311,16 @@ function applyObjectOverlayTexture(stampState, object) {
     _scratchOrigin.copy(cache.data.origin);
 }
 
-function buildTileOverlayTexture(stampState, tileBounds, cache) {
+/**
+ * 현재 타일에 영향을 주며 대상 영상으로 덮이는 도장만 공유 후보 자료에 기록합니다.
+ *
+ * @param {object} stampState 레이어별 도장 상태입니다.
+ * @param {object} tileBounds 현재 타일의 평면 범위입니다.
+ * @param {object | undefined} cache 재사용할 타일 후보 캐시입니다.
+ * @param {import('@U3dQuadTile').U3dQuadTile | undefined} tile 현재 논리 타일입니다.
+ * @returns {object} 갱신된 타일 후보 캐시입니다.
+ */
+function buildTileOverlayTexture(stampState, tileBounds, cache, tile) {
     // 현재 tile mesh에 실제로 영향을 줄 수 있는 overlay만 DataTexture에 기록합니다.
     // 따라서 전체 overlay가 128개를 넘어도, tile 하나에 겹치는 후보가 128개 이하면 모두 정상 처리됩니다.
     // fragment shader는 texture row 개수만큼 loop를 돌기 때문에 tile별 후보 수를 줄이는 것이 중요합니다.
@@ -2309,6 +2328,9 @@ function buildTileOverlayTexture(stampState, tileBounds, cache) {
     const limit = Math.min(stampState.maxStampsPerTile, TERRAIN_OVERLAY_SHADER.MAX_OVERLAYS);
     const tileStampCandidates = stampState.tileStampCandidates;
     tileStampCandidates.length = 0;
+    const previousMaskTargets = cache?.maskTargets;
+    previousMaskTargets?.clear();
+    let maskTargets;
 
     const outsideEntries = stampState.hasEntriesBounds
         && !intersectsBoundsXY(tileBounds, stampState.entriesBounds, TERRAIN_STAMP_TILE_BOUNDS_MARGIN);
@@ -2325,6 +2347,13 @@ function buildTileOverlayTexture(stampState, tileBounds, cache) {
             continue;
         }
 
+        if (overlay.mode === TERRAIN_STAMP_MODE_MASK && defined(overlay.targetLayer)) {
+            maskTargets ??= previousMaskTargets ?? new Map();
+            if (!maskTargets.has(overlay.targetLayer)) {
+                maskTargets.set(overlay.targetLayer, isTerrainMaskTargetReady(overlay.targetLayer, tile));
+            }
+            if (!maskTargets.get(overlay.targetLayer)) continue;
+        }
         tileStampCandidates.push(overlay);
     }
 
@@ -2382,21 +2411,37 @@ function buildTileOverlayTexture(stampState, tileBounds, cache) {
         sharedTextures.delete(key);
         sharedTextures.set(key, data);
     }
+    // 다른 Stamp가 바뀌어 layer 세대만 증가했더라도, 이 타일이 고른 실제 metadata와
+    // bounds가 같으면 기하 판정은 같습니다. 이전 결과를 재사용하여 겹친 후보의
+    // 광범위한 변경 사각형 때문에 같은 분류를 다시 실행하지 않도록 합니다.
+    cache ??= {compositeColor: new Vector4()};
+    cache.maskTargets = maskTargets;
+    if (cache.data === data && cache.coverageVersion === data.texture.version
+        && cache.minX === tileBounds.minX && cache.minY === tileBounds.minY
+        && cache.maxX === tileBounds.maxX && cache.maxY === tileBounds.maxY) {
+        cache.revision = stampState.textureRevision;
+        return cache;
+    }
     // 실제 선택·직렬화한 row를 사용해야 후보 상한과 float 좌표가 정밀 shader와 같습니다.
     // 같은 후보 조합이어도 타일의 경계 교차 여부는 다르므로 이 결과는 tile cache에 둡니다.
     // cache는 object별 WeakMap이 소유하므로 다른 타일의 coverage를 덮어쓰지 않습니다.
     // 움직이는 stamp 때문에 매 세대 계산해도 타일의 결과 객체·색·배열은 재사용합니다.
-    cache ??= {compositeColor: new Vector4()};
-    // 지원하는 단색 집합만 추가 분류한다. 상한 초과나 이미지·mask가 있는
-    // 범용 타일은 첫 미확정 row에서 종료하여 CPU 비용이 후보 전체 수에 늘지 않게 한다.
-    const rowCoverage = data.plainRowLimit
-        ? (cache.coverageStorage ??= new Float32Array(16))
+    // 많은 단색 후보는 후보별 판정 한 숫자만 보관합니다. 선의 world 거리 하한을
+    // 현재 pixel 폭과 비교하는 일은 GPU가 담당하므로 카메라 이동에도 같은 값을 씁니다.
+    // 색·정점 자료는 기존 공유 texture를 그대로 사용하며 추가 texture는 만들지 않습니다.
+    const classifyRows = data.plainRowLimit > 0;
+    const denseRows = data.plainRowLimit === 128;
+    const rowCoverage = denseRows
+        ? (cache.denseCoverageStorage ??= new Float32Array(128))
+        : classifyRows ? (cache.coverageStorage ??= new Float32Array(16))
         : TERRAIN_STAMP_EMPTY_ROW_COVERAGE;
     // resolveTileComposite는 alpha 조기 종료 뒤 행을 쓰지 않을 수 있어, 직전 판정이
     // 남지 않도록 단색 경로를 계산할 때만 소유 배열을 초기화합니다.
-    if (data.plainRowLimit) rowCoverage.fill(0);
-    cache.compositeEnabled = INTERNAL.resolveTileComposite(data.texture, count, data.origin, tileBounds, cache.compositeColor,
-        data.plainRowLimit ? rowCoverage : undefined);
+    if (classifyRows) rowCoverage.fill(0);
+    cache.compositeEnabled = denseRows
+        ? INTERNAL.resolveDenseRowCoverage(data.texture, count, data.origin, tileBounds, cache.compositeColor, rowCoverage)
+        : INTERNAL.resolveTileComposite(data.texture, count, data.origin, tileBounds, cache.compositeColor,
+            classifyRows ? rowCoverage : undefined);
     // scratch 객체 자체를 보관하면 다음 타일의 draw가 이 타일의 비교 기준을 덮어씁니다.
     // 숫자 snapshot만 복사하여 매 draw의 bounds 객체·문자열 생성을 없앱니다.
     cache.minX = tileBounds.minX;
@@ -2404,9 +2449,45 @@ function buildTileOverlayTexture(stampState, tileBounds, cache) {
     cache.maxX = tileBounds.maxX;
     cache.maxY = tileBounds.maxY;
     cache.revision = stampState.textureRevision;
+    cache.coverageVersion = data.texture.version;
     cache.data = data;
     cache.rowCoverage = rowCoverage;
     return cache;
+}
+
+/**
+ * 도형 변경과 무관한 영상 로딩·부착·숨김 변화도 타일 후보에 반영합니다.
+ *
+ * @param {Map<import('@U3dImageLayer').U3dImageLayer, boolean> | undefined} targets 직전 대상별 표시 판정입니다.
+ * @param {import('@U3dQuadTile').U3dQuadTile | undefined} tile 현재 논리 타일입니다.
+ * @returns {boolean} 판정이 달라져 후보를 다시 골라야 하면 true입니다.
+ */
+function haveTerrainMaskTargetsChanged(targets, tile) {
+    if (!targets) return false;
+    for (const [target, ready] of targets) {
+        if (ready !== isTerrainMaskTargetReady(target, tile)) return true;
+    }
+    return false;
+}
+
+/**
+ * 대상 영상의 현재 타일이나 표시 중인 부모가 배경을 대신 덮을 수 있는지 확인합니다.
+ *
+ * @param {import('@U3dImageLayer').U3dImageLayer} layer 마스크 아래 표시할 영상 레이어입니다.
+ * @param {import('@U3dQuadTile').U3dQuadTile | undefined} tile 배경을 가릴 논리 타일입니다.
+ * @returns {boolean} 텍스처·지형 전환·장면 부착이 모두 준비되었으면 true입니다.
+ */
+function isTerrainMaskTargetReady(layer, tile) {
+    if (layer._disposed === true || layer.getVisible?.() !== true) return false;
+    for (let current = tile; current; current = current._parent) {
+        if (current._disposed === true) continue;
+        if (layer.isTilePresentationParticipant?.(current) !== true) continue;
+        if (layer.isTexture?.(current) !== true) continue;
+        if (layer.isTileRenderableReady?.(current) !== true) continue;
+        if (layer.isTilePresentationVisible?.(current) !== true) continue;
+        return true;
+    }
+    return false;
 }
 
 function isTargetMaskOverlayForState(stampState, overlay) {
@@ -2462,7 +2543,7 @@ function writeOverlayToTexture(texture, row, overlay) {
         }
     }
 
-    // point column 뒤 첫 metadata column: 색상 overlay이면 alpha를 직접 저장하고, texture overlay이면 alpha 채널 사용 여부를 저장합니다.
+    // 이미지가 지정됐으면 atlas 준비 전 기본색이 보이지 않도록 alpha를 0으로 유지합니다.
     // texture의 실제 opacity는 column 0의 textureOpacity(metadata.w)와 조합됩니다.
     writeOverlayTexel(
         texture,
@@ -2471,9 +2552,11 @@ function writeOverlayToTexture(texture, row, overlay) {
         overlay.color.r,
         overlay.color.g,
         overlay.color.b,
-        overlay.texture
+        hasTexture
             ? (overlay.textureUseAlpha ? 1 : 0)
-            : Math.max(0, Math.min(1, overlay.opacity))
+            : (overlay.texture
+                ? 0
+                : Math.max(0, Math.min(1, overlay.opacity)))
     );
 
     // atlas rect column: atlas에서 이 overlay가 사용할 texture cell의 UV 범위입니다.

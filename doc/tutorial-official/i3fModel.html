@@ -711,7 +711,7 @@
             self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
             self._app.addLayer(this.layer);
         }
-        this.layer.then(() => {
+        this.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -743,7 +743,7 @@
     HeightLayer.prototype.create = function () {
         let self = this;
         self.layer = this._app.createHeightXYZLayer(self.options);
-        self.layer.then(() => {
+        self.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -1045,7 +1045,7 @@
         initLayer(initLayerList);
 
         // u3f 모델 레이어 생성
-        window.u3fGroupLayer = this.app.createModelGroupLayer({
+        window.u3fGroupLayer = this.app.createGroupLayer({
             maxlevel: 15,
             minlevel: 15,
             name: 'U3fGroupLayer'
@@ -1075,7 +1075,7 @@
                     opacity: 0.3
                 };
                 let layer = app.create3DFModelLayer(options);
-                if (layer !== undefined) {
+                if (layer) {
                     window.u3fGroupLayer.addLayer(layer);
                 }
             }
@@ -1206,7 +1206,7 @@
             }
             let modelLayer = undefined;
             if(LAYER_OPT_[name].layers){
-                modelLayer = app.createModelGroupLayer({
+                modelLayer = app.createGroupLayer({
                     name: name,
                     maxlevel: 17,
                     minlevel: 17,
@@ -1237,8 +1237,10 @@
                 app.addLayer(modelLayer);
             }
 
-            modelLayer.then(function () {
+            modelLayer.ready.then(function () {
                 app.showLayer(name, true);
+            }).catch(error => {
+                console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
             });
 
             window.layer = modelLayer;

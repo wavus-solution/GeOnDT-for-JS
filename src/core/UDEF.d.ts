@@ -1,14 +1,15 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { UByteBuffer } from "./UByteBuffer.js";
+import type { UResourceManager } from "../manager/UResourceManager.js";
+import type { UPassInfo } from "../postProcess/UPassInfo.js";
 import type { SimpleRect } from "../types/global.js";
-import type { DeferredRejectFunc, DeferredResolveFunc } from "../util/deferred.js";
 
 /**
  * 공통 정의 변수 및 함수
@@ -16,8 +17,18 @@ import type { DeferredRejectFunc, DeferredResolveFunc } from "../util/deferred.j
  * @ignore
  */
 declare class UDEF {
-    static version: any;
-    static copyright: any;
+    static version: {
+        list: (string | number)[];
+        release: string;
+        majorVer: string;
+        minorVer: string;
+        minor2Ver: string;
+        threeVer: string;
+        updateVer: string;
+        deployVer: string;
+        hashVer: string;
+    };
+    static copyright: string;
     static INVALID: number;
     /**
      * GeOnDT 스크립트 경로, webworker 나 리소스를 불러오기 위해 사용
@@ -69,7 +80,7 @@ declare class UDEF {
     static FrontSide: 0;
     static BackSide: 1;
     static DoubleSide: 2;
-    static resourceManager: any;
+    static resourceManager: UResourceManager;
     static DEFAULT_TERRAIN_SHADOW_LEVEL: number;
     static TILES_STATE: {
         _NONE: number;
@@ -111,6 +122,15 @@ declare class UDEF {
         TREE: string;
     };
     static BOUNDING_METHOD: string;
+    /**
+     * 생성 옵션과 런타임 전환에서 공통으로 사용하는 지도 영역입니다.
+     * @readonly
+     */
+    static readonly MAP_REGION: Readonly<{
+        WORLD: "world";
+        KOREA: "korea";
+        CUSTOM: "custom";
+    }>;
     static CAMERA_TYPE: {
         PERSPECTIVE: string;
         ORTHOGRAPHIC: string;
@@ -300,6 +320,7 @@ declare class UDEF {
     static SELECT_TYPE: {
         COLOR: string;
         OUTLINE: string;
+        RING: string;
     };
     static SUN_AMOUNT_MODE: {
         POINT: string;
@@ -338,8 +359,8 @@ declare class UDEF {
     };
     static TONEMAPPING: 4;
     static TONEMAPPING_EXPOSURE: number;
-    static DRACO_DECODER_PATH: any;
-    static TRANS_CODER_PATH: any;
+    static DRACO_DECODER_PATH: string;
+    static TRANS_CODER_PATH: string;
     static MAX_HEIGHT: number;
     static g_TextureEncoding: "srgb";
     static g_ShadowMapType: 3;
@@ -383,7 +404,7 @@ declare class UDEF {
         g: number;
         b: number;
     };
-    static cloudImgUrl: any;
+    static cloudImgUrl: string;
     static fogColor: number;
     static fogValue: number;
     static APP_COMMAND_TPYE: {
@@ -394,17 +415,17 @@ declare class UDEF {
     static RESOURCE: {
         TERRAIN_NORMAL: {
             NAME: string;
-            URL: any;
+            URL: string;
             TEXTURE: any;
         };
         BLUE_NOSIE: {
             NAME: string;
-            URL: any;
+            URL: string;
             TEXTURE: any;
         };
         ANCHOR_POINT: {
             NAME: string;
-            URL: any;
+            URL: string;
             TEXTURE: any;
         };
     };
@@ -423,18 +444,18 @@ declare class UDEF {
         UTIL: number;
     };
     static POSTPASS: {
-        RENDER: any;
-        GTAO: any;
-        OUTPUT_POST: any;
-        BLOOM: any;
-        SKYLINE: any;
-        SUNAMOUNT: any;
-        HEIGHT: any;
-        DRAW_OVERLAY: any;
-        FXAA_DITHER: any;
-        UNKNOWN: any;
-        BLITL: any;
-        OUTLINE: any;
+        RENDER: UPassInfo;
+        GTAO: UPassInfo;
+        OUTPUT_POST: UPassInfo;
+        BLOOM: UPassInfo;
+        SKYLINE: UPassInfo;
+        SUNAMOUNT: UPassInfo;
+        HEIGHT: UPassInfo;
+        DRAW_OVERLAY: UPassInfo;
+        FXAA_DITHER: UPassInfo;
+        UNKNOWN: UPassInfo;
+        BLITL: UPassInfo;
+        OUTLINE: UPassInfo;
     };
     static RENDER_TYPE: {
         SCENE: string;
@@ -511,7 +532,7 @@ declare class UDEF {
      * @ignore
      */
     static createKey(x: number | string, y: number | string, level: number | string, title?: string): string;
-    static "__#2@#uuidStorage": any[];
+    static "__#11329@#uuidStorage": any[];
     /**
      * UUID 캐시에서 UUID를 꺼내거나 캐시가 비어 있으면 새 UUID를 생성한다.
      * 주 사용처: U3dObject, U3DTileset, UFileLoader, geometry, select, quadtree 계열 객체의 식별자 생성에 사용한다.
@@ -549,16 +570,17 @@ declare class UDEF {
      */
     static numberPad(n: number | string, width: number): string;
     /**
-     * deferred와 Yield 가 합쳐진, 작업을 비동기로 실행하는 함수입니다.
+     * Yield 이후 작업을 실행하고 명시적인 resolve·reject 호출로 결과를 전달합니다.
+     * 작업 콜백의 반환값은 완료값으로 사용하지 않으며, 동기 예외와 비동기 실패는 원인 그대로 전달합니다.
      *
      * @template [T=any]
-     * @param {(resolve: DeferredResolveFunc<T>, reject: DeferredRejectFunc<T>) => unknown} callback 비동기로 실행할 작업
+     * @param {(resolve: (value?: T | PromiseLike<T>) => void, reject: (reason?: unknown) => void) => unknown} callback 비동기로 실행할 작업. 완료값이 없는 기존 작업은 resolve()로 알립니다.
      * @param {boolean} [isYield=false] true이면 강제 Yield를 실행하고, false이면 scheduler가 Yield 여부를 판단합니다.
      * @returns {Promise<T>} 작업 완료를 알리는 Promise
      *
      * @ignore
      */
-    static createPromise<T = any>(callback: (resolve: DeferredResolveFunc<T>, reject: DeferredRejectFunc<T>) => unknown, isYield?: boolean): Promise<T>;
+    static createPromise<T = any>(callback: (resolve: (value?: T | PromiseLike<T>) => void, reject: (reason?: unknown) => void) => unknown, isYield?: boolean): Promise<T>;
     /**
      * Draco decoder 경로를 설정한다.
      * 주 사용처: GeOnDT.setDracoDecoderPath에서 Draco decoder 경로 설정을 위임할 때 사용한다.
@@ -625,7 +647,7 @@ declare class UDEF {
      *
      * @ignore
      */
-    static "__#2@#textDecoder": TextDecoder;
+    static "__#11329@#textDecoder": TextDecoder;
     /**
      * UByteBuffer에서 지정 길이만큼 byte array를 읽어 문자열로 변환한다.
      * 주 사용처: UI3FParser, U3FParser, U3FPackageParser, U3FParser2 계열에서 바이너리 헤더와 문자열 필드 파싱에 사용한다.

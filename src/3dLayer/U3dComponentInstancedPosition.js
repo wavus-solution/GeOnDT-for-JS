@@ -21,6 +21,8 @@ const TEMP_POI_VEC = new THREE.Vector3();
 class U3dComponentInstancedPosition extends U3dComponentPosition {
     /** @type {boolean} */
     #colorAdjustmentSelected = false;
+    /** 마지막 기본색의 선형 RGB를 선택 복원용으로 보존합니다. @type {import('three').Color | undefined} */
+    #baseColor;
     /** 애니메이션 갱신을 허용하는 카메라 거리입니다. @type {number} */
     #animationDistance;
     /** mixer 활성 여부를 조회하는 선택 callback입니다. @type {undefined | function(): boolean} */
@@ -62,6 +64,8 @@ class U3dComponentInstancedPosition extends U3dComponentPosition {
         this.groupIndex = defaultValue(opt.groupIndex, undefined);
         this.instancedInfo = defaultValue(opt.instancedInfo, undefined);
         this.instancedGroup = defaultValue(opt.instancedGroup, undefined);
+        // 반환된 슬롯을 재사용해도 새 컴포넌트는 모델 원래 색상으로 시작합니다.
+        COLOR_ADJUSTMENT.resetInstanceAppearance(this.instancedGroup, this.instanceId);
         this._animateList = [];
         // proxy 증분 회전을 현재 컴포넌트와 인스턴스 matrix 갱신 경로에 연결합니다.
         this._object.rotateX = INTERNAL.rotateX.bind(undefined, this);
@@ -334,6 +338,23 @@ class U3dComponentInstancedPosition extends U3dComponentPosition {
     }
 
     /**
+     * 모델 오프셋을 현재 기체가 사용하는 모든 메시의 인스턴스 변환에 반영합니다.
+     *
+     * @override
+     *
+     * @ignore
+     */
+    _applyModelOffset() {
+        if (!this.position || !this.instancedGroup) return;
+        const index = this.getInstancedId();
+        if (!defined(index)) return;
+        // 모델 교체 후의 entity를 다시 연결하되 애니메이션 위상·정지 상태는 보존합니다.
+        INTERNAL.setInstanceEntity(this, false);
+        this.instancedMeshUpdate(this.position, index, this.instancedGroup, 0);
+        this._object?.updateWorldMatrix(true, true);
+    }
+
+    /**
      * 현재 컴포넌트를 반환합니다.
      *
      * @returns {U3dComponentInstancedPosition} 현재 컴포넌트
@@ -415,36 +436,42 @@ class U3dComponentInstancedPosition extends U3dComponentPosition {
     }
 
     /**
-     * 색상 설정 함수
+     * 컴포넌트를 해제합니다. <br>
+     * 같은 모델을 사용하는 다른 인스턴스의 색상과 선택 상태는 유지합니다.
      *
      * @override
      *
-     * @param {import('three').Color | string | number} [color='#ffffff']
-     * @returns {boolean} 색상 적용 여부
+               
+                                                                          
+     */
+    dispose() {
+        if (this.isDisposed()) return;
+        // 다른 기체의 색상·선택 상태를 유지한 채 현재 슬롯의 표현 상태만 반납합니다.
+        COLOR_ADJUSTMENT.resetInstanceAppearance(this.instancedGroup, this.instanceId);
+        super.dispose();
+    }
+
+    /**
+     * 이 컴포넌트가 표시하는 모델의 기본 색상을 설정합니다. <br>
+     * 텍스처와 조명 등의 영향으로 화면에 보이는 색상은 지정한 값과 다를 수 있습니다. <br>
+     * 같은 모델을 사용하는 다른 인스턴스의 색상에는 영향을 주지 않습니다.
+     *
+     * @override
+     *
+     * @param {import('three').ColorRepresentation} [color='#ffffff'] 모델에 적용할 기본 색상
+     * @returns {boolean} 색상이 적용되면 true, 인스턴스가 없거나 적용에 실패하면 false
+     *
+               
+                                                                           
      */
     setColor(color = '#ffffff') {
-        if (!defined(this.instanceId)) return false;
-        if (!this.instancedGroup) return false;
+        if (this.isDisposed() || !defined(this.instanceId) || !this.instancedGroup) return false;
         try {
-            if (!(color instanceof THREE.Color)) {
-                color = new THREE.Color(color);
-            }
-
-            for (const mesh of this.instancedGroup.children) {
-                const instMesh = /** @type {InstancedRenderableMesh} */(mesh);
-                const meshIndex = this.instanceId % instMesh.capacity;
-                // 입력 값이 원본 색상이랑 같으면 종료합니다.
-                if (instMesh.getColorAt(meshIndex).equals(color)) {
-                    continue;
-                }
-
-                instMesh.setColorAt(meshIndex, color);
-                const color_ = color.clone();
-                if (!instMesh._oriColorMap) instMesh._oriColorMap = new Map();
-                instMesh._oriColorMap.set(meshIndex, color_);
-
-                this.color = color_.getStyle();
-            }
+            const parsedColor = color instanceof THREE.Color ? color : new THREE.Color(color);
+            // 공유 재질을 보존하며 현재 인스턴스에 일반 컴포넌트와 동일한 기본색 교체를 적용합니다.
+            COLOR_ADJUSTMENT.applyInstanceBaseColor(this.instancedGroup, this.instanceId, parsedColor);
+            this.#baseColor = parsedColor.clone();
+            this.color = parsedColor.getStyle();
         } catch (e) {
             __GSError__(e);
             return false;
@@ -520,20 +547,28 @@ class U3dComponentInstancedPosition extends U3dComponentPosition {
 
 
     /**
-     * 텍스쳐 제외 출력 여부
+     * 이 컴포넌트의 색상 텍스처 출력을 끄거나 켭니다. <br>
+     * true이면 색상 텍스처를 제외하고, false이면 각 LOD 재질의 원래 텍스처 사용 상태로 되돌립니다. <br>
+     * 기본색·조명과 다른 종류의 텍스처, 같은 모델을 사용하는 다른 인스턴스의 설정은 유지합니다.
      *
      * @override
      *
-     * @param {boolean} [isExcept=false] 텍스쳐 제외 적용 여부
+     * @param {boolean} [isExcept=false] 색상 텍스처를 제외할지 여부
+     * @returns {boolean} 적용되면 true, 인스턴스가 없거나 적용에 실패하면 false
      *
-     * @deprecated instance 타입의 ComponentPosition은 텍스쳐 제외 출력을 지원하지 않습니다.
-     * @returns {boolean}
+               
+                                                        
+                                               
      */
     exceptTexture(isExcept = false) {
-        if (isExcept) {
-            __GInfo__(this, 'instance 타입의 ComponentPosition은 텍스쳐 제외 출력을 지원하지 않습니다.', '8118553');
+        if (this.isDisposed() || !defined(this.instanceId) || !this.instancedGroup) return false;
+        try {
+            COLOR_ADJUSTMENT.applyInstanceTextureExclusion(this.instancedGroup, this.instanceId, isExcept);
+            return true;
+        } catch (e) {
+            __GSError__(e);
+            return false;
         }
-        return !isExcept;
     }
 
     /**
@@ -567,6 +602,8 @@ class U3dComponentInstancedPosition extends U3dComponentPosition {
         if (!defined(index)) return tempBox;
         // 원본 모델의 child 변환을 반영한 로컬 경계를 모읍니다. 반환 상자의 중심 정보는 아래에서 설정합니다.
         INTERNAL.collectBounds(object, index, tempBox);
+        // 렌더 인스턴스와 같은 로컬 보정을 경계 상자에도 적용합니다.
+        tempBox.translate(this._modelOffset);
         const size = new THREE.Vector3();
         const center = new THREE.Vector3();
         tempBox.getSize(size);
@@ -1052,25 +1089,29 @@ class U3dComponentInstancedPosition extends U3dComponentPosition {
     }
 
     /**
-     * [pickMaterial] 대상을 선택하거나 지정 했을 경우에 해당 객체의 색상을 변경해주거나 highlight 해주는 함수
+     * 이 컴포넌트에 선택 강조 색상과 투명도를 적용합니다. <br>
+     * 같은 모델을 사용하는 다른 인스턴스의 표시는 변경하지 않습니다. <br>
+     * 선택 강조를 해제하려면 restoreMaterial()을 호출하십시오.
      *
-     * @param {unknown} [intersect] 선택 교차 정보. 현재 구현에서는 사용하지 않습니다.
-     * @param {import('three').ColorRepresentation} [color='#ffffff'] 설정 색상
-     * @param {number} [opacity=1] 설정 투명도 수치
+     * @override
      *
-     * @returns {boolean} 색상 적용 여부
+     * @param {unknown} [intersect] 선택 교차 정보(현재 구현에서는 사용하지 않음)
+     * @param {import('three').ColorRepresentation} [color='#ffffff'] 선택 강조 색상
+     * @param {number} [opacity=1] 선택 강조 투명도
      *
-    * @ignore
+     * @returns {boolean} 선택 강조가 적용되면 true, 인스턴스가 없거나 적용에 실패하면 false
+     *
+               
+                                                                            
      */
     pickMaterial(intersect, color = '#ffffff', opacity = 1) {
+        if (this.isDisposed()) return false;
         if (!defined(this.instanceId)) return false;
         if (!this.instancedGroup) return false;
         try {
             const colorObj = new THREE.Color(color);
-            for (const mesh of this.instancedGroup.children) {
-                const instMesh = /** @type {InstancedRenderableMesh} */(mesh);
-                instMesh.pickMaterial?.((this.instanceId % instMesh.capacity), colorObj, opacity);
-            }
+            // 공유 material.color를 바꾸는 메시 선택 경로 대신 인스턴스별 기본색 교체를 사용합니다.
+            COLOR_ADJUSTMENT.applyInstanceSelection(this.instancedGroup, this.instanceId, colorObj, opacity);
             this.#colorAdjustmentSelected = true;
             this._applyColorAdjustment(this.getBrightness(), this.getContrast(), this.getSaturation());
             return true;
@@ -1080,11 +1121,15 @@ class U3dComponentInstancedPosition extends U3dComponentPosition {
         }
     }
     /**
-     * [restoreMaterial] 색상을 이전에 설정하여 변경 하였다면 다시 원래의 색상으로 복구하는 함수
+     * 선택 강조를 해제하고 강조 전의 색상과 투명도로 복원합니다. <br>
+     * setColor()로 지정한 색상이 있으면 그 색상을 사용하며, 설정된 밝기·대비·채도도 다시 적용합니다.
      *
-     * @returns {boolean} 색상 복구 적용 여부
+     * @override
      *
-    * @ignore
+     * @returns {boolean} 복원이 적용되면 true, 인스턴스가 없거나 적용에 실패하면 false
+     *
+               
+                                                                             
      */
     restoreMaterial() {
         if (this.isDisposed()) return false;
@@ -1094,9 +1139,20 @@ class U3dComponentInstancedPosition extends U3dComponentPosition {
         try {
             for (const mesh of this.instancedGroup.children) {
                 const instMesh = /** @type {InstancedRenderableMesh} */(mesh);
-                instMesh.restoreMaterial?.((this.instanceId % instMesh.capacity));
+                const id = this.instanceId % instMesh.capacity;
+                const pickedInfo = instMesh.userData.pickedInfo;
+                instMesh.restoreMaterial?.(id);
+                // 메시의 복원 API는 pickedInfo를 공통으로 지웁니다. 다른 기체의 선택 표식은 보존합니다.
+                if (pickedInfo !== id) instMesh.userData.pickedInfo = pickedInfo;
             }
             this.#colorAdjustmentSelected = false;
+            if (this.#baseColor) {
+                // 반복 복원에도 마지막 기본색을 유지하며 CSS 문자열 왕복에 따른 RGB 반올림을 피합니다.
+                COLOR_ADJUSTMENT.applyInstanceBaseColor(this.instancedGroup, this.instanceId, this.#baseColor);
+            } else {
+                // 기본색을 지정하지 않은 기체는 선택 전 원본 재질 색상으로 돌아갑니다.
+                COLOR_ADJUSTMENT.resetInstanceBaseColor(this.instancedGroup, this.instanceId);
+            }
             this._applyColorAdjustment(this.getBrightness(), this.getContrast(), this.getSaturation());
         } catch (e) {
             __GSError__(e);

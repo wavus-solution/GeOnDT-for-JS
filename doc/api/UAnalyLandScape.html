@@ -15,7 +15,7 @@
     <!-- 한글 본문용 가변 서체입니다. 내려받지 못해도 styles/jaguar.css의 대체 서체로 그대로 표시됩니다. -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-    <link type="text/css" rel="stylesheet" href="styles/jaguar.css?v=muz1hdly">
+    <link type="text/css" rel="stylesheet" href="styles/jaguar.css?v=mvon8gzc">
     <script>
         // 화면이 그려지기 전에 테마를 정해 화면이 한 번 번쩍이는 것을 막습니다.
         // 상단 전환 버튼으로 직접 고른 적이 없으면 운영체제 설정을 따릅니다.
@@ -137,6 +137,10 @@
             <h3>Methods</h3>
             <ul>
             
+                <li data-name="_stopmapregionmotion">
+                    <a href="U3dApp.html#_stopMapRegionMotion">_stopMapRegionMotion</a>
+                </li>
+            
                 <li data-name="activeanalysis">
                     <a href="U3dApp.html#activeAnalysis">activeAnalysis</a>
                 </li>
@@ -253,16 +257,12 @@
                     <a href="U3dApp.html#create3DFModelLayer">create3DFModelLayer</a>
                 </li>
             
-                <li data-name="create3dimagewmtslayer">
-                    <a href="U3dApp.html#create3dImageWMTSLayer">create3dImageWMTSLayer</a>
-                </li>
-            
-                <li data-name="create3dopenlayer">
-                    <a href="U3dApp.html#create3dOpenLayer">create3dOpenLayer</a>
-                </li>
-            
                 <li data-name="createanalysisbytypeandname">
                     <a href="U3dApp.html#createAnalysisByTypeAndName">createAnalysisByTypeAndName</a>
+                </li>
+            
+                <li data-name="createbimobjmodellayer">
+                    <a href="U3dApp.html#createBIMObjModelLayer">createBIMObjModelLayer</a>
                 </li>
             
                 <li data-name="createdebugcanvas">
@@ -289,6 +289,10 @@
                     <a href="U3dApp.html#createGridTileLayer">createGridTileLayer</a>
                 </li>
             
+                <li data-name="creategrouplayer">
+                    <a href="U3dApp.html#createGroupLayer">createGroupLayer</a>
+                </li>
+            
                 <li data-name="createheightxyzlayer">
                     <a href="U3dApp.html#createHeightXYZLayer">createHeightXYZLayer</a>
                 </li>
@@ -301,24 +305,16 @@
                     <a href="U3dApp.html#createLoadingCanvas">createLoadingCanvas</a>
                 </li>
             
-                <li data-name="createmeasurelayer">
-                    <a href="U3dApp.html#createMeasureLayer">createMeasureLayer</a>
-                </li>
-            
-                <li data-name="createmodelbimobjlayer">
-                    <a href="U3dApp.html#createModelBIMObjLayer">createModelBIMObjLayer</a>
-                </li>
-            
-                <li data-name="createmodelgrouplayer">
-                    <a href="U3dApp.html#createModelGroupLayer">createModelGroupLayer</a>
-                </li>
-            
-                <li data-name="createmodeltdslayer">
-                    <a href="U3dApp.html#createModelTdsLayer">createModelTdsLayer</a>
+                <li data-name="createmodelquadtreeset">
+                    <a href="U3dApp.html#createModelQuadTreeSet">createModelQuadTreeSet</a>
                 </li>
             
                 <li data-name="createmultiplecomponentlayer">
                     <a href="U3dApp.html#createMultipleComponentLayer">createMultipleComponentLayer</a>
+                </li>
+            
+                <li data-name="createopenlayer">
+                    <a href="U3dApp.html#createOpenLayer">createOpenLayer</a>
                 </li>
             
                 <li data-name="createoverlay">
@@ -341,6 +337,10 @@
                     <a href="U3dApp.html#createPointerLockFlyControls">createPointerLockFlyControls</a>
                 </li>
             
+                <li data-name="createquadtreeset">
+                    <a href="U3dApp.html#createQuadTreeSet">createQuadTreeSet</a>
+                </li>
+            
                 <li data-name="createsky">
                     <a href="U3dApp.html#createSky">createSky</a>
                 </li>
@@ -357,12 +357,12 @@
                     <a href="U3dApp.html#createTdsModelLayer">createTdsModelLayer</a>
                 </li>
             
-                <li data-name="createtempletetmsimagelayer">
-                    <a href="U3dApp.html#createTempleteTMSImageLayer">createTempleteTMSImageLayer</a>
+                <li data-name="createtemplatetmsimagelayer">
+                    <a href="U3dApp.html#createTemplateTMSImageLayer">createTemplateTMSImageLayer</a>
                 </li>
             
-                <li data-name="createterrainlayer">
-                    <a href="U3dApp.html#createTerrainLayer">createTerrainLayer</a>
+                <li data-name="createterrainquadtreeset">
+                    <a href="U3dApp.html#createTerrainQuadTreeSet">createTerrainQuadTreeSet</a>
                 </li>
             
                 <li data-name="createview">
@@ -377,12 +377,8 @@
                     <a href="U3dApp.html#createWMSImageLayer">createWMSImageLayer</a>
                 </li>
             
-                <li data-name="createwmtslayer">
-                    <a href="U3dApp.html#createWMTSLayer">createWMTSLayer</a>
-                </li>
-            
-                <li data-name="createwmtstemplatelayer">
-                    <a href="U3dApp.html#createWMTSTemplateLayer">createWMTSTemplateLayer</a>
+                <li data-name="createwmtsimagelayer">
+                    <a href="U3dApp.html#createWMTSImageLayer">createWMTSImageLayer</a>
                 </li>
             
                 <li data-name="createxyzimagelayer">
@@ -435,6 +431,18 @@
             
                 <li data-name="dispose">
                     <a href="U3dApp.html#dispose">dispose</a>
+                </li>
+            
+                <li data-name="disposemodelquadtree">
+                    <a href="U3dApp.html#disposeModelQuadTree">disposeModelQuadTree</a>
+                </li>
+            
+                <li data-name="disposequadtree">
+                    <a href="U3dApp.html#disposeQuadTree">disposeQuadTree</a>
+                </li>
+            
+                <li data-name="disposeterrainquadtree">
+                    <a href="U3dApp.html#disposeTerrainQuadTree">disposeTerrainQuadTree</a>
                 </li>
             
                 <li data-name="disposetilemodelall">
@@ -649,12 +657,24 @@
                     <a href="U3dApp.html#getHeightAtPoint">getHeightAtPoint</a>
                 </li>
             
+                <li data-name="getheightlayer">
+                    <a href="U3dApp.html#getHeightLayer">getHeightLayer</a>
+                </li>
+            
                 <li data-name="getheightlayers">
                     <a href="U3dApp.html#getHeightLayers">getHeightLayers</a>
                 </li>
             
                 <li data-name="gethomeposition">
                     <a href="U3dApp.html#getHomePosition">getHomePosition</a>
+                </li>
+            
+                <li data-name="getimagelayer">
+                    <a href="U3dApp.html#getImageLayer">getImageLayer</a>
+                </li>
+            
+                <li data-name="getimagelayers">
+                    <a href="U3dApp.html#getImageLayers">getImageLayers</a>
                 </li>
             
                 <li data-name="getimprovelevel">
@@ -745,8 +765,16 @@
                     <a href="U3dApp.html#getLoadingTotal">getLoadingTotal</a>
                 </li>
             
+                <li data-name="getlodingdom">
+                    <a href="U3dApp.html#getLodingDom">getLodingDom</a>
+                </li>
+            
                 <li data-name="getmapcontrol">
                     <a href="U3dApp.html#getMapControl">getMapControl</a>
+                </li>
+            
+                <li data-name="getmapregion">
+                    <a href="U3dApp.html#getMapRegion">getMapRegion</a>
                 </li>
             
                 <li data-name="getmaxprocess">
@@ -763,6 +791,10 @@
             
                 <li data-name="getmodelimagedistance">
                     <a href="U3dApp.html#getModelImageDistance">getModelImageDistance</a>
+                </li>
+            
+                <li data-name="getmodelmaxlevel">
+                    <a href="U3dApp.html#getModelMaxLevel">getModelMaxLevel</a>
                 </li>
             
                 <li data-name="getmodelupdateoffset">
@@ -1133,6 +1165,10 @@
                     <a href="U3dApp.html#removeLight">removeLight</a>
                 </li>
             
+                <li data-name="removeloadingcanvas">
+                    <a href="U3dApp.html#removeLoadingCanvas">removeLoadingCanvas</a>
+                </li>
+            
                 <li data-name="removemodel">
                     <a href="U3dApp.html#removeModel">removeModel</a>
                 </li>
@@ -1169,6 +1205,10 @@
                     <a href="U3dApp.html#renderFrame">renderFrame</a>
                 </li>
             
+                <li data-name="resetcameralimitdistance">
+                    <a href="U3dApp.html#resetCameraLimitDistance">resetCameraLimitDistance</a>
+                </li>
+            
                 <li data-name="resetfog">
                     <a href="U3dApp.html#resetFog">resetFog</a>
                 </li>
@@ -1177,8 +1217,16 @@
                     <a href="U3dApp.html#resize">resize</a>
                 </li>
             
+                <li data-name="restartmodelquadtree">
+                    <a href="U3dApp.html#restartModelQuadTree">restartModelQuadTree</a>
+                </li>
+            
                 <li data-name="restartquadtree">
                     <a href="U3dApp.html#restartQuadTree">restartQuadTree</a>
+                </li>
+            
+                <li data-name="restartterrainquadtree">
+                    <a href="U3dApp.html#restartTerrainQuadTree">restartTerrainQuadTree</a>
                 </li>
             
                 <li data-name="savecamerastate">
@@ -1349,6 +1397,10 @@
                     <a href="U3dApp.html#setInteriorPanControl">setInteriorPanControl</a>
                 </li>
             
+                <li data-name="setmapregion">
+                    <a href="U3dApp.html#setMapRegion">setMapRegion</a>
+                </li>
+            
                 <li data-name="setmaxprocess">
                     <a href="U3dApp.html#setMaxProcess">setMaxProcess</a>
                 </li>
@@ -1497,6 +1549,10 @@
                     <a href="U3dApp.html#setUndergroundFogStartHeight">setUndergroundFogStartHeight</a>
                 </li>
             
+                <li data-name="setvisibleloading">
+                    <a href="U3dApp.html#setVisibleLoading">setVisibleLoading</a>
+                </li>
+            
                 <li data-name="setzoom">
                     <a href="U3dApp.html#setZoom">setZoom</a>
                 </li>
@@ -1535,10 +1591,6 @@
             
                 <li data-name="showundergroundgrid">
                     <a href="U3dApp.html#showUnderGroundGrid">showUnderGroundGrid</a>
-                </li>
-            
-                <li data-name="stopfly">
-                    <a href="U3dApp.html#stopFly">stopFly</a>
                 </li>
             
                 <li data-name="synccamera">
@@ -1604,10 +1656,6 @@
                     <a href="U3dApp.html#~U3dTMSImageLayerCO">U3dTMSImageLayerCO</a>
                 </li>
             
-                <li data-name="u3dwmtslayerco">
-                    <a href="U3dApp.html#~U3dWMTSLayerCO">U3dWMTSLayerCO</a>
-                </li>
-            
             </ul>
         </section>
 </div>
@@ -1624,7 +1672,7 @@
             <details class="navigation-group" id="nav-group-analysis-r169g7">
                 <summary class="navigation-group-summary">
                     <span class="navigation-group-label">Analysis</span>
-                    <span class="navigation-badge" data-total-count="35">35</span>
+                    <span class="navigation-badge" data-total-count="34">34</span>
                 </summary>
                 <ul class="navigation-group-items">
                 
@@ -1860,10 +1908,6 @@
             <h3>Members</h3>
             <ul>
             
-                <li data-name="setapp">
-                    <a href="UAnaly.html#setApp">setApp</a>
-                </li>
-            
                 <li data-name="event">
                     <a href="UAnaly.html#.Event">Event</a>
                 </li>
@@ -1887,12 +1931,36 @@
                     <a href="UAnaly.html#clear">clear</a>
                 </li>
             
+                <li data-name="clearmeasurefeatureselection">
+                    <a href="UAnaly.html#clearMeasureFeatureSelection">clearMeasureFeatureSelection</a>
+                </li>
+            
                 <li data-name="deactive">
                     <a href="UAnaly.html#deactive">deactive</a>
                 </li>
             
                 <li data-name="getanalysisoption">
                     <a href="UAnaly.html#getAnalysisOption">getAnalysisOption</a>
+                </li>
+            
+                <li data-name="getfeaturecoordinates">
+                    <a href="UAnaly.html#getFeatureCoordinates">getFeatureCoordinates</a>
+                </li>
+            
+                <li data-name="getfeatureresult">
+                    <a href="UAnaly.html#getFeatureResult">getFeatureResult</a>
+                </li>
+            
+                <li data-name="getfeatureresults">
+                    <a href="UAnaly.html#getFeatureResults">getFeatureResults</a>
+                </li>
+            
+                <li data-name="getfeaturestyle">
+                    <a href="UAnaly.html#getFeatureStyle">getFeatureStyle</a>
+                </li>
+            
+                <li data-name="getfeatures">
+                    <a href="UAnaly.html#getFeatures">getFeatures</a>
                 </li>
             
                 <li data-name="getscene">
@@ -1927,12 +1995,28 @@
                     <a href="UAnaly.html#on">on</a>
                 </li>
             
+                <li data-name="pickmeasurefeature">
+                    <a href="UAnaly.html#pickMeasureFeature">pickMeasureFeature</a>
+                </li>
+            
+                <li data-name="removefeature">
+                    <a href="UAnaly.html#removeFeature">removeFeature</a>
+                </li>
+            
+                <li data-name="resetfeaturestyle">
+                    <a href="UAnaly.html#resetFeatureStyle">resetFeatureStyle</a>
+                </li>
+            
                 <li data-name="setanalysisoption">
                     <a href="UAnaly.html#setAnalysisOption">setAnalysisOption</a>
                 </li>
             
                 <li data-name="setapp">
                     <a href="UAnaly.html#setApp">setApp</a>
+                </li>
+            
+                <li data-name="setfeaturestyle">
+                    <a href="UAnaly.html#setFeatureStyle">setFeatureStyle</a>
                 </li>
             
                 <li data-name="settargetlayername">
@@ -2281,6 +2365,14 @@
             
                 <li data-name="drawarea">
                     <a href="UAnalyArea.html#drawArea">drawArea</a>
+                </li>
+            
+                <li data-name="drawstop">
+                    <a href="UAnalyArea.html#drawStop">drawStop</a>
+                </li>
+            
+                <li data-name="getfeatures">
+                    <a href="UAnalyArea.html#getFeatures">getFeatures</a>
                 </li>
             
             </ul>
@@ -2936,8 +3028,16 @@
                     <a href="UAnalyDepth.html#~UAnalyDepthCO">UAnalyDepthCO</a>
                 </li>
             
+                <li data-name="uanalydepthlinestate">
+                    <a href="UAnalyDepth.html#~UAnalyDepthLineState">UAnalyDepthLineState</a>
+                </li>
+            
                 <li data-name="uanalydepthpointdata">
                     <a href="UAnalyDepth.html#~UAnalyDepthPointData">UAnalyDepthPointData</a>
+                </li>
+            
+                <li data-name="uanalydepthpointstate">
+                    <a href="UAnalyDepth.html#~UAnalyDepthPointState">UAnalyDepthPointState</a>
                 </li>
             
                 <li data-name="uanalydepthresult">
@@ -2961,6 +3061,21 @@
             <span class="navigation-primary-link"><a href="UAnalyDistance.html">UAnalyDistance</a></span>
         </summary>
         <div class="navigation-symbol-details">
+        <section class="navigation-member-list" data-type="members">
+            <h3>Members</h3>
+            <ul>
+            
+                <li data-name="helperpoi">
+                    <a href="UAnalyDistance.html#helperPoi">helperPoi</a>
+                </li>
+            
+                <li data-name="name">
+                    <a href="UAnalyDistance.html#name">name</a>
+                </li>
+            
+            </ul>
+        </section>
+
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -2981,8 +3096,28 @@
                     <a href="UAnalyDistance.html#drawDistance">drawDistance</a>
                 </li>
             
+                <li data-name="drawstop">
+                    <a href="UAnalyDistance.html#drawStop">drawStop</a>
+                </li>
+            
+                <li data-name="drawtextlabel">
+                    <a href="UAnalyDistance.html#drawTextLabel">drawTextLabel</a>
+                </li>
+            
                 <li data-name="getdistancefromcoordinate">
                     <a href="UAnalyDistance.html#getDistanceFromCoordinate">getDistanceFromCoordinate</a>
+                </li>
+            
+                <li data-name="getfeatures">
+                    <a href="UAnalyDistance.html#getFeatures">getFeatures</a>
+                </li>
+            
+                <li data-name="onclick">
+                    <a href="UAnalyDistance.html#onClick">onClick</a>
+                </li>
+            
+                <li data-name="ondblclick">
+                    <a href="UAnalyDistance.html#onDblClick">onDblClick</a>
                 </li>
             
             </ul>
@@ -3017,6 +3152,10 @@
             <h3>Members</h3>
             <ul>
             
+                <li data-name="event">
+                    <a href="UAnalyGizmoModel.html#EVENT">EVENT</a>
+                </li>
+            
                 <li data-name="isdrag">
                     <a href="UAnalyGizmoModel.html#isDrag">isDrag</a>
                 </li>
@@ -3038,6 +3177,10 @@
             
                 <li data-name="clear">
                     <a href="UAnalyGizmoModel.html#clear">clear</a>
+                </li>
+            
+                <li data-name="creategizmo">
+                    <a href="UAnalyGizmoModel.html#createGizmo">createGizmo</a>
                 </li>
             
                 <li data-name="deactive">
@@ -3082,6 +3225,14 @@
             
                 <li data-name="objectchange">
                     <a href="UAnalyGizmoModel.html#objectChange">objectChange</a>
+                </li>
+            
+                <li data-name="onend">
+                    <a href="UAnalyGizmoModel.html#onEnd">onEnd</a>
+                </li>
+            
+                <li data-name="removegizmo">
+                    <a href="UAnalyGizmoModel.html#removeGizmo">removeGizmo</a>
                 </li>
             
                 <li data-name="removelasers">
@@ -3143,8 +3294,24 @@
             <h3>Type Definitions</h3>
             <ul>
             
+                <li data-name="gizmocontrolobject">
+                    <a href="UAnalyGizmoModel.html#~GizmoControlObject">GizmoControlObject</a>
+                </li>
+            
                 <li data-name="uanalygizmomodelco">
                     <a href="UAnalyGizmoModel.html#~UAnalyGizmoModelCO">UAnalyGizmoModelCO</a>
+                </li>
+            
+                <li data-name="uanalygizmomodelcallback">
+                    <a href="UAnalyGizmoModel.html#~UAnalyGizmoModelCallback">UAnalyGizmoModelCallback</a>
+                </li>
+            
+                <li data-name="uanalygizmomodelintersection">
+                    <a href="UAnalyGizmoModel.html#~UAnalyGizmoModelIntersection">UAnalyGizmoModelIntersection</a>
+                </li>
+            
+                <li data-name="uanalygizmomodellaserstyle">
+                    <a href="UAnalyGizmoModel.html#~UAnalyGizmoModelLaserStyle">UAnalyGizmoModelLaserStyle</a>
                 </li>
             
             </ul>
@@ -3170,6 +3337,10 @@
             
                 <li data-name="max_style_entries">
                     <a href="UAnalyHeight.html#MAX_STYLE_ENTRIES">MAX_STYLE_ENTRIES</a>
+                </li>
+            
+                <li data-name="name">
+                    <a href="UAnalyHeight.html#name">name</a>
                 </li>
             
             </ul>
@@ -3259,6 +3430,37 @@
             <span class="navigation-primary-link"><a href="UAnalyHeightLimit.html">UAnalyHeightLimit</a></span>
         </summary>
         <div class="navigation-symbol-details">
+        <section class="navigation-member-list" data-type="members">
+            <h3>Members</h3>
+            <ul>
+            
+                <li data-name="depth">
+                    <a href="UAnalyHeightLimit.html#depth">depth</a>
+                </li>
+            
+                <li data-name="extrudeoption">
+                    <a href="UAnalyHeightLimit.html#extrudeOption">extrudeOption</a>
+                </li>
+            
+                <li data-name="filters">
+                    <a href="UAnalyHeightLimit.html#filters">filters</a>
+                </li>
+            
+                <li data-name="geometry">
+                    <a href="UAnalyHeightLimit.html#geometry">geometry</a>
+                </li>
+            
+                <li data-name="materialoption">
+                    <a href="UAnalyHeightLimit.html#materialOption">materialOption</a>
+                </li>
+            
+                <li data-name="selected">
+                    <a href="UAnalyHeightLimit.html#selected">selected</a>
+                </li>
+            
+            </ul>
+        </section>
+
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -3339,6 +3541,10 @@
             <h3>Members</h3>
             <ul>
             
+                <li data-name="event">
+                    <a href="UAnalyLandScape.html#EVENT">EVENT</a>
+                </li>
+            
                 <li data-name="floorheight">
                     <a href="UAnalyLandScape.html#floorHeight">floorHeight</a>
                 </li>
@@ -3414,6 +3620,10 @@
                     <a href="UAnalyLandScape.html#addViewPoint">addViewPoint</a>
                 </li>
             
+                <li data-name="addviewpoint_">
+                    <a href="UAnalyLandScape.html#addViewPoint_">addViewPoint_</a>
+                </li>
+            
                 <li data-name="addviewtarget">
                     <a href="UAnalyLandScape.html#addViewTarget">addViewTarget</a>
                 </li>
@@ -3444,6 +3654,10 @@
             
                 <li data-name="deactive">
                     <a href="UAnalyLandScape.html#deactive">deactive</a>
+                </li>
+            
+                <li data-name="detectcollision">
+                    <a href="UAnalyLandScape.html#detectCollision">detectCollision</a>
                 </li>
             
                 <li data-name="drawline">
@@ -3605,6 +3819,10 @@
                     <a href="UAnalyLandScape.html#~UAnalyLandScapeCO">UAnalyLandScapeCO</a>
                 </li>
             
+                <li data-name="uanalylandscapelineoptions">
+                    <a href="UAnalyLandScape.html#~UAnalyLandScapeLineOptions">UAnalyLandScapeLineOptions</a>
+                </li>
+            
                 <li data-name="ucomputefloorco">
                     <a href="UAnalyLandScape.html#~UComputeFloorCO">UComputeFloorCO</a>
                 </li>
@@ -3642,6 +3860,10 @@
                     <a href="UAnalyMultipleComponent.html#additionalOpt">additionalOpt</a>
                 </li>
             
+                <li data-name="color">
+                    <a href="UAnalyMultipleComponent.html#color">color</a>
+                </li>
+            
             </ul>
         </section>
 
@@ -3657,6 +3879,10 @@
                     <a href="UAnalyMultipleComponent.html#addArea">addArea</a>
                 </li>
             
+                <li data-name="addcomponent">
+                    <a href="UAnalyMultipleComponent.html#addComponent">addComponent</a>
+                </li>
+            
                 <li data-name="addinterval">
                     <a href="UAnalyMultipleComponent.html#addInterval">addInterval</a>
                 </li>
@@ -3667,6 +3893,10 @@
             
                 <li data-name="addsingle">
                     <a href="UAnalyMultipleComponent.html#addSingle">addSingle</a>
+                </li>
+            
+                <li data-name="areaclick">
+                    <a href="UAnalyMultipleComponent.html#areaClick">areaClick</a>
                 </li>
             
                 <li data-name="cameraanalysis">
@@ -3685,12 +3915,24 @@
                     <a href="UAnalyMultipleComponent.html#clearComponent">clearComponent</a>
                 </li>
             
+                <li data-name="clearline">
+                    <a href="UAnalyMultipleComponent.html#clearLine">clearLine</a>
+                </li>
+            
+                <li data-name="clearpoi">
+                    <a href="UAnalyMultipleComponent.html#clearPOI">clearPOI</a>
+                </li>
+            
                 <li data-name="clearroad">
                     <a href="UAnalyMultipleComponent.html#clearRoad">clearRoad</a>
                 </li>
             
                 <li data-name="clearselect">
                     <a href="UAnalyMultipleComponent.html#clearSelect">clearSelect</a>
+                </li>
+            
+                <li data-name="creategizmo">
+                    <a href="UAnalyMultipleComponent.html#createGizmo">createGizmo</a>
                 </li>
             
                 <li data-name="deactive">
@@ -3703,6 +3945,18 @@
             
                 <li data-name="endlightanaly">
                     <a href="UAnalyMultipleComponent.html#endLightAnaly">endLightAnaly</a>
+                </li>
+            
+                <li data-name="endpoi">
+                    <a href="UAnalyMultipleComponent.html#endPoi">endPoi</a>
+                </li>
+            
+                <li data-name="finishroad">
+                    <a href="UAnalyMultipleComponent.html#finishRoad">finishRoad</a>
+                </li>
+            
+                <li data-name="finishsingle">
+                    <a href="UAnalyMultipleComponent.html#finishSingle">finishSingle</a>
                 </li>
             
                 <li data-name="finishwork">
@@ -3725,6 +3979,10 @@
                     <a href="UAnalyMultipleComponent.html#getMapTime">getMapTime</a>
                 </li>
             
+                <li data-name="getpointsbyarea">
+                    <a href="UAnalyMultipleComponent.html#getPointsByArea">getPointsByArea</a>
+                </li>
+            
                 <li data-name="getroads">
                     <a href="UAnalyMultipleComponent.html#getRoads">getRoads</a>
                 </li>
@@ -3733,12 +3991,20 @@
                     <a href="UAnalyMultipleComponent.html#getScene">getScene</a>
                 </li>
             
+                <li data-name="getselectobject">
+                    <a href="UAnalyMultipleComponent.html#getSelectObject">getSelectObject</a>
+                </li>
+            
                 <li data-name="getselected">
                     <a href="UAnalyMultipleComponent.html#getSelected">getSelected</a>
                 </li>
             
                 <li data-name="hidelabel">
                     <a href="UAnalyMultipleComponent.html#hideLabel">hideLabel</a>
+                </li>
+            
+                <li data-name="highlightcolor">
+                    <a href="UAnalyMultipleComponent.html#highLightColor">highLightColor</a>
                 </li>
             
                 <li data-name="isloadmodel">
@@ -3769,6 +4035,18 @@
                     <a href="UAnalyMultipleComponent.html#removeEventListener">removeEventListener</a>
                 </li>
             
+                <li data-name="removegizmo">
+                    <a href="UAnalyMultipleComponent.html#removeGizmo">removeGizmo</a>
+                </li>
+            
+                <li data-name="removelisteners">
+                    <a href="UAnalyMultipleComponent.html#removeListeners">removeListeners</a>
+                </li>
+            
+                <li data-name="removeroad">
+                    <a href="UAnalyMultipleComponent.html#removeRoad">removeRoad</a>
+                </li>
+            
                 <li data-name="removeselected">
                     <a href="UAnalyMultipleComponent.html#removeSelected">removeSelected</a>
                 </li>
@@ -3785,8 +4063,16 @@
                     <a href="UAnalyMultipleComponent.html#saveRoad">saveRoad</a>
                 </li>
             
+                <li data-name="selectobject">
+                    <a href="UAnalyMultipleComponent.html#selectObject">selectObject</a>
+                </li>
+            
                 <li data-name="setadditionalopt">
                     <a href="UAnalyMultipleComponent.html#setAdditionalOpt">setAdditionalOpt</a>
+                </li>
+            
+                <li data-name="setapp">
+                    <a href="UAnalyMultipleComponent.html#setApp">setApp</a>
                 </li>
             
                 <li data-name="setcomponentdata">
@@ -3857,6 +4143,10 @@
                     <a href="UAnalyMultipleComponent.html#showLabel">showLabel</a>
                 </li>
             
+                <li data-name="startpoi">
+                    <a href="UAnalyMultipleComponent.html#startPoi">startPoi</a>
+                </li>
+            
             </ul>
         </section>
 
@@ -3870,73 +4160,6 @@
             
                 <li data-name="uanalymultiplecomponentco">
                     <a href="UAnalyMultipleComponent.html#~UAnalyMultipleComponentCO">UAnalyMultipleComponentCO</a>
-                </li>
-            
-            </ul>
-        </section>
-</div>
-    </details>
-    
-</li>
-
-                
-                    
-<li class="navigation-item item-class" data-longname="UAnalyObjectInfo" data-name="UAnalyObjectInfo" data-group-key="analysis">
-    
-    <details class="navigation-symbol">
-        <summary class="navigation-symbol-summary">
-            <span class="navigation-kind" aria-hidden="true">C</span>
-            <span class="navigation-primary-link"><a href="UAnalyObjectInfo.html">UAnalyObjectInfo</a></span>
-        </summary>
-        <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="off">
-                    <a href="UAnalyObjectInfo.html#off">off</a>
-                </li>
-            
-            </ul>
-        </section>
-
-        <section class="navigation-member-list" data-type="methods">
-            <h3>Methods</h3>
-            <ul>
-            
-                <li data-name="active">
-                    <a href="UAnalyObjectInfo.html#active">active</a>
-                </li>
-            
-                <li data-name="clear">
-                    <a href="UAnalyObjectInfo.html#clear">clear</a>
-                </li>
-            
-                <li data-name="deactive">
-                    <a href="UAnalyObjectInfo.html#deactive">deactive</a>
-                </li>
-            
-                <li data-name="getselectedobject">
-                    <a href="UAnalyObjectInfo.html#getSelectedObject">getSelectedObject</a>
-                </li>
-            
-                <li data-name="removeselect">
-                    <a href="UAnalyObjectInfo.html#removeSelect">removeSelect</a>
-                </li>
-            
-                <li data-name="setapp">
-                    <a href="UAnalyObjectInfo.html#setApp">setApp</a>
-                </li>
-            
-            </ul>
-        </section>
-
-        <section class="navigation-member-list" data-type="typedefs">
-            <h3>Type Definitions</h3>
-            <ul>
-            
-                <li data-name="uanalyobjectinfoco">
-                    <a href="UAnalyObjectInfo.html#~UAnalyObjectInfoCO">UAnalyObjectInfoCO</a>
                 </li>
             
             </ul>
@@ -4066,16 +4289,16 @@
             <h3>Type Definitions</h3>
             <ul>
             
-                <li data-name="extstring">
-                    <a href="UAnalyParticle.html#~ExtString">ExtString</a>
-                </li>
-            
                 <li data-name="uanalyparticleco">
                     <a href="UAnalyParticle.html#~UAnalyParticleCO">UAnalyParticleCO</a>
                 </li>
             
                 <li data-name="uanalyparticlemaskoption">
                     <a href="UAnalyParticle.html#~UAnalyParticleMaskOption">UAnalyParticleMaskOption</a>
+                </li>
+            
+                <li data-name="uanalyparticlemodelextents">
+                    <a href="UAnalyParticle.html#~UAnalyParticleModelExtents">UAnalyParticleModelExtents</a>
                 </li>
             
             </ul>
@@ -6336,6 +6559,10 @@
                     <a href="U3dComponentInstancedPosition.html#createPathTextures">createPathTextures</a>
                 </li>
             
+                <li data-name="dispose">
+                    <a href="U3dComponentInstancedPosition.html#dispose">dispose</a>
+                </li>
+            
                 <li data-name="excepttexture">
                     <a href="U3dComponentInstancedPosition.html#exceptTexture">exceptTexture</a>
                 </li>
@@ -6410,6 +6637,14 @@
             
                 <li data-name="multiplyscale">
                     <a href="U3dComponentInstancedPosition.html#multiplyScale">multiplyScale</a>
+                </li>
+            
+                <li data-name="pickmaterial">
+                    <a href="U3dComponentInstancedPosition.html#pickMaterial">pickMaterial</a>
+                </li>
+            
+                <li data-name="restorematerial">
+                    <a href="U3dComponentInstancedPosition.html#restoreMaterial">restoreMaterial</a>
                 </li>
             
                 <li data-name="rotatebyangle">
@@ -6911,6 +7146,10 @@
                     <a href="U3dComponentPosition.html#getModelName">getModelName</a>
                 </li>
             
+                <li data-name="getmodeloffset">
+                    <a href="U3dComponentPosition.html#getModelOffset">getModelOffset</a>
+                </li>
+            
                 <li data-name="getname">
                     <a href="U3dComponentPosition.html#getName">getName</a>
                 </li>
@@ -7055,14 +7294,6 @@
                     <a href="U3dComponentPosition.html#multiplyScale">multiplyScale</a>
                 </li>
             
-                <li data-name="offselecthelpermesh">
-                    <a href="U3dComponentPosition.html#offSelectHelperMesh">offSelectHelperMesh</a>
-                </li>
-            
-                <li data-name="onselecthelpermesh">
-                    <a href="U3dComponentPosition.html#onSelectHelperMesh">onSelectHelperMesh</a>
-                </li>
-            
                 <li data-name="pickmaterial">
                     <a href="U3dComponentPosition.html#pickMaterial">pickMaterial</a>
                 </li>
@@ -7197,6 +7428,10 @@
             
                 <li data-name="setmixers">
                     <a href="U3dComponentPosition.html#setMixers">setMixers</a>
+                </li>
+            
+                <li data-name="setmodeloffset">
+                    <a href="U3dComponentPosition.html#setModelOffset">setModelOffset</a>
                 </li>
             
                 <li data-name="setopacity">
@@ -8579,6 +8814,10 @@
                     <a href="U3dLayer.html#isDeBug">isDeBug</a>
                 </li>
             
+                <li data-name="ready">
+                    <a href="U3dLayer.html#ready">ready</a>
+                </li>
+            
             </ul>
         </section>
 
@@ -8756,6 +8995,10 @@
             
                 <li data-name="isloadingtile">
                     <a href="U3dLayer.html#isLoadingTile">isLoadingTile</a>
+                </li>
+            
+                <li data-name="isready">
+                    <a href="U3dLayer.html#isReady">isReady</a>
                 </li>
             
                 <li data-name="isuseshadowupdate">
@@ -9392,6 +9635,10 @@
             
                 <li data-name="reload">
                     <a href="U3dModelKmlLayer.html#reload">reload</a>
+                </li>
+            
+                <li data-name="setrenderorder">
+                    <a href="U3dModelKmlLayer.html#setRenderOrder">setRenderOrder</a>
                 </li>
             
             </ul>
@@ -11002,14 +11249,6 @@
                     <a href="U3dMultipleComponentLayer.html#loadWork">loadWork</a>
                 </li>
             
-                <li data-name="offselecthelpermeshes">
-                    <a href="U3dMultipleComponentLayer.html#offSelectHelperMeshes">offSelectHelperMeshes</a>
-                </li>
-            
-                <li data-name="onselecthelpermeshes">
-                    <a href="U3dMultipleComponentLayer.html#onSelectHelperMeshes">onSelectHelperMeshes</a>
-                </li>
-            
                 <li data-name="pauseanimation">
                     <a href="U3dMultipleComponentLayer.html#pauseAnimation">pauseAnimation</a>
                 </li>
@@ -11060,10 +11299,6 @@
             
                 <li data-name="savework">
                     <a href="U3dMultipleComponentLayer.html#saveWork">saveWork</a>
-                </li>
-            
-                <li data-name="selectcomponentbytrails">
-                    <a href="U3dMultipleComponentLayer.html#selectComponentByTrails">selectComponentByTrails</a>
                 </li>
             
                 <li data-name="setbbox">
@@ -11394,6 +11629,10 @@
                     <a href="U3dShaderMeasureLayer.html#cancelAllTile">cancelAllTile</a>
                 </li>
             
+                <li data-name="cancellastposition">
+                    <a href="U3dShaderMeasureLayer.html#cancelLastPosition">cancelLastPosition</a>
+                </li>
+            
                 <li data-name="cleardrawfeature">
                     <a href="U3dShaderMeasureLayer.html#clearDrawFeature">clearDrawFeature</a>
                 </li>
@@ -11432,6 +11671,10 @@
             
                 <li data-name="getextent">
                     <a href="U3dShaderMeasureLayer.html#getExtent">getExtent</a>
+                </li>
+            
+                <li data-name="getfeaturearea">
+                    <a href="U3dShaderMeasureLayer.html#getFeatureArea">getFeatureArea</a>
                 </li>
             
                 <li data-name="getfeaturebyid">
@@ -11538,12 +11781,24 @@
                     <a href="U3dShaderMeasureLayer.html#initialize">initialize</a>
                 </li>
             
+                <li data-name="istilepresentationattached">
+                    <a href="U3dShaderMeasureLayer.html#isTilePresentationAttached">isTilePresentationAttached</a>
+                </li>
+            
+                <li data-name="istilepresentationparticipant">
+                    <a href="U3dShaderMeasureLayer.html#isTilePresentationParticipant">isTilePresentationParticipant</a>
+                </li>
+            
                 <li data-name="istilepresentationvisible">
                     <a href="U3dShaderMeasureLayer.html#isTilePresentationVisible">isTilePresentationVisible</a>
                 </li>
             
                 <li data-name="istilerenderableready">
                     <a href="U3dShaderMeasureLayer.html#isTileRenderableReady">isTileRenderableReady</a>
+                </li>
+            
+                <li data-name="istileretainedpresentationsafe">
+                    <a href="U3dShaderMeasureLayer.html#isTileRetainedPresentationSafe">isTileRetainedPresentationSafe</a>
                 </li>
             
                 <li data-name="istilesceneremovaldeferred">
@@ -11562,12 +11817,20 @@
                     <a href="U3dShaderMeasureLayer.html#removeTileFromScene">removeTileFromScene</a>
                 </li>
             
+                <li data-name="resetfeaturestyle">
+                    <a href="U3dShaderMeasureLayer.html#resetFeatureStyle">resetFeatureStyle</a>
+                </li>
+            
                 <li data-name="resetstyle">
                     <a href="U3dShaderMeasureLayer.html#resetStyle">resetStyle</a>
                 </li>
             
                 <li data-name="setfeaturepoints">
                     <a href="U3dShaderMeasureLayer.html#setFeaturePoints">setFeaturePoints</a>
+                </li>
+            
+                <li data-name="setfeatureselected">
+                    <a href="U3dShaderMeasureLayer.html#setFeatureSelected">setFeatureSelected</a>
                 </li>
             
                 <li data-name="setfeaturestyle">
@@ -11709,10 +11972,6 @@
                     <a href="U3dShaderMeasureLayer.html#~U3dShaderMeasureOLFeature">U3dShaderMeasureOLFeature</a>
                 </li>
             
-                <li data-name="u3dshadermeasuresourcerevisionstate">
-                    <a href="U3dShaderMeasureLayer.html#~U3dShaderMeasureSourceRevisionState">U3dShaderMeasureSourceRevisionState</a>
-                </li>
-            
                 <li data-name="u3dshadermeasurestrokestyle">
                     <a href="U3dShaderMeasureLayer.html#~U3dShaderMeasureStrokeStyle">U3dShaderMeasureStrokeStyle</a>
                 </li>
@@ -11775,6 +12034,10 @@
             
                 <li data-name="clear">
                     <a href="U3dVectorLayer.html#clear">clear</a>
+                </li>
+            
+                <li data-name="dispose">
+                    <a href="U3dVectorLayer.html#dispose">dispose</a>
                 </li>
             
                 <li data-name="getautoheight">
@@ -12189,6 +12452,10 @@
             <h3>Methods</h3>
             <ul>
             
+                <li data-name="_getterraintilefacts">
+                    <a href="U2dVectorShaderLayer.html#_getTerrainTileFacts">_getTerrainTileFacts</a>
+                </li>
+            
                 <li data-name="addgeometry">
                     <a href="U2dVectorShaderLayer.html#addGeometry">addGeometry</a>
                 </li>
@@ -12349,6 +12616,18 @@
                     <a href="U2dVectorShaderLayer.html#isDataExist">isDataExist</a>
                 </li>
             
+                <li data-name="istilepresentationattached">
+                    <a href="U2dVectorShaderLayer.html#isTilePresentationAttached">isTilePresentationAttached</a>
+                </li>
+            
+                <li data-name="istilepresentationconfirmedempty">
+                    <a href="U2dVectorShaderLayer.html#isTilePresentationConfirmedEmpty">isTilePresentationConfirmedEmpty</a>
+                </li>
+            
+                <li data-name="istilepresentationparticipant">
+                    <a href="U2dVectorShaderLayer.html#isTilePresentationParticipant">isTilePresentationParticipant</a>
+                </li>
+            
                 <li data-name="istilepresentationvisible">
                     <a href="U2dVectorShaderLayer.html#isTilePresentationVisible">isTilePresentationVisible</a>
                 </li>
@@ -12357,8 +12636,24 @@
                     <a href="U2dVectorShaderLayer.html#isTileRenderableReady">isTileRenderableReady</a>
                 </li>
             
+                <li data-name="istileretainedpresentationsafe">
+                    <a href="U2dVectorShaderLayer.html#isTileRetainedPresentationSafe">isTileRetainedPresentationSafe</a>
+                </li>
+            
+                <li data-name="istilesceneprovider">
+                    <a href="U2dVectorShaderLayer.html#isTileSceneProvider">isTileSceneProvider</a>
+                </li>
+            
                 <li data-name="istilesceneremovaldeferred">
                     <a href="U2dVectorShaderLayer.html#isTileSceneRemovalDeferred">isTileSceneRemovalDeferred</a>
+                </li>
+            
+                <li data-name="istileworkcomplete">
+                    <a href="U2dVectorShaderLayer.html#isTileWorkComplete">isTileWorkComplete</a>
+                </li>
+            
+                <li data-name="loadsourcegeometry">
+                    <a href="U2dVectorShaderLayer.html#loadSourceGeometry">loadSourceGeometry</a>
                 </li>
             
                 <li data-name="logdebugtilestate">
@@ -12433,6 +12728,10 @@
                     <a href="U2dVectorShaderLayer.html#setSimplifyValue">setSimplifyValue</a>
                 </li>
             
+                <li data-name="setsourcegeometry">
+                    <a href="U2dVectorShaderLayer.html#setSourceGeometry">setSourceGeometry</a>
+                </li>
+            
                 <li data-name="setstyle">
                     <a href="U2dVectorShaderLayer.html#setStyle">setStyle</a>
                 </li>
@@ -12467,6 +12766,10 @@
             
                 <li data-name="showlabel">
                     <a href="U2dVectorShaderLayer.html#showLabel">showLabel</a>
+                </li>
+            
+                <li data-name="suspendtilepresentation">
+                    <a href="U2dVectorShaderLayer.html#suspendTilePresentation">suspendTilePresentation</a>
                 </li>
             
                 <li data-name="update">
@@ -12572,8 +12875,16 @@
                     <a href="U2dGeometry.html#addPosition">addPosition</a>
                 </li>
             
+                <li data-name="addproperties">
+                    <a href="U2dGeometry.html#addProperties">addProperties</a>
+                </li>
+            
                 <li data-name="buildcoordinates">
                     <a href="U2dGeometry.html#buildCoordinates">buildCoordinates</a>
+                </li>
+            
+                <li data-name="changeproperties">
+                    <a href="U2dGeometry.html#changeProperties">changeProperties</a>
                 </li>
             
                 <li data-name="dispose">
@@ -12590,6 +12901,14 @@
             
                 <li data-name="getfeature">
                     <a href="U2dGeometry.html#getFeature">getFeature</a>
+                </li>
+            
+                <li data-name="getfillcolor">
+                    <a href="U2dGeometry.html#getFillColor">getFillColor</a>
+                </li>
+            
+                <li data-name="getfillopacity">
+                    <a href="U2dGeometry.html#getFillOpacity">getFillOpacity</a>
                 </li>
             
                 <li data-name="getgeometry">
@@ -12612,8 +12931,32 @@
                     <a href="U2dGeometry.html#getNonChanged">getNonChanged</a>
                 </li>
             
+                <li data-name="getparam">
+                    <a href="U2dGeometry.html#getParam">getParam</a>
+                </li>
+            
                 <li data-name="getposition">
                     <a href="U2dGeometry.html#getPosition">getPosition</a>
+                </li>
+            
+                <li data-name="getproperties">
+                    <a href="U2dGeometry.html#getProperties">getProperties</a>
+                </li>
+            
+                <li data-name="getshowlabel">
+                    <a href="U2dGeometry.html#getShowLabel">getShowLabel</a>
+                </li>
+            
+                <li data-name="getstrokecolor">
+                    <a href="U2dGeometry.html#getStrokeColor">getStrokeColor</a>
+                </li>
+            
+                <li data-name="getstrokeopacity">
+                    <a href="U2dGeometry.html#getStrokeOpacity">getStrokeOpacity</a>
+                </li>
+            
+                <li data-name="getstrokewidth">
+                    <a href="U2dGeometry.html#getStrokeWidth">getStrokeWidth</a>
                 </li>
             
                 <li data-name="getstyle">
@@ -12632,6 +12975,18 @@
                     <a href="U2dGeometry.html#removeLabel">removeLabel</a>
                 </li>
             
+                <li data-name="removeproperties">
+                    <a href="U2dGeometry.html#removeProperties">removeProperties</a>
+                </li>
+            
+                <li data-name="rotate">
+                    <a href="U2dGeometry.html#rotate">rotate</a>
+                </li>
+            
+                <li data-name="scale">
+                    <a href="U2dGeometry.html#scale">scale</a>
+                </li>
+            
                 <li data-name="setexcludesearch">
                     <a href="U2dGeometry.html#setExcludeSearch">setExcludeSearch</a>
                 </li>
@@ -12642,6 +12997,10 @@
             
                 <li data-name="setfillcolor">
                     <a href="U2dGeometry.html#setFillColor">setFillColor</a>
+                </li>
+            
+                <li data-name="setfillopacity">
+                    <a href="U2dGeometry.html#setFillOpacity">setFillOpacity</a>
                 </li>
             
                 <li data-name="setgeometryname">
@@ -12664,12 +13023,28 @@
                     <a href="U2dGeometry.html#setNonChanged">setNonChanged</a>
                 </li>
             
+                <li data-name="setparam">
+                    <a href="U2dGeometry.html#setParam">setParam</a>
+                </li>
+            
                 <li data-name="setposition">
                     <a href="U2dGeometry.html#setPosition">setPosition</a>
                 </li>
             
+                <li data-name="setproperties">
+                    <a href="U2dGeometry.html#setProperties">setProperties</a>
+                </li>
+            
+                <li data-name="setshowlabel">
+                    <a href="U2dGeometry.html#setShowLabel">setShowLabel</a>
+                </li>
+            
                 <li data-name="setstrokecolor">
                     <a href="U2dGeometry.html#setStrokeColor">setStrokeColor</a>
+                </li>
+            
+                <li data-name="setstrokeopacity">
+                    <a href="U2dGeometry.html#setStrokeOpacity">setStrokeOpacity</a>
                 </li>
             
                 <li data-name="setstrokewidth">
@@ -12692,6 +13067,10 @@
                     <a href="U2dGeometry.html#transformPoint">transformPoint</a>
                 </li>
             
+                <li data-name="translate">
+                    <a href="U2dGeometry.html#translate">translate</a>
+                </li>
+            
             </ul>
         </section>
 
@@ -12705,6 +13084,10 @@
             
                 <li data-name="u2dgeometryco">
                     <a href="U2dGeometry.html#~U2dGeometryCO">U2dGeometryCO</a>
+                </li>
+            
+                <li data-name="u2dgeometryparam">
+                    <a href="U2dGeometry.html#~U2dGeometryParam">U2dGeometryParam</a>
                 </li>
             
                 <li data-name="u2dlabel">
@@ -12790,8 +13173,28 @@
             <h3>Methods</h3>
             <ul>
             
+                <li data-name="getparam">
+                    <a href="U2dPoint.html#getParam">getParam</a>
+                </li>
+            
+                <li data-name="getradius">
+                    <a href="U2dPoint.html#getRadius">getRadius</a>
+                </li>
+            
+                <li data-name="getstyle">
+                    <a href="U2dPoint.html#getStyle">getStyle</a>
+                </li>
+            
+                <li data-name="setfeature">
+                    <a href="U2dPoint.html#setFeature">setFeature</a>
+                </li>
+            
                 <li data-name="setfillcolor">
                     <a href="U2dPoint.html#setFillColor">setFillColor</a>
+                </li>
+            
+                <li data-name="setparam">
+                    <a href="U2dPoint.html#setParam">setParam</a>
                 </li>
             
                 <li data-name="setposition">
@@ -12827,6 +13230,10 @@
             
                 <li data-name="u2dpointco">
                     <a href="U2dPoint.html#~U2dPointCO">U2dPointCO</a>
+                </li>
+            
+                <li data-name="u2dpointparam">
+                    <a href="U2dPoint.html#~U2dPointParam">U2dPointParam</a>
                 </li>
             
             </ul>
@@ -12867,6 +13274,10 @@
             
                 <li data-name="getcenter">
                     <a href="U2dPolygon.html#getCenter">getCenter</a>
+                </li>
+            
+                <li data-name="getposition">
+                    <a href="U2dPolygon.html#getPosition">getPosition</a>
                 </li>
             
                 <li data-name="setposition">
@@ -13305,16 +13716,8 @@
                     <a href="U3dCumulativePath.html#dispose">dispose</a>
                 </li>
             
-                <li data-name="gethelpermesh">
-                    <a href="U3dCumulativePath.html#getHelperMesh">getHelperMesh</a>
-                </li>
-            
                 <li data-name="getnodes">
                     <a href="U3dCumulativePath.html#getNodes">getNodes</a>
-                </li>
-            
-                <li data-name="getpath">
-                    <a href="U3dCumulativePath.html#getPath">getPath</a>
                 </li>
             
                 <li data-name="gettail">
@@ -16539,6 +16942,10 @@
                     <a href="U3dSelect.html#clearHighlights">clearHighlights</a>
                 </li>
             
+                <li data-name="clearhover">
+                    <a href="U3dSelect.html#clearHover">clearHover</a>
+                </li>
+            
                 <li data-name="clearselect">
                     <a href="U3dSelect.html#clearSelect">clearSelect</a>
                 </li>
@@ -16563,6 +16970,10 @@
                     <a href="U3dSelect.html#getDbClickId">getDbClickId</a>
                 </li>
             
+                <li data-name="gethover">
+                    <a href="U3dSelect.html#getHover">getHover</a>
+                </li>
+            
                 <li data-name="getmeasurepointlist">
                     <a href="U3dSelect.html#getMeasurePointList">getMeasurePointList</a>
                 </li>
@@ -16573,6 +16984,14 @@
             
                 <li data-name="getobjectkey">
                     <a href="U3dSelect.html#getObjectKey">getObjectKey</a>
+                </li>
+            
+                <li data-name="getpickbufferpx">
+                    <a href="U3dSelect.html#getPickBufferPx">getPickBufferPx</a>
+                </li>
+            
+                <li data-name="getpickbuffervisible">
+                    <a href="U3dSelect.html#getPickBufferVisible">getPickBufferVisible</a>
                 </li>
             
                 <li data-name="getselectbox">
@@ -16659,12 +17078,28 @@
                     <a href="U3dSelect.html#setExceptTexture">setExceptTexture</a>
                 </li>
             
+                <li data-name="sethover">
+                    <a href="U3dSelect.html#setHover">setHover</a>
+                </li>
+            
                 <li data-name="setmode">
                     <a href="U3dSelect.html#setMode">setMode</a>
                 </li>
             
                 <li data-name="setoutline">
                     <a href="U3dSelect.html#setOutline">setOutline</a>
+                </li>
+            
+                <li data-name="setpickbufferpx">
+                    <a href="U3dSelect.html#setPickBufferPx">setPickBufferPx</a>
+                </li>
+            
+                <li data-name="setpickbuffervisible">
+                    <a href="U3dSelect.html#setPickBufferVisible">setPickBufferVisible</a>
+                </li>
+            
+                <li data-name="setring">
+                    <a href="U3dSelect.html#setRing">setRing</a>
                 </li>
             
                 <li data-name="setselecttype">
@@ -17702,6 +18137,10 @@
                     <a href="UPolygonCollider.html#getAABB">getAABB</a>
                 </li>
             
+                <li data-name="getquaternion">
+                    <a href="UPolygonCollider.html#getQuaternion">getQuaternion</a>
+                </li>
+            
                 <li data-name="getrotation">
                     <a href="UPolygonCollider.html#getRotation">getRotation</a>
                 </li>
@@ -18340,9 +18779,61 @@
             <details class="navigation-group" id="nav-group-util-yj4hoh">
                 <summary class="navigation-group-summary">
                     <span class="navigation-group-label">Util</span>
-                    <span class="navigation-badge" data-total-count="2">2</span>
+                    <span class="navigation-badge" data-total-count="5">5</span>
                 </summary>
                 <ul class="navigation-group-items">
+                
+                    
+<li class="navigation-item item-function" data-longname="deferredPromise" data-name="deferredPromise" data-group-key="util">
+    
+    <details class="navigation-symbol">
+        <summary class="navigation-symbol-summary">
+            <span class="navigation-kind" aria-hidden="true">F</span>
+            <span class="navigation-primary-link"><a href="global.html#deferredPromise">deferredPromise</a></span>
+        </summary>
+        <div class="navigation-symbol-details">
+        <section class="navigation-member-list" data-type="members">
+            <h3>Members</h3>
+            <ul>
+            
+                <li data-name="promise">
+                    <a href="global.html#deferredPromise#~promise">promise</a>
+                </li>
+            
+                <li data-name="rejectpromise">
+                    <a href="global.html#deferredPromise#~rejectPromise">rejectPromise</a>
+                </li>
+            
+                <li data-name="resolvepromise">
+                    <a href="global.html#deferredPromise#~resolvePromise">resolvePromise</a>
+                </li>
+            
+            </ul>
+        </section>
+
+        <section class="navigation-member-list" data-type="methods">
+            <h3>Methods</h3>
+            <ul>
+            
+                <li data-name="isready">
+                    <a href="global.html#deferredPromise#~isReady">isReady</a>
+                </li>
+            
+                <li data-name="reject">
+                    <a href="global.html#deferredPromise#~reject">reject</a>
+                </li>
+            
+                <li data-name="resolve">
+                    <a href="global.html#deferredPromise#~resolve">resolve</a>
+                </li>
+            
+            </ul>
+        </section>
+</div>
+    </details>
+    
+</li>
+
                 
                     
 <li class="navigation-item item-class" data-longname="U3dGeometryUtil" data-name="U3dGeometryUtil" data-group-key="util">
@@ -18367,6 +18858,118 @@
             
                 <li data-name="mergevertices">
                     <a href="U3dGeometryUtil.html#mergeVertices">mergeVertices</a>
+                </li>
+            
+            </ul>
+        </section>
+</div>
+    </details>
+    
+</li>
+
+                
+                    
+<li class="navigation-item item-class" data-longname="UAsyncOperation" data-name="UAsyncOperation" data-group-key="util">
+    
+    <details class="navigation-symbol">
+        <summary class="navigation-symbol-summary">
+            <span class="navigation-kind" aria-hidden="true">C</span>
+            <span class="navigation-primary-link"><a href="UAsyncOperation.html">UAsyncOperation</a></span>
+        </summary>
+        <div class="navigation-symbol-details">
+        <section class="navigation-member-list" data-type="members">
+            <h3>Members</h3>
+            <ul>
+            
+                <li data-name="hasrequest">
+                    <a href="UAsyncOperation.html#hasRequest">hasRequest</a>
+                </li>
+            
+                <li data-name="isuasyncoperation">
+                    <a href="UAsyncOperation.html#isUAsyncOperation">isUAsyncOperation</a>
+                </li>
+            
+                <li data-name="pending">
+                    <a href="UAsyncOperation.html#pending">pending</a>
+                </li>
+            
+            </ul>
+        </section>
+
+        <section class="navigation-member-list" data-type="methods">
+            <h3>Methods</h3>
+            <ul>
+            
+                <li data-name="capture">
+                    <a href="UAsyncOperation.html#capture">capture</a>
+                </li>
+            
+                <li data-name="invalidate">
+                    <a href="UAsyncOperation.html#invalidate">invalidate</a>
+                </li>
+            
+                <li data-name="runlatest">
+                    <a href="UAsyncOperation.html#runLatest">runLatest</a>
+                </li>
+            
+                <li data-name="runonce">
+                    <a href="UAsyncOperation.html#runOnce">runOnce</a>
+                </li>
+            
+            </ul>
+        </section>
+</div>
+    </details>
+    
+</li>
+
+                
+                    
+<li class="navigation-item item-class" data-longname="UErrorCollector" data-name="UErrorCollector" data-group-key="util">
+    
+    <details class="navigation-symbol">
+        <summary class="navigation-symbol-summary">
+            <span class="navigation-kind" aria-hidden="true">C</span>
+            <span class="navigation-primary-link"><a href="UErrorCollector.html">UErrorCollector</a></span>
+        </summary>
+        <div class="navigation-symbol-details">
+        <section class="navigation-member-list" data-type="members">
+            <h3>Members</h3>
+            <ul>
+            
+                <li data-name="haserrors">
+                    <a href="UErrorCollector.html#hasErrors">hasErrors</a>
+                </li>
+            
+                <li data-name="isuerrorcollector">
+                    <a href="UErrorCollector.html#isUErrorCollector">isUErrorCollector</a>
+                </li>
+            
+            </ul>
+        </section>
+
+        <section class="navigation-member-list" data-type="methods">
+            <h3>Methods</h3>
+            <ul>
+            
+                <li data-name="add">
+                    <a href="UErrorCollector.html#add">add</a>
+                </li>
+            
+                <li data-name="attempt">
+                    <a href="UErrorCollector.html#attempt">attempt</a>
+                </li>
+            
+                <li data-name="attemptasync">
+                    <a href="UErrorCollector.html#attemptAsync">attemptAsync</a>
+                </li>
+            
+                <li data-name="finish">
+                    <a href="UErrorCollector.html#finish">finish</a>
+                </li>
+            
+                <li data-name="finishasync">
+                    <a href="UErrorCollector.html#finishAsync">finishAsync</a>
                 </li>
             
             </ul>
@@ -18488,10 +19091,9 @@
     UAnalyLandScape
     </h2>
     
-        <div class="class-description"><p>~extends <a href="UAnaly.html#~UAnaly">UAnaly</a> <br>
-<code>조망권</code> 및 <code>경관</code> 분석 클래스 <br/>
-조망시점 설정, 조망점 등록, 삭제, 조망권 애니메이션, 가시선 그리기 등의 기능을 제공한다 <br/><br/>
-조망시점 - 카메라의 위치 | 조망점 - 카메라가 바라볼 위치</p></div>
+        <div class="class-description"><p>~extends <a href="UAnaly.html#~UAnaly">UAnaly</a> <br></p>
+<p>조망시점·조망점과 건물 선택으로 경관 분석을 제어하는 클래스입니다. <br>
+관측점 등록·층별 생성·가시영역 표시와 카메라 이동·회전을 제공합니다.</p></div>
     
 </header>  
 
@@ -18515,6 +19117,11 @@
 </dt>
 <dd>
     
+    
+    <div class="description">
+        <p>UAnalyLandScape 클래스 생성자입니다. <br>
+조망시점·조망점 목록과 표시 자원을 준비하며 앱은 setApp()으로 별도 연결합니다.</p>
+    </div>
     
 
     
@@ -18575,7 +19182,7 @@
                         
                     
                 
-                </td>
+                <p>분석 이름·층별 높이·가시영역 기본 설정</p></td>
         </tr>
 	
 	
@@ -18620,15 +19227,6 @@
     
     
     
-        <h5>Example</h5>
-        
-
-    
-    <pre class="language-javascript"><code>const analy = app.activeAnalysis('LandScape');
-analy.active();</code></pre>
-    
-
-    
 </dd>
 
     
@@ -18652,12 +19250,61 @@ analy.active();</code></pre>
             
 <dt>
     <div class="nameContainer">
+        <h4 class="name" id="EVENT">EVENT<span class="type-signature type record.<string, string>">Record.&lt;string, string></span> </h4>
+    </div>
+    
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        <p>경관 이동 요청 알림을 포함하는 이벤트 이름 목록입니다.</p>
+    </div>
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
         <h4 class="name" id="floorHeight">floorHeight<span class="type-signature type number">number</span> </h4>
     </div>
     
     
 </dt>
 <dd>
+    
+    <div class="description">
+        <p>이후 층별 생성에 사용하는 기본 층 높이 간격입니다.</p>
+    </div>
     
     
     
@@ -18700,6 +19347,10 @@ analy.active();</code></pre>
 </dt>
 <dd>
     
+    <div class="description">
+        <p>이후 층별 생성에 사용하는 기본 높이 보정입니다.</p>
+    </div>
+    
     
     
 <dl class="details">
@@ -18740,6 +19391,10 @@ analy.active();</code></pre>
     
 </dt>
 <dd>
+    
+    <div class="description">
+        <p>클릭 여부를 보관하는 호환 상태이며 현재 분석 동작에서는 읽지 않습니다.</p>
+    </div>
     
     
     
@@ -18782,6 +19437,10 @@ analy.active();</code></pre>
 </dt>
 <dd>
     
+    <div class="description">
+        <p>건물 선택 여부이며 select 이벤트를 발생시키기 전에 갱신합니다.</p>
+    </div>
+    
     
     
 <dl class="details">
@@ -18822,6 +19481,10 @@ analy.active();</code></pre>
     
 </dt>
 <dd>
+    
+    <div class="description">
+        <p>이후 가시영역 생성에 사용하는 기본 방위각입니다.</p>
+    </div>
     
     
     
@@ -18864,6 +19527,10 @@ analy.active();</code></pre>
 </dt>
 <dd>
     
+    <div class="description">
+        <p>이후 가시영역 생성에 사용하는 기본 색상입니다.</p>
+    </div>
+    
     
     
 <dl class="details">
@@ -18904,6 +19571,10 @@ analy.active();</code></pre>
     
 </dt>
 <dd>
+    
+    <div class="description">
+        <p>저장된 선분의 충돌 거리 비교 초기값이며 미설정이면 거리 제한을 두지 않습니다.</p>
+    </div>
     
     
     
@@ -18946,6 +19617,10 @@ analy.active();</code></pre>
 </dt>
 <dd>
     
+    <div class="description">
+        <p>가시선 간격의 호환 설정이며 현재 drawLine()에서는 읽지 않습니다.</p>
+    </div>
+    
     
     
 <dl class="details">
@@ -18986,6 +19661,10 @@ analy.active();</code></pre>
     
 </dt>
 <dd>
+    
+    <div class="description">
+        <p>가시선 최대 거리의 호환 설정이며 현재 drawLine()에서는 읽지 않습니다.</p>
+    </div>
     
     
     
@@ -19028,6 +19707,10 @@ analy.active();</code></pre>
 </dt>
 <dd>
     
+    <div class="description">
+        <p>이후 가시영역 생성에 사용하는 기본 거리입니다.</p>
+    </div>
+    
     
     
 <dl class="details">
@@ -19068,6 +19751,10 @@ analy.active();</code></pre>
     
 </dt>
 <dd>
+    
+    <div class="description">
+        <p>이후 가시영역 생성에 사용하는 기본 불투명도입니다.</p>
+    </div>
     
     
     
@@ -19110,6 +19797,10 @@ analy.active();</code></pre>
 </dt>
 <dd>
     
+    <div class="description">
+        <p>이후 가시영역 생성에 사용하는 기본 상하각입니다.</p>
+    </div>
+    
     
     
 <dl class="details">
@@ -19150,6 +19841,10 @@ analy.active();</code></pre>
     
 </dt>
 <dd>
+    
+    <div class="description">
+        <p>선택 위치 POI의 표시 옵션이며 생성 직후에는 인스턴스 간 같은 객체를 공유합니다.</p>
+    </div>
     
     
     
@@ -19192,6 +19887,10 @@ analy.active();</code></pre>
 </dt>
 <dd>
     
+    <div class="description">
+        <p>이후 가시영역 시작 위치에 적용할 기본 보정 거리입니다.</p>
+    </div>
+    
     
     
 <dl class="details">
@@ -19232,6 +19931,10 @@ analy.active();</code></pre>
     
 </dt>
 <dd>
+    
+    <div class="description">
+        <p>이후 가시영역 생성에 전달할 높이입니다.</p>
+    </div>
     
     
     
@@ -19288,7 +19991,7 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>분석 모드를 활성하는 함수.</p>
+        <p>분석을 활성화하고 관측점 POI 그룹을 앱의 주석 장면(scene)에 연결합니다.</p>
     </div>
     
 
@@ -19343,7 +20046,7 @@ analy.active();</code></pre>
     <div class="nameContainer">
         <h4 class="name" id="addViewPoint">
             
-             addViewPoint<span class="signature">(options)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="ViewPoint.html#~ViewPoint">ViewPoint</a><span class="returns-or">|</span>void</span>
+             addViewPoint<span class="signature">(options)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="ViewPoint.html#~ViewPoint">ViewPoint</a><span class="returns-or">|</span>undefined</span>
         </h4>
     
     </div>
@@ -19354,7 +20057,8 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>조망시점을 추가하는 함수.</p>
+        <p>조망시점과 해당 POI를 등록하고 화면 갱신을 요청합니다. <br>
+위치가 없거나 클릭 교차점·앱이 없으면 등록하지 않으며 같은 이름은 오류 로그 후 등록하지 않습니다.</p>
     </div>
     
 
@@ -19401,7 +20105,7 @@ analy.active();</code></pre>
             
             <td class="description last">
                 
-                <p>조망시점 생성 옵션</p></td>
+                <p>위치·이름·POI 표시 설정이며 위치 변환 결과가 원본에 기록됨</p></td>
         </tr>
 	
 	
@@ -19465,11 +20169,11 @@ analy.active();</code></pre>
                         <a href="ViewPoint.html#~ViewPoint">ViewPoint</a>
                          | 
                     
-                        void
+                        undefined
                         
                     
             </td>
-            <td class="description last">조망시점</td>
+            <td class="description last">등록한 관측점 또는 등록하지 못한 경우 undefined</td>
         </tr>
     
     </tbody>
@@ -19478,13 +20182,148 @@ analy.active();</code></pre>
     
     
     
-        <h5>Example</h5>
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="addViewPoint_">
+            
+             addViewPoint_<span class="signature">(options)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="ViewPoint.html#~ViewPoint">ViewPoint</a><span class="returns-or">|</span>undefined</span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>addViewPoint()에서 사용하는 조망시점 등록 경로를 직접 실행합니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
         
 
+<table class="params">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>options</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="UAnalyLandScape.html#~UViewPointCO">UViewPointCO</a></span>
+
+
+            
+            </td>
+            
+            
+            
+            <td class="description last">
+                
+                <p>위치·이름·POI 표시 설정</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table>
     
-    <pre class="language-javascript"><code>app.on('click',function(e){  analy.addViewPoint({     position   : e,     name       : 'view_1',     color      : '#ff654d',  });});</code></pre>
+    
+    
+<dl class="details">
+    
+        
+    
+    
     
 
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    <h5>Returns:</h5>
+    
+
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Type</th>
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+        <tr>
+            
+            <td class="type">
+            
+                        <a href="ViewPoint.html#~ViewPoint">ViewPoint</a>
+                         | 
+                    
+                        undefined
+                        
+                    
+            </td>
+            <td class="description last">등록한 관측점 또는 등록하지 못한 경우 undefined</td>
+        </tr>
+    
+    </tbody>
+</table>
+
+    
+    
     
 </dd>
 
@@ -19494,7 +20333,7 @@ analy.active();</code></pre>
     <div class="nameContainer">
         <h4 class="name" id="addViewTarget">
             
-             addViewTarget<span class="signature">(options)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="ViewPoint.html#~ViewPoint">ViewPoint</a><span class="returns-or">|</span>void</span>
+             addViewTarget<span class="signature">(options)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="ViewPoint.html#~ViewPoint">ViewPoint</a><span class="returns-or">|</span>undefined</span>
         </h4>
     
     </div>
@@ -19505,7 +20344,8 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>조망점을 추가하는 함수.</p>
+        <p>조망점과 해당 POI를 등록하고 화면 갱신을 요청합니다. <br>
+위치가 없거나 클릭 교차점·앱이 없으면 등록하지 않으며 같은 이름은 오류 로그 후 등록하지 않습니다.</p>
     </div>
     
 
@@ -19552,7 +20392,7 @@ analy.active();</code></pre>
             
             <td class="description last">
                 
-                <p>조망점 생성 옵션</p></td>
+                <p>위치·이름·POI 표시 설정이며 위치 변환 결과가 원본에 기록됨</p></td>
         </tr>
 	
 	
@@ -19616,11 +20456,11 @@ analy.active();</code></pre>
                         <a href="ViewPoint.html#~ViewPoint">ViewPoint</a>
                          | 
                     
-                        void
+                        undefined
                         
                     
             </td>
-            <td class="description last">조망점</td>
+            <td class="description last">등록한 관측점 또는 등록하지 못한 경우 undefined</td>
         </tr>
     
     </tbody>
@@ -19628,14 +20468,6 @@ analy.active();</code></pre>
 
     
     
-    
-        <h5>Example</h5>
-        
-
-    
-    <pre class="language-javascript"><code>app.on('click',function(e){  analy.addViewTarget({     position   : e,     name       : 'view_1',  });});</code></pre>
-    
-
     
 </dd>
 
@@ -19656,7 +20488,8 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>조망시점울 기준으로 옵션값에 따라 조망점을 생성하는 함수.</p>
+        <p>조망시점과 각도·거리로 새 조망점을 만들어 등록합니다. <br>
+azimuth·polar·distance가 모두 있어야 하며 중복 이름 검사와 위치 변경 이벤트 연결은 하지 않습니다.</p>
     </div>
     
 
@@ -19706,7 +20539,7 @@ analy.active();</code></pre>
             
             <td class="description last">
                 
-                <p>조망시점의 이름 또는 _viewPoints 배열 인덱스 번호.</p></td>
+                <p>기준 조망시점 이름 또는 인덱스</p></td>
         </tr>
 	
 	
@@ -19729,7 +20562,7 @@ analy.active();</code></pre>
             
             <td class="description last">
                 
-                <p>조망점 생성 옵션</p></td>
+                <p>각도·거리와 새 조망점의 이름·POI 설정</p></td>
         </tr>
 	
 	
@@ -19793,7 +20626,8 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>순차적으로 등록된 조망점을 바라보는 애니메이션 함수.</p>
+        <p>등록한 조망시점과 조망점을 순회하며 카메라 이동을 연속 요청합니다. <br>
+이동 완료 콜백 뒤에 지연하여 다음 이동을 요청하며 완료 Promise는 반환하지 않습니다.</p>
     </div>
     
 
@@ -19813,6 +20647,8 @@ analy.active();</code></pre>
 		
 		<th>Type</th>
 		
+		
+		<th>Default</th>
 		
 		
 		<th class="last">Description</th>
@@ -19837,6 +20673,12 @@ analy.active();</code></pre>
             </td>
             
             
+                <td class="default">
+                
+                    {}
+                
+                </td>
+            
             
             <td class="description last">
                 
@@ -19847,7 +20689,7 @@ analy.active();</code></pre>
                         
                     
                 
-                <p>애니메이션 옵션</p></td>
+                <p>이동 시작·갱신·종료·순회 완료 콜백</p></td>
         </tr>
 	
 	
@@ -19911,7 +20753,8 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>조망시점, 조망권, 가시선 등 그려진 모든 데이터를 지우는 함수.</p>
+        <p>가시영역·관측점·건물 선택과 클릭 등록을 정리합니다. <br>
+이동·회전 애니메이션과 다음 순회를 예약한 타이머는 중단하지 않습니다.</p>
     </div>
     
 
@@ -19977,7 +20820,8 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>선택된 건물의 하이라이트를 해제하고 선택 상태를 초기화하는 함수.</p>
+        <p>건물의 선택 표시와 선택 지점의 임시 POI를 해제합니다. <br>
+선택 전의 재질 참조를 복원하고 선택 표시용 복제 재질만 해제합니다.</p>
     </div>
     
 
@@ -20043,8 +20887,8 @@ analy.active();</code></pre>
     
     
     <div class="description">
-        <p>선택한 모델에 조망시점 층별 자동 생성 함수. <br>
-_selected 프로퍼티 값이 존재해야 동작한다.</p>
+        <p>선택한 건물의 지정 층 범위에 조망시점을 생성합니다. <br>
+건물 선택 지점이 필요하며 완료 후 선택을 해제하고 입력 옵션에는 기본 높이값을 보충합니다.</p>
     </div>
     
 
@@ -20096,7 +20940,7 @@ _selected 프로퍼티 값이 존재해야 동작한다.</p>
                         
                     
                 
-                <p>시작 층</p></td>
+                <p>생성할 시작 층</p></td>
         </tr>
 	
 	
@@ -20124,7 +20968,7 @@ _selected 프로퍼티 값이 존재해야 동작한다.</p>
                         
                     
                 
-                <p>종료 층</p></td>
+                <p>생성할 마지막 층이며 양끝 포함</p></td>
         </tr>
 	
 	
@@ -20154,7 +20998,7 @@ _selected 프로퍼티 값이 존재해야 동작한다.</p>
                         
                     
                 
-                <p>자동 생성 옵션</p></td>
+                <p>높이·이름·POI 스타일</p></td>
         </tr>
 	
 	
@@ -20219,7 +21063,7 @@ _selected 프로퍼티 값이 존재해야 동작한다.</p>
                         
                     
             </td>
-            <td class="description last"></td>
+            <td class="description last">생성해 등록한 관측점 목록</td>
         </tr>
     
     </tbody>
@@ -20247,7 +21091,8 @@ _selected 프로퍼티 값이 존재해야 동작한다.</p>
     
     
     <div class="description">
-        <p>조망점 층별 자동 생성 함수.</p>
+        <p>선택한 건물의 지정 층 범위에 조망점을 생성합니다. <br>
+건물 선택 지점이 필요하며 완료 후 선택을 해제하고 입력 옵션에는 기본 높이값을 보충합니다.</p>
     </div>
     
 
@@ -20299,7 +21144,7 @@ _selected 프로퍼티 값이 존재해야 동작한다.</p>
                         
                     
                 
-                <p>시작 층</p></td>
+                <p>생성할 시작 층</p></td>
         </tr>
 	
 	
@@ -20327,7 +21172,7 @@ _selected 프로퍼티 값이 존재해야 동작한다.</p>
                         
                     
                 
-                <p>종료 층</p></td>
+                <p>생성할 마지막 층이며 양끝 포함</p></td>
         </tr>
 	
 	
@@ -20357,7 +21202,7 @@ _selected 프로퍼티 값이 존재해야 동작한다.</p>
                         
                     
                 
-                <p>자동 생성 옵션</p></td>
+                <p>높이·이름·POI 스타일</p></td>
         </tr>
 	
 	
@@ -20422,7 +21267,7 @@ _selected 프로퍼티 값이 존재해야 동작한다.</p>
                         
                     
             </td>
-            <td class="description last"></td>
+            <td class="description last">생성해 등록한 관측점 목록</td>
         </tr>
     
     </tbody>
@@ -20450,7 +21295,75 @@ _selected 프로퍼티 값이 존재해야 동작한다.</p>
     
     
     <div class="description">
-        <p>분석 모드를 종료하는 함수.</p>
+        <p>분석을 비활성화하고 회전 핸들(handle)에 중단을 요청한 뒤 pan 모드로 돌아갑니다. <br>
+등록한 관측점과 가시영역은 제거하지 않습니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="detectCollision">
+            
+             detectCollision<span class="signature">()</span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>저장된 선분마다 모델과의 가장 가까운 교차점을 찾아 선분의 끝점을 지연 갱신합니다. <br>
+drawLine()이 만든 가시영역을 재검사하는 기능은 아니며 선분이 비어 있으면 결과를 바꾸지 않습니다.</p>
     </div>
     
 
@@ -20516,8 +21429,8 @@ _selected 프로퍼티 값이 존재해야 동작한다.</p>
     
     
     <div class="description">
-        <p>입력 받은 조망시점에서 조망점을 바라보는 가시선을 화면에 그리는 함수. <br>
-viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoint(), setViewTarget() 함수로 초기 조망시점, 조망점 세팅이 되어야 한다.</p>
+        <p>지정한 조망시점에서 조망점을 향하는 가시영역을 표시하고 모델·지형 충돌 검사를 요청합니다. <br>
+관측점을 찾지 못하면 기존 표시를 유지하며 입력 옵션 객체에는 보충한 설정과 위치·앱 정보가 기록됩니다.</p>
     </div>
     
 
@@ -20574,7 +21487,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
                 
-                <p>조망시점의 이름 또는 인덱스 번호.</p></td>
+                <p>조망시점 이름 또는 인덱스이며 생략하면 현재 인덱스 사용</p></td>
         </tr>
 	
 	
@@ -20607,7 +21520,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
                 
-                <p>조망점의 이름 또는 인덱스 번호.</p></td>
+                <p>조망점 이름 또는 인덱스이며 생략하면 현재 인덱스 사용</p></td>
         </tr>
 	
 	
@@ -20620,7 +21533,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
             <td class="type">
             
                 
-<span class="param-type"><a href="object_.html">object</a></span>
+<span class="param-type"><a href="UAnalyLandScape.html#~UAnalyLandScapeLineOptions">UAnalyLandScapeLineOptions</a></span>
 
 
             
@@ -20637,277 +21550,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
                 
-                <p>가시선 옵션</p>
-                
-
-<table class="params">
-    <thead>
-	<tr>
-		
-		<th>Name</th>
-		
-		
-		<th>Type</th>
-		
-		
-		<th>Default</th>
-		
-		
-		<th class="last">Description</th>
-	</tr>
-	</thead>
-	
-	<tbody>
-	
-	
-        <tr>
-            
-                <td class="name"><code>angle</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-                <td class="default">
-                
-                    60
-                
-                </td>
-            
-            
-            <td class="description last">
-                
-                    
-                        <span class="optional">optional</span>
-                    
-                    
-                        
-                    
-                
-                <p>가시선 좌우 각도 0~180</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>azimuth</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-                <td class="default">
-                
-                </td>
-            
-            
-            <td class="description last">
-                
-                    
-                        <span class="optional">optional</span>
-                    
-                    
-                        
-                    
-                
-                <p>가시선 방위각</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>polar</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-                <td class="default">
-                
-                    40
-                
-                </td>
-            
-            
-            <td class="description last">
-                
-                    
-                        <span class="optional">optional</span>
-                    
-                    
-                        
-                    
-                
-                <p>가시선 상하 각도 0~180</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>distance</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-                <td class="default">
-                
-                    50
-                
-                </td>
-            
-            
-            <td class="description last">
-                
-                    
-                        <span class="optional">optional</span>
-                    
-                    
-                        
-                    
-                
-                <p>가시선 길이</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>color</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-                <td class="default">
-                
-                    0x00ff00
-                
-                </td>
-            
-            
-            <td class="description last">
-                
-                    
-                        <span class="optional">optional</span>
-                    
-                    
-                        
-                    
-                
-                <p>가시선 색상</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>opacity</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-                <td class="default">
-                
-                </td>
-            
-            
-            <td class="description last">
-                
-                    
-                        <span class="optional">optional</span>
-                    
-                    
-                        
-                    
-                
-                <p>가시선 투명도</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>startOffset</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-                <td class="default">
-                
-                </td>
-            
-            
-            <td class="description last">
-                
-                    
-                        <span class="optional">optional</span>
-                    
-                    
-                        
-                    
-                
-                <p>가시선 시작점 보정값</p></td>
-        </tr>
-	
-	
-	</tbody>
-</table>
-            </td>
+                <p>가시영역 설정이며 생략 항목은 현재 분석 설정 사용</p></td>
         </tr>
 	
 	
@@ -20952,14 +21595,6 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     
-        <h5>Example</h5>
-        
-
-    
-    <pre class="language-javascript"><code>analy.drawLine();analy.drawLine("조망시점1", "조망점3");</code></pre>
-    
-
-    
 </dd>
 
         
@@ -20979,8 +21614,8 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     <div class="description">
-        <p>카메라를 이동 함수.
-지정된 조망시점에서 조망점을 바라보는 위치로 카메라를 이동 시킨다.</p>
+        <p>지정한 조망시점에서 조망점을 향하도록 카메라를 이동합니다. <br>
+반환 결과는 flyend에서 이행되며 새 이동·stopAnimate()·flystop은 기존 요청을 취소합니다.</p>
     </div>
     
 
@@ -21035,7 +21670,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
                 
-                <p>조망시점 이름 또는 인덱스 번호.</p></td>
+                <p>조망시점 이름 또는 인덱스이며 -1은 0 사용</p></td>
         </tr>
 	
 	
@@ -21066,7 +21701,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
                 
-                <p>조망점 이름 또는 인덱스 번호.</p></td>
+                <p>조망점 이름 또는 인덱스이며 -1은 0 사용</p></td>
         </tr>
 	
 	
@@ -21079,7 +21714,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
             <td class="type">
             
                 
-<span class="param-type">function</span>
+<span class="param-type"><a href="global.html#UAnalyLandScapeUpdateCallback">UAnalyLandScapeUpdateCallback</a></span>
 
 
             
@@ -21096,7 +21731,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
                 
-                <p>카메라 이동이 끝난 후 호출되는 callback 함수</p></td>
+                <p>카메라 fly 이벤트마다 호출할 함수</p></td>
         </tr>
 	
 	
@@ -21164,7 +21799,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
             </td>
-            <td class="description last">입력값이 올바르지 않을경우 undefined 리턴, 애니메이션이 수행될 경우 Promise 리턴 애니메이션 종료시점에서 resolve</td>
+            <td class="description last">이동 완료 결과 또는 앱·관측점이 없으면 undefined</td>
         </tr>
     
     </tbody>
@@ -21192,8 +21827,8 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     <div class="description">
-        <p>마우스 클릭한 지점으로 카메라를 이동하는 함수. <br>
-함수 호출 후 화면을 클릭하면 해당 지점으로 이동한다.</p>
+        <p>다음 클릭 위치로 카메라를 이동하도록 기존 클릭 동작을 교체합니다. <br>
+moveEnd 이벤트는 이동 요청 직후 발생하며 실제 이동 완료를 뜻하지 않습니다.</p>
     </div>
     
 
@@ -21257,6 +21892,10 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
 </dt>
 <dd>
     
+    
+    <div class="description">
+        <p>현재 가시영역·층별 높이 보정 설정 중 조회 대상 항목을 새 객체로 반환합니다.</p>
+    </div>
     
 
     
@@ -21322,7 +21961,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
             </td>
-            <td class="description last">분석 옵션 객체</td>
+            <td class="description last">조회 가능한 여덟 설정값</td>
         </tr>
     
     </tbody>
@@ -21348,6 +21987,10 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
 </dt>
 <dd>
     
+    
+    <div class="description">
+        <p>선택한 건물의 getBBox() 결과로 높이를 반환합니다.</p>
+    </div>
     
 
     
@@ -21416,7 +22059,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
             </td>
-            <td class="description last">건물 높이</td>
+            <td class="description last">경계 최대 z와 최소 z의 차이 또는 선택·경계가 없으면 undefined</td>
         </tr>
     
     </tbody>
@@ -21433,7 +22076,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     <div class="nameContainer">
         <h4 class="name" id="getCurrentViewPoint">
             
-             getCurrentViewPoint<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="ViewPoint.html#~ViewPoint">ViewPoint</a></span>
+             getCurrentViewPoint<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="ViewPoint.html#~ViewPoint">ViewPoint</a><span class="returns-or">|</span>undefined</span>
         </h4>
     
     </div>
@@ -21444,7 +22087,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     <div class="description">
-        <p>현재 설정된 조망시점을 반환하는 함수.</p>
+        <p>현재 인덱스에 해당하는 조망시점을 반환합니다.</p>
     </div>
     
 
@@ -21508,10 +22151,13 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
             <td class="type">
             
                         <a href="ViewPoint.html#~ViewPoint">ViewPoint</a>
+                         | 
+                    
+                        undefined
                         
                     
             </td>
-            <td class="description last">현재 설정된 조망시점</td>
+            <td class="description last">현재 관측점 또는 인덱스에 항목이 없으면 undefined</td>
         </tr>
     
     </tbody>
@@ -21528,7 +22174,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     <div class="nameContainer">
         <h4 class="name" id="getCurrentViewTarget">
             
-             getCurrentViewTarget<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="ViewPoint.html#~ViewPoint">ViewPoint</a></span>
+             getCurrentViewTarget<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="ViewPoint.html#~ViewPoint">ViewPoint</a><span class="returns-or">|</span>undefined</span>
         </h4>
     
     </div>
@@ -21539,7 +22185,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     <div class="description">
-        <p>현재 설정된 조망점을 반환하는 함수.</p>
+        <p>현재 인덱스에 해당하는 조망점을 반환합니다.</p>
     </div>
     
 
@@ -21603,10 +22249,13 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
             <td class="type">
             
                         <a href="ViewPoint.html#~ViewPoint">ViewPoint</a>
+                         | 
+                    
+                        undefined
                         
                     
             </td>
-            <td class="description last">조망점</td>
+            <td class="description last">현재 관측점 또는 인덱스에 항목이 없으면 undefined</td>
         </tr>
     
     </tbody>
@@ -21634,7 +22283,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     <div class="description">
-        <p>조망시점 객체를 반환하는 함수.</p>
+        <p>이름·인덱스 또는 등록된 객체로 조망시점을 조회합니다.</p>
     </div>
     
 
@@ -21687,7 +22336,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
             
             <td class="description last">
                 
-                <p>조망시점의 이름 또는 인덱스 번호.</p></td>
+                <p>이름·배열 인덱스 또는 같은 목록의 관측점 객체</p></td>
         </tr>
 	
 	
@@ -21755,7 +22404,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
             </td>
-            <td class="description last">조망시점</td>
+            <td class="description last">일치하는 원본 관측점 또는 undefined</td>
         </tr>
     
     </tbody>
@@ -21783,7 +22432,8 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     <div class="description">
-        <p>조망시점 리스트를 반환하는 함수.</p>
+        <p>등록된 조망시점의 원본 배열을 반환합니다. <br>
+배열을 직접 변경하면 이후 조회·표시·제거 작업에 반영됩니다.</p>
     </div>
     
 
@@ -21850,7 +22500,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
             </td>
-            <td class="description last">조망정시점 리스트</td>
+            <td class="description last">복사하지 않은 조망시점 목록</td>
         </tr>
     
     </tbody>
@@ -21876,6 +22526,10 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
 </dt>
 <dd>
     
+    
+    <div class="description">
+        <p>등록된 조망시점의 저장용 설정을 등록 순서대로 반환합니다.</p>
+    </div>
     
 
     
@@ -21941,7 +22595,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
             </td>
-            <td class="description last">조망시점 파라미터 리스트</td>
+            <td class="description last">각 관측점의 getParameter() 결과를 모은 새 배열</td>
         </tr>
     
     </tbody>
@@ -21969,7 +22623,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     <div class="description">
-        <p>조망점 객체를 반환하는 함수.</p>
+        <p>이름·인덱스 또는 등록된 객체로 조망점을 조회합니다.</p>
     </div>
     
 
@@ -22022,7 +22676,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
             
             <td class="description last">
                 
-                <p>조망점의 이름 또는 _viewTargets 배열 인덱스 번호.</p></td>
+                <p>이름·배열 인덱스 또는 같은 목록의 관측점 객체</p></td>
         </tr>
 	
 	
@@ -22090,7 +22744,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
             </td>
-            <td class="description last">조망점</td>
+            <td class="description last">일치하는 원본 관측점 또는 undefined</td>
         </tr>
     
     </tbody>
@@ -22118,7 +22772,8 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     <div class="description">
-        <p>조망점 리스트를 반환하는 함수.</p>
+        <p>등록된 조망점의 원본 배열을 반환합니다. <br>
+배열을 직접 변경하면 이후 조회·표시·제거 작업에 반영됩니다.</p>
     </div>
     
 
@@ -22185,7 +22840,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
             </td>
-            <td class="description last">조망점 리스트</td>
+            <td class="description last">복사하지 않은 조망점 목록</td>
         </tr>
     
     </tbody>
@@ -22211,6 +22866,10 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
 </dt>
 <dd>
     
+    
+    <div class="description">
+        <p>등록된 조망점의 저장용 설정을 등록 순서대로 반환합니다.</p>
+    </div>
     
 
     
@@ -22276,7 +22935,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
             </td>
-            <td class="description last">조망점 파라미터 리스트</td>
+            <td class="description last">각 관측점의 getParameter() 결과를 모은 새 배열</td>
         </tr>
     
     </tbody>
@@ -22302,6 +22961,10 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
 </dt>
 <dd>
     
+    
+    <div class="description">
+        <p>지정한 조망시점의 위쪽으로 카메라를 이동하여 해당 위치를 바라보게 합니다.</p>
+    </div>
     
 
     
@@ -22361,7 +23024,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
                 
-                </td>
+                <p>관측점 이름 또는 인덱스</p></td>
         </tr>
 	
 	
@@ -22397,7 +23060,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
                 
-                </td>
+                <p>관측점 위쪽으로 더할 높이이며 0 등 falsy 값도 500으로 대체</p></td>
         </tr>
 	
 	
@@ -22460,6 +23123,10 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
 <dd>
     
     
+    <div class="description">
+        <p>지정한 조망점의 위쪽으로 카메라를 이동하여 해당 위치를 바라보게 합니다.</p>
+    </div>
+    
 
     
     
@@ -22518,7 +23185,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
                 
-                </td>
+                <p>관측점 이름 또는 인덱스</p></td>
         </tr>
 	
 	
@@ -22554,7 +23221,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
                 
-                </td>
+                <p>관측점 위쪽으로 더할 높이이며 0 등 falsy 값도 500으로 대체</p></td>
         </tr>
 	
 	
@@ -22618,7 +23285,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     <div class="description">
-        <p>모든 조망시점과 조망점을 화면에서 보이지 않게 가리는(비가시화) 함수.</p>
+        <p>등록된 모든 조망시점과 조망점의 POI를 숨깁니다.</p>
     </div>
     
 
@@ -22682,6 +23349,11 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
 </dt>
 <dd>
     
+    
+    <div class="description">
+        <p>별도의 건물 참조가 설정되어 있는지 반환합니다. <br>
+클릭으로 선택한 건물 상태인 isSelected와는 별개입니다.</p>
+    </div>
     
 
     
@@ -22747,7 +23419,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
             </td>
-            <td class="description last">건물이 선택되어 있는지 여부</td>
+            <td class="description last">내부 건물 참조가 undefined가 아닌지 여부</td>
         </tr>
     
     </tbody>
@@ -22775,7 +23447,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     <div class="description">
-        <p>다음 조망시점으로 카메라를 이동하는 함수. (fly 애니메이션 효과)</p>
+        <p>다음 조망시점으로 인덱스를 바꾸고 카메라 이동을 요청합니다.</p>
     </div>
     
 
@@ -22812,7 +23484,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
             <td class="type">
             
                 
-<span class="param-type">function</span>
+<span class="param-type"><a href="global.html#UAnalyLandScapeUpdateCallback">UAnalyLandScapeUpdateCallback</a></span>
 
 
             
@@ -22829,7 +23501,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
                 
-                </td>
+                <p>카메라 fly 이벤트마다 호출할 함수</p></td>
         </tr>
 	
 	
@@ -22897,7 +23569,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
             </td>
-            <td class="description last"></td>
+            <td class="description last">flyend에서 이행되는 결과 또는 이동할 항목·관측점·앱이 없으면 undefined</td>
         </tr>
     
     </tbody>
@@ -22925,7 +23597,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     <div class="description">
-        <p>다음 조망점으로 카메라를 이동하는 함수. (flyTo 애니메이션 효과)</p>
+        <p>다음 조망점으로 인덱스를 바꾸고 카메라 이동을 요청합니다.</p>
     </div>
     
 
@@ -22962,7 +23634,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
             <td class="type">
             
                 
-<span class="param-type">function</span>
+<span class="param-type"><a href="global.html#UAnalyLandScapeUpdateCallback">UAnalyLandScapeUpdateCallback</a></span>
 
 
             
@@ -22979,7 +23651,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
                 
-                </td>
+                <p>카메라 fly 이벤트마다 호출할 함수</p></td>
         </tr>
 	
 	
@@ -23047,7 +23719,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
             </td>
-            <td class="description last"></td>
+            <td class="description last">flyend에서 이행되는 결과 또는 이동할 항목·관측점·앱이 없으면 undefined</td>
         </tr>
     
     </tbody>
@@ -23075,7 +23747,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     <div class="description">
-        <p>이전 조망시점으로 카메라를 이동하는 함수. (flyTo 애니메이션 효과)</p>
+        <p>이전 조망시점으로 인덱스를 바꾸고 카메라 이동을 요청합니다.</p>
     </div>
     
 
@@ -23112,7 +23784,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
             <td class="type">
             
                 
-<span class="param-type">function</span>
+<span class="param-type"><a href="global.html#UAnalyLandScapeUpdateCallback">UAnalyLandScapeUpdateCallback</a></span>
 
 
             
@@ -23129,7 +23801,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
                 
-                </td>
+                <p>카메라 fly 이벤트마다 호출할 함수</p></td>
         </tr>
 	
 	
@@ -23197,7 +23869,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
             </td>
-            <td class="description last"></td>
+            <td class="description last">flyend에서 이행되는 결과 또는 이동할 항목·관측점·앱이 없으면 undefined</td>
         </tr>
     
     </tbody>
@@ -23225,7 +23897,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     <div class="description">
-        <p>이전 조망점으로 카메라를 이동하는 함수. (flyTo 애니메이션 효과)</p>
+        <p>이전 조망점으로 인덱스를 바꾸고 카메라 이동을 요청합니다.</p>
     </div>
     
 
@@ -23262,7 +23934,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
             <td class="type">
             
                 
-<span class="param-type">function</span>
+<span class="param-type"><a href="global.html#UAnalyLandScapeUpdateCallback">UAnalyLandScapeUpdateCallback</a></span>
 
 
             
@@ -23279,7 +23951,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
                 
-                </td>
+                <p>카메라 fly 이벤트마다 호출할 함수</p></td>
         </tr>
 	
 	
@@ -23347,7 +24019,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
             </td>
-            <td class="description last"></td>
+            <td class="description last">flyend에서 이행되는 결과 또는 이동할 항목·관측점·앱이 없으면 undefined</td>
         </tr>
     
     </tbody>
@@ -23375,7 +24047,8 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     <div class="description">
-        <p>모든 조망시점을 삭제하는 함수.(조망점은 제외)</p>
+        <p>등록된 조망시점의 POI를 모두 해제하고 목록을 새 빈 배열로 교체합니다. <br>
+현재 인덱스는 변경하지 않습니다.</p>
     </div>
     
 
@@ -23441,7 +24114,8 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     <div class="description">
-        <p>모든 조망점을 삭제하는 함수. (조망시점은 제외)</p>
+        <p>등록된 조망점의 POI를 모두 해제하고 목록을 새 빈 배열로 교체합니다. <br>
+현재 인덱스는 변경하지 않습니다.</p>
     </div>
     
 
@@ -23507,7 +24181,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     <div class="description">
-        <p>가시선을 지우는 함수.</p>
+        <p>현재 가시영역을 분석 장면(scene)에서 분리하고 화면 갱신을 요청합니다.</p>
     </div>
     
 
@@ -23573,7 +24247,8 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     <div class="description">
-        <p>조망시점을 삭제하는 함수.</p>
+        <p>지정한 조망시점의 POI를 해제하고 목록에서 제거합니다. <br>
+항목을 찾지 못하면 아무 작업도 하지 않으며 현재 인덱스는 보정하지 않습니다.</p>
     </div>
     
 
@@ -23623,7 +24298,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
             
             <td class="description last">
                 
-                <p>삭제할 조망시점의 이름 또는 _viewPoints 배열 인덱스 번호.</p></td>
+                <p>제거할 관측점의 이름 또는 인덱스</p></td>
         </tr>
 	
 	
@@ -23687,7 +24362,8 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     <div class="description">
-        <p>조망점을 제거하는 함수.</p>
+        <p>지정한 조망점의 POI를 해제하고 목록에서 제거합니다. <br>
+항목을 찾지 못하면 아무 작업도 하지 않으며 현재 인덱스는 보정하지 않습니다.</p>
     </div>
     
 
@@ -23737,7 +24413,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
             
             <td class="description last">
                 
-                <p>조망점의 이름 또는 _viewTargets 배열 인덱스 번호.</p></td>
+                <p>제거할 관측점의 이름 또는 인덱스</p></td>
         </tr>
 	
 	
@@ -23801,7 +24477,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     <div class="description">
-        <p>조망점을 바라보기 이전의 위치로 카메라를 초기화 하는 함수</p>
+        <p>카메라가 lookAt 모드인 경우 pan 모드로 복귀하고 관측점 순회 인덱스를 초기화합니다.</p>
     </div>
     
 
@@ -23867,7 +24543,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     <div class="description">
-        <p>마우스 클릭한 지점으로 이동한 다음 카메라를 회전하는 함수.</p>
+        <p>다음 클릭 위치를 중심으로 카메라 회전을 시작하도록 기존 클릭 동작을 교체합니다.</p>
     </div>
     
 
@@ -23929,7 +24605,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
                 
-                <p>애니메이션 반복 여부</p></td>
+                <p>회전 반복 여부</p></td>
         </tr>
 	
 	
@@ -23965,7 +24641,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
                 
-                <p>이동할 때의 높이값</p></td>
+                <p>회전 위치 z에 더할 높이</p></td>
         </tr>
 	
 	
@@ -24001,7 +24677,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
                 
-                <p>애니메이션 지속 시간(초)</p></td>
+                <p>한 바퀴 기준 시간(밀리초)</p></td>
         </tr>
 	
 	
@@ -24037,7 +24713,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
                 
-                <p>애니메이션 감속 정도</p></td>
+                <p>기준 시간에 곱할 배율</p></td>
         </tr>
 	
 	
@@ -24100,6 +24776,11 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
 <dd>
     
     
+    <div class="description">
+        <p>클릭으로 건물을 선택하는 모드를 설정합니다. <br>
+활성화하면 기존 클릭 동작을 교체하며 비활성화하면 선택 표시도 해제합니다.</p>
+    </div>
+    
 
     
     
@@ -24144,7 +24825,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
             
             <td class="description last">
                 
-                <p>선택 모드 활성 여부</p></td>
+                <p>건물 선택 모드 활성 여부</p></td>
         </tr>
 	
 	
@@ -24208,7 +24889,8 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     <div class="description">
-        <p>조망점 및 경관 분석 옵션을 설정하는 함수.</p>
+        <p>가시영역 설정과 층별 높이 보정값을 변경합니다. <br>
+undefined인 항목은 유지하며 floorHeight·lineMaxDistance·name은 적용하지 않습니다.</p>
     </div>
     
 
@@ -24228,6 +24910,8 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
 		
 		<th>Type</th>
 		
+		
+		<th>Default</th>
 		
 		
 		<th class="last">Description</th>
@@ -24252,6 +24936,12 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
             </td>
             
             
+                <td class="default">
+                
+                    {}
+                
+                </td>
+            
             
             <td class="description last">
                 
@@ -24262,7 +24952,7 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
                         
                     
                 
-                <p>조망점 및 경관 분석 옵션</p></td>
+                <p>적용할 설정과 viewBoxHeight</p></td>
         </tr>
 	
 	
@@ -24307,14 +24997,6 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     
-        <h5>Example</h5>
-        
-
-    
-    <pre class="language-javascript"><code>var analy = app.getAnalysis('LandScape');analy.setAnalysisOption({    floorZOffset : 0.5,    startOffsetDistance : 5,    lineAzimuth: 60,    linePolar : 40,    lineMinDistance : 300,    lineColor : 0x00ff00,    lineOpacity : 0.3});</code></pre>
-    
-
-    
 </dd>
 
         
@@ -24334,8 +25016,8 @@ viewPointKey, viewTargetKey 입력 없이 사용하려면, 사전에 setViewPoin
     
     
     <div class="description">
-        <p>현재 화면의 조망시점을 설정하는 함수. <br>
-skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이동 시킬 수 있다.</p>
+        <p>현재 조망시점을 선택하고 필요하면 현재 조망점을 향하도록 카메라를 이동합니다. <br>
+키를 찾지 못해도 skipfly가 거짓이면 기존 인덱스로 이동을 요청합니다.</p>
     </div>
     
 
@@ -24396,7 +25078,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
                         
                     
                 
-                <p>조망시점의 이름 또는 인덱스 번호.</p></td>
+                <p>조망시점 이름 또는 인덱스</p></td>
         </tr>
 	
 	
@@ -24432,7 +25114,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
                         
                     
                 
-                <p>설정한 조망시점으로 카메라를 이동 시킬지 여부. true면 이동하지 않는다.</p></td>
+                <p>true이면 카메라 이동 생략</p></td>
         </tr>
 	
 	
@@ -24445,7 +25127,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
             <td class="type">
             
                 
-<span class="param-type">function</span>
+<span class="param-type"><a href="global.html#UAnalyLandScapeUpdateCallback">UAnalyLandScapeUpdateCallback</a></span>
 
 
             
@@ -24466,7 +25148,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
                         
                     
                 
-                <p>카메라 이동 후 동작하는 callback 함수</p></td>
+                <p>카메라 fly 이벤트마다 호출할 함수</p></td>
         </tr>
 	
 	
@@ -24530,7 +25212,8 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
     
     
     <div class="description">
-        <p>현재 화면의 조망점을 설정하는 함수.</p>
+        <p>현재 조망점을 선택하고 필요하면 현재 조망시점에서 바라보도록 카메라를 이동합니다. <br>
+키를 찾지 못해도 skipfly가 거짓이면 기존 인덱스로 이동을 요청합니다.</p>
     </div>
     
 
@@ -24550,6 +25233,8 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
 		
 		<th>Type</th>
 		
+		
+		<th>Default</th>
 		
 		
 		<th class="last">Description</th>
@@ -24577,6 +25262,10 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
             </td>
             
             
+                <td class="default">
+                
+                </td>
+            
             
             <td class="description last">
                 
@@ -24585,7 +25274,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
                         
                     
                 
-                <p>조망점의 이름 또는 _viewTargets 배열 인덱스 번호.</p></td>
+                <p>조망점 이름 또는 인덱스</p></td>
         </tr>
 	
 	
@@ -24605,6 +25294,12 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
             </td>
             
             
+                <td class="default">
+                
+                    false
+                
+                </td>
+            
             
             <td class="description last">
                 
@@ -24615,7 +25310,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
                         
                     
                 
-                <p>설정한 조망점으로 카메라를 이동 시킬지 여부. true면 이동하지 않는다.</p></td>
+                <p>true이면 카메라 이동 생략</p></td>
         </tr>
 	
 	
@@ -24679,7 +25374,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
     
     
     <div class="description">
-        <p>모든 조망시점과 조망점을 화면에 가시화하는 함수.</p>
+        <p>등록된 모든 조망시점과 조망점의 POI를 표시합니다.</p>
     </div>
     
 
@@ -24745,7 +25440,8 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
     
     
     <div class="description">
-        <p>입력 받은 좌표 지점으로 이동한 다음 카메라를 회전하는 함수.</p>
+        <p>지정 위치를 중심으로 카메라 회전 애니메이션을 시작합니다. <br>
+유효한 위치 입력이면 기존 회전 핸들(handle)에 먼저 중단을 요청하며 앱의 카메라 준비 상태에 따라 시작하지 못할 수 있습니다.</p>
     </div>
     
 
@@ -24803,7 +25499,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
                         
                     
                 
-                <p>이동할 월드 좌표</p></td>
+                <p>회전 중심의 월드 좌표(EPSG:3857)</p></td>
         </tr>
 	
 	
@@ -24839,7 +25535,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
                         
                     
                 
-                <p>애니메이션 반복 여부</p></td>
+                <p>회전 반복 여부</p></td>
         </tr>
 	
 	
@@ -24875,7 +25571,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
                         
                     
                 
-                <p>이동할 때의 높이값</p></td>
+                <p>회전 위치 z에 더할 높이</p></td>
         </tr>
 	
 	
@@ -24911,7 +25607,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
                         
                     
                 
-                <p>애니메이션 지속 시간(초)</p></td>
+                <p>한 바퀴 기준 시간(밀리초)</p></td>
         </tr>
 	
 	
@@ -24947,7 +25643,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
                         
                     
                 
-                <p>애니메이션 감속 정도</p></td>
+                <p>기준 시간에 곱할 배율</p></td>
         </tr>
 	
 	
@@ -24981,7 +25677,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
                         
                     
                 
-                <p>중심점으로부터의 회전 반지름 크기</p></td>
+                <p>명시할 반지름이며 생략·NaN이면 카메라 거리로 산출</p></td>
         </tr>
 	
 	
@@ -25049,7 +25745,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
                         
                     
             </td>
-            <td class="description last"></td>
+            <td class="description last">시작한 회전 핸들 또는 시작하지 못하면 undefined</td>
         </tr>
     
     </tbody>
@@ -25077,7 +25773,8 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
     
     
     <div class="description">
-        <p>애니메이션을 취소하는 함수.</p>
+        <p>현재 관측점 이동을 중단하고 반환한 이동 결과를 거절합니다. <br>
+이미 예약한 다음 순회 타이머는 취소하지 않습니다.</p>
     </div>
     
 
@@ -25143,7 +25840,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
     
     
     <div class="description">
-        <p>카메라 회전 애니메이션을 정지하는 함수.</p>
+        <p>현재 카메라 회전을 중단하고 회전 핸들(handle) 참조를 비웁니다.</p>
     </div>
     
 
@@ -25211,7 +25908,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
 <dd>
     
     <div class="description">
-        <p>animate 옵션</p>
+        <p>관측점 순회 애니메이션의 알림 함수 설정입니다.</p>
     </div>
     
     
@@ -25253,7 +25950,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
             <td class="type">
             
                 
-<span class="param-type">function</span>
+<span class="param-type"><a href="global.html#UAnalyLandScapeAnimationCallback">UAnalyLandScapeAnimationCallback</a></span>
 
 
             
@@ -25271,7 +25968,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
             
             
             
-            <td class="description last"><p>조망점 이동 시작 콜백</p></td>
+            <td class="description last"><p>각 이동 요청 뒤 호출할 함수</p></td>
         </tr>
 	
 	
@@ -25284,7 +25981,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
             <td class="type">
             
                 
-<span class="param-type">function</span>
+<span class="param-type"><a href="global.html#UAnalyLandScapeAnimationCallback">UAnalyLandScapeAnimationCallback</a></span>
 
 
             
@@ -25302,7 +25999,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
             
             
             
-            <td class="description last"><p>조망점 이동 완료 콜백</p></td>
+            <td class="description last"><p>각 이동 결과 이행 시 호출할 함수</p></td>
         </tr>
 	
 	
@@ -25315,7 +26012,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
             <td class="type">
             
                 
-<span class="param-type">function</span>
+<span class="param-type"><a href="global.html#UAnalyLandScapeUpdateCallback">UAnalyLandScapeUpdateCallback</a></span>
 
 
             
@@ -25333,7 +26030,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
             
             
             
-            <td class="description last"><p>조망점 이동 중 콜백</p></td>
+            <td class="description last"><p>카메라 fly 이벤트마다 호출할 함수</p></td>
         </tr>
 	
 	
@@ -25346,7 +26043,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
             <td class="type">
             
                 
-<span class="param-type">function</span>
+<span class="param-type"><a href="global.html#UAnalyLandScapeAnimationCallback">UAnalyLandScapeAnimationCallback</a></span>
 
 
             
@@ -25364,7 +26061,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
             
             
             
-            <td class="description last"><p>전체 애니메이션 완료 콜백</p></td>
+            <td class="description last"><p>관측점 순회를 끝냈을 때 호출할 함수</p></td>
         </tr>
 	
 	
@@ -25410,8 +26107,8 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
 <dd>
     
     <div class="description">
-        <p>~extends <a href="UAnaly.html#~UAnalyCO">UAnaly~UAnalyCO</a> <br>
-생성자 옵션</p>
+        <p>~extends UAnalyCO <br></p>
+<p>경관 분석의 이름과 층별 생성·가시영역 기본 설정입니다.</p>
     </div>
     
     
@@ -25479,7 +26176,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
                 </td>
             
             
-            <td class="description last"><p>분석 클래스 이름</p></td>
+            <td class="description last"><p>분석 이름</p></td>
         </tr>
 	
 	
@@ -25516,7 +26213,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
                 </td>
             
             
-            <td class="description last"><p>층간 높이값</p></td>
+            <td class="description last"><p>층별 생성의 기본 높이 간격</p></td>
         </tr>
 	
 	
@@ -25553,7 +26250,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
                 </td>
             
             
-            <td class="description last"><p>층간 높이 보정값</p></td>
+            <td class="description last"><p>층별 생성의 기본 높이 보정</p></td>
         </tr>
 	
 	
@@ -25590,7 +26287,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
                 </td>
             
             
-            <td class="description last"><p>가시선 시작점 보정값</p></td>
+            <td class="description last"><p>가시영역 시작 위치의 기본 보정 거리</p></td>
         </tr>
 	
 	
@@ -25622,12 +26319,12 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
             
                 <td class="default">
                 
-                    60
+                    50
                 
                 </td>
             
             
-            <td class="description last"><p>가시선 가로 각도</p></td>
+            <td class="description last"><p>가시영역의 기본 방위각</p></td>
         </tr>
 	
 	
@@ -25659,12 +26356,12 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
             
                 <td class="default">
                 
-                    40
+                    0
                 
                 </td>
             
             
-            <td class="description last"><p>가시선 세로 각도</p></td>
+            <td class="description last"><p>가시영역의 기본 상하각</p></td>
         </tr>
 	
 	
@@ -25701,7 +26398,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
                 </td>
             
             
-            <td class="description last"><p>가시선 최소 길이</p></td>
+            <td class="description last"><p>가시영역의 기본 거리</p></td>
         </tr>
 	
 	
@@ -25733,12 +26430,12 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
             
                 <td class="default">
                 
-                    1000
+                    10000
                 
                 </td>
             
             
-            <td class="description last"><p>가시선 최대 길이</p></td>
+            <td class="description last"><p>최대 거리의 호환 설정이며 현재 drawLine()에서는 미사용</p></td>
         </tr>
 	
 	
@@ -25775,7 +26472,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
                 </td>
             
             
-            <td class="description last"><p>가시선 색상</p></td>
+            <td class="description last"><p>가시영역의 기본 색상</p></td>
         </tr>
 	
 	
@@ -25807,12 +26504,12 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
             
                 <td class="default">
                 
-                    0.3
+                    0.5
                 
                 </td>
             
             
-            <td class="description last"><p>가시선 투명도</p></td>
+            <td class="description last"><p>가시영역의 기본 불투명도</p></td>
         </tr>
 	
 	
@@ -25849,7 +26546,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
                 </td>
             
             
-            <td class="description last"><p>가시선 간격</p></td>
+            <td class="description last"><p>가시선 간격의 호환 설정이며 현재 drawLine()에서는 미사용</p></td>
         </tr>
 	
 	
@@ -25884,7 +26581,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
                 </td>
             
             
-            <td class="description last"><p>가시영역 상자 높이</p></td>
+            <td class="description last"><p>가시영역에 전달할 높이</p></td>
         </tr>
 	
 	
@@ -25922,7 +26619,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
                     
 <dt>
     <div class="nameContainer">
-        <h4 class="name" id="~UComputeFloorCO">UComputeFloorCO<span class="type-signature type object"><a href="object_.html">object</a></span> </h4>
+        <h4 class="name" id="~UAnalyLandScapeLineOptions">UAnalyLandScapeLineOptions<span class="type-signature type object"><a href="object_.html">object</a></span> </h4>
     </div>
     
     
@@ -25930,660 +26627,8 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
 <dd>
     
     <div class="description">
-        <p>층별 자동 생성 옵션</p>
-    </div>
-    
-    
-    
-<dl class="details">
-    
-        
-        <h5 class="subsection-title">Properties:</h5>
-        
-        <dl>
-
-<table class="props">
-    <thead>
-	<tr>
-		
-		<th>Name</th>
-		
-		
-		<th>Type</th>
-		
-		
-		<th>Argument</th>
-		
-		
-		
-		
-		<th class="last">Description</th>
-	</tr>
-	</thead>
-	
-	<tbody>
-	
-	
-        <tr>
-            
-                <td class="name"><code>floorHeight</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-                    
-                
-                </td>
-            
-            
-            
-            
-            <td class="description last"><p>층간 높이</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>offsetHeight</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-                    
-                
-                </td>
-            
-            
-            
-            
-            <td class="description last"><p>높이 오프셋</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>name</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-            
-            </td>
-            
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-                    
-                
-                </td>
-            
-            
-            
-            
-            <td class="description last"><p>이름</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>color</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-            
-            </td>
-            
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-                    
-                
-                </td>
-            
-            
-            
-            
-            <td class="description last"><p>POI 색상</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>image</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-            
-            </td>
-            
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-                    
-                
-                </td>
-            
-            
-            
-            
-            <td class="description last"><p>이미지 URL</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>imageOffset</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type"><a href="Object.html">Object</a></span>
-
-
-            
-            </td>
-            
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-                    
-                
-                </td>
-            
-            
-            
-            
-            <td class="description last"><p>이미지 위치 보정값</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>imageSize</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-                    
-                
-                </td>
-            
-            
-            
-            
-            <td class="description last"><p>이미지 크기</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>labelOffset</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type"><a href="Object.html">Object</a></span>
-
-
-            
-            </td>
-            
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-                    
-                
-                </td>
-            
-            
-            
-            
-            <td class="description last"><p>라벨 위치 보정값</p></td>
-        </tr>
-	
-	
-	</tbody>
-</table></dl>
-        
-    
-        
-    
-    
-    
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-</dl>
-
-    
-    
-</dd>
-
-                
-                    
-<dt>
-    <div class="nameContainer">
-        <h4 class="name" id="~UViewPointCO">UViewPointCO<span class="type-signature type object"><a href="object_.html">object</a></span> </h4>
-    </div>
-    
-    
-</dt>
-<dd>
-    
-    <div class="description">
-        <p>ViewPoint/ViewTarget 생성 공통 옵션</p>
-    </div>
-    
-    
-    
-<dl class="details">
-    
-        
-        <h5 class="subsection-title">Properties:</h5>
-        
-        <dl>
-
-<table class="props">
-    <thead>
-	<tr>
-		
-		<th>Name</th>
-		
-		
-		<th>Type</th>
-		
-		
-		<th>Argument</th>
-		
-		
-		
-		
-		<th class="last">Description</th>
-	</tr>
-	</thead>
-	
-	<tbody>
-	
-	
-        <tr>
-            
-                <td class="name"><code>position</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type"><a href="U3dMouseEvent.html#~U3dMouseEvent">U3dMouseEvent</a></span>
-|
-
-<span class="param-type"><a href="global.html#Vector3">Vector3</a></span>
-|
-
-<span class="param-type"><a href="Object.html">Object</a></span>
-
-
-            
-            </td>
-            
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-                    
-                
-                </td>
-            
-            
-            
-            
-            <td class="description last"><p>생성 좌표</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>name</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-            
-            </td>
-            
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-                    
-                
-                </td>
-            
-            
-            
-            
-            <td class="description last"><p>이름</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>color</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-            
-            </td>
-            
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-                    
-                
-                </td>
-            
-            
-            
-            
-            <td class="description last"><p>POI 색상</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>image</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-            
-            </td>
-            
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-                    
-                
-                </td>
-            
-            
-            
-            
-            <td class="description last"><p>POI 이미지 URL</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>imageSize</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-                    
-                
-                </td>
-            
-            
-            
-            
-            <td class="description last"><p>이미지 사이즈</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>imageOffset</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type"><a href="Object.html">Object</a></span>
-
-
-            
-            </td>
-            
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-                    
-                
-                </td>
-            
-            
-            
-            
-            <td class="description last"><p>이미지 위치 보정값</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>label</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-            
-            </td>
-            
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-                    
-                
-                </td>
-            
-            
-            
-            
-            <td class="description last"><p>라벨 텍스트</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>labelOffset</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type"><a href="Object.html">Object</a></span>
-
-
-            
-            </td>
-            
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-                    
-                
-                </td>
-            
-            
-            
-            
-            <td class="description last"><p>라벨 위치 보정값</p></td>
-        </tr>
-	
-	
-	</tbody>
-</table></dl>
-        
-    
-        
-    
-    
-    
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-</dl>
-
-    
-    
-</dd>
-
-                
-                    
-<dt>
-    <div class="nameContainer">
-        <h4 class="name" id="~UViewTargetByViewPointCO">UViewTargetByViewPointCO<span class="type-signature type object"><a href="object_.html">object</a></span> </h4>
-    </div>
-    
-    
-</dt>
-<dd>
-    
-    <div class="description">
-        <p>~extends UViewPointCO <br>
-방위각·거리 지정으로 조망점을 생성하는 옵션</p>
+        <p>~extends Record&lt;string, unknown&gt; <br></p>
+<p>가시영역 생성에서 직접 읽는 선택 설정입니다.</p>
     </div>
     
     
@@ -26643,7 +26688,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
             
             
             
-            <td class="description last"><p>방위각</p></td>
+            <td class="description last"><p>방위각이며 생략하면 현재 lineAzimuth 사용</p></td>
         </tr>
 	
 	
@@ -26674,7 +26719,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
             
             
             
-            <td class="description last"><p>고도각</p></td>
+            <td class="description last"><p>상하각이며 생략하면 현재 linePolar 사용</p></td>
         </tr>
 	
 	
@@ -26705,7 +26750,990 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
             
             
             
-            <td class="description last"><p>거리</p></td>
+            <td class="description last"><p>거리이며 생략하면 현재 lineMinDistance 사용</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>color</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#ColorRepresentation">ColorRepresentation</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>색상이며 생략하면 현재 lineColor 사용</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>opacity</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>불투명도이며 생략하면 현재 lineOpacity 사용</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>startOffset</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>시작 보정 거리이며 생략하면 현재 startOffsetDistance 사용</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>angle</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>호환 입력이며 현재 drawLine()에서는 미사용</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table></dl>
+        
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+</dd>
+
+                
+                    
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="~UComputeFloorCO">UComputeFloorCO<span class="type-signature type object"><a href="object_.html">object</a></span> </h4>
+    </div>
+    
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        <p>선택 건물에서 층별로 관측점을 생성할 때 사용하는 설정입니다. <br>
+기본 높이값은 같은 옵션 객체에 보충됩니다.</p>
+    </div>
+    
+    
+    
+<dl class="details">
+    
+        
+        <h5 class="subsection-title">Properties:</h5>
+        
+        <dl>
+
+<table class="props">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		<th>Argument</th>
+		
+		
+		
+		<th>Default</th>
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>floorHeight</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>층 높이 간격이며 생략하면 분석의 floorHeight 사용</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>offsetHeight</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>높이 보정이며 생략하면 분석의 floorZOffset 사용</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                    '{floor}층'
+                
+                </td>
+            
+            
+            <td class="description last"><p>첫 '{floor}'를 층수로 바꿀 이름 형식</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>color</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>생성 POI 색상</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>image</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>생성 POI 이미지 주소</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>imageOffset</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#Vector2Like">Vector2Like</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>생성 POI 이미지 표시 보정</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>imageSize</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>생성 POI 이미지 크기</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>labelOffset</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#Vector2Like">Vector2Like</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last"><p>호환 입력이며 현재 층별 생성에서는 미사용</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table></dl>
+        
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+</dd>
+
+                
+                    
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="~UViewPointCO">UViewPointCO<span class="type-signature type object"><a href="object_.html">object</a></span> </h4>
+    </div>
+    
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        <p>조망시점·조망점의 위치와 POI 표시 설정입니다. <br>
+위치는 생성 과정에서 변환되어 같은 옵션 객체에 기록됩니다.</p>
+    </div>
+    
+    
+    
+<dl class="details">
+    
+        
+        <h5 class="subsection-title">Properties:</h5>
+        
+        <dl>
+
+<table class="props">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		<th>Argument</th>
+		
+		
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>position</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="U3dMouseEvent.html#~U3dMouseEvent">U3dMouseEvent</a></span>
+|
+
+<span class="param-type"><a href="global.html#Vector3">Vector3</a></span>
+|
+
+<span class="param-type"><a href="global.html#Vector3Like">Vector3Like</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>생성에 필요한 위치이며 Vector3는 월드 좌표(EPSG:3857), 일반 객체는 위경도 좌표계(EPSG:4326), 클릭 이벤트는 첫 교차점 사용</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>관측점 이름이며 생략하면 ViewPoint에서 생성</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>color</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>POI 색상</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>image</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>POI 이미지 주소</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>imageSize</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>POI 이미지 크기</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>imageOffset</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#Vector2Like">Vector2Like</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>POI 이미지 표시 보정</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>label</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>POI 라벨</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>labelOffset</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#Vector2Like">Vector2Like</a></span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>POI 라벨 표시 보정</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table></dl>
+        
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+</dd>
+
+                
+                    
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="~UViewTargetByViewPointCO">UViewTargetByViewPointCO<span class="type-signature type object"><a href="object_.html">object</a></span> </h4>
+    </div>
+    
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        <p>~extends UViewPointCO <br></p>
+<p>조망시점을 기준으로 조망점을 만들 때 필요한 각도·거리 설정입니다.</p>
+    </div>
+    
+    
+    
+<dl class="details">
+    
+        
+        <h5 class="subsection-title">Properties:</h5>
+        
+        <dl>
+
+<table class="props">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		<th>Argument</th>
+		
+		
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>azimuth</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>생성에 필요한 방위각</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>polar</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>생성에 필요한 상하각</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>distance</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>생성에 필요한 거리</p></td>
         </tr>
 	
 	
@@ -26755,7 +27783,7 @@ skipfly 파라미터 값을 통해 설정한 조망시점으로 카메라를 이
 
     </div>
 </div>
-<script src="scripts/prism.js?v=muz1hdly"></script>
-<script src="scripts/main.js?v=muz1hdly"></script>
+<script src="scripts/prism.js?v=mvon8gzc"></script>
+<script src="scripts/main.js?v=mvon8gzc"></script>
 </body>
 </html>

@@ -36,6 +36,29 @@ const IS_SERIAL = false;
 const CAMERA_POSITION = new THREE.Vector3();
 
 /**
+ * 레이어별 로딩 상태입니다. 클래스 멤버를 늘리지 않고 요청 소유권을 분리하며,
+ * 이 보관소 자체가 삭제된 레이어를 강하게 참조하지 않도록 합니다.
+ *
+ * @type {WeakMap<import('@union3d/3dLayer/U3dModelU3FLayer').U3dModelU3FLayer, U3FLoadState>}
+ */
+const LAYER_LOAD_STATES = new WeakMap();
+
+/**
+ * 정보 요청을 시작할 때만 레이어의 로딩 상태를 준비합니다.
+ *
+ * @param {import('@union3d/3dLayer/U3dModelU3FLayer').U3dModelU3FLayer} layer 요청 소유자
+ * @returns {U3FLoadState} 해당 레이어의 초기화와 요청 목록
+ */
+function getLayerLoadState(layer) {
+    let state = LAYER_LOAD_STATES.get(layer);
+    if (!state) {
+        state = {initialization: undefined, requests: new Map()};
+        LAYER_LOAD_STATES.set(layer, state);
+    }
+    return state;
+}
+
+/**
  * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayer <br>
  *
  * U3F 모델을 타일 단위로 로드하고 표시·편집·해제하는 레이어입니다.
@@ -616,6 +639,9 @@ class U3dModelU3FLayer extends U3dModelLayer {
 
     /**
      * 원본 레이어 정보를 읽어 표시 범위와 패키지 로딩 설정을 초기화합니다. <br>
+     * 정보 요청·해석·부모 초기화에 실패하면 원래 사유로 레이어의 초기화를 거부합니다. <br>
+     * 삭제 시 진행 중인 초기화는 AbortError로 거부하며, 늦은 응답은 적용하지 않습니다. <br>
+     * 초기화가 진행 중이면 같은 정보 요청을 반환합니다. 실패 후 reset()하면 재시도할 수 있습니다. <br>
      * needXml이 false이면 부모 초기화와 완료 통지만 수행하며 Promise를 반환하지 않습니다. <br>
      * 패키지 JSON을 요청하는 경우 반환된 Promise와 별도로 초기화가 진행됩니다.
      *
@@ -625,70 +651,118 @@ class U3dModelU3FLayer extends U3dModelLayer {
      * @returns {Promise<unknown> | undefined} 원본 정보 요청을 연결한 Promise, 원본 정보를 요청하지 않으면 undefined
      */
     initialize(drawArg) {
-        const self = this;
-        if (self._needXml) {
-            if (!self._basename.includes('.u3g'))
-                self._basename = self._basename + '.u3g';
-            const url = self._proxyurl + self._baseUrl + '/' + self._basename;
-            return self.getLayerInfo(url, drawArg).then(function (/** @type {KeyValue} */ info) {
-                //console.info('success')
-                if (defined(info.bbox)) {
-                    let bbox = info.bbox;
-                    self._boundingBox = {
-                        minx: bbox[0],
-                        maxx: bbox[1],
-                        miny: bbox[2],
-                        maxy: bbox[3],
-                        minz: bbox[4],
-                        maxz: bbox[5]
-                    };
-
-                    //+ 레이어정보
-                    self._info = info;
-                    if (!defined(info.makeU3FPackage) || info.makeU3FPackage === UDEF.NON_PACKAGED_MODEL) {
-                        self._makeU3FPackage = UDEF.NON_PACKAGED_MODEL;
-                    }
-                    self._makeJson = !!(defined(info.makeJson) && info.makeJson === 1)
-                    self.computeRectangle();
-                }
-
-                if (self._makeU3FPackage === UDEF.PACKAGED_MODEL && self._makeJson) {
-                    self._jsonname = self._basename.replace('.u3g', '.json');
-                    const jsonUrl = self._proxyurl + self._baseUrl + '/' + self._jsonname;
-                    self.getLayerJson(jsonUrl).then((json) => {
-                        self._packagedInfo.set(json);
-                    }).catch(() => {
-                        self._makeJson = 0;
-                    }).finally(() => {
-                        U3dModelLayer.prototype.initialize.call(self);
-                        //+ 이니셜라이즈 종료 호출
-                        if (defined(/**@type{Partial<DeferredObject<U3dModelU3FLayer>>}*/(self).resolve)) {
-                            /**@type{Partial<DeferredObject<U3dModelU3FLayer>>}*/(self).resolve(self);
-                        }
-                    });
-                } else {
-                    U3dModelLayer.prototype.initialize.call(self);
-                    //+ 이니셜라이즈 종료 호출
-                    if (defined(/**@type{Partial<DeferredObject<U3dModelU3FLayer>>}*/(self).resolve)) {
-                        /**@type{Partial<DeferredObject<U3dModelU3FLayer>>}*/(self).resolve(self);
-                    }
-                }
-            }).catch(function () {
-                U3dMessage.error(self._classtype, 'Failed to load layer Url :' + self._baseUrl + '/' + self._basename, '3610581');
-                if (defined(/**@type{Partial<DeferredObject<U3dModelU3FLayer>>}*/(self).reject)) {
-                    /**@type{Partial<DeferredObject<U3dModelU3FLayer>>}*/(self).reject(self);
-                }
-            });
-
-        } else {
-            self.computeRectangle();
-            U3dModelLayer.prototype.initialize.call(self);
-            if (defined(/**@type{Partial<DeferredObject<U3dModelU3FLayer>>}*/(self).resolve)) {
-                /**@type{Partial<DeferredObject<U3dModelU3FLayer>>}*/(self).resolve(self);
-            }
+        if (this.isDisposed() || this._taskProcessorDisposing) {
+            const reason = new DOMException('삭제된 U3F 레이어는 초기화할 수 없습니다.', 'AbortError');
+            this._rejectReady(reason);
+            return this._needXml ? deferred().reject(reason) : undefined;
         }
+        const state = getLayerLoadState(this);
+        if (state.initialization) return state.initialization.request;
 
-        return undefined;
+        /** @type {DeferredObject<object> | undefined} */
+        let jsonRequest;
+        const initialization = {
+            request: /** @type {DeferredObject<object> | undefined} */(undefined),
+            cancel: (/** @type {unknown} */ reason) => {
+                if (state.initialization !== initialization) return;
+                // 먼저 현재 작업을 닫아 실패 수신자가 reset·재초기화를 해도 옛 콜백이 침범하지 않게 한다.
+                state.initialization = undefined;
+                this._rejectReady(reason);
+                for (const request of [initialization.request, jsonRequest]) {
+                    if (!request) continue;
+                    const consumer = state.requests.get(request);
+                    if (!consumer) continue;
+                    state.requests.delete(request);
+                    request.reject(reason);
+                    if (consumer) consumer.loader.cancelById(consumer.id);
+                }
+            }
+        };
+        state.initialization = initialization;
+        const isCurrent = () => state.initialization === initialization && !this.isDisposed() && !this._taskProcessorDisposing;
+        const fail = (/** @type {unknown} */ reason) => {
+            if (state.initialization !== initialization) return;
+            U3dMessage.error(this._classtype, 'Failed to load layer Url :' + this._baseUrl + '/' + this._basename, '3610581');
+            initialization.cancel(reason);
+        };
+        const complete = () => {
+            if (!isCurrent()) return;
+            try {
+                U3dModelLayer.prototype.initialize.call(this);
+                // 부모 초기화의 CREATE 수신자가 레이어를 삭제할 수도 있으므로 완료 전에 다시 확인한다.
+                if (!isCurrent()) return;
+                state.initialization = undefined;
+                this._resolveReady();
+            } catch (error) {
+                if (!isCurrent()) return;
+                // 부모의 CREATE 통지 전에 설정된 완료 표시를 실패 통지 전에 되돌립니다.
+                // 실패 수신자가 재초기화한 뒤에 바꾸면 새 성공 상태를 덮어쓸 수 있습니다.
+                this._initialized = false;
+                fail(error);
+            }
+        };
+        try {
+            if (!this._needXml) {
+                this.computeRectangle();
+                complete();
+                return undefined;
+            }
+            if (!this._basename.includes('.u3g')) this._basename += '.u3g';
+            const url = this._proxyurl + this._baseUrl + '/' + this._basename;
+            const request = /** @type {DeferredObject<object>} */(this.getLayerInfo(url, drawArg));
+            initialization.request = request;
+            request.then((/** @type {KeyValue} */ info) => {
+                if (!isCurrent()) return;
+                // 현재 Deferred는 성공 수신자의 예외를 다음 catch로 전달하지 않아 여기서 직접 종결한다.
+                try {
+                    if (defined(info.bbox)) {
+                        const bbox = info.bbox;
+                        this._boundingBox = {
+                            minx: bbox[0],
+                            maxx: bbox[1],
+                            miny: bbox[2],
+                            maxy: bbox[3],
+                            minz: bbox[4],
+                            maxz: bbox[5]
+                        };
+                        this._info = info;
+                        if (!defined(info.makeU3FPackage) || info.makeU3FPackage === UDEF.NON_PACKAGED_MODEL) {
+                            this._makeU3FPackage = UDEF.NON_PACKAGED_MODEL;
+                        }
+                        this._makeJson = !!(defined(info.makeJson) && info.makeJson === 1);
+                        this.computeRectangle();
+                    }
+                    if (!isCurrent()) return;
+                    if (this._makeU3FPackage === UDEF.PACKAGED_MODEL && this._makeJson) {
+                        this._jsonname = this._basename.replace('.u3g', '.json');
+                        const jsonUrl = this._proxyurl + this._baseUrl + '/' + this._jsonname;
+                        jsonRequest = /** @type {DeferredObject<object>} */(this.getLayerJson(jsonUrl));
+                        jsonRequest.then((json) => {
+                            if (!isCurrent()) return;
+                            try {
+                                this._packagedInfo.set(json);
+                                complete();
+                            } catch (error) {
+                                fail(error);
+                            }
+                        }, () => {
+                            if (!isCurrent()) return;
+                            // JSON 요청 실패 시 바이너리 패키지로 대체하는 기존 정책을 유지한다.
+                            this._makeJson = 0;
+                            complete();
+                        });
+                    } else {
+                        complete();
+                    }
+                } catch (error) {
+                    fail(error);
+                }
+            }, fail);
+            return request;
+        } catch (error) {
+            fail(error);
+            return this._needXml ? deferred().reject(error) : undefined;
+        }
     }
 
     /**
@@ -724,42 +798,62 @@ class U3dModelU3FLayer extends U3dModelLayer {
     /**
      * 레이어 정보를 요청하고 원본 최소·최대 타일 레벨을 기록합니다. <br>
      * 요청 실패·중단은 false로, 형식 식별 실패는 undefined로 거부합니다. <br>
-     * 바이너리 해석 중 발생한 예외는 이 메서드에서 복구하지 않습니다.
+     * 요청 생성과 바이너리 해석의 예외는 원래 사유로 거부하며, 손상된 데이터를 복구하지 않습니다. <br>
+     * 레이어 삭제 시 대기 요청은 AbortError로 거부하고 늦은 응답은 해석하지 않습니다.
      *
      * @param {string} [url] 요청 URL이며 생략하면 createU3GURL의 결과 사용
      * @param {import('@UDrawArg').UDrawArg} [drawArg] 호출부 호환용 렌더링 문맥이며 현재 구현에서는 사용하지 않음
      * @returns {Promise<object>} 해석한 레이어 정보가 전달되는 완료 객체
      */
     getLayerInfo(url, drawArg) {
-        const self = this;
-        if (!defined(url))
-            url = self.createU3GURL();
         /** @type {DeferredObject<object>} */
-        let promise = deferred();
-        let loader = self._loader;
-        loader.load(
-            url,
-            //+ load
-            function (/** @type {ArrayBuffer} */ data) {
-                // 응답에서 레이어 범위 정보를 복원하고 기존 완료 객체에 결과를 전달합니다.
-                INTERNAL.readLayerInfo(self, data, promise);
-            }
-            //+ progress 속도가 느려진다. 콜백함수가 없어야 한다.
-            , null
-            //+ error
-            , function () {
-                promise.reject(false);
-            }
-            //+ abort
-            , function () {
-                promise.reject(false);
-            }
-        );
+        const promise = deferred();
+        if (this.isDisposed() || this._taskProcessorDisposing) {
+            return promise.reject(new DOMException('삭제된 U3F 레이어는 정보를 요청할 수 없습니다.', 'AbortError'));
+        }
+        const requests = getLayerLoadState(this).requests;
+        try {
+            if (!defined(url)) url = this.createU3GURL();
+            const id = UDEF.createUUID();
+            let starting = true;
+            requests.set(promise, {loader: this._loader, id});
+            this._loader.load(
+                url,
+                (/** @type {ArrayBuffer} */ data) => {
+                    requests.delete(promise);
+                    if (promise.isReady()) return;
+                    try {
+                        INTERNAL.readLayerInfo(this, data, promise);
+                    } catch (error) {
+                        // 파싱 예외가 로더 밖으로 빠지면 이 요청의 완료 객체는 대기로 남는다.
+                        promise.reject(error);
+                    }
+                },
+                // 진행률 스트림의 불필요한 생성·복사를 피하기 위해 콜백을 등록하지 않는다.
+                null,
+                (error) => {
+                    requests.delete(promise);
+                    // 기존 비동기 HTTP·취소의 false 계약과 요청 생성 동기 오류의 원래 사유를 구분한다.
+                    promise.reject(starting ? error : false);
+                },
+                () => {
+                    requests.delete(promise);
+                    promise.reject(false);
+                },
+                id
+            );
+            starting = false;
+        } catch (error) {
+            requests.delete(promise);
+            promise.reject(error);
+        }
         return promise;
     }
 
     /**
-     * 레이어 JSON 정보를 로드합니다.
+     * 레이어 JSON 정보를 로드합니다. <br>
+     * 요청 생성 예외는 원래 사유로, 기존 비동기 실패는 undefined로 거부합니다. <br>
+     * 레이어 삭제 시 대기 요청은 AbortError로 거부합니다.
      *
      * @param {string} url JSON 요청 URL
      * @returns {Promise<object>} JSON 정보 Promise
@@ -767,25 +861,41 @@ class U3dModelU3FLayer extends U3dModelLayer {
      * @ignore
      */
     getLayerJson(url) {
-        const jsonLoader = new UFileLoader();
-
         /** @type {DeferredObject<object>} */
         const promise = deferred();
-        jsonLoader.crossOrigin = 'anonymous';
-        jsonLoader.setResponseType('json');
-        jsonLoader.load(
-            url,
-            function (/** @type {object} */ json) {
-                promise.resolve(json);
-            },
-            null,
-            function () {
-                promise.reject();
-            },
-            function () {
-                promise.reject();
-            });
-
+        if (this.isDisposed() || this._taskProcessorDisposing) {
+            return promise.reject(new DOMException('삭제된 U3F 레이어는 정보를 요청할 수 없습니다.', 'AbortError'));
+        }
+        const requests = getLayerLoadState(this).requests;
+        try {
+            const jsonLoader = new UFileLoader();
+            jsonLoader.crossOrigin = 'anonymous';
+            jsonLoader.setResponseType('json');
+            const id = UDEF.createUUID();
+            let starting = true;
+            requests.set(promise, {loader: jsonLoader, id});
+            jsonLoader.load(
+                url,
+                (/** @type {object} */ json) => {
+                    requests.delete(promise);
+                    promise.resolve(json);
+                },
+                null,
+                (error) => {
+                    requests.delete(promise);
+                    promise.reject(starting ? error : undefined);
+                },
+                () => {
+                    requests.delete(promise);
+                    promise.reject();
+                },
+                id
+            );
+            starting = false;
+        } catch (error) {
+            requests.delete(promise);
+            promise.reject(error);
+        }
         return promise;
     }
 
@@ -877,273 +987,117 @@ class U3dModelU3FLayer extends U3dModelLayer {
      * @ignore
      */
     getModelInfo(tile, index, url, baseurl, drawArg, tileInfo) {
-        const self = this;
-        const promise = deferred();
+        if (this.isTileDisposed(tile, drawArg) || this._cacheModeles.get(url)) return undefined;
 
-        if (self.isTileDisposed(tile, drawArg))
-            return undefined;
-
-        if (self._cacheModeles.get(url))
-            return undefined;
-
-        if (self._useWorker) {
-            U3dModelU3FLayer.g_TaskProcessor.scheduleTask(new UWorkerParameter({
-                type: 'U3fParserTask',
-                subType: 'load',
-                data: {
-                    url: url,
-                    baseurl: baseurl,
-                    info: self.getInfo(),
-                    index: index,
-                    useSplitModel: self._useSplitModel,
-                    compressModel: self._compressModel,
-                    makeU3FPackage: self._makeU3FPackage
-                }
-            })).then(function (/** @type {Array<U3FParsedObj>} */ objs) {
-                if (self.isTileDisposed(tile, drawArg)) {
-                    self.disposeTile(tile);
-                    promise.reject();
-                    return;
-                }
-
-                if (tile.getParent() && !tile.getParent().updatePossible()) {
-                    self.disposeTile(tile);
-                    promise.reject();
-                    return;
-                }
-
-                self._cacheModeles.add(url, true); // 모델 로드가 끝난 후에 넣어야 제대로 작동한다.
-
-                if (objs === undefined) {
-                    promise.reject(false);
-                    return;
-                }
-
-                if (objs.length === 0) {
-                    promise.reject(false);
-                    return;
-                }
-
-                if (self._makeU3FPackage === UDEF.PACKAGED_MODEL) {
-                    let count = 0;
-                    /** @type {Array<U3FParsedObj>} */
-                    let objects = [];
-                    for (let obj of objs) {
-                        UDEF.createPromise(function (resolve, reject) {
-                            //+ chows add (현식아 . index값 안넣으면 시리얼하게 모델이 안 올라간다)
-                            if (!obj[0]) {
-                                reject(false);
-                                return;
-                            }
-                            obj[0].modelurl = url;
-                            obj[0].baseurl = baseurl;
-                            obj[0].index = index;
-                            let promiseConvert = convertObj2Mesh.call(self, self, obj, tile, drawArg, tileInfo);
-                            if (defined(promiseConvert)) {
-                                promiseConvert.then(function (/** @type {Array<U3FParsedObj>} */ param) {
-                                    resolve(param);
-                                }).catch(function (/** @type {boolean} */ param) {
-                                    reject(param);
-                                });
-                            } else {
-                                reject();
-                            }
-                        }).then(async function (/** @type {Array<U3FParsedObj>} */ results) {
-                            count = count + 1;
-                            if (defined(results)) objects.push(results);
-                            if (count === objs.length) {
-                                if (tileInfo.mergeInfos && tileInfo.mergeInfos.length > 0) {
-                                    await self.mergeModelMesh(tileInfo.mergeInfos, tile, drawArg);
-                                } else if (V25_TEST) {
-                                    const test = self.getCache(tile);
-                                    if (test)
-                                        test.visible = false;
-                                }
-                                promise.resolve(objects);
-                            }
-
-                        }).catch(function (/** @type {unknown} */ criticalReject) {
-                            if (criticalReject) { //true 경우 치명적인 reject 라는 뜻으로 바로 종료한다.
-                                self._cacheModeles.remove(url);
-                                promise.reject(criticalReject);
-                                return;
-                            }
-                            U3dMessage.error(self._classtype, `${tile._key} 타일 로드 중 에러가 발생하였습니다. `, '0831914');
-                            count = count + 1;
-                            if (count === objs.length) {
-                                if (objects.length > 0) {
-                                    promise.resolve(objects);
-                                } else {
-                                    self._cacheModeles.remove(url);
-                                    promise.reject();
-                                }
-                            }
-                        })
-                    }
-                } else {
-                    UDEF.createPromise(function (resolve, reject) {
-                        //+ chows add (현식아 . index값 안넣으면 시리얼하게 모델이 안 올라간다)
-                        objs[0].modelurl = url;
-                        objs[0].baseurl = baseurl;
-                        objs[0].index = index;
-                        let promiseConvert = convertObj2Mesh.call(self, self, objs, tile, drawArg, tileInfo);
-                        if (defined(promiseConvert)) {
-                            promiseConvert.then(function (/** @type {Array<U3FParsedObj>} */ param) {
-                                resolve(param);
-                            }).catch(function (/** @type {boolean} */ param) {
-                                reject(param);
-                            });
-                        } else {
-                            reject();
+        // 작업을 시작하지 않는 경우의 undefined 반환은 유지합니다.
+        // 다운로드·파싱·변환의 완료 객체를 따로 만들지 않아 모든 실패가 최종 호출자까지 전달됩니다.
+        const loadParsedObjects = async () => {
+            if (this._useWorker) {
+                try {
+                    return await this._useTaskProcessor(U3dModelU3FLayer.g_TaskProcessor).scheduleTask(new UWorkerParameter({
+                        type: 'U3fParserTask', subType: 'load',
+                        data: {
+                            url, baseurl, info: this.getInfo(), index,
+                            useSplitModel: this._useSplitModel,
+                            compressModel: this._compressModel,
+                            makeU3FPackage: this._makeU3FPackage
                         }
-                    }).then(function (/** @type {Array<U3FParsedObj>} */ results) {
-                        promise.resolve(results);
-                    }).catch(function (/** @type {unknown} */ criticalReject) {
-                        self._cacheModeles.remove(url);
-                        promise.reject(criticalReject);
-                    });
+                    }));
+                } catch {
+                    // 타일 작업이 사용하는 기존 다운로드 실패값은 보존합니다.
+                    throw false;
                 }
-            }).catch(function (/** @type {unknown} */ e) {
-                //  self.minusLoadingTile();
-                self._cacheModeles.remove(url);
-                promise.reject(false);
+            }
+
+            let data = await new Promise((resolve, reject) => {
+                // UFileLoader는 다운로드 취소도 onError로 통지합니다.
+                this._loader.load(url, resolve, null, () => reject(false));
             });
-        } else { //webworker 사용 안할때
-            let loader = self._loader;
-            //+ 캐쉬여부
-            loader.load(
-                url,
-                //+ onLoad
-                function (/** @type {ArrayBuffer} */ data) {
-                    //  requestAnimationFrame( function() {
-                    if (self.isTileDisposed(tile, drawArg)) {
-                        self.disposeTile(tile);
-                        promise.reject();
-                        return;
-                    }
+            await Yield();
+            if (this.isTileDisposed(tile, drawArg)) {
+                this.disposeTile(tile);
+                throw undefined;
+            }
+            const option = {
+                baseurl, index,
+                usesplitmodel: this._useSplitModel,
+                compressmodel: this._compressModel,
+                ext: this._ext
+            };
+            const parser = new U3FParser(option);
+            if (this._compressModel) {
+                const encoded = (/** @type {Window & KeyValue} */(/** @type {unknown} */(globalThis))).__UNION3D__.pako.inflate(data, {level: 9, memLevel: 9});
+                data = encoded.buffer;
+            }
+            if (this._makeU3FPackage === UDEF.PACKAGED_MODEL) {
+                return new U3FPackageParser(option).parse(data, this.getInfo(), option, parser);
+            }
+            return parser.parse(data, this.getInfo(), option);
+        };
 
-                    //  self.minusLoadingTile();
-                    let option = {
-                        baseurl: baseurl,
-                        index: index,
-                        usesplitmodel: self._useSplitModel, //+ 통합된 모델에서 낱개로 쪼개는 기능 사용여부
-                        compressmodel: self._compressModel,  //+ 압축모델 사용여부
-                        ext: self._ext
-                    };
+        /**
+         * 메시 변환 전에 주소·인덱스를 반영하고 실제 변환 결과를 그대로 전달합니다.
+         *
+         * @param {Array<U3FParsedObj>} objects 단일 모델의 파싱 결과
+         * @returns {Promise<Array<U3FParsedObj>>} 메시 반영이 끝난 모델 정보
+         */
+        const convertModel = async (objects) => {
+            await Yield();
+            if (!objects?.[0]) throw false;
+            objects[0].modelurl = url;
+            objects[0].baseurl = baseurl;
+            objects[0].index = index;
+            const conversion = convertObj2Mesh(this, objects, tile, drawArg, tileInfo);
+            if (!defined(conversion)) throw undefined;
+            return conversion;
+        };
 
-                    let u3fParser = new U3FParser(option);
-                    let objs = undefined;
-
-                    UDEF.createPromise(function (resolve, reject) {
-                        if (self._compressModel) {
-                            //+ gzip 압축풀기
-                            let encodedata = (/** @type {Window & KeyValue} */(/** @type {unknown} */(globalThis))).__UNION3D__.pako.inflate(data, {level: 9, memLevel: 9});
-                            data = encodedata.buffer;
-                        }
-
-                        if (self._makeU3FPackage === UDEF.PACKAGED_MODEL) {
-                            let u3fPackageParser = new U3FPackageParser(option);
-                            objs = u3fPackageParser.parse(data, self.getInfo(), option, u3fParser);
-                        } else
-                            objs = u3fParser.parse(data, self.getInfo(), option);
-                        resolve(objs)
-                        // end.resolve(objs);
-                    }).then(function (/** @type {Array<U3FParsedObj>} */ objs) {
-                        self._cacheModeles.add(url, true); // 모델 로드가 끝난 후에 넣어야 제대로 작동한다.
-
-                        if (objs === undefined) {
-                            promise.reject(false);
-                            return;
-                        }
-                        if (objs.length == 0) {
-                            promise.reject(false);
-                            return;
-                        }
-                        if (self._makeU3FPackage === UDEF.PACKAGED_MODEL) {
-                            let count = 0;
-                            /** @type {Array<U3FParsedObj>} */
-                            let objects = [];
-                            for (let obj of objs) {
-                                UDEF.createPromise(function (resolve, reject) {
-                                    //+ chows add (현식아 . index값 안넣으면 시리얼하게 모델이 안 올라간다)
-                                    obj[0].modelurl = url;
-                                    obj[0].baseurl = baseurl;
-                                    obj[0].index = index;
-                                    const promiseConvert = convertObj2Mesh.call(self, self, obj, tile, drawArg, tileInfo);
-                                    if (defined(promiseConvert)) {
-                                        promiseConvert.then(function (/** @type {Array<U3FParsedObj>} */ param) {
-                                            resolve(param);
-                                        }).catch(function (/** @type {boolean} */ param) {
-                                            reject(param);
-                                        });
-                                    } else {
-                                        reject();
-                                    }
-                                }).then(async function (/** @type {Array<U3FParsedObj>} */ results) {
-                                    count = count + 1;
-                                    if (defined(results)) objects.push(results);
-
-                                    if (count === objs.length) {
-                                        if (tileInfo.mergeInfos && tileInfo.mergeInfos.length > 0) {
-                                            await self.mergeModelMesh(tileInfo.mergeInfos, tile, drawArg);
-                                        }
-                                        promise.resolve(objects);
-                                    }
-
-                                }).catch(function (/** @type {unknown} */ criticalReject) {
-                                    if (criticalReject) { //true 경우 치명적인 reject 라는 뜻으로 바로 종료한다.
-                                        self._cacheModeles.remove(url);
-                                        promise.reject(criticalReject);
-                                        return;
-                                    }
-                                    U3dMessage.error(self._classtype, `${tile._key} 타일 로드 중 에러가 발생하였습니다. `, '2333208');
-                                    count = count + 1;
-                                    if (count === objs.length) {
-                                        if (objects.length > 0) {
-                                            promise.resolve(objects);
-                                        } else {
-                                            self._cacheModeles.remove(url);
-                                            promise.reject();
-                                        }
-                                    }
-                                })
-                            }
-                        } else {
-                            UDEF.createPromise(function (resolve, reject) {
-                                //+ chows add (현식아 . index값 안넣으면 시리얼하게 모델이 안 올라간다)
-                                objs[0].modelurl = url;
-                                objs[0].baseurl = baseurl;
-                                objs[0].index = index;
-                                let promiseConvert = convertObj2Mesh.call(self, self, objs, tile, drawArg, tileInfo);
-                                if (defined(promiseConvert)) {
-                                    promiseConvert.then(function (/** @type {Array<U3FParsedObj>} */ param) {
-                                        resolve(param);
-                                    }).catch(function (/** @type {boolean} */ param) {
-                                        reject(param);
-                                    });
-                                } else {
-                                    reject();
-                                }
-                            }).then(function (/** @type {Array<U3FParsedObj>} */ results) {
-                                promise.resolve(results);
-                            }).catch(function (/** @type {unknown} */ criticalReject) {
-                                promise.reject(criticalReject);
-                                self._cacheModeles.remove(url);
-                            });
-                        }
-                    });
-                },
-                //+ onProgress
-                null,
-                //+ error
-                function () {
-                    self._cacheModeles.remove(url);
-                    //  self.minusLoadingTile();
-                    promise.reject(false);
+        const loadModel = async () => {
+            try {
+                const objects = await loadParsedObjects();
+                if (this.isTileDisposed(tile, drawArg)
+                    || (this._useWorker && tile.getParent() && !tile.getParent().updatePossible())) {
+                    this.disposeTile(tile);
+                    throw undefined;
                 }
-            );
-        }
-        return promise;
+                if (!objects?.length) throw false;
+                this._cacheModeles.add(url, true);
+
+                if (this._makeU3FPackage !== UDEF.PACKAGED_MODEL) {
+                    // await해야 변환 실패도 아래의 캐시 정리 경로를 거칩니다.
+                    return await convertModel(objects);
+                }
+
+                /** @type {Array<Array<U3FParsedObj>>} */
+                const converted = [];
+                await Promise.all(objects.map(async (/** @type {Array<U3FParsedObj>} */ model) => {
+                    try {
+                        const result = await convertModel(model);
+                        // 기존과 같이 완료된 순서로 결과를 모읍니다.
+                        if (defined(result)) converted.push(result);
+                    } catch (error) {
+                        // 개별 모델의 false·undefined 거부는 건너뛰고, 치명적 실패는 전체 작업에 전달합니다.
+                        if (error) throw error;
+                        U3dMessage.error(this._classtype, `${tile._key} 타일 로드 중 에러가 발생하였습니다. `, this._useWorker ? '0831914' : '2333208');
+                    }
+                }));
+                if (converted.length === 0) throw undefined;
+                if (this.isTileDisposed(tile, drawArg)) throw true;
+
+                // 마지막 모델의 성공 여부와 관계없이 모든 변환을 기다린 뒤 병합은 한 번만 실행합니다.
+                if (tileInfo.mergeInfos?.length > 0) {
+                    await this.mergeModelMesh(tileInfo.mergeInfos, tile, drawArg);
+                } else if (this._useWorker && V25_TEST) {
+                    const cached = this.getCache(tile);
+                    if (cached) cached.visible = false;
+                }
+                return converted;
+            } catch (error) {
+                this._cacheModeles.remove(url);
+                throw error;
+            }
+        };
+        return loadModel();
     }
 
     /**
@@ -1192,7 +1146,7 @@ class U3dModelU3FLayer extends U3dModelLayer {
                     type: 'U3fParserTask',
                     subType: 'abort',
                     data: self._modelUrlMap[key][i]
-                }))
+                }))?.catch(() => {})
             }
 
             delete self._modelUrlMap[key];
@@ -1359,7 +1313,8 @@ class U3dModelU3FLayer extends U3dModelLayer {
     }
 
     /**
-     * 부모 레이어 해제를 시작하고 공간 색인 및 이 레이어의 공유 재질을 해제합니다.
+     * 진행 중인 초기화·정보 요청을 취소하고 부모 레이어·공간 색인·공유 재질을 해제합니다. <br>
+     * 같은 URL을 사용하는 다른 소비자의 다운로드는 유지합니다.
      *
      * @override
      *
@@ -1367,17 +1322,35 @@ class U3dModelU3FLayer extends U3dModelLayer {
      * @returns {Promise<boolean>} 부모 레이어가 반환한 해제 완료 Promise
      */
     dispose(drawArg) {
-        const self = this;
-        const disposed = U3dModelLayer.prototype.dispose.call(self);
-        if (defined(UDEF.RBUSH))
-            (/** @type {{clear: () => void, insert: (item: unknown) => void}} */(UDEF.RBUSH)).clear();
-        return disposed.then((result) => {
-            // 개별 타일/모델은 빌려 쓰기만 한다. 레이어의 정리가 끝난 뒤 공유 재질의 소유권을 닫는다.
-            const material = self._sharedMaterial;
-            self._sharedMaterial = undefined;
-            if (material) UDEF.disposeResource({material});
-            return result;
-        });
+        this._taskProcessorDisposing = true;
+        try {
+            const reason = new DOMException('U3F 레이어 삭제로 초기화가 취소되었습니다.', 'AbortError');
+            const state = LAYER_LOAD_STATES.get(this);
+            if (state) {
+                LAYER_LOAD_STATES.delete(this);
+                state.initialization?.cancel(reason);
+                // 공개 요청도 함께 종결합니다. 늦은 콜백은 캡처한 이 목록만 정리합니다.
+                const requests = Array.from(state.requests);
+                state.requests.clear();
+                for (const [request, consumer] of requests) {
+                    request.reject(reason);
+                    consumer.loader.cancelById(consumer.id);
+                }
+            }
+            const self = this;
+            const disposed = U3dModelLayer.prototype.dispose.call(self);
+            if (defined(UDEF.RBUSH))
+                (/** @type {{clear: () => void, insert: (item: unknown) => void}} */(UDEF.RBUSH)).clear();
+            return disposed.then((result) => {
+                // 개별 타일/모델은 빌려 쓰기만 한다. 레이어의 정리가 끝난 뒤 공유 재질의 소유권을 닫는다.
+                const material = self._sharedMaterial;
+                self._sharedMaterial = undefined;
+                if (material) UDEF.disposeResource({material});
+                return result;
+            });
+        } finally {
+            this._releaseTaskProcessors();
+        }
     }
 
     /**
@@ -1561,6 +1534,9 @@ class U3dModelU3FLayer extends U3dModelLayer {
                             }).finally(function () {
                                 delete self._tileBufferMap[tile._key];
                                 self._updateCount--;
+                            }).catch(error => {
+                                // finally가 만든 새 Promise의 거부도 처리하여 프레임 밖으로 흘리지 않습니다.
+                                U3dMessage.error(self._classtype, `모델 상세 갱신 중 오류가 발생하였습니다. ${error}`, '0831914');
                             });
                         } else {
                             delete self._tileBufferMap[tile._key];
@@ -1568,6 +1544,8 @@ class U3dModelU3FLayer extends U3dModelLayer {
                         }
                     }
                     resolve();
+                }).catch(error => {
+                    U3dMessage.error(self._classtype, `모델 상세 갱신 중 오류가 발생하였습니다. ${error}`, '0831914');
                 });
             }
             self._checkUpdateImage.updateTime(5);

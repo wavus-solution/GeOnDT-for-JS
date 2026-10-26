@@ -55,7 +55,7 @@ class U3dModelStaticLayer extends U3dModelBasicLayer {
      * 모델 목록의 로딩을 시작하고 각 결과를 정적 렌더 그룹에 배치합니다. <br>
      * 빈 목록 또는 마지막 성공 시 resolve에 레이어 자신을 전달하며 이 메서드는 완료 Promise를 반환하지 않습니다. <br>
      * 유효 메시의 _oriCenter는 로더나 setOriginCenter 재정의가 준비해야 합니다. <br>
-     * 로딩 실패와 배치 예외를 이 메서드에서 복구하지 않습니다.
+     * 로딩 실패와 배치 예외는 레이어의 reject에 전달하며 부분 배치를 복구하지 않습니다.
      *
      * @override
      */
@@ -71,23 +71,38 @@ class U3dModelStaticLayer extends U3dModelBasicLayer {
         if (this.load) {
             this._objectLoadCount = this._listModel.length;
             if (this._objectLoadCount === 0) {
-                this.resolve(this);
+                this._resolveReady();
             }
             for (let i = 0; i < this._listModel.length; i++) {
                 this.load(this._listModel[i]).then((object) => {
-                    this._objectLoadCount--;
-                    // 요청 때의 복사본이 아니라 완료 시점에 목록에 있는 메타데이터를 사용합니다.
-                    object._crs = this._listModel[i].crs;
-                    object._ext = this._listModel[i].ext;
-                    afterLoad.call(this, object);
-                    this._renderBuffer.add(object);
-                    if (this._objectLoadCount === 0) {
-                        this._bbox = new THREE.Box3().setFromObject(this._renderBuffer);
-                        const layerCenter = new THREE.Vector3();
-                        this._bbox.getCenter(layerCenter);
-                        this._center = layerCenter;
-                        this.resolve(this);
+                    try {
+                        this._objectLoadCount--;
+                        // 요청 때의 복사본이 아니라 완료 시점에 목록에 있는 메타데이터를 사용합니다.
+                        object._crs = this._listModel[i].crs;
+                        object._ext = this._listModel[i].ext;
+                        afterLoad.call(this, object);
+                        this._renderBuffer.add(object);
+                        if (this._objectLoadCount === 0) {
+                            this._bbox = new THREE.Box3().setFromObject(this._renderBuffer);
+                            const layerCenter = new THREE.Vector3();
+                            this._bbox.getCenter(layerCenter);
+                            this._center = layerCenter;
+                            this._resolveReady();
+                        }
+                    } catch (error) {
+                        if (this.isReady()) {
+                            console.error('완료된 정적 레이어의 배치 후처리에서 오류가 발생했습니다.', error);
+                            return;
+                        }
+                        this._rejectReady(error);
                     }
+                }, (error) => {
+                    // 개별 모델 로딩의 실패를 레이어 초기화 실패로 전달합니다. 완료 후의 오류는 로그로 구분합니다.
+                    if (this.isReady()) {
+                        console.error('완료된 정적 레이어의 초기화 작업에서 오류가 발생했습니다.', error);
+                        return;
+                    }
+                    this._rejectReady(error);
                 });
             }
         }

@@ -38,6 +38,8 @@
                     <span>고도</span>
                 </label>
             </div>
+            <button id="measure-stop" class="measure-action" type="button" data-api-help="measure.stop">현재 측정 종료</button>
+            <p class="measure-hint" data-api-help="measure.feature-selection">거리·면적 모드에서 완성된 도형을 클릭하면 결과와 개별 스타일을 관리할 수 있습니다. Esc 또는 우클릭 두 번으로 현재 측정을 종료합니다. 고정 점이 거리 두 개·면적 세 개보다 부족하면 취소합니다.</p>
             <p class="measure-hint" id="measure-mode-hint">지도를 자유롭게 이동합니다. 측정 기능은 꺼져 있습니다.</p>
         </section>
 
@@ -84,9 +86,134 @@
             <dl id="measure-total" hidden>
                 <div><dt>합계</dt><dd id="measure-total-value">-</dd></div>
             </dl>
+            <p id="measure-feature-list-title" class="measure-hint" hidden>완료된 측정 목록</p>
+            <ol id="measure-feature-list" data-api-help="measure.feature-results" aria-label="확정된 측정 결과 목록" hidden></ol>
             <button id="measure-clear" class="measure-action" type="button" data-api-help="measure.clear">
                 측정 초기화
             </button>
         </section>
     </div>
 </aside>
+
+<div id="measure-feature-popup" class="measure-feature-popup" role="dialog" aria-labelledby="measure-feature-title" data-measure-type="distance" hidden>
+        <header class="measure-feature-popup__header">
+            <div class="measure-feature-popup__heading">
+                <div class="measure-feature-popup__title-row">
+                    <h4 id="measure-feature-title" class="measure-feature-popup__title">
+                        측정 도형 정보
+                    </h4>
+                    <span id="measure-feature-type" class="measure-feature-popup__type">
+                    거리
+                </span>
+                </div>
+
+                <p class="measure-feature-popup__description">
+                    선택한 측정 도형의 결과와 스타일을 관리합니다.
+                </p>
+            </div>
+
+            <button type="button" id="measure-feature-close" class="measure-feature-popup__close" aria-label="창 닫기" title="닫기">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </header>
+
+        <div class="measure-feature-popup__body">
+            <section class="measure-feature-result" data-api-help="measure.feature-results" aria-labelledby="measure-feature-result-label">
+                <div class="measure-feature-result__info">
+                    <span id="measure-feature-result-label" class="measure-feature-result__label">
+                        측정 거리
+                    </span>
+                    <span class="measure-feature-result__description">
+                    선택한 도형의 측정 결과
+                    </span>
+                </div>
+                <strong id="measure-feature-value" class="measure-feature-result__value">-</strong>
+            </section>
+            <section class="measure-feature-style" aria-labelledby="measure-feature-style-title">
+                <div class="measure-feature-style__header">
+                    <h5 id="measure-feature-style-title" class="measure-feature-popup__section-title">
+                        도형 스타일
+                    </h5>
+                    <span class="measure-feature-style__hint">
+                    선택한 도형에만 적용됩니다.
+                </span>
+                </div>
+                <div class="measure-feature-style__grid">
+                    <label class="measure-feature-field measure-feature-field--stroke">
+                    <span class="measure-feature-field__label">
+                        선 색상
+                    </span>
+                        <span class="measure-feature-color">
+                        <input type="color" id="measure-feature-stroke" value="#ffff00" aria-label="선 색상">
+
+                        <span id="measure-feature-stroke-value" class="measure-feature-color__value">
+                            #FFFF00
+                        </span>
+                    </span>
+                    </label>
+
+
+                    <label id="measure-feature-fill-field" class="measure-feature-field measure-feature-field--fill">
+                    <span class="measure-feature-field__label">
+                        채우기 색상
+                    </span>
+
+                        <span class="measure-feature-color">
+                        <input type="color" id="measure-feature-fill" value="#00aa00" aria-label="채우기 색상">
+                        <span id="measure-feature-fill-value" class="measure-feature-color__value">
+                            #00AA00
+                        </span>
+                    </span>
+                    </label>
+
+                    <label class="measure-feature-field measure-feature-field--width">
+                    <span class="measure-feature-field__label">
+                        선 두께
+                    </span>
+                        <span class="measure-feature-number">
+                        <input type="number" id="measure-feature-width" value="1" min="0.1" step="0.1" inputmode="decimal">
+                        <span class="measure-feature-number__unit">
+                            px
+                        </span>
+                    </span>
+                    </label>
+
+                    <label class="measure-feature-field measure-feature-field--opacity">
+                    <span class="measure-feature-field__label">
+                        투명도
+                    </span>
+                        <span class="measure-feature-number">
+                            <input type="number" id="measure-feature-opacity" value="1" min="0" max="1" step="0.1" inputmode="decimal">
+                        </span>
+                    </label>
+                </div>
+
+                <p class="measure-feature-popup__help">
+                    투명도는 0부터 1까지 설정할 수 있으며, 값이 작을수록 투명하게 표시됩니다.
+                </p>
+            </section>
+        </div>
+
+        <p id="measure-feature-status" class="measure-feature-popup__help" role="status"></p>
+        <footer class="measure-feature-popup__footer">
+            <button type="button"
+                    id="measure-feature-style" data-api-help="measure.feature-style"
+                    class="measure-feature-button measure-feature-button--primary">
+                변경 사항 적용
+            </button>
+
+            <button type="button"
+                    id="measure-feature-style-reset" data-api-help="measure.feature-reset"
+                    class="measure-feature-button measure-feature-button--secondary"
+            >
+                기본 스타일
+            </button>
+
+            <button type="button"
+                    id="measure-feature-delete" data-api-help="measure.feature-delete"
+                    class="measure-feature-button measure-feature-button--danger"
+            >
+                선택 도형 삭제
+            </button>
+        </footer>
+    </div>

@@ -13,17 +13,17 @@
 - 앱과 렌더러에 이미 등록된 스카이라인 패스를 연결한다.
 - 패스 활성화·비활성화와 분석 활성 상태를 변경한다.
 - 스타일 입력의 선택 조건에 따라 패스의 선·초과 색상·지면·하늘 설정을 호출한다.
-- 화면 배열의 세 채널을 독립적으로 집계하고 deferred 객체를 종결한다.
+- 화면 배열의 세 채널을 독립적으로 집계하고 deferredPromise 객체를 종결한다.
 
 ### 1.3 주요 동작 방식
 
-앱 연결·활성화·스타일 설정·화면 집계의 진입에서 렌더러와 패스 참조를 갱신한다. 등록 패스가 없는 경우 스타일 설정은 자신을 반환하고, 화면 집계는 deferred 객체를 reject한다. 패스 자체의 생성과 렌더링은 렌더러·후처리 패스가 담당한다.
+앱 연결·활성화·스타일 설정·화면 집계의 진입에서 렌더러와 패스 참조를 갱신한다. 등록 패스가 없는 경우 스타일 설정은 자신을 반환하고, 화면 집계는 deferredPromise 객체를 reject한다. 패스 자체의 생성과 렌더링은 렌더러·후처리 패스가 담당한다.
 
 ### 1.4 주요 사용처와 연계 대상
 
 - `union3d/app/GeOnDT.js`의 분석 클래스 공개 목록에 포함된다.
 - 기반 클래스 `UAnaly`, 앱 `U3dApp`, 렌더러 `URenderer`, 후처리 패스 `USkyLinePass`와 연계한다.
-- `deferred()`가 화면 집계 결과의 전달 객체를 만들고 `__GError__()`가 비동기 실패 메시지를 전달한다.
+- `deferredPromise()`가 화면 집계 결과의 전달 객체를 만들고 `__GError__()`가 비동기 실패 메시지를 전달한다.
 
 ## 3. 정규 자연어 수도코드
 
@@ -85,20 +85,20 @@ UAnalySkyLine extends UAnaly 클래스 정의
             useSkyColor가 null 또는 undefined가 아니면 false도 포함하여 skyColor와 함께 setSky()에 전달한다.
             위 순서로 적용한 뒤 자신을 반환한다. 스타일과 패스에 대한 추가 유효성 검사나 색상 객체 변환은 수행하지 않는다.
 
-    getScreenInfo() -> ReturnType<typeof deferred>
+    getScreenInfo() -> Promise<{ground: number, sky: number, over: number, total: number}>
         의존:
-            deferred — 결과 전달 객체 생성; 함수: {deferred()}
+            deferredPromise — 결과 전달 객체 생성; 함수: {deferredPromise()}
             UAnaly — 분석 활성 상태 조회; 함수: {isActive()}
             USkyLinePass — 화면 배열 요청; 함수: {getDepthArray()}
             __GError__ — 비동기 실패 메시지 전달; 함수: {__GError__()}
         동작:
-            deferred 객체를 먼저 생성한다.
+            deferredPromise 객체를 먼저 생성한다.
             분석이 비활성이면 패스 연결을 시도하지 않고 인수 없이 reject한 객체를 반환한다.
             분석이 활성 상태이면 렌더러와 패스를 연결하고 false를 반환하면 인수 없이 reject한 객체를 반환한다.
-            저장한 패스에서 getDepthArray()를 호출하고 반환 객체의 then·catch에 집계와 오류 처리를 등록한 뒤 최초 생성한 deferred 객체를 반환한다.
+            저장한 패스에서 getDepthArray()를 호출하고 반환 객체의 then·catch에 집계와 오류 처리를 등록한 뒤 최초 생성한 deferredPromise 객체를 반환한다.
             배열이 전달되면 인덱스를 0부터 4씩 증가시키며 첫째·둘째·셋째 채널이 각각 0.5보다 클 때 ground·sky·over를 독립적으로 증가시킨다. 넷째 채널은 집계하지 않는다.
-            sky·ground·over와 total = 배열 길이 / 4를 가진 객체로 deferred를 resolve한다. 채널별 분류는 상호 배타적이지 않으며 배열 길이의 나머지를 검증하지 않는다.
-            catch 경로에서는 원래 분석 인스턴스와 '화면 정보를 읽는 중 오류가 발생 하였습니다.', 코드 '9863216'으로 __GError__()를 호출한 뒤 deferred를 인수 없이 reject한다.
+            sky·ground·over와 total = 배열 길이 / 4를 가진 객체로 deferredPromise를 resolve한다. 채널별 분류는 상호 배타적이지 않으며 배열 길이의 나머지를 검증하지 않는다.
+            catch 경로에서는 원래 분석 인스턴스와 '화면 정보를 읽는 중 오류가 발생 하였습니다.', 코드 '9863216'으로 __GError__()를 호출한 뒤 deferredPromise를 인수 없이 reject한다.
             getDepthArray() 호출이나 then·catch 등록 전에 발생한 동기 예외는 위 catch로 변환하지 않고 호출자에게 전달한다.
 
     #setPass() -> boolean

@@ -120,10 +120,10 @@ collectProcessWork(item: U3dQuadTile, force: unknown, isOnly: unknown, scope: Pa
         U3dQuadTile — 수명·부모 대기 작업 조회; 함수: {isDisposed(), getParent()}; 속성 읽기: {item._rlevel, item._key, item._rectangle3d, item._drawArg}
         부모 타일 — 같은 이름의 진행 작업 검사; 함수: {isWaitWork()}
         completedWorkTile — 완료 기록 조회와 영상 캐시 소실 시 기록 해제; 함수: {hasEndWork(), deleteEndWork()}
-        등록 callback.scope — 레이어 조건·초기화 통지·영상 완료 검사; 함수: {getName(), isDisposed(), getVisible(), isInitialized(), then(), ready(), intersects3D(), isTileWorkComplete(), getCache()}; 속성 읽기: {_box3, _minlevel, _useMaxLevel, _maxlevel}
+        등록 callback.scope — 레이어 조건·초기화 종결·영상 완료 검사; 함수: {getName(), isDisposed(), getVisible(), isInitialized(), isReady(), intersects3D(), isTileWorkComplete(), getCache()}; 속성 읽기: {_box3, _minlevel, _useMaxLevel, _maxlevel, ready}
         UDEF — 완료 검사 대상 작업 종류; 상수: {PROCESS.TYPE.HEIGHT, PROCESS.TYPE.IMAGE}
         UDrawArg — 레이어 경계 가시성 검사; 함수: {intersectsBox()}
-        U3dApp — 초기화 완료 후 타일 갱신 요청; 함수: {forceUpdate()}
+        U3dApp — 초기화 완료 후 앱 수명 확인과 타일 갱신 요청; 함수: {isDisposed(), forceUpdate()}
         U3dQuadTileTask — 후보 객체 생성; 생성자: {new U3dQuadTileTask()}
     동작:
         item이 없거나 isDisposed 결과가 참이면 오류 0173930을 보고하고 undefined를 반환한다.
@@ -133,11 +133,16 @@ collectProcessWork(item: U3dQuadTile, force: unknown, isOnly: unknown, scope: Pa
             콜백 scope가 폐기되었으면 원본 콜백 배열에서 현재 요소를 splice하고 다음 인덱스로 진행한다. [확인 Q-002]
             scope가 숨김이면 건너뛴다.
             scope의 _box3가 정의되어 있으면 초기화·가시성 조건을 검사한다.
-                초기화되지 않았고 isRegisteUpdate도 거짓이면 then을 우선하고 없으면 ready를 사용하여 준비 통지를 연결한다.
-                준비 통지의 수신자는 처리기 그리기 인자의 앱에 forceUpdate를 호출한 뒤 callback.isRegisteUpdate를 false로 설정한다.
-                통지를 연결했으면 안내를 기록하고 isRegisteUpdate를 true로 설정한 뒤 현재 콜백을 건너뛴다.
-                두 준비 통지 함수가 모두 없으면 별도 안내를 기록하고 건너뛴다.
-                이미 isRegisteUpdate가 참이면 초기화 완료를 다시 요구하지 않고 경계 가시성 검사로 진행한다.
+                초기화되지 않았으면 등록 대기 여부와 무관하게 현재 콜백의 타일 작업을 만들지 않는다.
+                    isRegisteUpdate가 거짓이고 레이어의 isReady()가 거짓이면 ready.then으로 성공·실패 통지를 함께 연결한다.
+                    중복 구독을 막기 위해 연결 전에 isRegisteUpdate를 true로 설정한다.
+                    성공하면 isRegisteUpdate를 false로 설정한다. 처리기·레이어·앱이 폐기되지 않았을 때만 그리기 인자의 앱에 forceUpdate를 호출한다.
+                    실패하면 isRegisteUpdate만 false로 해제한다. Process는 별도의 실패 상태를 보관하지 않는다.
+                        먼저 실행된 실패 수신자가 재초기화를 동기로 마쳐 isInitialized가 참이면 성공과 같은 폐기 확인을 거쳐 forceUpdate를 요청한다.
+                    통지 연결 시 안내를 기록한다. ready.then이 함수가 아니면 별도 안내를 기록한다.
+                    이미 대기 중이거나 isReady()가 참인 레이어는 통지를 다시 연결하지 않고 건너뛴다. 다른 레이어 콜백은 계속 검사한다.
+                    레이어의 _resetReady가 새 ready를 만들고 미종결 상태로 바꾸면 새 초기화의 성공·실패 통지를 다시 연결한다.
+                초기화된 레이어는 경계·레벨 조건 검사로 진행한다.
                 item의 그리기 인자로 scope._box3가 화면과 교차하지 않으면 건너뛴다.
             정의된 최소 레벨이 타일 레벨보다 높으면 건너뛴다.
             _useMaxLevel이 참일 때만 정의된 최대 레벨이 타일 레벨보다 낮은 콜백을 건너뛴다.

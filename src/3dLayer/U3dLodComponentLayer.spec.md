@@ -204,7 +204,7 @@ U3dLodComponentLayer extends U3dMultipleComponentLayer 클래스 정의
         initialize 시작 시 false가 되며 기본 모델 로드와 LOD 준비의 완료 경로에서 true가 된다.
     _initPromise
         initialize가 최초 생성한 완료 객체이며 이후 호출에서도 같은 객체를 반환한다.
-    resolve, reject: function
+    _resolveReady, _rejectReady: function
         기본 모델 초기화 중 임시 교체하는 외부 완료 함수다. 기본 로드의 성공·실패 또는 동기 예외에서 원래 함수로 복원한다.
 
     호환 상태 연결 책임 그룹
@@ -843,9 +843,9 @@ U3dLodComponentLayer extends U3dMultipleComponentLayer 클래스 정의
             외부 완료 callback — 원래 레이어 완료 연결; 함수: {publicResolve(), publicReject()}
             U3dModelBasicLayer — 상속된 상태·연결 객체; 속성 읽기: {_isLoaded}
         동작:
-            _initPromise가 truthy이면 이전과 같은 객체를 즉시 반환한다. 최초에는 _loadedModel=false와 새 완료 객체를 저장하고 현재 resolve·reject를 보관한다.
-            기본 모델이 이미 로드되었으면 LOD 생성을 호출하고 동기 오류를 내부 완료 객체와 원래 reject에 모두 전달한다.
-            기본 모델이 아직 로드되지 않았으면 별도 완료 객체를 만들고 인스턴스 resolve·reject를 그 함수로 임시 교체한다. 기본 로드 성공·실패 callback은 원래 두 함수를 먼저 복원한다.
+            _initPromise가 truthy이면 이전과 같은 객체를 즉시 반환한다. 최초에는 _loadedModel=false와 새 완료 객체를 저장하고 현재 _resolveReady·_rejectReady를 레이어에 바인딩하여 보관한다.
+            기본 모델이 이미 로드되었으면 LOD 생성을 호출하고 동기 오류를 내부 완료 객체와 원래 _rejectReady에 모두 전달한다.
+            기본 모델이 아직 로드되지 않았으면 별도 완료 객체를 만들고 인스턴스 _resolveReady·_rejectReady를 그 함수로 임시 교체한다. 기본 로드 성공·실패 callback은 원래 두 함수를 먼저 복원한다.
             성공 callback은 LOD 생성을 시작하고, 실패 또는 LOD 시작의 동기 오류는 두 실패 신호로 전달한다.
             기본 초기화가 시작되지 않았을 때만 부모 initialize를 호출한다. 그 호출이 동기 예외를 던져도 함수 복원 후 실패를 전달한다. _initPromise를 반환하며 실패 후에도 다음 initialize가 새 작업을 만들지는 않는다.
 

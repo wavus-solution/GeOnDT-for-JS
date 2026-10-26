@@ -130,7 +130,7 @@
                         <!-- 부모·자식 관계로 이루어진 트리입니다. 부모가 없는 객체를 최상위에 두고 자식은 연결선과 함께 안쪽에 표시합니다. main.js가 채웁니다. -->
                         <div class="indoor-hierarchy-box">
                             <ul class="indoor-hierarchy-list" id="hierarchy-tree-container" role="tree" aria-label="객체 계층 트리"></ul>
-                            <p class="indoor-hierarchy-empty" id="hierarchy-tree-empty">배치된 컴포넌트가 없습니다.</p>
+                            <p class="indoor-hierarchy-empty" id="hierarchy-tree-empty">배치된 객체가 없습니다.</p>
                         </div>
                     </div>
                 </div>
@@ -327,7 +327,7 @@
                             <div class="form-group">
                                 <label for="max-dist">LOD 거리</label>
                                 <div class="input-group" style="display:flex;">
-                                    <input type="number" id="max-dist" class="form-control input-sm"
+                                    <input type="number" id="max-dist" class="form-control input-sm" min="0"
                                            style="width: 50px; margin: 0 11px;">
                                 </div>
                             </div>
@@ -539,6 +539,7 @@
             <span id="work-io-title">작업 저장</span>
             <button type="button" class="popup-close">&times;</button>
         </div>
+        <p id="work-io-notice" style="display:none;">불러오면 현재 배치를 저장 데이터로 교체합니다. 불러오기에 실패하면 기존 배치를 복원합니다.</p>
         <textarea id="work-io-text" class="work-save-text" spellcheck="false"></textarea>
         <div class="work-io-actions">
             <button type="button" id="work-io-confirm" class="btn btn-default btn-sm">확인</button>

@@ -400,7 +400,7 @@ class U3dHeightXYZLayer extends U3dHeightLayer {
                     }
 
                 /**
-                 *  
+                 *
                  *
                  * @type {U3dHeightTilePayload}
                  */
@@ -545,7 +545,7 @@ class U3dHeightXYZLayer extends U3dHeightLayer {
         const url = this.createUrl({
             _centerX: (bound[0] + bound[2]) / 2,
             _centerY: (bound[1] + bound[3]) / 2,
-            _level: level - U3dQuadTile.getStartLevel()
+            _level: level - (this._drawArg?.getDataLevel() ?? U3dQuadTile.getStartLevel())
         });
         const tilePayload = await this.#loadTilePayloadByUrl(url);
         this.#putDataCache(tileKey, tilePayload);
@@ -568,19 +568,19 @@ class U3dHeightXYZLayer extends U3dHeightLayer {
         if (!points || points.length === 0) return [];
 
         /**
-         *  
+         *
          *
          * @type {Array<number>}
          */
         const tx = [];
         /**
-         *  
+         *
          *
          * @type {Array<number>}
          */
         const ty = [];
         /**
-         *  
+         *
          *
          * @type {Array<{x: number, y: number, z: number | string, level: number, errorMsg: (string | undefined)}>}
          */
@@ -618,7 +618,7 @@ class U3dHeightXYZLayer extends U3dHeightLayer {
             const worldTop = bound[3];
 
             /**
-             *  
+             *
              *
              * @type {U3dHeightTilePayload | undefined}
              */
@@ -677,14 +677,14 @@ class U3dHeightXYZLayer extends U3dHeightLayer {
             this.readXml(this._baseUrl);
         } else {
             if (!this.#computeRectangle()) {
-                (/** @type {Partial<{reject: (error: Error) => void}>} */(/** @type {unknown} */(this))).reject?.(
+                this._rejectReady(
                     new Error('Height layer bounding box initialization failed.')
                 );
                 return;
             }
             setTimeout(() => {
                 //+ 이니셜라이즈 종료 호출
-                (/** @type {Partial<{resolve: (value: U3dHeightXYZLayer) => void}>} */(/** @type {unknown} */(this))).resolve?.(this);
+                this._resolveReady();
             }, 1);
         }
     }
@@ -726,23 +726,31 @@ class U3dHeightXYZLayer extends U3dHeightLayer {
         url += "tilemapresource.xml";
         xhr.overrideMimeType('application/xml');
         xhr.onload = function () {
-            if (this.status === 200) {
-                if (!layer.parseXml(this) || !layer.#computeRectangle()) {
-                    (/** @type {Partial<{reject: (error: Error) => void}>} */(/** @type {unknown} */(layer))).reject?.(
-                        new Error('Height layer XML initialization failed.')
+            try {
+                if (this.status === 200) {
+                    if (!layer.parseXml(this) || !layer.#computeRectangle()) {
+                        layer._rejectReady(
+                            new Error('Height layer XML initialization failed.')
+                        );
+                        return;
+                    }
+                    //+ 이니셜라이즈 종료 호출
+                    layer._resolveReady();
+                } else {
+                    layer._rejectReady(
+                        new Error(`Height layer XML request failed: HTTP ${this.status}.`)
                     );
+                }
+            } catch (error) {
+                if (layer.isReady()) {
+                    console.error('완료된 고도 레이어의 XML 적용에서 오류가 발생했습니다.', error);
                     return;
                 }
-                //+ 이니셜라이즈 종료 호출
-                (/** @type {Partial<{resolve: (value: U3dHeightXYZLayer) => void}>} */(/** @type {unknown} */(layer))).resolve?.(layer);
-            } else {
-                (/** @type {Partial<{reject: (error: Error) => void}>} */(/** @type {unknown} */(layer))).reject?.(
-                    new Error(`Height layer XML request failed: HTTP ${this.status}.`)
-                );
+                layer._rejectReady(error);
             }
         };
         xhr.onerror = () => {
-            (/** @type {Partial<{reject: (error: Error) => void}>} */(/** @type {unknown} */(layer))).reject?.(
+            layer._rejectReady(
                 new Error('Height layer XML network request failed.')
             );
         };
@@ -827,7 +835,7 @@ class U3dHeightXYZLayer extends U3dHeightLayer {
             tile._centerX
             , tile._centerY
             , baseUrl
-            , U3dQuadTile.getStartLevel()
+            , (this._drawArg?.getDataLevel() ?? U3dQuadTile.getStartLevel())
             , tile._level
             , this._reverseX
             , this._reverseY

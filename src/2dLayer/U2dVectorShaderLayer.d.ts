@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -12,7 +12,8 @@ import type { UDrawArg } from "../core/UDrawArg.js";
 import type { UFileLoader } from "../core/loader/UFileLoader.js";
 import type { U2dGeometry } from "../geometry/U2dGeometry.js";
 import type { U3dPOI } from "../geometry/U3dPOI.js";
-import type { UShaderMaterialManager } from "../manager/UShaderMaterialManager.js";
+import type { TerrainLayerTilePresentationOption, TerrainLayerTilePresentationQuery, UShaderTerrainDecalManager } from "../manager/terrain/UShaderTerrainDecalManager.js";
+import type { TerrainRuntimeTile } from "../manager/terrain/UShaderTerrainDecalTileStateManager.js";
 import type { TerrainDecalLodProfile, TerrainFeature, TerrainLodFilter, TerrainLodQuery } from "../manager/terrain/UShaderTerrainDecalUtils.js";
 import type { UTerrainDecalCompositionOrderRegistry } from "../manager/terrain/UTerrainDecalCompositionOrderRegistry.js";
 import type { UTerrainWfsRequestQueue } from "../manager/terrain/UTerrainWfsRequestQueue.js";
@@ -262,7 +263,7 @@ type DebugTileState = {
 };
 
 /**
- * 외부 begin/commit 구간에서 Feature별 최종 변경 상태를 보관합니다.
+ * 자동 갱신할 Feature별 최종 변경 상태를 보관합니다.
  */
 type RuntimeFeatureUpdate = Partial<{
     feature: OLFeature;
@@ -270,6 +271,10 @@ type RuntimeFeatureUpdate = Partial<{
     measureFeature: UMeasureFeature;
     style: object;
     previousTileKeys: Array<string>;
+    dynamicRadiusRequest: {
+        radius: number;
+        reset: boolean;
+    };
 }>;
 
 type FeatureOrigin = "runtime" | "wfs";
@@ -289,22 +294,18 @@ type FeatureEntry = {
      */
     origin: FeatureOrigin;
     /**
-     * source가 부여한 raw feature ID입니다.
-     */
-    id: string | number;
-    /**
      * 이 Feature 를 만든 원본 객체입니다. <br>
      * `runtime` 출처에서는 `addGeometry` 계열로 넘어온 OpenLayers feature 가 들어가고, `wfs` 출처에서는 tile 응답을 옮긴 평면 객체가 들어갑니다.
      */
     sourceFeature: undefined | object;
     /**
-     * 원본 feature에 등록한 change 리스너입니다.
+     * 원본과 독립된 내부 표시 형상의 변경 구독을 해제하는 함수입니다.
      */
-    changeListener: Function | undefined;
+    changeListener?: () => void;
     /**
-     * 이 feature가 점유한 `tileKey → measureType` 목록입니다.
+     * 이 feature가 점유한 타일 키 목록입니다.
      */
-    tileKeys: Map<string, string>;
+    tileKeys: Set<string>;
 };
 
 /**
@@ -329,33 +330,16 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     constructor(opt: U2dVectorShaderLayerCO);
     /** @type {Map<string, FeatureEntry>} */
     _featureEntries: Map<string, FeatureEntry>;
-    /** @type {Record<string, Set<string>>} */
-    _addedTile: Record<string, Set<string>>;
+    /** @type {WeakMap<import('@UMeasureFeature').UMeasureFeature, U2dVectorShaderTileRangeState>} */
+    _featureTileRanges: WeakMap<UMeasureFeature, U2dVectorShaderTileRangeState>;
     /** @type {Record<string, Record<string, boolean>>} */
     _drawFeatureIds: Record<string, Record<string, boolean>>;
-    /**
-     * 셰이더 프로그램을 다시 컴파일하지 않고 재사용하기 위한 템플릿 캐시이며, 키는 셰이더 재질 관리자가 정한 템플릿 이름입니다. <br>
-     * `initialize()` 이후에는 셰이더 재질 관리자가 소유한 캐시와 같은 객체를 가리킵니다.
-     *
-     * @type {Map<string, any>}
-     */
-    _shaderTemplateCache: Map<string, any>;
-    /**
-     * 이 레이어의 도형을 지형에 합성할 셰이더 재질을 만들고 캐시하는 관리자이며 `initialize()` 에서 만들어지고 `dispose()` 에서 해제됩니다.
-     *
-     * @type {import('@union3d/manager/UShaderMaterialManager').UShaderMaterialManager}
-     */
-    _shaderMaterialManager: UShaderMaterialManager;
-    /** @type {number} */
-    _drawSequenceCounter: number;
     /** @type {import('@union3d/manager/terrain/UTerrainDecalCompositionOrderRegistry').UTerrainDecalCompositionOrderRegistry} */
     _compositionOrderRegistry: UTerrainDecalCompositionOrderRegistry;
     /** @type {number} */
     _styleRevision: number;
-    /** @type {number} */
-    _terrainPropertyRevision: number;
-    /** @type {WeakMap<import('@UMeasureFeature').UMeasureFeature, TerrainFeaturePayloadCacheEntry>} */
-    _terrainFeaturePayloadCache: WeakMap<UMeasureFeature, TerrainFeaturePayloadCacheEntry>;
+    /** @type {WeakMap<import('@UMeasureFeature').UMeasureFeature | U2dVectorRenderPart, TerrainFeaturePayloadCacheEntry | null>} */
+    _terrainFeaturePayloadCache: WeakMap<UMeasureFeature | U2dVectorRenderPart, TerrainFeaturePayloadCacheEntry | null>;
     /** @type {Map<string, {mesh: object, sourceRevision: number, styleRevision: number, payloads: Array<object>}>} */
     _terrainTilePayloadCache: Map<string, {
         mesh: object;
@@ -365,21 +349,12 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     }>;
     /** @type {Map<string, number>} */
     _terrainRuntimeSourceRevision: Map<string, number>;
-    /** @type {number} */
-    _featureUpdateDepth: number;
+    /** @type {false | Promise<Array<boolean>>} */
+    _pendingFeatureUpdateInFlight: false | Promise<Array<boolean>>;
+    /** @type {Set<UMeasureFeature>} */
+    _pendingSourceGeometryUpdates: Set<UMeasureFeature>;
     /** @type {Map<string, RuntimeFeatureUpdate>} */
     _pendingFeatureUpdates: Map<string, RuntimeFeatureUpdate>;
-    /** @type {number} */
-    _pendingFeatureUpdateEpoch: number;
-    /** @type {boolean} */
-    _pendingFeatureUpdateFlushScheduled: boolean;
-    /** @type {undefined | {id: number, type: 'animation-frame' | 'timeout'}} */
-    _pendingFeatureUpdateFrame: undefined | {
-        id: number;
-        type: "animation-frame" | "timeout";
-    };
-    /** @type {number} */
-    _pendingFeatureUpdateFrameProgress: number;
     /**
      * 도형 정점을 솎아낼 때 쓰는 단순화 기준값을 반환합니다. <br>
      * 반환 객체는 레이어가 보관하는 원본이라 값을 직접 바꾸면 곧바로 적용되지만, 다음 재계산을 예약하려면 `setSimplifyValue()` 를 사용하십시오.
@@ -413,10 +388,12 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      * @param {number} maxValue 구간의 최댓값입니다.
      */
     setSimplifyValue(type: "line" | "polygon", property: "level" | "tolerance" | "size", minValue: number, maxValue: number): void;
-    /** @type {import('three').Box3 | undefined} */
-    _vectorExtent: three.Box3 | undefined;
-    /** @type {Array<any>} */
-    _coordinates: Array<any>;
+    _featureIdResolver: string | ((arg0: object, arg1: U2dVectorFeatureIdentity) => (string | number | undefined));
+    _fullFeatureLoader: (arg0: object, arg1: U2dVectorFeatureIdentity) => (object | Promise<object | undefined> | undefined);
+    /** @type {Map<string, U2dVectorSourceEntry>} */
+    _sourceFeatures: Map<string, U2dVectorSourceEntry>;
+    /** @type {WeakMap<object, UMeasureFeature>} */
+    _runtimeFeatureBySource: WeakMap<object, UMeasureFeature>;
     /** @type {Array<import('@U3dPOI').U3dPOI>} */
     _label: Array<U3dPOI>;
     /** @type {import('three').ColorRepresentation} */
@@ -440,8 +417,6 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      *
      */
     _selectStrokeWidth: number;
-    /** @type {string} */
-    _olCrs: string;
     /** @type {string | undefined} */
     _layername: string | undefined;
     /** @type {string} */
@@ -462,8 +437,6 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     _terrainLodQuery: TerrainLodQuery | undefined;
     /** @type {import('@union3d/manager/terrain/UTerrainWfsRequestQueue').UTerrainWfsRequestQueue} */
     _terrainWfsRequestQueue: UTerrainWfsRequestQueue;
-    /** @type {string} */
-    _terrainWfsOwnerKey: string;
     /** @type {number} */
     _terrainWfsCacheTtlMs: number;
     /** @type {number} */
@@ -476,21 +449,16 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     _dynamicRadius: number;
     /** @type {any} */
     _geoJsonFormat: any;
-    /** @type {any} */
-    _wktFormat: any;
-    /** @type {any} */
-    _toPoJsonFormat: any;
     /** @type {function | undefined} */
     _styleFunction: Function | undefined;
     /**
-     * setStyle()로 지정한 layer baseline이 styleFunction보다 우선하는지 여부입니다.
-     * @type {boolean}
+     * 피처별 계산·전체 스타일·투명도만 적용 중 현재 레이어 우선순위입니다.
+     *
+     * @type {'feature' | 'layer' | 'opacity'}
      */
-    _layerStyleOverridesStyleFunction: boolean;
+    _layerStyleMode: "feature" | "layer" | "opacity";
     /** @type {import('@union3d/core/loader/UFileLoader').UFileLoader} */
     _loader: UFileLoader;
-    /** @type {import('@union3d/core/UCache').UCache} */
-    _materialCache: UCache;
     /** @type {import('@union3d/core/UCache').UCache} */
     _drawCache: UCache;
     /** @type {import('@union3d/math/UMercator').UMercator} */
@@ -519,30 +487,33 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     _terrainRuntimePreparedState: Map<any, any>;
     _terrainWfsRetryState: Map<any, any>;
     /**
-     * 이어지는 Feature 스타일·형상 변경을 외부 commit까지 보류합니다. <br>
-     * 중첩 호출한 경우 가장 바깥쪽 commit에서 Feature별 최종 상태만 terrain payload에 반영합니다.
+     * 편집 시작 호출을 호환용으로 유지합니다. <br>
+     * 도형 변경은 자동 반영하므로 이 호출은 갱신을 보류하거나 편집 구간을 시작하지 않습니다.
      *
-     * @param {import('@U2dGeometry').U2dGeometry} [geom] 변경 이벤트와 관계없이 커밋 대상에 포함할 2D Geometry 객체입니다.
+     * @deprecated 호출을 제거하고 도형을 직접 편집하십시오. 변경 이벤트가 없는 수정은 `updateFeature(geom)`로 예약합니다.
+     *
+     * @param {import('@U2dGeometry').U2dGeometry} [geom] 자동 갱신 대상에 포함할 등록된 도형입니다.
      * @returns {this} 메서드를 이어 호출할 수 있도록 돌려주는 이 레이어 자신입니다.
      */
     beginFeatureUpdate(geom?: U2dGeometry): this;
     /**
-     * 등록된 2D Geometry의 현재 상태를 다음 Feature commit 대상에 포함합니다. <br>
+     * 등록된 2D Geometry의 현재 상태를 자동 갱신 대상에 포함합니다. <br>
      * 변경 이벤트를 발생시키지 않는 사용자 정의 스타일·형상 변경도 이 메서드로 명시적으로 갱신할 수 있습니다. <br>
-     * `beginFeatureUpdate()` 없이 단독으로 호출하면 다음 프레임에 자동으로 반영되고, 이 레이어에 등록되지 않은 도형은 무시합니다.
+     * 다음 자동 갱신에 반영하며, 원본 객체와 도형의 등록 연결이 일치하지 않으면 무시합니다.
      *
      * @param {import('@U2dGeometry').U2dGeometry} geom 갱신할 2D Geometry 객체입니다.
      * @returns {this} 메서드를 이어 호출할 수 있도록 돌려주는 이 레이어 자신입니다.
      */
     updateFeature(geom: U2dGeometry): this;
     /**
-     * 보류 중인 Feature 변경을 영향받은 terrain tile의 하나의 atomic presentation으로 커밋합니다. <br>
-     * 반환 Promise는 새 composite가 실제 material에 반영되거나 줌 전환으로 이전 대상 tile이 폐기된 뒤 끝납니다.
+     * 편집 완료 호출을 호환용으로 유지하고 현재 표시 대상의 적용을 기다립니다. <br>
+     * 진행 중인 자동 갱신과 이미 대기 중인 다음 변경 묶음을 처리하며, 이후 계속되는 편집 전체를 기다리지는 않습니다.
      *
-     * @param {import('@U2dGeometry').U2dGeometry} [geom] 변경 이벤트와 관계없이 즉시 커밋 대상에 포함할 2D Geometry 객체입니다.
-     * @returns {Promise<Array<boolean>>} 영향받은 tile별 composite build 성공 여부 목록이며 순서는 보장하지 않습니다. <br>
-     * 중첩된 `beginFeatureUpdate()` 가 아직 닫히지 않았거나 레이어가 해제되었으면 빈 배열로 이행됩니다.
-     * @throws {Error} 최신 표시 그룹의 material 반영 자체가 실패한 경우 발생합니다.
+     * @deprecated 일반 편집은 시작·종료 호출을 제거하고 자동 반영을 사용하십시오. 변경 이벤트가 없는 수정은 `updateFeature(geom)`로 예약합니다.
+     *
+     * @param {import('@U2dGeometry').U2dGeometry} [geom] 자동 갱신 대상에 포함할 등록된 도형입니다.
+     * @returns {Promise<Array<boolean>>} 현재 표시 대상 타일별 적용 결과입니다. 교체·대상 해제는 false이고, 변경 대상이 없거나 clear·dispose로 취소되면 빈 배열입니다. 중첩 배치는 제공하지 않습니다.
+     * @throws {Error} 합성 또는 재질 적용에 실패하면 반환 Promise가 거절됩니다.
      */
     commitFeatureUpdate(geom?: U2dGeometry): Promise<Array<boolean>>;
     /**
@@ -622,8 +593,9 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     resetTerrainPayloadPerformanceStats(): void;
     /**
      * 타일 하나의 소스 요청을 실행·취소하는 방법을 만듭니다. <br>
-     * 기본 구현은 WFS GetFeature(BBOX) 요청이며, request queue 등록과 취소 핸들, source pending 부기, <br>
-     * 재시도 판정은 모두 호출자(`createTexture`)가 담당합니다.
+     * 기본 WFS는 전체 형상을 반환하며 `completeGeometry`로 이를 알립니다. PBF·부분 형상 어댑터는 이 값을 설정하지 않습니다. <br>
+     * request queue 등록과 취소 핸들, source pending 부기, <br>
+     * 재시도 판정은 내부 요청 준비 메서드가 담당합니다.
      *
      * 다른 소스(PBF 등)를 쓰는 하위 레이어는 이 메서드만 override 해 `{features}` 를 월드 좌표(EPSG:3857)의 GeoJSON 형태(`{id, geometry: {type, coordinates}, properties}`)로 돌려주면 이후 스타일 적용·ring 분할·캐시·terrain payload 생성 흐름을 그대로 재사용합니다.
      *
@@ -631,7 +603,7 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      * @param {Array<number>} extent 외곽선 여유가 포함된 월드 좌표(EPSG:3857) 기준 질의 영역 `[minX, minY, maxX, maxY]` 입니다.
      * @param {string} requestId 요청 식별자입니다. <br>
      * `cancel` 은 같은 식별자의 실제 요청을 중단해야 합니다.
-     * @returns {undefined | {run: function(): Promise<undefined | {features: Array<object>}>, cancel: function(): void}} 요청 실행·취소 함수입니다. <br>
+     * @returns {undefined | {run: function(): Promise<undefined | {features: Array<object>}>, cancel: function(): void, completeGeometry?: boolean}} 요청 실행·취소 함수입니다. <br>
      * 요청을 만들 수 없으면 `undefined`를 반환해 tile 요청을 건너뜁니다.
      */
     createTileSourceRequest(tile: U3dQuadTile, extent: Array<number>, requestId: string): undefined | {
@@ -639,12 +611,13 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
             features: Array<object>;
         }>;
         cancel: () => void;
+        completeGeometry?: boolean;
     };
     /**
-     * 점(circle) 도형의 반경을 카메라 거리에 따라 자동으로 바꿀지 설정합니다.
+     * 점(circle) 도형의 반경과 테두리를 화면 픽셀 크기로 유지할지 설정합니다.
      *
      * @param {boolean} value `true` 면 카메라 거리에 비례해 반경을 바꾸고, `false` 면 도형에 지정한 고정 반경으로 되돌립니다.
-     * @param {number} [radius=8] 원이 화면에서 차지할 반경(픽셀)이며 유한수가 아니면 8 을 사용합니다.
+     * @param {number} [radius=8] 렌더 버퍼 픽셀 기준 반경이며 유한수가 아니면 8을 사용합니다. 동적 원의 `strokeWidth`도 같은 픽셀 기준입니다.
      * @returns {this} 메서드를 이어 호출할 수 있도록 돌려주는 이 레이어 자신입니다.
      */
     setDynamicRadius(value: boolean, radius?: number): this;
@@ -654,8 +627,8 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      * @param {object} [opt={}] 반경 갱신 옵션입니다.
      * @param {number} [opt.radius] 화면 기준 반경(픽셀)이며 생략하면 `setDynamicRadius()` 또는 생성 옵션 `dynamicRadius` 로 정한 값을 사용합니다.
      * @param {boolean} [opt.reset=false] 원래 geometry 반경으로 복원할지 여부입니다.
-     * @param {boolean} [opt.deferFlush=true] tile rebuild를 다음 flush까지 미룰지 여부입니다.
-     * @returns {boolean} 하나 이상의 tile payload가 변경되었으면 `true`입니다.
+     * @param {boolean} [opt.deferFlush=true] 자동 갱신 시점까지 반영을 미룰지 여부입니다. `false`여도 진행 중인 갱신은 먼저 완료합니다.
+     * @returns {boolean} 하나 이상의 원형 도형 갱신을 예약했으면 `true`입니다.
      */
     refreshTerrainDynamicCircleRadius(opt?: {
         radius?: number;
@@ -673,8 +646,6 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 빈 표시 완료 상태를 확인할 terrain tile입니다.
      * @returns {boolean} 참여 source가 모두 `confirmed-empty`로 정착했으면 `true`입니다.
-     *
-     * @ignore
      */
     isTilePresentationConfirmedEmpty(tile: U3dQuadTile): boolean;
     /**
@@ -682,12 +653,10 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      *
      * LOD가 이미 commit된 자식은 새 합성본을 준비하는 동안에도 직전 material을 계속 표시합니다.
      * 이 메서드는 그 기존 Coverage만 확인하며, 최신 합성본으로 전환 가능한지는
-     * `isTileRenderableReady`와 `isTilePresentationVisible`이 계속 엄격하게 판정합니다.
+     * `isTileRenderableReady`와 `isTilePresentationVisible`이 source별 적용 상태를 판정합니다.
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 기존 표시 부착 상태를 확인할 terrain tile입니다.
      * @returns {boolean} 기존 Vector presentation과 실제 이미지 host가 모두 표시 중이면 `true`입니다.
-     *
-     * @ignore
      */
     isTilePresentationAttached(tile: U3dQuadTile): boolean;
     /**
@@ -699,21 +668,18 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 확인할 타일입니다.
      * @returns {boolean} 타일 전환 준비 판정에 참여하면 `true`입니다.
-     *
-     * @ignore
      */
     isTileSceneProvider(tile: U3dQuadTile): boolean;
     /**
-     * 이미지 캐시가 없는 runtime decal 타일의 합성과 표시 작업 완료 여부를 반환합니다.
+     * 벡터 입력을 현재 mesh의 Source로 승인한 작업이 끝났는지 반환합니다.
      *
-     * 현재 source revision이 실제 target material에 적용되기 전에는 scheduler가 작업을 다시
-     * 평가하도록 `false`를 반환합니다. runtime feature가 없는 중립 타일은 manager 생명주기가
-     * 없을 때만 즉시 완료합니다.
+     * 준비한 입력과 승인된 revision이 같으면 GPU 적용을 기다리며 같은 작업을 다시 등록하지 않습니다.
+     * 실제 GPU 준비와 장면 부착은 기존 표시 전환 훅에서 확인하며, 현재 GPU 실패와 무효화된 입력은 다시 평가합니다.
+     * 원격 입력의 반복 완료 확인은 준비 시 저장한 원본 목록·설정·세대와 승인된 Source 상태만 비교합니다.
+     * 준비 이력이 없는 기존 경로와 원격 요청 실패 대체는 종전 표시 준비 판정을 유지합니다.
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 확인할 타일입니다.
-     * @returns {boolean} 현재 runtime revision의 합성과 표시가 완료됐으면 `true`입니다.
-     *
-     * @ignore
+     * @returns {boolean} 현재 입력의 Source 승인이 끝났거나 기존 완료 조건을 만족하면 `true`입니다.
      */
     isTileWorkComplete(tile: U3dQuadTile): boolean;
     /**
@@ -737,6 +703,24 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      */
     override removeTileFromScene(tile: U3dQuadTile, skipHandoff?: boolean): boolean;
     /**
+     * 원본 형상을 검색 구성 데이터로 읽고 점 마커의 반경을 적용합니다.
+     * @param {import('@U2dGeometry').U2dGeometry} source 원본 도형입니다.
+     * @returns {Array<U2dVectorSearchPart>} 현재 지도 좌표의 검색 형상입니다.
+     * @ignore
+     */
+    _getSourceSearchParts(source: U2dGeometry): Array<U2dVectorSearchPart>;
+    /**
+     * 피처 검색은 원본을 우선하며, 부분 표시의 원형 반경은 기존 중심·가장자리 좌표에서 계산합니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} feature 대상 피처입니다.
+     * @param {boolean} [includeStroke=false] 좌표 검색에서 선의 표시 반폭을 포함할지 여부입니다.
+     * @param {number} [tileLevel] WFS 스타일을 평가할 타일 레벨입니다.
+     * @returns {Array<U2dVectorSearchPart>} 현재 검색 구성 데이터입니다.
+     *
+     * @ignore
+     */
+    _getFeatureSearchParts(feature: UMeasureFeature, includeStroke?: boolean, tileLevel?: number): Array<U2dVectorSearchPart>;
+    /**
      * tile key 자원을 해제하고 terrain handoff 최종화 시 레이어 source 상태를 정리합니다.
      *
      * @override
@@ -752,6 +736,94 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
         terrainHandoffFinalizing: boolean;
     }>): boolean;
     /**
+     * 초기화 전 등록부를 복제하지 않고 앱의 기존 terrain manager에 인계합니다.
+     *
+     * @returns {import('@union3d/manager/terrain/UShaderTerrainDecalManager').UShaderTerrainDecalManager | undefined} 변경 수명을 관리하는 앱 관리자입니다.
+     *
+     * @ignore
+     */
+    _registerTerrainFeatureOwner(): UShaderTerrainDecalManager | undefined;
+    /**
+     * 원본 등록부는 연결 후 관리자에서 조회하며 초기화 전 목록만 레이어에 보관합니다.
+     *
+     * @returns {Map<string, U2dVectorSourceEntry>} 같은 수명을 갖는 원본 목록입니다.
+     *
+     * @ignore
+     */
+    _getTerrainSourceEntries(): Map<string, U2dVectorSourceEntry>;
+    /**
+     * 원본 식별자를 표시 조각의 ID와 분리하여 매개체에 연결합니다.
+     *
+     * @param {import('@union3d/ol/UMeasureFeature.js').UMeasureFeature | undefined} feature 연결할 표시 피처이며 원본 사전 준비에서는 생략합니다.
+     * @param {object} source 원본 피처입니다.
+     * @param {'runtime' | 'wfs'} origin 원본의 출처입니다.
+     * @param {boolean} [updateRepresentative=true] 승인할 표시 조각의 상태를 공유 원본에도 반영할지 여부입니다.
+     * @returns {import('@union3d/ol/UMeasureFeature.js').UMeasureFeature} 원본 연결입니다.
+     * @throws {TypeError} 직접 추가한 원본에 표시 피처가 없으면 발생합니다.
+     *
+     * @ignore
+     */
+    _bindSourceFeature(feature: UMeasureFeature | undefined, source: object, origin: "runtime" | "wfs", updateRepresentative?: boolean): UMeasureFeature;
+    /**
+     * 현재 레이어가 관리하는 원본 등록 정보를 상수 시간으로 조회합니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature | undefined} feature 원본 대표 또는 표시 조각입니다.
+     * @returns {U2dVectorSourceEntry | undefined} 연결·수명을 관리하는 원본 등록 정보입니다.
+     *
+     * @ignore
+     */
+    _getSourceEntry(feature: UMeasureFeature | undefined): U2dVectorSourceEntry | undefined;
+    /**
+     * 앱이 제공한 전체 원본을 연결합니다. GeoJSON 좌표계는 EPSG:3857이어야 합니다.
+     * @param {UMeasureFeature} feature 대상 매개체입니다.
+     * @param {object | import('@U2dGeometry').U2dGeometry} source 전체 원본 피처 또는 도형입니다.
+     * @returns {import('@U2dGeometry').U2dGeometry} 연결된 도형입니다.
+     * @throws {TypeError} 식별할 수 없거나 지원하지 않는 원본이면 발생합니다.
+     */
+    setSourceGeometry(feature: UMeasureFeature, source: object | U2dGeometry): U2dGeometry;
+    /**
+     * 동일 피처의 전체 원본 요청을 공유하고 해제된 레이어의 늦은 응답을 버립니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} feature 대상 매개체입니다.
+     * @returns {Promise<import('@U2dGeometry').U2dGeometry | undefined>} 준비된 원본 도형입니다.
+     */
+    loadSourceGeometry(feature: UMeasureFeature): Promise<U2dGeometry | undefined>;
+    /**
+     * 매개체나 원본 도형의 스타일 변경을 같은 원본의 모든 표시 조각에 적용합니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} binding 원본 연결입니다.
+     * @param {object} style 적용할 스타일입니다.
+     * @param {boolean} [writeSource=true] 개별 편집값을 원본에 반영할지 여부입니다.
+     * @param {boolean} [refreshTiles=true] 표시 타일을 즉시 갱신할지 여부이며 전체 스타일 변경은 한 번에 갱신합니다.
+     *
+     * @ignore
+     */
+    _setSourceFeatureStyle(binding: UMeasureFeature, style: object, writeSource?: boolean, refreshTiles?: boolean): void;
+    /**
+     * 원본의 편집 스타일과 일시적인 선택 강조를 분리하여 모든 표시 조각에 반영합니다.
+     * @param {UMeasureFeature} binding 원본 연결입니다.
+     * @param {object | undefined} style 강조 스타일이며 생략하면 강조를 해제합니다.
+     * @ignore
+     */
+    _setSourceFeatureHighlight(binding: UMeasureFeature, style: object | undefined): void;
+    /**
+     * 전체 원본 변경을 표시 갱신 대기에 넣고 마지막 상태만 반영하도록 병합합니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} binding 전체 원본 연결입니다.
+     *
+     * @ignore
+     */
+    _sourceGeometryChanged(binding: UMeasureFeature): void;
+    /**
+     * 같은 타입의 표시 형상과 좌표 저장소를 재사용하고, 최초 생성·타입 변경 때만 복제합니다.
+     * 원본과 좌표·링 경계를 분리하여 갱신 대기 중 표시 상태와 해제 직전의 마지막 편집을 보존합니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} binding 전체 원본 연결입니다.
+     *
+     * @ignore
+     */
+    _syncSourceGeometry(binding: UMeasureFeature): void;
+    /**
      * measure feature 또는 raw ID에 해당하는 entry를 조회합니다.
      *
      * @param {import('@UMeasureFeature').UMeasureFeature | string | number | undefined} featureOrId measure feature 또는 raw ID입니다.
@@ -762,15 +834,15 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      */
     _getFeatureEntry(featureOrId: UMeasureFeature | string | number | undefined, origin?: FeatureOrigin): FeatureEntry | undefined;
     /**
-     * feature가 점유한 `tileKey → measureType` 목록을 반환합니다.
+     * feature가 점유한 타일 키 목록을 반환합니다.
      *
      * @param {import('@UMeasureFeature').UMeasureFeature | string | number | undefined} featureOrId measure feature 또는 raw ID입니다.
      * @param {FeatureOrigin} [origin] source 종류입니다.
-     * @returns {Map<string, string> | undefined} tile 점유 목록입니다.
+     * @returns {Set<string> | undefined} 타일 점유 목록입니다.
      *
      * @ignore
      */
-    _getFeatureTileKeys(featureOrId: UMeasureFeature | string | number | undefined, origin?: FeatureOrigin): Map<string, string> | undefined;
+    _getFeatureTileKeys(featureOrId: UMeasureFeature | string | number | undefined, origin?: FeatureOrigin): Set<string> | undefined;
     /**
      * Feature에 기존 draw sequence가 있으면 보존하고, 없을 때만 새 sequence를 할당합니다.
      *
@@ -787,8 +859,10 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      */
     getTerrainCompositionGroupKey(): string;
     /**
-     * WFS tile 응답 또는 기존 cache를 terrain decal payload로 변환합니다. <br>
+     * 타일 입력의 준비 이력·runtime·캐시를 확인하고 필요한 원격 요청을 연결합니다. <br>
      * base texture가 없는 runtime tile은 표시 전 payload를 prewarm합니다.
+     * 이미 적용한 빈 source는 같은 준비 서명에서 외부 host의 표시를 다시 기다리지 않습니다.
+     * 준비된 payload의 재적용은 예약 후 종료하고, 실제 표시 준비는 LOD 표시 훅에서 확인합니다.
      *
      * @override
      *
@@ -805,7 +879,7 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      * 타일이나 레이어가 해제되었거나 타일 메시가 없으면 빈 배열을 돌려줍니다.
      * @param {Array<object>} features 월드 좌표(EPSG:3857) GeoJSON 형태(`{id, geometry: {type, coordinates}, properties}`)의 피처 목록입니다.
      * @param {number} [index] 현재 구현이 사용하지 않는 값입니다.
-     * @returns {Array<import('@UMeasureFeature').UMeasureFeature>} 이 타일에 등록된 Feature 목록입니다.
+     * @returns {Array<import('@union3d/ol/UMeasureFeature.js').UMeasureFeature>} 이 타일에 등록된 Feature 목록입니다.
      */
     processMaterial(tile: U3dQuadTile, features: Array<object>, index?: number): Array<UMeasureFeature>;
     /**
@@ -839,7 +913,7 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      * 해제는 `removeHigLight()` 또는 `removeHigLightAll()` 로 하며, 두 해제 메서드는 이 메서드와 달리 `High` 가 아니라 **`Hig`** 로 시작하니 철자에 주의하십시오. <br>
      * `opt` 를 생략하면 레이어의 기본 검색 강조 스타일을 적용합니다.
      *
-     * @param {import('@U2dGeometry').U2dGeometry} geom 강조할 2D Geometry 객체
+     * @param {import('@U2dGeometry').U2dGeometry | UMeasureFeature} geom 강조할 도형 또는 피처 매개체입니다.
      * @param {object} [opt] 하이라이트 스타일입니다.
      * @param {import('three').ColorRepresentation} [opt.fillColor] 채우기 색상입니다.
      * @param {number} [opt.fillOpacity] 채우기 투명도입니다.
@@ -848,7 +922,7 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      * @param {number} [opt.strokeWidth] 외곽선 두께입니다.
      * @param {number} [opt.opacity] 개별 투명도가 없을 때 사용할 공통 투명도입니다.
      */
-    setHighLight(geom: U2dGeometry, opt?: {
+    setHighLight(geom: U2dGeometry | UMeasureFeature, opt?: {
         fillColor?: three.ColorRepresentation;
         fillOpacity?: number;
         strokeColor?: three.ColorRepresentation;
@@ -861,9 +935,9 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      * 메서드 이름이 `removeHighLight` 가 아니라 **`removeHigLight`** 이니 철자에 주의하십시오. <br>
      * 강조를 거는 `setHighLight()` 와 철자가 다릅니다.
      *
-     * @param {import('@U2dGeometry').U2dGeometry} geom 강조를 해제할 2D Geometry 객체
+     * @param {import('@U2dGeometry').U2dGeometry | UMeasureFeature} geom 강조를 해제할 도형 또는 피처 매개체입니다.
      */
-    removeHigLight(geom: U2dGeometry): void;
+    removeHigLight(geom: U2dGeometry | UMeasureFeature): void;
     /**
      * 피처별 스타일을 정하는 함수를 교체하고, 이미 그려 둔 Feature 의 스타일을 새 함수로 다시 계산합니다. <br>
      * `setStyle()` 이 걸어 둔 레이어 단위 스타일 우선 지정은 해제되며, `nonChanged` 로 고정한 Feature 는 건너뜁니다.
@@ -937,7 +1011,10 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     addGeometry(geom: U2dGeometry): undefined;
     /**
      * 입력한 2D Geometry 와 겹치는 이 레이어의 도형을 찾아 목록으로 반환합니다. <br>
-     * `excludeSearch` 스타일을 지정한 도형은 검색 대상에서 제외합니다.
+     * `excludeSearch` 스타일을 지정한 도형과 검색 기준 도형 자신은 검색 대상에서 제외합니다. <br>
+     * 포인트는 반경을 포함한 원으로, 선은 열린 경로로, 폴리곤은 내부 구멍을 제외한 영역으로 검사합니다. <br>
+     * WFS 검색 범위가 완전히 로드되지 않으면 경고하고 타일 조각을 제외합니다. 연결된 전체 원본 도형은 최신 상태로 검색합니다. <br>
+     * 반환 도형의 `getFeature().getProperties()`로 피처 속성을 읽을 수 있습니다.
      *
      * @param {import('@U2dGeometry').U2dGeometry} u2dGeometry 교차 검색의 기준이 되는 2D Geometry 객체
      * @returns {Array<import('@U2dGeometry').U2dGeometry> | undefined} 교차하는 2D Geometry 목록이며 하나도 없으면 빈 배열입니다. <br>
@@ -978,6 +1055,14 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      */
     override disposeTile(tile: U3dQuadTile): undefined;
     /**
+     * 레이어가 소유한 입력 연결과 장면 표시 의도만 읽습니다.
+     *
+     * @param {TerrainRuntimeTile} tile 입력을 조회할 지형 타일입니다.
+     * @param {TerrainLayerTilePresentationQuery} [query='all'] 필요한 표시 판정입니다.
+     * @returns {TerrainLayerTilePresentationOption} manager에 전달할 입력 사실입니다.
+     */
+    _getTerrainTileFacts(tile: TerrainRuntimeTile, query?: TerrainLayerTilePresentationQuery): TerrainLayerTilePresentationOption;
+    /**
      * 이 레이어가 쓰던 terrain 합성 등록, WFS 요청과 응답 캐시, Feature 와 셰이더 자원을 모두 정리합니다. <br>
      * 정리 후에는 이 레이어를 다시 사용할 수 없습니다.
      * 기존 호출부의 ready·done·resolve 사용을 보존하기 위해 공개 반환형에도 Deferred 객체를 유지합니다.
@@ -985,18 +1070,22 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      * @override
      *
      * @returns {DeferredObject<boolean>} 정리가 끝나면 true로 완료되는 Deferred 객체
+     * @throws {Error} 원본 해제에 실패해도 남은 등록·구독·동적 원과 부모 자원을 정리한 뒤 원래 오류 또는 모은 오류를 전달합니다.
      */
     override dispose(): DeferredObject<boolean>;
     /**
      * 위경도 좌표계(EPSG:4326) 위치를 받아 그 지점에 걸치는 Feature 를 모두 찾아 목록으로 반환합니다. <br>
-     * 최소·최대 타일 레벨 사이의 타일 캐시에서 찾으므로 아직 그려지지 않은 영역의 Feature 는 나오지 않습니다.
+     * WFS 타일 캐시와 직접 추가한 도형에서 검색하며 `excludeSearch` 도형은 제외합니다. <br>
+     * WFS 검색 범위가 아직 로드되지 않았으면 "아직 데이터가 로드되지 않았습니다." 경고와 빈 배열을 반환합니다.
      *
      * @param {number} x 경도
      * @param {number} y 위도
-     * @returns {Array<import('@UMeasureFeature').UMeasureFeature> | undefined} 그 지점에 걸치는 Feature 목록이며 하나도 없으면 빈 배열입니다. <br>
-     * 좌표가 0 이거나 없거나 레이어가 아직 화면에 연결되지 않았으면 `undefined` 입니다.
+     * @param {number} [tolerance=0] 월드 좌표(EPSG:3857)에서 검색 위치 주위에 허용할 거리입니다. <br>
+     *   선은 현재 표시 반폭에 이 거리를 더해 검사하며 화면 픽셀로 자동 환산하지 않습니다.
+     * @returns {Array<import('@UMeasureFeature').UMeasureFeature>} 그 지점에 걸치는 Feature 목록입니다. <br>
+     *   좌표·허용 거리가 유효하지 않거나 레이어가 해제되었으면 빈 배열입니다. 경도·위도 0도 유효합니다.
      */
-    getFeatureByXY(x: number, y: number): Array<UMeasureFeature> | undefined;
+    getFeatureByXY(x: number, y: number, tolerance?: number): Array<UMeasureFeature>;
     /**
      * 이 레이어에서 강조 표시 중인 도형을 모두 찾아 한 번에 해제합니다. <br>
      * 메서드 이름이 `removeHighLightAll` 이 아니라 **`removeHigLightAll`** 이니 철자에 주의하십시오.
@@ -1030,7 +1119,7 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      * 레이어 도형 전체 범위를 화면 장면(scene) 좌표로 바꾼 경계 상자를 새로 만들어 반환합니다. <br>
      * `getVectorExtent()` 의 월드 좌표(EPSG:3857) 범위를 장면 좌표로 변환한 값이며 z 는 0 입니다.
      *
-     * @returns {import('three').Box3} 도형 전체를 감싸는 경계 상자이며, 레이어가 해제되었으면 빈 상자입니다.
+     * @returns {import('three').Box3} 도형 전체를 감싸는 경계 상자이며, 도형이 없거나 레이어가 해제되었으면 빈 상자입니다.
      */
     getBoundingBox(): three.Box3;
     /**
@@ -1131,17 +1220,21 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      */
     isDataExist(): boolean;
     /**
-     * 이 레이어의 도형 전체를 감싸는 범위를 최신 상태로 다시 계산해 반환합니다. <br>
-     * three.js 의 `Box3` 이며 좌표는 월드 좌표(EPSG:3857)입니다.
+     * 현재 등록된 피처의 범위를 조회 시 합산해 반환합니다. <br>
+     * 도형 변경은 자동 갱신으로 반영된 형상을 기준으로 하며 WFS는 현재 로드된 피처만 포함합니다. <br>
+     * 좌표는 월드 좌표(EPSG:3857)이며 같은 범위 객체를 갱신해 반환합니다.
      *
-     * @returns {import('three').Box3 | undefined} 도형 전체 범위이며, 도형을 한 번도 추가하지 않아 계산된 범위가 없으면 `undefined` 입니다.
+     * @returns {import('three').Box3} 레이어가 보관하는 전체 범위 객체이며, 유효한 피처가 없으면 빈 범위입니다.
      */
-    getVectorExtent(): three.Box3 | undefined;
+    getVectorExtent(): three.Box3;
     /**
-     * 도형을 추가·제거한 뒤 레이어가 보관하는 전체 범위를 현재 도형 기준으로 다시 맞춥니다. <br>
-     * 매개변수 없이 호출하며, 계산된 범위가 아직 없으면 기존 값을 그대로 둡니다.
+     * 기존 공개 호출의 호환성을 위해 유지하며 별도 처리를 수행하지 않습니다.
+     *
+     * @deprecated 범위 갱신은 getVectorExtent()가 수행하므로 직접 호출할 필요가 없습니다.
+     *
+     * @returns {undefined} 반환값이 없습니다.
      */
-    setVectorExtent(): void;
+    setVectorExtent(): undefined;
     /**
      * 데이터 제공자나 사용자가 붙인 ID 로 Feature 를 찾습니다. <br>
      * 직접 추가한 도형과 WFS 응답 Feature 를 모두 대상으로 하며, 내부 고유값으로 찾으려면 `getFeatureByUid()` 를 사용하십시오.
@@ -1160,6 +1253,60 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     getFeatureByUid(uid: string): UMeasureFeature | undefined;
     #private;
 }
+
+/**
+     * 원격 요청이 타일 준비 이력에 반영할 결과입니다.
+     * prepared는 저장, invalidated는 삭제, retry-delayed는 유지, retry-latest는 삭제 후 최신 버전 재요청을 뜻합니다.
+     */
+    type U2dVectorTexturePreparationResult = "prepared" | "invalidated" | "retry-delayed" | "retry-latest";
+
+/**
+     * 복합 도형의 좌표와 링 구분만 보관하며 공통 스타일·버전은 대표 매개체에서 읽습니다.
+     */
+    type U2dVectorRenderPart = Pick<TerrainFeature, "featureId" | "isHole" | "lodGroupKey" | "radius"> & {
+        sourceType: string;
+        vectors: Array<three.Vector3>;
+    };
+
+/**
+     * 검색 판정에 사용하는 단일 형상입니다. 복합 도형은 이 형상의 배열로 분해합니다.
+     */
+    type U2dVectorSearchPart = {
+        /**
+         * 점(point), 열린 선(line), 면(polygon), 원(circle)의 구분입니다.
+         */
+        kind: string;
+        /**
+         * 정점 목록이며 원은 중심점 하나입니다.
+         */
+        points: Array<three.Vector2Like>;
+        /**
+         * 면의 외곽선과 내부 구멍 목록입니다.
+         */
+        rings: Array<Array<three.Vector2Like>>;
+        /**
+         * 원의 반경 또는 좌표 검색용 선의 표시 반폭이며 EPSG:3857 좌표 단위입니다. 다른 형상과 원본 선 교차 검색은 0입니다.
+         */
+        radius: number;
+    };
+
+/**
+     * 한 번의 runtime 타일 후보 검사에서 공유하고 즉시 버리는 입력입니다.
+     */
+    type U2dVectorRuntimeBindingInput = {
+        /**
+         * 확정 원형 반경 또는 기존 도형의 표시 경계입니다.
+         */
+        extent: three.Box3 | undefined;
+        /**
+         * 같은 입력에서 만든 교차 조각입니다.
+         */
+        searchParts?: Array<U2dVectorSearchPart>;
+        /**
+         * 확정 payload의 강조 배율을 포함한 최대 테두리 폭입니다.
+         */
+        maxStrokeWidth?: number;
+    };
 
 /**
      * ~extends import('@U3dImageLayer').U3dImageLayerCO <br>
@@ -1191,12 +1338,13 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
         strokeOpacity?: number;
         /**
          * 도형 외곽선의 기본 두께입니다. <br>
+         * 동적 원형 마커는 렌더 버퍼 픽셀, 그 외 도형은 지도 좌표 단위를 사용합니다. <br>
          * 도형이 걸치는 타일 범위를 계산할 때 외곽선이 잘리지 않도록 더하는 여유 폭으로도 사용합니다.
          */
         strokeWidth?: number;
         /**
          * 이 레이어의 도형을 그리기 시작하는 최소 타일 레벨입니다. <br>
-         * 이보다 낮은 레벨의 타일에는 도형을 그리지 않습니다.
+         * 일반 축소에서는 이보다 낮은 레벨에 도형을 그리지 않습니다. 최소 레벨 자식을 준비하는 대체 부모에는 직접 추가한 도형을 임시 표시합니다.
          */
         minLevel?: number;
         /**
@@ -1243,12 +1391,12 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
         isDynamicRadius?: boolean;
         /**
          * isDynamicRadius가 true일 때 원형 도형이 화면에서 차지할 반경입니다. <br>
-         * 화면 픽셀 기준 값이며 카메라 거리에 맞춰 실제 반경으로 환산합니다.
+         * 렌더 버퍼 픽셀 기준이며 현재 표시 지형 높이·배율과 카메라 깊이·투영에 맞춰 실제 반경으로 환산합니다.
          */
         dynamicRadius?: number;
         /**
-         * 피처 하나를 인자로 받아 그 피처에 적용할 스타일 객체를 반환하는 함수이며, 이 레이어에서는 `(feature: UMeasureFeature) => U2dVectorShaderLayer_Style_Option` 형태로 호출합니다. <br>
-         * 도형에 직접 지정한 스타일과 강조 스타일이 없을 때 이 함수가 반환한 스타일을 사용합니다. <br>
+         * 피처와 타일 문맥을 받아 표시 스타일을 반환하며 이 레이어에서는 `styleFunction(feature, {tileLevel})`로 호출합니다. <br>
+         * 개별 편집에서 생략한 항목은 해당 타일 레벨의 스타일 함수 결과나 레이어 기본값을 사용하고, 명시한 항목과 일시 강조를 그 위에 반영합니다. 타일 문맥이 없는 runtime 피처에는 레이어 최소 레벨을 사용합니다. <br>
          * 하위 레이어(예: PBF 레이어)는 인자와 반환 형태가 다른 스타일 함수를 받으므로 타입은 `Function` 으로 둡니다.
          */
         styleFunction?: Function;
@@ -1288,6 +1436,15 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
          * feature별 원 반경과 외곽선 굵기를 합친 최종 최대 도달 거리로, WFS BBOX에 추가할 world 좌표 여유값입니다.
          */
         terrainWfsQueryPadding?: number;
+        /**
+         * 타일·확대 단계 사이에 유지되는 원본 ID의 속성 이름 또는 추출 함수입니다. 생략하면 수신한 원본 ID를 사용하며 타일 내부 순번은 안정 식별자로 사용하지 않습니다.
+         */
+        featureId?: string | ((arg0: object, arg1: U2dVectorFeatureIdentity) => (string | number | undefined));
+        /**
+         * EPSG:3857 전체 원본 Feature·GeoJSON Feature 또는 U2dGeometry를 제공하는 함수입니다. <br>
+         * 기본 완전 WFS는 표시 단계에서 원본 도형을 준비하며, 이 함수는 PBF·사용자 정의 부분 응답처럼 전체 형상이 없는 경로에서 원본을 공급할 때 사용합니다. 두 번째 인자의 signal은 레이어 정리 시 취소되며 전체 원본이 없으면 형상 편집을 지원하지 않습니다.
+         */
+        loadFeature?: (arg0: object, arg1: U2dVectorFeatureIdentity) => (object | Promise<object | undefined> | undefined);
     };
 
 /**
@@ -1360,7 +1517,8 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
 
 /**
      * 도형에 지정하는 스타일 옵션이며 `setStyle()`·`setFeatureStyle()` 과 `styleFunction` 의 반환값에 사용합니다. <br>
-     * 생략한 항목은 레이어 기본 스타일 값으로 채워집니다.
+     * 개별 부분 편집에서 생략한 항목은 해당 타일 레벨의 styleFunction 결과 또는 레이어 기본 스타일 값을 유지합니다. <br>
+     * 직접 지정한 값만 덮어쓰므로 부모·자식 타일의 레벨별 표시 스타일을 하나의 편집값으로 고정하지 않습니다.
      */
     type U2dVectorShaderLayer_Style_Option = {
         /**
@@ -1373,6 +1531,18 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
          */
         strokeColor?: three.ColorRepresentation;
         /**
+         * 채움 불투명도이며 0부터 1까지입니다.
+         */
+        fillOpacity?: number;
+        /**
+         * 외곽선 불투명도이며 0부터 1까지입니다.
+         */
+        strokeOpacity?: number;
+        /**
+         * 개별 채움 불투명도를 생략했을 때 사용하는 불투명도입니다.
+         */
+        opacity?: number;
+        /**
          * 외곽선 두께입니다.
          */
         strokeWidth?: number;
@@ -1384,6 +1554,32 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
          * `true` 면 이후 레이어 단위 스타일 갱신에서 이 도형을 건너뛰어 지금 지정한 스타일을 유지합니다.
          */
         nonChanged?: boolean;
+        /**
+         * 타일 위에서 도형을 표시할지 여부입니다.
+         */
+        visible?: boolean;
+    };
+
+/**
+     * 전체 원본의 식별·조회에 제공하는 출처 정보입니다.
+     */
+    type U2dVectorFeatureIdentity = {
+        /**
+         * 안정 식별자이며 전체 원본 조회 시 제공됩니다.
+         */
+        id?: string | number;
+        /**
+         * 원본 데이터의 레이어 이름입니다.
+         */
+        sourceLayer: string;
+        /**
+         * 직접 추가한 원본은 runtime, 타일 원본은 wfs입니다.
+         */
+        origin: string;
+        /**
+         * 전체 원본 요청의 취소 신호입니다.
+         */
+        signal?: AbortSignal;
     };
 
 /**
@@ -1494,10 +1690,6 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
          */
         featureStyleRevision: number;
         /**
-         * layer style revision입니다.
-         */
-        layerStyleRevision: number;
-        /**
          * layer 합성 순서입니다.
          */
         renderOrder: number;
@@ -1556,4 +1748,52 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
         payload: TerrainFeature;
     };
 
-export type { DebugImageBindingState, DebugTerrainTileState, DebugTileState, DebugTileStateCacheMesh, FeatureEntry, FeatureOrigin, RuntimeFeatureUpdate, TerrainFeaturePayloadCacheEntry, TerrainLodPerformanceStats, TerrainPayloadColorState, TerrainWfsRequestStats, U2dVectorShaderLayer, U2dVectorShaderLayerCO, U2dVectorShaderLayerCO_Content, U2dVectorShaderLayer_SimplifyInfo, U2dVectorShaderLayer_SimplifyInfo_Content, U2dVectorShaderLayer_Style_Option };
+/**
+     * runtime 피처의 레벨별 숫자 범위이며 각 항목은 [레벨, 최소 X, 최소 Y, 최대 X, 최대 Y]입니다.
+     * 실제 타일 연결은 FeatureEntry.tileKeys에서 별도로 관리합니다.
+     */
+    type U2dVectorShaderTileRangeState = Array<Array<number>>;
+
+/**
+     * 앱 연결 후에는 기존 terrain manager가 소유하는 원본별 연결과 수명 정보입니다.
+     */
+    type U2dVectorSourceEntry = {
+        /**
+         * 원본을 조회·편집하는 대표 매개체입니다.
+         */
+        feature: UMeasureFeature;
+        /**
+         * 현재 등록된 표시 조각이며 대표 자신은 포함하지 않습니다.
+         */
+        parts: Set<UMeasureFeature>;
+        /**
+         * 레이어가 원본 도형의 해제를 담당하는지 여부입니다.
+         */
+        ownsGeometry?: boolean;
+        /**
+         * 원본 Feature 변경 구독을 해제하는 함수입니다.
+         */
+        changeListener?: () => void;
+        /**
+         * 도형 해제 구독을 제거하는 함수입니다.
+         */
+        removeDisposeListener?: () => void;
+        /**
+         * 전체 원본 요청의 취소 제어기입니다.
+         */
+        controller?: AbortController;
+        /**
+         * 같은 원본이 공유하는 진행 중 요청입니다.
+         */
+        request?: Promise<U2dGeometry | undefined>;
+        /**
+         * 원본 편집 결과를 표시하는 내부 도형입니다.
+         */
+        displayGeometry?: U2dGeometry;
+        /**
+         * 원본 변경으로 다시 합성할 기존 타일의 키입니다.
+         */
+        dirtyTileKeys?: Set<string>;
+    };
+
+export type { DebugImageBindingState, DebugTerrainTileState, DebugTileState, DebugTileStateCacheMesh, FeatureEntry, FeatureOrigin, RuntimeFeatureUpdate, TerrainFeaturePayloadCacheEntry, TerrainLodPerformanceStats, TerrainPayloadColorState, TerrainWfsRequestStats, U2dVectorFeatureIdentity, U2dVectorRenderPart, U2dVectorRuntimeBindingInput, U2dVectorSearchPart, U2dVectorShaderLayer, U2dVectorShaderLayerCO, U2dVectorShaderLayerCO_Content, U2dVectorShaderLayer_SimplifyInfo, U2dVectorShaderLayer_SimplifyInfo_Content, U2dVectorShaderLayer_Style_Option, U2dVectorShaderTileRangeState, U2dVectorSourceEntry, U2dVectorTexturePreparationResult };

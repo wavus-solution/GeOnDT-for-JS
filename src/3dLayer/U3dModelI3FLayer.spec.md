@@ -152,15 +152,16 @@ U3dModelI3FLayer extends U3dModelLayer 클래스 정의
 
     override initialize() -> void
         의존:
-            U3dLayer — 초기화·완료 상태; 함수: {initialize()}; 속성 쓰기: {initialized}; 콜백: {resolve(), reject()}
+            U3dLayer — 초기화·완료 상태; 함수: {initialize()}; 속성 쓰기: {initialized}; 콜백: {_resolveReady(), _rejectReady()}
             defined — 값 존재 여부; 함수: {defined()}
             U3dMessage — 레이어 정보 실패 알림; 정적 함수: {info()}; 상수: {CNT.LAYER.ERROR_LOAD_LAYER}
         동작:
             부모 initialize를 인수 없이 호출하여 부모의 초기화 상태·이벤트를 먼저 반영하고 ProxyUrl과 _url을 이어 getLayerInfo에 URL을 전달한다.
             성공 callback에서 경계가 준비된 시점에 #computeRectangle을 호출할 callback을 만든다.
-            initialized를 true로 정하고 resolve가 정의되어 있으면 레이어를 인수로 레이어 수신자로 호출한다. 성공 callback은 true를 반환하지만 initialize는 반환하지 않는다.
-            원래 getLayerInfo Promise의 거부 callback에서는 initialized를 false로 정하고 메시지 6811194를 기록한 뒤 reject가 정의되어 있으면 같은 방식으로 호출한다. callback은 false를 반환한다.
-            실제 getLayerInfo의 완료 객체는 deferred다. 미완료 상태에 등록한 성공 callback이 resolve 도중 던진 예외는 deferred가 로그로 처리하며 거부로 바꾸지 않는다. 레이어의 후속 resolve·실패 callback이 실행되지 않은 채 부모에서 설정한 initialized가 남을 수 있다. [확인 Q-002]
+            initialized를 true로 정하고 _resolveReady가 정의되어 있으면 인수 없이 레이어 수신자로 호출한다. 성공 callback은 true를 반환하지만 initialize는 반환하지 않는다.
+            성공 처리의 반환 Promise에 연결한 catch에서는 initialized를 false로 정하고 메시지 6811194를 기록한 뒤 _rejectReady가 정의되어 있으면 원래 실패 사유를 전달한다. callback은 false를 반환한다. 원래 요청에 성공·실패 분기를 따로 만들지 않는다.
+            이미 완료한 레이어의 정보 반영 예외는 로그에 남기고 완료 상태를 유지한다.
+            성공 callback의 정보 반영·영역 계산 예외를 직접 잡아 initialized를 false로 정하고 레이어 _rejectReady에 전달한 뒤 false를 반환한다. 레이어의 공통 완료 인터페이스가 실패 사유를 Error로 정규화한다.
 
     #computeRectangle() -> void
         의존:

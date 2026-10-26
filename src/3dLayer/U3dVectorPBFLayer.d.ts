@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -296,6 +296,14 @@ declare class U3dVectorPBFLayer extends U2dVectorShaderLayer {
      */
     type U3dVectorPBFSourceFeature = {
         /**
+         * 표시 조각 분할 전의 원본 ID이며 ID 없는 MVT 피처는 생략합니다.
+         */
+        stableFeatureId?: string | number;
+        /**
+         * 원본 MVT 레이어 이름입니다.
+         */
+        sourceLayer?: string;
+        /**
          * 소스 타일 안에서 이 피처를 가리키는 고유 이름입니다. <br>
          * `MVT레이어명:원본ID` 형태이며 원본 ID 가 없으면 `MVT레이어명:i순번` 을 쓰고, 하나의 MVT 피처가 여러 조각으로 나뉘면 조각 번호를 접미어로 붙입니다.
          */
@@ -348,6 +356,14 @@ declare class U3dVectorPBFLayer extends U2dVectorShaderLayer {
      */
     type U3dVectorPBFTileFeature = {
         /**
+         * 타일·표시 조각과 독립된 원본 ID입니다.
+         */
+        _vectorSourceId?: string | number;
+        /**
+         * 원본 MVT 레이어 이름입니다.
+         */
+        _vectorSourceLayer?: string;
+        /**
          * 타일 키가 포함된 고유 id
          */
         id: string;
@@ -367,10 +383,6 @@ declare class U3dVectorPBFLayer extends U2dVectorShaderLayer {
          * LOD 선별에서 함께 남거나 함께 빠져야 하는 묶음 키. 면과 그 외곽선 선 피처가 같은 값을 가집니다.
          */
         lodGroupKey?: string;
-        /**
-         * 지형 데칼 전용 표식이며, 기반 클래스가 폴리곤 Shape 의 곡선 계산을 실제로 필요한 시점까지 미뤄도 된다는 뜻입니다.
-         */
-        _pbfDeferShape: true;
         /**
          * 월드 좌표(EPSG:3857) 기준 GeoJSON 지오메트리이며, Point 는 원 반경 `radius` 를 같은 좌표계의 미터로 함께 가집니다.
          */

@@ -751,7 +751,7 @@
                 drawline: false, //+ WFS 모델에 테투리 추가 여부
                 opacity: 1, //+ 투명화 여부 true 일 경우, 투명도 설정값으로 적용
                 textureurl: '/image/buld/buld_texture_1.jpg',  //+ 텍스처 url, defaultValue(opt.textureurl, undefined)
-                useproxy: true
+                useproxy: (window.location.hostname !== 'localhost')
             },
             u3f: {
                 name: 'u3f', //+ U3F 3D 모델 레이어 이름, *필수 입력
@@ -798,6 +798,7 @@
 
         //+ 이미지
         createLayer('vworldsat');
+        app.setNameBaseLayer('vworldsat');
         app.showLayer('vworldsat', true);
         app.endloadingBar();
 
@@ -924,6 +925,7 @@
                     case 'vworldsat':
                     case 'base':
                         layer = new Union3D.image.U3dImageXYZLayer(options);
+                        app.addLayer(layer);
                         break;
 
                     default :
@@ -1042,7 +1044,7 @@
 
         function initU3fModelLayers(name) {
             try {
-                let groupLayer = app.createModelGroupLayer({
+                let groupLayer = app.createGroupLayer({
                     maxlevel: 19,
                     minlevel: 17,
                     name: name
@@ -1080,14 +1082,14 @@
                                 makeU3FPackage: 1
                             };
                             let subLayer = app.create3DFModelLayer(options);
-                            if(subLayer !== false){
-                                subLayer.then(function (layer) {
+                            if(subLayer){
+                                subLayer.ready.then(function (layer) {
                                     groupLayer.addLayer(subLayer);
                                     if(i === infos.length -1){
                                         console.log("u3f model layer load");
                                         app.showLayer(groupLayer.getName(),true);
                                     }
-                                }).fail(function (layer) {
+                                }).catch(function (layer) {
 
                                 });
                             }

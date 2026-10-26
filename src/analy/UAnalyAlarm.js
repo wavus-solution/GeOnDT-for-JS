@@ -10,7 +10,7 @@ import {UMesh} from '@union3d/core/mesh/UMesh';
 import {U3dSelect} from '@union3d/select/U3dSelect';
 import {U3dMessage} from '@U3dMessage';
 import {U3dEvent} from '@union3d/event/U3dEvent';
-import {deferred} from '@util/deferred';
+import {deferredPromise} from '@util/deferredPromise';
 import {INTERNAL} from '@union3d/analy/UAnalyAlarm.internal';
 
 const SELECT_COLOR = 0xff0000;
@@ -961,11 +961,11 @@ class UAnalyAlarm extends UAnaly {
     /**
      * 모든 모델 알람을 제거하고 정리 결과를 반환합니다.
      *
-     * @returns {object}
+     * @returns {Promise<boolean>} 모든 알람이 제거되면 true로 완료합니다.
      */
     removeAllAlarm() {
         const self = this;
-        const promise = /** @type {DeferredObject<boolean>} */ (deferred());
+        const promise = /** @type {DeferredPromise<boolean>} */ (deferredPromise());
         const modelList = self.getModelGroupChildren();
         if (modelList && modelList.length > 0) {
             for (let i = 0; i < modelList.length; i++) {

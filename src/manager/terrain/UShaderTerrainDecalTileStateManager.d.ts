@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -87,6 +87,18 @@ import type { TerrainDecalCompositionPlanState } from "./UTerrainDecalCompositio
          */
         isTargetMaterialApplied: boolean;
         /**
+         * 해당 source의 성공한 적용 이력이 현재 목표 material에 연결되어 있는지 여부입니다.
+         */
+        hasAppliedSourcePresentation: boolean;
+        /**
+         * 표시 source의 허용하지 않은 실패·취소·해제 여부입니다.
+         */
+        isSourceFailureBlocking: boolean;
+        /**
+         * 확인된 빈 source의 최신 clear가 적용되었는지 여부입니다.
+         */
+        isConfirmedEmptyPresentation: boolean;
+        /**
          * 현재 live mesh에 직전 적용 material이 연결되어 있는지 여부입니다.
          */
         hasActivePresentation: boolean;
@@ -123,7 +135,7 @@ import type { TerrainDecalCompositionPlanState } from "./UTerrainDecalCompositio
          */
         isSettled: boolean;
         /**
-         * 실제 실행에 사용한 합성 계획의 불변 projection입니다.
+         * 실제 실행에 사용한 합성 계획의 불변 projection입니다. 같은 불변 계획의 조회끼리는 이 값을 공유하며 원본 계획·Feature 참조는 포함하지 않습니다.
          */
         composition?: TerrainCompositionProjection;
         /**
@@ -190,6 +202,7 @@ import type { TerrainDecalCompositionPlanState } from "./UTerrainDecalCompositio
 
 /**
      * 실제 실행에 사용한 합성 계획의 불변 Presentation projection입니다.
+     * 조회 시점의 문자열·숫자 정보만 보관하며 원본 계획·Feature의 수명을 연장하지 않습니다.
      */
     type TerrainCompositionProjection = {
         /**
@@ -296,7 +309,7 @@ import type { TerrainDecalCompositionPlanState } from "./UTerrainDecalCompositio
         /**
          * terrain mesh입니다.
          */
-        _mesh?: three.Mesh;
+        _mesh?: three.Mesh | null;
     };
 
 /**

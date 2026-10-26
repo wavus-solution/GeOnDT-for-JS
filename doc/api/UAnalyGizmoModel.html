@@ -15,7 +15,7 @@
     <!-- 한글 본문용 가변 서체입니다. 내려받지 못해도 styles/jaguar.css의 대체 서체로 그대로 표시됩니다. -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-    <link type="text/css" rel="stylesheet" href="styles/jaguar.css?v=muz1hdly">
+    <link type="text/css" rel="stylesheet" href="styles/jaguar.css?v=mvon8gzc">
     <script>
         // 화면이 그려지기 전에 테마를 정해 화면이 한 번 번쩍이는 것을 막습니다.
         // 상단 전환 버튼으로 직접 고른 적이 없으면 운영체제 설정을 따릅니다.
@@ -137,6 +137,10 @@
             <h3>Methods</h3>
             <ul>
             
+                <li data-name="_stopmapregionmotion">
+                    <a href="U3dApp.html#_stopMapRegionMotion">_stopMapRegionMotion</a>
+                </li>
+            
                 <li data-name="activeanalysis">
                     <a href="U3dApp.html#activeAnalysis">activeAnalysis</a>
                 </li>
@@ -253,16 +257,12 @@
                     <a href="U3dApp.html#create3DFModelLayer">create3DFModelLayer</a>
                 </li>
             
-                <li data-name="create3dimagewmtslayer">
-                    <a href="U3dApp.html#create3dImageWMTSLayer">create3dImageWMTSLayer</a>
-                </li>
-            
-                <li data-name="create3dopenlayer">
-                    <a href="U3dApp.html#create3dOpenLayer">create3dOpenLayer</a>
-                </li>
-            
                 <li data-name="createanalysisbytypeandname">
                     <a href="U3dApp.html#createAnalysisByTypeAndName">createAnalysisByTypeAndName</a>
+                </li>
+            
+                <li data-name="createbimobjmodellayer">
+                    <a href="U3dApp.html#createBIMObjModelLayer">createBIMObjModelLayer</a>
                 </li>
             
                 <li data-name="createdebugcanvas">
@@ -289,6 +289,10 @@
                     <a href="U3dApp.html#createGridTileLayer">createGridTileLayer</a>
                 </li>
             
+                <li data-name="creategrouplayer">
+                    <a href="U3dApp.html#createGroupLayer">createGroupLayer</a>
+                </li>
+            
                 <li data-name="createheightxyzlayer">
                     <a href="U3dApp.html#createHeightXYZLayer">createHeightXYZLayer</a>
                 </li>
@@ -301,24 +305,16 @@
                     <a href="U3dApp.html#createLoadingCanvas">createLoadingCanvas</a>
                 </li>
             
-                <li data-name="createmeasurelayer">
-                    <a href="U3dApp.html#createMeasureLayer">createMeasureLayer</a>
-                </li>
-            
-                <li data-name="createmodelbimobjlayer">
-                    <a href="U3dApp.html#createModelBIMObjLayer">createModelBIMObjLayer</a>
-                </li>
-            
-                <li data-name="createmodelgrouplayer">
-                    <a href="U3dApp.html#createModelGroupLayer">createModelGroupLayer</a>
-                </li>
-            
-                <li data-name="createmodeltdslayer">
-                    <a href="U3dApp.html#createModelTdsLayer">createModelTdsLayer</a>
+                <li data-name="createmodelquadtreeset">
+                    <a href="U3dApp.html#createModelQuadTreeSet">createModelQuadTreeSet</a>
                 </li>
             
                 <li data-name="createmultiplecomponentlayer">
                     <a href="U3dApp.html#createMultipleComponentLayer">createMultipleComponentLayer</a>
+                </li>
+            
+                <li data-name="createopenlayer">
+                    <a href="U3dApp.html#createOpenLayer">createOpenLayer</a>
                 </li>
             
                 <li data-name="createoverlay">
@@ -341,6 +337,10 @@
                     <a href="U3dApp.html#createPointerLockFlyControls">createPointerLockFlyControls</a>
                 </li>
             
+                <li data-name="createquadtreeset">
+                    <a href="U3dApp.html#createQuadTreeSet">createQuadTreeSet</a>
+                </li>
+            
                 <li data-name="createsky">
                     <a href="U3dApp.html#createSky">createSky</a>
                 </li>
@@ -357,12 +357,12 @@
                     <a href="U3dApp.html#createTdsModelLayer">createTdsModelLayer</a>
                 </li>
             
-                <li data-name="createtempletetmsimagelayer">
-                    <a href="U3dApp.html#createTempleteTMSImageLayer">createTempleteTMSImageLayer</a>
+                <li data-name="createtemplatetmsimagelayer">
+                    <a href="U3dApp.html#createTemplateTMSImageLayer">createTemplateTMSImageLayer</a>
                 </li>
             
-                <li data-name="createterrainlayer">
-                    <a href="U3dApp.html#createTerrainLayer">createTerrainLayer</a>
+                <li data-name="createterrainquadtreeset">
+                    <a href="U3dApp.html#createTerrainQuadTreeSet">createTerrainQuadTreeSet</a>
                 </li>
             
                 <li data-name="createview">
@@ -377,12 +377,8 @@
                     <a href="U3dApp.html#createWMSImageLayer">createWMSImageLayer</a>
                 </li>
             
-                <li data-name="createwmtslayer">
-                    <a href="U3dApp.html#createWMTSLayer">createWMTSLayer</a>
-                </li>
-            
-                <li data-name="createwmtstemplatelayer">
-                    <a href="U3dApp.html#createWMTSTemplateLayer">createWMTSTemplateLayer</a>
+                <li data-name="createwmtsimagelayer">
+                    <a href="U3dApp.html#createWMTSImageLayer">createWMTSImageLayer</a>
                 </li>
             
                 <li data-name="createxyzimagelayer">
@@ -435,6 +431,18 @@
             
                 <li data-name="dispose">
                     <a href="U3dApp.html#dispose">dispose</a>
+                </li>
+            
+                <li data-name="disposemodelquadtree">
+                    <a href="U3dApp.html#disposeModelQuadTree">disposeModelQuadTree</a>
+                </li>
+            
+                <li data-name="disposequadtree">
+                    <a href="U3dApp.html#disposeQuadTree">disposeQuadTree</a>
+                </li>
+            
+                <li data-name="disposeterrainquadtree">
+                    <a href="U3dApp.html#disposeTerrainQuadTree">disposeTerrainQuadTree</a>
                 </li>
             
                 <li data-name="disposetilemodelall">
@@ -649,12 +657,24 @@
                     <a href="U3dApp.html#getHeightAtPoint">getHeightAtPoint</a>
                 </li>
             
+                <li data-name="getheightlayer">
+                    <a href="U3dApp.html#getHeightLayer">getHeightLayer</a>
+                </li>
+            
                 <li data-name="getheightlayers">
                     <a href="U3dApp.html#getHeightLayers">getHeightLayers</a>
                 </li>
             
                 <li data-name="gethomeposition">
                     <a href="U3dApp.html#getHomePosition">getHomePosition</a>
+                </li>
+            
+                <li data-name="getimagelayer">
+                    <a href="U3dApp.html#getImageLayer">getImageLayer</a>
+                </li>
+            
+                <li data-name="getimagelayers">
+                    <a href="U3dApp.html#getImageLayers">getImageLayers</a>
                 </li>
             
                 <li data-name="getimprovelevel">
@@ -745,8 +765,16 @@
                     <a href="U3dApp.html#getLoadingTotal">getLoadingTotal</a>
                 </li>
             
+                <li data-name="getlodingdom">
+                    <a href="U3dApp.html#getLodingDom">getLodingDom</a>
+                </li>
+            
                 <li data-name="getmapcontrol">
                     <a href="U3dApp.html#getMapControl">getMapControl</a>
+                </li>
+            
+                <li data-name="getmapregion">
+                    <a href="U3dApp.html#getMapRegion">getMapRegion</a>
                 </li>
             
                 <li data-name="getmaxprocess">
@@ -763,6 +791,10 @@
             
                 <li data-name="getmodelimagedistance">
                     <a href="U3dApp.html#getModelImageDistance">getModelImageDistance</a>
+                </li>
+            
+                <li data-name="getmodelmaxlevel">
+                    <a href="U3dApp.html#getModelMaxLevel">getModelMaxLevel</a>
                 </li>
             
                 <li data-name="getmodelupdateoffset">
@@ -1133,6 +1165,10 @@
                     <a href="U3dApp.html#removeLight">removeLight</a>
                 </li>
             
+                <li data-name="removeloadingcanvas">
+                    <a href="U3dApp.html#removeLoadingCanvas">removeLoadingCanvas</a>
+                </li>
+            
                 <li data-name="removemodel">
                     <a href="U3dApp.html#removeModel">removeModel</a>
                 </li>
@@ -1169,6 +1205,10 @@
                     <a href="U3dApp.html#renderFrame">renderFrame</a>
                 </li>
             
+                <li data-name="resetcameralimitdistance">
+                    <a href="U3dApp.html#resetCameraLimitDistance">resetCameraLimitDistance</a>
+                </li>
+            
                 <li data-name="resetfog">
                     <a href="U3dApp.html#resetFog">resetFog</a>
                 </li>
@@ -1177,8 +1217,16 @@
                     <a href="U3dApp.html#resize">resize</a>
                 </li>
             
+                <li data-name="restartmodelquadtree">
+                    <a href="U3dApp.html#restartModelQuadTree">restartModelQuadTree</a>
+                </li>
+            
                 <li data-name="restartquadtree">
                     <a href="U3dApp.html#restartQuadTree">restartQuadTree</a>
+                </li>
+            
+                <li data-name="restartterrainquadtree">
+                    <a href="U3dApp.html#restartTerrainQuadTree">restartTerrainQuadTree</a>
                 </li>
             
                 <li data-name="savecamerastate">
@@ -1349,6 +1397,10 @@
                     <a href="U3dApp.html#setInteriorPanControl">setInteriorPanControl</a>
                 </li>
             
+                <li data-name="setmapregion">
+                    <a href="U3dApp.html#setMapRegion">setMapRegion</a>
+                </li>
+            
                 <li data-name="setmaxprocess">
                     <a href="U3dApp.html#setMaxProcess">setMaxProcess</a>
                 </li>
@@ -1497,6 +1549,10 @@
                     <a href="U3dApp.html#setUndergroundFogStartHeight">setUndergroundFogStartHeight</a>
                 </li>
             
+                <li data-name="setvisibleloading">
+                    <a href="U3dApp.html#setVisibleLoading">setVisibleLoading</a>
+                </li>
+            
                 <li data-name="setzoom">
                     <a href="U3dApp.html#setZoom">setZoom</a>
                 </li>
@@ -1535,10 +1591,6 @@
             
                 <li data-name="showundergroundgrid">
                     <a href="U3dApp.html#showUnderGroundGrid">showUnderGroundGrid</a>
-                </li>
-            
-                <li data-name="stopfly">
-                    <a href="U3dApp.html#stopFly">stopFly</a>
                 </li>
             
                 <li data-name="synccamera">
@@ -1604,10 +1656,6 @@
                     <a href="U3dApp.html#~U3dTMSImageLayerCO">U3dTMSImageLayerCO</a>
                 </li>
             
-                <li data-name="u3dwmtslayerco">
-                    <a href="U3dApp.html#~U3dWMTSLayerCO">U3dWMTSLayerCO</a>
-                </li>
-            
             </ul>
         </section>
 </div>
@@ -1624,7 +1672,7 @@
             <details class="navigation-group" id="nav-group-analysis-r169g7">
                 <summary class="navigation-group-summary">
                     <span class="navigation-group-label">Analysis</span>
-                    <span class="navigation-badge" data-total-count="35">35</span>
+                    <span class="navigation-badge" data-total-count="34">34</span>
                 </summary>
                 <ul class="navigation-group-items">
                 
@@ -1860,10 +1908,6 @@
             <h3>Members</h3>
             <ul>
             
-                <li data-name="setapp">
-                    <a href="UAnaly.html#setApp">setApp</a>
-                </li>
-            
                 <li data-name="event">
                     <a href="UAnaly.html#.Event">Event</a>
                 </li>
@@ -1887,12 +1931,36 @@
                     <a href="UAnaly.html#clear">clear</a>
                 </li>
             
+                <li data-name="clearmeasurefeatureselection">
+                    <a href="UAnaly.html#clearMeasureFeatureSelection">clearMeasureFeatureSelection</a>
+                </li>
+            
                 <li data-name="deactive">
                     <a href="UAnaly.html#deactive">deactive</a>
                 </li>
             
                 <li data-name="getanalysisoption">
                     <a href="UAnaly.html#getAnalysisOption">getAnalysisOption</a>
+                </li>
+            
+                <li data-name="getfeaturecoordinates">
+                    <a href="UAnaly.html#getFeatureCoordinates">getFeatureCoordinates</a>
+                </li>
+            
+                <li data-name="getfeatureresult">
+                    <a href="UAnaly.html#getFeatureResult">getFeatureResult</a>
+                </li>
+            
+                <li data-name="getfeatureresults">
+                    <a href="UAnaly.html#getFeatureResults">getFeatureResults</a>
+                </li>
+            
+                <li data-name="getfeaturestyle">
+                    <a href="UAnaly.html#getFeatureStyle">getFeatureStyle</a>
+                </li>
+            
+                <li data-name="getfeatures">
+                    <a href="UAnaly.html#getFeatures">getFeatures</a>
                 </li>
             
                 <li data-name="getscene">
@@ -1927,12 +1995,28 @@
                     <a href="UAnaly.html#on">on</a>
                 </li>
             
+                <li data-name="pickmeasurefeature">
+                    <a href="UAnaly.html#pickMeasureFeature">pickMeasureFeature</a>
+                </li>
+            
+                <li data-name="removefeature">
+                    <a href="UAnaly.html#removeFeature">removeFeature</a>
+                </li>
+            
+                <li data-name="resetfeaturestyle">
+                    <a href="UAnaly.html#resetFeatureStyle">resetFeatureStyle</a>
+                </li>
+            
                 <li data-name="setanalysisoption">
                     <a href="UAnaly.html#setAnalysisOption">setAnalysisOption</a>
                 </li>
             
                 <li data-name="setapp">
                     <a href="UAnaly.html#setApp">setApp</a>
+                </li>
+            
+                <li data-name="setfeaturestyle">
+                    <a href="UAnaly.html#setFeatureStyle">setFeatureStyle</a>
                 </li>
             
                 <li data-name="settargetlayername">
@@ -2281,6 +2365,14 @@
             
                 <li data-name="drawarea">
                     <a href="UAnalyArea.html#drawArea">drawArea</a>
+                </li>
+            
+                <li data-name="drawstop">
+                    <a href="UAnalyArea.html#drawStop">drawStop</a>
+                </li>
+            
+                <li data-name="getfeatures">
+                    <a href="UAnalyArea.html#getFeatures">getFeatures</a>
                 </li>
             
             </ul>
@@ -2936,8 +3028,16 @@
                     <a href="UAnalyDepth.html#~UAnalyDepthCO">UAnalyDepthCO</a>
                 </li>
             
+                <li data-name="uanalydepthlinestate">
+                    <a href="UAnalyDepth.html#~UAnalyDepthLineState">UAnalyDepthLineState</a>
+                </li>
+            
                 <li data-name="uanalydepthpointdata">
                     <a href="UAnalyDepth.html#~UAnalyDepthPointData">UAnalyDepthPointData</a>
+                </li>
+            
+                <li data-name="uanalydepthpointstate">
+                    <a href="UAnalyDepth.html#~UAnalyDepthPointState">UAnalyDepthPointState</a>
                 </li>
             
                 <li data-name="uanalydepthresult">
@@ -2961,6 +3061,21 @@
             <span class="navigation-primary-link"><a href="UAnalyDistance.html">UAnalyDistance</a></span>
         </summary>
         <div class="navigation-symbol-details">
+        <section class="navigation-member-list" data-type="members">
+            <h3>Members</h3>
+            <ul>
+            
+                <li data-name="helperpoi">
+                    <a href="UAnalyDistance.html#helperPoi">helperPoi</a>
+                </li>
+            
+                <li data-name="name">
+                    <a href="UAnalyDistance.html#name">name</a>
+                </li>
+            
+            </ul>
+        </section>
+
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -2981,8 +3096,28 @@
                     <a href="UAnalyDistance.html#drawDistance">drawDistance</a>
                 </li>
             
+                <li data-name="drawstop">
+                    <a href="UAnalyDistance.html#drawStop">drawStop</a>
+                </li>
+            
+                <li data-name="drawtextlabel">
+                    <a href="UAnalyDistance.html#drawTextLabel">drawTextLabel</a>
+                </li>
+            
                 <li data-name="getdistancefromcoordinate">
                     <a href="UAnalyDistance.html#getDistanceFromCoordinate">getDistanceFromCoordinate</a>
+                </li>
+            
+                <li data-name="getfeatures">
+                    <a href="UAnalyDistance.html#getFeatures">getFeatures</a>
+                </li>
+            
+                <li data-name="onclick">
+                    <a href="UAnalyDistance.html#onClick">onClick</a>
+                </li>
+            
+                <li data-name="ondblclick">
+                    <a href="UAnalyDistance.html#onDblClick">onDblClick</a>
                 </li>
             
             </ul>
@@ -3017,6 +3152,10 @@
             <h3>Members</h3>
             <ul>
             
+                <li data-name="event">
+                    <a href="UAnalyGizmoModel.html#EVENT">EVENT</a>
+                </li>
+            
                 <li data-name="isdrag">
                     <a href="UAnalyGizmoModel.html#isDrag">isDrag</a>
                 </li>
@@ -3038,6 +3177,10 @@
             
                 <li data-name="clear">
                     <a href="UAnalyGizmoModel.html#clear">clear</a>
+                </li>
+            
+                <li data-name="creategizmo">
+                    <a href="UAnalyGizmoModel.html#createGizmo">createGizmo</a>
                 </li>
             
                 <li data-name="deactive">
@@ -3082,6 +3225,14 @@
             
                 <li data-name="objectchange">
                     <a href="UAnalyGizmoModel.html#objectChange">objectChange</a>
+                </li>
+            
+                <li data-name="onend">
+                    <a href="UAnalyGizmoModel.html#onEnd">onEnd</a>
+                </li>
+            
+                <li data-name="removegizmo">
+                    <a href="UAnalyGizmoModel.html#removeGizmo">removeGizmo</a>
                 </li>
             
                 <li data-name="removelasers">
@@ -3143,8 +3294,24 @@
             <h3>Type Definitions</h3>
             <ul>
             
+                <li data-name="gizmocontrolobject">
+                    <a href="UAnalyGizmoModel.html#~GizmoControlObject">GizmoControlObject</a>
+                </li>
+            
                 <li data-name="uanalygizmomodelco">
                     <a href="UAnalyGizmoModel.html#~UAnalyGizmoModelCO">UAnalyGizmoModelCO</a>
+                </li>
+            
+                <li data-name="uanalygizmomodelcallback">
+                    <a href="UAnalyGizmoModel.html#~UAnalyGizmoModelCallback">UAnalyGizmoModelCallback</a>
+                </li>
+            
+                <li data-name="uanalygizmomodelintersection">
+                    <a href="UAnalyGizmoModel.html#~UAnalyGizmoModelIntersection">UAnalyGizmoModelIntersection</a>
+                </li>
+            
+                <li data-name="uanalygizmomodellaserstyle">
+                    <a href="UAnalyGizmoModel.html#~UAnalyGizmoModelLaserStyle">UAnalyGizmoModelLaserStyle</a>
                 </li>
             
             </ul>
@@ -3170,6 +3337,10 @@
             
                 <li data-name="max_style_entries">
                     <a href="UAnalyHeight.html#MAX_STYLE_ENTRIES">MAX_STYLE_ENTRIES</a>
+                </li>
+            
+                <li data-name="name">
+                    <a href="UAnalyHeight.html#name">name</a>
                 </li>
             
             </ul>
@@ -3259,6 +3430,37 @@
             <span class="navigation-primary-link"><a href="UAnalyHeightLimit.html">UAnalyHeightLimit</a></span>
         </summary>
         <div class="navigation-symbol-details">
+        <section class="navigation-member-list" data-type="members">
+            <h3>Members</h3>
+            <ul>
+            
+                <li data-name="depth">
+                    <a href="UAnalyHeightLimit.html#depth">depth</a>
+                </li>
+            
+                <li data-name="extrudeoption">
+                    <a href="UAnalyHeightLimit.html#extrudeOption">extrudeOption</a>
+                </li>
+            
+                <li data-name="filters">
+                    <a href="UAnalyHeightLimit.html#filters">filters</a>
+                </li>
+            
+                <li data-name="geometry">
+                    <a href="UAnalyHeightLimit.html#geometry">geometry</a>
+                </li>
+            
+                <li data-name="materialoption">
+                    <a href="UAnalyHeightLimit.html#materialOption">materialOption</a>
+                </li>
+            
+                <li data-name="selected">
+                    <a href="UAnalyHeightLimit.html#selected">selected</a>
+                </li>
+            
+            </ul>
+        </section>
+
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -3339,6 +3541,10 @@
             <h3>Members</h3>
             <ul>
             
+                <li data-name="event">
+                    <a href="UAnalyLandScape.html#EVENT">EVENT</a>
+                </li>
+            
                 <li data-name="floorheight">
                     <a href="UAnalyLandScape.html#floorHeight">floorHeight</a>
                 </li>
@@ -3414,6 +3620,10 @@
                     <a href="UAnalyLandScape.html#addViewPoint">addViewPoint</a>
                 </li>
             
+                <li data-name="addviewpoint_">
+                    <a href="UAnalyLandScape.html#addViewPoint_">addViewPoint_</a>
+                </li>
+            
                 <li data-name="addviewtarget">
                     <a href="UAnalyLandScape.html#addViewTarget">addViewTarget</a>
                 </li>
@@ -3444,6 +3654,10 @@
             
                 <li data-name="deactive">
                     <a href="UAnalyLandScape.html#deactive">deactive</a>
+                </li>
+            
+                <li data-name="detectcollision">
+                    <a href="UAnalyLandScape.html#detectCollision">detectCollision</a>
                 </li>
             
                 <li data-name="drawline">
@@ -3605,6 +3819,10 @@
                     <a href="UAnalyLandScape.html#~UAnalyLandScapeCO">UAnalyLandScapeCO</a>
                 </li>
             
+                <li data-name="uanalylandscapelineoptions">
+                    <a href="UAnalyLandScape.html#~UAnalyLandScapeLineOptions">UAnalyLandScapeLineOptions</a>
+                </li>
+            
                 <li data-name="ucomputefloorco">
                     <a href="UAnalyLandScape.html#~UComputeFloorCO">UComputeFloorCO</a>
                 </li>
@@ -3642,6 +3860,10 @@
                     <a href="UAnalyMultipleComponent.html#additionalOpt">additionalOpt</a>
                 </li>
             
+                <li data-name="color">
+                    <a href="UAnalyMultipleComponent.html#color">color</a>
+                </li>
+            
             </ul>
         </section>
 
@@ -3657,6 +3879,10 @@
                     <a href="UAnalyMultipleComponent.html#addArea">addArea</a>
                 </li>
             
+                <li data-name="addcomponent">
+                    <a href="UAnalyMultipleComponent.html#addComponent">addComponent</a>
+                </li>
+            
                 <li data-name="addinterval">
                     <a href="UAnalyMultipleComponent.html#addInterval">addInterval</a>
                 </li>
@@ -3667,6 +3893,10 @@
             
                 <li data-name="addsingle">
                     <a href="UAnalyMultipleComponent.html#addSingle">addSingle</a>
+                </li>
+            
+                <li data-name="areaclick">
+                    <a href="UAnalyMultipleComponent.html#areaClick">areaClick</a>
                 </li>
             
                 <li data-name="cameraanalysis">
@@ -3685,12 +3915,24 @@
                     <a href="UAnalyMultipleComponent.html#clearComponent">clearComponent</a>
                 </li>
             
+                <li data-name="clearline">
+                    <a href="UAnalyMultipleComponent.html#clearLine">clearLine</a>
+                </li>
+            
+                <li data-name="clearpoi">
+                    <a href="UAnalyMultipleComponent.html#clearPOI">clearPOI</a>
+                </li>
+            
                 <li data-name="clearroad">
                     <a href="UAnalyMultipleComponent.html#clearRoad">clearRoad</a>
                 </li>
             
                 <li data-name="clearselect">
                     <a href="UAnalyMultipleComponent.html#clearSelect">clearSelect</a>
+                </li>
+            
+                <li data-name="creategizmo">
+                    <a href="UAnalyMultipleComponent.html#createGizmo">createGizmo</a>
                 </li>
             
                 <li data-name="deactive">
@@ -3703,6 +3945,18 @@
             
                 <li data-name="endlightanaly">
                     <a href="UAnalyMultipleComponent.html#endLightAnaly">endLightAnaly</a>
+                </li>
+            
+                <li data-name="endpoi">
+                    <a href="UAnalyMultipleComponent.html#endPoi">endPoi</a>
+                </li>
+            
+                <li data-name="finishroad">
+                    <a href="UAnalyMultipleComponent.html#finishRoad">finishRoad</a>
+                </li>
+            
+                <li data-name="finishsingle">
+                    <a href="UAnalyMultipleComponent.html#finishSingle">finishSingle</a>
                 </li>
             
                 <li data-name="finishwork">
@@ -3725,6 +3979,10 @@
                     <a href="UAnalyMultipleComponent.html#getMapTime">getMapTime</a>
                 </li>
             
+                <li data-name="getpointsbyarea">
+                    <a href="UAnalyMultipleComponent.html#getPointsByArea">getPointsByArea</a>
+                </li>
+            
                 <li data-name="getroads">
                     <a href="UAnalyMultipleComponent.html#getRoads">getRoads</a>
                 </li>
@@ -3733,12 +3991,20 @@
                     <a href="UAnalyMultipleComponent.html#getScene">getScene</a>
                 </li>
             
+                <li data-name="getselectobject">
+                    <a href="UAnalyMultipleComponent.html#getSelectObject">getSelectObject</a>
+                </li>
+            
                 <li data-name="getselected">
                     <a href="UAnalyMultipleComponent.html#getSelected">getSelected</a>
                 </li>
             
                 <li data-name="hidelabel">
                     <a href="UAnalyMultipleComponent.html#hideLabel">hideLabel</a>
+                </li>
+            
+                <li data-name="highlightcolor">
+                    <a href="UAnalyMultipleComponent.html#highLightColor">highLightColor</a>
                 </li>
             
                 <li data-name="isloadmodel">
@@ -3769,6 +4035,18 @@
                     <a href="UAnalyMultipleComponent.html#removeEventListener">removeEventListener</a>
                 </li>
             
+                <li data-name="removegizmo">
+                    <a href="UAnalyMultipleComponent.html#removeGizmo">removeGizmo</a>
+                </li>
+            
+                <li data-name="removelisteners">
+                    <a href="UAnalyMultipleComponent.html#removeListeners">removeListeners</a>
+                </li>
+            
+                <li data-name="removeroad">
+                    <a href="UAnalyMultipleComponent.html#removeRoad">removeRoad</a>
+                </li>
+            
                 <li data-name="removeselected">
                     <a href="UAnalyMultipleComponent.html#removeSelected">removeSelected</a>
                 </li>
@@ -3785,8 +4063,16 @@
                     <a href="UAnalyMultipleComponent.html#saveRoad">saveRoad</a>
                 </li>
             
+                <li data-name="selectobject">
+                    <a href="UAnalyMultipleComponent.html#selectObject">selectObject</a>
+                </li>
+            
                 <li data-name="setadditionalopt">
                     <a href="UAnalyMultipleComponent.html#setAdditionalOpt">setAdditionalOpt</a>
+                </li>
+            
+                <li data-name="setapp">
+                    <a href="UAnalyMultipleComponent.html#setApp">setApp</a>
                 </li>
             
                 <li data-name="setcomponentdata">
@@ -3857,6 +4143,10 @@
                     <a href="UAnalyMultipleComponent.html#showLabel">showLabel</a>
                 </li>
             
+                <li data-name="startpoi">
+                    <a href="UAnalyMultipleComponent.html#startPoi">startPoi</a>
+                </li>
+            
             </ul>
         </section>
 
@@ -3870,73 +4160,6 @@
             
                 <li data-name="uanalymultiplecomponentco">
                     <a href="UAnalyMultipleComponent.html#~UAnalyMultipleComponentCO">UAnalyMultipleComponentCO</a>
-                </li>
-            
-            </ul>
-        </section>
-</div>
-    </details>
-    
-</li>
-
-                
-                    
-<li class="navigation-item item-class" data-longname="UAnalyObjectInfo" data-name="UAnalyObjectInfo" data-group-key="analysis">
-    
-    <details class="navigation-symbol">
-        <summary class="navigation-symbol-summary">
-            <span class="navigation-kind" aria-hidden="true">C</span>
-            <span class="navigation-primary-link"><a href="UAnalyObjectInfo.html">UAnalyObjectInfo</a></span>
-        </summary>
-        <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="off">
-                    <a href="UAnalyObjectInfo.html#off">off</a>
-                </li>
-            
-            </ul>
-        </section>
-
-        <section class="navigation-member-list" data-type="methods">
-            <h3>Methods</h3>
-            <ul>
-            
-                <li data-name="active">
-                    <a href="UAnalyObjectInfo.html#active">active</a>
-                </li>
-            
-                <li data-name="clear">
-                    <a href="UAnalyObjectInfo.html#clear">clear</a>
-                </li>
-            
-                <li data-name="deactive">
-                    <a href="UAnalyObjectInfo.html#deactive">deactive</a>
-                </li>
-            
-                <li data-name="getselectedobject">
-                    <a href="UAnalyObjectInfo.html#getSelectedObject">getSelectedObject</a>
-                </li>
-            
-                <li data-name="removeselect">
-                    <a href="UAnalyObjectInfo.html#removeSelect">removeSelect</a>
-                </li>
-            
-                <li data-name="setapp">
-                    <a href="UAnalyObjectInfo.html#setApp">setApp</a>
-                </li>
-            
-            </ul>
-        </section>
-
-        <section class="navigation-member-list" data-type="typedefs">
-            <h3>Type Definitions</h3>
-            <ul>
-            
-                <li data-name="uanalyobjectinfoco">
-                    <a href="UAnalyObjectInfo.html#~UAnalyObjectInfoCO">UAnalyObjectInfoCO</a>
                 </li>
             
             </ul>
@@ -4066,16 +4289,16 @@
             <h3>Type Definitions</h3>
             <ul>
             
-                <li data-name="extstring">
-                    <a href="UAnalyParticle.html#~ExtString">ExtString</a>
-                </li>
-            
                 <li data-name="uanalyparticleco">
                     <a href="UAnalyParticle.html#~UAnalyParticleCO">UAnalyParticleCO</a>
                 </li>
             
                 <li data-name="uanalyparticlemaskoption">
                     <a href="UAnalyParticle.html#~UAnalyParticleMaskOption">UAnalyParticleMaskOption</a>
+                </li>
+            
+                <li data-name="uanalyparticlemodelextents">
+                    <a href="UAnalyParticle.html#~UAnalyParticleModelExtents">UAnalyParticleModelExtents</a>
                 </li>
             
             </ul>
@@ -6336,6 +6559,10 @@
                     <a href="U3dComponentInstancedPosition.html#createPathTextures">createPathTextures</a>
                 </li>
             
+                <li data-name="dispose">
+                    <a href="U3dComponentInstancedPosition.html#dispose">dispose</a>
+                </li>
+            
                 <li data-name="excepttexture">
                     <a href="U3dComponentInstancedPosition.html#exceptTexture">exceptTexture</a>
                 </li>
@@ -6410,6 +6637,14 @@
             
                 <li data-name="multiplyscale">
                     <a href="U3dComponentInstancedPosition.html#multiplyScale">multiplyScale</a>
+                </li>
+            
+                <li data-name="pickmaterial">
+                    <a href="U3dComponentInstancedPosition.html#pickMaterial">pickMaterial</a>
+                </li>
+            
+                <li data-name="restorematerial">
+                    <a href="U3dComponentInstancedPosition.html#restoreMaterial">restoreMaterial</a>
                 </li>
             
                 <li data-name="rotatebyangle">
@@ -6911,6 +7146,10 @@
                     <a href="U3dComponentPosition.html#getModelName">getModelName</a>
                 </li>
             
+                <li data-name="getmodeloffset">
+                    <a href="U3dComponentPosition.html#getModelOffset">getModelOffset</a>
+                </li>
+            
                 <li data-name="getname">
                     <a href="U3dComponentPosition.html#getName">getName</a>
                 </li>
@@ -7055,14 +7294,6 @@
                     <a href="U3dComponentPosition.html#multiplyScale">multiplyScale</a>
                 </li>
             
-                <li data-name="offselecthelpermesh">
-                    <a href="U3dComponentPosition.html#offSelectHelperMesh">offSelectHelperMesh</a>
-                </li>
-            
-                <li data-name="onselecthelpermesh">
-                    <a href="U3dComponentPosition.html#onSelectHelperMesh">onSelectHelperMesh</a>
-                </li>
-            
                 <li data-name="pickmaterial">
                     <a href="U3dComponentPosition.html#pickMaterial">pickMaterial</a>
                 </li>
@@ -7197,6 +7428,10 @@
             
                 <li data-name="setmixers">
                     <a href="U3dComponentPosition.html#setMixers">setMixers</a>
+                </li>
+            
+                <li data-name="setmodeloffset">
+                    <a href="U3dComponentPosition.html#setModelOffset">setModelOffset</a>
                 </li>
             
                 <li data-name="setopacity">
@@ -8579,6 +8814,10 @@
                     <a href="U3dLayer.html#isDeBug">isDeBug</a>
                 </li>
             
+                <li data-name="ready">
+                    <a href="U3dLayer.html#ready">ready</a>
+                </li>
+            
             </ul>
         </section>
 
@@ -8756,6 +8995,10 @@
             
                 <li data-name="isloadingtile">
                     <a href="U3dLayer.html#isLoadingTile">isLoadingTile</a>
+                </li>
+            
+                <li data-name="isready">
+                    <a href="U3dLayer.html#isReady">isReady</a>
                 </li>
             
                 <li data-name="isuseshadowupdate">
@@ -9392,6 +9635,10 @@
             
                 <li data-name="reload">
                     <a href="U3dModelKmlLayer.html#reload">reload</a>
+                </li>
+            
+                <li data-name="setrenderorder">
+                    <a href="U3dModelKmlLayer.html#setRenderOrder">setRenderOrder</a>
                 </li>
             
             </ul>
@@ -11002,14 +11249,6 @@
                     <a href="U3dMultipleComponentLayer.html#loadWork">loadWork</a>
                 </li>
             
-                <li data-name="offselecthelpermeshes">
-                    <a href="U3dMultipleComponentLayer.html#offSelectHelperMeshes">offSelectHelperMeshes</a>
-                </li>
-            
-                <li data-name="onselecthelpermeshes">
-                    <a href="U3dMultipleComponentLayer.html#onSelectHelperMeshes">onSelectHelperMeshes</a>
-                </li>
-            
                 <li data-name="pauseanimation">
                     <a href="U3dMultipleComponentLayer.html#pauseAnimation">pauseAnimation</a>
                 </li>
@@ -11060,10 +11299,6 @@
             
                 <li data-name="savework">
                     <a href="U3dMultipleComponentLayer.html#saveWork">saveWork</a>
-                </li>
-            
-                <li data-name="selectcomponentbytrails">
-                    <a href="U3dMultipleComponentLayer.html#selectComponentByTrails">selectComponentByTrails</a>
                 </li>
             
                 <li data-name="setbbox">
@@ -11394,6 +11629,10 @@
                     <a href="U3dShaderMeasureLayer.html#cancelAllTile">cancelAllTile</a>
                 </li>
             
+                <li data-name="cancellastposition">
+                    <a href="U3dShaderMeasureLayer.html#cancelLastPosition">cancelLastPosition</a>
+                </li>
+            
                 <li data-name="cleardrawfeature">
                     <a href="U3dShaderMeasureLayer.html#clearDrawFeature">clearDrawFeature</a>
                 </li>
@@ -11432,6 +11671,10 @@
             
                 <li data-name="getextent">
                     <a href="U3dShaderMeasureLayer.html#getExtent">getExtent</a>
+                </li>
+            
+                <li data-name="getfeaturearea">
+                    <a href="U3dShaderMeasureLayer.html#getFeatureArea">getFeatureArea</a>
                 </li>
             
                 <li data-name="getfeaturebyid">
@@ -11538,12 +11781,24 @@
                     <a href="U3dShaderMeasureLayer.html#initialize">initialize</a>
                 </li>
             
+                <li data-name="istilepresentationattached">
+                    <a href="U3dShaderMeasureLayer.html#isTilePresentationAttached">isTilePresentationAttached</a>
+                </li>
+            
+                <li data-name="istilepresentationparticipant">
+                    <a href="U3dShaderMeasureLayer.html#isTilePresentationParticipant">isTilePresentationParticipant</a>
+                </li>
+            
                 <li data-name="istilepresentationvisible">
                     <a href="U3dShaderMeasureLayer.html#isTilePresentationVisible">isTilePresentationVisible</a>
                 </li>
             
                 <li data-name="istilerenderableready">
                     <a href="U3dShaderMeasureLayer.html#isTileRenderableReady">isTileRenderableReady</a>
+                </li>
+            
+                <li data-name="istileretainedpresentationsafe">
+                    <a href="U3dShaderMeasureLayer.html#isTileRetainedPresentationSafe">isTileRetainedPresentationSafe</a>
                 </li>
             
                 <li data-name="istilesceneremovaldeferred">
@@ -11562,12 +11817,20 @@
                     <a href="U3dShaderMeasureLayer.html#removeTileFromScene">removeTileFromScene</a>
                 </li>
             
+                <li data-name="resetfeaturestyle">
+                    <a href="U3dShaderMeasureLayer.html#resetFeatureStyle">resetFeatureStyle</a>
+                </li>
+            
                 <li data-name="resetstyle">
                     <a href="U3dShaderMeasureLayer.html#resetStyle">resetStyle</a>
                 </li>
             
                 <li data-name="setfeaturepoints">
                     <a href="U3dShaderMeasureLayer.html#setFeaturePoints">setFeaturePoints</a>
+                </li>
+            
+                <li data-name="setfeatureselected">
+                    <a href="U3dShaderMeasureLayer.html#setFeatureSelected">setFeatureSelected</a>
                 </li>
             
                 <li data-name="setfeaturestyle">
@@ -11709,10 +11972,6 @@
                     <a href="U3dShaderMeasureLayer.html#~U3dShaderMeasureOLFeature">U3dShaderMeasureOLFeature</a>
                 </li>
             
-                <li data-name="u3dshadermeasuresourcerevisionstate">
-                    <a href="U3dShaderMeasureLayer.html#~U3dShaderMeasureSourceRevisionState">U3dShaderMeasureSourceRevisionState</a>
-                </li>
-            
                 <li data-name="u3dshadermeasurestrokestyle">
                     <a href="U3dShaderMeasureLayer.html#~U3dShaderMeasureStrokeStyle">U3dShaderMeasureStrokeStyle</a>
                 </li>
@@ -11775,6 +12034,10 @@
             
                 <li data-name="clear">
                     <a href="U3dVectorLayer.html#clear">clear</a>
+                </li>
+            
+                <li data-name="dispose">
+                    <a href="U3dVectorLayer.html#dispose">dispose</a>
                 </li>
             
                 <li data-name="getautoheight">
@@ -12189,6 +12452,10 @@
             <h3>Methods</h3>
             <ul>
             
+                <li data-name="_getterraintilefacts">
+                    <a href="U2dVectorShaderLayer.html#_getTerrainTileFacts">_getTerrainTileFacts</a>
+                </li>
+            
                 <li data-name="addgeometry">
                     <a href="U2dVectorShaderLayer.html#addGeometry">addGeometry</a>
                 </li>
@@ -12349,6 +12616,18 @@
                     <a href="U2dVectorShaderLayer.html#isDataExist">isDataExist</a>
                 </li>
             
+                <li data-name="istilepresentationattached">
+                    <a href="U2dVectorShaderLayer.html#isTilePresentationAttached">isTilePresentationAttached</a>
+                </li>
+            
+                <li data-name="istilepresentationconfirmedempty">
+                    <a href="U2dVectorShaderLayer.html#isTilePresentationConfirmedEmpty">isTilePresentationConfirmedEmpty</a>
+                </li>
+            
+                <li data-name="istilepresentationparticipant">
+                    <a href="U2dVectorShaderLayer.html#isTilePresentationParticipant">isTilePresentationParticipant</a>
+                </li>
+            
                 <li data-name="istilepresentationvisible">
                     <a href="U2dVectorShaderLayer.html#isTilePresentationVisible">isTilePresentationVisible</a>
                 </li>
@@ -12357,8 +12636,24 @@
                     <a href="U2dVectorShaderLayer.html#isTileRenderableReady">isTileRenderableReady</a>
                 </li>
             
+                <li data-name="istileretainedpresentationsafe">
+                    <a href="U2dVectorShaderLayer.html#isTileRetainedPresentationSafe">isTileRetainedPresentationSafe</a>
+                </li>
+            
+                <li data-name="istilesceneprovider">
+                    <a href="U2dVectorShaderLayer.html#isTileSceneProvider">isTileSceneProvider</a>
+                </li>
+            
                 <li data-name="istilesceneremovaldeferred">
                     <a href="U2dVectorShaderLayer.html#isTileSceneRemovalDeferred">isTileSceneRemovalDeferred</a>
+                </li>
+            
+                <li data-name="istileworkcomplete">
+                    <a href="U2dVectorShaderLayer.html#isTileWorkComplete">isTileWorkComplete</a>
+                </li>
+            
+                <li data-name="loadsourcegeometry">
+                    <a href="U2dVectorShaderLayer.html#loadSourceGeometry">loadSourceGeometry</a>
                 </li>
             
                 <li data-name="logdebugtilestate">
@@ -12433,6 +12728,10 @@
                     <a href="U2dVectorShaderLayer.html#setSimplifyValue">setSimplifyValue</a>
                 </li>
             
+                <li data-name="setsourcegeometry">
+                    <a href="U2dVectorShaderLayer.html#setSourceGeometry">setSourceGeometry</a>
+                </li>
+            
                 <li data-name="setstyle">
                     <a href="U2dVectorShaderLayer.html#setStyle">setStyle</a>
                 </li>
@@ -12467,6 +12766,10 @@
             
                 <li data-name="showlabel">
                     <a href="U2dVectorShaderLayer.html#showLabel">showLabel</a>
+                </li>
+            
+                <li data-name="suspendtilepresentation">
+                    <a href="U2dVectorShaderLayer.html#suspendTilePresentation">suspendTilePresentation</a>
                 </li>
             
                 <li data-name="update">
@@ -12572,8 +12875,16 @@
                     <a href="U2dGeometry.html#addPosition">addPosition</a>
                 </li>
             
+                <li data-name="addproperties">
+                    <a href="U2dGeometry.html#addProperties">addProperties</a>
+                </li>
+            
                 <li data-name="buildcoordinates">
                     <a href="U2dGeometry.html#buildCoordinates">buildCoordinates</a>
+                </li>
+            
+                <li data-name="changeproperties">
+                    <a href="U2dGeometry.html#changeProperties">changeProperties</a>
                 </li>
             
                 <li data-name="dispose">
@@ -12590,6 +12901,14 @@
             
                 <li data-name="getfeature">
                     <a href="U2dGeometry.html#getFeature">getFeature</a>
+                </li>
+            
+                <li data-name="getfillcolor">
+                    <a href="U2dGeometry.html#getFillColor">getFillColor</a>
+                </li>
+            
+                <li data-name="getfillopacity">
+                    <a href="U2dGeometry.html#getFillOpacity">getFillOpacity</a>
                 </li>
             
                 <li data-name="getgeometry">
@@ -12612,8 +12931,32 @@
                     <a href="U2dGeometry.html#getNonChanged">getNonChanged</a>
                 </li>
             
+                <li data-name="getparam">
+                    <a href="U2dGeometry.html#getParam">getParam</a>
+                </li>
+            
                 <li data-name="getposition">
                     <a href="U2dGeometry.html#getPosition">getPosition</a>
+                </li>
+            
+                <li data-name="getproperties">
+                    <a href="U2dGeometry.html#getProperties">getProperties</a>
+                </li>
+            
+                <li data-name="getshowlabel">
+                    <a href="U2dGeometry.html#getShowLabel">getShowLabel</a>
+                </li>
+            
+                <li data-name="getstrokecolor">
+                    <a href="U2dGeometry.html#getStrokeColor">getStrokeColor</a>
+                </li>
+            
+                <li data-name="getstrokeopacity">
+                    <a href="U2dGeometry.html#getStrokeOpacity">getStrokeOpacity</a>
+                </li>
+            
+                <li data-name="getstrokewidth">
+                    <a href="U2dGeometry.html#getStrokeWidth">getStrokeWidth</a>
                 </li>
             
                 <li data-name="getstyle">
@@ -12632,6 +12975,18 @@
                     <a href="U2dGeometry.html#removeLabel">removeLabel</a>
                 </li>
             
+                <li data-name="removeproperties">
+                    <a href="U2dGeometry.html#removeProperties">removeProperties</a>
+                </li>
+            
+                <li data-name="rotate">
+                    <a href="U2dGeometry.html#rotate">rotate</a>
+                </li>
+            
+                <li data-name="scale">
+                    <a href="U2dGeometry.html#scale">scale</a>
+                </li>
+            
                 <li data-name="setexcludesearch">
                     <a href="U2dGeometry.html#setExcludeSearch">setExcludeSearch</a>
                 </li>
@@ -12642,6 +12997,10 @@
             
                 <li data-name="setfillcolor">
                     <a href="U2dGeometry.html#setFillColor">setFillColor</a>
+                </li>
+            
+                <li data-name="setfillopacity">
+                    <a href="U2dGeometry.html#setFillOpacity">setFillOpacity</a>
                 </li>
             
                 <li data-name="setgeometryname">
@@ -12664,12 +13023,28 @@
                     <a href="U2dGeometry.html#setNonChanged">setNonChanged</a>
                 </li>
             
+                <li data-name="setparam">
+                    <a href="U2dGeometry.html#setParam">setParam</a>
+                </li>
+            
                 <li data-name="setposition">
                     <a href="U2dGeometry.html#setPosition">setPosition</a>
                 </li>
             
+                <li data-name="setproperties">
+                    <a href="U2dGeometry.html#setProperties">setProperties</a>
+                </li>
+            
+                <li data-name="setshowlabel">
+                    <a href="U2dGeometry.html#setShowLabel">setShowLabel</a>
+                </li>
+            
                 <li data-name="setstrokecolor">
                     <a href="U2dGeometry.html#setStrokeColor">setStrokeColor</a>
+                </li>
+            
+                <li data-name="setstrokeopacity">
+                    <a href="U2dGeometry.html#setStrokeOpacity">setStrokeOpacity</a>
                 </li>
             
                 <li data-name="setstrokewidth">
@@ -12692,6 +13067,10 @@
                     <a href="U2dGeometry.html#transformPoint">transformPoint</a>
                 </li>
             
+                <li data-name="translate">
+                    <a href="U2dGeometry.html#translate">translate</a>
+                </li>
+            
             </ul>
         </section>
 
@@ -12705,6 +13084,10 @@
             
                 <li data-name="u2dgeometryco">
                     <a href="U2dGeometry.html#~U2dGeometryCO">U2dGeometryCO</a>
+                </li>
+            
+                <li data-name="u2dgeometryparam">
+                    <a href="U2dGeometry.html#~U2dGeometryParam">U2dGeometryParam</a>
                 </li>
             
                 <li data-name="u2dlabel">
@@ -12790,8 +13173,28 @@
             <h3>Methods</h3>
             <ul>
             
+                <li data-name="getparam">
+                    <a href="U2dPoint.html#getParam">getParam</a>
+                </li>
+            
+                <li data-name="getradius">
+                    <a href="U2dPoint.html#getRadius">getRadius</a>
+                </li>
+            
+                <li data-name="getstyle">
+                    <a href="U2dPoint.html#getStyle">getStyle</a>
+                </li>
+            
+                <li data-name="setfeature">
+                    <a href="U2dPoint.html#setFeature">setFeature</a>
+                </li>
+            
                 <li data-name="setfillcolor">
                     <a href="U2dPoint.html#setFillColor">setFillColor</a>
+                </li>
+            
+                <li data-name="setparam">
+                    <a href="U2dPoint.html#setParam">setParam</a>
                 </li>
             
                 <li data-name="setposition">
@@ -12827,6 +13230,10 @@
             
                 <li data-name="u2dpointco">
                     <a href="U2dPoint.html#~U2dPointCO">U2dPointCO</a>
+                </li>
+            
+                <li data-name="u2dpointparam">
+                    <a href="U2dPoint.html#~U2dPointParam">U2dPointParam</a>
                 </li>
             
             </ul>
@@ -12867,6 +13274,10 @@
             
                 <li data-name="getcenter">
                     <a href="U2dPolygon.html#getCenter">getCenter</a>
+                </li>
+            
+                <li data-name="getposition">
+                    <a href="U2dPolygon.html#getPosition">getPosition</a>
                 </li>
             
                 <li data-name="setposition">
@@ -13305,16 +13716,8 @@
                     <a href="U3dCumulativePath.html#dispose">dispose</a>
                 </li>
             
-                <li data-name="gethelpermesh">
-                    <a href="U3dCumulativePath.html#getHelperMesh">getHelperMesh</a>
-                </li>
-            
                 <li data-name="getnodes">
                     <a href="U3dCumulativePath.html#getNodes">getNodes</a>
-                </li>
-            
-                <li data-name="getpath">
-                    <a href="U3dCumulativePath.html#getPath">getPath</a>
                 </li>
             
                 <li data-name="gettail">
@@ -16539,6 +16942,10 @@
                     <a href="U3dSelect.html#clearHighlights">clearHighlights</a>
                 </li>
             
+                <li data-name="clearhover">
+                    <a href="U3dSelect.html#clearHover">clearHover</a>
+                </li>
+            
                 <li data-name="clearselect">
                     <a href="U3dSelect.html#clearSelect">clearSelect</a>
                 </li>
@@ -16563,6 +16970,10 @@
                     <a href="U3dSelect.html#getDbClickId">getDbClickId</a>
                 </li>
             
+                <li data-name="gethover">
+                    <a href="U3dSelect.html#getHover">getHover</a>
+                </li>
+            
                 <li data-name="getmeasurepointlist">
                     <a href="U3dSelect.html#getMeasurePointList">getMeasurePointList</a>
                 </li>
@@ -16573,6 +16984,14 @@
             
                 <li data-name="getobjectkey">
                     <a href="U3dSelect.html#getObjectKey">getObjectKey</a>
+                </li>
+            
+                <li data-name="getpickbufferpx">
+                    <a href="U3dSelect.html#getPickBufferPx">getPickBufferPx</a>
+                </li>
+            
+                <li data-name="getpickbuffervisible">
+                    <a href="U3dSelect.html#getPickBufferVisible">getPickBufferVisible</a>
                 </li>
             
                 <li data-name="getselectbox">
@@ -16659,12 +17078,28 @@
                     <a href="U3dSelect.html#setExceptTexture">setExceptTexture</a>
                 </li>
             
+                <li data-name="sethover">
+                    <a href="U3dSelect.html#setHover">setHover</a>
+                </li>
+            
                 <li data-name="setmode">
                     <a href="U3dSelect.html#setMode">setMode</a>
                 </li>
             
                 <li data-name="setoutline">
                     <a href="U3dSelect.html#setOutline">setOutline</a>
+                </li>
+            
+                <li data-name="setpickbufferpx">
+                    <a href="U3dSelect.html#setPickBufferPx">setPickBufferPx</a>
+                </li>
+            
+                <li data-name="setpickbuffervisible">
+                    <a href="U3dSelect.html#setPickBufferVisible">setPickBufferVisible</a>
+                </li>
+            
+                <li data-name="setring">
+                    <a href="U3dSelect.html#setRing">setRing</a>
                 </li>
             
                 <li data-name="setselecttype">
@@ -17702,6 +18137,10 @@
                     <a href="UPolygonCollider.html#getAABB">getAABB</a>
                 </li>
             
+                <li data-name="getquaternion">
+                    <a href="UPolygonCollider.html#getQuaternion">getQuaternion</a>
+                </li>
+            
                 <li data-name="getrotation">
                     <a href="UPolygonCollider.html#getRotation">getRotation</a>
                 </li>
@@ -18340,9 +18779,61 @@
             <details class="navigation-group" id="nav-group-util-yj4hoh">
                 <summary class="navigation-group-summary">
                     <span class="navigation-group-label">Util</span>
-                    <span class="navigation-badge" data-total-count="2">2</span>
+                    <span class="navigation-badge" data-total-count="5">5</span>
                 </summary>
                 <ul class="navigation-group-items">
+                
+                    
+<li class="navigation-item item-function" data-longname="deferredPromise" data-name="deferredPromise" data-group-key="util">
+    
+    <details class="navigation-symbol">
+        <summary class="navigation-symbol-summary">
+            <span class="navigation-kind" aria-hidden="true">F</span>
+            <span class="navigation-primary-link"><a href="global.html#deferredPromise">deferredPromise</a></span>
+        </summary>
+        <div class="navigation-symbol-details">
+        <section class="navigation-member-list" data-type="members">
+            <h3>Members</h3>
+            <ul>
+            
+                <li data-name="promise">
+                    <a href="global.html#deferredPromise#~promise">promise</a>
+                </li>
+            
+                <li data-name="rejectpromise">
+                    <a href="global.html#deferredPromise#~rejectPromise">rejectPromise</a>
+                </li>
+            
+                <li data-name="resolvepromise">
+                    <a href="global.html#deferredPromise#~resolvePromise">resolvePromise</a>
+                </li>
+            
+            </ul>
+        </section>
+
+        <section class="navigation-member-list" data-type="methods">
+            <h3>Methods</h3>
+            <ul>
+            
+                <li data-name="isready">
+                    <a href="global.html#deferredPromise#~isReady">isReady</a>
+                </li>
+            
+                <li data-name="reject">
+                    <a href="global.html#deferredPromise#~reject">reject</a>
+                </li>
+            
+                <li data-name="resolve">
+                    <a href="global.html#deferredPromise#~resolve">resolve</a>
+                </li>
+            
+            </ul>
+        </section>
+</div>
+    </details>
+    
+</li>
+
                 
                     
 <li class="navigation-item item-class" data-longname="U3dGeometryUtil" data-name="U3dGeometryUtil" data-group-key="util">
@@ -18367,6 +18858,118 @@
             
                 <li data-name="mergevertices">
                     <a href="U3dGeometryUtil.html#mergeVertices">mergeVertices</a>
+                </li>
+            
+            </ul>
+        </section>
+</div>
+    </details>
+    
+</li>
+
+                
+                    
+<li class="navigation-item item-class" data-longname="UAsyncOperation" data-name="UAsyncOperation" data-group-key="util">
+    
+    <details class="navigation-symbol">
+        <summary class="navigation-symbol-summary">
+            <span class="navigation-kind" aria-hidden="true">C</span>
+            <span class="navigation-primary-link"><a href="UAsyncOperation.html">UAsyncOperation</a></span>
+        </summary>
+        <div class="navigation-symbol-details">
+        <section class="navigation-member-list" data-type="members">
+            <h3>Members</h3>
+            <ul>
+            
+                <li data-name="hasrequest">
+                    <a href="UAsyncOperation.html#hasRequest">hasRequest</a>
+                </li>
+            
+                <li data-name="isuasyncoperation">
+                    <a href="UAsyncOperation.html#isUAsyncOperation">isUAsyncOperation</a>
+                </li>
+            
+                <li data-name="pending">
+                    <a href="UAsyncOperation.html#pending">pending</a>
+                </li>
+            
+            </ul>
+        </section>
+
+        <section class="navigation-member-list" data-type="methods">
+            <h3>Methods</h3>
+            <ul>
+            
+                <li data-name="capture">
+                    <a href="UAsyncOperation.html#capture">capture</a>
+                </li>
+            
+                <li data-name="invalidate">
+                    <a href="UAsyncOperation.html#invalidate">invalidate</a>
+                </li>
+            
+                <li data-name="runlatest">
+                    <a href="UAsyncOperation.html#runLatest">runLatest</a>
+                </li>
+            
+                <li data-name="runonce">
+                    <a href="UAsyncOperation.html#runOnce">runOnce</a>
+                </li>
+            
+            </ul>
+        </section>
+</div>
+    </details>
+    
+</li>
+
+                
+                    
+<li class="navigation-item item-class" data-longname="UErrorCollector" data-name="UErrorCollector" data-group-key="util">
+    
+    <details class="navigation-symbol">
+        <summary class="navigation-symbol-summary">
+            <span class="navigation-kind" aria-hidden="true">C</span>
+            <span class="navigation-primary-link"><a href="UErrorCollector.html">UErrorCollector</a></span>
+        </summary>
+        <div class="navigation-symbol-details">
+        <section class="navigation-member-list" data-type="members">
+            <h3>Members</h3>
+            <ul>
+            
+                <li data-name="haserrors">
+                    <a href="UErrorCollector.html#hasErrors">hasErrors</a>
+                </li>
+            
+                <li data-name="isuerrorcollector">
+                    <a href="UErrorCollector.html#isUErrorCollector">isUErrorCollector</a>
+                </li>
+            
+            </ul>
+        </section>
+
+        <section class="navigation-member-list" data-type="methods">
+            <h3>Methods</h3>
+            <ul>
+            
+                <li data-name="add">
+                    <a href="UErrorCollector.html#add">add</a>
+                </li>
+            
+                <li data-name="attempt">
+                    <a href="UErrorCollector.html#attempt">attempt</a>
+                </li>
+            
+                <li data-name="attemptasync">
+                    <a href="UErrorCollector.html#attemptAsync">attemptAsync</a>
+                </li>
+            
+                <li data-name="finish">
+                    <a href="UErrorCollector.html#finish">finish</a>
+                </li>
+            
+                <li data-name="finishasync">
+                    <a href="UErrorCollector.html#finishAsync">finishAsync</a>
                 </li>
             
             </ul>
@@ -18488,9 +19091,8 @@
     UAnalyGizmoModel
     </h2>
     
-        <div class="class-description"><p>~extends <a href="UAnaly.html#~UAnaly">UAnaly</a> <br>
-<code>기즈모(Gizmo)</code> 편집 분석 클래스 <br>
-기즈모(Gizmo) 기능을 이용한 3d 모델 <code>위치</code> <code>회전</code> <code>크기</code> 편집기능을 제공한다.</p></div>
+        <div class="class-description"><p>~extends <a href="UAnaly.html#~UAnaly">UAnaly</a> <br></p>
+<p>기즈모(Gizmo)로 선택한 모델의 위치·회전·크기를 편집하는 분석 클래스입니다.</p></div>
     
 </header>  
 
@@ -18514,6 +19116,11 @@
 </dt>
 <dd>
     
+    
+    <div class="description">
+        <p>UAnalyGizmoModel 클래스 생성자입니다. <br>
+앱 연결 후 활성화하고 setObject로 편집할 모델을 선택합니다.</p>
+    </div>
     
 
     
@@ -18574,7 +19181,7 @@
                         
                     
                 
-                </td>
+                <p>분석 이름 옵션</p></td>
         </tr>
 	
 	
@@ -18650,12 +19257,61 @@
             
 <dt>
     <div class="nameContainer">
+        <h4 class="name" id="EVENT">EVENT<span class="type-signature type object"><a href="Object.html">Object</a></span> </h4>
+    </div>
+    
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        <p>편집 대상에 전달하는 변경 이벤트 이름입니다.</p>
+    </div>
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
         <h4 class="name" id="isDrag">isDrag</h4>
     </div>
     
     
 </dt>
 <dd>
+    
+    <div class="description">
+        <p>컨트롤이 마지막으로 알린 드래그 상태를 반환합니다.</p>
+    </div>
     
     
     
@@ -18697,6 +19353,10 @@
     
 </dt>
 <dd>
+    
+    <div class="description">
+        <p>중복과 선택된 자손을 제외한 편집 대상 목록을 반환합니다.</p>
+    </div>
     
     
     
@@ -18751,6 +19411,10 @@
 </dt>
 <dd>
     
+    
+    <div class="description">
+        <p>편집 분석을 활성화하고 컨트롤의 변경·종료 이벤트를 연결합니다.</p>
+    </div>
     
 
     
@@ -18814,6 +19478,77 @@
 <dd>
     
     
+    <div class="description">
+        <p>대상 장면 목록을 비우고 컨트롤이 있으면 편집 상태와 자원을 제거합니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="createGizmo">
+            
+             createGizmo<span class="signature">()</span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>기존 편집 상태를 제거하고 앱의 카메라·입력 요소에 기즈모(Gizmo) 컨트롤을 만듭니다. <br>
+앱 연결이 필요하며 새 컨트롤에는 setObject 또는 getControlObj로 제어 객체를 다시 연결합니다.</p>
+    </div>
+    
 
     
     
@@ -18876,6 +19611,10 @@
 <dd>
     
     
+    <div class="description">
+        <p>편집 분석을 비활성화하고 컨트롤 이벤트와 편집 자원을 해제합니다.</p>
+    </div>
+    
 
     
     
@@ -18937,6 +19676,10 @@
 </dt>
 <dd>
     
+    
+    <div class="description">
+        <p>편집 컨트롤(control)의 원본 참조를 생성 없이 반환합니다.</p>
+    </div>
     
 
     
@@ -19005,7 +19748,7 @@
                         
                     
             </td>
-            <td class="description last"></td>
+            <td class="description last">연결한 컨트롤이며 미생성 또는 제거 후에는 undefined</td>
         </tr>
     
     </tbody>
@@ -19022,7 +19765,7 @@
     <div class="nameContainer">
         <h4 class="name" id="getControlObj">
             
-             getControlObj<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">GizmoControlObject</span>
+             getControlObj<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UAnalyGizmoModel.html#~GizmoControlObject">GizmoControlObject</a></span>
         </h4>
     
     </div>
@@ -19031,6 +19774,10 @@
 </dt>
 <dd>
     
+    
+    <div class="description">
+        <p>편집 제어(control) 객체를 반환하고 없으면 생성하여 컨트롤에 연결합니다.</p>
+    </div>
     
 
     
@@ -19092,11 +19839,11 @@
             
             <td class="type">
             
-                        GizmoControlObject
+                        <a href="UAnalyGizmoModel.html#~GizmoControlObject">GizmoControlObject</a>
                         
                     
             </td>
-            <td class="description last"></td>
+            <td class="description last">분석이 소유하는 제어 객체의 원본 참조</td>
         </tr>
     
     </tbody>
@@ -19113,7 +19860,7 @@
     <div class="nameContainer">
         <h4 class="name" id="getControlPosition">
             
-             getControlPosition<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="global.html#Vector3">Vector3</a></span>
+             getControlPosition<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="global.html#WorldPositionVector3">WorldPositionVector3</a></span>
         </h4>
     
     </div>
@@ -19124,7 +19871,8 @@
     
     
     <div class="description">
-        <p>기즈모 UI(control)의 위치를 반환하는 함수</p>
+        <p>편집 제어(control) 객체의 월드 위치를 반환합니다. <br>
+제어 객체를 제거한 뒤에는 getControlObj 또는 setObject로 다시 준비해야 합니다.</p>
     </div>
     
 
@@ -19187,11 +19935,11 @@
             
             <td class="type">
             
-                        <a href="global.html#Vector3">Vector3</a>
+                        <a href="global.html#WorldPositionVector3">WorldPositionVector3</a>
                         
                     
             </td>
-            <td class="description last">기즈모 위치</td>
+            <td class="description last">월드 좌표(EPSG:3857)의 공유 벡터이며 이후 호출·편집에서 값이 덮어써질 수 있습니다.</td>
         </tr>
     
     </tbody>
@@ -19219,8 +19967,8 @@
     
     
     <div class="description">
-        <p>Gizmo Model의 메타 XML을 반환 하는 함수 <BR>
-Gizmo 설정 저장하는 로직.</p>
+        <p>편집 대상의 메타데이터를 XML 문서로 반환합니다. <br>
+현재 선택 목록을 단일 객체로 읽는 제한이 있어 일반적인 setObject 선택 상태에서는 사용할 수 없습니다.</p>
     </div>
     
 
@@ -19263,6 +20011,33 @@ Gizmo 설정 저장하는 로직.</p>
     
     
     
+    <h5>Throws:</h5>
+    
+            
+
+<dl>
+    <dt>
+        <div class="param-desc">
+        <p>선택 목록에 단일 객체의 변환 속성이 없는 경우</p>
+        </div>
+    </dt>
+    <dt>
+        <dl>
+            <dt>
+                Type
+            </dt>
+            <dd>
+                
+<span class="param-type">TypeError</span>
+
+
+            </dd>
+        </dl>
+    </dt>
+</dl>
+
+
+        
     
     
     <h5>Returns:</h5>
@@ -19290,7 +20065,7 @@ Gizmo 설정 저장하는 로직.</p>
                         
                     
             </td>
-            <td class="description last">Meta XML</td>
+            <td class="description last">XML 문서이며 앱·컨트롤·좌표 변환 문맥이 없으면 undefined</td>
         </tr>
     
     </tbody>
@@ -19318,7 +20093,7 @@ Gizmo 설정 저장하는 로직.</p>
     
     
     <div class="description">
-        <p>현재 기즈모(Gizmo) 기능의 모드를 반환하는 함수</p>
+        <p>기즈모(Gizmo)의 편집 모드를 반환하고 컨트롤이 없으면 생성을 시도합니다.</p>
     </div>
     
 
@@ -19385,9 +20160,7 @@ Gizmo 설정 저장하는 로직.</p>
                         
                     
             </td>
-            <td class="description last"><code>translate</code> - 위치편집<br/>
-<code>rotate</code> - 회전편집 <br/>
-<code>scale</code> - 크기편집</td>
+            <td class="description last">translate는 위치, rotate는 회전, scale은 크기 편집이며 조회값이 nullish이면 translate</td>
         </tr>
     
     </tbody>
@@ -19404,7 +20177,7 @@ Gizmo 설정 저장하는 로직.</p>
     <div class="nameContainer">
         <h4 class="name" id="getOverlay">
             
-             getOverlay<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="U3dOverlay.js.html#~U3dOverlay">U3dOverlay.js~U3dOverlay</a><span class="returns-or">|</span>undefined</span>
+             getOverlay<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="U3dOverlay.html#~U3dOverlay">U3dOverlay</a><span class="returns-or">|</span>undefined</span>
         </h4>
     
     </div>
@@ -19413,6 +20186,10 @@ Gizmo 설정 저장하는 로직.</p>
 </dt>
 <dd>
     
+    
+    <div class="description">
+        <p>등록한 위치 표시 오버레이(overlay)를 반환합니다.</p>
+    </div>
     
 
     
@@ -19474,14 +20251,14 @@ Gizmo 설정 저장하는 로직.</p>
             
             <td class="type">
             
-                        <a href="U3dOverlay.js.html#~U3dOverlay">U3dOverlay.js~U3dOverlay</a>
+                        <a href="U3dOverlay.html#~U3dOverlay">U3dOverlay</a>
                          | 
                     
                         undefined
                         
                     
             </td>
-            <td class="description last"></td>
+            <td class="description last">등록 객체의 원본 참조이며 미등록이면 undefined</td>
         </tr>
     
     </tbody>
@@ -19509,7 +20286,7 @@ Gizmo 설정 저장하는 로직.</p>
     
     
     <div class="description">
-        <p>보조 레이저를 숨기는 함수</p>
+        <p>보조 레이저(laser)를 숨기며 객체와 스타일은 유지합니다.</p>
     </div>
     
 
@@ -19564,7 +20341,7 @@ Gizmo 설정 저장하는 로직.</p>
     <div class="nameContainer">
         <h4 class="name" id="intersectAdapter">
             
-             intersectAdapter<span class="signature">(adapter)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="Object.html">Object</a><span class="returns-or">|</span>undefined</span>
+             intersectAdapter<span class="signature">(adapter)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="UAnalyGizmoModel.html#~UAnalyGizmoModelIntersection">UAnalyGizmoModelIntersection</a><span class="returns-or">|</span>undefined</span>
         </h4>
     
     </div>
@@ -19575,7 +20352,8 @@ Gizmo 설정 저장하는 로직.</p>
     
     
     <div class="description">
-        <p>기즈모 컨트롤러와 Adapter Geometry가 교차되는지 검사하는 함수</p>
+        <p>편집 범위와 어댑터(adapter) 형상의 교차 정보를 조회합니다. <br>
+해제된 형상과 선택 대상의 자손은 제외합니다.</p>
     </div>
     
 
@@ -19612,7 +20390,7 @@ Gizmo 설정 저장하는 로직.</p>
             <td class="type">
             
                 
-<span class="param-type"><a href="U3dAdaptedGeometry.js.html#~U3dAdaptedGeometry">U3dAdaptedGeometry.js~U3dAdaptedGeometry</a></span>
+<span class="param-type"><a href="U3dAdaptedGeometry.html#~U3dAdaptedGeometry">U3dAdaptedGeometry</a></span>
 
 
             
@@ -19622,7 +20400,7 @@ Gizmo 설정 저장하는 로직.</p>
             
             <td class="description last">
                 
-                <p>Adapter Geometry</p></td>
+                <p>검사할 형상</p></td>
         </tr>
 	
 	
@@ -19683,14 +20461,14 @@ Gizmo 설정 저장하는 로직.</p>
             
             <td class="type">
             
-                        <a href="Object.html">Object</a>
+                        <a href="UAnalyGizmoModel.html#~UAnalyGizmoModelIntersection">UAnalyGizmoModelIntersection</a>
                          | 
                     
                         undefined
                         
                     
             </td>
-            <td class="description last">교차 정보 (거리, Adapter)</td>
+            <td class="description last">형상에서 반환한 교차 정보이며 제외되거나 교차하지 않으면 undefined</td>
         </tr>
     
     </tbody>
@@ -19707,7 +20485,7 @@ Gizmo 설정 저장하는 로직.</p>
     <div class="nameContainer">
         <h4 class="name" id="intersectAdapters">
             
-             intersectAdapters<span class="signature">(adapters)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">Array.&lt;{distance: number, <a href="object_.html">object</a>: <a href="U3dAdaptedGeometry.js.html#~U3dAdaptedGeometry">U3dAdaptedGeometry.js~U3dAdaptedGeometry</a>}></span>
+             intersectAdapters<span class="signature">(adapters)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">Array.&lt;<a href="UAnalyGizmoModel.html#~UAnalyGizmoModelIntersection">UAnalyGizmoModelIntersection</a>></span>
         </h4>
     
     </div>
@@ -19718,7 +20496,7 @@ Gizmo 설정 저장하는 로직.</p>
     
     
     <div class="description">
-        <p>기즈모 컨트롤러와 Adapter Geometry 리스트가 교차되는지 검사하는 함수</p>
+        <p>여러 어댑터(adapter)의 교차 정보를 거리 오름차순으로 반환합니다.</p>
     </div>
     
 
@@ -19755,7 +20533,7 @@ Gizmo 설정 저장하는 로직.</p>
             <td class="type">
             
                 
-<span class="param-type">Array.&lt;<a href="U3dAdaptedGeometry.js.html#~U3dAdaptedGeometry">U3dAdaptedGeometry.js~U3dAdaptedGeometry</a>></span>
+<span class="param-type">Array.&lt;<a href="U3dAdaptedGeometry.html#~U3dAdaptedGeometry">U3dAdaptedGeometry</a>></span>
 
 
             
@@ -19765,7 +20543,7 @@ Gizmo 설정 저장하는 로직.</p>
             
             <td class="description last">
                 
-                <p>Adapter Geometry 리스트</p></td>
+                <p>검사할 형상 목록</p></td>
         </tr>
 	
 	
@@ -19826,11 +20604,11 @@ Gizmo 설정 저장하는 로직.</p>
             
             <td class="type">
             
-                        Array.&lt;{distance: number, <a href="object_.html">object</a>: <a href="U3dAdaptedGeometry.js.html#~U3dAdaptedGeometry">U3dAdaptedGeometry.js~U3dAdaptedGeometry</a>}>
+                        Array.&lt;<a href="UAnalyGizmoModel.html#~UAnalyGizmoModelIntersection">UAnalyGizmoModelIntersection</a>>
                         
                     
             </td>
-            <td class="description last">교차 정보 리스트</td>
+            <td class="description last">교차한 항목의 새 배열이며 비유한 거리는 뒤로 배치됩니다.</td>
         </tr>
     
     </tbody>
@@ -19856,6 +20634,143 @@ Gizmo 설정 저장하는 로직.</p>
 </dt>
 <dd>
     
+    
+    <div class="description">
+        <p>선택 대상의 연결 객체와 분석 구독자에게 onChange 이벤트를 전달합니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="onEnd">
+            
+             onEnd<span class="signature">()</span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>선택한 각 모델의 편집 정보를 앱에 알리고 분석 end 이벤트를 전달합니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="removeGizmo">
+            
+             removeGizmo<span class="signature">()</span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>기즈모(Gizmo) 컨트롤·제어 객체·레이저를 해제하고 선택과 원본 변환 저장값을 비웁니다. <br>
+등록한 사용자 콜백은 유지하며 오버레이는 참조만 분리합니다.</p>
+    </div>
     
 
     
@@ -19920,7 +20835,7 @@ Gizmo 설정 저장하는 로직.</p>
     
     
     <div class="description">
-        <p>보조 레이저를 제거하는 함수</p>
+        <p>보조 레이저(laser)를 장면에서 분리하고 자원을 해제합니다.</p>
     </div>
     
 
@@ -19986,7 +20901,7 @@ Gizmo 설정 저장하는 로직.</p>
     
     
     <div class="description">
-        <p>편집한 모델을 원 상태로 되돌리는(reset) 함수</p>
+        <p>저장된 원본 위치·회전·크기로 모델을 되돌리고(reset) 제어 기준을 초기화합니다.</p>
     </div>
     
 
@@ -20043,7 +20958,7 @@ Gizmo 설정 저장하는 로직.</p>
                         
                     
                 
-                <p>gizmo 편집한 대상 Object</p></td>
+                <p>복구할 모델이며 생략하면 현재 선택 대상</p></td>
         </tr>
 	
 	
@@ -20107,7 +21022,7 @@ Gizmo 설정 저장하는 로직.</p>
     
     
     <div class="description">
-        <p>기즈모 편집이 끝났을 때(end) 동작할 콜백 함수를 설정하는 함수</p>
+        <p>컨트롤의 mouseUp 때 호출할 편집 종료 콜백을 등록합니다.</p>
     </div>
     
 
@@ -20144,7 +21059,7 @@ Gizmo 설정 저장하는 로직.</p>
             <td class="type">
             
                 
-<span class="param-type">function</span>
+<span class="param-type"><a href="UAnalyGizmoModel.html#~UAnalyGizmoModelCallback">UAnalyGizmoModelCallback</a></span>
 
 
             
@@ -20154,7 +21069,7 @@ Gizmo 설정 저장하는 로직.</p>
             
             <td class="description last">
                 
-                <p>end 콜백 함수</p></td>
+                <p>종료 시 실행할 함수</p></td>
         </tr>
 	
 	
@@ -20218,7 +21133,8 @@ Gizmo 설정 저장하는 로직.</p>
     
     
     <div class="description">
-        <p>기즈모 레이저포인트 스타일 지정 함수</p>
+        <p>생성된 보조 레이저(laser)의 색·불투명도·두께를 바꿉니다. <br>
+생성 전에는 저장하지 않으며 이후 새로 만드는 레이저에는 적용되지 않습니다.</p>
     </div>
     
 
@@ -20255,7 +21171,7 @@ Gizmo 설정 저장하는 로직.</p>
             <td class="type">
             
                 
-<span class="param-type"><a href="object_.html">object</a></span>
+<span class="param-type"><a href="UAnalyGizmoModel.html#~UAnalyGizmoModelLaserStyle">UAnalyGizmoModelLaserStyle</a></span>
 
 
             
@@ -20265,125 +21181,7 @@ Gizmo 설정 저장하는 로직.</p>
             
             <td class="description last">
                 
-                <p>레이저 스타일 옵션</p>
-                
-
-<table class="params">
-    <thead>
-	<tr>
-		
-		<th>Name</th>
-		
-		
-		<th>Type</th>
-		
-		
-		
-		<th class="last">Description</th>
-	</tr>
-	</thead>
-	
-	<tbody>
-	
-	
-        <tr>
-            
-                <td class="name"><code>color</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type"><a href="global.html#Color">Color</a></span>
-|
-
-<span class="param-type">string</span>
-|
-
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-            
-            <td class="description last">
-                
-                    
-                        <span class="optional">optional</span>
-                    
-                    
-                        
-                    
-                
-                <p>레이저포인트 색상</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>opacity</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-            
-            <td class="description last">
-                
-                    
-                        <span class="optional">optional</span>
-                    
-                    
-                        
-                    
-                
-                <p>레이저포인트 투명도</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>radius</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-            
-            <td class="description last">
-                
-                    
-                        <span class="optional">optional</span>
-                    
-                    
-                        
-                    
-                
-                <p>레이저포인트 두께</p></td>
-        </tr>
-	
-	
-	</tbody>
-</table>
-            </td>
+                <p>변경할 속성만 지정하는 필수 객체</p></td>
         </tr>
 	
 	
@@ -20424,6 +21222,33 @@ Gizmo 설정 저장하는 로직.</p>
     
     
     
+    <h5>Throws:</h5>
+    
+            
+
+<dl>
+    <dt>
+        <div class="param-desc">
+        <p>style을 생략하거나 null을 전달한 경우</p>
+        </div>
+    </dt>
+    <dt>
+        <dl>
+            <dt>
+                Type
+            </dt>
+            <dd>
+                
+<span class="param-type">TypeError</span>
+
+
+            </dd>
+        </dl>
+    </dt>
+</dl>
+
+
+        
     
     
     
@@ -20447,7 +21272,8 @@ Gizmo 설정 저장하는 로직.</p>
     
     
     <div class="description">
-        <p>입력받은 좌표로 기즈모를 이동하는 함수입니다.</p>
+        <p>편집 제어 객체를 지정한 위치로 이동합니다. <br>
+제어 객체를 먼저 준비해야 하며 모델 자체의 변환은 다음 update에서 적용합니다.</p>
     </div>
     
 
@@ -20494,7 +21320,7 @@ Gizmo 설정 저장하는 로직.</p>
             
             <td class="description last">
                 
-                <p>이동할 좌표 (월드 좌표, EPSG:3857)</p></td>
+                <p>이동할 월드 좌표(EPSG:3857)</p></td>
         </tr>
 	
 	
@@ -20558,7 +21384,7 @@ Gizmo 설정 저장하는 로직.</p>
     
     
     <div class="description">
-        <p>기즈모(Gizmo) 기능 중 위치, 회전, 크기 편집모드를 설정하는 함수</p>
+        <p>기즈모(Gizmo)의 위치·회전·크기 편집 모드를 설정합니다.</p>
     </div>
     
 
@@ -20608,9 +21434,7 @@ Gizmo 설정 저장하는 로직.</p>
             
             <td class="description last">
                 
-                <p><code>translate</code> | 0 - 위치편집<br/>
-<code>rotate</code> | 1 - 회전편집 <br/>
-<code>scale</code> | 2 - 크기편집</p></td>
+                <p>translate 또는 0은 위치, rotate 또는 1은 회전, scale 또는 2는 크기이며 문자열 대소문자는 구분하지 않습니다.</p></td>
         </tr>
 	
 	
@@ -20674,7 +21498,8 @@ Gizmo 설정 저장하는 로직.</p>
     
     
     <div class="description">
-        <p>편집할 모델 객체를 설정하는 함수</p>
+        <p>활성 상태에서 편집할 모델을 선택하고 되돌리기에 사용할 원본 변환을 저장합니다. <br>
+중복과 선택된 자손은 편집 대상에서 제외하되 제어 중심은 전달한 원래 목록으로 구합니다.</p>
     </div>
     
 
@@ -20724,7 +21549,7 @@ Gizmo 설정 저장하는 로직.</p>
             
             <td class="description last">
                 
-                <p>편집할 모델 객체 또는 리스트</p></td>
+                <p>편집할 모델 또는 모델 목록</p></td>
         </tr>
 	
 	
@@ -20788,7 +21613,7 @@ Gizmo 설정 저장하는 로직.</p>
     
     
     <div class="description">
-        <p>기즈모 컨트롤레어 오버레이를 등록하는 함수</p>
+        <p>편집 위치를 표시할 오버레이(overlay)를 등록합니다.</p>
     </div>
     
 
@@ -20825,7 +21650,7 @@ Gizmo 설정 저장하는 로직.</p>
             <td class="type">
             
                 
-<span class="param-type"><a href="U3dOverlay.js.html#~U3dOverlay">U3dOverlay.js~U3dOverlay</a></span>
+<span class="param-type"><a href="U3dOverlay.html#~U3dOverlay">U3dOverlay</a></span>
 
 
             
@@ -20835,7 +21660,7 @@ Gizmo 설정 저장하는 로직.</p>
             
             <td class="description last">
                 
-                <p>오버레이</p></td>
+                <p>위치 갱신과 변경 알림을 받을 오버레이</p></td>
         </tr>
 	
 	
@@ -20888,7 +21713,7 @@ Gizmo 설정 저장하는 로직.</p>
     <div class="nameContainer">
         <h4 class="name" id="setTargetScene">
             
-             setTargetScene<span class="signature">(scene)</span>
+             setTargetScene<span class="signature">(<span class="optional">scene</span>)</span>
         </h4>
     
     </div>
@@ -20899,7 +21724,7 @@ Gizmo 설정 저장하는 로직.</p>
     
     
     <div class="description">
-        <p>입력받은 Scene을 모드의 _targetScenes 프로퍼티에 추가하는 함수</p>
+        <p>편집 대상 장면(scene) 목록에 장면을 추가하거나 목록을 비웁니다.</p>
     </div>
     
 
@@ -20946,7 +21771,14 @@ Gizmo 설정 저장하는 로직.</p>
             
             <td class="description last">
                 
-                </td>
+                    
+                        <span class="optional">optional</span>
+                    
+                    
+                        
+                    
+                
+                <p>추가할 장면이며 생략하면 목록 초기화</p></td>
         </tr>
 	
 	
@@ -21010,7 +21842,7 @@ Gizmo 설정 저장하는 로직.</p>
     
     
     <div class="description">
-        <p>기즈모 편집 중일 때(update) 동작할 콜백 함수를 설정하는 함수</p>
+        <p>대상 변환과 보조 레이저 갱신 뒤 호출할 콜백을 등록합니다.</p>
     </div>
     
 
@@ -21047,7 +21879,7 @@ Gizmo 설정 저장하는 로직.</p>
             <td class="type">
             
                 
-<span class="param-type">function</span>
+<span class="param-type"><a href="UAnalyGizmoModel.html#~UAnalyGizmoModelCallback">UAnalyGizmoModelCallback</a></span>
 
 
             
@@ -21057,7 +21889,7 @@ Gizmo 설정 저장하는 로직.</p>
             
             <td class="description last">
                 
-                <p>update 콜백 함수</p></td>
+                <p>갱신 시 실행할 함수</p></td>
         </tr>
 	
 	
@@ -21121,7 +21953,8 @@ Gizmo 설정 저장하는 로직.</p>
     
     
     <div class="description">
-        <p>기즈모 레이저포인트를 켜고/끄는 함수</p>
+        <p>편집 중 보조 레이저(laser)를 사용할지 설정합니다. <br>
+이미 표시된 레이저의 가시성은 즉시 바꾸지 않습니다.</p>
     </div>
     
 
@@ -21168,7 +22001,7 @@ Gizmo 설정 저장하는 로직.</p>
             
             <td class="description last">
                 
-                <p>레이저포인트 활성여부 (true면 켜고, false면 끈다.)</p></td>
+                <p>레이저 사용 여부</p></td>
         </tr>
 	
 	
@@ -21232,7 +22065,7 @@ Gizmo 설정 저장하는 로직.</p>
     
     
     <div class="description">
-        <p>gizmo 편집시 공간감을 보조할 레이저를 생성하고 가시화 하는 함수</p>
+        <p>편집 위치와 축을 확인할 보조 레이저(laser)를 생성하여 표시합니다.</p>
     </div>
     
 
@@ -21297,6 +22130,10 @@ Gizmo 설정 저장하는 로직.</p>
 <dd>
     
     
+    <div class="description">
+        <p>부모 화면 갱신 요청 후 대상 변환·보조 레이저·사용자 콜백을 차례로 갱신합니다.</p>
+    </div>
+    
 
     
     
@@ -21354,6 +22191,52 @@ Gizmo 설정 저장하는 로직.</p>
                     
 <dt>
     <div class="nameContainer">
+        <h4 class="name" id="~GizmoControlObject">GizmoControlObject<span class="type-signature type object"><a href="object_.html">object</a></span> </h4>
+    </div>
+    
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        <p>~extends <a href="global.html#Object3D">Object3D</a> <br></p>
+<p>편집 제어(control) 객체가 보관하는 직전 적용 변환입니다.</p>
+    </div>
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+</dd>
+
+                
+                    
+<dt>
+    <div class="nameContainer">
         <h4 class="name" id="~UAnalyGizmoModelCO">UAnalyGizmoModelCO<span class="type-signature type object"><a href="object_.html">object</a></span> </h4>
     </div>
     
@@ -21362,8 +22245,8 @@ Gizmo 설정 저장하는 로직.</p>
 <dd>
     
     <div class="description">
-        <p>~extends <a href="UAnaly.html#~UAnalyCO">UAnaly~UAnalyCO</a> <br>
-UAnalyGizmoModel 생성자 옵션</p>
+        <p>~extends <a href="UAnaly.html#~UAnalyCO">UAnaly~UAnalyCO</a> <br></p>
+<p>기즈모 편집 분석의 생성 옵션입니다.</p>
     </div>
     
     
@@ -21431,7 +22314,369 @@ UAnalyGizmoModel 생성자 옵션</p>
                 </td>
             
             
-            <td class="description last"><p>분석 클래스 이름</p></td>
+            <td class="description last"><p>분석 이름</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table></dl>
+        
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+</dd>
+
+                
+                    
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="~UAnalyGizmoModelCallback">
+            
+             UAnalyGizmoModelCallback<span class="signature">()</span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>편집 갱신 또는 종료 시 실행하는 사용자 콜백입니다. <br>
+this와 self는 분석 인스턴스이며 target은 선택 루트 배열입니다. <br>
+controlObj는 편집 제어 객체로 제거 후에는 undefined이며 controlBound는 현재 편집 경계입니다. <br>
+예외는 호출자에게 전파되며 전달한 객체와 목록은 복사하지 않습니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    
+    
+</dd>
+
+                
+                    
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="~UAnalyGizmoModelIntersection">UAnalyGizmoModelIntersection<span class="type-signature type object"><a href="object_.html">object</a></span> </h4>
+    </div>
+    
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        <p>편집 대상과 어댑터(adapter)의 교차 정보입니다.</p>
+    </div>
+    
+    
+    
+<dl class="details">
+    
+        
+        <h5 class="subsection-title">Properties:</h5>
+        
+        <dl>
+
+<table class="props">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>distance</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+            
+            
+            
+            <td class="description last"><p>어댑터가 계산한 교차 거리</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>object</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="U3dAdaptedGeometry.html#~U3dAdaptedGeometry">U3dAdaptedGeometry</a></span>
+
+
+            
+            </td>
+            
+            
+            
+            
+            
+            <td class="description last"><p>교차한 형상</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table></dl>
+        
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+</dd>
+
+                
+                    
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="~UAnalyGizmoModelLaserStyle">UAnalyGizmoModelLaserStyle<span class="type-signature type object"><a href="object_.html">object</a></span> </h4>
+    </div>
+    
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        <p>보조 레이저(laser)에 적용할 스타일입니다.</p>
+    </div>
+    
+    
+    
+<dl class="details">
+    
+        
+        <h5 class="subsection-title">Properties:</h5>
+        
+        <dl>
+
+<table class="props">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		<th>Argument</th>
+		
+		
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>color</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#Color">Color</a></span>
+|
+
+<span class="param-type">string</span>
+|
+
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>표시 색상</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>opacity</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>0~1로 제한하여 적용할 불투명도</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>radius</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+                    
+                
+                </td>
+            
+            
+            
+            
+            <td class="description last"><p>두께 배율이며 0·NaN은 1, 음수는 0.001로 대체됩니다.</p></td>
         </tr>
 	
 	
@@ -21481,7 +22726,7 @@ UAnalyGizmoModel 생성자 옵션</p>
 
     </div>
 </div>
-<script src="scripts/prism.js?v=muz1hdly"></script>
-<script src="scripts/main.js?v=muz1hdly"></script>
+<script src="scripts/prism.js?v=mvon8gzc"></script>
+<script src="scripts/main.js?v=mvon8gzc"></script>
 </body>
 </html>

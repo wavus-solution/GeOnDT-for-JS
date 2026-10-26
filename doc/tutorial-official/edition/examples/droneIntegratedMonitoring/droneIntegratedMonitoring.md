@@ -1282,7 +1282,7 @@ imports: [steering, shapes, shapesUi]
 ## 관련 API
 
 - `U3dAPP.getRenderer()`, `URenderer.getContext()`: 실제 지도 렌더러의 WebGL 컨텍스트를 반환합니다. 예제는 `WebGL2RenderingContext` 여부와 `gl.getParameter(gl.VERSION | gl.SHADING_LANGUAGE_VERSION | gl.RENDERER)`를 초기화 시 한 번 읽고, 캔버스의 `webglcontextlost`·`webglcontextrestored` 이벤트에서만 다시 읽습니다. 조회하지 못한 값은 `확인 불가`로 표시합니다.
-- `U3dAPP.createMultipleComponentLayer()`: 드론 모델 원본을 `listmodel`로 등록한 컴포넌트 레이어를 만듭니다. 반환값은 모델 로드 완료를 `then`으로 알리는 Deferred이므로, 예제는 완료를 기다린 뒤 `addPosition()`을 호출합니다. 모델 서버가 응답하지 않으면 20초 후 실패로 표시합니다.
+- `U3dAPP.createMultipleComponentLayer()`: 드론 모델 원본을 `listmodel`로 등록한 컴포넌트 레이어를 만듭니다. 반환값은 레이어 객체이며 모델 로드 완료를 `ready` Promise로 알리므로, 예제는 완료를 기다린 뒤 `addPosition()`을 호출합니다. 모델 서버가 응답하지 않으면 20초 후 실패로 표시합니다.
 - `U3dMultipleComponentLayer.setInstanced()` / `isInstanced()`: 이후 `addPosition()`이 인스턴스 방식으로 컴포넌트를 만들지 정하고 현재 모드를 반환합니다. 이미 생성된 컴포넌트의 방식은 바뀌지 않습니다.
 - `U3dMultipleComponentLayer.addPosition()`: `object`에 등록한 모델 원본 이름을, `geoPosition`에 지리좌표 `{x: 경도, y: 위도, z: 고도(m)}`를 전달해 드론을 만듭니다. 실패하면 `undefined`를 반환하므로 예제는 성공한 드론만 목록에 집계합니다.
 - `U3dMultipleComponentLayer.removeComponentByName()`: 드론 컴포넌트를 제거합니다. 컴포넌트 해제 시 누적 경로(`getCumulativePath()`)도 함께 제거되며, 다른 드론이 공유하는 모델 원본은 레이어가 관리합니다.

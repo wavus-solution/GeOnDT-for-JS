@@ -1,12 +1,14 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dLayer } from "../3dLayer/U3dLayer.js";
+import type { U3dShaderMeasureLayerRenderStyle, U3dShaderMeasureLayerStyle } from "../3dLayer/U3dShaderMeasureLayer.js";
+import type { UCssBilboard } from "../annotation/UCssBilboard.js";
 import type { U3dApp } from "../app/U3dApp.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
 import type { UEventDispatcher, UEventDispatcherCO } from "../core/UEventDispatcher.js";
@@ -14,7 +16,9 @@ import type { UGroup } from "../core/UGroup.js";
 import type { URaycaster } from "../core/URaycaster.js";
 import type { UScene } from "../core/UScene.js";
 import type { U3dMouseEvent } from "../event/U3dMouseEvent.js";
+import type { UMeasureFeature } from "../ol/UMeasureFeature.js";
 import type { Common_Mesh } from "../types/global.js";
+import type { OLFeature } from "../types/ol.js";
 
 /**
  * ~extends import('@UEventDispatcher').UEventDispatcher <br>
@@ -93,6 +97,13 @@ declare class UAnaly extends UEventDispatcher {
      * @ignore
      */
     _selectedList: Array<Ananlysis_Mesh>;
+    /** @type {import('@UMeasureFeature').UMeasureFeature | undefined} */
+    _selectedMeasureFeature: UMeasureFeature | undefined;
+    /** @type {Map<string, string | null | undefined>} */ _measureInputKeys: Map<string, string | null | undefined>;
+    /** @type {UAnalyMeasureRightClickState} */ _measureRightClick: UAnalyMeasureRightClickState;
+    /** @type {Array<import('@union3d/annotation/UCssBilboard').UCssBilboard>} */ _currentMeasureLabels: Array<UCssBilboard>;
+    /** @type {Map<import('@UMeasureFeature').UMeasureFeature, Array<import('@union3d/annotation/UCssBilboard').UCssBilboard>>} */
+    _measureFeatureLabels: Map<UMeasureFeature, Array<UCssBilboard>>;
     /**
      * 분석 기능의 활성 상태이며 생성 직후에는 false입니다.
      *
@@ -125,8 +136,123 @@ declare class UAnaly extends UEventDispatcher {
      */
     update(): void;
     /**
-     * 하위 클래스가 분석 설정 조회를 구현하는 확장 지점입니다. <br>
-     * 기반 구현은 아무 작업도 하지 않고 undefined로 종료합니다.
+     * 분석이 소유한 확정 피처 목록을 반환합니다.
+     *
+     * @returns {Array<import('@UMeasureFeature').UMeasureFeature | OLFeature>} 피처 목록의 사본입니다.
+     */
+    getFeatures(): Array<UMeasureFeature | OLFeature>;
+    /**
+     * 소유한 측정 도형의 실제 단위 값·입력 좌표·스타일을 반환합니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature | OLFeature} feature 조회할 피처입니다.
+     * @returns {UAnalyFeatureResult | undefined} 측정 결과이며 측정 피처가 아니면 undefined입니다.
+     */
+    getFeatureResult(feature: UMeasureFeature | OLFeature): UAnalyFeatureResult | undefined;
+    /**
+     * 현재 분석이 소유한 확정 측정 결과를 새 배열로 반환합니다.
+     *
+     * @returns {Array<UAnalyFeatureResult>} 측정 결과 목록입니다.
+     */
+    getFeatureResults(): Array<UAnalyFeatureResult>;
+    /**
+     * 측정 피처의 월드 좌표를 위경도 좌표의 독립 목록으로 변환합니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} feature 조회할 측정 피처입니다.
+     * @returns {Array<import('three').Vector3Like>} x는 경도, y는 위도, z는 높이인 좌표 목록입니다.
+     */
+    getFeatureCoordinates(feature: UMeasureFeature): Array<three.Vector3Like>;
+    /**
+     * 측정 피처에 적용되는 스타일을 반환하며 색상 객체는 복제합니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} feature 조회할 측정 피처입니다.
+     * @returns {UAnalyFeatureStyle} 현재 적용 스타일입니다.
+     */
+    getFeatureStyle(feature: UMeasureFeature): UAnalyFeatureStyle;
+    /**
+     * 이 분석이 소유한 도형을 삭제하고 해당 도형의 라벨과 선택 상태를 정리합니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} feature 삭제할 확정 도형입니다.
+     * @returns {boolean} 소유한 도형의 삭제 여부입니다.
+     */
+    removeFeature(feature: UMeasureFeature): boolean;
+    /**
+     * 삭제된 피처의 분석별 소유 목록과 라벨을 정리하는 내부 연결점입니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} feature 삭제한 피처입니다.
+     *
+     * @ignore
+     */
+    _forgetMeasureFeature(feature: UMeasureFeature): void;
+    /**
+     * 측정 라벨을 장면과 렌더링 자원에서 함께 해제합니다.
+     *
+     * @param {Array<import('@union3d/annotation/UCssBilboard').UCssBilboard>} labels 제거할 라벨입니다.
+     *
+     * @ignore
+     */
+    _disposeMeasureLabels(labels: Array<UCssBilboard>): void;
+    /**
+     * 확정 피처의 라벨 소유권을 저장한 뒤 완료 이벤트를 보냅니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} feature 확정된 피처입니다.
+     *
+     * @ignore
+     */
+    _registerMeasureFeature(feature: UMeasureFeature): void;
+    /**
+     * 우클릭과 Esc를 분석이 소유한 고유 키로 등록합니다.
+     * 우클릭 드래그·지도 외 UI 입력은 측정 제스처에서 제외합니다.
+     *
+     * @param {(event: import('@U3dMouseEvent').U3dMouseEvent) => void} click 정상 우클릭 처리입니다.
+     * @param {() => void} stop 측정 종료 처리입니다.
+     *
+     * @ignore
+     */
+    _bindMeasureInput(click: (event: U3dMouseEvent) => void, stop: () => void): void;
+    /**
+     * 종료용 우클릭이 마지막 고정 점을 다시 가리키는지 확인합니다.
+     * 안내 끝점은 제외하며 서로 다른 위치의 우클릭 점 추가는 유지합니다.
+     *
+     * @param {import('@U3dMouseEvent').U3dMouseEvent} event 지도 입력입니다.
+     * @param {import('three').Vector3} position 교차한 월드 좌표입니다.
+     * @returns {boolean} 마지막 고정 점의 반복 우클릭인지 여부입니다.
+     *
+     * @ignore
+     */
+    _isRepeatedMeasureRightClick(event: U3dMouseEvent, position: three.Vector3): boolean;
+    /**
+     * 이 분석이 등록한 보조 입력만 해제하고 이전 우클릭 상태를 비웁니다.
+     *
+     * @ignore
+     */
+    _unbindMeasureInput(): void;
+    /**
+     * 소유한 확정 도형에 개별 스타일을 적용하고 변경 이벤트를 전달합니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} feature 변경할 피처입니다.
+     * @param {U3dShaderMeasureLayerStyle} style 부분 스타일입니다.
+     * @returns {boolean} 스타일 적용 요청 여부입니다.
+     */
+    setFeatureStyle(feature: UMeasureFeature, style: U3dShaderMeasureLayerStyle): boolean;
+    /**
+     * 소유한 확정 도형의 스타일을 현재 레이어 기본 스타일로 복원합니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} feature 복원할 피처입니다.
+     * @returns {boolean} 복원 요청 여부입니다.
+     */
+    resetFeatureStyle(feature: UMeasureFeature): boolean;
+    /** 선택된 측정 도형의 임시 강조를 해제합니다. */
+    clearMeasureFeatureSelection(): void;
+    /**
+     * 화면 위치에서 확정된 거리·면적 도형을 선택하고 선택 이벤트를 전달합니다.
+     *
+     * @param {import('@U3dMouseEvent').U3dMouseEvent} event 지도 입력입니다.
+     * @returns {import('@UMeasureFeature').UMeasureFeature | undefined} 선택한 피처입니다.
+     */
+    pickMeasureFeature(event: U3dMouseEvent): UMeasureFeature | undefined;
+    /**
+     * 하위 클래스가 분석 설정 조회를 구현하는 확장 지점입니다.
+     *
      */
     getAnalysisOption(): void;
     /**
@@ -365,4 +491,61 @@ declare class UAnaly extends UEventDispatcher {
      */
     type UAnalyMergedMeshLayer = U3dLayer & UAnalyMergedMeshLayer_Content;
 
-export type { Ananlysis_Mesh, Ananlysis_Mesh_Content, UAnaly, UAnalyCO, UAnalyCO_Content, UAnalyMergedMeshLayer, UAnalyMergedMeshLayer_Content };
+/**
+     * 확정 측정 도형의 실제 단위 값과 입력·스타일입니다.
+     */
+    type UAnalyFeatureResult = {
+        /**
+         * 측정 도형입니다.
+         */
+        feature: UMeasureFeature;
+        /**
+         * 도형 유형입니다.
+         */
+        type: string | undefined;
+        /**
+         * 거리(m) 또는 면적(㎡)입니다.
+         */
+        value: number;
+        /**
+         * 위경도 좌표와 높이의 사본입니다.
+         */
+        coordinates: Array<three.Vector3Like>;
+        /**
+         * 적용 스타일의 사본입니다.
+         */
+        style: UAnalyFeatureStyle;
+    };
+
+/**
+     * 측정 결과에서 반환하는 색상 객체를 독립적으로 수정할 수 있는 스타일입니다.
+     */
+    type UAnalyFeatureStyle = Omit<U3dShaderMeasureLayerRenderStyle, "fillColor" | "strokeColor"> & {
+        fillColor: three.Color;
+        strokeColor: three.Color;
+    };
+
+/**
+     * 측정 기능이 소비하는 우클릭 제스처의 상태입니다.
+     */
+    type UAnalyMeasureRightClickState = {
+        /**
+         * 누름 정보입니다.
+         */
+        down: {
+            time: number;
+            x: number;
+            y: number;
+            target: EventTarget | null;
+        } | undefined;
+        /**
+         * 이전 정상 클릭입니다.
+         */
+        previous: {
+            time: number;
+            x: number;
+            y: number;
+        } | undefined;
+    };
+
+export type { Ananlysis_Mesh, Ananlysis_Mesh_Content, UAnaly, UAnalyCO, UAnalyCO_Content, UAnalyFeatureResult, UAnalyFeatureStyle, UAnalyMeasureRightClickState, UAnalyMergedMeshLayer, UAnalyMergedMeshLayer_Content };

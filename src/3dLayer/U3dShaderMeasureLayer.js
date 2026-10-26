@@ -16,7 +16,6 @@ import {UCache} from '@union3d/core/UCache';
 import {UMeasureFeature} from '@union3d/ol/UMeasureFeature';
 import {UShaderMaterialManager} from '@union3d/manager/UShaderMaterialManager';
 import { deferred } from '@union3d/util/deferred';
-import {hasTerrainTileFailedCurrentRevision} from '@union3d/manager/terrain/UShaderTerrainDecalTileStateManager';
 import {
     UTerrainDecalCompositionOrderRegistry,
 } from '@union3d/manager/terrain/UTerrainDecalCompositionOrderRegistry';
@@ -63,6 +62,7 @@ class U3dShaderMeasureLayer extends U3dLayer {
     /** @type {Record<string, Array<import('three').Vector3>>} */ _featurePoints;
     /** @type {Map<string, import('@UMeasureFeature').UMeasureFeature>} */ _featureMap;
     /** @type {Map<string, Map<string, unknown>>} */ _drawTiles;
+    /** @type {WeakMap<import('@UMeasureFeature').UMeasureFeature, U3dShaderMeasurePolygonTileSelection>} */ _polygonTileSelections;
     /** @type {Record<string, Array<U3dShaderMeasureTileBound>>} */ _drawTileKeys;
     /** @type {Record<string, Record<string, boolean>>} */ _drawFeatureIds;
     /** @type {Record<string, string>} */ _featureTileRangeSignature;
@@ -71,19 +71,16 @@ class U3dShaderMeasureLayer extends U3dLayer {
     /** @type {Set<string>} */ _visibleTileKeys;
     /** @type {Set<string>} */ _simpleFeatureKeys;
     /** @type {Set<import('@UMeasureFeature').UMeasureFeature>} */ _pendingFeatureUpdates;
-    /** @type {boolean} */ _isFeatureUpdateScheduled;
-    /** @type {number} */ _featureUpdateEpoch;
-    /** @type {number} */ _featureUpdateRetryCount;
     /** @type {Set<string>} */ _drawList;
     /** @type {Array<string>} */ _tileKeys;
     /** @type {number} */ _terrainPresentationRevision;
-    /** @type {Map<string, U3dShaderMeasureSourceRevisionState>} */ _sourceRevisionStates;
     /** @type {U3dShaderMeasureGeometryMode} */ _measureGeometryMode;
     /** @type {import('@union3d/manager/UShaderMaterialManager').UShaderMaterialManager | undefined} */ _shaderMaterialManager;
     /** @type {import('@union3d/manager/terrain/UShaderTerrainDecalManager').UShaderTerrainDecalManager | undefined} */ _terrainDecalManager;
     /** @type {Map<string, import('three').Material & Partial<{map: import('three').Texture}>>} */ _shaderTemplateCache;
     /** @type {import('@union3d/manager/terrain/UTerrainDecalCompositionOrderRegistry').UTerrainDecalCompositionOrderRegistry} */ _compositionOrderRegistry;
     /** @type {U3dShaderMeasureLayerRenderStyle} */ _style;
+    /** @type {WeakSet<import('@UMeasureFeature').UMeasureFeature>} */ _selectedMeasureFeatures = new WeakSet();
 
     /**
      * 측정 레이어를 생성합니다.
@@ -152,6 +149,7 @@ class U3dShaderMeasureLayer extends U3dLayer {
         self._visibleTileKeys = new Set();
         self._drawFeatureIds = {};
         self._drawTiles = new Map();
+        self._polygonTileSelections = new WeakMap();
         self._drawTileKeys = {};
         self._maxReadyLevel = 17;
         /**
@@ -180,11 +178,7 @@ class U3dShaderMeasureLayer extends U3dLayer {
         self._simpleGeometryCircleSegments = defaultValue(opt.simpleGeometryCircleSegments, 64);
         self._simpleFeatureKeys = new Set();
         self._pendingFeatureUpdates = new Set();
-        self._isFeatureUpdateScheduled = false;
-        self._featureUpdateEpoch = 0;
-        self._featureUpdateRetryCount = 0;
         self._terrainPresentationRevision = 0;
-        self._sourceRevisionStates = new Map();
 
     }
 
@@ -244,6 +238,8 @@ class U3dShaderMeasureLayer extends U3dLayer {
      * 이름과 달리 텍스처만 만드는 것이 아니라, 지금 정해진 그리는 방식에 따라 각 도형을 지형 표면에 붙일 자료와 3D 객체(simple 모드 일때) 가운데 알맞은 쪽으로 보냅니다. <br>
      * 그리기 뼈대가 정한 이름이라 이 레이어가 바꿀 수 없으며, 스타일이나 지점이 바뀔 때 레이어가 스스로 부르므로 직접 부를 일은 없습니다. <br>
      * 넘긴 도형만 다시 만들고 나머지는 그대로 두므로, 바뀐 도형이 있을 경우 추려서 전달하는걸 권장드립니다.
+     * 형상이 바뀌면 실제 교차 타일을 다시 계산하며, 공통 타일의 바인딩과 표시는 유지하고 벗어난 타일만 제거합니다.
+     * 연결 집합이 그대로이면 전체 그리기 목록을 재사용하고 실제로 캐시된 재질만 갱신합니다.
      *
      * @param {Array<import('@UMeasureFeature').UMeasureFeature>} [features] 다시 만들 측정 도형 목록이며, 넘기지 않으면 아무 도형도 다시 만들지 않습니다.
      * @param {number} [startLevel=this._minlevel] 다시 만들 가장 낮은 타일 레벨입니다.
@@ -256,6 +252,7 @@ class U3dShaderMeasureLayer extends U3dLayer {
         if (!defined(app)) return;
         let drawArg = app._drawArg;
         if (!defined(drawArg)) return;
+        self.#getFeatureUpdateManager();
 
         if (!defined(features)) features = self._features;
         if (!defined(features) || features.length === 0) return;
@@ -266,7 +263,8 @@ class U3dShaderMeasureLayer extends U3dLayer {
         self._featureActiveTileKeys = self._featureActiveTileKeys || {};
         self._featureTileBindingRevision = self._featureTileBindingRevision || {};
 
-        const prevDrawList = self._drawList ? new Set(self._drawList) : undefined;
+        // 그리기 집합은 아래에서 새 Set으로 교체하므로 이전 집합을 복제하지 않아도 됩니다.
+        const prevDrawList = self._drawList;
         const flushTileKeys = new Set();
         const clearTileKeys = new Set();
         const activeMode = self.getMeasureGeometryMode();
@@ -278,6 +276,7 @@ class U3dShaderMeasureLayer extends U3dLayer {
          * 2. basic 모드: tile range signature 계산 → tile bindings 설정
          */
         let isTileBindingsChange = false;
+        let shouldRefreshCachedMaterials = false;
         features.forEach(function (feature) {
             const checkedFeature = self.#checkOLFeature(feature);
             if (!(checkedFeature instanceof UMeasureFeature)) return;
@@ -312,7 +311,6 @@ class U3dShaderMeasureLayer extends U3dLayer {
                 + '|g' + geometryRevision;
             const prevSig = self._featureTileRangeSignature[uid];
             const hasBindings = self.#hasFeatureTileBindings(feature);
-            const previouslyVisibleTileKeys = new Set();
 
             if (prevSig === sig && hasBindings) {
                 const type = feature.getType ? feature.getType() : feature._type;
@@ -348,29 +346,22 @@ class U3dShaderMeasureLayer extends U3dLayer {
                 return;
             }
 
-            if (prevSig !== undefined && hasBindings && prevSig !== sig) {
-                for (const tileKey of self._drawTiles.get(uid)?.keys?.() ?? []) {
-                    if (self._visibleTileKeys.has(tileKey)) previouslyVisibleTileKeys.add(tileKey);
-                }
+            const previousTileCount = self._drawTiles.get(uid)?.size ?? 0;
+            const removedTileKeys = self.#setDrawTiles(feature, startLevel, endLevel, offset);
+            if (removedTileKeys.length > 0) {
+                // 공통 tile은 기존 표시를 유지하고 실제로 벗어난 tile만 같은 갱신 묶음에서 제거합니다.
                 const removeResult = removeMeasureTerrainFeaturePayload.call(self, feature, {
-                    tileKeys: Array.from(self._drawTiles.get(uid)?.keys?.() ?? []),
+                    tileKeys: removedTileKeys,
                     changeType: 'replace',
                     deferFlush: true,
                 });
                 for (const tileKey of removeResult?.changedTileKeys ?? []) {
                     flushTileKeys.add(tileKey);
                 }
-                self.#removeFeatureTileBindings(feature);
-                isTileBindingsChange = true;
+                self.#removeFeatureTileBindings(feature, removedTileKeys);
             }
-
             self._featureTileRangeSignature[uid] = sig;
             self._featureTileBindingRevision[uid] = featureRevision;
-            if (!self._drawTiles.has(uid)) self._drawTiles.set(uid, new Map());
-            self.#setDrawTiles(feature, startLevel, endLevel, offset);
-            for (const tileKey of self._drawTiles.get(uid)?.keys?.() ?? []) {
-                if (previouslyVisibleTileKeys.has(tileKey)) self._visibleTileKeys.add(tileKey);
-            }
             const syncResult = syncMeasureTerrainFeaturePayload.call(self, feature, {
                 changeType: prevSig === undefined ? 'add' : 'replace',
                 deferFlush: true,
@@ -378,7 +369,9 @@ class U3dShaderMeasureLayer extends U3dLayer {
             for (const tileKey of syncResult?.changedTileKeys ?? []) {
                 flushTileKeys.add(tileKey);
             }
-            isTileBindingsChange = true;
+            isTileBindingsChange = isTileBindingsChange || removedTileKeys.length > 0
+                || (self._drawTiles.get(uid)?.size ?? 0) !== previousTileCount;
+            shouldRefreshCachedMaterials = true;
         })
 
         if (isTileBindingsChange || !self._drawList) {
@@ -405,20 +398,17 @@ class U3dShaderMeasureLayer extends U3dLayer {
             }
         }
 
-        if (isTileBindingsChange) {
-            self._drawList.forEach(key => {
-                const bounds = self._drawTileKeys[key];
-                if (!bounds) return;
-                for (let i = 0; i < bounds.length; i++) {
-                    const tileBound = bounds[i];
-                    const type = tileBound.type;
-                    const materialKey = type + ":" + key;
-                    const cacheMaterial = self._materialCache.get(materialKey); // 동일 style의 material cache를 우선 재사용합니다.
-                    if (cacheMaterial) {
-                        cacheMaterial._isChanged = true;
-                    }
-                }
-            })
+        if (isTileBindingsChange || shouldRefreshCachedMaterials) {
+            // 큰 면적에는 표시되지 않은 연결도 많으므로 실제 재질이 있는 키만 확인합니다.
+            for (const materialKey of self._materialCache.getKeys()) {
+                const separator = materialKey.indexOf(":");
+                if (separator < 0) continue;
+                const type = materialKey.slice(0, separator);
+                const key = materialKey.slice(separator + 1);
+                if (!self._drawTileKeys[key]?.some(bound => bound.type === type)) continue;
+                const cacheMaterial = self._materialCache.get(materialKey);
+                if (cacheMaterial) cacheMaterial._isChanged = true;
+            }
         }
 
         self.#flushTerrainTilePayloadChanges(new Set(), clearTileKeys, {
@@ -490,7 +480,7 @@ class U3dShaderMeasureLayer extends U3dLayer {
         for (let i = 0; i < features.length; i++) {
             const feature = features[i];
             // 현재 설정과 feature·호출 옵션을 조합한 스타일을 얻고, 적용과 변경 예약은 아래에서 수행합니다.
-            const nextStyle = INTERNAL.resolveMeasureFeatureRenderStyle(self, feature, styleOverrides);
+            const nextStyle = INTERNAL.resolveMeasureFeatureRenderStyle(self, feature, styleOverrides, false);
             applyMeasureFeatureRenderStyle(feature, nextStyle);
         }
 
@@ -499,6 +489,63 @@ class U3dShaderMeasureLayer extends U3dLayer {
         } else {
             self.#scheduleFeatureUpdate(features);
         }
+    }
+
+    /**
+     * 확정 도형의 개별 스타일을 현재 레이어 스타일로 복원합니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} feature 복원할 피처입니다.
+     * @returns {boolean} 등록된 피처의 복원 요청 여부입니다.
+     */
+    resetFeatureStyle(feature) {
+        if (this._disposed || !this._features.includes(feature)) return false;
+        applyMeasureFeatureRenderStyle(feature, INTERNAL.resolveMeasureFeatureRenderStyle(this, undefined));
+        this.#scheduleFeatureUpdate([feature]);
+        return true;
+    }
+
+    /**
+     * 저장된 스타일을 바꾸지 않고 측정 도형의 선택 강조만 갱신합니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} feature 강조할 피처입니다.
+     * @param {boolean} selected 선택 여부입니다.
+     * @returns {boolean} 선택 상태 변경 여부입니다.
+     */
+    setFeatureSelected(feature, selected) {
+        if (this._disposed || !this._features.includes(feature)) return false;
+        if (this._selectedMeasureFeatures.has(feature) === selected) return false;
+        if (selected) this._selectedMeasureFeatures.add(feature);
+        else this._selectedMeasureFeatures.delete(feature);
+        feature.setStyleRevision(feature.getRevision() + 1);
+        this.#scheduleFeatureUpdate([feature]);
+        return true;
+    }
+
+    /**
+     * 편집 중인 도형의 마지막 안내 지점을 제거합니다.
+     *
+     * @returns {import('@UMeasureFeature').UMeasureFeature | undefined} 갱신된 피처입니다.
+     */
+    cancelLastPosition() {
+        if (!this._measureFeature || this._measurePoints.length === 0) return undefined;
+        this._measurePoints.pop();
+        this._measureVectors.pop();
+        if (this._measurePoints.length === 0) {
+            this.clearDrawFeature();
+            return undefined;
+        }
+        return this.#updateFeature();
+    }
+
+    /**
+     * 확정된 폴리곤의 실제 면적을 현재 면적 라벨과 같은 계산으로 반환합니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} feature 면적 피처입니다.
+     * @returns {number} 면적(㎡)이며 폴리곤이 아니거나 앱이 없으면 0입니다.
+     */
+    getFeatureArea(feature) {
+        if (feature?.getType() !== 'Polygon' || !this._app) return 0;
+        return this.getMeasureAreaByPositions(feature.getMeasureVectors().map(point => this._app.vector3ToGeoGraphic(point)));
     }
 
     /**
@@ -530,171 +577,100 @@ class U3dShaderMeasureLayer extends U3dLayer {
      * @returns {Promise<boolean>} terrain payload 동기화 성공 여부입니다.
      */
     commitFeatureUpdate(featureOrFeatures) {
-        const self = this;
-        if (self._disposed || self._visible === false) return Promise.resolve(false);
-
+        if (this._disposed || this._visible === false) return Promise.resolve(false);
         const features = Array.isArray(featureOrFeatures)
-            ? featureOrFeatures
-            : featureOrFeatures ? [featureOrFeatures] : [];
+            ? featureOrFeatures : featureOrFeatures ? [featureOrFeatures] : [];
+        const pending = this._pendingFeatureUpdates;
+        const manager = this.#getFeatureUpdateManager();
         for (const feature of features) {
-            if (feature instanceof UMeasureFeature) {
-                self._pendingFeatureUpdates.add(feature);
-            }
+            if (!(feature instanceof UMeasureFeature)) continue;
+            if (manager) manager._queueTerrainFeatureUpdate(this, feature, feature);
+            else pending.add(feature);
         }
-
-        self._featureUpdateEpoch++;
-        self._isFeatureUpdateScheduled = false;
-        self._featureUpdateRetryCount = 0;
-        return self.#commitPendingFeatureUpdates();
+        if (manager) {
+            return manager._commitTerrainFeatureUpdates(this).then(results =>
+                pending === this._pendingFeatureUpdates && !this._disposed && this._visible !== false
+                && results.every(result => result === true), () => false);
+        }
+        const updates = [...pending];
+        pending.clear();
+        const success = this.#applyFeatureUpdates(updates);
+        return Promise.resolve(pending === this._pendingFeatureUpdates && success);
     }
 
     /**
-     * 같은 JavaScript task에서 변경된 단건 feature를 한 번의 terrain payload 갱신으로 병합합니다.
-     * queueMicrotask를 사용할 수 없으면 requestAnimationFrame, 그마저 없으면 Promise microtask를 사용합니다.
+     * 연결된 manager가 변경 병합과 재시도를 소유하도록 측정 입력 어댑터를 등록합니다.
      *
-     * @param {Array<import('@UMeasureFeature').UMeasureFeature>} [features=[]] 갱신할 측정 feature입니다.
-     * @param {boolean} [isRetry=false] 자동 재시도 예약 여부입니다.
-     *
-     * @ignore
+     * @returns {import('@union3d/manager/terrain/UShaderTerrainDecalManager').UShaderTerrainDecalManager | undefined} 연결된 manager입니다.
      */
-    #scheduleFeatureUpdate(features = [], isRetry = false) {
-        const self = this;
-        if (self._disposed) return;
-
-        if (!isRetry) self._featureUpdateRetryCount = 0;
-        for (const feature of features) {
-            if (feature instanceof UMeasureFeature) {
-                self._pendingFeatureUpdates.add(feature);
-            }
+    #getFeatureUpdateManager() {
+        const manager = this._terrainDecalManager;
+        if (!manager) return;
+        manager._registerTerrainFeatureOwner(this, {
+            commitUpdates: updates => [this.#applyFeatureUpdates(updates.filter(update => update instanceof UMeasureFeature))],
+            retryLimit: 1,
+            getTileFacts: tile => getMeasureTerrainTileFacts.call(this, tile),
+        });
+        for (const feature of this._pendingFeatureUpdates) {
+            manager._queueTerrainFeatureUpdate(this, feature, feature);
         }
-        if (self._pendingFeatureUpdates.size === 0 || self._isFeatureUpdateScheduled) return;
-
-        self._isFeatureUpdateScheduled = true;
-        const updateEpoch = self._featureUpdateEpoch;
-        const flush = () => self.#flushPendingFeatureUpdates(updateEpoch);
-        if (typeof globalThis.queueMicrotask === 'function') {
-            globalThis.queueMicrotask(flush);
-        } else if (typeof globalThis.requestAnimationFrame === 'function') {
-            globalThis.requestAnimationFrame(flush);
-        } else {
-            Promise.resolve().then(flush);
-        }
+        this._pendingFeatureUpdates.clear();
+        return manager;
     }
 
     /**
-     * 대기 중인 feature의 최신 상태를 terrain payload에 반영합니다.
-     * 실패 시 한 번만 자동 재시도하고, 두 번째 실패는 다음 변경 또는 명시 commit까지 보존합니다.
+     * 같은 실행 구간의 측정 변경을 manager에 전달하고 초기화 전에는 대기 집합 하나로 병합합니다.
      *
-     * @param {number} updateEpoch 예약 시점의 갱신 세대입니다.
-     *
-     * @ignore
+     * @param {Array<import('@UMeasureFeature').UMeasureFeature>} [features=[]] 변경된 측정 피처입니다.
      */
-    #flushPendingFeatureUpdates(updateEpoch) {
-        const self = this;
-        // epoch가 바뀌어 이 flush가 무효가 되어도 예약 플래그는 반드시 되돌려야 합니다.
-        // 남아 있으면 이후 #scheduleFeatureUpdate가 전부 조기 반환해 갱신이 영구 정지합니다.
-        self._isFeatureUpdateScheduled = false;
-        if (updateEpoch !== self._featureUpdateEpoch) return;
-        if (self._disposed || self._visible === false) {
-            self._pendingFeatureUpdates.clear();
+    #scheduleFeatureUpdate(features = []) {
+        if (this._disposed) return;
+        const manager = this.#getFeatureUpdateManager();
+        if (manager) {
+            for (const feature of features) {
+                if (feature instanceof UMeasureFeature) manager._queueTerrainFeatureUpdate(this, feature, feature);
+            }
             return;
         }
-
-        const features = [...self._pendingFeatureUpdates];
-        self._pendingFeatureUpdates.clear();
-        if (features.length === 0) return;
-
-        const complete = () => {
-            if (updateEpoch !== self._featureUpdateEpoch || self._disposed || self._visible === false) {
-                return false;
-            }
-            try {
-                self.#syncVisibleTerrainTilePayloads();
-                self._app?.changeUpdate?.();
-                return true;
-            } catch {
-                return false;
-            }
-        };
-        /**
-         * @param {boolean} success terrain payload 동기화 성공 여부입니다.
-         */
-        const finish = success => {
-            if (updateEpoch !== self._featureUpdateEpoch) return;
-            if (success) {
-                self._featureUpdateRetryCount = 0;
-            } else {
-                self.#retryPendingFeatureUpdates(features, updateEpoch);
-            }
-        };
-        try {
-            self.createUserTexture(features);
-            finish(complete());
-        } catch {
-            finish(false);
-        }
-    }
-
-    /**
-     * 대기 중인 feature를 즉시 갱신하고 결과를 Promise로 반환합니다.
-     *
-     * @returns {Promise<boolean>} terrain payload 동기화 성공 여부입니다.
-     *
-     * @ignore
-     */
-    #commitPendingFeatureUpdates() {
-        const self = this;
-        if (self._disposed || self._visible === false) return Promise.resolve(false);
-
-        const features = [...self._pendingFeatureUpdates];
-        self._pendingFeatureUpdates.clear();
-        if (features.length === 0) return Promise.resolve(true);
-
-        const complete = () => {
-            try {
-                self.#syncVisibleTerrainTilePayloads();
-                self._app?.changeUpdate?.();
-                return true;
-            } catch {
-                return false;
-            }
-        };
-        try {
-            self.createUserTexture(features);
-            return Promise.resolve(complete());
-        } catch {
-            return Promise.resolve(false);
-        }
-    }
-
-    /**
-     * 실패한 terrain payload 갱신 대상과 그 사이 새로 들어온 대상을 보존합니다.
-     *
-     * @param {Array<import('@UMeasureFeature').UMeasureFeature>} features 재시도할 측정 feature입니다.
-     * @param {number} updateEpoch 재시도 대상이 생성된 갱신 세대입니다.
-     *
-     * @ignore
-     */
-    #retryPendingFeatureUpdates(features, updateEpoch) {
-        const self = this;
-        if (self._disposed || self._visible === false || updateEpoch !== self._featureUpdateEpoch) return;
-
-        const pendingFeatures = self._pendingFeatureUpdates;
-        self._pendingFeatureUpdates = new Set();
+        const pending = this._pendingFeatureUpdates;
         for (const feature of features) {
-            if (feature instanceof UMeasureFeature) {
-                self._pendingFeatureUpdates.add(feature);
-            }
+            if (feature instanceof UMeasureFeature) pending.add(feature);
         }
-        for (const feature of pendingFeatures) {
-            self._pendingFeatureUpdates.add(feature);
-        }
-        if (self._featureUpdateRetryCount >= 1) return;
-
-        self._featureUpdateRetryCount++;
-        self.#scheduleFeatureUpdate([], true);
+        if (pending.size === 0) return;
+        /** @param {boolean} retry 한 차례 재시도 중인지 여부입니다. */
+        const flush = retry => {
+            if (pending !== this._pendingFeatureUpdates) return;
+            if (this._disposed || this._visible === false) {pending.clear(); return;}
+            const updates = [...pending];
+            pending.clear();
+            if (updates.length === 0 || this.#applyFeatureUpdates(updates)) return;
+            if (pending !== this._pendingFeatureUpdates) return;
+            for (const feature of updates) pending.add(feature);
+            if (!retry) Promise.resolve().then(() => flush(true));
+        };
+        Promise.resolve().then(() => flush(false));
     }
 
+    /**
+     * 확정된 변경 묶음의 측정 입력을 변환하고 보이는 타일을 동기화합니다.
+     *
+     * @param {Array<import('@UMeasureFeature').UMeasureFeature>} features 변경된 측정 피처입니다.
+     * @returns {boolean} 입력 변환과 payload 동기화를 마쳤으면 참입니다.
+     */
+    #applyFeatureUpdates(features) {
+        if (this._disposed || this._visible === false) return false;
+        if (features.length === 0) return true;
+        const lifetime = this._pendingFeatureUpdates;
+        try {
+            this.createUserTexture(features);
+            if (lifetime !== this._pendingFeatureUpdates || this._disposed || this.getVisible() === false) return false;
+            this.#syncVisibleTerrainTilePayloads();
+            this._app?.changeUpdate?.();
+            return true;
+        } catch {
+            return false;
+        }
+    }
 
     /**
      * feature가 이전 render owner를 남기지 않도록 simple object와 terrain tile payload를 모드 전환 전에 정리합니다.
@@ -932,6 +908,7 @@ class U3dShaderMeasureLayer extends U3dLayer {
         const self = this;
         self._initialized = true;
         self._terrainDecalManager = self._terrainDecalManager ?? self._app?.getTerrainDecalManager?.();
+        self.#getFeatureUpdateManager();
         // 첫 tile 동기화가 아니라 Layer 등록 시점에 앱 단위 합성 group 순서를 확정합니다.
         self._terrainDecalManager?.registerTerrainCompositionGroup?.(
             self.getTerrainCompositionGroupKey(),
@@ -1016,6 +993,8 @@ class U3dShaderMeasureLayer extends U3dLayer {
      */
     dispose  () {
         const self = this;
+        self._pendingFeatureUpdates = new Set();
+        self._terrainDecalManager?._releaseTerrainFeatureOwner(self);
         const manager = self._terrainDecalManager;
         const clearTileKeys = new Set([
             ...Object.keys(self._drawFeatureIds || {}),
@@ -1055,11 +1034,6 @@ class U3dShaderMeasureLayer extends U3dLayer {
         appState._app = undefined;
         const disposePromise = super.dispose();
 
-        self._features.forEach(function (feature) {
-            if (feature._geometry.dispose)
-                feature._geometry.dispose();
-        })
-
         self._olFeatures = {};
         self._features = [];
 
@@ -1070,6 +1044,7 @@ class U3dShaderMeasureLayer extends U3dLayer {
         self._cache?.deleteAll(self, self.#fncDeleteGroup);
         self._group.clear();
         self._drawTiles = new Map();
+        self._polygonTileSelections = new WeakMap();
         self._measureFeature = undefined;
         self._measurePoints = [];
         self._measureVectors = [];
@@ -1079,11 +1054,7 @@ class U3dShaderMeasureLayer extends U3dLayer {
         self._featureTileRangeSignature = {};
         self._featureActiveTileKeys = {};
         self._featureTileBindingRevision = {};
-        self._sourceRevisionStates.clear();
         self._pendingFeatureUpdates.clear();
-        self._isFeatureUpdateScheduled = false;
-        self._featureUpdateEpoch++;
-        self._featureUpdateRetryCount = 0;
 
         self._shaderMaterialManager?.dispose?.();
         self._shaderMaterialManager = undefined;
@@ -1110,7 +1081,9 @@ class U3dShaderMeasureLayer extends U3dLayer {
             return;
 
         const self = this;
+        self._selectedMeasureFeatures.delete(feature);
         self._pendingFeatureUpdates.delete(feature);
+        self._terrainDecalManager?._deleteTerrainFeatureUpdate(self, feature);
         if (feature && feature._uid) {
             if (self._featureTileRangeSignature) delete self._featureTileRangeSignature[feature._uid];
             if (self._featureActiveTileKeys) delete self._featureActiveTileKeys[feature._uid];
@@ -1141,6 +1114,8 @@ class U3dShaderMeasureLayer extends U3dLayer {
     /** 모든 측정 feature와 연결된 렌더링 데이터를 제거합니다. */
     clearMeasure() {
         const self = this;
+        self._pendingFeatureUpdates = new Set();
+        self._terrainDecalManager?._cancelTerrainFeatureUpdates(self);
         const manager = self._terrainDecalManager;
         const clearKeys = new Set([
             ...Object.keys(self._drawFeatureIds || {}),
@@ -1178,11 +1153,6 @@ class U3dShaderMeasureLayer extends U3dLayer {
             });
         }
 
-        for (const feature of self._features) {
-            const geom = feature.getGeometry();
-            if (geom.dispose)
-                geom.dispose();
-        }
         self._olFeatures = {};
         self._features = [];
 
@@ -1190,6 +1160,7 @@ class U3dShaderMeasureLayer extends U3dLayer {
         self._cache?.deleteAll(self, self.#fncDeleteGroup);
         self._group.clear();
         self._drawTiles = new Map();
+        self._polygonTileSelections = new WeakMap();
         self._measureFeature = undefined;
         self._measurePoints = [];
         self._measureVectors = [];
@@ -1201,9 +1172,6 @@ class U3dShaderMeasureLayer extends U3dLayer {
         self._featureActiveTileKeys = {};
         self._featureTileBindingRevision = {};
         self._pendingFeatureUpdates.clear();
-        self._isFeatureUpdateScheduled = false;
-        self._featureUpdateEpoch++;
-        self._featureUpdateRetryCount = 0;
         self._app.update(undefined, undefined, false, true);
     };
 
@@ -1292,29 +1260,40 @@ class U3dShaderMeasureLayer extends U3dLayer {
      * 측정 지점을 추가합니다.
      *
      * @param {import('three').Vector3Like | GeoPosition} geo 추가할 위경도 좌표계(EPSG:4326) 지점이며, x에 경도 y에 위도 z에 높이를 담습니다.
+     * @param {boolean} [fixGuide=false] 이전 안내 지점을 클릭 위치에 고정하고 새 안내 끝점을 추가할지 여부입니다.
      * @returns {(import('@UMeasureFeature').UMeasureFeature & {id: string | number}) | undefined} 갱신한 측정 feature입니다.
      */
-    addMeasurePoint(geo) {
+    addMeasurePoint(geo, fixGuide = false) {
         const self = this;
         self._measurePoints = self._measurePoints || [];
         self._measureVectors = self._measureVectors || [];
 
-        self._measurePoints.push(new THREE.Vector3(geo.x, geo.y, geo.z));
+        const point = new THREE.Vector3(geo.x, geo.y, geo.z);
         const vec = self._drawArg.getGeographicToWorld(geo.x, geo.y, geo.z);
+        // 클릭 직전의 이동 입력이 누락돼도 고정 끝점이 클릭 위치를 정확히 따르도록 한 번에 갱신합니다.
+        if (fixGuide && self._measurePoints.length > 0) {
+            self._measurePoints[self._measurePoints.length - 1] = point.clone();
+            self._measureVectors[self._measureVectors.length - 1] = vec.clone();
+        }
+        self._measurePoints.push(point);
         self._measureVectors.push(vec)
         return self.#updateFeature();
     };
 
     /**
      * 현재 편집 중인 측정 feature 의 마지막 지점을 지정한 월드 좌표(EPSG:3857)로 옮깁니다. <br>
-     * 위경도 좌표로 옮기려면 `updateLastPoint()` 를 사용하십시오.
+     * 위경도 좌표로 옮기려면 `updateLastPoint()` 를 사용하십시오. <br>
+     * 입력 또는 위경도 변환 결과가 유한한 좌표가 아니면 기존 형상과 타일을 유지하고 undefined를 반환합니다.
      *
      * @param {import('three').Vector3} position 옮길 월드 좌표(EPSG:3857)입니다.
-     * @returns {import('@UMeasureFeature').UMeasureFeature | undefined} 갱신한 측정 feature입니다.
+     * @returns {import('@UMeasureFeature').UMeasureFeature | undefined} 갱신한 측정 feature이며, 좌표가 유효하지 않으면 undefined입니다.
      */
     updateLastPosition(position) {
         const self = this;
         const drawArg = self._drawArg;
+        if (!position || !Number.isFinite(position.x) || !Number.isFinite(position.y) || !Number.isFinite(position.z)) return undefined;
+        const point = drawArg.getWorldToGeographic(position.x, position.y, position.z);
+        if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y) || !Number.isFinite(point.z)) return undefined;
 
         self._measurePoints = self._measurePoints || [];
         self._measureVectors = self._measureVectors || [];
@@ -1326,7 +1305,7 @@ class U3dShaderMeasureLayer extends U3dLayer {
             length_ = 1;
         }
 
-        self._measurePoints[length - 1] = drawArg.getWorldToGeographic(position.x, position.y, position.z);
+        self._measurePoints[length - 1] = point;
         self._measureVectors[length_ - 1] = position;
 
 
@@ -1438,6 +1417,7 @@ class U3dShaderMeasureLayer extends U3dLayer {
             const fid = getFeatureIdentityKey(feature);
             const existingFeature = defined(fid) ? self.getFeatureById(fid) : undefined;
             const geom = feature.getGeometry();
+            if (!geom) return;
             let measureGeom, extent;
             let coord = [];
             const featureLike = /** @type {Partial<{getGeoVertex: () => Array<import('three').Vector3Like>}>} */ (feature);
@@ -1449,40 +1429,20 @@ class U3dShaderMeasureLayer extends U3dLayer {
                     coord.push(world);
                 }
             }
-            if (geom instanceof olAny.geom.Polygon) {
-                if (coord && coord.length > 0) {
-                    measureGeom = new THREE.Shape(coord.map(point => new THREE.Vector2(point.x, point.y)));
-                    const olExtent = geom.getExtent();
-                    if (olExtent && olExtent[0] !== Infinity) {
-                        const min = new THREE.Vector3(olExtent[0], olExtent[1], 0);
-                        const max = new THREE.Vector3(olExtent[2], olExtent[3], 0);
-                        extent = new THREE.Box3(min, max);
-                    } else {
-                        extent = self.#getExtent(measureGeom);
-                    }
-                } else {
-                    measureGeom = new THREE.Shape();
-                }
-                type = UDEF.MEASURE_TYPE.POLYGON
-
-
-            } else if (geom instanceof olAny.geom.LineString) {
-                if (coord && coord.length > 0) {
-                    measureGeom = new THREE.CatmullRomCurve3(coord);
-                    if (coord.length > 2) {
-                        measureGeom.curveType = 'catmullrom'
-                    } else {
-                        measureGeom.curveType = 'chordal'
-                    }
-                    measureGeom.tension = self._tension;
-                } else {
-                    measureGeom = new THREE.CatmullRomCurve3([]);
-                }
-                type = UDEF.MEASURE_TYPE.LINESTRING;
-            } else if (geom instanceof olAny.geom.Point) {
-                measureGeom = new THREE.CircleGeometry(DEFAULT_RADIUS, 32);
+            const geometryType = geom.getType();
+            if (geometryType === 'Polygon') type = UDEF.MEASURE_TYPE.POLYGON;
+            else if (geometryType === 'LineString') type = UDEF.MEASURE_TYPE.LINESTRING;
+            else if (geometryType === 'Point') {
                 type = UDEF.MEASURE_TYPE.POINTBUFFER;
+                if (coord.length === 0) {
+                    const point = geom.getCoordinates();
+                    coord.push(self._drawArg.getGoogleToWorld(point[0], point[1]));
+                }
+                const radius = feature.getStyle?.()?.getImage?.()?.getRadius?.() ?? DEFAULT_RADIUS;
+                coord.push(new THREE.Vector3(coord[0].x + radius, coord[0].y, coord[0].z));
             }
+            measureGeom = geom;
+            extent = getMeasureGeometryExtent(geom, coord, self._drawArg);
             const measureFeature = existingFeature instanceof UMeasureFeature
                 ? existingFeature.applyTypedMeasureData({
                     extent: extent,
@@ -1674,17 +1634,21 @@ class U3dShaderMeasureLayer extends U3dLayer {
      * parent/child handoff 중인 tile은 manager 상태에 따라 clear를 보류합니다.
      *
      * @param {import('@UMeasureFeature').UMeasureFeature} feature binding을 제거할 feature입니다.
+     * @param {Array<string>} [tileKeys] 제거할 tile 목록이며, 생략하면 모든 binding을 제거합니다.
      *
      * @ignore
      */
-    #removeFeatureTileBindings(feature) {
+    #removeFeatureTileBindings(feature, tileKeys) {
         const self = this;
         if (!feature || !feature._uid) return;
         const uid = feature._uid;
+        if (!tileKeys) self._polygonTileSelections.delete(feature);
         const drawTile = self._drawTiles.get(uid);
         if (!drawTile) return;
 
-        for (const key of drawTile.keys()) {
+        for (const key of tileKeys ?? drawTile.keys()) {
+            drawTile.delete(key);
+            self._featureActiveTileKeys[uid]?.delete(key);
             if (self._drawFeatureIds[key]) {
                 delete self._drawFeatureIds[key][uid];
                 if (Object.keys(self._drawFeatureIds[key]).length === 0) {
@@ -1730,6 +1694,7 @@ class U3dShaderMeasureLayer extends U3dLayer {
                     clearMeasureTerrainMaterialPayloadSources.call(self, key, {
                         geometry: tileObject?.geometry,
                         origin: tileObject?.position,
+                        deferFlush: Array.isArray(tileKeys),
                     });
                 }
             }
@@ -1743,9 +1708,11 @@ class U3dShaderMeasureLayer extends U3dLayer {
             }
         }
 
-        self._drawTiles.delete(uid);
-        if (self._featureActiveTileKeys) delete self._featureActiveTileKeys[uid];
-        if (self._featureTileBindingRevision) delete self._featureTileBindingRevision[uid];
+        if (drawTile.size === 0) {
+            self._drawTiles.delete(uid);
+            delete self._featureActiveTileKeys[uid];
+            delete self._featureTileBindingRevision[uid];
+        }
     }
 
     //영역에 대한 key값 생성
@@ -1830,28 +1797,16 @@ class U3dShaderMeasureLayer extends U3dLayer {
      *
      * @param {string} key 다시 그릴 타일 키입니다.
      * @param {import('three').Mesh} object 타일 렌더링 객체입니다.
-     * @returns {boolean} payload 동기화를 요청했으면 `true`를 반환합니다.
+     * @returns {boolean} 동기화할 입력이 있어 manager에 전달했으면 참입니다.
      *
      * @ignore
      */
     #redrawTilePayloadByKey(key, object) {
-        const self = this;
         if (!key || !object) return false;
-
-        const drawFeatureIds = self._drawFeatureIds?.[key];
-        const featureIds = drawFeatureIds ? Object.keys(drawFeatureIds) : [];
-        if (featureIds.length === 0) {
-            if (!hasMeasureTerrainTileManagerFeatures.call(self, key)) {
-                return false;
-            }
-            return syncMeasureTerrainTileMaterial.call(self, key, object);
-        }
-
-
-        if (!shouldSyncMeasureTerrainTilePayload.call(self, key)) {
-            return true;
-        }
-        return syncMeasureTerrainTileMaterial.call(self, key, object);
+        const featureIds = Object.keys(this._drawFeatureIds?.[key] ?? {});
+        if (featureIds.length === 0 && !hasMeasureTerrainTileManagerFeatures.call(this, key)) return false;
+        syncMeasureTerrainTileMaterial.call(this, key, object);
+        return true;
     }
 
     /**
@@ -1905,9 +1860,7 @@ class U3dShaderMeasureLayer extends U3dLayer {
             const cacheTile = self._drawArg?._cacheTiles?.get?.(key);
             if (!cacheTile?.visible || !cacheTile?._mesh) continue;
 
-            const redrawn = shouldSyncMeasureTerrainTilePayload.call(self, key)
-                ? self.#redrawTilePayloadByKey(key, cacheTile._mesh)
-                : true;
+            const redrawn = self.#redrawTilePayloadByKey(key, cacheTile._mesh);
             if (redrawn) {
                 self._visibleTileKeys.add(key);
             } else if (manager.getTerrainMaterial?.(key)) {
@@ -1955,9 +1908,7 @@ class U3dShaderMeasureLayer extends U3dLayer {
             const tile = /** @type {Partial<{visible: boolean, _mesh: import('three').Mesh}>} */ (tileValue);
             if (!tile?.visible || !tile?._mesh) return;
             if (!self._drawFeatureIds?.[key] && !hasMeasureTerrainTileManagerFeatures.call(self, key)) return;
-            if (shouldSyncMeasureTerrainTilePayload.call(self, key)) {
-                syncMeasureTerrainTileMaterial.call(self, key, tile._mesh);
-            }
+            syncMeasureTerrainTileMaterial.call(self, key, tile._mesh);
             self._visibleTileKeys.add(key);
         });
     }
@@ -2014,7 +1965,6 @@ class U3dShaderMeasureLayer extends U3dLayer {
         if (!defined(tile)) return;
 
         const self = this;
-        self._sourceRevisionStates.delete(tile._key);
         const manager = self._terrainDecalManager;
         if(!manager) return;
         // 이 레이어가 소유한 source만 조회·해제 대상으로 지정합니다.
@@ -2205,35 +2155,20 @@ class U3dShaderMeasureLayer extends U3dLayer {
         // 원소(Vector3)는 교체만 되고 제자리 변형되지 않아 얕은 복사로 충분합니다.
         const coord = self._measureVectors.slice();
         const olCoord = self.convertPoints3DTo2D(self._measurePoints);
-        let geom, olGeom;
-        const olAny = /**@type{any}*/(ol);
-        if (type === UDEF.MEASURE_TYPE.LINESTRING) {
-            geom = new THREE.CatmullRomCurve3(coord);
-            if (coord.length > 2) {
-                geom.curveType = 'catmullrom'
-            } else {
-                geom.curveType = 'chordal'
-            }
-            geom.tension = self._tension;
-            olGeom = new olAny.geom.LineString(olCoord);
-        } else if (type === UDEF.MEASURE_TYPE.POLYGON) {
-            geom = new THREE.Shape(coord.map(point => new THREE.Vector2(point.x, point.y)));
-            olGeom = new olAny.geom.Polygon([olCoord]);
-        } else if (type === UDEF.MEASURE_TYPE.POINTBUFFER) {
-            let firstPoint = coord[0];
-            let lastPoint = coord[coord.length - 1];
-
-            let radius = firstPoint.distanceTo(lastPoint);
-            if (radius < 1) {
-                radius = 0.00001;
-            }
-            geom = new THREE.CircleGeometry(radius, 32);
-            olGeom = new olAny.geom.Circle(olCoord[0], radius * 0.00001138);
-        }
-        if(!geom) return;
-        const extent = self.#getExtent(geom);
+        let olGeom;
+        const olAny = /** @type {any} */ (ol);
+        if (type === UDEF.MEASURE_TYPE.LINESTRING) olGeom = new olAny.geom.LineString(olCoord);
+        else if (type === UDEF.MEASURE_TYPE.POLYGON) {
+            const ring = olCoord.slice();
+            const first = ring[0], last = ring[ring.length - 1];
+            if (first && last && (first[0] !== last[0] || first[1] !== last[1])) ring.push(first.slice());
+            olGeom = new olAny.geom.Polygon([ring]);
+        } else if (type === UDEF.MEASURE_TYPE.POINTBUFFER && olCoord.length > 0) olGeom = new olAny.geom.Point(olCoord[0]);
+        if (!olGeom) return;
         olGeom.transform('EPSG:4326', 'EPSG:3857');
-        const olFeature = createFeature(olGeom);
+        const extent = getMeasureGeometryExtent(olGeom, coord, self._drawArg);
+        const olFeature = self._measureFeature?.getOLFeature() ?? createFeature(olGeom);
+        if (olFeature.getGeometry() !== olGeom) olFeature.setGeometry(olGeom);
         const fid = olFeature.getId();
 
         if (fid && !self._olFeatures[fid]) {
@@ -2243,7 +2178,7 @@ class U3dShaderMeasureLayer extends U3dLayer {
         const measureFeature = new UMeasureFeature({
             sourceFeature: olFeature,
             extent: extent,
-            geometry: geom,
+            geometry: olGeom,
             srs: self._srs,
             type: type,
             measureVectors: coord,
@@ -2253,86 +2188,56 @@ class U3dShaderMeasureLayer extends U3dLayer {
     }
 
     /**
-     * Three.js geometry 또는 curve의 구성점을 순회해 월드 좌표(EPSG:3857) extent를 계산합니다.
-     *
-     * @param {import('three').BufferGeometry | import('three').Curve<import('three').Vector3> | import('three').Shape} geom 범위를 계산할 geometry입니다.
-     * @returns {import('three').Box3 | undefined} 계산된 축 정렬 bounding box입니다.
-     *
-     * @ignore
-     */
-    #getExtent(geom) {
-        const self = this;
-        const geoList = self._measurePoints;
-        const srs = self._srs;
-        if (!geom || !geoList || geoList.length === 0) return;
-
-        let minX = Infinity;
-        let maxX = -Infinity;
-        let minY = Infinity;
-        let maxY = -Infinity;
-
-        if (self._measureType === UDEF.MEASURE_TYPE.POINTBUFFER) { // 원형 반경까지 포함한 extent를 계산합니다.
-            const bbox = new THREE.Box3();
-            if (geom instanceof THREE.BufferGeometry) {
-                const position = geom.getAttribute('position');
-
-                if (position) {
-                    bbox.setFromBufferAttribute(/**@type{THREE.BufferAttribute}*/(position));
-                }
-            }
-            const center = self._measureVectors[0];
-            bbox.min.add(center);
-            bbox.max.add(center);
-
-            const min = self._drawArg.getWorldToGoogle(bbox.min.x, bbox.min.y);
-            const max = self._drawArg.getWorldToGoogle(bbox.max.x, bbox.max.y);
-            bbox.set(min, max);
-
-            return bbox;
-        } else {
-            for (let i = 0; i < geoList.length; i++) { // 모든 측정 좌표를 포함하도록 extent를 확장합니다.
-                const geo = geoList[i];
-                if (srs === 'EPSG:3857') {
-                    const googleXY = UMathEngine.getGeographicToGoogle(geo.x, geo.y);
-                    minX = Math.min(googleXY.x, minX);
-                    minY = Math.min(googleXY.y, minY);
-                    maxX = Math.max(googleXY.x, maxX);
-                    maxY = Math.max(googleXY.y, maxY);
-                }
-            }
-            const min = new THREE.Vector3(minX, minY, 0);
-            const max = new THREE.Vector3(maxX, maxY, 0);
-
-            return new THREE.Box3(min, max);
-        }
-    }
-
-    /**
      * feature extent가 포함되는 level별 terrain tile binding을 생성합니다.
+     * 제품 교차 판정에서는 이 선택 범위 안에서만 좌표 스냅샷을 공유합니다.
      *
      * @param {import('@UMeasureFeature').UMeasureFeature} feature tile에 연결할 측정 feature입니다.
      * @param {number} startLevel 시작 tile level입니다.
      * @param {number} endLevel 종료 tile level입니다.
      * @param {number} offset stroke 폭을 반영한 extent 확장값입니다.
+     * @returns {Array<string>} 현재 영역에서 벗어난 이전 연결 타일입니다.
      *
      * @ignore
      */
     #setDrawTiles(feature, startLevel, endLevel, offset) {
         const self = this;
-        let ma = self._mercator;
-        // 피쳐 영역 타일 찾기
-        let geom;
-        let extent;
-        geom = feature.getGeometry();
-        if (!defined(geom)) return;
-        extent = feature.getExtent();
-        if (!defined(extent)) return;
-        const maxLevel = endLevel;
-        const drawTile = self._drawTiles.get(feature._uid);
-        if(!drawTile) return;
-        for (let i = startLevel; i <= maxLevel; i++) {
-            self.#setDrawTile(ma, i, extent, drawTile, feature, offset);
-        }
+        const previous = self._polygonTileSelections.get(feature);
+        self._polygonTileSelections.delete(feature);
+        const ma = self._mercator;
+        const extent = feature.getExtent();
+        if (!feature.getGeometry() || !extent) return [];
+        const drawTile = self._drawTiles.get(feature._uid) ?? new Map();
+
+        return INTERNAL.withTileCoordinateSnapshot(feature, () => {
+            const styleKey = JSON.stringify([feature.getPropertyRevision(), self._style, self._minlevel, self._maxlevel]);
+            // 이전 연결을 재사용할 수 있는지 확인하고 다시 판정할 타일 목록을 계산합니다.
+            const selection = INTERNAL.createPolygonTileSelection(feature, drawTile, ma, extent, startLevel, endLevel, offset, styleKey);
+            const delta = INTERNAL.preparePolygonTileDelta(previous, selection,
+                bound => INTERNAL.shouldIncludeMeasureFeatureInTileBounds(feature, bound, offset));
+
+            if (delta) {
+                // 판정을 모두 마친 뒤 연결에 반영하므로 판정 오류는 기존 맵을 훼손하지 않습니다.
+                for (const tile of delta.selected) {
+                    self.#setDrawTileXY(ma, tile.x, tile.y, tile.level, drawTile, feature, offset, tile.bound);
+                }
+                for (const key of delta.removed) drawTile.delete(key);
+                if (selection) self._polygonTileSelections.set(feature, selection);
+                return delta.removed;
+            }
+
+            const previousTileKeys = new Set(drawTile.keys());
+            const nextTile = new Map();
+            self._drawTiles.set(feature._uid, nextTile);
+            for (let i = startLevel; i <= endLevel; i++) {
+                self.#setDrawTile(ma, i, extent, nextTile, feature, offset);
+            }
+            if (selection) {
+                selection.drawTile = nextTile;
+                self._polygonTileSelections.set(feature, selection);
+            }
+
+            return [...previousTileKeys].filter(key => !nextTile.has(key));
+        });
     }
 
     /**
@@ -2366,7 +2271,7 @@ class U3dShaderMeasureLayer extends U3dLayer {
     }
 
     /**
-     * 지정한 tile 좌표에 feature binding과 tile bound 정보를 등록합니다.
+     * 지정한 tile 좌표의 feature binding과 tile bound 정보를 등록하거나 갱신합니다.
      *
      * @param {import('@union3d/math/UMercator').UMercator} ma tile 좌표 변환기입니다.
      * @param {number} tx tile X 좌표입니다.
@@ -2375,23 +2280,28 @@ class U3dShaderMeasureLayer extends U3dLayer {
      * @param {Map<string, unknown>} drawTile feature별 tile binding map입니다.
      * @param {import('@UMeasureFeature').UMeasureFeature} feature 등록할 측정 feature입니다.
      * @param {number} offset 외곽선이 차지하는 world 좌표 여유값입니다.
+     * @param {Array<number>} [selectedBound] 증분 경로에서 교차 판정이 끝난 타일 경계입니다.
      *
      * @ignore
      */
-    #setDrawTileXY(ma, tx, ty, i, drawTile, feature, offset) {
+    #setDrawTileXY(ma, tx, ty, i, drawTile, feature, offset, selectedBound) {
         const self = this;
-        let bound = ma.TileBounds(tx, ty, i);
-        // 도형이 실제로 걸치는 타일만 연결하며, 교차하지 않으면 상태를 등록하지 않습니다.
-        if (! INTERNAL.shouldIncludeMeasureFeatureInTileBounds(feature, bound, offset)) return;
+        const bound = selectedBound ?? ma.TileBounds(tx, ty, i);
+        // 증분 판정이 끝난 경계는 다시 검사하지 않고 같은 등록 흐름에 반영합니다.
+        if (!selectedBound && !INTERNAL.shouldIncludeMeasureFeatureInTileBounds(feature, bound, offset)) return;
         let key = tx + '_' + ty + '_' + i;
 
-        let tileBound =/**@type{U3dShaderMeasureTileBound}*/( {
-            key: key,
-            level: i,
-            featureId: feature._uid,
-            extent: bound,
-            type: feature._type,
-        });
+        let tileBound = self._drawTileKeys[key]?.find(tilebound => tilebound.featureId === feature._uid);
+        if (!tileBound) {
+            tileBound = {
+                key: key,
+                level: i,
+                featureId: feature._uid,
+                extent: bound,
+                type: feature._type,
+            };
+        }
+        tileBound.type = feature._type;
 
         drawTile.set(key, feature._type);
 
@@ -2401,16 +2311,12 @@ class U3dShaderMeasureLayer extends U3dLayer {
         })
         if (idx === -1) {
             self._drawTileKeys[key].push(tileBound);
-
-            // When a new feature starts sharing an already-rendered tile, the tile's
-            // material must be rebuilt even if the existing material instance itself
-            // was not locally edited. Without this dirty mark, cached shader data can
-            // miss the newly included feature until the tile is otherwise invalidated.
-            const materialKey = feature._type + ":" + key;
-            const cacheMaterial = self._materialCache.get(materialKey);
-            if (cacheMaterial) {
-                cacheMaterial._isChanged = true;
-            }
+        }
+        // 새 피처와 유지된 binding의 형상 변경을 모두 기존 material 갱신에 반영합니다.
+        const materialKey = feature._type + ":" + key;
+        const cacheMaterial = self._materialCache.get(materialKey);
+        if (cacheMaterial) {
+            cacheMaterial._isChanged = true;
         }
         self._drawFeatureIds[key] = self._drawFeatureIds[key] || {}
         // pending draw 큐 대신 tile 포함 여부만 유지하고 실제 sync는 tile 단위로 바로 처리합니다.
@@ -2420,6 +2326,8 @@ class U3dShaderMeasureLayer extends U3dLayer {
             let parentTx = Math.floor(tx / Math.pow(2, i - self._minlevel));
             let parentTy = Math.floor(ty / Math.pow(2, i - self._minlevel));
             tileBound.parentKey = parentTx + '_' + parentTy + '_' + (self._minlevel);
+        } else {
+            delete tileBound.parentKey;
         }
 
     }
@@ -2449,11 +2357,11 @@ class U3dShaderMeasureLayer extends U3dLayer {
     getMeasureLength() {
         const self = this;
         if (!defined(self._measureFeature)) return 0;
-        const geom = self._measureFeature.getGeometry();
-        if (geom.points?.length > 1) {
+        const points = self._measureFeature.getMeasureVectors();
+        if (points?.length > 1) {
             let length = 0;
-            for(let i = 0 ; i<  geom.points.length - 1; i++) {
-                length += UMathEngine.getMeterDistanceByGooglePoints(geom.points[i], geom.points[i+1]);
+            for(let i = 0 ; i<  points.length - 1; i++) {
+                length += UMathEngine.getMeterDistanceByGooglePoints(points[i], points[i+1]);
             }
             return length;
         } else {
@@ -2623,14 +2531,9 @@ U3dShaderMeasureLayer.prototype.getTileFromScene = function (tile) {
  *
  * @param {import('@U3dQuadTile').U3dQuadTile} tile 확인할 terrain tile입니다.
  * @returns {boolean} Measure source의 tile binding 또는 manager 생명주기가 있으면 `true`입니다.
- *
- * @ignore
  */
 U3dShaderMeasureLayer.prototype.isTilePresentationParticipant = function (tile) {
-    const self = this;
-    const tileKey = tile?._key || tile?.getKey?.();
-    if (!tileKey || tile?._disposed === true || self._visible === false) return false;
-    return hasMeasureTerrainTileParticipation.call(self, tileKey);
+    return getMeasureTerrainTilePresentation.call(this, tile, undefined, 'participates').participates;
 };
 
 /**
@@ -2640,19 +2543,7 @@ U3dShaderMeasureLayer.prototype.isTilePresentationParticipant = function (tile) 
  * @returns {boolean} Measure 비참여 타일이거나 material 적용이 완료됐으면 `true`입니다.
  */
 U3dShaderMeasureLayer.prototype.isTileRenderableReady = function (tile) {
-    const self = this;
-    const tileKey = tile?._key || tile?.getKey?.();
-    if (!tileKey || tile?._disposed === true) return false;
-    // 숨김 또는 비참여 레이어의 true는 Measure가 화면을 그린다는 뜻이 아니라
-    // 다른 레이어의 LOD 전환을 차단하지 않는 중립값입니다.
-    if (self._visible === false) return true;
-    if (!hasMeasureTerrainTileParticipation.call(self, tileKey)) return true;
-    if (!tile?._mesh) return false;
-
-    return self._terrainDecalManager?.isTerrainTileSwapReady?.(tileKey, {
-        // 이 레이어가 소유한 source만 조회·해제 대상으로 지정합니다.
-        sourceKeys: INTERNAL.getMeasureTerrainSourceKeys(self),
-    }) === true;
+    return getMeasureTerrainTilePresentation.call(this, tile, undefined, 'ready').ready;
 };
 
 /**
@@ -2664,64 +2555,20 @@ U3dShaderMeasureLayer.prototype.isTileRenderableReady = function (tile) {
  * @returns {boolean} 측정이 걸리지 않은 tile이거나, tile과 mesh가 화면에 올라가 있고 그 tile이 실을 측정 자료가 최신으로 반영되었으면 `true` 입니다.
  */
 U3dShaderMeasureLayer.prototype.isTilePresentationVisible = function (tile) {
-    const self = this;
-    const tileKey = tile?._key || tile?.getKey?.();
-    if (!tileKey || tile?._disposed === true) return false;
-    // 숨김 또는 비참여 레이어는 다른 레이어의 LOD 판단을 통과시키는 중립값을 반환합니다.
-    if (self._visible === false) return true;
-    if (!hasMeasureTerrainTileParticipation.call(self, tileKey)) return true;
-    if (isMeasureTerrainTileConfirmedEmptySettled.call(self, tileKey)) return true;
-    if (tile?.visible !== true
-        || !tile?._mesh
-        || tile._mesh.visible !== true
-        || self._visibleTileKeys.has(tileKey) !== true) {
-        return false;
-    }
-
-    const presentationState = self._terrainDecalManager?.getTerrainTilePresentationState?.(tileKey, {
-        // 이 레이어의 측정 source를 식별해 다른 레이어 자료와 분리해 처리합니다.
-        sourceKey: INTERNAL.getMeasureTerrainPrimarySourceKey(self),
-        expectsPayload: true,
-    });
-    // hasActivePresentation은 terrain material 단위 상태이므로 같은 material의 Vector나 다른 decal만
-    // 활성화돼도 true일 수 있습니다. 이 Measure source의 feature 존재, live material 부착,
-    // 최신 Measure revision 적용을 함께 확인해야 자식 Measure가 실제로 반영되기 전에 부모가 숨지 않습니다.
-    return presentationState?.hasSourceFeatures === true
-        && presentationState?.hasActivePresentation === true
-        && presentationState?.isAppliedRevisionCurrent === true;
+    return getMeasureTerrainTilePresentation.call(this, tile, undefined, 'visible').visible;
 };
 
 /**
- * 최신 Measure revision의 준비 여부와 무관하게 기존 presentation이 실제 화면에 붙어 있는지 반환합니다.
+ * 최신 Measure revision의 준비 여부와 무관하게 기존 화면의 부착 상태를 반환합니다.
  *
- * 새 합성본을 기다리는 동안에는 직전 활성 material이 Coverage를 계속 제공할 수 있습니다.
- * 최신 revision 전환 가능 여부는 `isTileRenderableReady`와 `isTilePresentationVisible`이 담당합니다.
+ * 측정이 없던 영상 타일에 새 측정 결과를 준비하는 동안에는 기존 영상도 Coverage를 제공합니다.
+ * 최신 측정의 적용 완료와 새 자식 LOD 전환 가능 여부는 각각의 준비·안전성 판정이 담당합니다.
  *
  * @param {import('@U3dQuadTile').U3dQuadTile} tile 기존 표시 부착 상태를 확인할 terrain tile입니다.
- * @returns {boolean} 기존 Measure presentation이 terrain material에 붙어 표시 중이면 `true`입니다.
- *
- * @ignore
+ * @returns {boolean} 기존 측정 적용본이나 측정이 없던 영상 타일의 유효한 표시가 남아 있으면 `true`입니다.
  */
 U3dShaderMeasureLayer.prototype.isTilePresentationAttached = function (tile) {
-    const self = this;
-    const tileKey = tile?._key || tile?.getKey?.();
-    if (!tileKey || tile?._disposed === true) return false;
-    if (self._visible === false) return true;
-    if (!hasMeasureTerrainTileParticipation.call(self, tileKey)) return true;
-    if (isMeasureTerrainTileConfirmedEmptySettled.call(self, tileKey)) return true;
-    if (tile?.visible !== true
-        || !tile?._mesh
-        || tile._mesh.visible !== true
-        || self._visibleTileKeys.has(tileKey) !== true) {
-        return false;
-    }
-
-    const presentationState = self._terrainDecalManager?.getTerrainTilePresentationState?.(tileKey, {
-        // 이 레이어의 측정 source를 식별해 다른 레이어 자료와 분리해 처리합니다.
-        sourceKey: INTERNAL.getMeasureTerrainPrimarySourceKey(self),
-        expectsPayload: expectsMeasureTerrainTilePayload.call(self, tileKey),
-    });
-    return presentationState?.hasActivePresentation === true;
+    return getMeasureTerrainTilePresentation.call(this, tile, undefined, 'attached').attached;
 };
 
 /**
@@ -2729,35 +2576,9 @@ U3dShaderMeasureLayer.prototype.isTilePresentationAttached = function (tile) {
  *
  * @param {import('@U3dQuadTile').U3dQuadTile} tile 기존 적용본을 확인할 terrain tile입니다.
  * @returns {boolean} 모든 참여 Measure source에 적용 이력이 있고 실제 presentation이 붙어 있으면 `true`입니다.
- *
- * @ignore
  */
 U3dShaderMeasureLayer.prototype.isTileRetainedPresentationSafe = function (tile) {
-    const self = this;
-    const tileKey = tile?._key || tile?.getKey?.();
-    if (!tileKey || tile?._disposed === true) return false;
-    if (self._visible === false || !hasMeasureTerrainTileParticipation.call(self, tileKey)) return true;
-    if (isMeasureTerrainTileConfirmedEmptySettled.call(self, tileKey)) return true;
-    if (self.isTilePresentationAttached(tile) !== true) return false;
-
-    const tileEntry = self._terrainDecalManager?.TERRAIN_TILE_REGISTRY?.get?.(tileKey);
-    if (!tileEntry) return false;
-    // 실패 revision 규칙은 Manager·다른 Layer와 같은 순수 함수를 공유합니다.
-    if (hasTerrainTileFailedCurrentRevision(tileEntry)) return false;
-
-    // 측정 표시·계산에 필요한 결과를 얻으며, 등록·완료·해제 흐름은 이 호출부에서 관리합니다.
-
-    return INTERNAL.getMeasureTerrainSourceKeys(self).every(sourceKey => {
-        const sourceState = tileEntry.sourceStates?.get?.(sourceKey);
-        if (typeof sourceState?.status === 'string'
-            && ['failed', 'cancelled', 'disposed'].includes(sourceState.status)) return false;
-        const renderFeatureCount = Number(tileEntry.sourceRenderFeatureCounts?.get?.(sourceKey) ?? 0);
-        if (renderFeatureCount <= 0) {
-            return sourceState?.status === 'confirmed-empty'
-                || !tileEntry.sourceStates?.has?.(sourceKey);
-        }
-        return tileEntry.appliedSourceRevisions?.has?.(sourceKey) === true;
-    });
+    return getMeasureTerrainTilePresentation.call(this, tile, undefined, 'retainedSafe').retainedSafe;
 };
 
 /**
@@ -2769,30 +2590,12 @@ U3dShaderMeasureLayer.prototype.isTileRetainedPresentationSafe = function (tile)
  * @returns {boolean} 현재 부모 Measure Coverage를 유지해야 하면 `true`입니다.
  */
 U3dShaderMeasureLayer.prototype.isTileSceneRemovalDeferred = function (tile) {
-    const self = this;
-    const tileKey = tile?._key || tile?.getKey?.();
-    if (!tileKey || tile?._disposed === true || self._visible === false) return false;
-    if (!hasMeasureTerrainTileParticipation.call(self, tileKey)) return false;
-
-    const childTiles = Array.from(tile?._childTiles || []);
-    if (childTiles.length === 0) return false;
-    const requiredChildTiles = [
-        childTiles[0],
-        childTiles[1],
-        childTiles[2],
-        childTiles[3],
-    ];
-    const childCoverageReady = requiredChildTiles.every(childTile => {
-        if (!childTile || childTile._disposed === true) return false;
-        // 일반 terrain material이 보이는지만 확인하지 않고 위 source별 Presentation 판정을 재사용합니다.
-        // 네 자식 중 하나라도 최신 Measure가 빠져 있으면 부모 Measure를 fallback으로 남깁니다.
-        return self.isTilePresentationVisible(childTile) === true;
+    const children = Array.from(tile?._childTiles ?? []);
+    const childrenVisible = children.length === 0 ? [] : [0, 1, 2, 3].map(index => {
+        const child = children[index];
+        return !!child && this.isTilePresentationVisible(child);
     });
-    if (childCoverageReady) return false;
-
-    return tile.visible === true
-        && tile?._mesh?.visible === true
-        && self._visibleTileKeys.has(tileKey) === true;
+    return getMeasureTerrainTilePresentation.call(this, tile, childrenVisible, 'deferredRemoval').deferredRemoval;
 };
 
 /**
@@ -2986,23 +2789,13 @@ U3dShaderMeasureLayer.prototype.updateLastPoint = function (geo) {
 U3dShaderMeasureLayer.prototype.getTextPositionToMeasureArea = function () {
     const self = this;
     if (!defined(self._measureFeature)) return;
-    const geom = self._measureFeature.getGeometry();
     const type = self._measureFeature.getType();
     const vectors = self._measureFeature.getMeasureVectors();
     if (type === UDEF.MEASURE_TYPE.POLYGON) {
-        if (!geom || geom.curves.length === 0) {
-            if (geom.currentPoint) {
-                const vec = geom.currentPoint;
-                return self._app.vector3ToGeoGraphic(vec);
-            }
-        }
-        if (geom.curves.length > 0 && self._measureVectors.length > 0) {
-            const center = new THREE.Vector3();
-            new THREE.Box3()
-                .setFromPoints(self._measureVectors)
-                .getCenter(center);
-            return self._app.vector3ToGeoGraphic(center);
-        }
+        if (vectors.length === 0) return;
+        const center = new THREE.Vector3();
+        new THREE.Box3().setFromPoints(vectors).getCenter(center);
+        return self._app.vector3ToGeoGraphic(center);
     } else if (type === UDEF.MEASURE_TYPE.POINTBUFFER) {
         return self._app.vector3ToGeoGraphic(vectors[0]);
     }
@@ -3097,8 +2890,7 @@ U3dShaderMeasureLayer.prototype.removeFeatureTarget = function (feature) {
         delete self._featurePoints[feature.getUid()];
         const fid = feature.getId();
         delete self._olFeatures[fid]
-        const geom = feature.getGeometry();
-        if (geom.dispose) geom.dispose();
+
         self._features.splice(idx, 1);
     }
 }
@@ -3218,6 +3010,7 @@ U3dShaderMeasureLayer.prototype.getFeatureById = function (id) {
 }
 /**
  * UID로 찾은 측정 feature의 좌표를 통째로 바꿉니다. <br>
+ * OpenLayers 형상은 지도 좌표로 변환하고 기존 THREE 형상에는 월드 좌표를 전달합니다. <br>
  * 해당 UID의 feature나 좌표 기록을 찾지 못하면 아무것도 하지 않습니다. <br>
  * 좌표만 바꾸고 화면을 다시 그리지는 않으므로, 결과를 보려면 갱신을 따로 요청해야 합니다.
  *
@@ -3229,46 +3022,75 @@ U3dShaderMeasureLayer.prototype.setFeaturePoints = function (uid, vectors) {
     const feature = self.getFeatureByUid(uid);
     if (!feature || !self._featurePoints || !self._featurePoints[uid]) return;
 
-    const previousRevision = feature.getRevision();
-    const geometry = feature.getGeometry?.();
-    if (typeof geometry?.setCoordinates === 'function') {
-        geometry.setCoordinates(vectors);
+    const geometry = feature.getGeometry();
+    if (!geometry) return;
+    if (typeof geometry.getType !== 'function') {
+        const previousRevision = feature.getRevision();
+        if (typeof geometry.setCoordinates === 'function') geometry.setCoordinates(vectors);
+        if (feature.getMeasureVectors() !== vectors || feature.getRevision() === previousRevision) feature.setMeasureVectors(vectors);
+        self._featurePoints[uid] = vectors;
+        return;
     }
-    // UMeasureFeature가 연결한 geometry setter는 좌표와 revision을 이미 함께 갱신합니다.
-    if (feature.getMeasureVectors() !== vectors || feature.getRevision() === previousRevision) {
-        feature.setMeasureVectors(vectors);
-    }
+    const coordinates = vectors.map(point => {
+        const map = self._drawArg.getWorldToGoogle(point.x, point.y);
+        return [map.x, map.y];
+    });
+    if (geometry.getType() === 'Polygon') {
+        const rings = /** @type {Triple_Array<number>} */ (geometry.getCoordinates());
+        const ring = coordinates.slice();
+        const first = ring[0], last = ring[ring.length - 1];
+        if (first && last && (first[0] !== last[0] || first[1] !== last[1])) ring.push(first.slice());
+        geometry.setCoordinates([ring, ...rings.slice(1)]);
+    } else if (geometry.getType() === 'Point' && coordinates.length > 0) geometry.setCoordinates(coordinates[0]);
+    else geometry.setCoordinates(coordinates);
+    feature.setMeasureVectors(vectors);
+    feature.setExtent(getMeasureGeometryExtent(geometry, vectors, self._drawArg));
     self._featurePoints[uid] = vectors;
 }
 
+
 /**
- * 현재 binding revision과 manager의 material-visible 상태를 비교해 full sync 필요 여부를 반환합니다.
+ * 측정 입력의 표시 의도를 전달하고 Source별 표시 판정은 manager에 맡깁니다.
  *
- * @this {U3dShaderMeasureLayer}
- * @param {string} tileKey 확인할 terrain tile key입니다.
- * @returns {boolean} payload 동기화가 필요하면 `true`입니다.
+ * @this {import('@union3d/3dLayer/U3dShaderMeasureLayer').U3dShaderMeasureLayer}
+ * @param {import('@U3dQuadTile').U3dQuadTile} tile 확인할 지형 타일입니다.
+ * @param {Array<boolean>} [childrenVisible] 부모 제거 판정을 위한 네 자식의 표시 상태입니다.
+ * @param {TerrainLayerTilePresentationQuery} [query='all'] 필요한 표시 판정입니다.
+ * @returns {TerrainLayerTilePresentationState} 현재 Source의 표시·교대 판정입니다.
  *
  * @ignore
  */
-function shouldSyncMeasureTerrainTilePayload(tileKey) {
-    // 이 레이어의 측정 source를 식별해 다른 레이어 자료와 분리해 처리합니다.
-    const sourceKey = INTERNAL.getMeasureTerrainPrimarySourceKey(this);
-    const tileBounds = this._drawTileKeys?.[tileKey] ?? [];
-    const sourceRevision = getMeasureTerrainTileSourceRevisionCandidate.call(
-        this,
-        tileKey,
-        tileBounds,
-    ).revision;
-    const hasBindings = Object.keys(this._drawFeatureIds?.[tileKey] ?? {}).length > 0;
-    const expectsPayload = hasBindings || hasMeasureTerrainTileManagerFeatures.call(this, tileKey);
-    const presentationState = this._terrainDecalManager?.getTerrainTilePresentationState?.(tileKey, {
-        sourceKey,
-        sourceRevision,
-        // 현재 source revision을 동기화 식별 정보에 연결하며, revision을 추가 발급하지 않습니다.
-        sourceIdentity: INTERNAL.getMeasureTerrainSourceIdentity(this, sourceRevision),
-        expectsPayload,
-    });
-    return presentationState?.isSettled !== true;
+function getMeasureTerrainTilePresentation(tile, childrenVisible, query = 'all') {
+    const facts = getMeasureTerrainTileFacts.call(this, tile);
+    const state = this._terrainDecalManager?._getTerrainLayerTilePresentation(tile, {...facts, childrenVisible}, query);
+    if (state) return state;
+    const valid = !!(tile?._key || tile?.getKey?.()) && tile?._disposed !== true;
+    const participates = valid && facts.visible !== false && facts.hasBindings === true;
+    const neutral = valid && !participates;
+    return {participates, confirmedEmpty: false, ready: neutral, visible: neutral,
+        attached: neutral, retainedSafe: neutral, deferredRemoval: false, sceneProvider: participates, sourceKeys: [],
+        sourceOnly: false, commitAllowed: false, runtimeParticipation: false};
+}
+
+/**
+ * 측정 레이어가 소유한 입력 연결과 장면 표시 의도를 읽습니다.
+ *
+ * @this {import('@union3d/3dLayer/U3dShaderMeasureLayer').U3dShaderMeasureLayer}
+ * @param {TerrainRuntimeTile} tile 입력을 조회할 지형 타일입니다.
+ * @returns {TerrainLayerTilePresentationOption} manager에 전달할 입력 사실입니다.
+ *
+ * @ignore
+ */
+function getMeasureTerrainTileFacts(tile) {
+    const tileKey = tile?._key;
+    return {
+        ownerLayer: this,
+        sourceKeys: INTERNAL.getMeasureTerrainSourceKeys(this),
+        hasBindings: !!tileKey && Object.keys(this._drawFeatureIds?.[tileKey] ?? {}).length > 0,
+        visible: this._visible !== false,
+        presentationTracked: !!tileKey && this._visibleTileKeys.has(tileKey),
+        mode: 'measure',
+    };
 }
 
 /**
@@ -3294,107 +3116,6 @@ function shouldLogMeasureTerrainDebug(tileKey) {
         }
     }
     return String(tileKey).includes(String(filter));
-}
-
-
-/**
- * 지정한 tile에서 Measure source 생명주기가 등록된 source 키를 반환합니다.
- *
- * @this {U3dShaderMeasureLayer}
- * @param {string} tileKey 확인할 terrain tile key입니다.
- * @returns {Array<string>} feature 유무와 관계없이 manager에 생명주기가 등록된 Measure source 키입니다.
- *
- * @ignore
- */
-function getMeasureTerrainTileSourceLifecycleKeys(tileKey) {
-    if (!tileKey) return [];
-    const manager = this._terrainDecalManager;
-    const tileEntry = manager?.TERRAIN_TILE_REGISTRY?.get?.(tileKey);
-    const tileSources = manager?.TERRAIN_TILE_FEATURE_MAP?.get?.(tileKey);
-    // 이 레이어가 소유한 source만 조회·해제 대상으로 지정합니다.
-    return INTERNAL.getMeasureTerrainSourceKeys(this).filter(sourceKey => {
-        return tileSources?.has?.(sourceKey) === true
-            || tileEntry?.sourceStates?.has?.(sourceKey) === true
-            || tileEntry?.sourceRevisions?.has?.(sourceKey) === true
-            || tileEntry?.pendingSourceKeys?.has?.(sourceKey) === true;
-    });
-}
-
-/**
- * 지정한 tile의 Measure source가 모두 feature 없는 완료 상태인지 반환합니다.
- *
- * @this {U3dShaderMeasureLayer}
- * @param {string} tileKey 확인할 terrain tile key입니다.
- * @returns {boolean} 등록된 Measure source가 하나 이상이고 모두 feature 없는 완료 상태이면 `true`입니다.
- *
- * @ignore
- */
-function isMeasureTerrainTileConfirmedEmptySettled(tileKey) {
-    const manager = this._terrainDecalManager;
-    const sourceKeys = getMeasureTerrainTileSourceLifecycleKeys.call(this, tileKey);
-    if (sourceKeys.length === 0) return false;
-
-    return sourceKeys.every(sourceKey => {
-        const tileEntry = manager?.TERRAIN_TILE_REGISTRY?.get?.(tileKey);
-        const sourceStatus = tileEntry?.sourceStates?.get?.(sourceKey)?.status;
-        if (sourceStatus === 'confirmed-empty') {
-            const presentationState = manager?.getTerrainTilePresentationState?.(tileKey, {
-                sourceKey,
-                expectsPayload: false,
-            });
-            return presentationState?.hasSourceFeatures !== true
-                && presentationState?.isSettled === true;
-        }
-        // Measure payload는 tile로 클리핑하지 않고 worker가 잘라내므로, bbox에는 걸치지만 실제 도형이 없는
-        // tile은 `available` 상태에 render feature 0개로 정착합니다. 이 결과가 현재 revision까지 적용됐으면
-        // confirmed-empty와 같은 빈 완료이며, 활성 buffer가 없다는 이유로 attached를 거부하면 자식 LOD 전환이
-        // 영구히 막힙니다.
-        if (sourceStatus !== 'available' || !tileEntry) return false;
-        if (tileEntry.pendingSourceKeys?.has?.(sourceKey) === true) return false;
-        // render count가 기록되지 않은 source는 manager feature map의 실제 feature 수로 대신 판정합니다.
-        const renderFeatureCount = Number(
-            tileEntry.sourceRenderFeatureCounts?.get?.(sourceKey)
-            ?? manager?.TERRAIN_TILE_FEATURE_MAP?.get?.(tileKey)?.get?.(sourceKey)?.size
-            ?? 0,
-        );
-        if (renderFeatureCount !== 0) return false;
-        const isAppliedCurrent = tileEntry.dirty !== true
-            && Number(tileEntry.appliedRevision ?? 0) >= Number(tileEntry.revision ?? 0);
-        return isAppliedCurrent || tileEntry.appliedSourceRevisions?.has?.(sourceKey) === true;
-    });
-}
-
-/**
- * 현재 Measure 레이어가 지정한 terrain tile의 표시 결과에 참여하는지 반환합니다.
- *
- * @this {U3dShaderMeasureLayer}
- * @param {string} tileKey 확인할 terrain tile key입니다.
- * @returns {boolean} tile binding, manager source feature 또는 source 생명주기가 있으면 `true`입니다.
- *
- * @ignore
- */
-function hasMeasureTerrainTileParticipation(tileKey) {
-    if (!tileKey) return false;
-    const hasTileBindings = !!this._drawFeatureIds?.[tileKey]
-        && Object.keys(this._drawFeatureIds[tileKey]).length > 0;
-    return hasTileBindings
-        || hasMeasureTerrainTileManagerFeatures.call(this, tileKey)
-        || getMeasureTerrainTileSourceLifecycleKeys.call(this, tileKey).length > 0;
-}
-
-/**
- * 지정한 tile의 현재 Measure 상태가 실제 payload를 요구하는지 반환합니다.
- *
- * @this {U3dShaderMeasureLayer}
- * @param {string} tileKey 확인할 terrain tile key입니다.
- * @returns {boolean} 로컬 binding 또는 manager feature가 있어 활성 material을 요구하면 `true`입니다.
- *
- * @ignore
- */
-function expectsMeasureTerrainTilePayload(tileKey) {
-    const hasTileBindings = !!this._drawFeatureIds?.[tileKey]
-        && Object.keys(this._drawFeatureIds[tileKey]).length > 0;
-    return hasTileBindings || hasMeasureTerrainTileManagerFeatures.call(this, tileKey);
 }
 
 
@@ -3480,7 +3201,7 @@ function clearMeasureTerrainMaterialPayloadSources(tileKey, opt = {}) {
                 ? this._drawTileKeys?.[tileKey] ?? []
                 : [];
             const sourceRevision = nextOpt.changeType === 'visibility'
-                ? getMeasureTerrainTileSourceRevisionCandidate.call(this, tileKey, featureRefs).revision
+                ? resolveMeasureTerrainTileSourceRevision.call(this, tileKey, featureRefs, false)
                 : resolveMeasureTerrainTileSourceRevision.call(this, tileKey, featureRefs);
             sourceVersionOption = {
                 sourceRevision,
@@ -3502,7 +3223,7 @@ function clearMeasureTerrainMaterialPayloadSources(tileKey, opt = {}) {
 /**
  * manager 기준 presentation 상태와 디버그용 내부 상태를 함께 수집합니다.
  *
- * @this {U3dShaderMeasureLayer}
+ * @this {import('@union3d/3dLayer/U3dShaderMeasureLayer').U3dShaderMeasureLayer}
  * @param {string} tileKey 조회할 terrain tile key입니다.
  * @returns {Record<string, unknown>} 디버그 출력용 상태 snapshot입니다.
  *
@@ -3512,7 +3233,7 @@ function getMeasureTerrainDebugSnapshot(tileKey) {
     const cacheTile = this?._drawArg?._cacheTiles?.get?.(tileKey);
     const cacheMaterial = cacheTile?._mesh?.material;
     const managerMaterial = this?._terrainDecalManager?.getTerrainMaterial?.(tileKey);
-    const managerEntry = this?._terrainDecalManager?.TERRAIN_TILE_REGISTRY?.get?.(tileKey);
+    const managerSnapshot = this._terrainDecalManager?.getTerrainTileReadinessSnapshot(tileKey);
     const presentationState = this?._terrainDecalManager?.getTerrainTilePresentationState?.(tileKey, {
         // 이 레이어의 측정 source를 식별해 다른 레이어 자료와 분리해 처리합니다.
         sourceKey: INTERNAL.getMeasureTerrainPrimarySourceKey(this),
@@ -3525,7 +3246,7 @@ function getMeasureTerrainDebugSnapshot(tileKey) {
         visibleTile: this?._visibleTileKeys?.has?.(tileKey) === true,
         hasBindings: !!this?._drawFeatureIds?.[tileKey] && Object.keys(this._drawFeatureIds[tileKey]).length > 0,
         bindingCount: Object.keys(this?._drawFeatureIds?.[tileKey] ?? {}).length,
-        managerSourceKeys: Array.from(this?._terrainDecalManager?.TERRAIN_TILE_FEATURE_MAP?.get?.(tileKey)?.keys?.() ?? []),
+        managerSourceKeys: managerSnapshot?.sources.map(source => source.key) ?? [],
         sourceRevision: presentationState?.sourceRevision,
         sourceFeatureCount: presentationState?.sourceFeatureCount ?? 0,
         sourceSettled: presentationState?.isSettled === true,
@@ -3542,18 +3263,7 @@ function getMeasureTerrainDebugSnapshot(tileKey) {
         hasDataTexture: !!uniforms.dataTexture?.value,
         hasColorTexture: !!uniforms.colorTexture?.value,
         hasUvBounds: !!uniforms.uvBounds?.value,
-        terrainEntry: managerEntry ? {
-            visible: managerEntry.visible === true,
-            registered: managerEntry.registered === true,
-            featureCount: managerEntry.featureCount ?? 0,
-            revision: managerEntry.revision ?? 0,
-            appliedRevision: managerEntry.appliedRevision ?? 0,
-            activeRevision: managerEntry.activeRevision ?? 0,
-            pendingBuild: managerEntry.pendingBuild === true,
-            pendingSourceData: managerEntry.pendingSourceData === true,
-            decalReady: managerEntry.decalReady === true,
-            parentTileKey: managerEntry.parentTileKey,
-        } : undefined,
+        terrainEntry: managerSnapshot?.exists ? managerSnapshot : undefined,
     };
 }
 
@@ -3780,7 +3490,7 @@ function removeMeasureTerrainFeaturePayload(feature, opt = {}) {
 /**
  * tile binding을 현재 tile origin 기준 Source payload로 동기화합니다.
  *
- * @this {U3dShaderMeasureLayer}
+ * @this {import('@union3d/3dLayer/U3dShaderMeasureLayer').U3dShaderMeasureLayer}
  * @param {string} tileKey 동기화할 terrain tile key 입니다.
  * @param {import('three').Mesh} tileObject tile local origin을 제공하는 객체입니다.
  * @returns {boolean} full sync 또는 replay를 요청했으면 `true` 입니다.
@@ -3801,41 +3511,10 @@ function syncMeasureTerrainTileMaterial(tileKey, tileObject) {
     // 현재 source revision을 동기화 식별 정보에 연결하며, revision을 추가 발급하지 않습니다.
     const sourceIdentity = INTERNAL.getMeasureTerrainSourceIdentity(self, sourceRevision);
     const renderOrderOption = getMeasureTerrainRenderOrderOption.call(self, tileKey);
-    const features = buildMeasureTerrainTileFeaturePayloads.call(self, tileKey, tileObject, sourceKey);
     const tileOrigin = tileObject?.position;
-    const expectsPayload = features.length > 0 || hasMeasureTerrainTileManagerFeatures.call(self, tileKey);
-    const presentationState = manager.getTerrainTilePresentationState?.(tileKey, {
-        sourceRevision,
-        sourceKey,
-        sourceIdentity,
-        expectsPayload,
-        ...renderOrderOption,
-    });
-    if (presentationState?.isSettled === true) {
-        logMeasureTerrainDebug.call(self, tileKey, 'full-sync-skip', {
-            sourceRevision,
-            prevSourceRevision: presentationState?.prevSourceRevision,
-            expectsPayload,
-            hasDecalState: presentationState?.hasDecalState,
-        });
-        return false;
-    }
-
-    const tileCache = self._drawArg?._cacheTiles?.get?.(tileKey);
-    const parentTileKey = tileCache?._parent?._key;
-    manager.setTerrainTileSourcePending?.(tileKey, true, {
-        parentTileKey,
-        sourceKey,
-        sourceRevision,
-        sourceIdentity,
-        ...renderOrderOption,
-    });
-    logMeasureTerrainDebug.call(self, tileKey, 'full-sync-run', {
-        sourceRevision,
-        prevSourceRevision: presentationState?.prevSourceRevision,
-        featureCount: features.length,
-        parentTileKey,
-    });
+    const expectsPayload = (self._drawTileKeys?.[tileKey]?.length ?? 0) > 0
+        || hasMeasureTerrainTileManagerFeatures.call(self, tileKey);
+    const parentTileKey = self._drawArg?._cacheTiles?.get?.(tileKey)?._parent?._key;
     const syncOption = {
         origin: tileOrigin,
         changeType: 'replace',
@@ -3844,61 +3523,36 @@ function syncMeasureTerrainTileMaterial(tileKey, tileObject) {
         sourceIdentity,
         parentTileKey,
         consumePreparedFeatures: true,
-        ...renderOrderOption,
-    };
-    let changed;
-    if (features.length === 0) {
-        manager.setTerrainTileSourcePending?.(tileKey, false, {
-            parentTileKey,
-            sourceKey,
-            sourceRevision,
-            sourceIdentity,
-            sourceStatus: 'confirmed-empty',
-            ...renderOrderOption,
-        });
-        changed = manager.clearTerrainMaterialPayload?.(tileKey, {
-            ...syncOption,
-            requireConfirmedEmpty: true,
-        }) === true;
-    } else {
-        // source revision 변경을 먼저 manager에 반영한 뒤, no-op인 경우에만 material replay 여부를 판단합니다.
-        changed = manager.syncTerrainTileFeatures(tileKey, features, syncOption);
-        manager.setTerrainTileSourcePending?.(tileKey, false, {
-            parentTileKey,
-            sourceKey,
-            sourceRevision,
-            sourceIdentity,
-            sourceStatus: 'available',
-            ...renderOrderOption,
-        });
-    }
-    const nextPresentationState = manager.getTerrainTilePresentationState?.(tileKey, {
-        sourceRevision,
-        sourceKey,
-        sourceIdentity,
         expectsPayload,
         ...renderOrderOption,
-    });
-    let replayRequested = false;
-    if (!changed && nextPresentationState?.isSettled !== true) {
-        // manager source map이 같아도 live material이 바뀌었으면 uniform apply를 다시 예약해야 합니다.
-        logMeasureTerrainDebug.call(self, tileKey, 'full-sync-force-material-replay', {
+    };
+    return manager._updateTerrainTileSource(tileKey, () => {
+        const features = buildMeasureTerrainTileFeaturePayloads.call(self, tileKey, tileObject, sourceKey);
+        manager.setTerrainTileSourcePending(tileKey, true, syncOption);
+        let changed;
+        if (features.length === 0) {
+            manager.setTerrainTileSourcePending(tileKey, false, {
+                ...syncOption,
+                sourceStatus: 'confirmed-empty',
+            });
+            changed = manager.clearTerrainMaterialPayload(tileKey, {
+                ...syncOption,
+                requireConfirmedEmpty: true,
+            });
+        } else {
+            changed = manager.syncTerrainTileFeatures(tileKey, features, syncOption);
+            manager.setTerrainTileSourcePending(tileKey, false, {
+                ...syncOption,
+                sourceStatus: 'available',
+            });
+        }
+        logMeasureTerrainDebug.call(self, tileKey, 'full-sync-run', {
             sourceRevision,
-            expectsPayload,
-            hasDecalState: nextPresentationState?.hasDecalState,
-            isAppliedRevisionCurrent: nextPresentationState?.isAppliedRevisionCurrent,
-            isManagerReady: nextPresentationState?.isManagerReady,
-        });
-        manager.requestTileRebuild?.(tileKey, {
-            forceMaterialUpdate: true,
-            origin: tileOrigin,
+            featureCount: features.length,
             parentTileKey,
-            sourceIdentity,
-            ...renderOrderOption,
         });
-        replayRequested = true;
-    }
-    return changed || replayRequested;
+        return changed;
+    }, syncOption);
 }
 
 /**
@@ -4001,40 +3655,21 @@ function buildMeasureTerrainTileFeaturePayloads(tileKey, tileObject, sourceKey) 
 
 
 /**
- * 현재 collection signature에 대응하는 다음 source revision 상태를 변경 없이 계산합니다.
+ * 현재 collection signature의 변경 버전을 manager에서 조회하거나 확정합니다.
  *
- * @this {U3dShaderMeasureLayer}
- * @param {string} tileKey revision을 계산할 terrain tile key입니다.
- * @param {Array<U3dShaderMeasureFeatureRef>} [featureRefs=[]] 현재 source에 속한 feature 참조 목록입니다.
- * @returns {U3dShaderMeasureSourceRevisionState} 현재 signature와 단조 증가 revision 후보입니다.
- *
- * @ignore
- */
-function getMeasureTerrainTileSourceRevisionCandidate(tileKey, featureRefs = []) {
-    // 현재 feature 내용의 비교값을 얻으며, revision 확정과 저장은 이 함수가 담당합니다.
-    const signature = INTERNAL.calculateMeasureTerrainTileSourceSignature(this, tileKey, featureRefs);
-    const currentState = this._sourceRevisionStates.get(tileKey);
-    if (currentState?.signature === signature) return currentState;
-    return {
-        signature,
-        revision: Number(currentState?.revision ?? 0) + 1,
-    };
-}
-
-/**
- * 현재 collection signature에 대응하는 source revision을 레이어 수명 상태에 확정합니다.
- *
- * @this {U3dShaderMeasureLayer}
+ * @this {import('@union3d/3dLayer/U3dShaderMeasureLayer').U3dShaderMeasureLayer}
  * @param {string} tileKey revision을 확정할 terrain tile key입니다.
  * @param {Array<U3dShaderMeasureFeatureRef>} [featureRefs=[]] 현재 source에 속한 feature 참조 목록입니다.
+ * @param {boolean} [commit=true] 변경 버전을 manager에 확정할지 여부입니다.
  * @returns {number} Manager에 전달할 단조 증가 source revision입니다.
  *
  * @ignore
  */
-function resolveMeasureTerrainTileSourceRevision(tileKey, featureRefs = []) {
-    const nextState = getMeasureTerrainTileSourceRevisionCandidate.call(this, tileKey, featureRefs);
-    this._sourceRevisionStates.set(tileKey, nextState);
-    return nextState.revision;
+function resolveMeasureTerrainTileSourceRevision(tileKey, featureRefs = [], commit = true) {
+    const signature = INTERNAL.calculateMeasureTerrainTileSourceSignature(this, tileKey, featureRefs);
+    return this._terrainDecalManager?._resolveTerrainSourceRevision(
+        tileKey, INTERNAL.getMeasureTerrainPrimarySourceKey(this), signature, commit,
+    ) ?? 1;
 }
 
 
@@ -4094,7 +3729,7 @@ function applyMeasureLayerStyleToFeatures( overrides = {}) {
         const feature = features[i];
         if (!feature) continue;
         // 현재 설정과 feature·호출 옵션을 조합한 스타일을 얻고, 적용과 변경 예약은 아래에서 수행합니다.
-        const nextStyle = INTERNAL.resolveMeasureFeatureRenderStyle(self, feature, overrides);
+        const nextStyle = INTERNAL.resolveMeasureFeatureRenderStyle(self, feature, overrides, false);
         applyMeasureFeatureRenderStyle(feature, nextStyle);
     }
 }
@@ -4140,6 +3775,28 @@ U3dShaderMeasureLayer.prototype.getOLFeatureById = function (fid) {
 
 }
 
+
+/**
+ * 원본 형상의 지도 경계를 구하고 점 마커는 중심·가장자리 좌표로 반경을 확장합니다.
+ * @param {OLGeometry} geometry 원본 형상입니다.
+ * @param {Array<import('three').Vector3>} vectors 표시할 월드 좌표입니다.
+ * @param {import('@UDrawArg').UDrawArg} drawArg 좌표 변환기입니다.
+ * @returns {import('three').Box3 | undefined} 지도 좌표의 경계입니다.
+ * @ignore
+ */
+function getMeasureGeometryExtent(geometry, vectors, drawArg) {
+    if (!geometry) return;
+    let bounds = geometry.getExtent();
+    if (geometry.getType() === 'Point' && vectors.length > 1) {
+        const center = vectors[0];
+        const radius = center.distanceTo(vectors[vectors.length - 1]);
+        const min = drawArg.getWorldToGoogle(center.x - radius, center.y - radius);
+        const max = drawArg.getWorldToGoogle(center.x + radius, center.y + radius);
+        bounds = [min.x, min.y, max.x, max.y];
+    }
+    if (!bounds.every(Number.isFinite)) return;
+    return new THREE.Box3(new THREE.Vector3(bounds[0], bounds[1], 0), new THREE.Vector3(bounds[2], bounds[3], 0));
+}
 
 /**
  * OpenLayers geometry를 feature로 감쌉니다.

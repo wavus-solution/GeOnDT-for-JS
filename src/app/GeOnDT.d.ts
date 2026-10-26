@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -17,6 +17,7 @@ import type { U3dImageWMTSLayer } from "../3dLayer/U3dImageWMTSLayer.js";
 import type { U3dImageXYZLayer } from "../3dLayer/U3dImageXYZLayer.js";
 import type { U3dLodComponentLayer } from "../3dLayer/U3dLodComponentLayer.js";
 import type { U3dMaskLayer } from "../3dLayer/U3dMaskLayer.js";
+import type { U3dModelA3FLayer } from "../3dLayer/U3dModelA3FLayer.js";
 import type { U3dModelBIMObjLayer } from "../3dLayer/U3dModelBIMObjLayer.js";
 import type { U3dModelBasicLayer } from "../3dLayer/U3dModelBasicLayer.js";
 import type { U3dModelDxfLayer } from "../3dLayer/U3dModelDxfLayer.js";
@@ -49,7 +50,6 @@ import type { UAnalyHeight } from "../analy/UAnalyHeight.js";
 import type { UAnalyHeightLimit } from "../analy/UAnalyHeightLimit.js";
 import type { UAnalyLandScape } from "../analy/UAnalyLandScape.js";
 import type { UAnalyMultipleComponent } from "../analy/UAnalyMultipleComponent.js";
-import type { UAnalyObjectInfo } from "../analy/UAnalyObjectInfo.js";
 import type { UAnalyParticle } from "../analy/UAnalyParticle.js";
 import type { UAnalyPhysicalFlow } from "../analy/UAnalyPhysicalFlow.js";
 import type { UAnalyRoad } from "../analy/UAnalyRoad.js";
@@ -77,6 +77,7 @@ import type { UDRACOLoader } from "../core/loader/UDRACOLoader.js";
 import type { UFBXLoader } from "../core/loader/UFBXLoader.js";
 import type { UFileLoader } from "../core/loader/UFileLoader.js";
 import type { UGLTFLoader } from "../core/loader/UGLTFLoader.js";
+import type { UInstancedMesh } from "../core/mesh/UInstancedMesh.js";
 import type { UMesh } from "../core/mesh/UMesh.js";
 import type { USkinnedMesh } from "../core/mesh/USkinnedMesh.js";
 import type { UDxfParser } from "../core/parser/UDxfParser.js";
@@ -137,7 +138,7 @@ import type { U3dObjectBarrier } from "../select/U3dObjectBarrier.js";
 import type { U3dSelect } from "../select/U3dSelect.js";
 import type { UDefaultSource } from "../source/UDefaultSource.js";
 import type { Gradient } from "../util/Gradient.js";
-import type { deferred } from "../util/deferred.js";
+import type { deferredPromise } from "../util/deferredPromise.js";
 import type { snapPointToMesh, snapWorldPointToMesh } from "../util/snapPointToMesh.js";
 import type { U3dSimpleView } from "../view/U3dSimpleView.js";
 import type { U3dView } from "../view/U3dView.js";
@@ -242,7 +243,7 @@ declare class GeOnDT {
     };
     static U3dMouseEvent: typeof U3dMouseEvent;
     static Gradient: typeof Gradient;
-    static deferred: typeof deferred;
+    static deferred: typeof deferredPromise;
     static UFrustum: typeof UFrustum;
     /**
      * 파일 생성 관련 네임스페이스.
@@ -321,6 +322,7 @@ declare class GeOnDT {
         U3dVectorTileLayer: typeof U3dVectorTileLayer;
         U3dModelStaticLayer: typeof U3dModelStaticLayer;
         U3dModelI3FLayer: typeof U3dModelI3FLayer;
+        U3dModelA3FLayer: typeof U3dModelA3FLayer;
         U3dGridTileLayer: typeof U3dGridTileLayer;
         U3dLodComponentLayer: typeof U3dLodComponentLayer;
         U3dMaskLayer: typeof U3dMaskLayer;
@@ -416,7 +418,6 @@ declare class GeOnDT {
         UAnalyLandScape: typeof UAnalyLandScape;
         UAnalySurfaceVolume: typeof UAnalySurfaceVolume;
         UAnalySlope: typeof UAnalySlope;
-        UAnalyObjectInfo: typeof UAnalyObjectInfo;
         UAnalyGizmoModel: typeof UAnalyGizmoModel;
         UAnalyAlignModel: typeof UAnalyAlignModel;
         UAnalyMultipleComponent: typeof UAnalyMultipleComponent;
@@ -505,6 +506,7 @@ declare class GeOnDT {
     };
     static object: {
         UMesh: typeof UMesh;
+        UInstancedMesh: typeof UInstancedMesh;
         USkinnedMesh: typeof USkinnedMesh;
         UGroup: typeof UGroup;
         U3dCustomModel: typeof U3dCustomModel;
@@ -519,6 +521,7 @@ declare class GeOnDT {
     };
     static Object: {
         UMesh: typeof UMesh;
+        UInstancedMesh: typeof UInstancedMesh;
         USkinnedMesh: typeof USkinnedMesh;
         UGroup: typeof UGroup;
         U3dCustomModel: typeof U3dCustomModel;

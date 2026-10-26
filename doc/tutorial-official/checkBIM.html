@@ -821,7 +821,7 @@
             self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
             self._app.addLayer(this.layer);
         }
-        this.layer.then(() => {
+        this.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -851,7 +851,7 @@
     HeightLayer.prototype.create = function () {
         let self = this;
         self.layer = this._app.createHeightXYZLayer(self.options);
-        self.layer.then(() => {
+        self.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -1316,7 +1316,7 @@
                     proxyurl: './proxy.jsp?url='
                 };
                 $("#tab-step1 .btn-show").text("진행중");
-                let layer = app.createModelBIMObjLayer(opt);
+                let layer = app.createBIMObjModelLayer(opt);
                 miniApp.shareLayer(layer);
 
                 if (layer) {
@@ -1408,7 +1408,7 @@
                 if (layer) {
                     app.addLayer(layer);
                     miniApp.shareLayer(layer);
-                    layer.then(function () {
+                    layer.ready.then(function () {
                         let keys = Object.keys(layerList);
                         for (let key of keys) {
                             app.showLayer(key, false);

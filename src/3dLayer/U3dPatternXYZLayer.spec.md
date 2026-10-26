@@ -183,8 +183,17 @@ U3dPatternXYZLayer extends U3dImageLayer 클래스 정의
         의존: UTextureLoader — 이미지 로딩; 생성자: {new UTextureLoader()}
     #rectangleCache, #resourceCache: LRUCache
         의존: LRUCache — 타일 사각형과 합성 결과 보관; 생성자: {new LRUCache()}
-    #patternPromise: DeferredObject
-        의존: deferred — 패턴 준비 완료; 함수: {deferred()}
+    #patternPromise: DeferredPromise<void>
+        의존: deferredPromise — 초기화와 진행 중 데칼 작업의 공통 대기 신호; 함수: {deferredPromise()}
+        준비 신호는 값을 전달하지 않으며, 진행 중에는 같은 Promise를 유지한다.
+    #pendingDecalTasks: Set<DeferredPromise<Array<UPatternDecal>>> = 빈 Set
+        호출별 결과를 종결하고 레이어 해제 시 대기를 취소하기 위한 진행 작업 목록이다.
+    #initializationFinished: boolean = false
+        기본 이미지 합성·초기 데칼 후처리의 성공 또는 실패 종결 여부이다.
+    #initializationId: number = 0
+        초기화 시작마다 증가하며 이전 초기화의 응답·후처리·완료가 현재 상태를 변경하지 못하게 구분한다.
+    #patternError: Error | null = null
+        초기화 후처리 실패를 보관하여 대기 중인 타일 요청에 전달한다.
     _lastUpdateVersion: number = 0
     _updateVersion: number = 0
         반영 완료 버전과 요청 버전이다.
@@ -229,25 +238,31 @@ U3dPatternXYZLayer extends U3dImageLayer 클래스 정의
     override initialize() -> boolean
         의존:
             U3dImageLayer — 부모 초기화; 함수: {initialize()}
-            U3dLayer — 앱·기본 주소·준비 완료; 속성 읽기: {_app, _baseUrl}; 함수: {resolve()}
+            U3dLayer — 앱·기본 주소·준비 완료; 속성 읽기: {_app, _baseUrl}; 함수: {_resolveReady(), _rejectReady(), isReady()}
             U3dObject — 레이어 이름; 속성 읽기: {_name}
-            UTextureLoader — 이미지 요청; 함수: {load()}
-            deferred — 완료 상태; 함수: {deferred()}
+            UError — Error 이외의 실패값 보관; 생성자: {new UError()}
             UDEF — 알파 품질 적용; 함수: {setTextureImprovement()}
             U3dApp — 렌더러; 속성 읽기: {_renderer}
             UEventDispatcher — 데칼 추가 통지; 함수: {dispatchEvent()}
             __GError__ — 로딩 오류 통지; 함수: {__GError__()}
         동작:
-            _app이 없으면 false를 반환한다.
-            _app이 있으면:
+            _app이 없거나 레이어가 해제되었으면 false를 반환한다.
+            _app이 있고 해제되지 않았으면:
+                초기화 회차를 증가시키고 이전 패턴 오류를 지우며 초기화 종결 여부를 false로 설정한다.
+                공통 패턴 대기가 완료된 경우에만 새 대기를 만든다. 진행 중이면 기존 타일 요청이 계속 기다리도록 같은 대기를 유지한다. 공개 ready의 재설정은 재시도 호출부의 기존 책임이다.
                 초기 decalInfos가 있으면 데칼을 등록한다.
-                기본 URL이 있으면 로딩 성공 후 이름과 원본 텍스처를 저장하고, 실패하면 0948373 로그와 오류값으로 완료한다. URL이 없으면 즉시 완료한다.
+                현재 데칼 목록을 복사하여 이번 초기화의 후처리 대상으로 보관한다. 이벤트 수신자가 나중에 추가하는 데칼은 해당 addDecal 작업이 반영한다.
+                기본 URL이 있으면 공통 이미지 로딩으로 이름과 원본 텍스처를 저장한다. 요청 실패는 0948373 로그 후 값 없이 완료하며 URL이 없으면 요청을 등록하지 않는다.
                 _alphaBaseUrl이 있으면 로딩하고 isConvertGrayScale가 true일 때 명도 변환 결과를 사용한다.
 
-                알파 성공은 품질을 적용하여 완료하고 실패는 0949618 로그와 오류값으로 완료한다.
+                알파 성공은 품질을 적용하고 요청 실패는 0949618 로그 후 값 없이 완료한다.
                 데칼 이미지 요청을 같은 대기 목록에 추가한다.
-                모든 요청 종결 뒤 finally에서 기본 합성 텍스처를 저장한다.
-                패턴 준비와 레이어 준비를 완료한 다음 데칼별 캔버스를 굽고 addDecal 이벤트를 전달한다.
+                모든 이미지 요청을 allSettled로 성공·실패와 무관하게 기다린 뒤 완료된 목록의 Promise.all을 await하여 첫 실패를 catch 경로로 전달한다. 성공했어도 해제되었거나 이전 초기화 회차이면 후처리를 중단하며, 유효한 현재 회차이면 기본 합성 텍스처를 저장한다. 요청 실패의 대체 처리는 성공 종결에 포함된다.
+                레이어 준비를 현재 레이어로 완료한 다음 보관한 목록 중 아직 등록되어 있고 살아 있는 데칼별 캔버스를 굽고 addDecal 이벤트를 전달한다. 다음 데칼 전에 해제·초기화 회차를 다시 확인한다. 부모 생성자 타이머의 완료 정책은 유지한다.
+                초기 addDecal 이벤트 수신자의 예외는 0949840 로그를 남기고 나머지 데칼 처리를 계속한다. 이벤트 예외를 패턴 오류로 저장하거나 준비된 타일 생성을 차단하지 않는다.
+                로딩 callback의 변환·품질 설정 예외는 요청 Promise를 거부한다. 해제되었거나 이전 초기화 회차의 이미지는 dispose하고 값 없이 요청을 완료한다.
+                현재 회차의 준비·합성 실패는 기존 Error 또는 원인을 두 번째 인수로 전달한 UError로 #patternError에 저장한다. 레이어가 아직 대기 중이면 원래 실패를 _rejectReady에 전달하고, 이미 완료되었으면 0949840 오류 로그를 기록한다. 이전 회차의 실패는 현재 상태를 변경하지 않는다.
+                마지막 finally는 해제되지 않은 현재 회차에서만 #initializationFinished를 true로 설정하며 진행 중인 데칼 작업이 없을 때만 공통 패턴 대기를 완료한다.
             부모 initialize의 즉시 결과를 반환하며 비동기 이미지 완료까지 기다리는 반환값은 아니다.
 
     override update() -> void
@@ -261,7 +276,7 @@ U3dPatternXYZLayer extends U3dImageLayer 클래스 정의
             LRUCache — 합성·사각형 캐시; 함수: {has(), get(), delete()}
             Texture — 기존 map 해제; 함수: {dispose()}
         동작:
-            _app이 없거나 패턴 준비가 안 됐거나 _disposed가 true이면 종료한다.
+            _app이 없거나 패턴 준비가 안 됐거나 _disposed가 true이거나 초기화 후처리 오류가 있으면 종료한다.
             _app이 truthy이면:
                 _disposed가 false이고 패턴이 준비되었으면:
                     부모 update를 인수 없이 호출한다.
@@ -298,17 +313,16 @@ U3dPatternXYZLayer extends U3dImageLayer 클래스 정의
 
     override createTexture(tile: U3dQuadTile) -> Promise<U3dQuadTile> | undefined
         의존:
+            UAbortError — 해제된 타일 작업 거부; 생성자: {new UAbortError()}
             U3dLayer — 레벨·캐시 조회; 속성 읽기: {_maxlevel, _minlevel, _cache}; 함수: {getCache()}
             U3dQuadTile — 타일 상태; 속성 읽기: {_disposed, _rlevel, _key}
-            deferred — 타일 완료; 함수: {deferred()}
             UCache — 메시 저장; 함수: {add()}
         동작:
-            타일이 없거나 처분되었거나 허용 레벨 밖이면 undefined를 반환한다.
-            캐시가 있으면 타일로 완료한 deferred를 반환한다.
-            패턴이 준비되었으면 메시를 만들고 저장한 뒤 타일로 완료한다.
-            준비 전이면 패턴 완료 후 타일이 살아 있을 때 메시를 만들고 저장하여 타일로 완료하고, 처분되었으면 인수 없이 reject한다.
-
-            타일 완료 deferred를 반환한다.
+            타일이 없거나 타일·레이어가 해제되었거나 허용 레벨 밖이면 undefined를 반환한다.
+            캐시가 있으면 해당 타일로 이행되는 표준 Promise를 반환한다.
+            캐시가 없으면 현재 패턴 Promise를 기다린다. 깨어난 시점에 새 회차로 바뀌었으면 새 회차도 기다린다.
+            대기 후 타일 또는 레이어가 해제되었으면 name이 AbortError인 UAbortError로 거부하고, 초기화 후처리 오류가 있으면 그 Error로 거부한다.
+            캐시를 다시 확인해 다른 대기자가 만든 메시가 없을 때만 생성·저장하고 타일을 반환한다. 메시 생성 예외는 같은 반환 Promise를 거부한다.
 
     createMesh(tile: U3dQuadTile) -> UTerrainMesh
         의존:
@@ -343,6 +357,7 @@ U3dPatternXYZLayer extends U3dImageLayer 클래스 정의
 
     override dispose() -> void
         의존:
+            UAbortError — 진행 중인 데칼 작업 거부; 생성자: {new UAbortError()}
             U3dImageLayer — 기반 해제; 함수: {dispose()}
             LRUCache — 사각형·합성 캐시 해제; 함수: {clear()}
             Texture — 이미지 해제; 함수: {dispose()}
@@ -350,7 +365,7 @@ U3dPatternXYZLayer extends U3dImageLayer 클래스 정의
             Material — 머티리얼 해제; 함수: {dispose()}
             U3dLayer — 메시 캐시; 속성 읽기: {_cache}
         동작:
-            부모를 해제하고 사각형·자원 캐시를 비운다.
+            부모를 해제하고 진행 중인 각 데칼 결과를 같은 UAbortError로 거부한 뒤 공통 패턴 대기를 완료한다. 사각형·자원 캐시를 비운다.
             합성·원본·알파 텍스처가 있으면 해제한다.
             URL별 데칼·알파 텍스처를 해제하고 저장소를 null로 설정한다.
             decalInfos를 null로 바꾸지만 개별 데칼 dispose는 호출하지 않는다.
@@ -367,19 +382,27 @@ U3dPatternXYZLayer extends U3dImageLayer 클래스 정의
             UGroup — 장면 제거; 함수: {remove()}
         동작: tile.visible이 false이고 캐시 객체가 있으면 그룹에서 제거하고 visible을 false로 바꿔 true를 반환하며 아니면 false를 반환한다.
 
-    addDecal(decalInfos: Array<DecalOption> | Array<UPatternDecal>) -> Promise<Array<UPatternDecal>>
+    async addDecal(decalInfos: Array<DecalOption> | Array<UPatternDecal>) -> Promise<Array<UPatternDecal>>
         의존:
-            deferred — 대기 상태 교체; 함수: {deferred()}
+            UAbortError — 해제된 레이어의 작업 거부; 생성자: {new UAbortError()}
+            deferredPromise — 공통 대기와 호출별 완료 제어; 함수: {deferredPromise()}
+            U3dLayer — 레이어 해제 여부; 속성 읽기: {_disposed}
             UEventDispatcher — 데칼 추가 통지; 함수: {dispatchEvent()}
         동작:
-            패턴이 대기 중이면 새 deferred로 대기자를 인계하고 이전 것을 reset하며, 아니면 새 deferred를 만든다.
+            해제된 레이어이면 UAbortError로 거부되는 Promise를 반환한다.
+            공통 패턴 대기가 완료되었으면 새 대기를 만들고, 아직 대기 중이면 같은 객체를 유지한다.
+            이번 호출 전용 결과 Promise를 만들어 진행 작업 집합에 등록한다. 이전 callback을 복사하거나 Promise를 reset하지 않는다.
             isUPatternDecal이 truthy이고 disposed가 false인 객체는 그대로 등록하고, 그 외는 decalArea가 Array인 옵션만 모은다.
-            decalOptionList.length가 truthy이면 옵션으로 데칼을 만들어 기존 객체와 함께 결과 목록에 모은다.
-            결과가 비었으면 빈 배열로 패턴을 완료하고 반환한다.
-            등록된 전체 데칼의 미보유 이미지를 요청한다.
-            요청이 없으면 각 결과 데칼을 굽고 addDecal 이벤트를 보낸 뒤 결과로 패턴을 완료한다.
-            요청이 있으면 Promise.all 성공 후 같은 처리를 하고, catch에서는 이벤트 없이 결과로 패턴을 완료한다.
-            현재 패턴 deferred를 반환한다.
+            옵션으로 만든 데칼을 기존 객체와 함께 이번 결과 목록에 모은다.
+            결과가 있으면 등록된 전체 데칼의 미보유 이미지를 요청한다. 결과가 없으면 이미지 요청 없이 빈 목록을 결과로 사용한다.
+
+            이미지 요청을 allSettled로 성공·실패와 무관하게 모두 기다린다. 완료된 요청 목록을 Promise.all로 받아 try/catch에서 실패를 오류 목록에 보관한다. 일부 실패만으로 공통 타일 대기를 먼저 풀지 않는다.
+            이후 마이크로태스크에서 이번 결과 데칼을 순회한다. 레이어가 해제되었으면 UAbortError로 호출별 결과를 직접 거부하고 제거·해제된 데칼은 건너뛴다.
+            살아 있는 데칼의 캔버스를 굽는다. 이미지 적용 실패가 있으면 성공 이벤트 없이 가능한 캔버스 반영을 마치고, 이미지 적용 실패가 없으면 addDecal 이벤트를 보낸다. 다음 데칼 전에 레이어 해제를 다시 확인한다.
+            캔버스·이벤트 예외도 오류 목록에 보관하고 나머지 데칼을 처리한다. 이미지 목록의 첫 실패를 우선하며, 이미지 실패가 없으면 첫 후처리 예외를 사용한다. 배열의 건수로 실패 유무를 구분하여 undefined·null 등 falsy 실패값도 보존한다.
+            반영 후 오류 목록이 있으면 첫 오류를 reject에 직접 전달하고, 없으면 이번 결과 목록을 resolve에 전달한다. 등록 시 동기 예외와 비동기 처리의 나머지 예외도 같은 호출의 거부로 전달한다. 이미지 요청 실패의 로그·대체 처리와 후처리 예외를 구분한다.
+            async 함수는 호출별 결과를 await하고 try/finally에서 이번 작업을 집합에서 제거한다. 진행 작업이 없고, 초기화 후처리가 끝났거나 레이어가 해제된 상태이면 공통 대기를 완료한다. 이미지 처리 자체를 여기서 기다리지 않아 해제 시 미응답 요청도 즉시 취소할 수 있다.
+            각 호출의 결과는 독립적이며, then의 반환값·예외·finally는 표준 Promise 체이닝을 따른다.
     getDecal(name: string) -> UPatternDecal | null
         동작: falsy 이름이면 null이며 아니면 decalInfos에서 첫 이름 일치 객체를 찾아 없으면 null을 반환한다.
     getDecals() -> Array<UPatternDecal>
@@ -395,21 +418,32 @@ U3dPatternXYZLayer extends U3dImageLayer 클래스 정의
     getDecalAlphaTexture(textureUrl: string) -> Texture | null | undefined
         동작: 알파 저장소가 없으면 null이고 아니면 해당 URL 값을 그대로 반환한다.
 
-    #loadDecalTexture(promiseList: Array<Promise<unknown>> = []) -> Array<Promise<unknown>>
+    #loadTexture(url: string, applyTexture: function(UCanvasTexture): void, errorCode: string, initializationId?: number) -> Promise<void>
         의존:
-            deferred — 로딩 완료; 함수: {deferred()}
+            deferredPromise — 로딩 완료; 함수: {deferredPromise()}
             UTextureLoader — 이미지 요청; 함수: {load()}
+            __GError__ — 요청 실패 통지; 함수: {__GError__()}
+            U3dLayer — 해제 상태; 속성 읽기: {_disposed}
+        동작:
+            새 deferredPromise를 만들고 url로 이미지 로딩을 요청한다.
+            이미지 성공 callback에서 레이어가 해제되었거나 전달된 initializationId가 현재 회차와 다르면 새 텍스처를 폐기하고, 아니면 applyTexture로 저장·변환 처리를 실행한다. 정상 처리 후 값 없이 완료한다.
+            독립적인 addDecal 요청은 initializationId를 생략하며 레이어 해제 여부만 확인한다.
+            요청 실패 callback에서는 url·오류·errorCode를 레이어 주체로 로그에 남기고 대체 처리를 위해 값 없이 완료한다.
+            요청 등록 자체의 동기 예외와 이미지 성공 callback의 예외는 같은 Promise의 거부로 전달한다.
+            결과 Promise를 반환한다.
+
+    #loadDecalTexture(promiseList: Array<Promise<void>> = [], initializationId?: number) -> Array<Promise<void>>
+        의존:
             UDEF — 품질 적용; 함수: {setTextureImprovement()}
             U3dApp — 렌더러; 속성 읽기: {_renderer}
-            __GError__ — 실패 통지; 함수: {__GError__()}
             U3dLayer — 앱 연결; 속성 읽기: {_app}
         동작:
             데칼이 없으면 받은 promiseList 원본 배열을 반환한다.
-            URL이 없거나 이미 텍스처를 보유한 요청은 건너뛰고, 새 요청의 deferred를 원본 목록에 추가한다.
-            기본 이미지 성공 시 이름·품질을 적용하고 URL별 저장소에 넣어 완료한다.
-            알파 이미지 성공 시 데칼 isConvertGrayScale가 true이면 변환한 뒤 이름·품질·저장과 완료를 수행한다.
+            URL이 없거나 이미 텍스처를 보유한 요청은 건너뛴다. 요청 시점의 기본·알파 URL을 보관하고 공통 이미지 로딩 결과를 원본 목록에 추가한다.
+            기본 이미지 성공 시 요청 URL로 이름·품질을 적용하고 해당 URL의 저장소에 넣는다.
+            알파 이미지 성공 시 요청 URL로 이름을 정하고 데칼 isConvertGrayScale가 true이면 변환한 뒤 품질·저장을 수행한다.
 
-            실패 callback은 일반 함수의 실제 this로 기본 9423906 또는 알파 9425157 로그를 기록하고 오류값으로 완료한다.
+            공통 이미지 로딩에 기본 9423906 또는 알파 9425157을 실패 로그 코드로 전달하고 선택적 초기화 회차를 그대로 전달한다.
             원본 목록을 반환하며 진행 중 동일 URL 요청을 따로 중복 제거하지 않는다.
 
     #setDecalInfos(infos: Array<DecalOption>) -> Array<UPatternDecal>

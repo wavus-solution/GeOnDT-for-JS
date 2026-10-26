@@ -67,7 +67,7 @@
             app.showLayer('tiles Layer', true);  // 등록한 레이어 가시화
         </div>
         <div class="explane1">
-            * 모든 레이어 객체는 생성 후 <mark><strong>.ready() 또는 .then() 을 포함하는 promise 함수를 지원</strong></mark>합니다.<br>
+            * 모든 레이어 객체는 <mark><strong>초기화 완료를 기다리는 ready Promise 속성</strong></mark>을 제공합니다. <strong>await layer.ready</strong> 또는 <strong>layer.ready.then(...)</strong>으로 완료 후 처리를 수행합니다.<br>
             * 3D Tiles 는 tileset.json 로딩이 끝난 뒤에야 위치·범위 정보를 알 수 있으므로, <mark>레이어로 카메라를 이동</mark>하는 등의 후처리는 반드시 이 함수 안에서 수행합니다.
         </div>
         <label class="code-label"> 레이어 로딩 완료 후 카메라 이동 </label>
@@ -133,7 +133,7 @@
     <div class="doc">
         <div class="explane1">
             * 레이어를 생성한 뒤에도 아래 함수들로 위치·높이·방향·투명도를 동적으로 바꿀 수 있습니다.<br>
-            * 높이·회전 등 데이터 범위에 의존하는 함수는 <mark><strong>레이어 로딩이 끝난 후(.ready().then())</strong></mark> 호출해야 정상 동작합니다.
+            * 높이·회전 등 데이터 범위에 의존하는 함수는 <mark><strong>레이어 로딩이 끝난 후(layer.ready.then(...))</strong></mark> 호출해야 정상 동작합니다.
             <div class="explane_api">
                 U3dModelTilesLayer.<span class="api_name">setHeightOffset</span> (<span class="param_name">offset</span>)
                 <div class="explane_api_param">

@@ -7,13 +7,11 @@ const LAYER_NAMES = Object.freeze({
     buildings: 'heat-geometry-buildings'
 });
 
-const DEFAULT_HEAT = Object.freeze({temperature: 80, buffer: 18, outerFactor: 3});
+const DEFAULT_HEAT = Object.freeze({temperature: 90, buffer: 30, outerFactor: 3});
 
 const BUILDING_MODELS = Object.freeze([
     {name: 'building3', type: 'Component', baseurl: 'https://3d-dev.geon.kr/data/component/VIL_C/', fileName: 'VIL_C.3ds', ext: '3ds'},
-    {name: 'building9', type: 'Component', baseurl: 'https://3d-dev.geon.kr/data/component/SW010_01/', fileName: 'SW010_01.3ds', ext: '3ds'},
-    {name: 'building7', type: 'Component', baseurl: 'https://3d-dev.geon.kr/data/component/SW134_13/', fileName: 'SW134_13.3ds', ext: '3ds'},
-    {name: 'building8', type: 'Component', baseurl: 'https://3d-dev.geon.kr/data/component/SW132_04/', fileName: 'SW132_04.3ds', ext: '3ds'}
+    {name: 'building7', type: 'Component', baseurl: 'https://3d-dev.geon.kr/data/component/SW134_13/', fileName: 'SW134_13.3ds', ext: '3ds'}
 ]);
 
 /**
@@ -88,6 +86,7 @@ export async function initialize(context) {
             activeHeatId,
             interactionMode,
             interactionHeatId,
+            gizmoHeatId,
             targetCount: targets.size,
             heats: [...heats.values()].map(record => ({
                 id: record.id,
@@ -95,6 +94,7 @@ export async function initialize(context) {
                 temperature: record.heat.getTemperature(),
                 buffer: record.heat.getBuffer(),
                 outerFactor: record.heat.outerFactor,
+                available: record.heat.getAvailable(),
                 targets: [...record.targetIds].map(id => ({id, name: targets.get(id)?.name || id}))
             }))
         };
@@ -105,37 +105,56 @@ export async function initialize(context) {
         changeListeners.forEach(listener => listener(snapshot, message));
     }
 
-    /** 기즈모로 이동 중인 열원 좌표와 모든 연결선을 같은 위치로 갱신합니다. */
-    function synchronizeGizmoHeat() {
-        const record = getHeatRecord(gizmoHeatId);
-        if (!record) return;
-        const geographic = app.vector3ToGeoGraphic(record.heat.getPosition());
-        if (!geographic) return;
-        record.geoPosition = {x: geographic.x, y: geographic.y, z: geographic.z || 0};
+    function synchronizeLinks(record) {
         record.links.forEach((line, targetId) => {
             const target = targets.get(targetId);
             if (target) line.setPositions([record.geoPosition, target.geoPosition]);
         });
     }
 
+    function getGroundHeight(position, fallback = 0) {
+        const height = Number(app.getHeightAtGeographicPoint(position, true));
+        return Number.isFinite(height) && height > -1000 ? height : fallback;
+    }
+
+    /** 기즈모로 이동 중인 열원 좌표와 연결선을 함께 갱신합니다. */
+    function synchronizeGizmoHeat() {
+        const record = getHeatRecord(gizmoHeatId);
+        if (!record) return;
+        const geographic = app.vector3ToGeoGraphic(record.heat.getPosition());
+        if (!geographic) return;
+        const movedHorizontally = Math.abs(geographic.x - record.geoPosition.x) > 1e-9
+            || Math.abs(geographic.y - record.geoPosition.y) > 1e-9;
+        if (!movedHorizontally && Math.abs(geographic.z - record.geoPosition.z) < 0.001) return;
+        if (movedHorizontally) record.groundHeight = getGroundHeight(geographic, record.groundHeight);
+        record.geoPosition = {x: geographic.x, y: geographic.y, z: geographic.z || 0};
+        synchronizeLinks(record);
+        emitChange();
+    }
+
     /** @param {string} id */
     function activateHeatGizmo(id) {
         const record = getHeatRecord(id);
         if (!record || !gizmo) return;
-        gizmoHeatId = id;
+        gizmoHeatId = undefined;
         // @example-code:start heat.gizmo
         gizmo.active();
         gizmo.setMode('translate');
         gizmo.setObject(record.heat);
         // @example-code:end heat.gizmo
+        gizmoHeatId = id;
     }
 
     if (gizmo) {
         gizmo.setUpdateFunc(synchronizeGizmoHeat);
-        gizmo.setEndFunc(synchronizeGizmoHeat);
+        gizmo.setEndFunc(() => {
+            synchronizeGizmoHeat();
+            const record = getHeatRecord(gizmoHeatId);
+            if (record) emitChange(`${record.name}을 이동했습니다.`);
+        });
     }
 
-    /** @param {'idle'|'addHeat'|'selectTarget'} mode @param {string} [heatId] */
+    /** @param {'idle'|'addHeat'|'selectTarget'|'moveHeat'} mode @param {string} [heatId] */
     function setInteractionMode(mode, heatId) {
         interactionMode = mode;
         interactionHeatId = heatId;
@@ -159,12 +178,31 @@ export async function initialize(context) {
         emitChange(`${record.name}에 연결할 대상 객체를 한 번 클릭하세요.`);
     }
 
+    /** @param {string} heatId */
+    function armHeatMove(heatId) {
+        const record = getHeatRecord(heatId);
+        if (!record) return;
+        gizmo?.deactive();
+        gizmoHeatId = undefined;
+        activeHeatId = heatId;
+        setInteractionMode('moveHeat', heatId);
+        emitChange(`${record.name}을 옮길 지도 위치를 한 번 클릭하세요. 지면 기준 높이는 유지됩니다.`);
+    }
+
+    function cancelInteraction() {
+        setInteractionMode('idle');
+        gizmo?.deactive();
+        gizmoHeatId = undefined;
+        emitChange('조작을 종료했습니다. 지도를 자유롭게 이동할 수 있습니다.');
+    }
+
     /** @param {string} id */
     function selectHeat(id, announce = true) {
         if (!heats.has(id)) return;
+        setInteractionMode('idle');
         activeHeatId = id;
         activateHeatGizmo(id);
-        if (announce) emitChange(`현재 열원: ${heats.get(id).name}`);
+        emitChange(announce ? `현재 열원: ${heats.get(id).name}` : '');
     }
 
     /** @param {string} id */
@@ -243,14 +281,12 @@ export async function initialize(context) {
                 setInstanced: false,
                 listModel: BUILDING_MODELS
             });
-            await componentLayer;
+            await componentLayer.ready;
             if (disposed) return;
             app.showLayer(componentLayer.getName(), true);
             const definitions = [
                 {id: 'building3', position: offsetGeo(center, -110, 80, 1), instanced: false},
-                {id: 'building9', position: offsetGeo(center, 110, 80, 1), instanced: false},
-                {id: 'building7', position: offsetGeo(center, -110, -80, 1), instanced: true},
-                {id: 'building8', position: offsetGeo(center, 110, -80, 1), instanced: true}
+                {id: 'building7', position: offsetGeo(center, 30, 80, 1), instanced: true}
             ];
             for (const definition of definitions) {
                 const terrainHeight = Number(app.getHeightAtGeographicPoint(definition.position, true));
@@ -271,12 +307,19 @@ export async function initialize(context) {
                     }
                 });
                 if (!component) continue;
+                // 3DS 내부 좌표가 원점에서 떨어져 있어도 지정 위치에 건물이 놓이도록 보정합니다.
+                // 인스턴스 모델의 변환과 선택 경계에도 동일한 보정이 적용됩니다.
+                const bounds = component.getBoundBoxObject();
+                if (!bounds.isEmpty() && [...bounds.min.toArray(), ...bounds.max.toArray()].every(Number.isFinite)) {
+                    const modelCenter = bounds.getCenter(new THREE.Vector3());
+                    component.setModelOffset({x: -modelCenter.x, y: -modelCenter.y, z: -bounds.min.z});
+                }
                 const pickObject = component.getObject?.() || component._object;
-                const componentType = definition.instanced ? '인스턴스 건물 컴포넌트' : '건물 컴포넌트';
+                const componentType = definition.instanced ? '인스턴스 건물 컴포넌트' : '일반 건물 컴포넌트';
                 addTarget({id: definition.id, name: `${definition.id} (${componentType})`, object: component,
                     pickObject, geoPosition: {...position, z: position.z + 12}});
             }
-            emitChange('일반 건물 2개와 인스턴스 건물 2개를 불러왔습니다.');
+            emitChange('일반 건물 1개와 인스턴스 건물 1개를 불러왔습니다.');
         } catch (error) {
             console.warn('건물 컴포넌트를 불러오지 못했습니다. Geometry 대상은 계속 사용할 수 있습니다.', error);
             emitChange('건물 모델 로딩에 실패했습니다. Geometry 대상은 사용할 수 있습니다.');
@@ -298,10 +341,14 @@ export async function initialize(context) {
             outerFactor: DEFAULT_HEAT.outerFactor,
             color: '#ff5a36',
             opacity: 1,
-            available: false
+            available: true
         });
         heatLayer.addGeometry(heat);
-        heat.setPosition(position.x, position.y, position.z + 3);
+        const groundHeight = getGroundHeight(position, position.z);
+        const geoPosition = {...position, z: groundHeight + 15};
+        heat.setPosition(geoPosition.x, geoPosition.y, geoPosition.z);
+        heat.updateMatrix();
+        heat.updateMatrixWorld(true);
         heat.setHeatPalette([
             {temp: 0, color: '#1d4ed8', opacity: 0},
             {temp: 25, color: '#22d3ee', opacity: 0.28},
@@ -310,7 +357,7 @@ export async function initialize(context) {
             {temp: 120, color: '#ef4444', opacity: 0.95}
         ]);
         // @example-code:end heat.create
-        const record = {id, name: heat.name, heat, geoPosition: {...position, z: position.z + 3}, targetIds: new Set(), links: new Map()};
+        const record = {id, name: heat.name, heat, groundHeight, geoPosition, targetIds: new Set(), links: new Map()};
         heats.set(id, record);
         registerPickObject(heat, {kind: 'heat', id});
         activeHeatId = id;
@@ -330,7 +377,7 @@ export async function initialize(context) {
         }
         // @example-code:start heat.target
         record.heat.setTargets(target.object);
-        record.heat.setAvailable(true);
+        record.heat.setAvailable(record.heat.getAvailable());
         // @example-code:end heat.target
         const line = new GeOnDT.geom.U3dLine({
             name: `${heatId}-${targetId}`, color: '#ffcf4a', lineWidth: 2, worldUnits: false, divisions: 20
@@ -356,7 +403,7 @@ export async function initialize(context) {
         record.links.delete(targetId);
         record.targetIds.delete(targetId);
         emitChange(`${target.name} 연결을 해제했습니다.`);
-        requestEdit(heatId);
+        requestEdit(heatId, false);
     }
 
     /** @param {string} heatId */
@@ -377,29 +424,48 @@ export async function initialize(context) {
         emitChange(`${record.name}을 제거했습니다.`);
     }
 
-    /** @param {string} heatId @param {{temperature:number,buffer:number,outerFactor:number}} values */
+    /** @param {string} heatId @param {Partial<{temperature:number,buffer:number,outerFactor:number}>} values */
     function updateHeat(heatId, values) {
         const record = getHeatRecord(heatId);
         if (!record) return;
         // @example-code:start heat.update
-        record.heat.setTemperature(values.temperature);
-        record.heat.setBuffer(values.buffer);
-        record.heat.setOuterFactor(values.outerFactor);
-        record.heat.setAvailable(true);
+        if (Number.isFinite(values.temperature)) record.heat.setTemperature(Math.max(0, Math.min(120, values.temperature)));
+        if (Number.isFinite(values.buffer)) record.heat.setBuffer(Math.max(1, Math.min(200, values.buffer)));
+        if (Number.isFinite(values.outerFactor)) record.heat.setOuterFactor(Math.max(1, Math.min(5, values.outerFactor)));
         // @example-code:end heat.update
         emitChange(`${record.name} 설정을 적용했습니다.`);
-        requestEdit(heatId);
+    }
+
+    /** @param {string} heatId @param {boolean} available */
+    function setHeatAvailable(heatId, available) {
+        const record = getHeatRecord(heatId);
+        if (!record) return;
+        record.heat.setAvailable(available);
+        emitChange(available ? `${record.name}의 열 분포를 적용했습니다.` : `${record.name}의 열 분포를 껐습니다. 원래 표면과 비교하세요.`);
     }
 
     function handleMapClick(event) {
         if (disposed) return;
-        if (interactionMode === 'addHeat') {
+        if (interactionMode === 'addHeat' || interactionMode === 'moveHeat') {
             const world = app.closestPointAtPixel(event, true, true);
             if (!world) return;
             const geo = app.vector3ToGeoGraphic(world);
             if (!geo) return;
+            const record = getHeatRecord(interactionHeatId);
+            const moving = interactionMode === 'moveHeat';
             setInteractionMode('idle');
-            createHeat({x: geo.x, y: geo.y, z: geo.z || 0});
+            if (moving && record) {
+                const height = record.geoPosition.z - record.groundHeight;
+                record.groundHeight = getGroundHeight(geo, geo.z || 0);
+                record.geoPosition = {x: geo.x, y: geo.y, z: record.groundHeight + height};
+                record.heat.setPosition(record.geoPosition.x, record.geoPosition.y, record.geoPosition.z);
+                record.heat.updateMatrix();
+                record.heat.updateMatrixWorld(true);
+                synchronizeLinks(record);
+                record.heat.setTemperature(record.heat.getTemperature());
+                emitChange(`${record.name}을 이동했습니다.`);
+                requestEdit(record.id, false);
+            } else if (!moving) createHeat({x: geo.x, y: geo.y, z: geo.z || 0});
             return;
         }
 
@@ -434,9 +500,12 @@ export async function initialize(context) {
         subscribeEdit(listener) { editListeners.add(listener); return () => editListeners.delete(listener); },
         armHeatCreation,
         armTargetSelection,
+        armHeatMove,
+        cancelInteraction,
         selectHeat,
         requestEdit,
         updateHeat,
+        setHeatAvailable,
         disconnectTarget,
         removeHeat,
         getSnapshot: createSnapshot,

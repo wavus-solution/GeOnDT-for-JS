@@ -155,7 +155,8 @@ UDevToolView 클래스 정의
             defined — 옵션 존재 여부와 기본값 선택; 함수: {defined()}
             defaultValue — 옵션 존재 여부와 기본값 선택; 함수: {defaultValue()}
             U3dMessage — 로그 기록; 함수: {__GError__()}
-            U3dApp — 앱 설정과 실행 상태 연계; 속성 읽기: {_container}
+            U3dApp — 앱 설정과 실행 상태 연계; 속성 읽기: {_container}; 함수: {getProcessManager()}
+            UProcessManager — 표시 중인 창의 관측 요청; 함수: {_setVisualizationLatencyViewVisible()}
             UGUI — GUI 구성과 조회; 생성자: {new UGUI()}; 속성 읽기: {$children}
             Web API — 화면 요소와 호스트 기능 사용; 함수: {document.createElement()}; 속성 쓰기: {HTMLElement.style, HTMLElement.id}
         동작:
@@ -169,6 +170,7 @@ UDevToolView 클래스 정의
             갱신 도구막대와 탭 컨테이너를 만든다.
             Status, Settings, Debug 탭을 순서대로 추가한다.
             설정 입력과 상태 표시를 구성한 뒤 Status를 선택한다.
+            구성이 끝나면 관리자가 있을 때 이 창의 표시 요청을 등록하여 가시화 지연 관측을 시작한다. 작업 진단과 자동 제어는 바꾸지 않는다.
 
     onUpdate(callback: (view: UDevToolView) -> void) -> () -> void
         동작:
@@ -249,12 +251,20 @@ UDevToolView 클래스 정의
             제거된 폴더가 없으면 false를 반환한다.
 
     show() -> void
-        의존: UGUI — GUI 구성과 조회; 함수: {show()}
-        동작: 표시 여부를 true로 두고 루트 GUI를 보인 뒤 루프 시작을 요청한다.
+        의존:
+            UGUI — GUI 구성과 조회; 함수: {show()}
+            U3dApp — 관측 관리자 조회; 함수: {getProcessManager()}
+            UProcessManager — 표시 요청 등록; 함수: {_setVisualizationLatencyViewVisible()}
+        동작:
+            루트 GUI가 없으면 반환하여 폐기된 창의 관측을 재시작하지 않는다.
+            루트 GUI가 있으면 표시 여부를 true로 두고 창을 보인다. 앱과 관리자가 있으면 이 창의 표시 요청을 등록하여 숨김 중 유예된 중지를 취소한다. 루프 시작을 요청한다.
 
     hide() -> void
-        의존: UGUI — GUI 구성과 조회; 함수: {hide()}
-        동작: 표시 여부를 false로 두고 루트 GUI를 숨긴 뒤 루프를 중단한다.
+        의존:
+            UGUI — GUI 구성과 조회; 함수: {hide()}
+            U3dApp — 관측 관리자 조회; 함수: {getProcessManager()}
+            UProcessManager — 표시 요청 해제; 함수: {_setVisualizationLatencyViewVisible()}
+        동작: 표시 여부를 false로 두고 루트 GUI를 숨긴 뒤 루프를 중단한다. 앱과 관리자가 있으면 이 창의 표시 요청을 해제한다. 다른 요청이 없으면 관측을 중지하되 작업 진단 중에는 관리자가 종료까지 유예한다.
 
     hasTab(name: string) -> boolean
         동작: #tabs에 해당 이름이 있는지 반환한다.
@@ -341,8 +351,11 @@ UDevToolView 클래스 정의
         의존:
             Web API — 화면 요소와 호스트 기능 사용; 함수: {window.clearTimeout()}
             UGUI — GUI 구성과 조회; 함수: {destroy()}
+            U3dApp — 관측 관리자 조회; 함수: {getProcessManager()}
+            UProcessManager — 표시 요청 해제; 함수: {_setVisualizationLatencyViewVisible()}
         동작:
             갱신 피드백 타이머를 취소하고 번호를 0으로 둔다. 루트 GUI가 없으면 여기서 종료한다.
+            표시 여부를 false로 두고 앱과 관리자가 있으면 이 창의 표시 요청을 해제한다. 작업 진단 중의 관측 중지는 관리자에서 종료까지 유예한다.
             루프를 중단하고 상태 갱신 함수와 사용자 콜백을 지운다.
             탭 이름 복사본을 순회하며 각 탭을 제거하고 Map을 비운다.
             루트 GUI를 파괴하고 GUI·요소·컨테이너·앱·초기 factor 참조를 undefined로 둔다.
@@ -390,15 +403,16 @@ UDevToolView 클래스 정의
         의존:
             defined — 앱·폴더 존재 판정; 함수: {defined()}
             U3dApp — 앱 설정과 실행 상태 연계; 함수: {getUpdateFps(), getDrawFps(), getProcessManager(), getLoadingRate(), getLoadingNow(), getLoadingTotal(), getTerrainLayer(), getInstanceImageLayers(), getInstanceModelLayers()}; 속성 읽기: {_rStats, _uStats, _uwStats, _ulStats, _dStats, _renderer, _drawArg, _imageProcess, _heightProcess, _modelProcess, _modelWorkProcesses}
-            UProcessManager — 작업량과 가시화 지연 조회; 함수: {getAdaptiveProcessState(), getVisualizationLatencyState()}
+            UProcessManager — 작업량·가시화 지연 조회; 함수: {getAdaptiveProcessState(), getVisualizationLatencyState()}
             UDEF.resourceManager — 자원 수와 메모리 조회; 함수: {getGeometryCount(), getTextureCount(), getMaterialCount(), getListenEventCount(), getRenderObjectAmount(), estimateGPUMemory(), getResourceSize()}
             UInstancedMesh — 인스턴스 수 조회; 상수: {ALL_INSTANCES_COUNT, VISIBLE_INSTANCES_COUNT}
             THREE_GUI — 폴더와 입력 구성; 함수: {add(), close()}
-            THREE_GUI_Controller — 입력 행의 표시와 콜백 연결; 함수: {name(), disable(), hide(), updateDisplay()}
+            THREE_GUI_Controller — 입력 행의 표시; 함수: {name(), disable(), hide(), updateDisplay()}
             Web API — 화면 요소와 호스트 기능 사용; 속성 읽기: {performance.memory}; 속성 쓰기: {HTMLCanvasElement.style}; 함수: {HTMLElement.replaceChildren(), document.createElement()}
         동작:
             앱이 없거나 상태 갱신 함수가 이미 있으면 종료한다.
             Frame·Queue·Draw·Memory 폴더에 읽기 전용 수치 행을 만들고, Frame 외 폴더를 닫는다.
+            Frame 폴더에 가시화 지연 수치와 요약을 표시한다. 별도 측정 스위치를 만들지 않으며 관측 수명은 창 표시와 관리자 요청을 따른다.
             응답 FPS·동시 작업 수·가시화 지연·Heap와 GPU 합계 그래프를 만든다. 지연 그래프는 최초 완료 표본 전까지 숨긴다.
             상태 갱신 함수를 등록하여 앱 FPS와 작업 상한·지연·로딩·그리기 수치 및 자원 수치를 읽는다.
             지연 상태가 running이고 lastMs가 null이 아니면 완료 표본으로 본다. 완료 표본이 처음 유효해질 때 이력을 비우고 지연 그래프를 보인다.

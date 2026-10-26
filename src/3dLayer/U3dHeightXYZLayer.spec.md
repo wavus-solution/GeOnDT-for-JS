@@ -188,13 +188,13 @@ U3dHeightXYZLayer extends U3dHeightLayer 클래스 정의
         역할: 공통 초기화 후 XML 사용 여부에 따라 레이어 공간 범위를 준비한다.
         의존:
             U3dHeightLayer — 공통 초기화; 함수: {prototype.initialize.call()}
-            초기화 완료 수신자(this) — 런타임에 제공된 선택적 완료·실패 함수 호출; 콜백: {resolve(), reject()}
+            U3dLayer — 초기화 완료·실패 통지; 함수: {_resolveReady(), _rejectReady()}
             Web API — XML 없는 초기화 완료 예약; 함수: {setTimeout()}
         동작:
             상위 초기화를 수행한다.
             XML이 필요하면 XML 읽기에 위임한다.
             XML이 필요하지 않으면 현재 BoundingBox로 공간 범위를 계산하고, 실패하면 초기화 Promise를 거절한다.
-            XML 없는 공간 계산에 성공하면 1ms 타이머에 선택적 resolve(this) 호출을 예약한다.
+            XML 없는 공간 계산에 성공하면 1ms 타이머에 _resolveReady() 호출을 예약한다.
 
     getBoundingBox() -> THREE.Box3 | undefined
         동작: 계산된 레이어 Box3를 반환한다.
@@ -209,11 +209,13 @@ U3dHeightXYZLayer extends U3dHeightLayer 클래스 정의
         의존:
             Web API — XML 비동기 요청; 생성자: {new XMLHttpRequest()}; 함수: {overrideMimeType(), open(), send()}
             defined — 기본 URL과 구분자 판정; 함수: {defined()}
-            초기화 완료 수신자(layer) — 런타임에 제공된 선택적 완료·실패 함수 호출; 콜백: {resolve(), reject()}
+            U3dLayer — 초기화 완료·실패 통지; 함수: {_resolveReady(), _rejectReady()}
         동작:
             baseUrl 또는 레이어 기본 URL로 tilemapresource.xml 주소를 만든다.
-            HTTP 상태가 정확히 200이면 XML 설정을 반영하고 공간 범위를 계산한 뒤 선택적 resolve(this)를 호출한다.
+            HTTP 상태가 정확히 200이면 XML 설정을 반영하고 공간 범위를 계산한 뒤 _resolveReady()를 호출한다.
             XML 파싱·공간 계산, HTTP 상태 또는 네트워크 요청이 실패하면 초기화 Promise를 거절한다.
+            이미 완료한 레이어의 XML 적용 예외는 로그에 남기고 완료 상태를 유지한다.
+            onload의 XML 반영·공간 계산이 예외를 던지면 직접 잡아 레이어 reject에 전달한다. 별도 타일 요청의 실패 계약은 변경하지 않는다.
 
     parseXml(xml: XMLHttpRequest) -> boolean
         역할: 타일맵 XML의 검증된 설정을 레이어에 반영한다.

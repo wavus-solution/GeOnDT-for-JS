@@ -454,7 +454,7 @@
             self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
             self._app.addLayer(this.layer);
         }
-        this.layer.then(() => {
+        this.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -482,7 +482,7 @@
     HeightLayer.prototype.create = function () {
         let self = this;
         self.layer = this._app.createHeightXYZLayer(self.options);
-        self.layer.then(() => {
+        self.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -612,7 +612,7 @@
                 'yangcheongu', 'yeongdeungpogu', 'yeouido'
             ]
             try {
-                modelayers = app.createModelGroupLayer({
+                modelayers = app.createGroupLayer({
                     maxlevel: 17,
                     minlevel: 13,
                     name: 'u3f'
@@ -636,13 +636,13 @@
                         textureDistance:300
                     }
                     let subLayer = app.create3DFModelLayer(options);
-                    if(subLayer !== false){
-                        subLayer.then(function (layer) {
+                    if(subLayer){
+                        subLayer.ready.then(function (layer) {
                             modelayers.addLayer(subLayer);
                             if(i < modelList.length-1) {
                                 app.showLayer(modelayers.getName(),true);
                             }
-                        }).fail(function (layer) {
+                        }).catch(function (layer) {
 
                         });
                     }
@@ -706,7 +706,9 @@
                 dynamicEdit: true
             };
             //+ 편집 된 지형 추가
-            analy.addCustomLand(options);
+            analy.addCustomLand(options).catch(error => {
+                console.error('편집지형 추가 실패:', error);
+            });
         });
         $("#map").mousemove(function (e) {
             //+ 동적 편집 시 마우스 따라다니는 box점
@@ -802,6 +804,8 @@
             const workPromise = analy.addCustomLand(params);
             workPromise?.then(()=>{
                 printLandEdit(); //+ 지형편집 목록 갱신
+            }).catch(error => {
+                console.error('편집지형 불러오기 실패:', error);
             });
         });
 
@@ -830,9 +834,10 @@
                 useTexture : true, //생성영역에 텍스쳐를 덮어쓸건지의 여부, 기본값 true
                 //textureUrl : 'texture.jpg'  //텍스쳐 url, 입력하지 않을 시, 기본 텍스쳐 적용
             };
-            analy.editCustomLand(uid, opt);
-            //+ 수정된 customLand 부피 정보 출력
-            analy.getVolume(customLand.id).then(function (land) {
+            const workPromise = analy.editCustomLand(uid, opt);
+            if (!workPromise) return;
+            // 수정에 성공한 지형의 체적만 계산하고 같은 체인에서 실패를 처리합니다.
+            workPromise.then(() => analy.getVolume(customLand.id)).then(function (land) {
                 console.log(customLand.id, '원본부피 :', land.beforeVolume);
                 console.log(customLand.id, '편집부피 :', land.volume);
                 let diff = land.getDifference();
@@ -844,9 +849,10 @@
                     let diff = land.getInclineDifference();
                     console.log(customLand.id, '경사면 토공량(' + (diff > 0 ? '절토' : '성토') + '):', diff);
                 }
+                printLandEdit(); //+ 지형편집 목록 갱신
+            }).catch(error => {
+                console.error('편집지형 수정 또는 체적 계산 실패:', error);
             });
-
-            printLandEdit(); //+ 지형편집 목록 갱신
         });
 
         // 지형편집 단일 삭제
@@ -987,7 +993,8 @@
                 if(workPromise){
                     workPromise?.then(()=>{
                         //부피 계산 수행 원본 데이터를 비동기로 호출해 계산
-                        analy.getVolume(id).then(function (land) {
+                        printLandEdit(); // 추가 완료 후 목록을 갱신합니다.
+                        return analy.getVolume(id).then(function (land) {
                             console.log(id, '원본부피 :', land.beforeVolume);
                             console.log(id, '편집부피 :', land.volume);
                             let diff = land.getDifference();
@@ -1001,13 +1008,12 @@
                                 console.log(id, '경사면 토공량(' + (diff > 0 ? '절토' : '성토') + '):', diff);
                             }
                         });
-                    }).catch(function () {
-                        console.log("addCustomLand error");
+                    }).catch(function (error) {
+                        console.error('편집지형 추가 또는 체적 계산 실패:', error);
                     });
                 }
 
                 removeOverlay();//+ overlay 제거
-                printLandEdit();//+ 지형 편집 목록 갱신
             });
             //+ overlay [취소] 버튼 클릭시 overlay 제거
             $element.on('click', '.btn-cancel', function (e) {
@@ -1068,14 +1074,15 @@
                 id: id,
                 height: height,
                 geoVertex: coords
-            });
-            //+ 부피정보 출력
-            analy.getVolume(id).then(function (land) {
+            }).then(() => analy.getVolume(id)).then(function (land) {
+                // 지형 추가와 체적 계산이 모두 성공한 뒤 결과를 출력합니다.
                 console.log(id, '원본부피 :', land.beforeVolume);
                 console.log(id, '편집부피 :', land.volume);
                 let diff = land.getDifference();
                 console.log(id, '토공량(' + (diff > 0 ? '절토' : '성토') + '):', diff);
-            })
+            }).catch(error => {
+                console.error('DXF 편집지형 추가 또는 체적 계산 실패:', error);
+            });
         }
 
         //+ 중앙 좌표값 얻기

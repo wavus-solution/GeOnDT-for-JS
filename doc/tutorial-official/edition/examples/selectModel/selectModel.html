@@ -81,6 +81,29 @@
                     <span>박스</span>
                 </label>
             </div>
+            <p class="query-action-note">점 선택에서는 마우스 주변 원형 범위의 대상이 노란색으로 강조됩니다.</p>
+            <div id="point-buffer-options">
+                <label class="texture-option buffer-hover-option" for="enable-pick-buffer" data-api-help="select.buffer-enabled">
+                    <input id="enable-pick-buffer" type="checkbox" checked aria-describedby="pick-buffer-note">
+                    <span>버퍼 검색 사용</span>
+                </label>
+                <div id="point-buffer-settings">
+                    <div class="style-control-row range-control-row buffer-control-row" data-api-help="select.buffer">
+                        <label for="pick-buffer-px">검색 반경</label>
+                        <input id="pick-buffer-px" type="range" min="0" max="200" step="1" aria-describedby="pick-buffer-note">
+                        <output id="pick-buffer-px-value" for="pick-buffer-px"></output>
+                        <label class="buffer-visibility-option" for="show-pick-buffer" data-api-help="select.buffer-visibility">
+                            <input id="show-pick-buffer" type="checkbox" checked>
+                            <span>범위 표시</span>
+                        </label>
+                    </div>
+                    <label class="texture-option buffer-hover-option" for="enable-select-hover" data-api-help="select.hover">
+                        <input id="enable-select-hover" type="checkbox" checked>
+                        <span>hover 강조 사용</span>
+                    </label>
+                </div>
+                <p id="pick-buffer-note" class="query-action-note">버퍼 검색을 끄면 반경·범위 표시·hover 설정을 잠그고 마우스 위치에서만 클릭 검색합니다. 다시 켜면 이전 설정을 복원합니다.</p>
+            </div>
         </section>
 
         <section class="query-section" aria-labelledby="query-style-heading">
@@ -94,6 +117,108 @@
                     <input type="radio" name="select-type" value="color">
                     <span>색상</span>
                 </label>
+                <label>
+                    <input type="radio" name="select-type" value="ring">
+                    <span>링</span>
+                </label>
+            </div>
+
+            <div id="ring-options" class="style-control-list" data-api-help="select.type" hidden>
+                <div class="style-control-row ring-control-row">
+                    <label for="ring-shape">링 도형</label>
+                    <select id="ring-shape" data-ring-option="shape">
+                        <option value="circle">원</option><option value="triangle">삼각형</option>
+                        <option value="square">사각형</option><option value="polygon">다각형</option>
+                    </select>
+                </div>
+                <div class="style-control-row ring-control-row">
+                    <label for="ring-sides">변 개수</label>
+                    <input id="ring-sides" data-ring-option="sides" type="number" min="3" max="64" step="1" value="6" aria-describedby="ring-sides-note" disabled>
+                </div>
+                <p id="ring-sides-note" class="query-action-note">변 개수는 다각형에서만 적용됩니다. 원·삼각형·사각형에서는 sides를 지정해도 무시하며, 삼각형은 3변·사각형은 4변으로 고정됩니다.</p>
+                <div class="style-control-row ring-control-row">
+                    <label for="ring-orientation">링 방향</label>
+                    <select id="ring-orientation" data-ring-option="orientation">
+                        <option value="ground">지면과 평행</option><option value="screen">카메라 정면</option>
+                    </select>
+                </div>
+                <div class="style-control-row ring-control-row">
+                    <label for="ring-height">높이 오프셋</label>
+                    <input id="ring-height" data-ring-option="heightOffset" type="number" step="any" value="0">
+                </div>
+                <p class="query-action-note">높이는 월드 좌표 단위입니다. 양수는 위, 음수는 아래로 이동합니다.</p>
+                <div class="style-control-row ring-control-row">
+                    <label for="ring-body-height">링 높이</label>
+                    <input id="ring-body-height" data-ring-option="height" type="number" min="0" max="4096" step="any" value="0">
+                </div>
+                <div class="style-control-row ring-control-row">
+                    <label for="ring-width">링 두께</label>
+                    <input id="ring-width" data-ring-option="width" type="number" min="0.001" step="any" value="5">
+                </div>
+                <div class="style-control-row ring-control-row">
+                    <label for="ring-head-scale">머리 크기</label>
+                    <input id="ring-head-scale" data-ring-option="headScale" type="number" min="0" max="10" step="0.1" value="1">
+                </div>
+                <div class="style-control-row ring-control-row">
+                    <label for="ring-tail-scale">꼬리 크기</label>
+                    <input id="ring-tail-scale" data-ring-option="tailScale" type="number" min="0" max="10" step="0.1" value="1">
+                </div>
+                <p class="query-action-note">링 두께는 평면의 띠 너비 또는 입체의 벽 두께입니다. 링 높이 0은 평면, 양수는 입체입니다. 둘 다 월드 단위이며 머리·꼬리 크기 1이 이 단면 크기입니다.</p>
+                <p class="query-action-note">머리·꼬리 크기는 링 단면 대비 배율입니다. 1은 링 두께·높이와 같은 크기, 1.5는 1.5배입니다. 모양과 크기는 개별 스타일 여부와 관계없이 적용됩니다.</p>
+                <div class="style-control-row ring-control-row">
+                    <label for="ring-size">월드 지름</label>
+                    <input id="ring-size" data-ring-option="size" type="number" min="1" max="4096" step="1" value="80">
+                </div>
+                <div class="style-control-row ring-control-row">
+                    <label for="ring-depth-test">가림 처리</label>
+                    <select id="ring-depth-test" data-ring-option="depthTest">
+                        <option value="false">항상 표시</option>
+                        <option value="true">선택 대상의 뒤에서 가려짐</option>
+                    </select>
+                </div>
+                <div class="style-control-row ring-control-row">
+                    <label for="ring-animate">링 효과</label>
+                    <select id="ring-animate" data-ring-option="animate" aria-describedby="ring-effect-note">
+                        <option value="true">회전 애니메이션</option><option value="false">네온 테두리만</option>
+                    </select>
+                </div>
+                <p id="ring-effect-note" class="query-action-note">네온 테두리만 선택하면 회전 없이 전체 테두리가 균일하게 빛납니다.</p>
+                <div class="style-control-row ring-control-row">
+                    <label for="ring-head-shape">머리 모양</label>
+                    <select id="ring-head-shape" data-ring-option="headShape"><option value="flat">평평한 끝</option><option value="round" selected>둥근 끝</option><option value="taper">뾰족한 끝</option></select>
+                </div>
+                <div class="style-control-row ring-control-row">
+                    <label for="ring-tail-shape">꼬리 모양</label>
+                    <select id="ring-tail-shape" data-ring-option="tailShape"><option value="flat">평평한 끝</option><option value="round">둥근 끝</option><option value="taper" selected>뾰족한 끝</option></select>
+                </div>
+                <label><input id="ring-custom-style" type="checkbox"> 머리·꼬리 개별 스타일</label>
+                <div id="ring-end-styles" hidden>
+                    <div class="style-control-row ring-control-row"><label for="ring-head-color">머리 색상</label><input id="ring-head-color" data-ring-style type="color" value="#ffffff"></div>
+                    <div class="style-control-row ring-control-row"><label for="ring-head-opacity">머리 투명도</label><input id="ring-head-opacity" data-ring-style type="number" min="0" max="1" step="0.05" value="1"></div>
+                    <div class="style-control-row ring-control-row"><label for="ring-tail-color">꼬리 색상</label><input id="ring-tail-color" data-ring-style type="color" value="#00ffcc"></div>
+                    <div class="style-control-row ring-control-row"><label for="ring-tail-opacity">꼬리 투명도</label><input id="ring-tail-opacity" data-ring-style type="number" min="0" max="1" step="0.05" value="0.6"></div>
+                    <div class="style-control-row ring-control-row"><label for="ring-tail-fade-in">페이드 인</label><input id="ring-tail-fade-in" data-ring-style type="number" min="0" max="1" step="0.05" value="0.1"></div>
+                    <div class="style-control-row ring-control-row"><label for="ring-tail-fade-out">페이드 아웃</label><input id="ring-tail-fade-out" data-ring-style type="number" min="0" max="1" step="0.05" value="0.7"></div>
+                    <p class="query-action-note">머리에서 링을 한 바퀴 돌아 다시 머리와 맞닿는 끝이 꼬리입니다. 전체 둘레에 색상·두께·투명도가 이어집니다. 페이드 인·아웃은 접합점에서 꼬리 방향으로 잰 거리 경계(한 바퀴 대비 0~1)입니다. 큰 거리에서 꼬리 모양과 페이드가 함께 시작하고 작은 거리에서 끝납니다. 구간 밖의 몸통 폭은 유지됩니다. 두 값 모두 0이면 페이드 없음이고 네온 전용 모드에서는 개별 스타일을 사용하지 않습니다.</p>
+                </div>
+                <div class="style-control-row ring-control-row">
+                    <label for="ring-pattern">선 패턴</label>
+                    <select id="ring-pattern" data-ring-option="pattern"><option value="solid">실선</option><option value="dashed">점선</option></select>
+                </div>
+                <div class="style-control-row ring-control-row">
+                    <label for="ring-dash-count">점선 개수</label>
+                    <input id="ring-dash-count" data-ring-option="dashCount" type="number" min="1" max="128" step="1" value="24">
+                </div>
+                <div class="style-control-row ring-control-row">
+                    <label for="ring-dash-ratio">점선 길이 비율</label>
+                    <input id="ring-dash-ratio" data-ring-option="dashRatio" type="number" min="0.05" max="1" step="0.05" value="0.6">
+                </div>
+                <p class="query-action-note">개수는 한 바퀴 기준이며 0.6은 선 60%·빈칸 40%입니다. 비율 1은 실선입니다. 점선은 네온 모드에서도 유지하고 회전 시 머리와 함께 움직입니다.</p>
+                <div class="style-control-row ring-control-row">
+                    <label for="ring-speed">속도(rad/s)</label>
+                    <input id="ring-speed" data-ring-option="speed" type="number" min="-20" max="20" step="0.1" value="1.5">
+                </div>
+                <p class="query-action-note">속도 0은 정지, 음수는 반대 방향입니다.</p>
             </div>
 
             <div class="style-control-list">

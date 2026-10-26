@@ -174,16 +174,18 @@ U3dModelBasicLayer extends U3dModelLayer 클래스 정의
     override initialize() -> void
         의존:
             defined — null·undefined 검사; 함수: {defined()}
-            U3dLayer — 상속받은 실행 상태와 완료 인터페이스; 속성 읽기: {_drawArg, reject, resolve}
+            U3dLayer — 상속받은 실행 상태와 ready 완료 제어; 함수: {isReady(), _resolveReady(), _rejectReady()}; 속성 읽기: {_drawArg}
             U3dLayer — 기반 초기화·이벤트·장면 연결; 함수: {prototype.initialize.call()}
             UDrawArg — 위경도 변환; 함수: {getGeographicToWorld()}
         동작:
             U3dLayer.initialize를 직접 호출한다. 부모 모델 레이어의 별도 연결을 호출한 것으로 확장하지 않는다.
-            needXml===true이면 XML 완료 뒤 모델 로드를 등록하고 성공·실패에 레이어 resolve/reject를 값 없이 호출한다.
+            needXml===true이면 XML 완료 뒤 모델 로드를 등록하고 성공하면 _resolveReady로 현재 레이어를 전달하며 실패하면 원래 사유를 레이어 _rejectReady에 전달한다. XML 성공 콜백에서 모델 로딩을 시작하는 동기 예외도 같은 경로로 전달한다.
             needXml===true가 아닌 경로에서는 다음을 실행한다.
                 location이 정의되지 않았고 geoLocation이 정의되었을 때만 월드 위치를 계산한다.
                 위치 계산 여부와 관계없이 객체 XML 제목을 만든다. boundingBox가 정의되었으면 _bbox3D를 저장한다.
-                모델 로드를 시작하고 성공·실패에 레이어 resolve/reject를 값 없이 호출한다.
+                모델 로드를 시작하고 성공하면 _resolveReady로 현재 레이어를 전달하며 실패하면 원래 사유를 레이어 _rejectReady에 전달한다.
+            공통 초기화와 즉시 설정 처리의 동기 예외도 레이어 _rejectReady에 전달한다. 레이어의 공통 완료 인터페이스가 Error로 정규화하며 별도 로딩 객체의 실패값은 변경하지 않는다.
+            이미 완료한 레이어의 즉시 초기화 처리에서 동기 예외가 나면 다시 거부하지 않고 원래 예외를 호출자에게 전달한다. XML 성공 콜백의 늦은 후처리 예외는 로그에 남긴다.
             어느 경로에서도 로드 완료 객체를 반환하지 않는다.
 
     reLoad() -> Promise<string>
@@ -278,11 +280,11 @@ U3dModelBasicLayer extends U3dModelLayer 클래스 정의
             ext가 정의되었으면 확장자 없는 fileName에 덧붙이고, 추출 확장자와 엄격히 다르면 로그·거부한다. 일치하면 기존 확장자를 제거한 뒤 다시 붙인다.
             ext가 없으면 파일 이름의 확장자를 사용한다. 점이 없거나 추출 값이 비었으면 로그·거부한다. 확장자 비교는 이 단계에서 대소문자를 정규화하지 않는다.
             현재 modelType 값들에 ext.toLowerCase()가 없으면 로그·거부한다. 통과하면 String(ext).toLowerCase()로 로더를 선택하며, 이 선택은 model.resolve의 원래 존재 여부와 무관하다.
-            OBJ·3DS·DAE를 각 로더로 전달하고 각 성공 후처리를 등록한다. textureUrl은 3DS에만 전달한다.
+            OBJ·3DS·DAE를 각 로더로 전달하고 각 성공 후처리를 등록한다. OBJ 실패와 3DS 로더·후처리 Promise 실패는 promiseObj.reject로 전달한다. 3DS는 후처리 Promise 완료까지 연결한다. textureUrl은 3DS에만 전달한다.
             u3f는 문자열 분기로 선택하여 loadU3FLoader 완료를 별도 deferred에 전달하고 후처리를 등록한다.
             FBX·JPG·PNG·UMESH도 형식별 로딩과 성공 후처리를 연결한다. FBX는 실패 로그 뒤 외부 거부를 호출하지만 다른 연결에는 공통 실패 전달을 추가하지 않는다. [확인 Q-005]
             GLB와 GLTF는 같은 분기에서 GLB 로더로 읽으며, 로딩 성공 시 장면 후처리를 실행한다. 로더의 비동기 거부, 요청 설정의 동기 예외와 장면 후처리 예외는 별도 로딩 결과의 reject로 보내 외부 완료 객체와 모델에 같은 이유를 전달한다. 이미 성공을 통지했다면 뒤의 예외로 실패를 중복 통지하지 않는다.
-            외부에서 바꾼 modelType 값으로 지원 검사를 통과해도 switch의 분기값과 일치하지 않으면 로더를 시작하거나 완료 객체를 종결하지 않는다. GLB 분기에서 직접 잡은 예외 이외의 등록 작업 안 동기 예외는 UDEF.createPromise가 값 없이 거부하며, 이후 로더 callback의 실패와 구분한다.
+            외부에서 바꾼 modelType 값으로 지원 검사를 통과해도 switch의 분기값과 일치하지 않으면 로더를 시작하거나 완료 객체를 종결하지 않는다. GLB 분기에서 직접 잡은 예외 이외의 등록 작업 안 동기 예외는 UDEF.createPromise가 원래 오류로 거부하며, 이후 로더 callback의 실패와 구분한다.
             반환 타입은 ModelObject3D로 선언되어 있지만 GLB는 로더 결과 객체, U3F는 레이어, 이미지와 UMESH는 레이어 객체 그룹을 완료값으로 전달한다. [확인 Q-003]
 
     getU3FInfo(model: ModelInfo | KeyValue | string | undefined, baseurl: string) -> DeferredObject<any>
@@ -628,7 +630,7 @@ loadOBJ(model: ModelInfo & KeyValue)
     인터페이스: this는 U3dModelBasicLayer다.
     의존: UDEF — OBJ 완료 객체; 정적 함수: {createPromise()}
     동작:
-        완료·거부 함수를 묶어 MTL 로드를 시작한다. MTL 성공 결과를 materials로 넘겨 OBJ 로더를 실행하도록 등록한다. 공통 실패 연결은 없다. [확인 Q-005]
+        완료·거부 함수를 묶어 MTL 로드를 시작한다. MTL 성공 결과를 materials로 넘겨 OBJ 로더를 실행하도록 등록한다. MTL 실패와 OBJ 로더 시작 콜백의 예외는 반환 Promise의 reject로 전달한다. [확인 Q-005]
 
 afterLoadOBJ(promise: U3dModelBasicLayerCompletion, model: ModelInfo & KeyValue, object: ModelMesh) -> void
     인터페이스: this는 U3dModelBasicLayer이며 promise.resolve를 멤버 호출한다.
@@ -770,7 +772,7 @@ keepMaterialTransparent(material: Material) -> void
 목록·장면·재질과 완료 객체는 원본 참조를 공유하는 경로가 있다. 제거와 dispose는 같지 않으며 형식별 추가·교체·해제 순서를 따른다.
 defined는 null·undefined를 부재로 판정하지만 defaultValue는 undefined만 대체한다. null과 false·0·빈 문자열을 같은 기본값 처리로 합치지 않는다. 형식별 주소 조합을 하나의 정규화 규칙으로 일반화하지 않는다.
 수신 레이어의 재정의 가능한 메서드는 동적 호출을 유지한다. 이름을 지정한 부모 prototype 호출은 그 기반 구현을 직접 선택한다.
-deferred 완료 객체의 then/catch는 같은 완료 객체를 돌려주며 이미 종결된 결과의 callback이 동기 실행될 수 있다. callback 등록·자료 수신·후처리·레이어 완료는 각 실행에 기록한 경계를 따른다.
+개별 로딩에 사용하는 deferred 완료 객체의 then/catch는 같은 완료 객체를 돌려주며 이미 종결된 결과의 callback이 동기 실행될 수 있다. callback 등록·자료 수신·후처리·레이어 완료는 각 실행에 기록한 경계를 따른다.
 ```
 
 > 공개 참조용 발췌본입니다. 비공개 구현 설명과 내부 관리 정보는 생략했습니다.

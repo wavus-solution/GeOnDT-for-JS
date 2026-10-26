@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -91,6 +91,8 @@ declare class UOrthographicCamera extends three.OrthographicCamera {
      * @param {Partial<UOrthographicCameraCO>} [opt={}] 화면에 담을 영역과 기본 그리기 인자를 담은 생성 옵션
      */
     constructor(opt?: Partial<UOrthographicCameraCO>);
+    /** 원근과 직교의 거리·화면 크기 변환에 사용하는 수직 화각입니다. @type {number} @ignore */
+    _fov: number;
     _viewWidth: number;
     _viewHeight: number;
     _sseDenominator: number;
@@ -131,6 +133,20 @@ declare class UOrthographicCamera extends three.OrthographicCamera {
      * @ignore
      */
     getDenominator(): number;
+    /**
+     * 같은 화각의 원근 카메라와 일치하는 화면 높이를 계산합니다.
+     * @param {number} distance 타깃과 카메라 사이의 거리
+     * @returns {number} 직교 화면 높이
+     * @ignore
+     */
+    _getViewHeightAtDistance(distance: number): number;
+    /**
+     * 직교 화면 높이를 같은 화각의 카메라 거리로 환산합니다.
+     * @param {number} [height] 화면 높이. 생략하면 현재 배율을 반영합니다.
+     * @returns {number} 환산한 카메라 거리
+     * @ignore
+     */
+    _getDistanceAtViewHeight(height?: number): number;
     /**
      * 화면에 담기는 세로 방향 길이를 반환합니다. <br>
      * 이름의 fovY와 달리 시야각이 아니며 zoom이 반영된 길이입니다. <br>

@@ -162,7 +162,7 @@ ChangeObjectOpt 타입 정의
         scale: Vector3Like
             새 모델의 축별 크기이다.
         rotation: Vector3Like
-            새 모델의 축별 degree 회전으로 선언되어 있다. 현재 인스턴스 교체 경로는 축값 크기로 단위를 추정하고 컴포넌트 상태에 다시 degree 변환을 적용한다. [확인 Q-017]
+            새 모델의 축별 degree 회전으로 선언되어 있다. 인스턴스 교체 경로는 기존 addInstancedInfo()의 축값 크기 기반 단위 추정을 사용하되, 반환된 라디안 회전은 재변환 없이 복사한다. 작은 각도 입력의 단위 추정은 별도 확인 대상이다. [확인 Q-017]
 
 InstancedInputOption 부분 타입 명세
     이 명세에서 사용하는 필드:
@@ -445,34 +445,22 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
 
         getComponentByIntersect(intersect: Intersection) -> ComponentObject | undefined
             인터페이스:
-                intersect: Three raycaster가 반환한 교차 결과
+                intersect: Three raycaster 또는 U3dSelect 버퍼 검색이 반환한 모델·누적 경로 교차 결과
                 반환: 교차 mesh 또는 instance에 대응하는 컴포넌트
             의존:
                 defined — 교차 object, metadata와 instance 식별값 존재 여부 판정; 함수: {defined()}
-                ComponentObject — 일반·인스턴스 컴포넌트의 렌더 object와 instance 식별 상태 조회; 속성 읽기: {_object, _setInstanced, instanceId}
+                ComponentObject — 일반·인스턴스 컴포넌트의 렌더 object, 누적 경로와 instance 식별 상태 조회; 속성 읽기: {_object, cumulativePath, _setInstanced, instanceId}
+                U3dCumulativePath, USimpleTail — 누적 경로의 실제 메시 조회; 함수: {getTail(), getMesh()}
                 THREE.Object3D — 일반 컴포넌트의 object tree 순회; 함수: {traverse()}
             동작:
                 교차 object가 없으면 undefined를 반환한다.
+                교차 object의 userData.type이 trailMesh이면 userData.componentName으로 소유 컴포넌트를 조회한다. 해당 컴포넌트의 cumulativePath.getTail().getMesh()가 교차 object와 일치할 때만 반환하며 일반·인스턴스 소유자 모두 같은 기준을 적용한다.
+                trailMesh에 컴포넌트 이름이 없거나 현재 누적 경로 메시가 아닌 경우 undefined를 반환하여 이름이 같은 독립 경로나 제거된 경로를 제외한다.
                 교차 object가 instanced mesh이면 누락된 mesh 그룹 번호와 교차 instanceId를 각각 0으로 대체한 뒤 두 값을 합쳐 모델 전체 instance ID를 계산한다.
                 intersect.object가 있고 mesh._objectName이 존재하면 모델별 instance metadata를 조회하고 컴포넌트 이름이 있는 경우 이름 색인으로 반환한다.
                 metadata 이름으로 찾지 못하면 컴포넌트 목록에서 같은 모델명과 전체 instance ID를 가진 인스턴스 컴포넌트를 찾는다.
                 일반 mesh이면 각 일반 컴포넌트의 object tree에서 교차 mesh와 uuid가 같은 mesh를 가진 컴포넌트를 반환한다.
                 어느 경로에서도 찾지 못하면 undefined를 반환한다.
-
-        selectComponentByTrails(e: MouseEvent) -> Array<ComponentObject>
-            의존:
-                defined — trail 선택 결과 존재 여부 판정; 함수: {defined()}
-                ComponentObject — 누적 경로의 event 선택 판정; 함수: {selectedByTrail()}
-            동작:
-                현재 컴포넌트마다 trail 선택을 실행하고 undefined가 아닌 결과만 배열에 담아 반환한다.
-
-        onSelectHelperMeshes() -> void
-            의존: ComponentObject — 선택 helper mesh 활성화; 함수: {onSelectHelperMesh()}
-            동작: 현재 모든 컴포넌트의 선택 helper mesh를 활성화한다.
-
-        offSelectHelperMeshes() -> void
-            의존: ComponentObject — 선택 helper mesh 비활성화; 함수: {offSelectHelperMesh()}
-            동작: 현재 모든 컴포넌트의 선택 helper mesh를 비활성화한다.
 
         getComponentsByArea(points: Array<GeoPosition>) -> Array<ComponentObject>
             인터페이스:
@@ -819,6 +807,7 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
         역할: 기존 컴포넌트의 모델을 교체하고 레이어 metadata에 컴포넌트 위치를 합친다.
 
         changeObject(id: string, option: ChangeObjectOpt) -> void
+            모델 오프셋: 일반·인스턴스 모두 새 모델 연결 후 기존 모델 오프셋이 0이 아니면 getModelOffset() 복사본을 setModelOffset()에 전달하여 보정을 다시 적용한다. 일반 보정 노드는 기존 모델과 함께 정리하며 새 모델의 내부 변환은 보존한다. 인스턴스 교체 회전은 addInstancedInfo()가 정규화한 라디안 값을 재변환 없이 복사하여 논리 TRS와 렌더 TRS를 일치시킨다.
             인터페이스:
                 id: 교체할 기존 컴포넌트 ID
                 option.object: 미리 로드한 교체 대상 모델 이름
@@ -848,7 +837,7 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
                 component._object가 있고 인스턴스 교체 경로이면 새 변환 초기값과 경계를 컴포넌트에 기록한 뒤 이전 모델의 instance 정보·mesh·matrix를 제거한다.
                 회전이나 크기를 생략하면 새 instance 정보에는 각각 0 회전과 단위 크기를 사용한다.
                 component._object가 있고 인스턴스 교체 경로이면 컴포넌트의 instance ID·모델명·회전을 새 정보에 맞추고 새 그룹과 metadata를 다시 연결한다.
-                이때 instance matrix는 addInstancedInfo가 축값 크기로 보정한 rotation을 사용하지만 component.rotation에는 같은 값에 π/180을 다시 곱한다. [확인 Q-017]
+                이때 instance matrix와 component.rotation은 addInstancedInfo가 축값 크기로 보정한 동일한 라디안 rotation을 사용한다. [확인 Q-017]
                 scale 입력이 있으면 component.scale과 새 object scale을 바꾸고, 생략하면 두 값은 기존 크기를 유지한다. 따라서 생략 시 새 instance matrix는 단위 크기의 info.scale을 사용하지만 컴포넌트 상태와 object scale은 기존 크기를 유지한다. [확인 Q-023]
                 새 모델의 animation mixer는 info.mixers에 수집되지만 component.setMixers()로 기존 컴포넌트에 연결하지 않는다. [확인 Q-018]
                 현재 밝기를 setter로 다시 전달하여 저장된 대비와 함께 새 인스턴스 그룹에 적용한다. 인스턴스 상위 그룹이 scene에 없으면 한 번 추가하고 교체를 종료한다.

@@ -14,14 +14,14 @@
 
 ### 1.3 주요 동작 방식
 
-생성 옵션의 자식 배열을 복제하지 않고 보관한다. 최초 자식은 즉시 표시 상태와 부모 그룹을 전달받으며, 나중에 추가한 자식은 ready·then 유무에 따라 표시 시점이 달라진다. LOADED 이벤트는 그룹에, 다른 이벤트는 자식에 연결한다. 해제는 자식의 비동기 완료를 기다리지 않는다.
+생성 옵션의 자식 배열을 복제하지 않고 보관한다. 최초 자식은 즉시 표시 상태와 부모 그룹을 전달받으며, 나중에 추가한 자식은 ready Promise 유무에 따라 표시 시점이 달라진다. LOADED 이벤트는 그룹에, 다른 이벤트는 자식에 연결한다. 해제는 자식의 비동기 완료를 기다리지 않는다.
 
 ### 1.4 주요 사용처와 연계 대상
 
-- `union3d/app/U3dApp.js::createModelGroupLayer()`가 렌더 컨텍스트를 전달하여 생성·등록한다.
+- `union3d/app/U3dApp.js::createGroupLayer()`가 렌더 컨텍스트를 전달하여 생성·등록한다.
 - `union3d/3dLayer/U3dLayerList.js::removeLayer()`가 자식 목록을 먼저 조회해 제거한 뒤 그룹을 해제한다.
 - `union3d/3dLayer/U3dMaskLayer.js::createMaskValue()`가 `_listlayer`를 읽어 자식 캐시를 탐색한다.
-- `U3dLayer`는 기본 상태·이벤트와 deferred 초기화를, `U3dMessage`는 실패 로그를 제공한다.
+- `U3dLayer`는 기본 상태·이벤트와 ready Promise 초기화를, `U3dMessage`는 실패 로그를 제공한다.
 
 ## 2. 요구사항과 품질 기준
 
@@ -45,10 +45,8 @@ U3dGroupLayerChild_Content 타입 정의
         추가 시 누적할 자식의 경계 상자를 반환한다.
     setEmissiveColor: function(number, number, number) -> boolean
         자식의 자체 발광 색상 설정 함수다.
-    ready?, then?: DeferredReadyFunc
-        준비 성공·실패를 연결하는 선택적 함수다. ready를 우선한다.
-    catch?: DeferredCatchFunc
-        실패 콜백 등록용 선언이며 그룹은 ready 또는 then의 반환 객체에서 catch를 호출한다.
+    ready: Promise<U3dLayer>
+        기반 레이어에서 상속한 초기화 완료 Promise다.
 
 U3dGroupLayerChild 타입 정의
     U3dLayer & U3dGroupLayerChild_Content 별칭
@@ -100,8 +98,8 @@ U3dGroupLayer extends U3dLayer 클래스 정의
             반환 객체를 true로 resolve하고 그 객체를 반환한다. 기존 배열과 경계 상자, 부모 연결은 별도로 지우지 않는다.
 
     override initialize() -> void
-        의존: deferred(this) — 기반 생성자가 부착한 완료 제어; 함수: {resolve()}
-        동작: 자신에게 부착된 resolve를 자신을 인수로 호출한다. 기반 initialize는 호출하지 않는다.
+        의존: U3dLayer — 기반 레이어의 Promise 완료 제어; 함수: {_resolveReady()}
+        동작: _resolveReady로 ready를 현재 레이어 자신으로 완료한다. 기반 initialize는 호출하지 않는다.
 
     override getWorkingLevel2() -> number
         의존: U3dGroupLayerChild(layer) — 표시 중인 자식 작업 수; 함수: {getVisible(), getWorkingLevel2()}
@@ -154,16 +152,15 @@ U3dGroupLayer extends U3dLayer 클래스 정의
         처리 기준: 자식 메서드의 동기 예외는 전달하며 앞서 변경한 부모·표시·경계 상태를 되돌리지 않는다.
         의존:
             defined — 비동기 진입점과 경계 존재 판정; 함수: {defined()}
-            U3dLayer — 그룹 이름과 표시 상태; 속성 읽기: {_name, _visible}
-            U3dGroupLayerChild(layer) — 부모 연결·준비·표시·경계 조회; 함수: {setGroupLayer(), ready(), then(), getBoundingBox(), show()}; 속성 읽기: {_name}
+            U3dLayer — 그룹 이름·표시·해제 상태; 함수: {isDisposed()}; 속성 읽기: {_name, _visible}
+            U3dGroupLayerChild(layer) — 부모 연결·준비·표시·경계·해제 조회; 함수: {setGroupLayer(), getBoundingBox(), show(), isDisposed()}; 속성 읽기: {_name, ready}
             반환된 준비 객체 — 실패 연결; 함수: {catch()}
             U3dMessage — 준비 실패 로그; 정적 함수: {error()}; 상수: {CNT.LAYER.ERROR_ADD_GROUP_1}
         동작:
             목록 indexOf 결과가 느슨한 비교로 -1이 아니거나 자식 _name과 그룹 _name이 느슨하게 같으면 false를 반환한다. 다른 자식의 이름은 비교하지 않는다.
             자식의 부모 그룹을 자신으로 설정한다.
-            ready가 null·undefined가 아니면 ready에 성공 콜백을 등록하고 반환 객체의 catch에 코드 2775786의 실패 로그를 연결한다.
-            ready가 없고 then이 존재하면 then에 같은 성공 콜백을 등록하고 반환 객체의 catch에 코드 2775457의 실패 로그를 연결한다.
-            성공 콜백은 실행 당시의 그룹 _visible로 해당 자식의 show를 호출한다. 두 진입점이 없으면 즉시 같은 표시 호출을 한다.
+            ready가 null·undefined가 아니면 ready.then에 성공 콜백을 등록하고 반환 객체의 catch에 코드 2775786의 실패 로그를 연결한다.
+            성공 콜백은 그룹·자식이 해제되었거나 자식이 현재 _listlayer에서 빠졌으면 종료한다. 그 외에는 실행 당시의 그룹 _visible로 해당 자식의 show를 호출한다. ready가 없으면 즉시 같은 표시 호출을 한다.
             자식 getBoundingBox 결과가 존재하면 그룹 경계 상태와 자식 경계를 전달하여 누적한다.
             현재 _listlayer에 자식을 추가하고 true를 반환한다.
 

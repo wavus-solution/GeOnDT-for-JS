@@ -437,7 +437,7 @@
             self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
             self._app.addLayer(this.layer);
         }
-        this.layer.then(() => {
+        this.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -465,7 +465,7 @@
     HeightLayer.prototype.create = function () {
         let self = this;
         self.layer = this._app.createHeightXYZLayer(self.options);
-        self.layer.then(() => {
+        self.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -957,7 +957,7 @@
 
     function initModelLayers() {
         try {
-            window.modelayers = app.createModelGroupLayer({
+            window.modelayers = app.createGroupLayer({
                 maxlevel: 19,
                 minlevel: 17,
                 name: 'u3f'
@@ -994,14 +994,14 @@
                             makeU3FPackage: 1
                         };
                         let subLayer = app.create3DFModelLayer(options);
-                        if(subLayer !== false){
-                            subLayer.then(function (layer) {
+                        if(subLayer){
+                            subLayer.ready.then(function (layer) {
                                 window.modelayers.addLayer(subLayer);
                                 if(i === infos.length -1){
                                     console.log("u3f model layer load");
                                     app.showLayer(window.modelayers.getName(),true);
                                 }
-                            }).fail(function (layer) {
+                            }).catch(function (layer) {
 
                             });
                         }
@@ -1096,7 +1096,7 @@
 
         toast(name+' 레이어가 로드 중입니다.',10000);
         app.loadingBar();
-        const layer = app.createModelBIMObjLayer({
+        const layer = app.createBIMObjModelLayer({
             name: name,
             layername: name,
             baseurl: baseUrl,
@@ -1111,7 +1111,7 @@
         if(currentLayer)
             app.showLayer(currentLayer.getName(), false);
 
-        layer.then(function () {
+        layer.ready.then(function () {
             const center = layer.getCenter();
             const fileNames = layer.getFileNames();
             for(let fileName of fileNames){
@@ -1128,6 +1128,8 @@
                 toast(name+' 레이어 로드가 완료 되었습니다.',2000);
                 app.endloadingBar();
             });
+        }).catch(error => {
+            console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
         });
     }
 
@@ -1178,7 +1180,7 @@
             let layer = new GeOnDT.model.U3dModelTilesLayer(opt);
             if (layer) {
                 app.addLayer(layer);
-                layer.then(function () {
+                layer.ready.then(function () {
                     onAfterTilesLayer(layer);
                 }).catch(function (e) {
                     alert("[오류]: " + e);

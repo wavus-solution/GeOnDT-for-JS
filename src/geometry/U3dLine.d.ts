@@ -1,15 +1,209 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
+import type { U3dLayer } from "../3dLayer/U3dLayer.js";
 import type { U3dApp } from "../app/U3dApp.js";
-import type { U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam } from "./U3dGeometry.js";
+import type { DispatchInputEvent, Listeners } from "../core/UEventDispatcher.js";
+import type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam } from "./U3dGeometry.js";
 import type { LineMaterial } from "../lib/three/lines/LineMaterial.js";
-import type { KeyValue } from "../types/global.js";
+import type { EventCallBack, GeoPositionVector3, KeyValue, WorldPositionVector3 } from "../types/global.js";
+
+/** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
+interface GeOnDTMixedInstance_U3dLine {
+"name": string;
+"color": three.ColorRepresentation;
+"opacity": number;
+"type": string;
+"wireframe": boolean;
+"depthOffset": number | undefined;
+"dynamicDepthOffset": boolean;
+"_heightOffset": number;
+"_beforeRenderCallbacks": Map<string, (arg0: three.WebGLRenderer, arg1: three.Scene<three.Object3DEventMap>, arg2: three.Camera, arg3: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, arg4: three.Material<three.MaterialEventMap>, arg5: three.Group<three.Object3DEventMap>) => void>;
+"_vertices": WorldPositionVector3[];
+"_coordinates": GeoPositionVector3[];
+"_needTransform": boolean;
+"_ulayer": U3dLayer | undefined;
+"_showLabel": boolean;
+"_properties": KeyValue;
+"geometry": three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap> | undefined;
+"needUpdates": boolean;
+"_size": number;
+"_url": string;
+"_classtype": string;
+"_lineColor": any;
+"init"(): void;
+"setLayer"(layer: U3dLayer | undefined): void;
+"getLayer"(): U3dLayer | undefined;
+"updateVertex"(): void;
+"updateColor"(): void;
+"updateGeometry"(): void;
+"updateMaterial"(): void;
+"setVertex"(vertex: WorldPositionVector3[]): void;
+"getVertex"(): WorldPositionVector3[];
+"addVertex"(vec3: WorldPositionVector3): void;
+"removeVertex"(idx: number): void;
+"getVertexIndex"(vec3: GeoPositionVector3): number;
+"getGeometry"(): three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap> | undefined;
+"setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
+"getPositions"(): GeoPositionVector3[];
+"addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
+"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
+"setLineColor"(lineColor: three.ColorRepresentation): void;
+"getLineColor"(): three.ColorRepresentation;
+"addWorldPosition"(x: number, y: number, z: number): void;
+"setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
+"setHeightOffset"(z?: number | undefined): void;
+"getHeightOffset"(): number;
+"_getGroundHeight"(x: number, y: number): number;
+"setPositions"(coordinates: GeoPositionVector3[]): void;
+"setRotation"(rotation: three.Euler): void;
+"setTransparent"(val: boolean): void;
+"setOpacity"(opacity: number): void;
+"_setGeometryOpacity"(opacity: number): void;
+"_applyChildrenOpacity"(opacity: number): void;
+"getOpacity"(): number | undefined;
+"_getGeometryOpacity"(): number;
+"setBrightness"(brightness?: number | undefined): void;
+"_setGeometryBrightness"(brightness: number): void;
+"getBrightness"(): number;
+"setContrast"(contrast?: number | undefined): void;
+"getContrast"(): number;
+"removePosition"(idx: number): void;
+"getMaterial"(): three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[] | undefined;
+"setMaterial"(material: any): void;
+"material": any;
+"setDepthOffset"(depthOffset: number | null | undefined): void;
+"getDepthOffset"(): number | undefined;
+"setDynamicDepthOffset"(enabled: boolean): void;
+"getDynamicDepthOffset"(): boolean;
+"setDepthOffsetFunction"(func: U3dDepthOffsetFunction): void;
+"getDepthOffsetFunction"(): U3dDepthOffsetFunction | undefined;
+"setColor"(color: three.ColorRepresentation): void;
+"getColor"(): three.ColorRepresentation | three.Color[] | undefined;
+"setWireframe"(wireframe: boolean): void;
+"getWireframe"(): boolean;
+"setImage"(url: string): void;
+"getImage"(): string | undefined;
+"needTransform"(): boolean;
+"getCenter"(): three.Vector3;
+"setRelativePosition"(): void;
+"setShowLabel"(val: boolean): void;
+"getShowLabel"(): boolean;
+"setShadow"(enabled?: boolean | undefined): void;
+"isShadow"(): boolean;
+"getProperties"(): KeyValue;
+"setProperties"(input: string | KeyValue): void;
+"addProperties"(key: string, value: any): void;
+"removeProperties"(key: string): void;
+"setParam"(param?: U3dGeometryStyleParam | undefined): void;
+"getParam"(): U3dGeometryStyleParam;
+"changeProperties"(key: string, value: any): void;
+"_listeners": Listeners | undefined;
+"addEventListener"<T extends keyof three.Object3DEventMap>(type: T, listener: three.EventListener<three.Object3DEventMap[T], T, this>): void;
+"on"(type: string, listener: EventCallBack, once?: boolean | undefined, name?: string | undefined): string | null;
+"once"(type: string, listener: EventCallBack, name?: string | undefined): string | null;
+"hasEventListener"<T extends keyof three.Object3DEventMap>(type: T, listener: three.EventListener<three.Object3DEventMap[T], T, this>): boolean;
+"hasEventType"(type: string): boolean;
+"removeEventListener"<T extends keyof three.Object3DEventMap>(type: T, listener: three.EventListener<three.Object3DEventMap[T], T, this>): void;
+"off"(type?: string | undefined, listener?: string | Function | undefined): void;
+"unkey"(type: string, key?: string | undefined): void;
+"removeEventListenerAll"(): void;
+"dispatchEvent"<T extends keyof three.Object3DEventMap>(event: three.BaseEvent<T> & three.Object3DEventMap[T]): void;
+"emit"(event: string | DispatchInputEvent, data?: any): void;
+"raycast"(raycaster: any, intersects: any): void;
+"updateMorphTargets"(): void;
+"getVertexPosition"(index: number, target: three.Vector3): three.Vector3;
+"intersectsFrustum"(frustum: three.Frustum | three.FrustumArray): boolean;
+"toJSON"(meta?: three.JSONMeta | undefined): three.MeshJSON;
+"onBeforeShadow"(renderer: three.WebGLRenderer, scene: three.Scene<three.Object3DEventMap>, camera: three.Camera, shadowCamera: three.Camera, geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, depthMaterial: three.Material<three.MaterialEventMap>, group: three.Group<three.Object3DEventMap>): void;
+"onAfterShadow"(renderer: three.WebGLRenderer, scene: three.Scene<three.Object3DEventMap>, camera: three.Camera, shadowCamera: three.Camera, geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, depthMaterial: three.Material<three.MaterialEventMap>, group: three.Group<three.Object3DEventMap>): void;
+"onBeforeRender"(renderer: three.WebGLRenderer, scene: three.Scene<three.Object3DEventMap>, camera: three.Camera, geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, material: three.Material<three.MaterialEventMap>, group: three.Group<three.Object3DEventMap>): void;
+"onAfterRender"(renderer: three.WebGLRenderer, scene: three.Scene<three.Object3DEventMap>, camera: three.Camera, geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, material: three.Material<three.MaterialEventMap>, group: three.Group<three.Object3DEventMap>): void;
+"applyMatrix4"(matrix: three.Matrix4): void;
+"applyQuaternion"(quaternion: three.Quaternion): this;
+"setRotationFromAxisAngle"(axis: three.Vector3, angle: number): void;
+"setRotationFromEuler"(euler: three.Euler): void;
+"setRotationFromMatrix"(m: three.Matrix4): void;
+"setRotationFromQuaternion"(q: three.Quaternion): void;
+"rotateOnAxis"(axis: three.Vector3, angle: number): this;
+"rotateOnWorldAxis"(axis: three.Vector3, angle: number): this;
+"rotateX"(angle: number): this;
+"rotateY"(angle: number): this;
+"rotateZ"(angle: number): this;
+"translateOnAxis"(axis: three.Vector3, distance: number): this;
+"translateX"(distance: number): this;
+"translateY"(distance: number): this;
+"translateZ"(distance: number): this;
+"localToWorld"(vector: three.Vector3): three.Vector3;
+"worldToLocal"(vector: three.Vector3): three.Vector3;
+"lookAt"(vector: three.Vector3): void;
+"lookAt"(x: number, y: number, z: number): void;
+"add"(...object: three.Object3D<three.Object3DEventMap>[]): this;
+"remove"(...object: three.Object3D<three.Object3DEventMap>[]): this;
+"removeFromParent"(): this;
+"clear"(): this;
+"attach"(object: three.Object3D<three.Object3DEventMap>): this;
+"getObjectById"(id: number): three.Object3D<three.Object3DEventMap> | undefined;
+"getObjectByName"(name: string): three.Object3D<three.Object3DEventMap> | undefined;
+"getObjectByProperty"(name: string, value: any): three.Object3D<three.Object3DEventMap> | undefined;
+"getObjectsByProperty"(name: string, value: any, optionalTarget?: three.Object3D<three.Object3DEventMap>[] | undefined): three.Object3D<three.Object3DEventMap>[];
+"getWorldPosition"(target: three.Vector3): three.Vector3;
+"getWorldQuaternion"(target: three.Quaternion): three.Quaternion;
+"getWorldScale"(target: three.Vector3): three.Vector3;
+"getWorldDirection"(target: three.Vector3): three.Vector3;
+"traverse"(callback: (object: three.Object3D<three.Object3DEventMap>) => any): void;
+"traverseVisible"(callback: (object: three.Object3D<three.Object3DEventMap>) => any): void;
+"traverseAncestors"(callback: (object: three.Object3D<three.Object3DEventMap>) => any): void;
+"updateMatrix"(): void;
+"updateMatrixWorld"(force?: boolean | undefined): void;
+"updateWorldMatrix"(updateParents: boolean, updateChildren: boolean, force?: boolean | undefined): void;
+"clone"(recursive?: boolean | undefined): this;
+"copy"(object: three.Object3D<three.Object3DEventMap>, recursive?: boolean | undefined): this;
+"isLine2": boolean;
+"isLineSegments2": boolean;
+readonly "isMesh": true;
+"morphTargetInfluences"?: number[] | undefined;
+"morphTargetDictionary"?: { [key: string]: number; } | undefined;
+"count": number;
+readonly "isObject3D": true;
+readonly "id": number;
+"uuid": string;
+"parent": three.Object3D<three.Object3DEventMap> | null;
+"children": three.Object3D<three.Object3DEventMap>[];
+"up": three.Vector3;
+readonly "position": three.Vector3;
+readonly "rotation": three.Euler;
+readonly "quaternion": three.Quaternion;
+readonly "scale": three.Vector3;
+readonly "modelViewMatrix": three.Matrix4;
+readonly "normalMatrix": three.Matrix3;
+"matrix": three.Matrix4;
+"matrixWorld": three.Matrix4;
+"matrixAutoUpdate": boolean;
+"matrixWorldAutoUpdate": boolean;
+"matrixWorldNeedsUpdate": boolean;
+"layers": three.Layers;
+"castShadow": boolean;
+"receiveShadow": boolean;
+"frustumCulled": boolean;
+"animations": three.AnimationClip[];
+"customDepthMaterial"?: three.Material<three.MaterialEventMap> | undefined;
+"customDistanceMaterial"?: three.Material<three.MaterialEventMap> | undefined;
+"static": boolean;
+"userData": Record<string, any>;
+"pivot": three.Vector3 | null;
+"occlusionTest"?: boolean | undefined;
+}
+
+declare const U3dLine_base: Omit<typeof U3dGeometry, "prototype"> & {
+    new (opt?: U3dGeometryCO, isInit?: boolean): GeOnDTMixedInstance_U3dLine & InstanceType<typeof U3dGeometry>;
+    prototype: GeOnDTMixedInstance_U3dLine & InstanceType<typeof U3dGeometry>;
+};
 
 /**
  * ~extends import('@U3dGeometry') <br>
@@ -25,9 +219,10 @@ import type { KeyValue } from "../types/global.js";
  *
  * @group geometry
  *
- * @extends {U3dGeometry}
+ * @extends {__GeOnDTMixinBase_U3dLine}
+ 
  */
-declare class U3dLine extends U3dGeometry {
+declare class U3dLine extends U3dLine_base {
     /**
      * 선 도형을 생성합니다. <br>
      * 생성 옵션 `vertices`에 월드 좌표(EPSG:3857)가 2개 이상 있으면 생성 시 형상을 생성합니다. <br>
@@ -170,6 +365,26 @@ declare class U3dLine extends U3dGeometry {
      */
     setLineWidth(width: number): void;
     /**
+     * 선 재질 셰이더의 투명도 값을 반환합니다. <br>
+     * 0이면 완전 투명, 1이면 불투명입니다. <br>
+     *
+     * @override
+     *
+     * @returns {number | undefined} 투명도 (0~1). 재질에 투명도 값이 없으면 `undefined` <br>
+     */
+    override getOpacity(): number | undefined;
+    /**
+     * 선 재질 셰이더의 투명도 값을 설정합니다. <br>
+     * 0이면 완전 투명, 1이면 불투명입니다. <br>
+     * 재질의 투명 처리 설정(`transparent`)과 도형의 `opacity` 속성은 변경하지 않습니다. <br>
+     * 선 재질은 투명 처리가 꺼진 상태로 만들어지므로, 투명도를 화면에 나타내려면 `setTransparent(true)`를 함께 호출하십시오. <br>
+     *
+     * @override
+     *
+     * @param {number} value 투명도 (0~1). 모든 하위 자식 재질에도 적용합니다 <br>
+     */
+    override setOpacity(value: number): void;
+    /**
      * 선 색상을 설정하고 형상을 다시 생성합니다. <br>
      * 단일 색상을 지정하면 선 전체에 적용하고, 색상 배열을 지정하면 좌표 사이 색상을 보간한 그라디언트로 표시합니다. <br>
      * 배열 길이는 현재 좌표(`vertices`) 수와 같아야 하며, 길이가 다르면 콘솔에 오류를 출력하고 형상을 다시 생성하지 않습니다. <br>
@@ -179,6 +394,14 @@ declare class U3dLine extends U3dGeometry {
      * @param {import('three').ColorRepresentation | Array<import('three').ColorRepresentation>} color 선 전체 색상 또는 좌표 순서에 대응하는 그라디언트 색상 배열 <br>
      */
     override setColor(color: three.ColorRepresentation | Array<three.ColorRepresentation>): void;
+    /**
+     * 꼭짓점 좌표를 BufferAttribute로 변환하여 geometry에 적용 <br>
+     *
+     * @override
+     *
+     * @ignore
+     */
+    override updateVertex(): void;
     /**
      * 선의 높이를 모델·지형 표면에 맞춥니다. <br>
      * 원본 좌표는 유지하고, `divisions` 간격으로 생성한 곡선 표본의 높이를 표면 높이에 `offset`을 더한 값으로 변경합니다. <br>
@@ -397,4 +620,4 @@ declare class U3dLine extends U3dGeometry {
      */
     type U3dLineSetParam = Omit<U3dLineCO, keyof U3dGeometryStyleParam> & U3dGeometryStyleParam;
 
-export type { U3dLine, U3dLineCO, U3dLineCO_Content, U3dLineDrapeOnSurfaceOptions, U3dLineDrapeOnSurfaceResult, U3dLineParam, U3dLineParam_Content, U3dLineSetParam };
+export type { GeOnDTMixedInstance_U3dLine, U3dLine, U3dLineCO, U3dLineCO_Content, U3dLineDrapeOnSurfaceOptions, U3dLineDrapeOnSurfaceResult, U3dLineParam, U3dLineParam_Content, U3dLineSetParam, U3dLine_base };

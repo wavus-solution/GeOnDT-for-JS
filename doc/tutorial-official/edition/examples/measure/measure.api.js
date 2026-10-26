@@ -2,6 +2,36 @@
  * 거리·면적·고도 측정 예제에서 설명할 API Help Registry입니다.
  */
 export const apiHelp = Object.freeze({
+    'measure.feature-selection': createSourceHelp(
+        'UAnaly.pickMeasureFeature() / measureselect',
+        '거리·면적 모드에서 확정된 도형을 클릭해 결과와 개별 스타일을 관리합니다. 모드를 바꿔도 확정 도형은 유지됩니다.',
+        'measure.feature-selection'
+    ),
+    'measure.feature-style': createSourceHelp(
+        'UAnaly.setFeatureStyle()',
+        '선택 도형의 색상·선 두께·투명도만 갱신합니다. 선택 강조를 해제해도 지정한 스타일이 보존됩니다.',
+        'measure.feature-style'
+    ),
+    'measure.feature-reset': createSourceHelp(
+        'UAnaly.resetFeatureStyle()',
+        '선택 도형을 현재 측정 레이어의 기본 스타일로 복원합니다.',
+        'measure.feature-reset'
+    ),
+    'measure.feature-delete': createSourceHelp(
+        'UAnaly.removeFeature()',
+        '선택 도형과 해당 라벨만 삭제하고 다른 측정 결과는 유지합니다.',
+        'measure.feature-delete'
+    ),
+    'measure.feature-results': createSourceHelp(
+        'UAnaly.getFeatures() / getFeatureResult() / getFeatureResults()',
+        '확정 도형의 거리(m) 또는 면적(㎡), 위경도 좌표 및 스타일 사본을 조회합니다. 패널 목록에도 지도·좌표 입력의 완료 결과와 삭제를 반영합니다.',
+        'measure.feature-results'
+    ),
+    'measure.stop': createSourceHelp(
+        'UAnalyDistance.drawStop() / UAnalyArea.drawStop()',
+        '더블클릭·우클릭 두 번·Esc와 같이 현재 입력을 종료합니다. 고정 점이 부족하면 현재 임시 도형만 취소합니다.',
+        'measure.stop'
+    ),
     'measure.mode': createHybridHelp(
         'U3dAPP.activeAnalysis() / deactiveAllAnalysis()',
         '지도 클릭으로 재는 측정 모듈을 켜고 끕니다. Distance, Area, Height는 앱이 기본으로 등록해 두므로 이름만으로 활성화합니다.',
@@ -11,7 +41,7 @@ export const apiHelp = Object.freeze({
             : `app.deactiveAllAnalysis();\napp.activeAnalysis('${String(settings.mode)}');`
     ),
     'model.u3f': createHybridHelp(
-        'U3dAPP.createModelGroupLayer() / showLayer()',
+        'U3dAPP.createGroupLayer() / showLayer()',
         '발행 중인 U3F 모델을 그룹 레이어로 묶어 표시합니다. 고도 모드에서 건물 높이를 재려면 이 모델이 필요합니다.',
         'model.u3f',
         settings => `await app.showLayer('u3f', ${Boolean(settings.u3fVisible)});`

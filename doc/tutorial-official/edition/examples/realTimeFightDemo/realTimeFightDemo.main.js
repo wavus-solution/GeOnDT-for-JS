@@ -18,16 +18,16 @@ const COMPONENT_LAYER_NAME = 'airplane';
 const LOCATION_REQUEST_INTERVAL_MS = 500;
 /** 초기 이력으로 컴포넌트를 만들 때 한 번에 처리할 항공기 수입니다. */
 const COMPONENT_CREATE_BATCH = 20;
-/** 화면에 보이는 누적 경로 리본의 기본 반폭(px)입니다. */
-const DEFAULT_PATH_WIDTH = 2;
-/** 카메라가 가장 낮을 때 적용할 누적 경로 반폭(px)입니다. */
-const MIN_PATH_WIDTH = 1;
-/** 카메라가 가장 높을 때 적용할 누적 경로 반폭(px)입니다. */
-const MAX_PATH_WIDTH = 1.5;
-/** 누적 경로 반폭이 최대값에 도달하는 카메라 높이(m)입니다. */
-const MAX_PATH_WIDTH_CAMERA_HEIGHT = 300_000;
-/** 누적 경로 선택 판정에 사용할 기본 Ray 허용 오차입니다. */
-const BASE_RAY_THRESHOLD = 100;
+/** 누적 경로의 기본 선 반폭(px)입니다. */
+const DEFAULT_PATH_WIDTH = 3;
+/** 카메라가 가까울 때 적용할 누적 경로 선 반폭(px)입니다. */
+const NEAR_PATH_WIDTH = DEFAULT_PATH_WIDTH;
+/** 카메라가 멀어졌을 때 적용할 누적 경로 선 반폭(px)입니다. */
+const FAR_PATH_WIDTH = 1.5;
+/** 가까운 두께에서 먼 두께로 전환을 마치는 카메라 높이(m)입니다. */
+const PATH_WIDTH_TRANSITION_CAMERA_HEIGHT = 300_000;
+/** 마우스 주변에서 경로를 선택할 원형 범위의 반경(CSS 픽셀)입니다. */
+const PICK_BUFFER_PX = 100;
 /** 지구 전체를 볼 수 있도록 넓힌 카메라 최대 거리(m)입니다. */
 const MAX_CAMERA_DISTANCE = 10_200_000;
 /** 디버그 상자를 여유 있게 확보하기 위해 항공기 수에 더하는 값입니다. */
@@ -151,17 +151,17 @@ export async function initialize(context) {
     }
 
     /**
-     * 컴포넌트 레이어처럼 Deferred를 함께 제공하는 객체의 준비를 기다립니다.
-     * 외부 모델 서버가 응답하지 않으면 Deferred가 끝나지 않으므로 대기 시간을 제한합니다.
+     * 컴포넌트 레이어의 ready Promise로 초기화 완료를 기다립니다.
+     * 외부 모델 서버가 응답하지 않으면 초기화가 끝나지 않으므로 대기 시간을 제한합니다.
      * @param {Record<string, unknown>} target 대상 객체
      * @param {number} timeoutMs 최대 대기 시간(ms)
      * @returns {Promise<void>} 준비 완료 또는 대기 종료
      */
     async function waitForReady(target, timeoutMs) {
-        if (!target || typeof target.then !== 'function') return;
+        if (!target || typeof target.ready?.then !== 'function') return;
         let timeoutTimer;
-        // Deferred를 그대로 resolve하면 다시 해석되므로 완료 여부만 전달한다.
-        const ready = new Promise((resolve, reject) => target.then(() => resolve('ready'), reject));
+        // 시간 제한·삭제 신호와 경합할 수 있도록 초기화 완료 표식을 전달한다.
+        const ready = target.ready.then(() => 'ready');
         const timeout = new Promise(resolve => {
             timeoutTimer = setTimeout(() => resolve('timeout'), timeoutMs);
         });
@@ -222,11 +222,12 @@ export async function initialize(context) {
         const camera = app.getCamera();
         if (!camera) return state.pathWidth;
         const cameraHeight = Math.max(Number(camera.position?.z) || 0, 0);
-        const heightRatio = THREE.MathUtils.clamp(cameraHeight / MAX_PATH_WIDTH_CAMERA_HEIGHT, 0, 1);
-        return Math.round(THREE.MathUtils.lerp(MIN_PATH_WIDTH, MAX_PATH_WIDTH, heightRatio));
+        const heightRatio = THREE.MathUtils.clamp(cameraHeight / PATH_WIDTH_TRANSITION_CAMERA_HEIGHT, 0, 1);
+        // 가까이서는 두껍게 표시하고, 0.1px 단위로 갱신해 정수 반올림에 따른 급변을 줄입니다.
+        return Math.round(THREE.MathUtils.lerp(NEAR_PATH_WIDTH, FAR_PATH_WIDTH, heightRatio) * 10) / 10;
     }
 
-    /** 카메라 높이에 따라 모든 누적 경로 두께와 선택 허용 오차를 맞춥니다. */
+    /** 카메라 높이에 따라 모든 누적 경로 두께를 맞춥니다. */
     function updatePathWidth() {
         if (disposed || !componentLayer) return;
         const width = getPathWidthByCameraHeight();
@@ -235,8 +236,6 @@ export async function initialize(context) {
         for (const component of componentLayer.getComponents()) {
             component.setCumulativePathStyle({width});
         }
-        // 경로가 얇아지면 클릭 판정도 같이 좁아지므로 Ray 허용 오차를 함께 조정한다.
-        selector?.addRayOption('Line', {threshold: Math.max(BASE_RAY_THRESHOLD, width * 0.5)});
         state.pathWidth = width;
     }
 
@@ -350,7 +349,6 @@ export async function initialize(context) {
             precision: 2,
             pathStyle: {
                 drawOffset: -20,
-                lineType: 'circle',
                 colorGradation: true,
                 styleFunc: pathStyleFunc,
             }
@@ -547,19 +545,13 @@ export async function initialize(context) {
         emit('airports', getAirports());
     }
 
-    /** 누적 경로 클릭 판정을 위해 선택 보조 Mesh를 표시합니다. */
-    function handleSelectStart() {
-        componentLayer?.onSelectHelperMeshes();
-    }
-
     /**
      * 누적 경로 클릭 결과로 구간 정보를 조회합니다.
      * @param {U3dMouseEvent} event 선택 종료 이벤트
      */
     function handleSelectEnd(event) {
-        componentLayer?.offSelectHelperMeshes();
         const selected = selector?.getSelected()[0];
-        const componentName = selected?.userData?.type === 'trailMesh' ? selected.userData.componentName : undefined;
+        const componentName = selected?.userData?.type === 'trailMesh' ? selected.userData.componentName : selected?.name;
         const component = componentName ? componentLayer?.getComponentByName(componentName) : undefined;
         if (!component) {
             clearSelection();
@@ -601,7 +593,6 @@ export async function initialize(context) {
         if (!selectedComponent) return;
         cameraTraceMode = true;
         state.cameraView = viewType;
-        componentLayer?.offSelectHelperMeshes();
         selector?.clearSelect(true);
         // @example-code:start camera.trace
         selectedComponent.setCameraTrace(true, viewType);
@@ -693,10 +684,11 @@ export async function initialize(context) {
     // @example-code:start select.create
     selector = new GeOnDT.select.U3dSelect({
         targetLayer: [componentLayer.getName()],
+        pickBufferPx: PICK_BUFFER_PX,
+        hover: {enabled: true, color: 0xffff00},
         selectType: 'color'
     });
     app.addSelect(selector);
-    selector.on('start', handleSelectStart);
     selector.on('end', handleSelectEnd);
     selector.active();
     // @example-code:end select.create
@@ -879,12 +871,10 @@ export async function initialize(context) {
             selectedComponent?.setCameraTrace(false);
             selectedComponent = undefined;
             if (selector) {
-                selector.off?.('start', handleSelectStart);
                 selector.off?.('end', handleSelectEnd);
                 selector.clearSelect(true);
                 selector.deactive();
             }
-            componentLayer?.offSelectHelperMeshes?.();
             debugBoxes?.dispose();
             debugBoxes = undefined;
             debugBoxIndexMap.clear();

@@ -8,6 +8,29 @@
     background-color: rgba(13, 239, 29, 0.12);
 }
 
+#point-buffer-options[hidden] { display: none; }
+
+.style-control-row.buffer-control-row {
+    grid-template-columns: 72px minmax(0, 1fr) 44px auto;
+    gap: 8px;
+}
+
+.buffer-control-row .buffer-visibility-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.texture-option.buffer-hover-option {
+    margin: 8px 0 0;
+}
+
+#point-buffer-settings.is-disabled {
+    opacity: .45;
+}
+
 .query-panel-content {
     display: grid;
     gap: 0;
@@ -106,15 +129,15 @@
     gap: 6px;
 }
 
-/* 강조 방식은 두 가지뿐이라 선택 방식과 같은 모양을 쓰되 2열로 배치합니다. */
+/* 세 가지 강조 방식을 한 줄에 배치합니다. */
 .selection-type-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
     margin-bottom: 10px;
 }
 
-/* 외곽선 강조에서는 색상과 투명도를 바꿔도 화면이 달라지지 않으므로 비활성으로 보여 줍니다. */
+/* 외곽선 강조에서는 투명도가 적용되지 않으므로 비활성으로 보여 줍니다. */
 .style-control-row.is-disabled {
     opacity: .45;
 }
@@ -177,6 +200,24 @@
     font-size: 12px;
     font-weight: 600;
 }
+
+#ring-options[hidden] { display: none; }
+
+.ring-control-row input,
+.ring-control-row select {
+    grid-column: 2 / -1;
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+    padding: 7px;
+    border: 1px solid var(--theme-line);
+    border-radius: 7px;
+    background: var(--theme-surface);
+    color: #eff9fd;
+}
+
+.ring-control-row select option { background: #0b2334; }
+.ring-control-row input:disabled { opacity: .45; }
 
 .style-control-row output {
     color: var(--theme-muted);
@@ -314,6 +355,7 @@
 }
 
 .object-info-overlay {
+    cursor: move;
     position: absolute;
     z-index: 30;
     box-sizing: border-box;
@@ -325,6 +367,8 @@
     color: #ffffff;
     box-shadow: 0 12px 32px rgb(0 0 0 / 0.28);
 }
+
+.object-info-close { cursor: pointer; }
 
 .object-info-header {
     display: flex;

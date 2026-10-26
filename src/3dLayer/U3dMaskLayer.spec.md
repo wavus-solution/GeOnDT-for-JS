@@ -244,7 +244,7 @@ U3dMaskLayer extends U3dModelLayer 클래스 정의
             격자를 조회하고 없으면 undefined를 반환한다.
             x·y로 구한 키의 셀이 있으면 동일 셀 객체를 반환하고 없으면 undefined다. 공개 선언은 object다. [확인 Q-007]
 
-    createMaskValue(tileKey: string) -> Promise<void>
+    createMaskValue(tileKey: string, signal?: AbortSignal) -> Promise<void>
         의존:
             UDEF — 비동기 실행 등록과 종료 상태; 정적 함수: {createPromise()}; 상수: {TILE_STATE._end}
             defined — 레이어·캐시·격자 존재 판정; 함수: {defined()}
@@ -258,14 +258,14 @@ U3dMaskLayer extends U3dModelLayer 클래스 정의
             U3dLayer — 타일 완료 상태와 로그 분류; 함수: {setStateTileByKey()}; 속성 읽기: {_classtype}
             U3dMessage — 실패 안내; 정적 함수: {info()}; 상수: {CNT.MASK.ERROR_ADD_MASK_2}
         동작:
-            createPromise에 처리를 등록한다. _infoLayer가 없으면 resolve·reject를 호출하지 않아 미완료로 남는다. [확인 Q-001]
+            createPromise에 처리를 등록한다. 예약 작업 시작 시 취소 신호가 중단되었으면 읽기·쓰기 없이 완료한다. 하위 점 검사에도 같은 신호를 전달하고 점 검사 완료 뒤 다시 확인하여 취소된 작업의 박스·완료 상태·메시 처리 이력 쓰기를 막는다. _infoLayer가 없으면 resolve·reject를 호출하지 않아 미완료로 남는다. [확인 Q-001]
             그룹 레이어이고 _listlayer가 있으면 자식 순서대로 캐시에서 tileKey의 첫 그룹을 선택한다. 자식이 없거나 일치 그룹이 없으면 성공 완료한다.
             일반 참조 레이어는 _cache가 없으면 즉시 성공 완료하고, 캐시 항목이 없어도 성공 완료한다.
             캐시 그룹이 있으면 공유 tempBBox에 전체 경계를 구하고 교차 타일 키 목록을 얻는다.
             그룹을 순회하며 USharedMesh가 아닌 UMesh만 처리하고 이미 _meshLoadList에 식별자가 있으면 건너뛴다. geometry를 CSG.fromGeometry(geometry, 0)으로 변환한다.
             타일에 마스크 격자가 있을 때 각 폴리곤 정점에 메시 위치를 더한다. 시작점보다 왼쪽·위쪽이거나 시작점과의 X·Y 거리 절댓값이 _size × 각 축 셀 수보다 크면 제외한다.
             경계 안 정점이 하나라도 있는 폴리곤과 타일 키를 중복 없이 모은다. 빈 타일·폴리곤·정점 목록은 해당 반복을 건너뛴다.
-            두 결과 목록이 모두 비어 있지 않으면 키마다 폴리곤의 점 포함 검사를 등록하고, 검사 완료를 기다리기 전에 메시 식별자를 이력에 넣는다.
+            두 결과 목록이 모두 비어 있지 않으면 키마다 폴리곤의 점 포함 검사를 등록하고, 모든 점 검사 완료와 취소 확인 후 메시 식별자를 이력에 넣는다. 취소된 계산은 다음 요청이 다시 처리할 수 있다.
             모든 검사가 성공하면 요청한 tileKey의 박스 메시를 만들고 해당 타일을 _end로 바꾼 뒤 resolve한다.
             후속 Promise 실패는 안내 코드 2214595를 남겨 원래 오류로 reject한다. 등록 콜백의 try 안에서 발생한 오류는 2214833으로 안내하고 reject한다.
 
@@ -300,7 +300,7 @@ createGridHelper(tile: U3dQuadTile) -> void
         격자에 helper를 보관하고 가로·세로 크기는 _size × 각 길이, 양 축 세분화 인수는 모두 xLength인 PlaneGeometry를 생성한다.
         이름에 대응하는 그룹을 얻어 helper를 연결한다.
 
-checkPolygonInPoint(key: string, intersectList: Array<U3dMaskLayerPolygon>, mesh: UMesh, val: number) -> Promise<void>
+checkPolygonInPoint(key: string, intersectList: Array<U3dMaskLayerPolygon>, mesh: UMesh, val: number, signal?: AbortSignal) -> Promise<void>
     의존:
         UDEF — 비동기 실행 등록; 정적 함수: {createPromise()}
         UMesh — 메시 식별 정보 조회; 함수: {getUid(), getLayerName()}

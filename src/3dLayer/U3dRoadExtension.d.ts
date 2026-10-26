@@ -1,11 +1,14 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
+import type { UCssBilboard } from "../annotation/UCssBilboard.js";
+import type { UGroup } from "../core/UGroup.js";
+import type { UMesh } from "../core/mesh/UMesh.js";
 import type { WorldPositionVector3 } from "../types/global.js";
 import type { DeferredObject } from "../util/deferred.js";
 
@@ -22,7 +25,7 @@ declare class U3dRoadExtension {
     faces: any[];
     uvs: any[];
     nodes: any[];
-    nodeGroup: any;
+    nodeGroup: UGroup;
     color: string;
     line: any;
     width: any;
@@ -37,9 +40,9 @@ declare class U3dRoadExtension {
     _isAbsorption: any;
     material: three.MeshLambertMaterial[];
     geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>;
-    mesh: any;
+    mesh: UMesh;
     _show: boolean;
-    _editPoints: any;
+    _editPoints: UGroup;
     createAbsorption(road1: any, road2: any, type: any): DeferredObject<unknown>;
     /**
      * 도로 생성을 위한 point 좌표를 추가하는 함수입니다.
@@ -164,9 +167,9 @@ declare class U3dRoadExtension {
     getCurvePointsToStart(point: any): any;
     debugVertex(): void;
     startPoi(position: any): void;
-    _startPoi: any;
+    _startPoi: UCssBilboard;
     endPoi(position: any): void;
-    _endPoi: any;
+    _endPoi: UCssBilboard;
     /**
      * 새로 추가되는 point 와 도로간의 거리를 체크하여 도로 상태를 반환하는 함수입니다. <br>
      * `CLOSE`, `MAXIMUM_SIZE`, `NONE` 세 가지 상태가 존재합니다.

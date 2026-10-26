@@ -47,7 +47,7 @@ hole area는 fillOpacity를 -1로 표시하여 shader가 채우기 대신 지우
 실행 맥락: Worker 안에서 tile 요청마다 동기로 실행되며 결과에 처리 시간과 feature 수를 성능 정보로 붙인다.
 우선순위: 정규화한 entry는 feature cache key·revision·tile origin으로 재사용하여 같은 feature의 반복 요청에서 좌표 변환과 clip을 다시 하지 않는다.
 제한 조건: entry cache는 항목 1024개와 추정 32MB, feature base cache는 4096개와 추정 64MB, tile 상태 cache는 4096개와 추정 32MB 안으로 유지하며 초과 시 가장 오래된 항목부터 버린다.
-제한 조건: path segment가 256개 이하이면 bucket을 만들지 않고 shader가 segment 목록을 직접 순회하게 한다. bucket 배열 생성·전송 비용이 이득보다 클 수 있기 때문이다.
+제한 조건: path segment가 64개 이하이면 bucket을 만들지 않고 shader가 segment 목록을 직접 순회하게 한다. 65개부터는 bucket별 후보를 검사해 넓은 합성 범위의 전체 선분 반복을 줄인다.
 제한 조건: area 점 목록은 bucket 중복과 행 padding 없이 한 번만 저장한다. 이전의 행×최장 점 수 격자 레이아웃이 만들던 업로드량을 줄이기 위한 것이다.
 ```
 
@@ -264,7 +264,7 @@ UTerrainDecalPrepareTask 클래스 정의
         tile origin 별로 정규화한 feature entry 를 재사용하는 cache
     static FeatureBaseCache: WorkerLRUCache = 항목 4096개·추정 64MB 한도의 cache
         main thread 가 등록한 불변 feature base 를 featureCacheKey 로 보관하는 cache
-    static USE_PATH_BUCKET_THRESHOLD: number = 256
+    static USE_PATH_BUCKET_THRESHOLD: number = 64
         path segment 수가 이 값을 넘을 때만 bucket index texture 를 만든다.
 
     static prepareTileBuffers(data: object = {}) -> object
@@ -566,7 +566,7 @@ UTerrainDecalPrepareTask 클래스 정의
             entry 가 없거나 평탄화 결과 segment 가 없으면 bounds texture 와 bucket 메타 배열이 없는 빈 상태를 반환한다.
             데이터 texel 은 vec4(x1, y1, x2, y2), 메타 texel 은 vec4(styleIndex, strokeWidth, visible, shaderLayerRenderOrder) 이며 두 texture 의 크기는 같다.
             style 은 path 당 2 texel: vec4(strokeColor rgb, strokeOpacity), vec4(compositionBatchIndex, 0, 0, 0) 이며 style 이 하나도 없어도 texel 2 개짜리 배열을 만든다.
-            segment 수가 256 을 넘을 때만 bucket 을 만들고 useBuckets 를 1 로 둔다. 아니면 bucket index texture 는 자리표시자 texel 하나 `[-1, -1, -1, -1]` 이다.
+            segment 수가 64 를 넘을 때만 bucket 을 만들고 useBuckets 를 1 로 둔다. 아니면 bucket index texture 는 자리표시자 texel 하나 `[-1, -1, -1, -1]` 이다.
             bucket 을 쓰면 bucket index 배열 앞부분에 bucket 메타 texel(bucket 수만큼 `[startTexel, texelCount, 0, 0]`)을 두고 그 뒤에 segment 순번 4 개씩 묶은 texel 을 이어 붙인다.
 
         동작:

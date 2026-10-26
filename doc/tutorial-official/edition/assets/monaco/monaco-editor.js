@@ -1,5 +1,5 @@
-import { a as e, c as t, d as n, f as r, g as i, h as a, i as o, l as s, m as c, n as l, o as u, p as d, r as f, s as p, t as m, u as h } from "./chunks/toggleHighContrast-CDBvUtAQ.js";
-import { t as g } from "./chunks/monaco.contribution-Gn-Pqpqd.js";
+import { a as e, c as t, d as n, f as r, g as i, h as a, i as o, l as s, m as c, n as l, o as u, p as d, r as f, s as p, t as m, u as h } from "./chunks/toggleHighContrast-ME2BLWTh.js";
+import { t as g } from "./chunks/monaco.contribution-Bh-j6U6l.js";
 //#region node_modules/monaco-editor/esm/vs/editor/internal/initialize.js
 function _() {
 	return c;
@@ -63,7 +63,7 @@ S({
 		"js"
 	],
 	mimetypes: ["text/javascript"],
-	loader: () => import("./chunks/javascript-DFHVJT21.js")
+	loader: () => import("./chunks/javascript-CsC13fl7.js")
 }), S({
 	id: "html",
 	extensions: [
@@ -89,7 +89,7 @@ S({
 		"text/template",
 		"text/ng-template"
 	],
-	loader: () => import("./chunks/html-3Lzq13Ei.js")
+	loader: () => import("./chunks/html-C1HUP7Az.js")
 }), S({
 	id: "css",
 	extensions: [".css"],
@@ -158,7 +158,7 @@ function T(e) {
 var E = "html", D = "handlebars", O = "razor";
 A(E, w, T(E)).defaults, A(D, w, T(D)).defaults, A(O, w, T(O)).defaults;
 function k() {
-	return import("./chunks/htmlMode-CrovRK1O.js");
+	return import("./chunks/htmlMode-BlwQZ4YE.js");
 }
 function A(e, t = w, n = T(e)) {
 	let r = new C(e, t, n), i, o = a.onLanguage(e, async () => {
@@ -248,7 +248,7 @@ var j = class {
 	documentRangeFormattingEdits: !0
 }, P = new j("css", M, N), F = new j("scss", M, N), I = new j("less", M, N);
 function L() {
-	return import("./chunks/cssMode-B64LMBkB.js");
+	return import("./chunks/cssMode-w9kqRejh.js");
 }
 a.onLanguage("less", () => {
 	L().then((e) => e.setupMode(I));
@@ -260,22 +260,22 @@ a.onLanguage("less", () => {
 //#endregion
 //#region node_modules/monaco-editor/esm/vs/editor/editor.worker.js?worker
 function R(e) {
-	return new Worker(new URL("assets/editor.worker-BsqKV1DS.js", import.meta.url).href, { name: e?.name });
+	return new Worker(new URL("assets/editor.worker-DCxQgBu6.js", import.meta.url).href, { name: e?.name });
 }
 //#endregion
 //#region node_modules/monaco-editor/esm/vs/language/typescript/ts.worker.js?worker
 function z(e) {
-	return new Worker(new URL("assets/ts.worker-CYhxGg0r.js", import.meta.url).href, { name: e?.name });
+	return new Worker(new URL("assets/ts.worker-C5Z9Q_Jc.js", import.meta.url).href, { name: e?.name });
 }
 //#endregion
 //#region node_modules/monaco-editor/esm/vs/language/html/html.worker.js?worker
 function B(e) {
-	return new Worker(new URL("assets/html.worker-CO5LvJpF.js", import.meta.url).href, { name: e?.name });
+	return new Worker(new URL("assets/html.worker-CUEXBFLu.js", import.meta.url).href, { name: e?.name });
 }
 //#endregion
 //#region node_modules/monaco-editor/esm/vs/language/css/css.worker.js?worker
 function V(e) {
-	return new Worker(new URL("assets/css.worker-niORQtzO.js", import.meta.url).href, { name: e?.name });
+	return new Worker(new URL("assets/css.worker-BhEL13bk.js", import.meta.url).href, { name: e?.name });
 }
 self.MonacoEnvironment = { getWorker(e, t) {
 	return t === "typescript" || t === "javascript" ? new z() : t === "html" || t === "handlebars" || t === "razor" ? new B() : t === "css" || t === "scss" || t === "less" ? new V() : new R();

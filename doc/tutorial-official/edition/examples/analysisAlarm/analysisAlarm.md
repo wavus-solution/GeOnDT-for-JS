@@ -11,7 +11,7 @@ apis:
   - "clearAllAnalysis"
   - "create3DFModelLayer"
   - "createloadingBar"
-  - "createModelGroupLayer"
+  - "createGroupLayer"
   - "endloadingBar"
   - "getAnalysis"
   - "getCameraState"
@@ -84,6 +84,6 @@ dependencies: []
 ## 관련 API
 
 - `getAnalysis`: `'Alarm'` 분석 기능을 얻어 객체와 POI에 알람을 등록하고 해제합니다.
-- `create3DFModelLayer`, `createModelGroupLayer`: 알람 대상이 되는 U3F 모델과 그룹 모델 레이어를 만듭니다.
+- `create3DFModelLayer`, `createGroupLayer`: 알람 대상이 되는 U3F 모델과 그룹 모델 레이어를 만듭니다.
 - `clearAllAnalysis`: 등록한 분석 상태를 한 번에 정리합니다.
 - `on`, `off`: 지도 클릭과 선택 이벤트를 연결하고 예제 종료 시 해제합니다.

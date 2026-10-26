@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -17,6 +17,7 @@ import type { UEventDispatcherListener } from "../core/UEventDispatcher.js";
 import type { UFrustum } from "../core/UFrustum.js";
 import type { UGroup } from "../core/UGroup.js";
 import type { UScene } from "../core/UScene.js";
+import type { UTaskProcessor } from "../core/UTaskProcessor.js";
 import type { UMesh } from "../core/mesh/UMesh.js";
 import type { ULight } from "../env/ULight.js";
 import type { UBox3HelperGroup } from "../helpers/UBox3HelperGroup.js";
@@ -56,6 +57,106 @@ declare class U3dLayer extends U3dObject {
      */
     constructor(opt?: U3dLayerCO);
     /**
+     * 초기화 완료 통지 상태입니다. 외부 단위는 isReady()로 종결 여부를 확인합니다.
+     *
+     * @type {'pending' | 'fulfilled' | 'rejected'}
+     *
+     * @ignore
+     */
+    _readyState: "pending" | "fulfilled" | "rejected";
+    /**
+     * 자신을 전달하는 네이티브 Promise의 성공 통지 함수입니다.
+     *
+     * @type {() => void}
+     *
+     * @ignore
+     */
+    _readyResolve: () => void;
+    /**
+     * 네이티브 Promise의 실패 통지 함수입니다.
+     *
+     * @type {(reason: Error) => void}
+     *
+     * @ignore
+     */
+    _readyReject: (reason: Error) => void;
+    /**
+     * 레이어 초기화가 완료되면 이 레이어 자신을 전달하는 Promise입니다. <br>
+     * `await layer.ready` 또는 `layer.ready.then(layer => { ... })`로 완료를 기다립니다.
+     * 생성만으로 초기화를 시작하지는 않으며 실제 완료 시점은 각 하위 레이어의 초기화 계약을 따릅니다.
+     *
+     * @returns {Promise<this>} 현재 초기화 회차의 완료 Promise
+     */
+    get ready(): Promise<this>;
+    /**
+     * 현재 초기화 회차의 네이티브 Promise입니다.
+     *
+     * @type {Promise<this>}
+     *
+     * @ignore
+     */
+    _readyPromise: Promise<this>;
+    /**
+     * 초기화 완료 대기를 새 회차로 시작합니다. 실제 로딩은 시작하지 않습니다.
+     * 레이어 내부의 재시도 경로는 새 ready를 만든 뒤 initialize()를 다시 호출합니다.
+     *
+     * @returns {this} 이 레이어
+     *
+     * @protected
+     * @ignore
+     */
+    protected _resetReady(): this;
+    /**
+     * 현재 초기화 회차가 성공 또는 실패로 종결되었는지 확인합니다.
+     *
+     * @returns {boolean} 성공·실패 통지가 끝났으면 true, 대기 중이면 false
+     */
+    isReady(): boolean;
+    /**
+     * 하위 레이어의 최종 초기화 성공을 알립니다. 중간 단계에서 호출하지 않습니다.
+     * 최초 통지만 반영하며, 구독 콜백은 네이티브 Promise의 마이크로태스크에서 실행됩니다.
+     *
+     * @returns {this} 이 레이어
+     *
+     * @ignore
+     */
+    _resolveReady(): this;
+    /**
+     * 하위 레이어의 초기화 실패를 알리고 타일 처리 대상에서 제외합니다.
+     * 기존 Error는 보존하고, 나머지 실패값은 cause에 보관하여 원인을 추적할 수 있게 합니다.
+     *
+     * @param {unknown} reason 초기화 실패 원인
+     * @returns {this} 이 레이어
+     *
+     * @ignore
+     */
+    _rejectReady(reason: unknown): this;
+    /** `initialize()` 완료 여부.
+     *
+     * @type {boolean}
+     */
+    _initialized: boolean;
+    /** 사용 중인 공유 파서 풀입니다. @type {Set<import('@union3d/core/UTaskProcessor').UTaskProcessor>} @ignore */
+    _taskProcessors: Set<UTaskProcessor>;
+    /** 해제 중 지연 콜백의 새 풀 사용을 차단합니다. @type {boolean} @ignore */
+    _taskProcessorDisposing: boolean;
+    /**
+     * 첫 실제 요청에서 공유 파서 풀의 소유권을 등록합니다.
+     * U3dApp 별로 관리하기 위해 등록합니다.
+     * @param {import('@union3d/core/UTaskProcessor').UTaskProcessor} processor 사용할 풀
+     * @returns {import('@union3d/core/UTaskProcessor').UTaskProcessor} 등록한 풀
+     * @throws {Error} 해제 중이거나 해제된 레이어·앱의 요청
+     *
+     * @ignore
+     */
+    _useTaskProcessor(processor: UTaskProcessor): UTaskProcessor;
+    /**
+     * 레이어 정리의 성공·실패와 관계없이 공유 풀 소유권을 한 번 반환합니다.
+     * @returns {void}
+     * @ignore
+     */
+    _releaseTaskProcessors(): void;
+    /**
      * 작업 확인 카운트 저장
      *
      * @type {number}
@@ -71,6 +172,8 @@ declare class U3dLayer extends U3dObject {
      * @ignore
      */
     _workCheckId: number | null;
+    /** 재시작 전 로딩 완료 예약과 준비 콜백을 구분합니다. @type {number} @ignore */
+    _workCheckGeneration: number;
     /**
      * 레이어의 기존 바운드 디버그 상태와 성능 로그 공통 설정을 함께 보관합니다. <br>
      * `logLimit`은 로그 구조를 강제하지 않고 하위 레이어가 자체 보관 정책에 사용할 수 있는 공통 한도 값입니다.
@@ -151,11 +254,6 @@ declare class U3dLayer extends U3dObject {
      * @type {import('@union3d/core/UCache').UCache | undefined}
      */
     _cache: UCache | undefined;
-    /** `initialize()` 완료 여부.
-     *
-     * @type {boolean}
-     */
-    _initialized: boolean;
     /** `dispose()` 완료 여부. true면 레이어를 다시 사용할 수 없습니다.
      *
      * @type {boolean}
@@ -447,6 +545,12 @@ declare class U3dLayer extends U3dObject {
      * @ignore
      */
     createWorkingEndEvent(): void;
+    /**
+     * 이 레이어의 로딩 완료 예약만 취소하고 등록 이벤트와 사용자 표시 상태는 유지합니다.
+     * @returns {void}
+     * @ignore
+     */
+    _resetWorkingEndEvent(): void;
     /**
      * 레이어를 초기화합니다.
      *

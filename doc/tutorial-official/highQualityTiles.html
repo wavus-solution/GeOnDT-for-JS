@@ -343,7 +343,7 @@
             self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
             self._app.addLayer(this.layer);
         }
-        this.layer.then(() => {
+        this.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -373,7 +373,7 @@
     HeightLayer.prototype.create = function () {
         let self = this;
         self.layer = this._app.createHeightXYZLayer(self.options);
-        self.layer.then(() => {
+        self.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -528,7 +528,7 @@
 
         function initModelLayers() {
             try {
-                modelayers = app.createModelGroupLayer({
+                modelayers = app.createGroupLayer({
                     maxlevel: 19,
                     minlevel: 17,
                     name: 'u3f'
@@ -573,14 +573,14 @@
                             Object.assign(buldLayerConstruct, {renderorder: 0});
                             Object.assign(buldLayerConstruct, {useproxy: false});
                             let subLayer = app.create3DFModelLayer(buldLayerConstruct);
-                            if (subLayer !== false) {
-                                subLayer.then(function (layer) {
+                            if (subLayer) {
+                                subLayer.ready.then(function (layer) {
                                     modelayers.addLayer(subLayer);
                                     if (i === infos.length - 1) {
                                         console.log("u3f model layer load");
                                         app.showLayer(modelayers.getName(), true);
                                     }
-                                }).fail(function (layer) {
+                                }).catch(function (layer) {
 
                                 });
                             }
@@ -614,7 +614,7 @@
                 }
             }
 
-            let groupLayer = app.createModelGroupLayer({
+            let groupLayer = app.createGroupLayer({
                 minlevel: 19,
                 maxlevel: 19,
                 name: 'tiles'
@@ -625,7 +625,7 @@
                 let opt = options[sub];
                 let layer = new Union3D.model.U3dModelTilesLayer(opt);
                 app.addLayer(layer);
-                layer.then(function () {
+                layer.ready.then(function () {
                     // self.ready.resolve();
                     groupLayer.addLayer(layer);
                     if (opt.isOffset) {
@@ -635,6 +635,8 @@
                     //      app.fitLayerExtent(groupLayer.getName());
                     app.showLayer(groupLayer.getName(), true)
                     groupLayer.isShow = true;
+                }).catch(error => {
+                    console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
                 })
             });
         }

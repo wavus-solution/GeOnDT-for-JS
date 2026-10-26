@@ -180,7 +180,7 @@ U3dImageLayer extends U3dLayer 클래스 정의
     constructor(opt: U3dImageLayerCO = {})
         인터페이스: opt는 기반 레이어 옵션과 image texture, cache 및 색상 조절 초기값을 전달한다.
         처리 기준:
-            기반 생성자 실행 시점에 `_needXml`이 정의되지 않았으면 짧은 비동기 지연 뒤 생성 완료 callback을 호출한다.
+            1ms 타이머 실행 시점에 파생 클래스의 `_needXml`이 true가 아니면 ready를 완료한다.
             LRU 제거 대상 texture를 scene mesh cache가 같은 key로 계속 소유하거나 이 레이어의 handoff 잔여물이 쓰고 있으면 GPU·CPU 자원을 해제하지 않는다.
         의존:
             U3dLayer — 기반 레이어 상태와 cache 생성; 생성자: {new U3dLayer()}; 속성 읽기: {_cache}
@@ -193,11 +193,11 @@ U3dImageLayer extends U3dLayer 클래스 정의
             UTexture/UCanvasTexture — LRU에서 단독 소유한 GPU 자원 해제와 close 함수가 있는 texture의 CPU source 해제; 함수: {dispose(), close()}
             UDEF — IMAGE layer type 지정; 상수: {LAYER_TYPE.IMAGE}
             Web API — 초기화 완료 callback 지연 예약; 함수: {setTimeout()}
-            레이어 생성 완료 callback(resolve) — XML 대기가 없는 레이어의 생성 완료 통지; 콜백: {resolve()}
+            U3dLayer — XML 대기가 없는 레이어의 초기화 완료 통지; 함수: {_resolveReady()}
         동작:
             옵션을 정규화하고 기반 레이어를 초기화한 뒤 image layer type, 수명 상태와 최대 level 직접 처리 정책을 설정한다.
             부모 영상 대체 level, 투명도, texture Y축, parsing 함수, data cache 옵션과 영상 색상값을 저장한다. useDataCache 값은 이후 data cache 사용 여부에 반영되지 않는다. [확인 Q-001]
-            파생 클래스가 XML 대기를 표시하지 않았으면 1ms 뒤 존재하는 resolve callback에 현재 레이어를 전달한다.
+            파생 클래스가 XML 대기를 표시하지 않았으면 1ms 뒤 _resolveReady를 호출하여 ready에 현재 레이어를 전달한다.
             용량 400의 LRU data cache를 만든다. 제거 callback은 scene mesh cache에 같은 key가 없고 handoff 잔여물도 그 texture를 쓰지 않을 때만 texture의 GPU 자원을 해제하고 close 함수가 있으면 CPU source 사용권도 해제한다.
 
     debug log 책임 그룹
@@ -834,15 +834,17 @@ U3dImageLayer extends U3dLayer 클래스 정의
     override refresh() -> void
         역할: 요청·표시 상태와 texture data cache를 초기화하고 현재 quadtree cache의 tile texture를 다시 준비한다.
         의존:
-            U3dLayer — 진행 요청과 scene·tile cache의 공통 refresh; 함수: {refresh()}; 속성 읽기: {_drawArg}
+            U3dLayer — 진행 요청과 scene·tile cache의 공통 refresh; 함수: {refresh()}; 속성 읽기: {_drawArg, _disposed}
+            U3dQuadTile — 타일 해제 판정; 속성 읽기: {_disposed}
             LRUCache — 보유 texture 목록 조회와 cache 비우기; 함수: {length(), values(), clear()}
             UCache — quadtree tile cache 목록 조회; 함수: {items()}
             UTexture/UCanvasTexture — data cache의 GPU·CPU 자원 해제; 함수: {dispose(), close()}
-            createTexture 반환 thenable — 비동기 texture 성공 callback 등록; 함수: {then()}
+            __GError__ — 갱신 실패 통지; 함수: {__GError__()}
         동작:
             cache의 지형 mesh를 모두 강제 해제한 뒤 기반 refresh를 실행하고, data cache의 모든 texture를 dispose·close한 뒤 cache를 비운다.
             현재 _drawArg가 없으면 종료한다.
-            _drawArg가 있으면 quadtree cache의 각 tile에 texture 생성을 요청한다. 결과가 thenable이면 성공 callback에서, 결과가 true이면 즉시 tile을 scene에 추가한다.
+            _drawArg가 있으면 quadtree cache의 각 tile에 texture 생성을 요청한다. 결과가 thenable이면 Promise.resolve로 표준 체인에 연결하고 성공 callback에서 레이어·타일이 살아 있을 때 scene에 추가한다. 결과가 true이면 즉시 추가한다.
+            체인의 실패는 해제된 대상 또는 AbortError이면 종료하고, 그 외에는 2258522 로그로 보고한다.
 
     isTileRenderableReady(tile: U3dQuadTile) -> boolean
         인터페이스: tile이 실제 parent·child 교체에 사용할 수 있는지 반환한다.

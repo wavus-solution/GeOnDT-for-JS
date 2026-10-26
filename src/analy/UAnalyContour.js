@@ -39,7 +39,7 @@ const MAX_TOPO_STYLE_ENTRIES = 256;
  */
 
 /**
- * ~extends import('@union3d/analy/UAnalyHeight').UAnalyHeightCO <br>
+ * ~extends UAnalyHeightCO <br>
  * UAnalyContour 생성자 옵션
  * @memberof UAnalyContour
  * @inner
@@ -55,7 +55,7 @@ const MAX_TOPO_STYLE_ENTRIES = 256;
  * @property {number} [topoFadeStartDistance=2000] 등고선 투명도가 감소하기 시작하는 월드 좌표 기준 카메라 거리
  * @property {number} [topoFadeEndDistance=80000] 등고선이 완전히 투명해지는 월드 좌표 기준 카메라 거리
  *
- * @typedef {Omit<import('@union3d/analy/UAnalyHeight').UAnalyHeightCO, never> & UAnalyContourCO_Content} UAnalyContourCO
+ * @typedef {Omit<UAnalyHeightCO, never> & UAnalyContourCO_Content} UAnalyContourCO
  */
 
 /**

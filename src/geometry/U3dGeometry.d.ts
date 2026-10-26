@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -282,6 +282,16 @@ declare class U3dGeometry extends UEventDispatcher {
      */
     addPosition(x: three.Vector3 | number, y?: number, z?: number): void;
     /**
+     * 외곽선의 렌더 순서를 도형의 현재 값에 연결합니다.
+     * 렌더 목록을 만들 때부터 적용되므로 부모 값을 직접 바꿔도 다음 정렬에 반영됩니다.
+     *
+     * @param {import('three').Object3D} outline 외곽선 객체
+     * @param {number} [offset=0] 부모 렌더 순서에 더할 값
+     * @protected
+     * @ignore
+     */
+    protected _bindOutlineRenderOrder(outline: three.Object3D, offset?: number): void;
+    /**
      * 외곽선(테두리 선) 색상을 설정합니다. <br>
      * 외곽선을 가진 도형에만 적용되며, 외곽선이 없는 도형에서 호출하면 색을 바꾸지 않고 콘솔에 기록을 남깁니다. <br>
      * 올바르지 않은 색상 값은 TypeError 또는 RangeError를 발생시키며 기존 색상을 유지합니다. <br>
@@ -374,10 +384,27 @@ declare class U3dGeometry extends UEventDispatcher {
     setTransparent(val: boolean): void;
     /**
      * 도형의 투명도를 설정합니다(0이면 완전 투명, 1이면 불투명). <br>
+     * 외곽선을 포함한 모든 하위 자식 객체의 재질에도 같은 투명도를 적용합니다. <br>
      *
      * @param {number} opacity 투명도 (0~1) <br>
      */
     setOpacity(opacity: number): void;
+    /**
+     * UMesh 믹스인을 사용하는 도형도 공통 투명도 처리로 연결합니다.
+     *
+     * @param {number} opacity 불투명도 (0~1)
+     * @protected
+     * @ignore
+     */
+    protected _setGeometryOpacity(opacity: number): void;
+    /**
+     * 모든 하위 자식 객체의 단일·배열 재질과 투명도 유니폼에 같은 값을 적용합니다.
+     * 재질이 없는 그룹도 순회하여 그 안의 자식까지 처리합니다.
+     *
+     * @param {number} opacity 불투명도 (0~1)
+     * @ignore
+     */
+    _applyChildrenOpacity(opacity: number): void;
     /**
      * `setOpacity`로 마지막에 설정한 투명도를 반환합니다. <br>
      * 설정한 적이 없으면 생성 옵션 `opacity`의 값을 반환하며, 생성 옵션에도 없었으면 기본값 `0.7`을 반환합니다. <br>
@@ -388,6 +415,14 @@ declare class U3dGeometry extends UEventDispatcher {
      * @returns {number | undefined} 보관 중인 투명도 (0~1). 재질에서 직접 읽도록 재정의한 하위 도형에서 값이 없으면 `undefined`
      */
     getOpacity(): number | undefined;
+    /**
+     * UMesh 믹스인을 사용하는 도형에서도 마지막으로 설정한 투명도를 반환합니다.
+     *
+     * @returns {number} 현재 불투명도
+     * @protected
+     * @ignore
+     */
+    protected _getGeometryOpacity(): number;
     /**
      * 이 도형과 하위 렌더 객체의 밝기를 절대값으로 설정합니다. <br>
      * 1은 원래 밝기, 0은 검정이며 1보다 크면 밝아집니다. 반복 호출해도 색상에 누적되지 않습니다. <br>

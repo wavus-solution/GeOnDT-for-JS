@@ -176,13 +176,14 @@ dependencies: []
 | 화면 아래 시점 버튼을 누릅니다. | 추적 카메라가 앞면, 뒷면, 윗면, 좌측, 우측 시점으로 전환됩니다. |
 | 추적 중 지도를 클릭합니다. | 추적이 해제되고 지도 조작 모드로 돌아갑니다. |
 | 지도에서 누적 경로를 클릭합니다. | 클릭 지점이 속한 구간 번호, 구간 길이와 누적 길이가 표시됩니다. |
+| 지도에서 경로나 항공기 위로 마우스를 옮깁니다. | 반경 8 CSS 픽셀 안에서 가장 가까운 대상을 노란색으로 표시합니다. 마우스가 벗어나면 원래 색으로 복원하고, 클릭으로 선택된 대상은 선택 색상을 유지합니다. |
 
 ## 관련 API
 
 - `U3dAPP.createMultipleComponentLayer()`: 항공기 모델을 담을 다중 시설물 레이어를 생성합니다. `setInstanced(true)`로 Instance 방식으로 전환해 다수의 컴포넌트를 처리합니다.
 - `U3dMultipleComponentLayer`: `addPosition()`으로 컴포넌트를 만들고 `visibleCumulativeRoute()`, `showLabel()`, `hideLabel()`, `getComponentByName()`, `removeComponentByName()`으로 항공기와 누적 경로를 제어합니다.
 - `ComponentObject.moveSmoothly()`, `ComponentObject.setCameraTrace()`: 컴포넌트를 목표 좌표로 이동시키고 카메라 추적을 전환합니다.
-- `U3dSelect`: 누적 경로 보조 Mesh를 대상으로 클릭 선택을 처리합니다. 추적 모드에서는 `deactive()`로 선택을 잠시 해제합니다.
+- `U3dSelect`: `pickBufferPx: 8`로 마우스 주변 반경 8 CSS 픽셀의 원형 범위에서 검색하고, 화면상 가장 가까운 대상을 선택합니다. `hover: {enabled: true, color: 0xffff00}`로 선택 전 대상을 노란색으로 표시합니다. `hoverchange` 이벤트는 `previous`, `current`, `intersection`을 전달하며 이탈 시 `current`와 `intersection`은 null입니다. 경로 구간 조회에는 선택한 실제 월드 지점을 사용합니다. 추적 모드에서는 `deactive()`로 선택과 hover 입력을 잠시 해제합니다.
 - `U3dPOI`: 공항 위치와 이름을 지도에 표시합니다.
 - `UMathEngine.getClosestSegmentInfo()`: 월드 좌표 배열에서 클릭 지점과 가장 가까운 선분과 보간 비율을 반환합니다. 예제는 이 값으로 누적 거리와 통과시각을 보간합니다.
 

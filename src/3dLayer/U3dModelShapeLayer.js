@@ -154,12 +154,10 @@ class U3dModelShapeLayer extends U3dModelLayer {
         if (!/** @type {U3dModelShapeLayerRuntimeFields} */ (self)._useproxy) self._proxyurl = '';
 
         /** @type {Promise<Array<void> | undefined>} */ (self.textureInit()).then(() => {
-            if (defined(/** @type {Partial<DeferredObject<unknown>>} */ (/** @type {unknown} */ (self)).resolve))
-                /** @type {DeferredObject<unknown>} */ (/** @type {unknown} */ (self)).resolve(self);
+            self._resolveReady();
         }).catch((error) => {
             console.error("Failed to initialize U3dModelShapeLayer", error);
-            if (defined(/** @type {Partial<DeferredObject<unknown>>} */ (/** @type {unknown} */ (self)).reject))
-                /** @type {DeferredObject<unknown>} */ (/** @type {unknown} */ (self)).reject(error);
+            self._rejectReady(error);
         });
     }
 
@@ -1307,6 +1305,8 @@ class U3dModelShapeLayer extends U3dModelLayer {
                 } catch (e) {
                     reject();
                 }
+            }).catch(error => {
+                __GError__(self, error, '0917032');
             });
         }
         self._checkTime.updateTime(20);

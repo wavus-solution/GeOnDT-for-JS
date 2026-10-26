@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -71,8 +71,39 @@ declare class UProcessManager {
      */
     getAdaptiveProcessState(): UProcessAdaptiveState;
     /**
+     * 가시화 지연 측정의 수동 요청을 켜거나 해제합니다. 수동 요청의 초기 상태는 꺼짐입니다.
+     * 개발 도구 창이 표시 중이면 수동 요청을 해제해도 관측을 유지합니다.
+     * 모든 요청이 해제되어도 작업 진단 중에는 중지를 유예하고 진단 종료 시 요청을 다시 확인합니다.
+     * 앱 준비 전에는 시작 요청만 보관하고 준비된 RAF에서 관측을 시작합니다.
+     * 관측이 실제로 중지되면 입력 타이머·렌더 콜백·측정 객체를 제거하되 완료 이력은 보존합니다.
+     * 작업 진단 플래그와 자동 제어 설정·학습·한도·실행 예약은 변경하지 않습니다.
+     * 같은 값의 재설정과 관리자 폐기 후 호출은 아무 작업도 하지 않습니다.
+     *
+     * @param {boolean} [enabled=true] true이면 수동 측정을 요청하고 false이면 그 요청을 해제
+     * @throws {TypeError} enabled가 boolean이 아닌 경우
+     */
+    setVisualizationLatencyEnabled(enabled?: boolean): void;
+    /**
+     * 개발 도구 창의 표시 요청을 등록하거나 해제합니다.
+     * 창마다 요청을 보관하며 숨김·폐기 때 참조를 제거합니다. 수동 측정 요청은 바꾸지 않습니다.
+     *
+     * @param {object} view 표시 상태를 알리는 개발 도구 창
+     * @param {boolean} visible 창을 표시하면 true, 숨기거나 폐기하면 false
+     *
+     * @ignore
+     */
+    _setVisualizationLatencyViewVisible(view: object, visible: boolean): void;
+    /**
+     * 표시·수동 요청과 진단 중 중지 유예를 반영한 가시화 지연 측정 사용 여부를 조회합니다.
+     * true여도 앱 준비 전이거나 시작 오류가 있으면 관측 중이 아닐 수 있습니다.
+     * 실제 관측 상태와 오류는 getVisualizationLatencyState()로 확인합니다.
+     *
+     * @returns {boolean} 중지 유예 중에도 true이며 요청이 없는 초기 상태와 관리자 폐기 후에는 false
+     */
+    getVisualizationLatencyEnabled(): boolean;
+    /**
      * 위치 입력부터 메인 장면 후처리 종료까지의 지연시간과 통계를 조회합니다.
-     * 렌더 대기를 포함하며 자동 제어 사용 여부·작업 한도·개발 도구 표시와 독립적으로 측정합니다.
+     * 렌더 대기를 포함하며 개발 도구 표시·수동 요청·진단 중 중지 유예로 관측이 켜진 동안 측정합니다.
      * 조회는 측정을 시작하거나 이력을 초기화하지 않습니다.
      *
      * @returns {UVisualizationLatencyState | undefined} 내부 참조를 공유하지 않는 결과이며 측정기가 준비되지 않았으면 undefined
@@ -109,9 +140,36 @@ declare class UProcessManager {
      * @ignore
      */
     _getProcessStartDelay(process: U3dProcess, reserve?: boolean): number;
+    /**
+     * 제어 대상 처리기의 예약을 공통 실행 조정에 전달합니다.
+     * 설정값 8 이하·자동 제어 해제·등록되지 않은 처리기는 기존 개별 예약을 사용합니다.
+     *
+     * @param {UProcessAdmissionProcess} process 시작할 처리기
+     * @returns {boolean} 공통 예약이 인수했는지 여부
+     *
+     * @ignore
+     */
+    _requestProcessStart(process: UProcessAdmissionProcess): boolean;
+    /**
+     * @param {UProcessAdmissionProcess} process 큐를 초기화하거나 폐기한 처리기
+     *
+     * @ignore
+     */
+    _cancelProcessStart(process: UProcessAdmissionProcess): void;
+    /**
+     * 실제 호출 구간을 측정하며 반환된 Promise의 대기 시간은 포함하지 않습니다.
+     *
+     * @template T
+     * @param {UProcessAdmissionProcess} process 실행할 처리기
+     * @param {() => T} callback 동기 실행 구간
+     * @returns {T} 원래 콜백 반환값
+     *
+     * @ignore
+     */
+    _measureProcessExecution<T>(process: UProcessAdmissionProcess, callback: () => T): T;
     getWorkingCount(): number;
-    getWorkingLevel2(): any;
-    getWorkingLevel3(): any;
+    getWorkingLevel2(): number;
+    getWorkingLevel3(): number;
     logProcess(task: any): void;
     deleteLog(task: any): void;
     getLog(): Map<any, any>;
@@ -168,6 +226,10 @@ declare class UProcessManager {
          * 카메라 이동에 따른 신규 작업 유입 제어 상태
          */
         motion: UProcessMotionState;
+        /**
+         * 공통 시작 제어와 동기 실행 비용. 초기화 전에는 undefined
+         */
+        admission: UProcessAdmissionState | undefined;
         /**
          * 하위 작업에 적용한 기준 한도. 단계별 배율 적용 전 값
          */
@@ -310,6 +372,178 @@ declare class UProcessManager {
     };
 
 /**
+     * 공통 시작 제어의 진단 상태입니다. 비용·대기 통계는 진단 활성화 이후의 누적값입니다.
+     * 진단은 기본 비활성이며 끄면 마지막 누적값을 보존합니다. starts는 정책 판단에도 사용하는 관리자 수명 누적값입니다.
+     * 동기 비용은 호출 구간의 경과 시간이며 OS의 CPU 시간이나 비동기 결과 적용 전체가 아닙니다.
+     * 공통 실행에서는 큐 검사·호출·동기 종결을 포함하고, 개별 실행에서는 호출·동기 종결을 포함합니다.
+     */
+    type UProcessAdmissionState = {
+        /**
+         * 현재 공통 시작 제한을 적용하는지 여부
+         */
+        enabled: boolean;
+        /**
+         * 추가 진단 계측의 활성 여부. 실행 정책 enabled와 독립
+         */
+        diagnosticsEnabled: boolean;
+        /**
+         * 중첩을 한 번만 합산한 동기 실행 시간, 밀리초
+         */
+        totalSyncMs: number;
+        /**
+         * 가장 긴 동기 실행 구간, 밀리초
+         */
+        maximumSyncMs: number;
+        /**
+         * 예산 회복까지 남은 대기 시간, 밀리초
+         */
+        budgetWaitMs: number;
+        /**
+         * 공통 시작 간격의 남은 시간, 밀리초
+         */
+        startWaitMs: number;
+        /**
+         * 실제 예산 대기를 예약한 횟수
+         */
+        budgetWaitCount: number;
+        /**
+         * 실제 시작 간격 대기를 예약한 횟수
+         */
+        intervalWaitCount: number;
+        /**
+         * 동기 실행 비용을 반영한 뒤 예산이 음수가 된 횟수
+         */
+        overrunCount: number;
+        /**
+         * 명시적으로 진단을 시작한 뒤의 예약 전달 통계
+         */
+        scheduling: UProcessAdmissionScheduling | undefined;
+        /**
+         * 처리기별 누적 비용 복사본
+         */
+        processes: Array<UProcessAdmissionTiming>;
+    };
+
+/**
+     * 공통 실행 경계에서 관측한 처리기별 누적값입니다.
+     */
+    type UProcessAdmissionTiming = {
+        /**
+         * 처리기 이름
+         */
+        name: string;
+        /**
+         * 메인 또는 하위 작업 역할
+         */
+        kind: "main" | "work";
+        /**
+         * 실제 작업 콜백을 시작한 횟수. 무효 큐 항목은 제외
+         */
+        starts: number;
+        /**
+         * 동기 실행 시간 합, 밀리초
+         */
+        syncMs: number;
+        /**
+         * 가장 긴 동기 실행 구간, 밀리초
+         */
+        maximumSyncMs: number;
+        /**
+         * 실행 가능한 처리기의 공통 예약부터 실제 동기 시작 통지까지. 개별 작업의 큐 대기와 구분
+         */
+        readyWait: UProcessAdmissionWait | undefined;
+        /**
+         * 아직 시작하지 못한 공통 예약이 관측되는지 여부
+         */
+        pending: boolean;
+        /**
+         * 현재 미시작 예약의 경과 시간, 밀리초. 진단 비활성 또는 예약이 없으면 0
+         */
+        pendingWaitMs: number;
+        /**
+         * 공통 인계 중 실제 시작 통지가 없어 readyWait에서 제외한 사용자 재정의 인계 횟수
+         */
+        unobservedHandoffs: number;
+    };
+
+/**
+     * 원본 표본을 보관하지 않는 지연 집계입니다. 시간 단위는 밀리초입니다.
+     * 평균은 totalMs/count이며 표본이 없으면 계산하지 않습니다. 최대값은 구간끼리 차감하지 않습니다.
+     */
+    type UProcessAdmissionWait = {
+        /**
+         * 완료된 관측 표본 수
+         */
+        count: number;
+        /**
+         * 지연 시간 합
+         */
+        totalMs: number;
+        /**
+         * 최장 관측 지연
+         */
+        maximumMs: number;
+        /**
+         * 최장 지연을 관측한 performance.now 시각. 표본이 없으면 0
+         */
+        maximumAtMs: number;
+        /**
+         * 16ms를 초과한 표본 수. 합격 기준이 아닌 분석용 구분
+         */
+        over16ms: number;
+        /**
+         * 50ms를 초과한 표본 수. 합격 기준이 아닌 분석용 구분
+         */
+        over50ms: number;
+    };
+
+/**
+     * 공통 예약의 실제 전달 지연입니다. 타이머·메시지·처리기 대기는 중첩되므로 서로 합산하지 않습니다.
+     */
+    type UProcessAdmissionScheduling = {
+        /**
+         * 메시지 게시부터 디스패치 진입까지
+         */
+        messageWait: UProcessAdmissionWait;
+        /**
+         * 전달된 타이머의 예약부터 콜백 진입까지
+         */
+        timerWait: UProcessAdmissionWait;
+        /**
+         * 실제 타이머 대기에서 요청한 올림 밀리초를 뺀 양수 초과분
+         */
+        timerLate: UProcessAdmissionWait;
+        /**
+         * 실제 전달된 타이머에 요청한 지연 합, 밀리초
+         */
+        timerRequestedMs: number;
+        /**
+         * 진단 중 예약했으나 전달 전에 취소한 타이머 수. 전달 통계에서는 제외
+         */
+        timerCancelledCount: number;
+    };
+
+type UProcessAdmissionProcess = U3dQuadTileProcess | U3dQuadTileWorkProcess;
+
+/**
+     * 관리자에 등록된 실행 조정 대상입니다. 큐와 실행 작업은 처리기가 소유합니다.
+     */
+    type UProcessAdmissionEntry = {
+        /**
+         * 대상 처리기
+         */
+        process: UProcessAdmissionProcess;
+        /**
+         * 실행 역할
+         */
+        kind: "main" | "work";
+        /**
+         * 진단용 처리기 이름
+         */
+        name: string;
+    };
+
+/**
      * 같은 레이어 인스턴스·처리 단계·작업 종류의 소요 시간 통계입니다.
      * 평균·처리량·최장 실행 시간은 마지막 RAF 관찰 구간에서 갱신합니다.
      * 시간에는 비동기 대기까지 포함하며 CPU 점유 시간은 별도로 측정해야 합니다.
@@ -399,7 +633,7 @@ declare class UProcessManager {
     };
 
 /**
-     * RAF 간격 진폭과 작업 시간 제어를 비교하기 위한 임시 진단 복사본입니다.
+     * 현재 작업 제어의 RAF 응답과 작업·예약 지연을 관측한 진단 복사본입니다.
      * 시간은 별도 표기가 없으면 밀리초이며 작업 처리량은 초당 완료 개수입니다.
      * 세부 측정 행은 임시 분석용이며 제품 공개 API의 고정 계약으로 사용하지 않습니다.
      */
@@ -408,6 +642,10 @@ declare class UProcessManager {
          * 진단 객체 형식 버전
          */
         schemaVersion: number;
+        /**
+         * 현재 추가 진단이 실행 중인지 여부
+         */
+        enabled: boolean;
         /**
          * 자동 제어 정책 식별자
          */
@@ -420,14 +658,6 @@ declare class UProcessManager {
          * 현재 콘솔에서 선택 가능한 관리자 번호
          */
         availableInstanceIds: Array<number>;
-        /**
-         * 실험 이름
-         */
-        label: string;
-        /**
-         * both, raf 또는 off 비교 모드
-         */
-        mode: string;
         /**
          * 측정 시작 ISO 시각
          */
@@ -482,4 +712,4 @@ declare class UProcessManager {
         events: Array<object>;
     };
 
-export type { UProcessAdaptiveState, UProcessDebugLog, UProcessManager, UProcessMotionState, UProcessTaskTimingState };
+export type { UProcessAdaptiveState, UProcessAdmissionEntry, UProcessAdmissionProcess, UProcessAdmissionScheduling, UProcessAdmissionState, UProcessAdmissionTiming, UProcessAdmissionWait, UProcessDebugLog, UProcessManager, UProcessMotionState, UProcessTaskTimingState };

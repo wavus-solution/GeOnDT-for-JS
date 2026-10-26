@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -47,6 +47,7 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
     /** @type {Record<string, Array<import('three').Vector3>>} */ _featurePoints: Record<string, Array<three.Vector3>>;
     /** @type {Map<string, import('@UMeasureFeature').UMeasureFeature>} */ _featureMap: Map<string, UMeasureFeature>;
     /** @type {Map<string, Map<string, unknown>>} */ _drawTiles: Map<string, Map<string, unknown>>;
+    /** @type {WeakMap<import('@UMeasureFeature').UMeasureFeature, U3dShaderMeasurePolygonTileSelection>} */ _polygonTileSelections: WeakMap<UMeasureFeature, U3dShaderMeasurePolygonTileSelection>;
     /** @type {Record<string, Array<U3dShaderMeasureTileBound>>} */ _drawTileKeys: Record<string, Array<U3dShaderMeasureTileBound>>;
     /** @type {Record<string, Record<string, boolean>>} */ _drawFeatureIds: Record<string, Record<string, boolean>>;
     /** @type {Record<string, string>} */ _featureTileRangeSignature: Record<string, string>;
@@ -55,13 +56,9 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
     /** @type {Set<string>} */ _visibleTileKeys: Set<string>;
     /** @type {Set<string>} */ _simpleFeatureKeys: Set<string>;
     /** @type {Set<import('@UMeasureFeature').UMeasureFeature>} */ _pendingFeatureUpdates: Set<UMeasureFeature>;
-    /** @type {boolean} */ _isFeatureUpdateScheduled: boolean;
-    /** @type {number} */ _featureUpdateEpoch: number;
-    /** @type {number} */ _featureUpdateRetryCount: number;
     /** @type {Set<string>} */ _drawList: Set<string>;
     /** @type {Array<string>} */ _tileKeys: Array<string>;
     /** @type {number} */ _terrainPresentationRevision: number;
-    /** @type {Map<string, U3dShaderMeasureSourceRevisionState>} */ _sourceRevisionStates: Map<string, U3dShaderMeasureSourceRevisionState>;
     /** @type {U3dShaderMeasureGeometryMode} */ _measureGeometryMode: U3dShaderMeasureGeometryMode;
     /** @type {import('@union3d/manager/UShaderMaterialManager').UShaderMaterialManager | undefined} */ _shaderMaterialManager: UShaderMaterialManager | undefined;
     /** @type {import('@union3d/manager/terrain/UShaderTerrainDecalManager').UShaderTerrainDecalManager | undefined} */ _terrainDecalManager: UShaderTerrainDecalManager | undefined;
@@ -70,6 +67,7 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
     }>>;
     /** @type {import('@union3d/manager/terrain/UTerrainDecalCompositionOrderRegistry').UTerrainDecalCompositionOrderRegistry} */ _compositionOrderRegistry: UTerrainDecalCompositionOrderRegistry;
     /** @type {U3dShaderMeasureLayerRenderStyle} */ _style: U3dShaderMeasureLayerRenderStyle;
+    /** @type {WeakSet<import('@UMeasureFeature').UMeasureFeature>} */ _selectedMeasureFeatures: WeakSet<UMeasureFeature>;
     _className: string;
     _reverseX: any;
     _reverseY: any;
@@ -106,6 +104,8 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
      * 이름과 달리 텍스처만 만드는 것이 아니라, 지금 정해진 그리는 방식에 따라 각 도형을 지형 표면에 붙일 자료와 3D 객체(simple 모드 일때) 가운데 알맞은 쪽으로 보냅니다. <br>
      * 그리기 뼈대가 정한 이름이라 이 레이어가 바꿀 수 없으며, 스타일이나 지점이 바뀔 때 레이어가 스스로 부르므로 직접 부를 일은 없습니다. <br>
      * 넘긴 도형만 다시 만들고 나머지는 그대로 두므로, 바뀐 도형이 있을 경우 추려서 전달하는걸 권장드립니다.
+     * 형상이 바뀌면 실제 교차 타일을 다시 계산하며, 공통 타일의 바인딩과 표시는 유지하고 벗어난 타일만 제거합니다.
+     * 연결 집합이 그대로이면 전체 그리기 목록을 재사용하고 실제로 캐시된 재질만 갱신합니다.
      *
      * @param {Array<import('@UMeasureFeature').UMeasureFeature>} [features] 다시 만들 측정 도형 목록이며, 넘기지 않으면 아무 도형도 다시 만들지 않습니다.
      * @param {number} [startLevel=this._minlevel] 다시 만들 가장 낮은 타일 레벨입니다.
@@ -132,6 +132,34 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
      * @param {U3dShaderMeasureLayerStyle} style 부분 스타일 옵션입니다.
      */
     setFeatureStyle(featureOrFeatures: U3dShaderMeasureFeatureStyleTarget, style: U3dShaderMeasureLayerStyle): void;
+    /**
+     * 확정 도형의 개별 스타일을 현재 레이어 스타일로 복원합니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} feature 복원할 피처입니다.
+     * @returns {boolean} 등록된 피처의 복원 요청 여부입니다.
+     */
+    resetFeatureStyle(feature: UMeasureFeature): boolean;
+    /**
+     * 저장된 스타일을 바꾸지 않고 측정 도형의 선택 강조만 갱신합니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} feature 강조할 피처입니다.
+     * @param {boolean} selected 선택 여부입니다.
+     * @returns {boolean} 선택 상태 변경 여부입니다.
+     */
+    setFeatureSelected(feature: UMeasureFeature, selected: boolean): boolean;
+    /**
+     * 편집 중인 도형의 마지막 안내 지점을 제거합니다.
+     *
+     * @returns {import('@UMeasureFeature').UMeasureFeature | undefined} 갱신된 피처입니다.
+     */
+    cancelLastPosition(): UMeasureFeature | undefined;
+    /**
+     * 확정된 폴리곤의 실제 면적을 현재 면적 라벨과 같은 계산으로 반환합니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} feature 면적 피처입니다.
+     * @returns {number} 면적(㎡)이며 폴리곤이 아니거나 앱이 없으면 0입니다.
+     */
+    getFeatureArea(feature: UMeasureFeature): number;
     /**
      * 측정 레이어 스타일을 생성자 기본값으로 복원하고 manager payload를 다시 동기화합니다. <br>
      * feature 상태는 즉시 바꾸고 terrain payload는 같은 task의 변경과 병합해 갱신합니다. <br>
@@ -250,17 +278,19 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
      * 측정 지점을 추가합니다.
      *
      * @param {import('three').Vector3Like | GeoPosition} geo 추가할 위경도 좌표계(EPSG:4326) 지점이며, x에 경도 y에 위도 z에 높이를 담습니다.
+     * @param {boolean} [fixGuide=false] 이전 안내 지점을 클릭 위치에 고정하고 새 안내 끝점을 추가할지 여부입니다.
      * @returns {(import('@UMeasureFeature').UMeasureFeature & {id: string | number}) | undefined} 갱신한 측정 feature입니다.
      */
-    addMeasurePoint(geo: three.Vector3Like | GeoPosition): (UMeasureFeature & {
+    addMeasurePoint(geo: three.Vector3Like | GeoPosition, fixGuide?: boolean): (UMeasureFeature & {
         id: string | number;
     }) | undefined;
     /**
      * 현재 편집 중인 측정 feature 의 마지막 지점을 지정한 월드 좌표(EPSG:3857)로 옮깁니다. <br>
-     * 위경도 좌표로 옮기려면 `updateLastPoint()` 를 사용하십시오.
+     * 위경도 좌표로 옮기려면 `updateLastPoint()` 를 사용하십시오. <br>
+     * 입력 또는 위경도 변환 결과가 유한한 좌표가 아니면 기존 형상과 타일을 유지하고 undefined를 반환합니다.
      *
      * @param {import('three').Vector3} position 옮길 월드 좌표(EPSG:3857)입니다.
-     * @returns {import('@UMeasureFeature').UMeasureFeature | undefined} 갱신한 측정 feature입니다.
+     * @returns {import('@UMeasureFeature').UMeasureFeature | undefined} 갱신한 측정 feature이며, 좌표가 유효하지 않으면 undefined입니다.
      */
     updateLastPosition(position: three.Vector3): UMeasureFeature | undefined;
     /**
@@ -402,8 +432,6 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 확인할 terrain tile입니다.
      * @returns {boolean} Measure source의 tile binding 또는 manager 생명주기가 있으면 `true`입니다.
-     *
-     * @ignore
      */
     isTilePresentationParticipant(tile: U3dQuadTile): boolean;
     /**
@@ -423,15 +451,13 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
      */
     isTilePresentationVisible(tile: U3dQuadTile): boolean;
     /**
-     * 최신 Measure revision의 준비 여부와 무관하게 기존 presentation이 실제 화면에 붙어 있는지 반환합니다.
+     * 최신 Measure revision의 준비 여부와 무관하게 기존 화면의 부착 상태를 반환합니다.
      *
-     * 새 합성본을 기다리는 동안에는 직전 활성 material이 Coverage를 계속 제공할 수 있습니다.
-     * 최신 revision 전환 가능 여부는 `isTileRenderableReady`와 `isTilePresentationVisible`이 담당합니다.
+     * 측정이 없던 영상 타일에 새 측정 결과를 준비하는 동안에는 기존 영상도 Coverage를 제공합니다.
+     * 최신 측정의 적용 완료와 새 자식 LOD 전환 가능 여부는 각각의 준비·안전성 판정이 담당합니다.
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 기존 표시 부착 상태를 확인할 terrain tile입니다.
-     * @returns {boolean} 기존 Measure presentation이 terrain material에 붙어 표시 중이면 `true`입니다.
-     *
-     * @ignore
+     * @returns {boolean} 기존 측정 적용본이나 측정이 없던 영상 타일의 유효한 표시가 남아 있으면 `true`입니다.
      */
     isTilePresentationAttached(tile: U3dQuadTile): boolean;
     /**
@@ -439,8 +465,6 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 기존 적용본을 확인할 terrain tile입니다.
      * @returns {boolean} 모든 참여 Measure source에 적용 이력이 있고 실제 presentation이 붙어 있으면 `true`입니다.
-     *
-     * @ignore
      */
     isTileRetainedPresentationSafe(tile: U3dQuadTile): boolean;
     /**
@@ -603,6 +627,7 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
     getFeatureById(id: unknown): UMeasureFeature | undefined;
     /**
      * UID로 찾은 측정 feature의 좌표를 통째로 바꿉니다. <br>
+     * OpenLayers 형상은 지도 좌표로 변환하고 기존 THREE 형상에는 월드 좌표를 전달합니다. <br>
      * 해당 UID의 feature나 좌표 기록을 찾지 못하면 아무것도 하지 않습니다. <br>
      * 좌표만 바꾸고 화면을 다시 그리지는 않으므로, 결과를 보려면 갱신을 따로 요청해야 합니다.
      *
@@ -1045,17 +1070,6 @@ type U3dShaderMeasureFeatureRef = {
         featureId: string | number;
     };
 
-type U3dShaderMeasureSourceRevisionState = {
-        /**
-         * 현재 feature collection 내용의 signature입니다.
-         */
-        signature: number;
-        /**
-         * 마지막으로 발급한 단조 증가 revision입니다.
-         */
-        revision: number;
-    };
-
 type terminalSourceState = {
         /**
          * source 버전입니다.
@@ -1080,7 +1094,7 @@ type terminalSourceState = {
      * 원본 레이어를 그대로 전달하므로 복사나 추가 상태 저장 없이 현재 설정을 사용합니다.
      * scene 등록, 예약, manager 교체 및 레이어 상태 대입 권한은 포함하지 않습니다.
      */
-    type U3dShaderMeasureStyleState = Readonly<Pick<U3dShaderMeasureLayer, "_style" | "_defaultFillColor" | "_defaultStrokeColor" | "_defaultStrokeWidth" | "_defaultOpacity">>;
+    type U3dShaderMeasureStyleState = Readonly<Pick<U3dShaderMeasureLayer, "_style" | "_defaultFillColor" | "_defaultStrokeColor" | "_defaultStrokeWidth" | "_defaultOpacity" | "_selectedMeasureFeatures">>;
 
 /**
      * 도형·terrain 계산이 읽을 수 있는 레이어 상태와 호출 권한을 한정합니다.
@@ -1094,21 +1108,21 @@ type terminalSourceState = {
      * 원본 레이어를 그대로 전달하므로 복사나 추가 상태 저장 없이 현재 설정을 사용합니다.
      * scene 등록, 예약, manager 교체 및 레이어 상태 대입 권한은 포함하지 않습니다.
      */
-    type U3dShaderMeasureSignatureState = Readonly<Pick<U3dShaderMeasureLayer, "_name" | "_style" | "_defaultFillColor" | "_defaultStrokeColor" | "_defaultStrokeWidth" | "_defaultOpacity" | "getFeatureByUid">>;
+    type U3dShaderMeasureSignatureState = Readonly<Pick<U3dShaderMeasureLayer, "_name" | "_style" | "_defaultFillColor" | "_defaultStrokeColor" | "_defaultStrokeWidth" | "_defaultOpacity" | "getFeatureByUid" | "_selectedMeasureFeatures">>;
 
 /**
      * 도형·terrain 계산이 읽을 수 있는 레이어 상태와 호출 권한을 한정합니다.
      * 원본 레이어를 그대로 전달하므로 복사나 추가 상태 저장 없이 현재 설정을 사용합니다.
      * scene 등록, 예약, manager 교체 및 레이어 상태 대입 권한은 포함하지 않습니다.
      */
-    type U3dShaderMeasurePayloadState = Readonly<Pick<U3dShaderMeasureLayer, "_name" | "_style" | "_defaultFillColor" | "_defaultStrokeColor" | "_defaultStrokeWidth" | "_defaultOpacity" | "_renderOrder" | "getFeatureMeasureVectors" | "getFeaturePointBufferRadius">>;
+    type U3dShaderMeasurePayloadState = Readonly<Pick<U3dShaderMeasureLayer, "_name" | "_style" | "_defaultFillColor" | "_defaultStrokeColor" | "_defaultStrokeWidth" | "_defaultOpacity" | "_renderOrder" | "getFeatureMeasureVectors" | "getFeaturePointBufferRadius" | "_selectedMeasureFeatures">>;
 
 /**
      * 도형·terrain 계산이 읽을 수 있는 레이어 상태와 호출 권한을 한정합니다.
      * 원본 레이어를 그대로 전달하므로 복사나 추가 상태 저장 없이 현재 설정을 사용합니다.
      * scene 등록, 예약, manager 교체 및 레이어 상태 대입 권한은 포함하지 않습니다.
      */
-    type U3dShaderMeasureSimpleGeometryState = Readonly<Pick<U3dShaderMeasureLayer, "_style" | "_defaultFillColor" | "_defaultStrokeColor" | "_defaultStrokeWidth" | "_defaultOpacity" | "_simpleGeometryLineMaxPoints" | "_simpleGeometryCircleSegments">>;
+    type U3dShaderMeasureSimpleGeometryState = Readonly<Pick<U3dShaderMeasureLayer, "_style" | "_defaultFillColor" | "_defaultStrokeColor" | "_defaultStrokeWidth" | "_defaultOpacity" | "_simpleGeometryLineMaxPoints" | "_simpleGeometryCircleSegments" | "_selectedMeasureFeatures">>;
 
 /**
      * 도형·terrain 계산이 읽을 수 있는 레이어 상태와 호출 권한을 한정합니다.
@@ -1117,4 +1131,73 @@ type terminalSourceState = {
      */
     type U3dShaderMeasureTileRangeState = Readonly<Pick<U3dShaderMeasureLayer, "_mercator">>;
 
-export type { MeasureFeatureCollection, MeasureFeatureCollection_Content, MeasureTerrainClearOption, MeasureTerrainFeaturePayload, MeasureTerrainSyncOption, U3dShaderMeasureExtent, U3dShaderMeasureFeatureRef, U3dShaderMeasureFeatureStyleTarget, U3dShaderMeasureFillStyle, U3dShaderMeasureGeometryMode, U3dShaderMeasureLayer, U3dShaderMeasureLayerAddFeatureCO, U3dShaderMeasureLayerCO, U3dShaderMeasureLayerCO_Content, U3dShaderMeasureLayerRenderStyle, U3dShaderMeasureLayerStyle, U3dShaderMeasureOLFeature, U3dShaderMeasurePayloadState, U3dShaderMeasureSignatureState, U3dShaderMeasureSimpleGeometryState, U3dShaderMeasureSourceIdentityState, U3dShaderMeasureSourceRevisionState, U3dShaderMeasureStrokeStyle, U3dShaderMeasureStyleState, U3dShaderMeasureTerrainDebugFilter, U3dShaderMeasureTileBound, U3dShaderMeasureTileRangeState, UFeatureIDExtent, terminalSourceState };
+/**
+     * 한 피처의 성공한 타일 판정과 그때 사용한 입력입니다.
+     */
+    type U3dShaderMeasurePolygonTileSelection = {
+        /**
+         * 중복 가이드를 제외한 투영 좌표입니다.
+         */
+        coordinates: Array<three.Vector3>;
+        /**
+         * 이 결과가 속한 연결 맵입니다.
+         */
+        drawTile: Map<string, unknown>;
+        /**
+         * 타일 좌표 변환기입니다.
+         */
+        mercator: UMercator;
+        /**
+         * 타일 경계 함수의 원래 참조입니다.
+         */
+        tileBounds: Function;
+        /**
+         * 타일 변환 함수의 원래 참조입니다.
+         */
+        metersToTile: Function;
+        /**
+         * 좌표 제공 실행 인자입니다.
+         */
+        drawArg: object;
+        /**
+         * 현재 피처의 최소·최대 투영 좌표입니다.
+         */
+        extent: Array<number>;
+        /**
+         * 시작 레벨입니다.
+         */
+        startLevel: number;
+        /**
+         * 마지막 레벨입니다.
+         */
+        endLevel: number;
+        /**
+         * 외곽선 여유값입니다.
+         */
+        padding: number;
+        /**
+         * 스타일 변경을 구분하는 값입니다.
+         */
+        styleKey: string;
+    };
+
+/**
+     * 연결 변경 전에 완전히 판정한 타일 변경 목록입니다.
+     */
+    type U3dShaderMeasurePolygonTileDelta = {
+        /**
+         * 변경 영역에서 새로 연결할 타일입니다.
+         */
+        selected: Array<{
+            x: number;
+            y: number;
+            level: number;
+            bound: Array<number>;
+        }>;
+        /**
+         * 이전 연결에서 제거할 타일입니다.
+         */
+        removed: Array<string>;
+    };
+
+export type { MeasureFeatureCollection, MeasureFeatureCollection_Content, MeasureTerrainClearOption, MeasureTerrainFeaturePayload, MeasureTerrainSyncOption, U3dShaderMeasureExtent, U3dShaderMeasureFeatureRef, U3dShaderMeasureFeatureStyleTarget, U3dShaderMeasureFillStyle, U3dShaderMeasureGeometryMode, U3dShaderMeasureLayer, U3dShaderMeasureLayerAddFeatureCO, U3dShaderMeasureLayerCO, U3dShaderMeasureLayerCO_Content, U3dShaderMeasureLayerRenderStyle, U3dShaderMeasureLayerStyle, U3dShaderMeasureOLFeature, U3dShaderMeasurePayloadState, U3dShaderMeasurePolygonTileDelta, U3dShaderMeasurePolygonTileSelection, U3dShaderMeasureSignatureState, U3dShaderMeasureSimpleGeometryState, U3dShaderMeasureSourceIdentityState, U3dShaderMeasureStrokeStyle, U3dShaderMeasureStyleState, U3dShaderMeasureTerrainDebugFilter, U3dShaderMeasureTileBound, U3dShaderMeasureTileRangeState, UFeatureIDExtent, terminalSourceState };

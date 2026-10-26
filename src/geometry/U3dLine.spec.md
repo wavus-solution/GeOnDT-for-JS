@@ -248,7 +248,7 @@ U3dLine extends U3dGeometry 클래스 정의
         의존:
             defined — uniform과 opacity uniform 존재 확인; 함수: {defined()}
             LineMaterial — 적용 투명도 변경; 속성 쓰기: {uniforms.opacity.value}
-        동작: material의 opacity uniform이 있으면 입력값을 저장하며, 상속 opacity와 material의 transparent 상태는 변경하지 않는다. [확인 Q-004]
+        동작: 모든 하위 자식 재질에 입력 투명도를 적용한 뒤 material의 opacity uniform이 있으면 입력값을 저장한다. 본체의 상속 opacity와 material의 transparent 상태는 변경하지 않는다. [확인 Q-004]
 
     override setColor(color: THREE.ColorRepresentation | Array<THREE.ColorRepresentation>) -> void
         역할: 단색 또는 제어점별 그라디언트 모드를 선택하고 형상을 다시 생성한다.

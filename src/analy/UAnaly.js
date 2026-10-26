@@ -10,6 +10,9 @@ import {UDEF} from '@union3d/core/UDEF';
 import {UGroup} from '@union3d/core/UGroup';
 import {INTERNAL} from '@union3d/analy/UAnaly.internal';
 
+// 위경도 왕복 변환의 반올림 오차만 허용하는 월드 좌표 중복 판정 거리입니다.
+const MEASURE_REPEAT_POINT_DISTANCE_SQUARED = 1e-12;
+
 /**
  * ~extends import('@UEventDispatcher').UEventDispatcher <br>
  *
@@ -89,6 +92,13 @@ class UAnaly extends UEventDispatcher {
      * @ignore
      */
     _selectedList;
+    /** @type {import('@UMeasureFeature').UMeasureFeature | undefined} */
+    _selectedMeasureFeature;
+    /** @type {Map<string, string | null | undefined>} */ _measureInputKeys = new Map();
+    /** @type {UAnalyMeasureRightClickState} */ _measureRightClick = {down: undefined, previous: undefined};
+    /** @type {Array<import('@union3d/annotation/UCssBilboard').UCssBilboard>} */ _currentMeasureLabels = [];
+    /** @type {Map<import('@UMeasureFeature').UMeasureFeature, Array<import('@union3d/annotation/UCssBilboard').UCssBilboard>>} */
+    _measureFeatureLabels = new Map();
     /**
      * 분석 기능의 활성 상태이며 생성 직후에는 false입니다.
      *
@@ -194,8 +204,252 @@ class UAnaly extends UEventDispatcher {
     }
 
     /**
-     * 하위 클래스가 분석 설정 조회를 구현하는 확장 지점입니다. <br>
-     * 기반 구현은 아무 작업도 하지 않고 undefined로 종료합니다.
+     * 분석이 소유한 확정 피처 목록을 반환합니다.
+     *
+     * @returns {Array<import('@UMeasureFeature').UMeasureFeature | OLFeature>} 피처 목록의 사본입니다.
+     */
+    getFeatures() { return []; }
+
+    /**
+     * 소유한 측정 도형의 실제 단위 값·입력 좌표·스타일을 반환합니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature | OLFeature} feature 조회할 피처입니다.
+     * @returns {UAnalyFeatureResult | undefined} 측정 결과이며 측정 피처가 아니면 undefined입니다.
+     */
+    getFeatureResult(feature) {
+        if (!this.getFeatures().includes(feature) || !('getMeasureVectors' in feature)) return undefined;
+        const layer = this._app?.getMeasureLayer();
+        if (!layer) return undefined;
+        return {feature, type: feature.getType(), value: INTERNAL.getMeasureFeatureValue(layer, feature),
+            coordinates: this.getFeatureCoordinates(feature), style: this.getFeatureStyle(feature)};
+    }
+
+    /**
+     * 현재 분석이 소유한 확정 측정 결과를 새 배열로 반환합니다.
+     *
+     * @returns {Array<UAnalyFeatureResult>} 측정 결과 목록입니다.
+     */
+    getFeatureResults() {
+        return this.getFeatures().map(feature => this.getFeatureResult(feature))
+            .filter((result) => result !== undefined);
+    }
+
+    /**
+     * 측정 피처의 월드 좌표를 위경도 좌표의 독립 목록으로 변환합니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} feature 조회할 측정 피처입니다.
+     * @returns {Array<import('three').Vector3Like>} x는 경도, y는 위도, z는 높이인 좌표 목록입니다.
+     */
+    getFeatureCoordinates(feature) {
+        return (feature?.getMeasureVectors?.() ?? []).map(vector => {
+            const point = this._app?.vector3ToGeoGraphic(vector) ?? vector;
+            return {x: point.x, y: point.y, z: point.z};
+        });
+    }
+
+    /**
+     * 측정 피처에 적용되는 스타일을 반환하며 색상 객체는 복제합니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} feature 조회할 측정 피처입니다.
+     * @returns {UAnalyFeatureStyle} 현재 적용 스타일입니다.
+     */
+    getFeatureStyle(feature) {
+        const layer = this._app?.getMeasureLayer();
+        const value = {...layer?._style, ...feature?.getStyle?.()};
+        return {...value, fillColor: new THREE.Color(value.fillColor ?? 0xffffff),
+            strokeColor: new THREE.Color(value.strokeColor ?? 0xffff00),
+            strokeWidth: value.strokeWidth ?? 1, opacity: value.opacity ?? 1};
+    }
+
+    /**
+     * 이 분석이 소유한 도형을 삭제하고 해당 도형의 라벨과 선택 상태를 정리합니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} feature 삭제할 확정 도형입니다.
+     * @returns {boolean} 소유한 도형의 삭제 여부입니다.
+     */
+    removeFeature(feature) {
+        if (!this._app || !this.getFeatures().includes(feature)) return false;
+        if (this._app.removeMeasureFeature(feature) === false) return false;
+        this._forgetMeasureFeature(feature);
+        if (this._selectedMeasureFeature === feature) this.clearMeasureFeatureSelection();
+        this.dispatchEvent('measuredelete', {feature, target: this, type: feature.getType?.()});
+        this.update();
+        return true;
+    }
+
+    /**
+     * 삭제된 피처의 분석별 소유 목록과 라벨을 정리하는 내부 연결점입니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} feature 삭제한 피처입니다.
+     *
+     * @ignore
+     */
+    _forgetMeasureFeature(feature) {
+        this._disposeMeasureLabels(this._measureFeatureLabels.get(feature) ?? []);
+        this._measureFeatureLabels.delete(feature);
+    }
+
+    /**
+     * 측정 라벨을 장면과 렌더링 자원에서 함께 해제합니다.
+     *
+     * @param {Array<import('@union3d/annotation/UCssBilboard').UCssBilboard>} labels 제거할 라벨입니다.
+     *
+     * @ignore
+     */
+    _disposeMeasureLabels(labels) {
+        for (const label of new Set(labels)) {
+            UDEF.disposeObject3D(label);
+            this._poiGroup?.remove(label);
+        }
+    }
+
+    /**
+     * 확정 피처의 라벨 소유권을 저장한 뒤 완료 이벤트를 보냅니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} feature 확정된 피처입니다.
+     *
+     * @ignore
+     */
+    _registerMeasureFeature(feature) {
+        this._measureFeatureLabels.set(feature, this._currentMeasureLabels);
+        this._currentMeasureLabels = [];
+        const layer = this._app?.getMeasureLayer();
+        this.dispatchEvent('measureend', {target: this, feature, type: feature.getType?.(),
+            value: layer ? INTERNAL.getMeasureFeatureValue(layer, feature) : 0});
+    }
+
+    /**
+     * 우클릭과 Esc를 분석이 소유한 고유 키로 등록합니다.
+     * 우클릭 드래그·지도 외 UI 입력은 측정 제스처에서 제외합니다.
+     *
+     * @param {(event: import('@U3dMouseEvent').U3dMouseEvent) => void} click 정상 우클릭 처리입니다.
+     * @param {() => void} stop 측정 종료 처리입니다.
+     *
+     * @ignore
+     */
+    _bindMeasureInput(click, stop) {
+        this._unbindMeasureInput();
+        const app = this._app;
+        if (!app) return;
+        /** @param {import('@U3dMouseEvent').U3dMouseEvent} event 지도 입력입니다. */
+        const down = event => {
+            if (event.origin?.target === app.getRenderer()?.domElement)
+                INTERNAL.consumeMeasureRightClick(this._measureRightClick, event.origin, true);
+        };
+        /** @param {import('@U3dMouseEvent').U3dMouseEvent} event 지도 입력입니다. */
+        const up = event => {
+            const gesture = INTERNAL.consumeMeasureRightClick(this._measureRightClick, event.origin, false);
+            if (event.origin?.target !== app.getRenderer()?.domElement) return;
+            if (gesture === 'double') stop();
+            else if (gesture === 'click') click(event);
+        };
+        this._measureInputKeys.set('mousedown', app.on('mousedown', down, false, UDEF.createUUID()));
+        this._measureInputKeys.set('mouseup', app.on('mouseup', up, false, UDEF.createUUID()));
+        this._measureInputKeys.set('keydown', app.on('keydown', event => {
+            if (event.key === 'Escape') stop();
+        }, false, UDEF.createUUID()));
+    }
+
+    /**
+     * 종료용 우클릭이 마지막 고정 점을 다시 가리키는지 확인합니다.
+     * 안내 끝점은 제외하며 서로 다른 위치의 우클릭 점 추가는 유지합니다.
+     *
+     * @param {import('@U3dMouseEvent').U3dMouseEvent} event 지도 입력입니다.
+     * @param {import('three').Vector3} position 교차한 월드 좌표입니다.
+     * @returns {boolean} 마지막 고정 점의 반복 우클릭인지 여부입니다.
+     *
+     * @ignore
+     */
+    _isRepeatedMeasureRightClick(event, position) {
+        if (event.origin?.button !== 2) return false;
+        const vectors = this._app?.getMeasureLayer()?.getMeasureVectors();
+        const previous = vectors?.[vectors.length - 2];
+        return !!previous && previous.distanceToSquared(position) <= MEASURE_REPEAT_POINT_DISTANCE_SQUARED;
+    }
+
+    /**
+     * 이 분석이 등록한 보조 입력만 해제하고 이전 우클릭 상태를 비웁니다.
+     *
+     * @ignore
+     */
+    _unbindMeasureInput() {
+        for (const [type, key] of this._measureInputKeys) {
+            if (key != null) this._app?.unkey(type, key);
+        }
+        this._measureInputKeys.clear();
+        this._measureRightClick = {down: undefined, previous: undefined};
+    }
+
+    /**
+     * 소유한 확정 도형에 개별 스타일을 적용하고 변경 이벤트를 전달합니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} feature 변경할 피처입니다.
+     * @param {U3dShaderMeasureLayerStyle} style 부분 스타일입니다.
+     * @returns {boolean} 스타일 적용 요청 여부입니다.
+     */
+    setFeatureStyle(feature, style) {
+        if (!style || !this.getFeatures().includes(feature)) return false;
+        const layer = this._app?.getMeasureLayer();
+        if (!layer || !layer.getFeatures().includes(feature)) return false;
+        layer.setFeatureStyle(feature, style);
+        this.dispatchEvent('measurestylechange', {feature, style: this.getFeatureStyle(feature), target: this});
+        return true;
+    }
+
+    /**
+     * 소유한 확정 도형의 스타일을 현재 레이어 기본 스타일로 복원합니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature} feature 복원할 피처입니다.
+     * @returns {boolean} 복원 요청 여부입니다.
+     */
+    resetFeatureStyle(feature) {
+        if (!this.getFeatures().includes(feature) || !this._app?.getMeasureLayer()?.resetFeatureStyle(feature)) return false;
+        this.dispatchEvent('measurestylechange', {feature, style: this.getFeatureStyle(feature), target: this});
+        return true;
+    }
+
+    /** 선택된 측정 도형의 임시 강조를 해제합니다. */
+    clearMeasureFeatureSelection() {
+        const feature = this._selectedMeasureFeature;
+        if (!feature) return;
+        this._selectedMeasureFeature = undefined;
+        this._app?.getMeasureLayer()?.setFeatureSelected(feature, false);
+        this.dispatchEvent('measureunselect', {feature, target: this});
+    }
+
+    /**
+     * 화면 위치에서 확정된 거리·면적 도형을 선택하고 선택 이벤트를 전달합니다.
+     *
+     * @param {import('@U3dMouseEvent').U3dMouseEvent} event 지도 입력입니다.
+     * @returns {import('@UMeasureFeature').UMeasureFeature | undefined} 선택한 피처입니다.
+     */
+    pickMeasureFeature(event) {
+        const layer = this._app?.getMeasureLayer();
+        const camera = this._drawArg?.getCamera();
+        if (!layer || !camera) return undefined;
+
+        const selected = INTERNAL.pickMeasureFeature(layer.getFeatures(), layer.getMeasureFeature(), camera, event);
+        if (!selected) {
+            this.clearMeasureFeatureSelection();
+            return undefined;
+        }
+
+        if (this._selectedMeasureFeature !== selected) {
+            this.clearMeasureFeatureSelection();
+            layer.setFeatureSelected(selected, true);
+            this._selectedMeasureFeature = selected;
+        }
+        this.dispatchEvent('measureselect', {
+            target: this, feature: selected, type: selected.getType(),
+            value: INTERNAL.getMeasureFeatureValue(layer, selected), position: event
+        });
+
+        return selected;
+    }
+
+    /**
+     * 하위 클래스가 분석 설정 조회를 구현하는 확장 지점입니다.
+     *
      */
     getAnalysisOption() {}
 

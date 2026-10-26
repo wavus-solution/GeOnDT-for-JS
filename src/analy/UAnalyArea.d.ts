@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -78,6 +78,13 @@ declare class UAnalyArea extends UAnaly {
      */ _boundMouseMove: (e: MouseEvent) => void;
     name: any;
     /**
+     * 이 분석에서 확정한 피처 목록을 새 배열로 반환합니다.
+     *
+     * @override
+     * @returns {Array<import('@UMeasureFeature').UMeasureFeature>} 확정 피처 목록의 사본입니다.
+     */
+    override getFeatures(): Array<UMeasureFeature>;
+    /**
      * 위경도 좌표 배열을 측정점으로 추가하고 면적 라벨을 표시한 뒤 측정을 확정합니다. <br>
      * 입력 배열을 교체하지 않으며 면적 수치를 반환하지 않습니다.
      *
@@ -87,6 +94,7 @@ declare class UAnalyArea extends UAnaly {
     /**
      * 클릭 교차점을 지리 좌표로 추가하고 라벨을 갱신합니다.
      * 첫 클릭에서는 같은 좌표 참조를 가이드 끝점으로 한 번 더 추가합니다.
+     * 진행 중인 native 더블클릭의 두 번째 클릭은 첫 클릭과 중복되므로 점을 추가하지 않습니다.
      *
      * @param {import('@U3dMouseEvent').U3dMouseEvent} e 사용자 클릭 이벤트
      *
@@ -103,11 +111,17 @@ declare class UAnalyArea extends UAnaly {
      */
     _onMouseMove(e: MouseEvent): void;
     /**
-     * 마우스 가이드를 먼저 종료하고 현재 측정점을 피처로 확정합니다.
+     * 현재 입력을 종료하며 고정 점이 부족하면 임시 도형을 취소합니다.
      *
      * @ignore
      */
     onDblClick(): void;
+    /**
+     * 현재 입력을 종료하며 고정 점이 세 개 미만이면 임시 도형과 라벨만 취소합니다.
+     * 완료한 다른 도형과 라벨은 보존하고 안내 끝점은 확정 목록에서 제외합니다.
+     * 점이 부족한 취소도 피처 없이 measureend 이벤트를 전달합니다.
+     */
+    drawStop(): void;
     /**
      * 현재 측정 위치에 면적 라벨을 만들거나 기존 라벨을 갱신합니다.
      * 카메라·위치가 없으면 종료하며 userData.value에는 단위 변환 전 측정값을 보관합니다.

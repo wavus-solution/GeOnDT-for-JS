@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -103,19 +103,24 @@ declare class URaycaster extends Raycaster {
      */
     setParams(options?: URaycasterCO): this;
     /**
+     * 월드 좌표 광선을 설정하고 이전 직교 화면 검색의 깊이 제한을 해제합니다.
+     *
      * @override
      *
-     * @param {import("three").Vector3} origin
-     * @param {import("three").Vector3} direction
-     * @return {this}
+     * @param {import("three").Vector3} origin 광선이 시작하는 월드 좌표입니다.
+     * @param {import("three").Vector3} direction 정규화된 광선 방향입니다.
+     * @returns {this} 현재 광선 검사기입니다.
      */
     override set(origin: three.Vector3, direction: three.Vector3): this;
     /**
+     * 화면 위치의 광선을 설정합니다. 직교 카메라의 near가 음수이면 근거리 평면에서 시작해 보이는 깊이 전체를 검사합니다.
+     * 이 경우 교차 거리는 해당 근거리 평면의 광선 시작점을 기준으로 반환합니다.
+     *
      * @override
      *
-     * @param {import("three").Vector2} coords
-     * @param {import("three").Camera} camera
-     * @return {this}
+     * @param {import("three").Vector2} coords 화면 위치의 정규화 좌표입니다.
+     * @param {import("three").Camera} camera 화면 투영에 사용하는 카메라입니다.
+     * @returns {this} 현재 광선 검사기입니다.
      */
     override setFromCamera(coords: three.Vector2, camera: three.Camera): this;
     /**

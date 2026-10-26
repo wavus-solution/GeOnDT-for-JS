@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -74,6 +74,22 @@ declare class U3dComponentPosition {
      * @param {U3dComponentPositionCO} opt 생성 옵션. `componentlayer`, `position`은 필수
      */
     constructor(opt: U3dComponentPositionCO);
+    /**
+     * 논리 위치와 독립적으로 적용하는 모델 전체의 로컬 이동량입니다.
+     *
+     * @type {import('three').Vector3}
+     *
+     * @ignore
+     */
+    _modelOffset: three.Vector3;
+    /**
+     * 일반 모델이 소유하는 기준점 보정 전용 변환 노드입니다.
+     *
+     * @type {import('three').Group | undefined}
+     *
+     * @ignore
+     */
+    _modelOffsetObject: three.Group | undefined;
     /**
      * moveSmoothly로 도착한 최근 100개 지점의 복사본입니다. 오래된 지점부터 정렬됩니다. <br>
      * 시작점·대기 목표점·프레임 보간점은 포함하지 않습니다.
@@ -866,6 +882,37 @@ declare class U3dComponentPosition {
      */
     getInstanced(): boolean;
     /**
+     * 논리 위치를 유지하면서 모델 전체의 로컬 이동량을 절대값으로 설정합니다. <br>
+     * 이동량은 모델의 부모 좌표계 단위이며 컴포넌트의 회전·크기보다 먼저 적용합니다.
+     * 일반·인스턴스 타입 모두 구성 메시 전체에 적용하고, 다른 컴포넌트와 공유하는 모델은 변경하지 않습니다. <br>
+     * 같은 값을 반복 설정해도 누적되지 않으며, 생략하거나 0 벡터를 지정하면 보정을 해제합니다.
+     * 위치·회전·크기 갱신 후에도 유지되고, 경계 상자와 선택에 쓰는 렌더 변환에 함께 반영합니다.
+     * 라벨·오버레이·경로의 기준인 논리 위치는 변경하지 않습니다. <br>
+     * x·y·z가 숫자가 아니면 TypeError, 비유한 값이면 RangeError가 발생하며 이전 설정은 유지합니다.
+     * 해제된 컴포넌트에는 Error가 발생합니다.
+     *
+     * @param {import('three').Vector3Like} [offset={x:0,y:0,z:0}] 모델 전체에 적용할 로컬 이동량
+     * @returns {this} 설정한 컴포넌트
+     *
+     * @example
+     * // 모델 좌표의 기준점 z:500을 논리 원점에 맞춥니다.
+     * component.setModelOffset({x: 0, y: 0, z: -500});
+     * component.setModelOffset(); // 보정을 해제합니다.
+     */
+    setModelOffset(offset?: three.Vector3Like): this;
+    /**
+     * 모델 전체의 로컬 이동량을 복사하여 반환합니다. 반환 벡터를 변경해도 설정은 바뀌지 않습니다.
+     *
+     * @returns {import('three').Vector3} 현재 모델 오프셋의 복사본
+     */
+    getModelOffset(): three.Vector3;
+    /**
+     * 일반 모델의 기준점 보정을 전용 하위 변환에 반영합니다.
+     *
+     * @ignore
+     */
+    _applyModelOffset(): void;
+    /**
      * 컴포넌트가 `position`에서 `lookAt`을 바라볼 때의 회전(pitch·yaw)을 계산하는 함수
      * @param {WorldPositionVector3} lookAt 바라보는 위치 좌표 (월드 좌표, EPSG:3857)
      * @param {WorldPositionVector3} position 위치 좌표 (월드 좌표, EPSG:3857)
@@ -896,6 +943,7 @@ declare class U3dComponentPosition {
     setCumulativePathStyle(opt: U3dCumulativePath_StyleOpt): void;
     /**
      * 누적 경로(궤적)의 초기 좌표 값(이전 히스토리)을 설정하는 함수.
+     * 이미 경로가 있으면 현재 스타일과 표시 설정을 사용해 새 초기 이력으로 교체합니다.
      * @param {Array<GeoPositionVector3>} positions 위경도 좌표 배열
      */
     setInitPathPositions(positions: Array<GeoPositionVector3>): void;
@@ -925,7 +973,7 @@ declare class U3dComponentPosition {
     /**
      * 현재 위치에서 목표 위경도 좌표까지 보간 이동을 시작하거나 이동 대기열에 추가합니다.<br>
      * 이동 중 다시 호출하면 현재 목표를 중단하지 않고 새 목표를 대기열 끝에 추가합니다.<br>
-     * `drawCumulativePath`가 true이면 이동 중인 위치를 누적 경로에 기록합니다.<br>
+     * `drawCumulativePath`가 true이면 이동 중인 위치를 연결해 실선 경로로 기록합니다.<br>
      * 유효한 목표 좌표 또는 이동 거리를 만들 수 없으면 이동을 예약하지 않고 완료합니다.
      *
      * @param {MoveSmoothlyOpt} [opt={}] 목표 위치, 회전, 이동 시간 등을 지정하는 옵션
@@ -994,22 +1042,6 @@ declare class U3dComponentPosition {
     _splineRoll: UCatmullRomCurve3;
     _createDefaultSpline(position: WorldPositionVector3, geometry: three.BufferGeometry, range?: number): void;
     _checkCollisionOperation(pathPosition: three.Vector3, lookAt: three.Vector3): void;
-    /**
-     * 누적 경로를 통해 해당하는 컴포넌트를 선택하는 함수
-     * @param {event | Record<string, unknown>} e 클릭 이벤트
-     * @returns {this | undefined} 컴포넌트
-     *
-     * @ignore
-     */
-    selectedByTrail(e: Event | Record<string, unknown>): this | undefined;
-    /**
-     * 누적 경로(궤적)의 선택 강조용 helper 메시를 표시합니다. 궤적 표시가 꺼져 있거나 궤적이 없으면 아무 동작도 하지 않습니다.
-     */
-    onSelectHelperMesh(): void;
-    /**
-     * `onSelectHelperMesh`로 표시한 궤적 강조 helper 메시를 숨깁니다.
-     */
-    offSelectHelperMesh(): void;
     /**
      * 컴포넌트를 씬에서 제거하고 모델·경로·라벨·오버레이·애니메이션 리소스를 해제하는 함수. <br>
      * 주의 사항: 호출 후 이 객체는 다시 사용할 수 없으며 `isDisposed()`가 true가 됩니다.
@@ -1146,9 +1178,16 @@ declare class U3dComponentPosition {
      */
     getDepth(): boolean;
     /**
-     * 컴포넌트가 출력하고있는 모델의 색상을 설정 합니다.
-     * @param {import('three').ColorRepresentation} color 설정할 색상값
+     * 컴포넌트가 표시하는 모델의 기본 색상을 설정합니다. <br>
+     * 텍스처와 조명 등의 영향으로 화면에 보이는 색상은 지정한 값과 다를 수 있습니다. <br>
+     * 선택 강조를 해제한 뒤에도 마지막으로 설정한 색상을 유지합니다.
+     *
+     * @param {import('three').ColorRepresentation} [color='#ffffff'] 모델에 적용할 기본 색상
      * @returns {boolean} 색상이 적용되면 true, 모델이 없거나 적용에 실패하면 false
+     *
+               
+                                                                   
+                                                           
      */
     setColor(color?: three.ColorRepresentation): boolean;
     /**
@@ -1243,8 +1282,11 @@ declare class U3dComponentPosition {
      */
     getRenderOrder(): number | undefined;
     /**
-     * 컴포넌트가 출력하고 있는 모델의 텍스쳐 출력을 끄거나 켭니다.
-     * @param {boolean} [isExcept=false] true이면 텍스처를 숨기고 단색으로 그리며, false이면 텍스처를 다시 표시합니다
+     * 이 컴포넌트의 색상 텍스처 출력을 끄거나 켭니다. <br>
+     * true이면 색상 텍스처를 제외하고, false이면 각 재질의 원래 텍스처 사용 상태로 되돌립니다. <br>
+     * 기본색·조명과 다른 종류의 텍스처는 유지하며, 선택을 해제해도 마지막 설정을 유지합니다.
+     *
+     * @param {boolean} [isExcept=false] 색상 텍스처를 제외할지 여부
      * @returns {boolean} 적용되면 true, 모델이 없거나 적용에 실패하면 false
      */
     exceptTexture(isExcept?: boolean): boolean;
@@ -2280,6 +2322,10 @@ declare class U3dComponentPosition {
          * object, instance 또는 none
          */
         mode: string;
+        /**
+         * 색상 텍스처 제외 값을 인스턴스 저장소에서 조회하는지 여부
+         */
+        instanceBaseMap: boolean;
         /**
          * 밝기의 기본값 대비 차이
          */

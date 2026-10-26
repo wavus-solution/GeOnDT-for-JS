@@ -433,7 +433,7 @@
             self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
             self._app.addLayer(this.layer);
         }
-        this.layer.then(() => {
+        this.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -463,7 +463,7 @@
         let self = this;
         self.layer = new self._union3d.image.U3dImageWMSLayer(this.options);
         self._app.addLayer(this.layer);
-        this.layer.then(() => {
+        this.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -492,7 +492,7 @@
     HeightLayer.prototype.create = function () {
         let self = this;
         self.layer = this._app.createHeightXYZLayer(self.options);
-        self.layer.then(() => {
+        self.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -732,6 +732,9 @@
                 generateRatio :  1.0, // 흐르면서 생성 시킬지 여부의 확률, 값이 높을시 생성할 확률이 높아진다.
                 generateAmount : 5 // 흐르면서 생성 시키는 입자의 양
             });
+        }).catch(error => {
+            // 다른 분석으로 대체된 요청의 취소는 별도 오류로 표시하지 않습니다.
+            if (error !== false && error?.name !== 'AbortError') console.error(error);
         });
     });
 
@@ -773,6 +776,9 @@
             slopeAspect.getSlope(info.center).then(()=>{
                 window.slopeAspect = slopeAspect;
                 $(this).text('경사도 끄기');
+            }).catch(error => {
+                // 다른 분석으로 대체된 요청의 취소는 별도 오류로 표시하지 않습니다.
+                if (error !== false && error?.name !== 'AbortError') console.error(error);
             });
         }else{
             window.slopeAspect.clear();
@@ -802,6 +808,9 @@
             app.getAnalysis('SlopeAspect').getSlope( app.closestPointAtPixel(e) ).then(()=>{
                 window.isCheckSlope = true;
                 $('#btn-checkClose').show();
+            }).catch(error => {
+                // 다른 분석으로 대체된 요청의 취소는 별도 오류로 표시하지 않습니다.
+                if (error !== false && error?.name !== 'AbortError') console.error(error);
             });
             app.unkey('click',window.checkKey);
             window.checkKey = undefined;
@@ -867,7 +876,7 @@
 
     function initModelLayers() {
         try {
-            modelayers = app.createModelGroupLayer({
+            modelayers = app.createGroupLayer({
                 maxlevel: 19,
                 minlevel: 17,
                 name: 'u3f'
@@ -904,14 +913,14 @@
                             makeU3FPackage: 1,
                         };
                         let subLayer = app.create3DFModelLayer(options);
-                        if(subLayer !== false){
-                            subLayer.then(function (layer) {
+                        if(subLayer){
+                            subLayer.ready.then(function (layer) {
                                 modelayers.addLayer(subLayer);
                                 if(i === infos.length -1){
                                     console.log("u3f model layer load");
                                     app.showLayer(modelayers.getName(),true);
                                 }
-                            }).fail(function (layer) {
+                            }).catch(function (layer) {
 
                             });
                         }

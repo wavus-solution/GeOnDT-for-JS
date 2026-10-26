@@ -464,7 +464,7 @@
             self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
             self._app.addLayer(this.layer);
         }
-        this.layer.then(() => {
+        this.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -494,7 +494,7 @@
     HeightLayer.prototype.create = function () {
         let self = this;
         self.layer = this._app.createHeightXYZLayer(self.options);
-        self.layer.then(() => {
+        self.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -664,6 +664,8 @@
                     for(const decal of decalList){
                         console.log('addDecal 호출 성공: ' + decal.name );
                     }
+                }).catch((error) => {
+                    console.error('데칼 추가에 실패했습니다.', error);
                 });
             }
             //+ draw 비활성화

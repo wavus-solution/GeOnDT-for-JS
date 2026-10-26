@@ -73,6 +73,29 @@
     margin: 0;
 }
 
+.group-boundary-option-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: 12px;
+}
+
+.group-boundary-option-row select {
+    min-width: 0;
+    padding: 5px;
+    color: var(--theme-text);
+    background: var(--theme-surface);
+    border: 1px solid var(--theme-line);
+    border-radius: 6px;
+}
+
+#group-boundary-banked-focus {
+    width: 100%;
+    margin-top: 10px;
+}
+
 .group-boundary-state-list div {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 64px;
@@ -95,4 +118,13 @@
     color: var(--theme-text);
     font-variant-numeric: tabular-nums;
     text-align: right;
+}
+
+.group-boundary-diagnostics div {
+    grid-template-columns: minmax(0, 1fr) minmax(100px, auto);
+}
+
+#group-boundary-banked-last-error {
+    overflow-wrap: anywhere;
+    margin-top: 8px;
 }

@@ -255,7 +255,7 @@
                     sourceOptions.requestEncoding = 'REST';
                     sourceOptions.crossOrigin = 'anonymous';
 
-                    layers[name] = app.create3dImageWMTSLayer({
+                    layers[name] = app.createWMTSImageLayer({
                         name: name,
                         srs: 'EPSG:3857',
                         geoextent: metadata.WGS84BoundingBox || [-180, -85.05112878, 180, 85.05112878],
@@ -331,7 +331,7 @@
                 sourceOptions.crossOrigin = 'anonymous';
 
                 const name = 'geoserver_roads';
-                layers[name] = app.create3dImageWMTSLayer({
+                layers[name] = app.createWMTSImageLayer({
                     name: name,
                     srs: 'EPSG:3857',
                     geoextent: metadata.WGS84BoundingBox,

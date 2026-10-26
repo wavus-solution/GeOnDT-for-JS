@@ -9,6 +9,19 @@ export function initializeUI(context, example) {
     const controller = new AbortController();
     const options = {signal: controller.signal};
     const on = (selector, eventName, handler) => root.querySelectorAll(selector).forEach(element => element.addEventListener(eventName, handler, options));
+    const bufferControls = root.querySelector('#point-buffer-options');
+    const bufferSearch = root.querySelector('#enable-pick-buffer');
+    const bufferSettings = root.querySelector('#point-buffer-settings');
+    const bufferInput = root.querySelector('#pick-buffer-px');
+    const bufferValue = root.querySelector('#pick-buffer-px-value');
+    const bufferVisibility = root.querySelector('#show-pick-buffer');
+    const hoverEnabled = root.querySelector('#enable-select-hover');
+    const initialRadius = example.getSettings().pickBufferPx;
+    bufferInput.max = String(Math.max(Number(bufferInput.max), initialRadius));
+    bufferInput.value = String(initialRadius);
+    bufferSearch.checked = example.getSettings().pickBufferEnabled;
+    bufferVisibility.checked = example.getSettings().pickBufferVisible;
+    hoverEnabled.checked = example.getSettings().hover.enabled;
     /** 되살릴 작업이 하나라도 있는지입니다. 모드가 바뀔 때도 써야 해 따로 들고 있습니다. */
     let hasWork = false;
 
@@ -28,7 +41,18 @@ export function initializeUI(context, example) {
         if (!event.target.checked) return;
         example.setMode(event.target.value);
         updateRedrawState();
+        updateBufferState();
     });
+    on('#pick-buffer-px', 'input', () => {
+        example.setPickBufferPx(Number(bufferInput.value));
+        updateBufferState();
+    });
+    on('#enable-pick-buffer', 'change', () => {
+        example.setPickBufferEnabled(bufferSearch.checked);
+        updateBufferState();
+    });
+    on('#show-pick-buffer', 'change', () => example.setPickBufferVisible(bufferVisibility.checked));
+    on('#enable-select-hover', 'change', () => example.setHoverEnabled(hoverEnabled.checked));
     on('input[name="select-type"]', 'change', event => {
         if (!event.target.checked) return;
         example.setSelectType(event.target.value);
@@ -40,12 +64,35 @@ export function initializeUI(context, example) {
     });
     on('#selected-fill', 'input', updateSelected);
     on('#selected-opacity', 'input', updateSelected);
+    on('[data-ring-option]', 'input', event => {
+        const input = event.target;
+        if (input.value === '' || !input.checkValidity()) return;
+        const value = ['animate', 'depthTest'].includes(input.dataset.ringOption) ? input.value === 'true'
+            : input.type === 'number' ? Number(input.value) : input.value;
+        example.setRingOptions({[input.dataset.ringOption]: value});
+        updateSelectTypeState();
+    });
     on('#except-texture', 'change', event => example.setExceptTexture(event.target.checked));
+    on('#ring-custom-style, [data-ring-style]', 'input', updateRingEndStyles);
     on('#reload-select-work', 'click', () => example.redraw());
     on('#clear-select-work', 'click', () => example.clear());
     updateSelected();
     updateSelectTypeState();
     updateRedrawState();
+    updateBufferState();
+
+    /** 점 선택 설정을 표시하고 버퍼 검색을 끄면 반경·범위 표시·hover 컨트롤을 잠급니다. */
+    function updateBufferState() {
+        const isPoint = root.querySelector('input[name="select-mode"]:checked')?.value === 'point';
+        bufferControls.hidden = !isPoint;
+        bufferSearch.disabled = !isPoint;
+        const enabled = isPoint && bufferSearch.checked;
+        bufferInput.disabled = !enabled;
+        bufferVisibility.disabled = !enabled;
+        hoverEnabled.disabled = !enabled;
+        bufferSettings.classList.toggle('is-disabled', !enabled);
+        bufferValue.textContent = bufferInput.value + ' px';
+    }
 
     /**
      * 다시 그리기 버튼의 사용 여부와 안내를 현재 모드에 맞춥니다.
@@ -69,17 +116,46 @@ export function initializeUI(context, example) {
     /**
      * 현재 강조 방식에 맞춰 스타일 컨트롤의 사용 여부와 문구를 정리합니다.
      *
-     * 선택 모델 색은 두 강조 방식 모두에 반영됩니다. 외곽선에서는 `setSelectedColor()`로 넘긴 색이 그대로
-     * 외곽선 색으로 쓰이므로 잠그지 않고, 라벨만 바꿔 어디에 적용되는 색인지 알 수 있게 합니다.
-     * 반면 투명도는 후처리 외곽선 Pass가 사용하지 않아 값을 바꿔도 화면이 달라지지 않으므로 잠급니다.
+     * 외곽선에서만 투명도를 잠그며 링 옵션은 해당 타입에서만 표시합니다.
      */
     function updateSelectTypeState() {
-        const isColorType = root.querySelector('input[name="select-type"]:checked')?.value === 'color';
+        const type = root.querySelector('input[name="select-type"]:checked')?.value;
+        const isRing = type === 'ring';
+        const isOutline = type === 'outline';
         const selectedFillLabel = root.querySelector('label[for="selected-fill"]');
-        if (selectedFillLabel) selectedFillLabel.textContent = isColorType ? '선택 모델' : '외곽선 색상';
+        if (selectedFillLabel) selectedFillLabel.textContent = isRing ? '링 색상' : isOutline ? '외곽선 색상' : '선택 모델';
         const opacityInput = root.querySelector('#selected-opacity');
-        if (opacityInput) opacityInput.disabled = !isColorType;
-        opacityInput?.closest('.style-control-row')?.classList.toggle('is-disabled', !isColorType);
+        if (opacityInput) opacityInput.disabled = isOutline;
+        opacityInput?.closest('.style-control-row')?.classList.toggle('is-disabled', isOutline);
+        root.querySelector('#ring-options').hidden = !isRing;
+        root.querySelector('#ring-sides').disabled = root.querySelector('#ring-shape').value !== 'polygon';
+        const dashed = root.querySelector('#ring-pattern').value === 'dashed';
+        root.querySelector('#ring-dash-count').disabled = !dashed;
+        root.querySelector('#ring-dash-ratio').disabled = !dashed;
+        root.querySelector('#ring-height').disabled = root.querySelector('#ring-orientation').value !== 'ground';
+        root.querySelector('#ring-speed').disabled = root.querySelector('#ring-animate').value === 'false';
+        const animated = root.querySelector('#ring-animate').value !== 'false';
+        root.querySelector('#ring-custom-style').disabled = !animated;
+        root.querySelectorAll('[data-ring-option="headShape"], [data-ring-option="tailShape"], [data-ring-option="headScale"], [data-ring-option="tailScale"]').forEach(input => { input.disabled = !animated; });
+        root.querySelector('#ring-end-styles').hidden = !root.querySelector('#ring-custom-style').checked;
+        root.querySelectorAll('[data-ring-style]').forEach(input => { input.disabled = !animated; });
+    }
+
+    /** 머리·꼬리 설정을 함께 전달하여 한 항목 변경 시 다른 스타일이 사라지지 않게 합니다. */
+    function updateRingEndStyles() {
+        if (!root.querySelector('#ring-custom-style').checked) {
+            example.setRingOptions({head: undefined, tail: undefined});
+        } else {
+            const inputs = [...root.querySelectorAll('[data-ring-style]')];
+            if (inputs.some(input => input.value === '' || !input.checkValidity())) return;
+            const value = id => root.querySelector(`#ring-${id}`).value;
+            example.setRingOptions({
+                head: {color: value('head-color'), opacity: Number(value('head-opacity'))},
+                tail: {color: value('tail-color'), opacity: Number(value('tail-opacity')),
+                    fadeIn: Number(value('tail-fade-in')), fadeOut: Number(value('tail-fade-out'))}
+            });
+        }
+        updateSelectTypeState();
     }
 
     function updateSelected() {

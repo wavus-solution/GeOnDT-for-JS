@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -38,6 +38,13 @@ declare class U3dAppEventHandler {
         IMAGE_LOADED: string;
     };
     constructor(container: any, app: any);
+    /** 여러 앱의 로딩 대기와 타이머를 분리합니다. */
+    _eventsWorking: {};
+    /** 완료 예약별 이벤트 종류입니다. @type {Map<ReturnType<typeof setTimeout>, string>} */
+    _workingTimers: Map<ReturnType<typeof setTimeout>, string>;
+    /** 일부 종류만 취소해도 이전 완료 콜백을 구분합니다. @type {Record<string, number>} */
+    _workingEventGenerations: Record<string, number>;
+    _workingGeneration: number;
     _initialized: boolean;
     _container: any;
     _app: any;
@@ -89,7 +96,12 @@ declare class U3dAppEventHandler {
     addEvent(): void;
     onStart(e: any): void;
     onEnd(e: any): void;
-    resetWorkingEndEvent(): void;
+    /**
+     * 지정한 종류의 대기만 취소하며 다른 종류의 완료 알림을 유지합니다.
+     * @param {string[]} [events] 취소할 이벤트. 생략하면 전체
+     * @returns {void}
+     */
+    resetWorkingEndEvent(events?: string[]): void;
     click(u3dMouseEvent: any): void;
     dbclick(u3dMouseEvent: any): void;
     #private;

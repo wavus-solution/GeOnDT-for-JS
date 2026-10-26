@@ -278,7 +278,7 @@ UAnalySlopeAspect extends UAnaly 클래스 정의
     timeoutId: ReturnType<setTimeout> | undefined
         예약된 분석 작업 타이머 ID이며 미예약이면 undefined다.
 
-    slopePromise: DeferredObject
+    slopePromise: DeferredPromise<boolean> | undefined
         진행 중이거나 마지막 분석의 완료 계약이다.
 
     cancel: undefined | function(): void
@@ -409,7 +409,7 @@ UAnalySlopeAspect extends UAnaly 클래스 정의
         동작:
             입력이 함수이면 셀별 스타일 콜백으로 저장하고 아니면 undefined로 둔 뒤 다시 그리기를 요청한다.
 
-    getSlope(position: Vector3 | {x: number, y: number}, options?: Partial<UAnalySlopeAspectCO>) -> DeferredObject
+    getSlope(position: Vector3 | {x: number, y: number}, options?: Partial<UAnalySlopeAspectCO>) -> Promise<boolean>
         역할: 입력 중심 위치 기준으로 격자 분석을 예약 실행하고 완료 계약을 반환한다.
         인터페이스:
             position은 월드 좌표 Vector3 또는 위경도 {x, y}다.
@@ -421,7 +421,7 @@ UAnalySlopeAspect extends UAnaly 클래스 정의
         의존:
             defined — 예약 존재 판정; 함수: {defined()}
             Web API — 이전 예약 취소와 분석 예약; 함수: {clearTimeout(), setTimeout()}
-            deferred — 완료 계약 생성; 함수: {deferred()}
+            deferredPromise — 완료 계약 생성; 함수: {deferredPromise()}
             three — 입력 좌표 형태의 instanceof 판정; 상수: {Vector3}
             UAnaly — 다시 그리기 요청; 함수: {update()}
             U3dApp(_app) — 좌표 변환과 렌더 후처리 등록; 함수: {vector3ToGeoGraphic(), geographicToVector3(), setRenderAfter()}

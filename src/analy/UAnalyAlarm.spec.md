@@ -305,17 +305,17 @@ UAnalyAlarm extends UAnaly 클래스 정의
             getModelById(id, false)를 호출한다. 결과가 없고 editedList가 defined이며 비어 있지 않으면 editedEvent[id]의 mesh가 있으면 반환한다.
             편집 정보가 없거나 편집 목록 조건을 충족하지 않으면 원래 조회 결과를 반환한다.
 
-    removeAllAlarm() -> object
+    removeAllAlarm() -> Promise<boolean>
         의존:
-            deferred — 동기 완료 가능한 작업 객체; 함수: {deferred()}
+            deferredPromise — 표준 Promise 완료 제어; 함수: {deferredPromise()}
             UMesh — 모델 UID; 함수: {getUid()}
             U3dApp — 강제 갱신; 함수: {forceUpdate()}
             UAnaly — 변경 이벤트; 함수: {dispatchEvent()}; 속성 읽기: {_app}
         동작:
-            deferred 객체를 만들고 모델 목록 원본을 조회한다.
+            deferredPromise 객체를 만들고 모델 목록 원본을 조회한다.
             원본 목록이 비어 있지 않으면 그룹의 name 또는 모델 UID로 removeAlarm을 호출한 뒤 그 원본 배열의 원소를 splice하며 인덱스를 되돌려 순회한다. removeAlarm은 _modelGroup을 다른 배열로 바꿀 수 있다.
             원본 배열 길이가 0이면 clear를 호출하고 true로 resolve한 뒤 click 이벤트를 발생시킨다.
-            forceUpdate를 호출하고 deferred 원본을 반환한다. 공개 선언은 object이며 실제 완료 값은 boolean true이다. [확인 Q-006]
+            forceUpdate를 호출하고 deferredPromise 원본을 반환한다. 공개 반환은 Promise<boolean>이며 완료값은 true다. 콜백은 현재 호출이 끝난 뒤 실행된다.
 
     removeAllDetailOpt() -> void
         의존:

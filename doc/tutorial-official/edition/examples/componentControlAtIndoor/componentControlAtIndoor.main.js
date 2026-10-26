@@ -1,5 +1,6 @@
 /**
  * 자동 이관된 기존 예제 기능을 Common Runtime에서 실행합니다.
+ *
  * @param {GeOnDTExampleContext} context 공통 런타임 컨텍스트
  * @returns {Promise<Record<string, unknown>>} 예제 상태
  */
@@ -7,6 +8,7 @@ export async function initialize(context) {
     const {getSampleSet2} = context.modules.sampleLoadData;
 
     const INDOOR_MODEL_NAME = 'asia_mun_light';
+    const SELECT_PICK_BUFFER_PX = 40;
         let nowCameraMode = 'default';
     
         const MODEL_COLOR_LIST = {
@@ -128,6 +130,20 @@ export async function initialize(context) {
                     return
                 }
     
+                // 초기 샘플의 수동 배치 어댑터·전선과 계층 참조는 사용하지 않습니다.
+                // 사용자가 저장한 데이터를 불러오는 경로에는 적용하지 않습니다.
+                const initialAdapterNames = new Set((data.vector ?? [])
+                    .filter(item => item.type === 'U3dAdaptedGeometry')
+                    .map(item => item.param.name));
+                data.vector = (data.vector ?? []).filter(item =>
+                    item.type !== 'U3dAdaptedGeometry' && item.type !== 'U3dFlowPipe');
+                for (const group of data.component ?? []) {
+                    for (const component of group.components) {
+                        component.children = (component.children ?? []).filter(child =>
+                            child.layer !== 'vector' || !initialAdapterNames.has(child.name));
+                    }
+                }
+
                 const loadPromises = [];  // 모든 Promise를 모음
     
                 // Vector 데이터 로드
@@ -170,11 +186,196 @@ export async function initialize(context) {
                 if (loadPromises.length > 0) {
                     await Promise.all(loadPromises);
                 }
-    
+
+                alignInitialContainers();
+                refreshAdapterSelect();
                 initHierarchyTree();
             } catch (e) {
                 console.error('Load error:', e);
             }
+        }
+
+        // 초기 ESS 컨테이너를 두 줄로 배치하고 하단 네 모서리에 어댑터를 연결합니다.
+        function alignInitialContainers() {
+            const THREE = app._THREE;
+            const slots = [
+                ['container_0', 1, 0, 1],
+                ['container_1', 1, 1],
+                ['container_2', 1, 2],
+                ['container_3', 0, 2],
+                ['container_4', 0, 1],
+                ['ESS컨테이너_1', 0.5, 3, 1]
+            ];
+            const containers = slots.map(([name, column, row, quarterTurns = 0]) => ({
+                component: window.componentLayer.getComponentByName(name), column, row, quarterTurns
+            })).filter(item => item.component);
+            if (containers.length === 0) return;
+
+            for (const item of containers) {
+                const {component} = item;
+                const bounds = component.getBoundBoxObject();
+                const size = bounds.getSize(new THREE.Vector3());
+                const model = component.getModel();
+                model.updateMatrixWorld(true);
+                const inverse = model.matrixWorld.clone().invert();
+                let baseArea = 0;
+                item.baseBounds = bounds;
+                // 에어컨·지붕 돌출부를 제외하고, 바닥 근처에서 가장 넓은 얇은 받침대 메시를 찾습니다.
+                model.traverse(mesh => {
+                    if (!mesh.isMesh || !mesh.geometry) return;
+                    if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+                    const box = mesh.geometry.boundingBox.clone()
+                        .applyMatrix4(new THREE.Matrix4().multiplyMatrices(inverse, mesh.matrixWorld))
+                        .translate(component.getModelOffset());
+                    const slab = box.getSize(new THREE.Vector3());
+                    const area = slab.x * slab.y;
+                    if (Math.abs(box.min.z - bounds.min.z) < size.z * 0.05
+                        && slab.z > 1e-6 && slab.z < size.z * 0.15
+                        && slab.x > size.x * 0.5 && slab.y > size.y * 0.5 && area > baseArea) {
+                        item.baseBounds = box;
+                        baseArea = area;
+                    }
+                });
+            }
+
+            const angle = GeOnDT.UDEF.DegToRad(-9);
+            const across = new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0);
+            const along = new THREE.Vector3(-Math.sin(angle), Math.cos(angle), 0);
+            const baseCorners = ({component, baseBounds: {min, max}}) => {
+                const matrix = new THREE.Matrix4().compose(component.getVectorPosition(),
+                    new THREE.Quaternion().setFromEuler(component.getRotation()), component.scale);
+                return [[min.x, min.y], [max.x, min.y], [min.x, max.y], [max.x, max.y]]
+                    .map(([x, y]) => new THREE.Vector3(x, y, min.z).applyMatrix4(matrix));
+            };
+            const bottomCenter = item => {
+                const center = new THREE.Vector3();
+                for (const corner of baseCorners(item)) center.add(corner);
+                return center.multiplyScalar(0.25);
+            };
+            const anchor = containers.find(item => item.component.name === 'container_1') ?? containers[0];
+
+            let columnSpacing = 0;
+            let rowSpacing = 0;
+            for (const {component, quarterTurns} of containers) {
+                const size = component.getBoundBoxObject().getSize(new THREE.Vector3()).multiply(component.scale);
+                // 긴 변의 기본 방향을 맞춘 뒤, 첫 컨테이너와 오른쪽 끝의 긴 컨테이너는 90도 돌립니다.
+                component.setRotation({x: 0, y: 0,
+                    z: angle + (size.x > size.y ? Math.PI / 2 : 0) + quarterTurns * Math.PI / 2});
+                columnSpacing = Math.max(columnSpacing, Math.min(size.x, size.y));
+                rowSpacing = Math.max(rowSpacing, Math.max(size.x, size.y));
+            }
+            columnSpacing += 5;
+            rowSpacing += 2;
+            const origin = bottomCenter(anchor);
+
+            for (const item of containers) {
+                const {component, column, row} = item;
+                const target = origin.clone()
+                    .addScaledVector(across, (column - anchor.column) * columnSpacing)
+                    .addScaledVector(along, (anchor.row - row) * rowSpacing);
+                const offset = target.sub(bottomCenter(item));
+                component.setPosition(component.getVectorPosition().clone().add(offset));
+
+                // 받침대의 로컬 모서리에 컨테이너의 회전·크기·위치를 반영합니다.
+                for (const [index, corner] of baseCorners(item).entries()) {
+                    const geoPosition = app.vector3ToGeoGraphic(corner);
+                    const adapter = createAdaptedGeometry({
+                        name: `adapter_${component.name}_corner_${index + 1}`,
+                        geoPosition,
+                        radius: 0.1,
+                        buffer: 10,
+                        style: {opacity: 0.7, color: '#a73bff'},
+                        properties: {'용도': '어댑터', '반경': 10}
+                    });
+                    component.setChild(adapter);
+                }
+            }
+            createInitialAdapterWire();
+        }
+
+        // 컨테이너 둘레의 세 변씩 지나며 모든 어댑터를 한 번씩 방문한 뒤 시작점으로 돌아옵니다.
+        function createInitialAdapterWire() {
+            const THREE = app._THREE;
+            const angle = GeOnDT.UDEF.DegToRad(-9);
+            const across = new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0);
+            const along = new THREE.Vector3(-Math.sin(angle), Math.cos(angle), 0);
+            const route = [
+                ['container_0', ['BottomLeft', 'TopLeft', 'TopRight', 'BottomRight']],
+                ['container_1', ['TopLeft', 'TopRight', 'BottomRight', 'BottomLeft']],
+                ['container_2', ['TopLeft', 'TopRight', 'BottomRight', 'BottomLeft']],
+                ['ESS컨테이너_1', ['TopRight', 'BottomRight', 'BottomLeft', 'TopLeft']],
+                ['container_3', ['BottomRight', 'BottomLeft', 'TopLeft', 'TopRight']],
+                ['container_4', ['BottomRight', 'BottomLeft', 'TopLeft', 'TopRight']]
+            ];
+            const adapterNames = [];
+            for (const [name, corners] of route) {
+                const adapters = [1, 2, 3, 4].map(index =>
+                    window.vectorLayer.getGeometryByName(`adapter_${name}_corner_${index}`));
+                if (adapters.some(adapter => !adapter)) return;
+                const center = adapters.reduce((sum, adapter) => sum.add(adapter.getPosition()),
+                    new THREE.Vector3()).multiplyScalar(0.25);
+                const byCorner = {};
+                for (const adapter of adapters) {
+                    const offset = adapter.getPosition().clone().sub(center);
+                    const corner = (offset.dot(along) > 0 ? 'Top' : 'Bottom')
+                        + (offset.dot(across) > 0 ? 'Right' : 'Left');
+                    byCorner[corner] = adapter;
+                }
+                for (const corner of corners) adapterNames.push(byCorner[corner].name);
+            }
+            createFlowPipe({
+                name: 'flowPipe_adapter_loop',
+                positions: [],
+                properties: {'용도': 'ESS 어댑터 순회 전선', adapterRoute: adapterNames, adapterRouteAngle: angle},
+                color: '#627084',
+                opacity: 0.9,
+                piperadius: 0.035,
+                pathsegments: 1024,
+                radiusSegments: 8
+            });
+        }
+
+        // 순회 순서를 속성으로 저장하므로 불러온 전선도 어댑터의 현재 위치를 따라갑니다.
+        function bindAdapterWire(flowPipe, properties) {
+            const THREE = app._THREE;
+            const angle = properties.adapterRouteAngle;
+            const along = new THREE.Vector3(-Math.sin(angle), Math.cos(angle), 0);
+            // FlowPipe의 기본 저장 항목에 연결 순서를 담은 사용자 속성을 함께 추가합니다.
+            const getParam = flowPipe.getParam.bind(flowPipe);
+            flowPipe.getParam = () => ({...getParam(), properties: flowPipe.getProperties()});
+            let previousPositions;
+            const update = () => {
+                const adapters = properties.adapterRoute.map(name => window.vectorLayer.getGeometryByName(name));
+                if (adapters.some(adapter => !adapter)) return;
+                const positions = adapters.map(adapter => {
+                    adapter.updateMatrixWorld(true);
+                    return adapter.getPosition().clone();
+                });
+                if (previousPositions && positions.every((position, index) =>
+                    position.distanceToSquared(previousPositions[index]) < 1e-10)) return;
+                previousPositions = positions;
+                const path = [];
+                const append = point => {
+                    if (!path.length || path[path.length - 1].distanceToSquared(point) > 1e-10) path.push(point);
+                };
+                for (let index = 0; index < positions.length; index++) {
+                    const start = positions[index];
+                    append(start);
+                    if (index % 4 !== 3) continue;
+                    const end = positions[(index + 1) % positions.length];
+                    // 컨테이너 사이에서는 통로 중간에서 꺾어 몸체를 대각선으로 가로지르지 않습니다.
+                    const midpoint = start.clone().add(end).multiplyScalar(0.5).dot(along);
+                    const firstBend = start.clone().addScaledVector(along, midpoint - start.dot(along));
+                    const secondBend = end.clone().addScaledVector(along, midpoint - end.dot(along));
+                    firstBend.z = secondBend.z = (start.z + end.z) / 2;
+                    append(firstBend);
+                    append(secondBend);
+                }
+                append(positions[0].clone());
+                flowPipe.setPositions(path.map(point => app.vector3ToGeoGraphic(point.clone())));
+            };
+            flowPipe.setOnUpdate(update);
+            update();
         }
     
     
@@ -254,7 +455,7 @@ export async function initialize(context) {
                 drawline: false,
                 setInstanced: true,
             });
-            await window.subComponentLayer;
+            await window.subComponentLayer.ready;
             app2.showLayer(window.subComponentLayer.getName(), true);
     
             const vectorLayer = new GeOnDT.vector.U3dVectorLayer({
@@ -271,6 +472,7 @@ export async function initialize(context) {
     
             window.select2 = new GeOnDT.select.U3dSelect({
                 targetLayer: [window.subComponentLayer.getName(), window.subVectorLayer.getName()],
+                pickBufferPx: SELECT_PICK_BUFFER_PX,
                 auto: false
             });
     
@@ -428,9 +630,7 @@ export async function initialize(context) {
     
         // LOD 모드 설정 (LOD ON/ LOD OFF 토글)
         document.querySelector('.lod-group')?.addEventListener('change', (e) => {
-            for (const component of componentLayer.getComponents()) {
-                setLODMode(component)
-            }
+            setComponentsLODMode(componentLayer.getComponents());
         });
     
         // 시설물 추가 - 라인 배치
@@ -460,8 +660,8 @@ export async function initialize(context) {
                     const components = data.data;
                     for (const component of components) {
                         component.relocationObjects?.({x: 0, y: 0, z: 0}, true);
-                        setLODMode(component);
                     }
+                    setComponentsLODMode(components);
                 }, createLineKey);
             } catch (e) {
                 toast('컴포넌트 모델을 불러오는 중 오류가 발생 하였습니다.');
@@ -549,35 +749,37 @@ export async function initialize(context) {
             deactiveGizmo()
     
             waitForAppClick().then((e) => {
-                const radius = 0.1;
-                const position = window.app.closestPointAtPixel(e); // 클릭 좌표를 월드좌표로 변환
-                const geoPosition = window.app.getGoogleToGeographic(position.x, position.y, position.z); // 위경도 변환
-    
-                const style = {opacity: 0.7, color: "#ff8000"} // 어댑터 스타일 설정
-    
-                if (geoPosition) {
-                    const temperature = prompt("온도를 입력하세요 (0~100)", "100");
-                    geoPosition.z += radius; // 바닥에 묻히지 않게 살짝 Z offset 값을 준다.
-                    const heat = createHeatGeometry({geoPosition, temperature, radius, style});
-                    if (heat) {
-                        // 생성 후 속성정보 저장
-                        heat.addProperties("용도", "열원");
-                        heat.addProperties("온도", heat.getTemperature());
-                        heat.addProperties("반경", heat.buffer);
-                        /* heat.on("dispose", ()=>{
-                             console.info("heat dispose")
-                         })
-                         heat.on("active", ()=>{
-                             console.info("heat active")
-                         })
-                         heat.on("deactive", ()=>{
-                             console.info("heat deactive")
-                         })*/
-                        toast('열원 추가 완료');
-                        refreshHeatSelect(heat);
+                try {
+                    const radius = 0.1;
+                    const position = window.app.closestPointAtPixel(e); // 클릭 좌표를 월드좌표로 변환
+                    if (!position) return;
+                    const geoPosition = window.app.getGoogleToGeographic(position.x, position.y, position.z);
+                    const style = {opacity: 0.7, color: "#ff8000"};
+                    if (geoPosition) {
+                        const input = prompt("온도를 입력하세요 (0~100)", "100");
+                        if (input === null) return;
+                        const temperature = Number(input);
+                        if (input.trim() === '' || !Number.isFinite(temperature) || temperature < 0 || temperature > 100) {
+                            toast('온도는 0~100 사이의 숫자로 입력하세요.');
+                            return;
+                        }
+                        geoPosition.z += radius; // 바닥에 묻히지 않게 살짝 Z offset 값을 준다.
+                        const heat = createHeatGeometry({geoPosition, temperature, radius, style});
+                        if (heat) {
+                            heat.addProperties("용도", "열원");
+                            heat.addProperties("온도", heat.getTemperature());
+                            heat.addProperties("반경", heat.buffer);
+                            toast('열원 추가 완료');
+                            refreshHeatSelect(heat);
+                            allTreeRefresh();
+                        }
                     }
+                } finally {
+                    window.select.active();
                 }
-                window.select.active();
+            }).catch(error => {
+                console.error('열원 추가 실패:', error);
+                toast('열원을 추가하지 못했습니다.');
             });
         });
         $("#set-heat-target").click((e) => {
@@ -711,6 +913,7 @@ export async function initialize(context) {
     
         // 전선 추가
         $("#addPipe").click(() => {
+            endWork();
             window.workPipe = true;
             toast('화면을 클릭해서 전선을 추가하세요.');
             initPipe();
@@ -848,11 +1051,19 @@ export async function initialize(context) {
         // 전선 그리기 종료 함수
         function endPipe() {
             // 이벤트 리스너 제거
-            console.log('dblclick')
             window.app.off('mousemove', hoverAdapters); // mousemove도 제거
-            window.app.off('click', addPipe);
-            window.app.off('dblclick', endPipe);
+            window.app.off('click', addPipeWithDelay);
+            window.app.off('dblclick', endPipeHandler);
             window.removeEventListener('keydown', onEscEndPipe);
+            if (clickTimer) {
+                clearTimeout(clickTimer);
+                clickTimer = null;
+            }
+            const pipe = window.pipe;
+            const wasWorking = window.workPipe || pipe;
+            window.pipe = undefined;
+            window.workPipe = false;
+            if (!wasWorking) return;
     
             $("#pipeInfo").css("display", "none");
             $("#selectInfo").css("display", "block");
@@ -864,10 +1075,9 @@ export async function initialize(context) {
             }
     
             // 상태 초기화
-            window.pipe.endPreviewPipe();
-            window.pipe = undefined;
-            window.workPipe = false;
+            pipe?.endPreviewPipe();
             window.select.active();
+            allTreeRefresh();
             toast('전선 추가 완료');
         }
     
@@ -938,6 +1148,7 @@ export async function initialize(context) {
                 $text.prop('readonly', false);
                 $confirm.show();
             }
+            $('#work-io-notice').toggle(mode === 'load');
     
             if (typeof content === 'string') {
                 $text.val(content);
@@ -958,11 +1169,9 @@ export async function initialize(context) {
             const isSure = confirm('모든 객체를 제거하고 작업을 초기화합니다.');
             if (!isSure) return;
     
-            window.componentLayer.removeAllComponent();
-            window.vectorLayer.removeAllGeometries();
-    
-            endWork();
+            clearWorkObjects();
             refreshAdapterSelect();
+            refreshHeatSelect();
             allTreeRefresh();
         });
     
@@ -981,34 +1190,138 @@ export async function initialize(context) {
             }).catch(err => {});
         }
     
+        let loadingWork = false;
+        let restoringWork = false;
+
+        // LOD 임시 표현을 제외한 배치와 예제 전용 설정을 함께 저장합니다.
+        function captureWorkData() {
+            const components = window.componentLayer.getComponents();
+            setComponentsLODMode(components, 'none');
+            try {
+                const component = window.componentLayer.saveWork()?.component ?? [];
+                const vector = window.vectorLayer.saveWork()?.geometries ?? [];
+                for (const group of component) {
+                    for (const saved of group.components) {
+                        const object = window.componentLayer.getComponentByName(saved.name);
+                        const distance = getComponentLODDistance(object);
+                        if (distance !== undefined) saved.maxLodDist = distance;
+                    }
+                }
+                for (const saved of vector) {
+                    const object = window.vectorLayer.getGeometryByName(saved.param.name);
+                    if (object.isAdapter) {
+                        saved.param.visible = object.visible;
+                        saved.param.materialVisible = object.material.visible;
+                    }
+                }
+                return {component, vector};
+            } finally {
+                setComponentsLODMode(components);
+            }
+        }
+
+        function clearWorkObjects() {
+            endWork();
+            setComponentsLODMode(window.componentLayer.getComponents(), 'none');
+            window.vectorLayer.clear();
+            window.componentLayer.removeAllComponent();
+        }
+
+        // 형식 오류와 중복을 제거 전에 검사하여 일부만 복원한 상태를 성공으로 알리지 않습니다.
+        function validateWorkData(data) {
+            if (!data || typeof data !== 'object' || Array.isArray(data)
+                || (!Array.isArray(data.component) && !Array.isArray(data.vector))
+                || (data.component !== undefined && !Array.isArray(data.component))
+                || (data.vector !== undefined && !Array.isArray(data.vector))) {
+                throw new Error('시설물·벡터 목록이 있는 작업 데이터를 입력하세요.');
+            }
+            const result = {component: data.component ?? [], vector: data.vector ?? []};
+            const componentNames = new Set(), vectorNames = new Set();
+            const isName = name => typeof name === 'string' && name.trim() !== '';
+            const isPoint = point => point && ['x', 'y', 'z'].every(key => Number.isFinite(point[key]));
+            for (const group of result.component) {
+                if (!group || !isName(group.layer) || !Array.isArray(group.components)) {
+                    throw new Error('시설물 모델 또는 배치 목록이 올바르지 않습니다.');
+                }
+                for (const saved of group.components) {
+                    if (!saved || !isName(saved.name) || saved.object !== group.layer || componentNames.has(saved.name)
+                        || (!isPoint(saved.geoPosition) && !isPoint(saved.position))
+                        || (saved.children !== undefined && !Array.isArray(saved.children))
+                        || (saved.maxLodDist !== undefined && (!Number.isFinite(saved.maxLodDist) || saved.maxLodDist < 0))) {
+                        throw new Error('시설물 이름·좌표·LOD 거리 또는 계층 데이터가 올바르지 않습니다.');
+                    }
+                    saved.children ??= [];
+                    componentNames.add(saved.name);
+                }
+            }
+            for (const saved of result.vector) {
+                const param = saved?.param;
+                const isPipe = saved?.type === 'U3dFlowPipe';
+                const hasPosition = isPoint(param?.geoPosition)
+                    || (saved?.type === 'U3dAdaptedGeometry' && param?.worldPos && isPoint(param.position));
+                if (!param || !isName(param.name) || vectorNames.has(param.name)
+                    || !['U3dAdaptedGeometry', 'U3dHeatGeometry', 'U3dFlowPipe'].includes(saved.type)
+                    || (isPipe ? !Array.isArray(param.positions) || !param.positions.every(isPoint)
+                        : !hasPosition || !param.style)
+                    || (param.visible !== undefined && typeof param.visible !== 'boolean')
+                    || (param.materialVisible !== undefined && typeof param.materialVisible !== 'boolean')) {
+                    throw new Error('어댑터·열원·전선의 이름·좌표 또는 표시 데이터가 올바르지 않습니다.');
+                }
+                vectorNames.add(param.name);
+            }
+            return result;
+        }
+
+        async function prepareWorkModels(data) {
+            for (const name of new Set(data.component.map(group => group.layer))) {
+                if (!window.componentAnaly.isLoadModel(name)) await loadComponentModel(name);
+                if (!window.componentAnaly.isLoadModel(name)) throw new Error(`${name} 모델을 불러오지 못했습니다.`);
+            }
+        }
+
+        async function replaceWorkData(data) {
+            restoringWork = true;
+            try {
+                clearWorkObjects();
+                // 전선의 어댑터 연결은 어댑터를 모두 만든 뒤 복원합니다.
+                await window.vectorLayer.loadWork(data.vector.filter(saved => saved.type !== 'U3dFlowPipe'), loadGeometry);
+                await window.vectorLayer.loadWork(data.vector.filter(saved => saved.type === 'U3dFlowPipe'), loadGeometry);
+                await Promise.all(data.component.map(group => window.componentLayer.loadWork(group.components)));
+                for (const group of data.component) {
+                    for (const saved of group.components) {
+                        const object = window.componentLayer.getComponentByName(saved.name);
+                        if (saved.maxLodDist !== undefined) {
+                            object.userData ??= {};
+                            object.userData.maxLodDist = saved.maxLodDist;
+                        }
+                    }
+                }
+                // 부모 연결이 끝난 뒤 표시 상태를 복원하고, 이를 LOD의 원래 상태로 기록합니다.
+                for (const saved of data.vector) {
+                    const object = window.vectorLayer.getGeometryByName(saved.param.name);
+                    if (!object) throw new Error(`${saved.param.name} 객체를 복원하지 못했습니다.`);
+                    if (object.isAdapter) {
+                        if (saved.param.visible !== undefined) object.visible = saved.param.visible;
+                        if (saved.param.materialVisible !== undefined) object.material.visible = saved.param.materialVisible;
+                    }
+                }
+            } finally {
+                restoringWork = false;
+                setComponentsLODMode(window.componentLayer.getComponents());
+                refreshAdapterSelect();
+                refreshHeatSelect();
+                allTreeRefresh();
+                app.drawWork();
+            }
+        }
+
         // 저장 버튼 클릭 → 팝업 열고 내용 표시
         $('#btn-work-save').on('click', function () {
-            let componentData, adapterData;
-    
-            for (const c of window.componentLayer.getComponents()) {
-                setLODMode(c, 'none');
-            }
             try {
-                componentData = window.componentLayer.saveWork(); // { component: [...] } 라고 가정
-                adapterData = window.vectorLayer.saveWork();    // { geometries: [...] } 라고 가정
+                openWorkPopup('save', JSON.stringify(captureWorkData(), null, 2));
             } catch (e) {
                 console.error(e);
                 alert('작업 저장 중 오류가 발생했습니다.');
-                return;
-            }
-    
-            let str;
-            if (componentData || adapterData) {
-                const savePayload = {
-                    component: componentData?.component ?? componentData,
-                    vector: adapterData?.geometries ?? adapterData
-                };
-                str = JSON.stringify(savePayload, null, 2);
-            }
-            openWorkPopup('save', str);
-    
-            for (const c of window.componentLayer.getComponents()) {
-                setLODMode(c);
             }
         });
     
@@ -1018,6 +1331,7 @@ export async function initialize(context) {
         });
     
         $('#work-io-confirm').on('click', async function () {
+            if (loadingWork) return;
             const $text = $('#work-io-text');
             const raw = $text.val().trim();
             if (!raw) {
@@ -1025,6 +1339,8 @@ export async function initialize(context) {
                 return;
             }
     
+            loadingWork = true;
+            $(this).prop('disabled', true);
             try {
                 // JSON 파싱
                 let data = raw;
@@ -1047,58 +1363,29 @@ export async function initialize(context) {
                     return
                 }
     
-                const loadPromises = [];  // 모든 Promise를 모음
-    
-                // Vector 데이터 로드
-                if (data.vector && Array.isArray(data.vector)) {
+                data = validateWorkData(data);
+                await prepareWorkModels(data);
+                endWork();
+                const previous = JSON.parse(JSON.stringify(captureWorkData()));
+                try {
+                    await replaceWorkData(data);
+                } catch (error) {
                     try {
-                        for (let saveData of data.vector) {
-                            const promise = window.vectorLayer.loadWork(saveData, loadGeometry);
-                            loadPromises.push(promise);
-                        }
-                    } catch (error) {
-                        console.error('불러오기 error: ', error);
-                        toast('어댑터 불러오는 중 오류가 발생했습니다.');
+                        await replaceWorkData(previous);
+                    } catch (restoreError) {
+                        console.error('기존 배치 복원 실패:', restoreError);
+                        $text.val(JSON.stringify(previous, null, 2));
+                        throw new Error('기존 배치 복원에도 실패했습니다. 입력 창의 복구 데이터를 보관하세요.', {cause: error});
                     }
+                    throw new Error('불러오기에 실패하여 기존 배치를 복원했습니다.', {cause: error});
                 }
-    
-                // Component 데이터 로드
-                if (data.component && Array.isArray(data.component)) {
-                    try {
-                        for (let saveData of data.component) {
-                            // 원본 모델 데이터가 로드되지 않았으면 먼저 로드
-                            if (!componentAnaly.isLoadModel(saveData.layer)) {
-                                try {
-                                    await loadComponentModel(saveData.layer);
-                                } catch (e) {
-                                    console.error('Component model load error:', e);
-                                    toast('컴포넌트 모델을 불러오는 중 오류가 발생했습니다.');
-                                }
-                            }
-                        }
-    
-                        let promises = data.component
-                            .filter(saveData => componentAnaly.isLoadModel(saveData.layer)) // 로드 성공한 것만
-                            .map(saveData => window.componentLayer.loadWork(saveData.components));
-    
-                        loadPromises.push(...promises);
-                    } catch (error) {
-                        console.error('Component model load error:', error);
-                        toast('컴포넌트 모델을 불러오는 중 오류가 발생했습니다.');
-                    }
-                }
-    
-                // 모든 loadWork가 완료될 때까지 대기
-                if (loadPromises.length > 0) {
-                    await Promise.all(loadPromises);
-                }
-    
-                initHierarchyTree();
-    
                 alert('불러오기 성공!');
             } catch (e) {
                 console.error('Load error:', e);
-                alert('불러오기 중 오류가 발생했습니다.');
+                alert(`불러오기 중 오류가 발생했습니다.\n${e.message}`);
+            } finally {
+                loadingWork = false;
+                $(this).prop('disabled', false);
             }
         });
     
@@ -1197,12 +1484,15 @@ export async function initialize(context) {
                 opacity: param.opacity ?? 0.1,
                 piperadius: param.piperadius ?? 0.1,
                 tension: param.tension ?? 0,
+                pathsegments: param.pathsegments ?? 64,
+                properties: param.properties,
             });
     
             window.vectorLayer.addGeometry(flowPipe);
             flowPipe.flowStart();
-            for(const position of param.positions) {
-                flowPipe.addPosition(position.x, position.y, position.z);
+            if (param.positions.length) flowPipe.setPositions(param.positions);
+            if (Array.isArray(param.properties?.adapterRoute)) {
+                bindAdapterWire(flowPipe, param.properties);
             }
     
             return flowPipe;
@@ -1792,8 +2082,8 @@ export async function initialize(context) {
                     side: Union3D.UDEF.DoubleSide,
                     height: 40
                 };
-                window.indoorLayer = app.createModelTdsLayer(option);
-                await window.indoorLayer;
+                window.indoorLayer = app.createTdsModelLayer(option);
+                await window.indoorLayer.ready;
                 app.showLayer(info.name, true);
                 moveHome();
             } catch (err) {
@@ -1865,15 +2155,14 @@ export async function initialize(context) {
                 }
                 window.componentAnaly = app.getAnalysis('multipleComponent');
                 window.componentLayer = app.createMultipleComponentLayer(option);
-                await window.componentLayer;
+                await window.componentLayer.ready;
                 app.showLayer(window.componentLayer.getName(), true);
                 window.componentLayer.on('load', (e) => {
                     const component = e.data.object;
                     const saveData = e.data.save;
                     component.relocationObjects?.({x: 0, y: 0, z: 0}, true);
-                    setLODMode(component);
                     // 어댑터 자식이 있는 경우 생성
-                    for (const child of saveData.children) {
+                    for (const child of saveData.children ?? []) {
                         if (child.layer === "vector") {
                             const childLayer = app.getLayerByName(child.layer);
                             if (childLayer === undefined) continue;
@@ -1886,6 +2175,7 @@ export async function initialize(context) {
                             }
                         }
                     }
+                    if (!restoringWork) setLODMode(component);
                 })
     
                 window.componentAnaly.setLayer(window.componentLayer);
@@ -1897,6 +2187,7 @@ export async function initialize(context) {
         const TOWERDIST = 12; // test-tower, ESS컨테이너 초기 LOD Distance
         const RECTDIST = 8; // test-rect, ESS렉 초기 LOD Distance
         const MODULEDIST = 5; // ESS모듈 초기 LOD Distance
+        const lodRenderOrderStates = new WeakMap();
     
         // test-tower, ESS컨테이너 LOD 업데이트 함수
         function towerUpdateFunc(component, properties, camDist) {
@@ -1906,7 +2197,7 @@ export async function initialize(context) {
                 return opt;
             }
             opt.visible = true;
-            const baseDist = component.userData?.maxLodDist ?? TOWERDIST
+            const baseDist = getComponentLODDistance(component);
             if (camDist > baseDist) {
                 opt.opacity = 1;
             } else {
@@ -1923,7 +2214,7 @@ export async function initialize(context) {
                 return opt;
             }
             opt.visible = true;
-            const baseDist = component.userData?.maxLodDist ?? RECTDIST
+            const baseDist = getComponentLODDistance(component);
             if (camDist > baseDist) {
                 opt.opacity = 1;
             } else {
@@ -1941,7 +2232,7 @@ export async function initialize(context) {
                 return opt;
             }
             opt.visible = true;
-            const baseDist = component.userData?.maxLodDist ?? MODULEDIST
+            const baseDist = getComponentLODDistance(component);
             if (camDist > baseDist) {
                 opt.opacity = 1;
             } else {
@@ -1954,7 +2245,7 @@ export async function initialize(context) {
         // test-shell, ESS쉘 LOD 업데이트 함수
         function shellUpdateFunc(component, properties, camDist) {
             const opt = {};
-            if (camDist > 1000) {
+            if (camDist > getComponentLODDistance(component)) {
                 opt.visible = false;
                 return opt;
             }
@@ -1963,26 +2254,110 @@ export async function initialize(context) {
             return opt;
         }
     
-        // LOD OFF 시 LOD에서 적용한 사항을 초기화하고 원본 색상, 투명도로 설정하는 함수
+        // 부모의 show/hide가 자식에도 적용되므로 전환 전에 계층 전체의 표시 상태를 보관합니다.
+        function saveLODStyle(component) {
+            component.userData ??= {};
+            if (component.userData.originStyle !== undefined) return;
+            const visibility = [];
+            const materialVisibility = [];
+            const visited = new Set();
+            const collect = object => {
+                if (visited.has(object)) return;
+                visited.add(object);
+                const visible = object.isVisible?.() ?? object.visible;
+                if (typeof visible === 'boolean') visibility.push({object, visible});
+                const materials = Array.isArray(object.material) ? object.material : [object.material];
+                for (const material of materials) {
+                    if (material) materialVisibility.push({material, visible: material.visible});
+                }
+                for (const child of object.children ?? []) collect(child);
+            };
+            collect(component);
+            const renderOrders = [];
+            const renderObject = component.instancedGroup ?? component.getObject();
+            renderObject?.traverse(object => {
+                let state = lodRenderOrderStates.get(object);
+                if (!state) {
+                    state = {renderOrder: object.renderOrder, users: 0};
+                    lodRenderOrderStates.set(object, state);
+                }
+                state.users++;
+                renderOrders.push({object, state});
+            });
+            const color = component.getColor();
+            component.userData.originStyle = {
+                color: color.clone?.() ?? color,
+                opacity: component.getOpacity(),
+                visibility,
+                materialVisibility,
+                renderOrders
+            };
+        }
+
+        // 부모를 먼저 복원한 뒤 자식의 개별 표시를 복원하여 수동 숨김 상태도 유지합니다.
         function resetUpdate(component) {
             const data = component.userData?.originStyle;
             if (data) {
                 component.setColor(data.color);
                 component.setOpacity(data.opacity);
-    
+                // 인스턴스 메시를 공유하는 다른 컴포넌트도 OFF가 된 뒤 원래 순서로 복원합니다.
+                for (const {object, state} of data.renderOrders) {
+                    if (--state.users === 0) {
+                        object.renderOrder = state.renderOrder;
+                        lodRenderOrderStates.delete(object);
+                    }
+                }
+                for (const {object, visible} of data.visibility) {
+                    if (visible) object.show?.();
+                    else object.hide?.();
+                    if (typeof object.visible === 'boolean') object.visible = visible;
+                }
+                // 어댑터의 show/hide는 Object3D 대신 재질의 visible을 변경합니다.
+                for (const {material, visible} of data.materialVisibility) material.visible = visible;
                 component.userData.originStyle = undefined;
             }
         }
     
         // 원본 모델 별 LOD 업데이트 함수 사전 맵핑
-        const UPDATE_FUNC_LIST = {
-            'test_tower': moduleUpdateFunc,
-            'test_rect': rectUpdateFunc,
-            'test_shell': shellUpdateFunc,
-            'ESS컨테이너': towerUpdateFunc,
-            'ESS모듈': moduleUpdateFunc,
-            'ESS렉': rectUpdateFunc,
-            'ESS셀': shellUpdateFunc,
+        const COMPONENT_LOD_OPTIONS = {
+            'Ess_Container': {updateFunc: towerUpdateFunc, distance: TOWERDIST},
+            'test_tower': {updateFunc: towerUpdateFunc, distance: TOWERDIST},
+            'test_rect': {updateFunc: rectUpdateFunc, distance: RECTDIST},
+            'test_shell': {updateFunc: shellUpdateFunc, distance: 1000},
+            'ESS컨테이너': {updateFunc: towerUpdateFunc, distance: TOWERDIST},
+            'ESS모듈': {updateFunc: moduleUpdateFunc, distance: MODULEDIST},
+            'ESS렉': {updateFunc: rectUpdateFunc, distance: RECTDIST},
+            'ESS셀': {updateFunc: shellUpdateFunc, distance: 1000},
+        }
+
+        function getComponentLODDistance(component) {
+            return component.userData?.maxLodDist ?? COMPONENT_LOD_OPTIONS[component.getModelName()]?.distance;
+        }
+
+        function setComponentLODDistance(component, value) {
+            const distance = Number(value);
+            if (!COMPONENT_LOD_OPTIONS[component.getModelName()] || String(value).trim() === ''
+                || !Number.isFinite(distance) || distance < 0) return false;
+            component.userData ??= {};
+            component.userData.maxLodDist = distance;
+            refreshComponentLOD(component);
+            return true;
+        }
+
+        // 설정 변경은 카메라 정지 중에도 한 번 계산하고 다음 그리기를 요청합니다.
+        function refreshComponentLOD(component) {
+            component.update(context.app.getCameraPosition(), false);
+            context.app.drawWork();
+        }
+
+        function setComponentsLODMode(components, mode = getLODMode()) {
+            // 전체 상태를 먼저 저장하여 부모의 즉시 갱신이 자식의 초기 표시를 바꾸지 않게 합니다.
+            if (mode === 'custom') {
+                for (const component of components) {
+                    if (COMPONENT_LOD_OPTIONS[component.getModelName()]) saveLODStyle(component);
+                }
+            }
+            for (const component of components) setLODMode(component, mode);
         }
     
         // 현재 LOD 모드가 on인지 Off인지 검사하는 함수
@@ -1997,7 +2372,8 @@ export async function initialize(context) {
             if (mode === undefined) mode = getLODMode();
             // 원본 모델 별로 업데이트 함수 등록
             if (model) {
-                const updateFunc = UPDATE_FUNC_LIST[model];
+                const updateFunc = COMPONENT_LOD_OPTIONS[model]?.updateFunc;
+                if (!updateFunc) return;
                 // 이미 등록했으면 패스
                 if (updateFunc && component.getUpdateFunc() !== updateFunc)
                     component.setUpdateFunc(updateFunc); // 업데이트함수 설정
@@ -2008,21 +2384,13 @@ export async function initialize(context) {
                     component.addProperties("모델명", model);
     
                 if (mode === "custom") {
-                    if (component.userData === undefined) component.userData = {};
-                    // LOD Off 시 원복하기 위한 스타일 상태 저장
-                    if (component.userData.originStyle === undefined) {
-                        const originColor = component.getColor();
-                        const originOpacity = component.getOpacity();
-                        component.userData.originStyle = {
-                            color: originColor,
-                            opacity: originOpacity,
-                        }
-                    }
+                    saveLODStyle(component);
                 } else {
                     resetUpdate(component);
                 }
     
                 component.setLODMode(mode); // LOD 모드 설정
+                refreshComponentLOD(component);
             }
         }
     
@@ -2424,6 +2792,7 @@ export async function initialize(context) {
             window.selected = [];
             window.select = new GeOnDT.select.U3dSelect({
                 targetLayer: [window.componentLayer.getName(), window.vectorLayer.getName()],
+                pickBufferPx: SELECT_PICK_BUFFER_PX,
                 auto: false
             });
     
@@ -2459,6 +2828,7 @@ export async function initialize(context) {
     
         // 모든 작업을 종료하고 초기화
         function endWork() {
+            endPipe();
             deactiveGizmo();       // gizmo 초기화
             deactiveAlign();       // 정렬 모드 초기화
             resetSelected();       // 선택 초기화
@@ -2602,17 +2972,15 @@ export async function initialize(context) {
     
         // 스타일 패널에서 객체의 LOD 거리를 설정하는 함수
         $(document).on('change', '#max-dist', function () {
-            const maxLodDist = $(this).val();
             const rootName = $(".selected-object-name-detail").text();
             if (rootName.split('_')[0] === "adapter") return;
     
             const rootObj = window.componentLayer.getComponentByName(rootName);
             if (!rootObj) return;
-    
-            // 객체 userData에 설정한 LOD 거리를 저장
-            // -> 추후 towerUpdateFunc 등 업데이트 함수 동작 시 반영
-            if (rootObj.userData === undefined) rootObj.userData = {};
-            rootObj.userData.maxLodDist = maxLodDist;
+            if (!setComponentLODDistance(rootObj, this.value)) {
+                this.value = getComponentLODDistance(rootObj) ?? '';
+                toast('LOD 거리는 0 이상의 숫자로 입력해주세요.');
+            }
         });
     
         function closeTopToolbar() {
@@ -3005,14 +3373,17 @@ export async function initialize(context) {
 
         /*
          * 전체 계층 구조를 부모·자식 관계만으로 이루어진 트리로 다시 그리는 함수.
-         * 부모가 없는 컴포넌트를 최상위에 두고, 부모를 지정한 객체는 부모 항목 안쪽에 연결선과 함께 표시한다.
+         * 부모가 없는 시설물·벡터 객체를 최상위에 두고, 부모를 지정한 객체는 부모 항목 안쪽에 연결선과 함께 표시한다.
          * 최상위 항목은 같은 모델끼리 모이도록 모델이 처음 나온 순서대로 정렬한다.
          */
         function initHierarchyTree() {
             const container = document.getElementById('hierarchy-tree-container');
             if (!container || !window.componentLayer) return;
 
-            const roots = window.componentLayer.getComponents().filter(component => !component.getParent?.()?.isComponent);
+            const objects = [...window.componentLayer.getComponents(), ...window.vectorLayer.getGeometries()]
+                .filter(isHierarchyObject);
+            const objectSet = new Set(objects);
+            const roots = objects.filter(object => !objectSet.has(object.getParent?.() ?? object.parent));
             const kindOrder = new Map();
             roots.forEach(component => {
                 const kind = getHierarchyKindName(component);
@@ -3349,14 +3720,9 @@ export async function initialize(context) {
         function getHierarchyTarget() {
             const panel = getHierarchyPanelDom();
             if (!panel || !panel.dataset.selected) return null;
-            let target;
             const targetName = panel.dataset.selected;
-            if (targetName.split('_')[0] === "adapter") {
-                target = window.vectorLayer.getGeometryByName(targetName);
-            } else {
-                target = window.componentLayer.getComponentByName(targetName);
-            }
-            return target;
+            return window.componentLayer.getComponentByName(targetName)
+                ?? window.vectorLayer.getGeometryByName(targetName);
         }
     
         //계층 편집 패널 열기
@@ -3379,7 +3745,7 @@ export async function initialize(context) {
             updateStyleValue(selectedModel);
     
             // 기즈모 ↔ 상세정보 연동
-            bindGizmoDetailSync(selectedModel);
+            bindGizmoDetailSync();
     
             // 클릭/호버/버튼 이벤트는 한 번만 묶고 재사용
             bindHierarchyPanelEventsOnce();
@@ -3399,6 +3765,7 @@ export async function initialize(context) {
         }
     
         function closeHierarchyPanel() {
+            unbindGizmoDetailSync();
             const $panel = $('#detailInfo-popup');
             if ($panel.length === 0) return;
     
@@ -3455,19 +3822,27 @@ export async function initialize(context) {
             }
         }
     
-        //기즈모 이동 시 상세정보 자동 갱신
-        function bindGizmoDetailSync(selectedModel) {
+        let detailSyncControl;
+
+        function syncGizmoDetail() {
+            const current = getHierarchyTarget();
+            if (current) updateDetailInfo(current);
+        }
+
+        function unbindGizmoDetailSync() {
+            detailSyncControl?.removeEventListener('change', syncGizmoDetail);
+            detailSyncControl = undefined;
+        }
+
+        // 같은 콜백 참조로 등록·해제하여 선택 횟수와 무관하게 한 개만 유지합니다.
+        function bindGizmoDetailSync() {
             const control = window.gizmo?.getControl?.();
-            if (!control) return;
-    
-            const key = 'updateDetailKey';
-    
-            control.removeEventListener?.('change', key);
-            control.addEventListener?.('change', () => {
-                const current = getHierarchyTarget();
-                if (!current) return;
-                updateDetailInfo(current);
-            }, key);
+            if (detailSyncControl === control) return;
+            unbindGizmoDetailSync();
+            if (control) {
+                control.addEventListener('change', syncGizmoDetail);
+                detailSyncControl = control;
+            }
         }
     
         // 패널 이벤트 바인딩
@@ -3725,15 +4100,8 @@ export async function initialize(context) {
             $opacity.val(modeOpacity)
             $opacityVal.val(String(modeOpacity));
     
-            let basic = TOWERDIST;
-            if (model.isComponent) {
-                const origin = model.getModel();
-                if (origin.name === "test_rect") basic = RECTDIST;
-                else if (origin.name === "test_shell") basic = 1;
-    
-            }
-            const modeDist = model.userData?.maxLodDist ?? basic;
-            $maxDist.val(modeDist);
+            const modeDist = model.isComponent ? getComponentLODDistance(model) : undefined;
+            $maxDist.val(modeDist ?? '').prop('disabled', modeDist === undefined);
             updateOutlineStyle(model);
     
         }
@@ -3925,7 +4293,7 @@ export async function initialize(context) {
         }
     
         function refreshHeatSelect(heat) {
-            const name = heat.name;
+            const name = heat?.name;
     
             const $sel = $('#heat-select');
             if ($sel.length === 0) return;
@@ -4035,9 +4403,7 @@ export async function initialize(context) {
                 console.error('setOriginMap error:', error);
                 toast('맵 로드 중 오류가 발생했습니다.');
             } finally {
-                for (let component of window.componentLayer.getComponents()) {
-                    setLODMode(component);
-                }
+                setComponentsLODMode(window.componentLayer.getComponents());
     
                 const mainComponent = window.componentLayer.getComponentByName(originName);
                 if (mainComponent) {
@@ -4132,6 +4498,7 @@ export async function initialize(context) {
 
 /**
  * 자동 이관 예제의 Lifecycle 정리 함수를 호출합니다.
+ *
  * @param {GeOnDTExampleContext} context 공통 런타임 컨텍스트
  * @param {Record<string, unknown>} example 예제 상태
  */

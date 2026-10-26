@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -50,6 +50,7 @@ declare class InstancedMesh2<TGeometry extends three.BufferGeometry, TMaterial e
     /** @type {boolean} 인덱스 배열 업데이트 필요 여부 */ _indexArrayNeedsUpdate: boolean;
     /** @type {boolean} High/Low 정밀도 위치 사용 여부 */ _useHighLowPosition: boolean;
     /** @type {boolean} 투명도 사용 여부 */ _useOpacity: boolean;
+    /** @type {import('three').Camera | null} 현재 draw의 컴파일에 사용할 카메라 */ _currentCamera: three.Camera | null;
     /** @type {Array<InstancedEntity> | null} 인스턴스 엔티티 배열 */ instances: Array<InstancedEntity> | null;
     /** @type {GLInstancedBufferAttribute | null} 렌더링 인덱스 속성 */ instanceIndex: GLInstancedBufferAttribute | null;
     /** @type {SquareDataTexture | null} 색상 데이터 텍스처 */ colorsTexture: SquareDataTexture | null;
@@ -345,10 +346,14 @@ declare class InstancedMesh2<TGeometry extends three.BufferGeometry, TMaterial e
     _updateCameraPositionLow(renderer: any, camera: any, material: any): void;
     /**
      * 최적화된 High/Low 정밀도 Uniform 업데이트 (내부용)
+     * @param {import('three').WebGLRenderer} renderer
+     * @param {import('three').Camera | null} camera
+     * @param {import('three').Material} material
+     * @param {object} [uniforms] 컴파일 직후에는 renderer에 등록되기 전의 shader.uniforms를 전달합니다.
      *
      * @ignore
      */
-    _updateHighLowOptimizedUniforms(renderer: any, camera: any, material: any): void;
+    _updateHighLowOptimizedUniforms(renderer: three.WebGLRenderer, camera: three.Camera | null, material: three.Material, uniforms?: object): void;
     /**
      * 머티리얼의 변종 타입 반환 (내부용)
      *
@@ -396,10 +401,11 @@ declare class InstancedMesh2<TGeometry extends three.BufferGeometry, TMaterial e
      *
      * @param {import('three').WebGLRenderer} renderer
      * @param {import('three').Material} material
+     * @param {import('three').Camera | null} [camera=null] 현재 draw의 카메라
      *
      * @ignore
      */
-    patchMaterial(renderer: three.WebGLRenderer, material: three.Material): void;
+    patchMaterial(renderer: three.WebGLRenderer, material: three.Material, camera?: three.Camera | null): void;
     /**
      * 머티리얼 패치 해제 (내부용)
      * @param {import('three').WebGLRenderer} renderer

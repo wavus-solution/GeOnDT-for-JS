@@ -1,14 +1,15 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { UClock } from "../core/UClock.js";
+import type { PointerLockControls } from "../lib/three/controls/PointerLockControls.js";
 
-declare class UPointLockFlyControls {
+declare class UPointLockFlyControls extends PointerLockControls {
     constructor(opt?: {});
     _app: any;
     _moveState: {
@@ -57,10 +58,7 @@ declare class UPointLockFlyControls {
     setEvent(): void;
     _onCursorMove: any;
     _isUsePad: number;
-    connect(): void;
-    _onMouseMove: any;
     _onGamepadConneted: any;
-    disconnect(): void;
     update(timestamp: any): void;
     update_(timestamp: any): void;
     _preCamDirZ: any;
@@ -73,7 +71,6 @@ declare class UPointLockFlyControls {
         size: any[];
         offset: any[];
     };
-    dispose(): void;
     setAcceleration(value: any): void;
     getObjectMesh(): any;
     setPersonView(view: any): void;

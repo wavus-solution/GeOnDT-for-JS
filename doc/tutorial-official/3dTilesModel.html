@@ -517,7 +517,7 @@
             self.layer = new self._union3d.image.U3dImageXYZLayer(this.options);
             self._app.addLayer(this.layer);
         }
-        this.layer.then(() => {
+        this.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -547,7 +547,7 @@
     HeightLayer.prototype.create = function () {
         let self = this;
         self.layer = this._app.createHeightXYZLayer(self.options);
-        self.layer.then(() => {
+        self.layer.ready.then(() => {
             self.ready.resolve();
         }).catch(function () {
             self.ready.reject();
@@ -815,29 +815,40 @@
             });
         }
 
-        // 모델 정보 보기 모드 활성
-        var analy = app.getAnalysis('ObjectInfo');
+        // 클릭한 모델만 선택한다. 화면 반경·hover를 끄고 모델 레이어만 검색한다.
+        const modelSelector = new Union3D.select.U3dSelect({
+            mode: 'point',
+            selectType: 'color',
+            targetLayer: Object.values(LAYER_OPT_).map(option => option.name),
+            pickBufferPx: 0,
+            pickBufferVisible: false,
+            hover: {enabled: false}
+        });
+        app.addSelect(modelSelector);
+
+        // 정보 창은 한 모델을 나타내므로 Shift 클릭도 누적 선택으로 처리하지 않는다.
+        modelSelector.on('start', function () {
+            if (modelSelector.getSelectCount() > 0) modelSelector.clearSelect();
+        });
+        window.addEventListener('pagehide', function (event) {
+            if (!event.persisted) app.removeSelect(modelSelector);
+        });
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////// event 등록 ///////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        //+ 마우스 클릭 event 등록
-        app.on('click', function (e) {
-            if (!analy.isActive())
-                return;
-
-            var obj = analy.intersectModel(e); //+ 마우스 클릭시 해당하는 model 찾기
-            if (obj === undefined || obj.length === 0) {
-                //+ 해당하는 model이 없을 경우
-                // analy.clear();
+        // 선택 완료 결과의 객체와 교차점을 함께 사용하여 별도 광선 검색을 반복하지 않는다.
+        modelSelector.on('end', function (event) {
+            const model = event.data[0];
+            const point = event.work?.worlds?.[0];
+            if (!model || !point) {
+                app.removeAllOverlay();
                 return;
             }
-
-            // var world = app.closestPointAtPixel(e);
-            var latlon = app.vector3ToGeoGraphic(obj[0].point); //+ vector 좌표 위경도 좌표로 변환
-            var overlay = createOverlay('overlay', obj[0], latlon); //+ 위경도 좌표에 overlay 생성
-            overlay.show(); //+ overlay 가시화
+            const position = app.vector3ToGeoGraphic(point);
+            const overlay = createOverlay('overlay', model, position);
+            overlay.show();
         });
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -865,7 +876,7 @@
 
         //+ overlay UI
         function printOverlayHtml(obj) {
-            var item = obj.object;
+            var item = obj;
             var str = '';
             str += '<div class="u3-popup" id=' + obj.uuid + '>';
             str += '<div class="u3-popup-content">';
@@ -879,12 +890,9 @@
             str += '<div class="item-sub-title"><span class="text-icon">번호: </span>' + item.uuid + '</div>'; //+ model UUID
             str += '<div class="item-sub-title"><span class="text-icon">URL: </span>' + item.userData.url + '</div>'; //+ model UUID
 
-            if (item.userData.pickedInfo)
+            // 3D Tiles의 배치 정보는 선택기가 재질을 강조할 때 함께 계산한다.
+            if (item.userData.pickedInfo !== undefined)
                 str += '<div class="item-sub-title"><span class="text-icon">정보: </span>' + item.userData.pickedInfo + '</div>'; //+ model UUID
-            else {
-                item.pickMaterial(obj) // 없을경우 pickedInfo 생성
-                str += '<div class="item-sub-title"><span class="text-icon">정보: </span>' + item.userData.pickedInfo + '</div>'; //+ model UUID
-            }
 
             str += '</div>';
             str += '</div>';
@@ -895,7 +903,7 @@
         function popUpCloseClick() {
             $(this.element).off('click', '.close', popUpCloseClick);
             app.removeOverlay(this); //+ overlay 제거
-            analy.clear(); //+ 분석 내용 비우기
+            modelSelector.clearSelect();
         }
 
         /////////////////////////////////////////////////////
@@ -948,11 +956,11 @@
                         apikey: LAYER_OPT_[name].apikey
                     });
                     app.addLayer(modellayer);
-                    //layer.ready.then 이나 layer.then 을 사용하여
+                    // layer.ready.then을 사용하여
                     //레이어 로딩 후 기능을 구현합니다.
                     modellayer.ready.then(function (res) {
                         console.log(modellayer.getBoundingBox());
-                        //fitLayerExtent 함수는 app.addLayer 후 ready.then이나 then을 사용하여 이용합니다.
+                        // fitLayerExtent는 app.addLayer 후 layer.ready의 완료 콜백에서 호출합니다.
                         var position = modellayer.getCenterGeographic();
                         console.info(position);
                         LAYER_OPT_[name].position.x = position.x;
@@ -967,6 +975,8 @@
                         });
 
                         app.showLayer(name, true);
+                    }).catch(error => {
+                        console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
                     });
                     layers[name] = name;
 
@@ -984,7 +994,7 @@
                 });
                 app.addLayer(modellayer);
 
-                modellayer.then(function () {
+                modellayer.ready.then(function () {
                     app.fitLayerExtent(name, false, 700).then(function () {
                         console.log(name + " 이동 완료");
                     }).catch(function () {
@@ -992,6 +1002,8 @@
                     });
 
                     app.showLayer(name, true);
+                }).catch(error => {
+                    console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
                 });
                 layers[name] = name;
             }
@@ -1046,10 +1058,13 @@
 
         function selectObject(e) {
 
-            if (e.target.checked)
-                analy.active();
-            else
-                analy.deactive();
+            if (e.target.checked) {
+                modelSelector.active();
+            } else {
+                modelSelector.deactive();
+                modelSelector.clearSelect();
+                app.removeAllOverlay();
+            }
 
         }
 

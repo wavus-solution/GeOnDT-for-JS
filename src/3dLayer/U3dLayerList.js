@@ -80,37 +80,48 @@ class U3dLayerList {
     }
 
     /**
-     * 모델 레이어들의 타일을 처분(dispose)합니다.
+     * 모델 레이어별 타일을 해제하며 실패 후에도 나머지 레이어를 처리합니다.
      *
-     * @param {import('@U3dQuadTile').U3dQuadTile} tile
-     * @param {Partial<{deletefunc: Function}>} [opt]
-     * @return {boolean}
+     * @param {import('@U3dQuadTile').U3dQuadTile} tile 해제할 타일
+     * @param {Partial<{deletefunc: Function}>} [opt] 각 레이어에 전달할 해제 옵션
+     * @returns {boolean} 모든 대상 레이어를 오류 없이 처리하면 false
+     * @throws {Error} 단일 실패는 원래 오류를, 복수 실패는 errors 배열을 가진 오류를 전달합니다.
      */
     disposeModelTile(tile, opt) {
         const layers = this.getInstanceModelLayers();
+        /** @type {Array<unknown>} */
+        const errors = [];
         for (const layer of layers) {
             if (tile._rlevel >= layer._minlevel && tile._rlevel <= layer._maxlevel) {
-                layer.disposeTile(tile, opt);
+                try { layer.disposeTile(tile, opt); } catch (error) { errors.push(error); }
             }
         }
+        if (errors.length === 1) throw errors[0];
+        if (errors.length) throw Object.assign(new Error('레이어별 모델 타일 자원 해제에 실패했습니다.'), {errors});
         return false;
     }
 
     /**
      * 모델 레이어를 제외한 레이어들의 타일을 처분(dispose)합니다.
+     * 레이어 해제가 실패해도 나머지 레이어를 처리한 뒤 오류를 전달합니다.
      *
-     * @param {import('@U3dQuadTile').U3dQuadTile} tile
-     * @param {Partial<{deletefunc: Function}>} [opt]
-     * @return {boolean}
+     * @param {import('@U3dQuadTile').U3dQuadTile} tile 해제할 타일
+     * @param {Partial<{deletefunc: Function}>} [opt] 각 레이어에 전달할 타일 해제 옵션
+     * @returns {boolean} 모든 대상 레이어를 오류 없이 처리하면 false
+     * @throws {Error} 한 레이어가 실패하면 원래 오류를, 여러 레이어가 실패하면 호출 순서대로 모은 errors 배열을 가진 오류를 전달합니다.
      */
     disposeTileNoModel(tile, opt) {
         const layers = this._listmap;
+        /** @type {unknown[]} */
+        const errors = [];
         for (const layer of layers) {
             if (layer._type === UDEF.LAYER_TYPE.MODEL)
                 continue;
 
-            layer.disposeTile(tile, opt);
+            try { layer.disposeTile(tile, opt); } catch (error) { errors.push(error); }
         }
+        if (errors.length === 1) throw errors[0];
+        if (errors.length) throw Object.assign(new Error('레이어별 지형 타일 자원 해제에 실패했습니다.'), {errors});
         return false;
     }
 
@@ -230,10 +241,11 @@ class U3dLayerList {
     }
 
     /**
-     * 등록된 레이어를 제거합니다.
+     * 등록된 레이어를 목록에서 먼저 제거한 뒤 자원을 해제합니다. <br>
+     * 해제 수신자가 같은 레이어를 다시 제거해도 이웃 레이어는 유지됩니다.
      *
      * @param {string | import('@U3dLayer').U3dLayer} name 레이어 이름 또는 레이어 객체
-     * @return {boolean} 작업 결과
+     * @returns {boolean} 정상 종료하면 true이며, 해제 중 예외는 호출자에게 전달
      */
     removeLayer(name) {
         if (name instanceof Object && defined(name.getName)) {
@@ -256,6 +268,9 @@ class U3dLayerList {
                 }
             }
 
+            // 해제 콜백과 그룹 자식 제거가 같은 목록에 다시 진입할 수 있습니다.
+            // 외부 코드 호출 전에 소유 목록에서 빼서 같은 대상을 두 번 제거하지 않습니다.
+            this._listmap.splice(i, 1);
             if (layer instanceof U3dGroupLayer) {
                 childLayers = layer.getChildren();
                 for (const childLayer of childLayers) {
@@ -264,7 +279,6 @@ class U3dLayerList {
             }
 
             layer.dispose();
-            this._listmap.splice(i, 1);
             break;
         }
 
@@ -588,14 +602,18 @@ class U3dLayerList {
     }
 
     /**
-     * 등록된 모든 레이어를 처분(dispose)합니다.
+     * 등록된 모든 레이어를 처분(dispose)하며 비동기 완료는 기다리지 않습니다.
+     * 동기 해제 오류가 발생해도 남은 레이어와 목록을 정리한 뒤 오류를 전달합니다.
      *
-     * @return {void}
+     * @returns {void}
+     * @throws {Error} 단일 실패는 원래 오류를, 복수 실패는 호출 순서대로 모은 errors 배열을 가진 오류를 전달합니다.
      */
     disposeAll() {
         if (!defined(this._listmap)) return;
+        /** @type {unknown[]} */
+        const errors = [];
         for (const layer of this._listmap) {
-            layer.dispose();
+            try { layer.dispose(); } catch (error) { errors.push(error); }
         }
         this._listmap = [];
         this._imagelayers = [];
@@ -606,7 +624,9 @@ class U3dLayerList {
         this._measurelayers = [];
         this._terrainlayers = [];
 
-        this._drawArg.setUpdateDate();
+        try { this._drawArg.setUpdateDate(); } catch (error) { errors.push(error); }
+        if (errors.length === 1) throw errors[0];
+        if (errors.length) throw Object.assign(new Error('레이어 자원 해제에 실패했습니다.'), {errors});
     }
 }
 

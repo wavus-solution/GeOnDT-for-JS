@@ -1,15 +1,18 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dModelLayer } from "./U3dModelLayer.js";
+import type { UCheckTime } from "../core/UCheckTime.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
+import type { UTaskProcessor } from "../core/UTaskProcessor.js";
 import type { UMesh } from "../core/mesh/UMesh.js";
 import type { I3FTile } from "../i3f/I3FTile.js";
+import type { DeferredObject } from "../util/deferred.js";
 
 /**
  * @memberOf GeOnDT.model
@@ -36,7 +39,7 @@ import type { I3FTile } from "../i3f/I3FTile.js";
  * @tutorial {@link https://3d.geon.kr/doc/tutorial-official/i3fModel.html}
  */
 declare class U3dModelI3FLayer extends U3dModelLayer {
-    static g_TaskProcessor: any;
+    static g_TaskProcessor: UTaskProcessor;
     constructor(opt?: {});
     _limitDistance: any;
     _searchOffsetZ: any;
@@ -58,7 +61,7 @@ declare class U3dModelI3FLayer extends U3dModelLayer {
     _useGlobalMaterial: any;
     metaDataFunction: any;
     _prevCamPosition: three.Vector3;
-    _checkTime: any;
+    _checkTime: UCheckTime;
     _items: any[];
     _rBush: {
         toBBox(i3fTile: I3FTile): {
@@ -103,7 +106,7 @@ declare class U3dModelI3FLayer extends U3dModelLayer {
     };
     _manager: three.LoadingManager;
     _loader: any;
-    _cancel: any;
+    _cancel: DeferredObject<unknown>;
     _change: boolean;
     _curPosition: any;
     _deleteMeshes: any;

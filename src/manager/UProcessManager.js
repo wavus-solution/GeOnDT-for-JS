@@ -39,6 +39,12 @@ const TASK_TIMING_POLICY = Object.freeze({
 });
 
 class UProcessManager {
+    /** 관리자 소유의 공통 시작 예약과 동기 비용 관측 상태입니다. */
+    #admission;
+
+    /** 공통 시작 제한이 실제 적용된 RAF 관찰 구간입니다. */
+    #admissionLimitedInWindow = false;
+
     /** @type {boolean} @ignore */
     _disposed = false;
 
@@ -60,12 +66,14 @@ class UProcessManager {
      */
     #debug(operation, a, b, c, d) {
         const recorder = this.#processDebug;
-        if (!recorder || (recorder.error && operation !== 'dispose')) return;
+        if (!recorder || (recorder.error && operation !== 'dispose')
+            || (!recorder.enabled && operation !== 'install' && operation !== 'dispose')) return;
         const start = performance.now();
         try {
             recorder[operation](a, b, c, d);
         } catch (error) {
             recorder.error = String(error?.stack || error);
+            try { recorder.stop(); } catch { /* 진단 정리 실패도 본래 실행으로 전파하지 않습니다. */ }
             // 진단 실패는 결과 객체에도 남깁니다. 로거 오류까지 엔진으로 전파하지 않습니다.
             try { __GWarn__(this, `임시 작업 성능 측정 중단: ${recorder.error}`); } catch { /* 측정 실패 격리 */ }
         } finally {
@@ -164,6 +172,12 @@ class UProcessManager {
     /** @type {boolean} */
     #frameMonitoringDisposed = false;
 
+    /** @type {boolean} 표시·수동 요청과 진단 중 중지 유예를 합친 관측 사용 상태입니다. */
+    #visualizationLatencyEnabled = false;
+    /** @type {boolean} UI 없이 측정하는 호출자의 명시적 요청입니다. */
+    #visualizationLatencyRequested = false;
+    /** @type {Set<object>} 표시 중인 창만 보관하여 한 창의 숨김이 다른 창의 관측을 끄지 않게 합니다. */
+    #visualizationLatencyViews = new Set();
     /** @type {import('@union3d/manager/UVisualizationLatencyMonitor').UVisualizationLatencyMonitor | undefined} */
     #visualizationMonitor;
 
@@ -181,7 +195,7 @@ class UProcessManager {
      */
     #onVisibilityChange = () => {
         // TEMP_PROCESS_DEBUG BEGIN: 제어 사용 여부와 무관하게 숨김 전후의 진단 간격을 끊습니다.
-        this.#debug('pause');
+        if (this.#processDebug?.enabled) this.#debug('pause');
         // TEMP_PROCESS_DEBUG END
         this.#resetFrameHistory();
     };
@@ -208,12 +222,23 @@ class UProcessManager {
         [this._userProcess, this._imageProcess, this._heightProcess, this._modelProcess]
             .forEach((process, index) => this.#processRoles.set(process, {kind: 'main', name: ['user', 'image', 'height', 'model'][index]}));
         this._modelWorkProcesses.forEach((process, index) => this.#processRoles.set(process, {kind: 'work', name: `work${index + 1}`}));
+        // 메인과 하위 작업의 시작 순서·비용을 함께 조정하되 큐와 종결은 각 처리기가 관리합니다.
+        this.#admission = INTERNAL.createSharedAdmission(
+            Array.from(this.#processRoles, ([process, role]) => ({process, kind: role.kind, name: role.name})),
+            () => this.#motionEnabled() && !!this._app?.isInitialized() && !this._app.isDisposed(),
+            process => this._getProcessStartDelay(process),
+            () => { this.#admissionLimitedInWindow = true; });
         if (typeof document !== 'undefined') {
             this.#visibilityDocument = document;
             document.addEventListener('visibilitychange', this.#onVisibilityChange);
         }
         // TEMP_PROCESS_DEBUG BEGIN
-        this.#processDebug = new ProcessDebugRecorder(this, this.#processRoles);
+        this.#processDebug = new ProcessDebugRecorder(this, this.#processRoles, enabled => {
+            // 진단의 수명만 전환하며 공통 실행 정책과 예약은 그대로 유지합니다.
+            this.#admission.setDiagnosticsEnabled(enabled);
+            // 진단 종료 자체가 중지 예약을 처리합니다. 확인용 타이머나 RAF 검사는 추가하지 않습니다.
+            if (!enabled) this.#updateVisualizationLatencyEnabled();
+        });
         this.#debug('install');
         // TEMP_PROCESS_DEBUG END
     }
@@ -230,8 +255,9 @@ class UProcessManager {
      * @ignore
      */
     _recordTaskTiming(process, task, phase, immediate = false) {
+        if (phase === 'started') this.#admission?.started(process);
         // TEMP_PROCESS_DEBUG BEGIN
-        this.#debug('task', process, task, phase, immediate);
+        if (this.#processDebug?.enabled) this.#debug('task', process, task, phase, immediate);
         // TEMP_PROCESS_DEBUG END
         if (this.#frameMonitoringDisposed || !this.#adaptive.enabled
             || !this._app?.isInitialized() || this._app.isDisposed()
@@ -489,11 +515,11 @@ class UProcessManager {
     _recordFrame(timestamp) {
         const state = this.#adaptive;
         // TEMP_PROCESS_DEBUG BEGIN
-        this.#debug('frame', timestamp, state);
+        if (this.#processDebug?.enabled) this.#debug('frame', timestamp, state);
         // TEMP_PROCESS_DEBUG END
         if (this.#frameMonitoringDisposed) return;
-        // 측정은 자동 한도 조절과 독립적입니다. 앱 준비 뒤 한 번 연결하고 이후 입력·관측은 측정기가 맡습니다.
-        this.#ensureVisualizationMonitoring();
+        // 가시화 측정을 끈 동안에는 관측기 생성과 렌더 콜백 등록을 건너뜁니다.
+        if (this.#visualizationLatencyEnabled) this.#ensureVisualizationMonitoring();
         if (!state.enabled || !Number.isFinite(timestamp)
             || !Number.isFinite(state.configuredLimit) || state.configuredLimit <= 0
             || !this._app?.isInitialized() || this._app.isDisposed()
@@ -607,7 +633,7 @@ class UProcessManager {
         state.measuredCount = state.sampleCount;
         this.#adjustProcessLimit(timestamp, duration);
         // TEMP_PROCESS_DEBUG BEGIN
-        this.#debug('finishDecision', state, this.#limitFeedback);
+        if (this.#processDebug?.enabled) this.#debug('finishDecision', state, this.#limitFeedback);
         // TEMP_PROCESS_DEBUG END
         this.#resetFrameWindow(timestamp);
     }
@@ -646,6 +672,7 @@ class UProcessManager {
             effectiveMaxProcess: state.effectiveLimit,
             rafMaxProcess: state.appliedLimit,
             motion: this.#motion.snapshot(performance.now()),
+            admission: this.#admission?.snapshot(),
             effectiveWorkMaxProcess: state.workLimit,
             frameIntervalMs: state.intervalMs,
             baselineFrameMs: state.baselineMs,
@@ -677,8 +704,71 @@ class UProcessManager {
     }
 
     /**
+     * 가시화 지연 측정의 수동 요청을 켜거나 해제합니다. 수동 요청의 초기 상태는 꺼짐입니다.
+     * 개발 도구 창이 표시 중이면 수동 요청을 해제해도 관측을 유지합니다.
+     * 모든 요청이 해제되어도 작업 진단 중에는 중지를 유예하고 진단 종료 시 요청을 다시 확인합니다.
+     * 앱 준비 전에는 시작 요청만 보관하고 준비된 RAF에서 관측을 시작합니다.
+     * 관측이 실제로 중지되면 입력 타이머·렌더 콜백·측정 객체를 제거하되 완료 이력은 보존합니다.
+     * 작업 진단 플래그와 자동 제어 설정·학습·한도·실행 예약은 변경하지 않습니다.
+     * 같은 값의 재설정과 관리자 폐기 후 호출은 아무 작업도 하지 않습니다.
+     *
+     * @param {boolean} [enabled=true] true이면 수동 측정을 요청하고 false이면 그 요청을 해제
+     * @throws {TypeError} enabled가 boolean이 아닌 경우
+     */
+    setVisualizationLatencyEnabled(enabled = true) {
+        if (typeof enabled !== 'boolean') throw new TypeError('가시화 지연 측정 사용 여부는 boolean이어야 합니다.');
+        if (this.#frameMonitoringDisposed || this.#visualizationLatencyRequested === enabled) return;
+        this.#visualizationLatencyRequested = enabled;
+        this.#updateVisualizationLatencyEnabled();
+    }
+
+    /**
+     * 개발 도구 창의 표시 요청을 등록하거나 해제합니다.
+     * 창마다 요청을 보관하며 숨김·폐기 때 참조를 제거합니다. 수동 측정 요청은 바꾸지 않습니다.
+     *
+     * @param {object} view 표시 상태를 알리는 개발 도구 창
+     * @param {boolean} visible 창을 표시하면 true, 숨기거나 폐기하면 false
+     *
+     * @ignore
+     */
+    _setVisualizationLatencyViewVisible(view, visible) {
+        if (this.#frameMonitoringDisposed) return;
+        if (visible) this.#visualizationLatencyViews.add(view);
+        else this.#visualizationLatencyViews.delete(view);
+        this.#updateVisualizationLatencyEnabled();
+    }
+
+    /**
+     * 표시·수동 요청과 진단 수명이 바뀔 때만 관측 수명을 갱신합니다.
+     * 진단은 이미 켜진 관측의 중지만 유예하며 진단 시작만으로 관측을 켜지는 않습니다.
+     *
+     * @ignore
+     */
+    #updateVisualizationLatencyEnabled() {
+        if (this.#frameMonitoringDisposed) return;
+        const requested = this.#visualizationLatencyRequested || this.#visualizationLatencyViews.size > 0;
+        const enabled = requested || (this.#processDebug?.enabled === true && this.#visualizationLatencyEnabled);
+        if (this.#visualizationLatencyEnabled === enabled) return;
+        this.#visualizationLatencyEnabled = enabled;
+        if (!enabled) this.#visualizationMonitor?.stop();
+        else if (this.#visualizationMonitor) this.#visualizationMonitor.start();
+        else this.#ensureVisualizationMonitoring();
+    }
+
+    /**
+     * 표시·수동 요청과 진단 중 중지 유예를 반영한 가시화 지연 측정 사용 여부를 조회합니다.
+     * true여도 앱 준비 전이거나 시작 오류가 있으면 관측 중이 아닐 수 있습니다.
+     * 실제 관측 상태와 오류는 getVisualizationLatencyState()로 확인합니다.
+     *
+     * @returns {boolean} 중지 유예 중에도 true이며 요청이 없는 초기 상태와 관리자 폐기 후에는 false
+     */
+    getVisualizationLatencyEnabled() {
+        return this.#visualizationLatencyEnabled;
+    }
+
+    /**
      * 위치 입력부터 메인 장면 후처리 종료까지의 지연시간과 통계를 조회합니다.
-     * 렌더 대기를 포함하며 자동 제어 사용 여부·작업 한도·개발 도구 표시와 독립적으로 측정합니다.
+     * 렌더 대기를 포함하며 개발 도구 표시·수동 요청·진단 중 중지 유예로 관측이 켜진 동안 측정합니다.
      * 조회는 측정을 시작하거나 이력을 초기화하지 않습니다.
      *
      * @returns {UVisualizationLatencyState | undefined} 내부 참조를 공유하지 않는 결과이며 측정기가 준비되지 않았으면 undefined
@@ -744,6 +834,7 @@ class UProcessManager {
         // 어느 처리기의 콜백도 호출하기 전에 전체를 차단해야 새 작업이 남지 않습니다.
         // _dispose는 기존 U3dProcess의 접수·실행 차단 상태이며 dispose()를 대체하지 않습니다.
         for (const process of this.#processRoles.keys()) process._dispose = true;
+        this.#admission?.dispose();
         this._disposeFrameMonitoring();
         for (const process of this.#processRoles.keys()) {
             try {
@@ -766,6 +857,9 @@ class UProcessManager {
     _disposeFrameMonitoring() {
         if (this.#frameMonitoringDisposed) return;
         this.#frameMonitoringDisposed = true;
+        this.#visualizationLatencyEnabled = false;
+        this.#visualizationLatencyRequested = false;
+        this.#visualizationLatencyViews.clear();
         try { this.#visualizationMonitor?.dispose(); }
         catch (error) {
             try { __GWarn__(this, '가시화 지연 측정 자원 해제 실패', error); }
@@ -790,6 +884,7 @@ class UProcessManager {
      * @ignore
      */
     #resetFrameWindow(timestamp) {
+        this.#admissionLimitedInWindow = false;
         const state = this.#adaptive;
         state.windowStart = timestamp;
         state.motionLimitedInWindow = false;
@@ -820,7 +915,7 @@ class UProcessManager {
     #resetFrameHistory() {
         const state = this.#adaptive;
         // TEMP_PROCESS_DEBUG BEGIN
-        if (state.previousTime !== undefined || this.#taskGroups.size > 0) this.#debug('resetController', state, this.#limitFeedback);
+        if (this.#processDebug?.enabled && (state.previousTime !== undefined || this.#taskGroups.size > 0)) this.#debug('resetController', state, this.#limitFeedback);
         // TEMP_PROCESS_DEBUG END
         state.previousTime = undefined;
         state.stableMs = state.queueStableMs = state.overloadMs = state.severeMs = state.severeWindows = 0;
@@ -830,6 +925,7 @@ class UProcessManager {
         state.decisionReason = 'reset';
         this.#limitFeedback.clear();
         this.#motion.reset();
+        this.#admission?.reset();
         this.#applyMainLimit();
         for (const role of this.#processRoles.values()) role.queueWatch = null;
         this.#resetTaskTimings();
@@ -879,9 +975,8 @@ class UProcessManager {
         const overloaded = state.controlPressure >= 1;
         state.decisionReason = 'maintain';
         // TEMP_PROCESS_DEBUG BEGIN
-        this.#debug('decision', timestamp, {duration, queued, runningTotal, taskSlow: timing.slow,
+        if (this.#processDebug?.enabled) this.#debug('decision', timestamp, {duration, queued, runningTotal, taskSlow: timing.slow,
             overloaded, candidateId: timing.candidate?.id || null}, state, {feedback: this.#limitFeedback, groups: this.#taskGroups, flows});
-        if (this.#processDebug?.mode === 'off') { state.decisionReason = 'control-off'; return; }
         // TEMP_PROCESS_DEBUG END
         // 사용자 한도가 보호 하한 이하면 조절할 여유가 없습니다. RAF·작업 측정은
         // 계속하되 감속·회복·유휴 복원 모두 건너뛰어 사용자가 정한 처리량을 유지합니다.
@@ -889,6 +984,12 @@ class UProcessManager {
         if (state.configuredLimit <= policy.minimumLimit) {
             state.decisionReason = 'configured-floor';
             return;
+        }
+        // 공통 시작 제한이 만든 대기를 슬롯 부족이나 한도 변경 효과로 오인하지 않습니다.
+        // 실제 RAF의 지속 과부하 판정은 유지하여 공통 예산 밖의 결과 적용 부하에도 대응합니다.
+        if (this.#admissionLimitedInWindow) {
+            for (const feedback of this.#limitFeedback.values()) feedback.rafComparable = false;
+            for (const role of this.#processRoles.values()) role.queueWatch = null;
         }
         // 이동 압력이 있어도 반올림된 한도가 같고 시작 간격이 0이면 실제 제한은
         // 없습니다. 그 구간에서는 기존 RAF 감속·복원을 모두 계속해야 합니다.
@@ -958,7 +1059,8 @@ class UProcessManager {
             return {kind, limit, peak, minimum, drained, pending: active.length > 0, delayed: delayed.length > 0, waitMs};
         });
         const increasing = Array.from(this.#limitFeedback.values()).some(feedback => feedback.direction === 'increase');
-        const recoverable = roles.filter(role => role.pending && role.drained && role.limit < state.configuredLimit);
+        const recoverable = roles.filter(role => !this.#admissionLimitedInWindow
+            && role.pending && role.drained && role.limit < state.configuredLimit);
         // 대기 보호는 감소 관찰이 끝나기를 기다리지 않습니다. 과부하가 없는 구간이
         // 이어지고 실제 포화·장시간 대기가 확인된 쪽부터 작은 증가 시험을 수행합니다.
         // 증가 시험은 항상 하나만 두어 RAF 악화 시 반납할 몫을 명확하게 유지합니다.
@@ -990,10 +1092,7 @@ class UProcessManager {
         if (increasing) return;
         if (timestamp < state.nextDecreaseAt && !urgent) { state.decisionReason = 'capacity-hold'; return; }
         const candidate = timing.candidate;
-        let preemptive = !!candidate && state.controlPressure >= policy.warningPressure;
-        // TEMP_PROCESS_DEBUG BEGIN
-        if (this.#processDebug?.mode === 'raf') preemptive = false;
-        // TEMP_PROCESS_DEBUG END
+        const preemptive = !this.#admissionLimitedInWindow && !!candidate && state.controlPressure >= policy.warningPressure;
         if (!(overloaded && (state.overloadMs >= policy.overloadMs || severe)) && !preemptive) return;
         const role = roles.find(item => item.pending && item.peak > item.minimum && item.limit > item.minimum
             && (overloaded || item.kind === 'main')
@@ -1036,13 +1135,18 @@ class UProcessManager {
             if (elapsed < policy.maximumObservationMs) return false;
         } else {
             feedback.observedMs += duration;
-            feedback.capacityWindowMs += duration;
+            feedback.capacityWindowMs = this.#admissionLimitedInWindow ? 0 : feedback.capacityWindowMs + duration;
             feedback.amplitudeSum += state.amplitudeMs * duration;
             feedback.peakSum += state.peakExcessMs * duration;
             feedback.intervalSum += state.averageMs * state.measuredCount;
             feedback.samples += state.measuredCount;
             for (const before of feedback.flows) {
                 const flow = flows.find(item => item.name === before.name);
+                if (this.#admissionLimitedInWindow) {
+                    before.completed = before.queueMs = before.queueSamples = before.badWindows = 0;
+                    before.pendingThroughout = flow.queued > 0;
+                    continue;
+                }
                 before.completed += flow.totalCompleted;
                 before.queueMs += flow.queueMs;
                 before.queueSamples += flow.queueSamples;
@@ -1052,7 +1156,7 @@ class UProcessManager {
                 // 같은 처리기의 독립된 1초 구간을 비교합니다. 누적 평균의 악화가
                 // 다음 구간에 남았다는 이유만으로 연속 악화 횟수를 늘리지 않습니다.
                 for (const before of feedback.flows) {
-                    const congested = before.kind === feedback.role && before.queued > 0 && before.pendingThroughout
+                    const congested = !this.#admissionLimitedInWindow && before.kind === feedback.role && before.queued > 0 && before.pendingThroughout
                         && before.beforeCompleted >= TASK_TIMING_POLICY.minimumWindowSamples
                         && before.completed * 1000 / feedback.capacityWindowMs < before.rate * policy.throughputRetention
                         && before.beforeQueueSamples >= TASK_TIMING_POLICY.minimumWindowSamples
@@ -1100,7 +1204,7 @@ class UProcessManager {
         }
         this.#limitFeedback.delete(feedback.role);
         // TEMP_PROCESS_DEBUG BEGIN
-        this.#debug('feedbackResult', {role: feedback.role, direction: feedback.direction, observedMs: feedback.observedMs,
+        if (this.#processDebug?.enabled) this.#debug('feedbackResult', {role: feedback.role, direction: feedback.direction, observedMs: feedback.observedMs,
             beforeAmplitudeMs: feedback.amplitudeMs, amplitudeMs: amplitude, beforePeakExcessMs: feedback.peakExcessMs,
             peakExcessMs: peak, beforeAverageMs: feedback.averageMs, averageMs: average,
             improved, regressed, congested, capacityBadWindows: badWindows, enough,
@@ -1162,7 +1266,7 @@ class UProcessManager {
         // 같은 역할의 감소 관찰 도중 회복 시험을 시작하면 관찰 중단 사유를 남깁니다.
         // 다른 역할의 기록은 교체하지 않아 대기와 처리량 비교를 계속할 수 있습니다.
         // TEMP_PROCESS_DEBUG BEGIN
-        if (previous && !continueCapacity) this.#debug('feedbackResult', {role, direction: previous.direction,
+        if (this.#processDebug?.enabled && previous && !continueCapacity) this.#debug('feedbackResult', {role, direction: previous.direction,
             interruptedBy: reason, observedMs: previous.observedMs, rafComparable: previous.rafComparable});
         // TEMP_PROCESS_DEBUG END
         this.#limitFeedback.set(role, {role, previousLimit, direction, startedAt: timestamp, rafComparable: !state.motionLimitedInWindow,
@@ -1204,6 +1308,7 @@ class UProcessManager {
         this.#adaptive.workLimit = workLimit;
         this.#adaptive.reason = reason;
         this.#adaptive.decisionReason = reason;
+        this.#admission?.refresh();
     }
 
     /**
@@ -1215,9 +1320,6 @@ class UProcessManager {
      * @ignore
      */
     #motionEnabled() {
-        // TEMP_PROCESS_DEBUG BEGIN
-        if (this.#processDebug && this.#processDebug.mode !== 'both') return false;
-        // TEMP_PROCESS_DEBUG END
         return this.#adaptive.enabled && this.#adaptive.configuredLimit > ADAPTIVE_PROCESS_POLICY.minimumLimit
             && !this.#frameMonitoringDisposed && !this.#visibilityDocument?.hidden && !this._app?.getStopRender();
     }
@@ -1244,6 +1346,7 @@ class UProcessManager {
             if (role.kind === 'main') process.setMaxProcess(limit);
         }
         state.effectiveLimit = limit;
+        this.#admission?.refresh();
     }
 
     /**
@@ -1259,6 +1362,45 @@ class UProcessManager {
     _getProcessStartDelay(process, reserve = false) {
         if (!this.#motionEnabled() || this.#processRoles.get(process)?.kind !== 'main') return 0;
         return this.#motion.startDelay(process, performance.now(), reserve);
+    }
+
+    /**
+     * 제어 대상 처리기의 예약을 공통 실행 조정에 전달합니다.
+     * 설정값 8 이하·자동 제어 해제·등록되지 않은 처리기는 기존 개별 예약을 사용합니다.
+     *
+     * @param {UProcessAdmissionProcess} process 시작할 처리기
+     * @returns {boolean} 공통 예약이 인수했는지 여부
+     *
+     * @ignore
+     */
+    _requestProcessStart(process) {
+        // 공통 조정이 인수하지 않으면 호출자가 기존 개별 예약을 계속합니다.
+        return this.#admission?.request(process) ?? false;
+    }
+
+    /**
+     * @param {UProcessAdmissionProcess} process 큐를 초기화하거나 폐기한 처리기
+     *
+     * @ignore
+     */
+    _cancelProcessStart(process) {
+        // 대기 준비 표식만 제거하며 실행 중 작업의 취소 여부는 처리기가 결정합니다.
+        this.#admission?.cancel(process);
+    }
+
+    /**
+     * 실제 호출 구간을 측정하며 반환된 Promise의 대기 시간은 포함하지 않습니다.
+     *
+     * @template T
+     * @param {UProcessAdmissionProcess} process 실행할 처리기
+     * @param {() => T} callback 동기 실행 구간
+     * @returns {T} 원래 콜백 반환값
+     *
+     * @ignore
+     */
+    _measureProcessExecution(process, callback) {
+        // 계측 유무와 관계없이 콜백의 반환값과 예외를 그대로 전달합니다.
+        return this.#admission ? this.#admission.measure(process, callback) : callback();
     }
 
     getWorkingCount(){
@@ -1434,7 +1576,7 @@ class UProcessManager {
 
 // TEMP_PROCESS_DEBUG BEGIN: 임시 기록기 전체입니다. 이 블록과 위의 연결 블록·types/spec 표식을 함께 제거하십시오.
 /**
- * 두 제어의 비교 실험을 위한 임시 기록기입니다.
+ * 현재 작업 제어의 응답과 예약 지연을 관측하는 진단 기록기입니다.
  * 작업 객체는 WeakMap에만 보관하고, 이력에는 숫자·문자열 복사본만 저장합니다.
  * RAF 원본 전체나 GPU 자료를 저장하지 않고 250ms 통계와 최대 600개의 이력만 유지합니다.
  *
@@ -1446,53 +1588,56 @@ class ProcessDebugRecorder {
     static #installed = null;
     #manager;
     #roles;
+    #setDiagnosticsEnabled;
+    #stoppedAt;
     #tasks = new WeakMap();
     #totals = new Map();
     #windowTasks = new Map();
     #logs = {windows: [], decisions: [], events: []};
     #counts = {windows: 0, decisions: 0, events: 0};
-    #frames = this.#newFrames();
-    #allFrames = this.#newFrames();
+    #frames;
+    #allFrames;
     #previousTime;
     #windowStart;
-    #startedAt = performance.now();
-    #startedWall = new Date().toISOString();
+    #startedAt = 0;
+    #startedWall = '';
     #pendingDecision = null;
     #active = true;
     #epoch = 0;
-    #label = '';
     id = ++ProcessDebugRecorder.#nextId;
-    mode = 'both';
     error = null;
     overheadMs = 0;
+    enabled = false;
 
     /**
      * 관리자의 처리기와 진단 통계 저장소를 연결합니다.
      *
-     * @param {UProcessManager} manager 측정 대상 관리자
+     * @param {import('@union3d/manager/UProcessManager').UProcessManager} manager 측정 대상 관리자
      * @param {Map<object, object>} roles 처리기별 메인·하위 단계 정보
+     * @param {(enabled: boolean) => void} setDiagnosticsEnabled 추가 진단 전환과 종료 시 가시화 관측 중지 유예를 처리하는 콜백
      *
      * @ignore
      */
-    constructor(manager, roles) {
+    constructor(manager, roles, setDiagnosticsEnabled) {
         this.#manager = manager;
         this.#roles = roles;
+        this.#setDiagnosticsEnabled = setDiagnosticsEnabled;
     }
 
     /**
      * 콘솔 함수를 한 번 등록합니다. 기존 동명 함수는 덮어쓰지 않습니다.
      * 여러 앱이면 생략한 ID는 가장 최근 생성된 관리자를 선택합니다.
      *
-     * @ignore
      */
     install() {
         if (typeof window === 'undefined') return;
         ProcessDebugRecorder.#instances.set(this.id, this);
         if (ProcessDebugRecorder.#installed) return;
-        if ('getProcessDebugLog' in window || 'startProcessDebugLog' in window) {
+        if ('getProcessDebugLog' in window || 'setProcessDebugEnabled' in window) {
             throw new Error('임시 콘솔 함수 이름이 이미 사용 중입니다. 기존 함수를 덮어쓰지 않았습니다.');
         }
-        const api = {getProcessDebugLog: ProcessDebugRecorder.getProcessDebugLog, startProcessDebugLog: ProcessDebugRecorder.startProcessDebugLog};
+        const api = {getProcessDebugLog: ProcessDebugRecorder.getProcessDebugLog,
+            setProcessDebugEnabled: ProcessDebugRecorder.setProcessDebugEnabled};
         // 등록 도중 실패한 경우 이미 등록한 함수만 되돌려 부분 전역 상태를 남기지 않습니다.
         try {
             for (const [name, fn] of Object.entries(api)) Object.defineProperty(window, name, {value: fn, configurable: true, writable: true});
@@ -1514,16 +1659,26 @@ class ProcessDebugRecorder {
     }
 
     /**
-     * 비교 모드와 이름을 정하고 새 측정을 시작합니다.
-     * 기존 기록과 제어 학습을 지우고 사용자 설정 한도로 복원하지만 작업은 취소하지 않습니다.
+     * 추가 진단을 명시적으로 전환합니다. 기본값은 false이며 true 전환은 새 측정을 시작합니다.
+     * 자동 제어 설정·현재 한도·제어 학습·실행 예약은 양쪽 전환 모두 유지합니다.
+     * false 전환은 기록을 보존하고 진단 콜백을 중지합니다.
      *
-     * @param {'both' | 'raf' | 'off'} [mode='both'] 전체 제어(이동·RAF·작업 시간), RAF만, 제어 끔
-     * @param {string} [label=''] 실험 이름
+     * @param {boolean} enabled 진단 활성 여부
      * @param {number} [id] 관리자 번호, 생략 시 가장 최근 관리자
-     * @returns {object} 선택한 관리자 번호·모드·실험 이름
      */
-    static startProcessDebugLog(mode = 'both', label = '', id) {
-        return ProcessDebugRecorder.#select(id).start(mode, label);
+    static setProcessDebugEnabled(enabled, id) {
+        if (typeof enabled !== 'boolean') throw new TypeError('enabled는 boolean이어야 합니다.');
+        const recorder = ProcessDebugRecorder.#select(id);
+        if (enabled && !recorder.enabled) recorder.start();
+        else if (!enabled) recorder.stop();
+    }
+
+    /** 작업 진단 집계를 중지하고 경과 시간을 고정하며 가시화 관측의 중지 유예를 재판정합니다. */
+    stop() {
+        if (!this.enabled) return;
+        this.#stoppedAt = performance.now();
+        this.enabled = false;
+        this.#setDiagnosticsEnabled(false);
     }
 
     /**
@@ -1543,20 +1698,12 @@ class ProcessDebugRecorder {
     }
 
     /**
-     * 비교 조건을 검증한 후 제어 이력과 진단 세션을 초기화합니다.
+     * 진단 세션만 초기화하고 현재 자동 제어 설정·학습·한도는 보존합니다.
+     * 새 진단의 시작이 실행 예산이나 작업 예약을 초기화해서는 안 됩니다.
      *
-     * @param {'both' | 'raf' | 'off'} mode 비교 모드
-     * @param {string} label 실험 이름
-     * @returns {object} 관리자 번호·모드·실험 이름
-     *
-     * @ignore
      */
-    start(mode, label) {
-        if (!['both', 'raf', 'off'].includes(mode)) throw new RangeError('mode는 both, raf, off 중 하나여야 합니다.');
-        if (typeof label !== 'string') throw new TypeError('측정 이름은 문자열이어야 합니다.');
+    start() {
         if (this.error) throw new Error(`측정 오류가 있습니다. 페이지를 다시 여십시오: ${this.error}`);
-        this.mode = mode;
-        this.#manager.setAdaptiveProcess(true, this.#manager.getAdaptiveProcessState().targetFps);
         this.#tasks = new WeakMap();
         this.#totals.clear();
         this.#windowTasks.clear();
@@ -1569,11 +1716,12 @@ class ProcessDebugRecorder {
         this.#pendingDecision = null;
         this.#startedAt = performance.now();
         this.#startedWall = new Date().toISOString();
-        this.#label = label;
         this.#epoch = 0;
         this.overheadMs = 0;
-        this.#append('events', {atMs: 0, type: 'start', mode, label});
-        return {instanceId: this.id, mode, label};
+        this.#stoppedAt = undefined;
+        this.enabled = true;
+        this.#setDiagnosticsEnabled(true);
+        this.#append('events', {atMs: 0, type: 'start'});
     }
 
     /**
@@ -1623,6 +1771,10 @@ class ProcessDebugRecorder {
      * @ignore
      */
     #frameStats(bucket) {
+        // 기본 비활성 상태에서는 히스토그램도 할당하지 않는다. 명시적 조회에만 빈 결과를 만든다.
+        if (!bucket) return {count: 0, measuredMs: 0, fps: 0, averageMs: 0, deviationMs: 0, maxMs: 0,
+            adjacentRmsMs: 0, over50ms: 0, over100ms: 0, gapsOver1000ms: 0,
+            p10Ms: 0, p50Ms: 0, p95Ms: 0, p99Ms: 0, amplitudeMs: 0, peakExcessMs: 0};
         const result = {count: bucket.count, measuredMs: bucket.sum, fps: bucket.sum ? bucket.count * 1000 / bucket.sum : 0,
             averageMs: bucket.mean, deviationMs: bucket.count ? Math.sqrt(bucket.m2 / bucket.count) : 0,
             maxMs: bucket.max,
@@ -1704,7 +1856,6 @@ class ProcessDebugRecorder {
      * @param {number} timestamp 렌더 루프 RAF 시각, 밀리초
      * @param {object} state 현재 제어 상태, 읽기 전용으로 사용
      *
-     * @ignore
      */
     frame(timestamp, state) {
         const app = this.#manager._app;
@@ -1733,7 +1884,8 @@ class ProcessDebugRecorder {
         const duration = timestamp - this.#windowStart;
         if (duration < ADAPTIVE_PROCESS_POLICY.windowMs) return;
         this.#append('windows', {atMs: performance.now() - this.#startedAt, durationMs: duration,
-            frame: this.#frameStats(this.#frames), processes: this.#processStats(this.#windowTasks, duration)});
+            frame: this.#frameStats(this.#frames), processes: this.#processStats(this.#windowTasks, duration),
+            admission: this.#manager.getAdaptiveProcessState().admission});
         this.#frames = this.#newFrames();
         this.#windowTasks.clear();
         this.#windowStart = timestamp;
@@ -1767,12 +1919,10 @@ class ProcessDebugRecorder {
      * @param {object} pressure 큐·작업 지연 조건
      * @param {object} state 제어 상태
      * @param {object} timing 피드백·작업 그룹·처리기 흐름
-     *
-     * @ignore
      */
     decision(timestamp, pressure, state, timing) {
         const feedbacks = Array.from(timing.feedback.values());
-        this.#pendingDecision = {atMs: performance.now() - this.#startedAt, epoch: this.#epoch, mode: this.mode, ...pressure,
+        this.#pendingDecision = {atMs: performance.now() - this.#startedAt, epoch: this.#epoch, ...pressure,
             motion: this.#manager.getAdaptiveProcessState().motion,
             motionLimitedInWindow: state.motionLimitedInWindow,
             visualizationLatency: this.#manager.getVisualizationLatencyState(),
@@ -1896,10 +2046,10 @@ class ProcessDebugRecorder {
      *
      * @returns {UProcessDebugLog} 세션 정보·누적 통계·최근 이력
      *
-     * @ignore
      */
     snapshot() {
-        const elapsedMs = performance.now() - this.#startedAt;
+        const elapsedMs = this.#startedWall === '' ? 0
+            : (this.#stoppedAt === undefined ? performance.now() : this.#stoppedAt) - this.#startedAt;
         const history = {}, dropped = {};
         for (const kind of Object.keys(this.#logs)) {
             const items = this.#logs[kind], count = this.#counts[kind];
@@ -1907,15 +2057,21 @@ class ProcessDebugRecorder {
             history[kind] = items.slice(offset).concat(items.slice(0, offset));
             dropped[kind] = Math.max(0, count - 600);
         }
-        return JSON.parse(JSON.stringify({schemaVersion: 18, policyVersion: 'motion-process-v2', instanceId: this.id, availableInstanceIds: Array.from(ProcessDebugRecorder.#instances.keys()),
-            label: this.#label, mode: this.mode, startedAt: this.#startedWall, elapsedMs, error: this.error,
+        return JSON.parse(JSON.stringify({schemaVersion: 20, policyVersion: 'motion-process-v2', enabled: this.enabled,
+            instanceId: this.id, availableInstanceIds: Array.from(ProcessDebugRecorder.#instances.keys()),
+            startedAt: this.#startedWall, elapsedMs, error: this.error,
             policies: {raf: ADAPTIVE_PROCESS_POLICY, task: TASK_TIMING_POLICY},
             notes: ['motion은 화면 높이 기준 카메라 변화량입니다. 작업 생성과 화면 갱신은 그대로 진행하고, 큰 이동일수록 메인 동시 실행 수와 큐의 시작 간격을 제한합니다. 실제 이동 제한 구간에는 메인의 추가 RAF 시험만 보류하며 Work는 기존 RAF·대기 조건으로 계속 조절합니다. 마지막 실제 이동 96ms 뒤 이동 제한을 해제합니다.',
                 'motion.pacedStartCount는 이동 중 간격 제어를 거쳐 시작한 메인 작업 수입니다. 작업 생성 보류와 관리자 재평가 예약은 사용하지 않습니다.',
                 'decisions.motionLimitedInWindow는 해당 관찰 구간의 실제 메인 한도 감소 또는 시작 간격 적용 여부입니다. motion.active만으로 RAF 제어를 보류하지 않습니다.',
-                '목표는 RAF 간격 진폭 감소입니다. targetFps는 호환용 보관값이며 평균 FPS를 강제하지 않습니다.',
+                '안정성을 우선하되 합리적인 작업 대기만 허용하며, 조작 종료 후 멈춘 듯한 갱신이나 눈에 띄는 반응 지연은 피하는 것이 목표입니다. targetFps는 호환용 보관값이며 평균 FPS를 강제하지 않습니다.',
+                '진단은 기본 비활성입니다. setProcessDebugEnabled(true)로 새 측정을 시작하고 false로 중지합니다. 현재 자동 제어 설정·학습·한도·실행 예약은 유지합니다.',
+                'windows.admission은 약 250ms 시점의 누적 계측입니다. count·totalMs·초과 횟수는 차이로 구간 집계하며 maximumMs는 빼지 않고 maximumAtMs로 측정 구간을 확인합니다.',
+                'scheduling.timerWait는 실제 전달된 타이머만의 예약부터 콜백까지, timerLate는 요청한 올림 밀리초를 넘긴 지연, messageWait는 메시지 예약부터 디스패치까지입니다. 서로 중첩되므로 readyWait와 합산하지 않습니다.',
+                'processes.readyWait는 슬롯·큐가 준비된 처리기의 최초 공통 예약부터 실제 동기 시작 통지까지입니다. 작업별 전체 큐 대기와 다르며, 무효 항목 검사는 표본 수를 늘리지 않습니다. 시작 통지 없는 사용자 재정의 인계는 unobservedHandoffs로 분리합니다.',
+                'pendingWaitMs는 아직 시작하지 못한 예약의 현재 나이입니다. timerCancelledCount는 전달 전에 취소된 타이머 수이며 timerWait·timerRequestedMs에 포함하지 않습니다. maximumAtMs는 performance.now 시각입니다.',
                 'visualizationLatency는 위치 입력부터 메인 장면 후처리 종료까지의 관측 지연이며 렌더 대기를 포함합니다. GPU·모니터 표시 완료 시간은 아니며 현재 자동 한도의 직접 조절 신호로 사용하지 않습니다.',
-                'visualizationSamples의 시각은 performance.now() 기준입니다. startedPerformanceMs를 빼면 decisions.atMs와 비교할 수 있습니다. 이력은 진단 세션 시작·한도 변경과 독립적으로 유지됩니다.',
+                'visualizationSamples의 시각은 performance.now() 기준입니다. startedPerformanceMs를 빼면 decisions.atMs와 비교할 수 있습니다. 가시화 관측은 개발 도구 표시 또는 manager.setVisualizationLatencyEnabled(true)로 시작합니다. 모든 요청을 해제해도 진단 중에는 중지를 유예하고 진단 종료 시 반영합니다. 이력은 진단 세션 시작·한도 변경과 독립적으로 유지됩니다.',
                 'response-band-v2는 구간 평균 100FPS 미만의 반복 지연에만 감속하며, 큰 단발 지연 없이 평균 120FPS 이상이 750ms 유지되면 실제 대기 역할의 한도를 복원합니다.',
                 'responseDelayed는 구간 평균 간격이 10ms를 넘은 상태입니다. 2구간·500ms 이상 지속되면 responseLimited가 켜집니다. 느린 표본 비율과 초과 시간 비중은 진단값입니다.',
                 'responseSpike는 최장 간격 50ms 이상이면서 중심 간격보다 25ms 이상 늘어난 상태입니다. 작업 중 한도 증가를 750ms 보류하며, 이 표식만으로 감속하거나 복원분을 반납하지 않습니다.',

@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -44,7 +44,7 @@ declare class U3dImageWMTSLayer extends U3dOpenLayer {
     }>): Promise<OLWMTSCapabilities>;
     /**
      * U3dImageWMTSLayer 클래스 생성자입니다. <br>
-     * 자동 구성은 앱에 추가한 뒤 ready()로 성공·실패를 확인하십시오. <br>
+     * 자동 구성은 앱에 추가한 뒤 ready로 성공·실패를 확인하십시오. <br>
      * xmlUrl·capabilities를 사용하지 않으면 부모의 layers callback으로 직접 구성합니다.
      *
      * @param {U3dImageWMTSLayerCO} [opt={}] WMTS 문서·요청 옵션과 부모 이미지 레이어 설정
@@ -52,7 +52,7 @@ declare class U3dImageWMTSLayer extends U3dOpenLayer {
     constructor(opt?: U3dImageWMTSLayerCO);
     /**
      * Capabilities 자동 구성을 사용하는지 여부입니다. <br>
-     * `xmlUrl` 또는 `capabilities`를 지정하면 생성자에서 true가 되며, 그동안 부모가 `ready()`를 자동으로 완료하지 않습니다.
+     * `xmlUrl` 또는 `capabilities`를 지정하면 생성자에서 true가 되며, 그동안 부모가 `ready`를 자동으로 완료하지 않습니다.
      *
      * @type {boolean}
      */

@@ -11,7 +11,7 @@ apis:
   - "createEmapBaseLayer"
   - "createloadingBar"
   - "createLoadingCanvas"
-  - "createModelGroupLayer"
+  - "createGroupLayer"
   - "createPromise"
   - "endloadingBar"
   - "getCameraState"

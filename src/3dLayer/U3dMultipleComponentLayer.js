@@ -410,13 +410,28 @@ class U3dMultipleComponentLayer extends U3dModelBasicLayer {
     }
 
     /**
-     * 레이어에 배치된 컴포넌트를 한꺼번에 화면에 나타내는 메서드입니다. <br>
+     * 모델 로딩을 시작하고 원본 그룹을 장면에서 분리합니다. <br>
+     * 원본 모델은 컴포넌트 생성용으로 보관하며 화면에는 배치한 컴포넌트만 표시합니다.
+     *
+     * @override
+     *
+     * @ignore
+     */
+    initialize() {
+        super.initialize();
+        this._scene.remove(this._object);
+    }
+
+    /**
+     * 원본 모델을 제외하고 레이어에 배치된 컴포넌트를 한꺼번에 화면에 나타내는 메서드입니다. <br>
      * 개별 컴포넌트를 hideComponent로 숨겨 둔 경우 그 컴포넌트는 숨겨진 상태로 남습니다.
      *
      * @override
      */
     show() {
         super.show(true);
+        // 부모 표시 처리에서 다시 연결한 원본 그룹은 컴포넌트 생성용으로만 보관합니다.
+        this._scene?.remove(this._object);
         /** @type {Array<ComponentObject>} */
         const components = this._componentList ?? [];
         for (let i = 0; i < components.length; i++) {
@@ -599,51 +614,6 @@ class U3dMultipleComponentLayer extends U3dModelBasicLayer {
     }
 
     /**
-     * 화면에 그려진 누적 경로(trail)를 눌러 그 경로의 주인 컴포넌트를 찾는 메서드입니다. <br>
-     * 마우스 위치와 각 컴포넌트의 누적 경로가 겹치는지 검사해 겹친 컴포넌트를 모아 돌려줍니다. <br>
-     * 누적 경로를 남기지 않도록 만들어졌거나 아직 지나온 자취가 없는 컴포넌트는 검사 대상에서 빠집니다. <br>
-     * 컴포넌트 자체를 클릭해 고르는 것이 아니라 경로 선을 클릭해 고르는 용도입니다.
-     *
-     * @param {MouseEvent} e 클릭 위치를 담고 있는 마우스 이벤트 <br>
-     * @returns {Array<ComponentObject>} 누른 지점에 누적 경로가 걸린 컴포넌트 목록이며 걸린 것이 없으면 빈 배열 <br>
-     */
-    selectComponentByTrails (e) {
-        const result = [];
-        for(let component of this.getComponents()) {
-            const trail = component.selectedByTrail(e);
-
-            if(defined(trail)) {
-                result.push(trail);
-            }
-        }
-        return result;
-    }
-
-    /**
-     * 컴포넌트를 마우스로 고르기 쉽도록 선택용 보조 영역을 켜는 메서드입니다. <br>
-     * 가늘거나 작은 컴포넌트도 넉넉한 영역으로 집을 수 있게 됩니다. <br>
-     * 호출 시점의 컴포넌트에만 적용됩니다.
-     */
-    onSelectHelperMeshes () {
-        for(let component of this.getComponents()) {
-            // component.cumulativePath?.hide();
-            component.onSelectHelperMesh();
-        }
-    }
-
-    /**
-     * 선택용 보조 영역을 끄는 메서드입니다. <br>
-     * 끄면 컴포넌트의 실제 형상에 닿아야만 고를 수 있습니다. <br>
-     * 호출 시점의 컴포넌트에만 적용됩니다.
-     */
-    offSelectHelperMeshes () {
-        for(let component of this.getComponents()) {
-            component.offSelectHelperMesh();
-            // component.cumulativePath?.show();
-        }
-    }
-
-    /**
      * 각 컴포넌트의 경계영역을 화면에 선으로 그려 확인하는 개발용 메서드입니다. <br>
      * 켜 두면 매 프레임 현재 컴포넌트들의 경계영역을 다시 그립니다.
      *
@@ -715,16 +685,24 @@ class U3dMultipleComponentLayer extends U3dModelBasicLayer {
     };
 
     /**
-     * Raycaster 교차(intersect) 결과로 교차되는 컴포넌트를 찾아 반환하는 메서드
+     * 모델이나 누적 경로의 교차(intersect) 결과로 소유 컴포넌트를 찾아 반환하는 메서드
      *
-     * @param {import('three').Intersection} intersect  Raycaster 교차 결과 객체
+     * @param {import('three').Intersection} intersect Raycaster 또는 U3dSelect 버퍼 검색의 교차 결과 객체
      * @returns {ComponentObject | undefined} 찾은 컴포넌트. 없으면 `undefined`
      *
      * @ignore
      */
     getComponentByIntersect (intersect) {
-        const mesh = /** @type {any} */(intersect.object);
+        const mesh = /** @type {any} */(intersect?.object);
         if (!mesh) return undefined;
+
+        if (mesh.userData?.type === 'trailMesh') {
+            const componentName = mesh.userData.componentName;
+            if (!defined(componentName)) return undefined;
+            const component = this.getComponentByName(componentName);
+            // 이름이 같은 독립 경로나 제거된 궤적이 현재 컴포넌트로 연결되지 않도록 실제 소유 메시를 확인합니다.
+            return component?.cumulativePath?.getTail()?.getMesh() === mesh ? component : undefined;
+        }
 
         // U3dComponentInstancedPosition
         if (mesh.isInstancedMesh || mesh.isInstancedMesh2) {
@@ -1876,11 +1854,9 @@ U3dMultipleComponentLayer.prototype.changeObject = function (id, option) {
                     component._object.name = modelName;
 
                 if (info.rotation) {
-                    const rotation = info.rotation;
-                    component.rotation?.set(
-                        rotation.x * Math.PI / 180,
-                        rotation.y * Math.PI / 180,
-                        rotation.z * Math.PI / 180);
+                    // addInstancedInfo에서 이미 라디안으로 정규화한 회전을 그대로 사용합니다.
+                    // 다시 도→라디안 변환하면 보정 재적용 시 렌더 행렬과 논리 회전이 달라집니다.
+                    component.rotation?.copy(info.rotation);
                 }
                 component._object.rotation.copy(component.rotation);
 
@@ -1889,6 +1865,9 @@ U3dMultipleComponentLayer.prototype.changeObject = function (id, option) {
                 }
                 component._object.scale.copy(component.scale);
                 setInstancedProperty.call(self, component, modelName);
+                if (component._modelOffset.lengthSq() > 0) {
+                    component.setModelOffset(component.getModelOffset());
+                }
                 component.setBrightness(component.getBrightness());
 
                 const instancedObject = self._instancedObject;
@@ -1943,6 +1922,9 @@ U3dMultipleComponentLayer.prototype.changeObject = function (id, option) {
 
                 component._object = /** @type {RotatableGroup} */ (/** @type {unknown} */ (obj));
                 component._object.position.copy(preObject.position);
+                if (component._modelOffset.lengthSq() > 0) {
+                    component.setModelOffset(component.getModelOffset());
+                }
                 component.setBrightness(component.getBrightness());
                 component._bbox = new UBox3().setFromObject(component._object);
 

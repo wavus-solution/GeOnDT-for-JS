@@ -12,6 +12,7 @@
 
 - 루트 tileset JSON을 읽어 타일 계층, 지리 범위와 초기 바운딩 볼륨을 구성한다.
 - 카메라 위치, 프러스텀과 screen-space error로 표시하거나 세분화할 타일을 선택한다.
+- 외부 조립·분리 실행기가 등록한 월드 이동 범위를 선택 경계에 반영하고 원본 경계와 메시 자세는 보존한다.
 - JSON, B3DM, I3DM, CMPT, PNTS, VCTR, GLB와 glTF 콘텐츠의 다운로드·파싱 작업을 예약한다.
 - ADD와 REPLACE refine 방식에 맞춰 부모·자식 타일의 표시 상태와 그룹 연결을 전환한다.
 - 로드된 메시를 LRU 캐시에 보관하고 취소·숨김·초기화·처분 시 작업과 렌더 자원을 정리한다.
@@ -36,6 +37,12 @@
 ```spec
 U3dModelTilesLayer extends U3dModelLayer 클래스 정의
     의존: U3dModelLayer — 모델 레이어 공통 상태와 수명주기 제공; 상속: {U3dModelLayer}
+
+    _contentOffsetBounds: ModelContentOffsetBounds | null = null
+        외부 콘텐츠 이동의 월드 최소·최대 범위이며 null이면 원래 선택 경계를 사용한다.
+
+    _contentOffsetBoundsDirty: boolean = false
+        경계 설정 변경 뒤 다음 유효한 update()의 주기·카메라 정지 검사를 우회할 상태
 
     #stopUpdate: boolean = false
         update()의 타일 탐색 실행을 중지하는 상태
@@ -170,13 +177,34 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
             의존:
                 U3dLayer — 상속받은 렌더 문맥; 속성 읽기: {_drawArg}
                 UDrawArg — 생략한 현재 위치 조회; 함수: {_drawArg.getCameraPosition()}
+        setContentOffsetBounds(bounds: ModelContentOffsetBounds | null = null) -> void
+            처리 기준: null 또는 0을 포함하는 유한 숫자 3개씩의 min·max 배열만 허용한다.
+            동작:
+                복사본이 기존 값과 같으면 종료한다.
+                새 값을 보관하고 _contentOffsetBoundsDirty를 true로 설정한다.
+
+        getContentOffsetBounds() -> ModelContentOffsetBounds | null
+            동작: 비활성 상태이면 null을 반환하고, 아니면 min·max를 독립 배열로 복사하여 반환한다.
+
+        get contentOffsetBounds() -> ModelContentOffsetBounds | null
+            동작: 설정 사본을 반환한다.
+
+        set contentOffsetBounds(value: ModelContentOffsetBounds | null) -> void
+            동작: 입력 범위를 공개 설정 메서드로 전달한다.
+
+        get contentOffsetBoundsDirty() -> boolean
+            동작: 경계 변경의 갱신 대기 상태를 반환한다.
+
+        set contentOffsetBoundsDirty(value: boolean) -> void
+            동작: 내부 갱신 대기 상태의 직접 변경을 거부하고 오류를 던진다.
+
         override update(drawArg: UDrawArg, curTime?: number, force: boolean = false) -> void
             인터페이스: drawArg과 curTime은 현재 구현에서 사용하지 않고 연결된 _drawArg를 조회한다. viewSizeOffset이 함수이면 현재 레이어를 this로 하고 루트 tileset을 인수로 호출한다.
 
             처리 기준:
                 갱신 중지, 미초기화, 루트 JSON 미완료, draw argument 누락 또는 바운딩 박스 누락 상태에서는 실행하지 않는다.
-                갱신 주기를 통과하지 못했고 force가 falsy일 때만 다음 검사 시각을 갱신하고 종료한다. force는 이 주기 제한을 우회한다.
-                레이어 박스가 프러스텀 밖이거나 카메라와 레이어 구의 거리가 geometricError × viewSizeOffset × 2를 넘으면, 캐시 길이 또는 활성 요청 수가 0보다 클 때만 표시 타일을 제거하고 다음 검사 시각을 갱신해 종료한다.
+                명시적 force 또는 _contentOffsetBoundsDirty가 truthy이면 주기와 카메라 정지 검사를 우회한다. 둘 다 falsy이고 갱신 주기를 통과하지 못하면 다음 검사 시각을 갱신하고 종료한다.
+                이동 범위를 포함한 판정 박스가 프러스텀 밖이거나 카메라와 판정 구의 거리가 geometricError × viewSizeOffset × 2를 넘으면, 캐시 길이 또는 활성 요청 수가 0보다 클 때만 표시 타일을 제거하고 다음 검사 시각을 갱신해 종료한다.
 
             의존:
                 U3dLayer — 상속받은 초기화와 draw argument 상태 사용; 함수: {isInitialized()}; 속성 읽기: {_drawArg}
@@ -188,9 +216,11 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
 
             동작:
                 갱신 중지와 초기화 선행조건을 검사한다.
-                동적 viewSizeOffset을 계산하고 레이어 공간 범위를 벗어나면 위 캐시·활성 요청 조건에 따라 타일을 제거한다.
+                동적 viewSizeOffset과 카메라 위치를 조회한다.
+                경계 생성을 마친 뒤 _contentOffsetBoundsDirty를 false로 바꾼다.
+                판정 공간 범위를 벗어나면 위 캐시·활성 요청 조건에 따라 타일을 제거한다.
                 카메라 상태가 바뀌지 않았으면 다음 갱신 시각만 갱신하고 종료한다.
-                이전 탐색 callback을 논리적으로 무효화할 새 updateId와 공유 검사 문맥을 만든다. 진행 중인 타일 콘텐츠 작업은 타일별 승계·dispose 정책으로 별도 관리한다.
+                이전 탐색 callback을 논리적으로 무효화할 새 updateId와 같은 이동 경계 문맥을 포함한 공유 검사 문맥을 만든다. 진행 중인 타일 콘텐츠 작업은 타일별 승계·dispose 정책으로 별도 관리한다.
                 각 루트 자식의 로드 목록을 초기화하고 하위 타일 탐색을 시작한다.
                 다음 갱신 시각을 갱신한다.
 
@@ -266,7 +296,7 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
 
             의존:
                 U3dModelLayer — 공통 초기화; 함수: {prototype.initialize.call()}
-                U3dLayer — 상속받은 draw argument와 생성자에서 deferred(self)로 부여한 레이어 완료 처리; 함수: {resolve(), reject()}; 속성 읽기: {_drawArg}
+                U3dLayer — 상속받은 draw argument와 네이티브 ready Promise의 완료 처리; 함수: {_resolveReady(), _rejectReady()}; 속성 읽기: {_drawArg}
                 defined — 필수 설정·응답·바운딩 데이터 존재 여부 판정; 함수: {defined()}
                 UFileLoader — 루트 JSON 요청; 생성자: {new UFileLoader()}; 함수: {setResponseType(), load()}; 속성 쓰기: {crossOrigin}
                 deferred — 초기화 결과 Promise 생성; 함수: {deferred()}
@@ -278,6 +308,8 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
             동작:
                 기반 레이어를 초기화하고 baseUrl과 draw argument를 확인한 뒤 배치 그룹 경로가 정의되었으면 그룹 JSON 요청을 시작한다. 성공 callback은 반환 객체를 자체 _batchGroup에 저장한다.
                 루트 JSON을 요청하고, 응답 callback에서 복제한 JSON으로 U3DTileset을 생성한다.
+                이미 완료한 레이어의 응답 후처리 예외는 로그에 남기고 완료 상태를 유지한다.
+                응답 callback의 처리 예외는 레이어 _rejectReady에 전달한다. 레이어의 공통 완료 인터페이스는 Error를 전달하며, 별도 초기화 결과 Promise의 기존 거부값은 변경하지 않는다.
 
                 응답 callback은 첫 루트 자식의 바운딩 종류로 지리 범위를 정하고 루트 geometricError를 저장한다. 각 루트 자식의 지리 경계로 레이어 높이 범위와 타일 박스·구를 구성하며 _heightOffset이 truthy일 때만 렌더 배율을 환산하여 레이어 박스 Z에 더한다. 이 높이 보정과 레이어 구 계산은 자식별 반복 안에서 수행한다.
                 초기화 완료 상태를 설정하고 강제 갱신한 뒤 반환 Promise를 루트 타일로 resolve한다. self.resolve가 정의되어 있을 때만 레이어 자신을 전달하여 레이어 생성 결과도 resolve한다.
@@ -397,7 +429,7 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
                 U3dQuadTileWork — 대기 중인 형제 작업 비활성화; 함수: {setActive()}
             동작:
                 checkContext를 생략하면 updateId를 포함한 기본 판정 문맥을 만들고 취소된 세대이면 종료하며 필요한 viewBox를 준비한다.
-                isFirst가 truthy이면 월드 구의 프러스텀 교차를 검사하고 교차하지 않을 때 타일을 정리한 뒤 부모 완료 수만 증가시키고 반환한다.
+                isFirst가 truthy이면 checkContext.contentOffsetContext를 반영한 월드 구의 프러스텀 교차를 검사하고 교차하지 않을 때 타일을 정리한 뒤 부모 완료 수만 증가시키고 반환한다.
                 이후 부모 refine 경로별로 타일 요청 Promise를 준비한다.
                 타일 Promise 완료 callback은 이전 세대이면 종료한다. 부모가 BOUND 또는 ADD이면 깊이 1로 판정하여 통과한 타일의 완료 상태가 _END일 때 표시하고 결과 목록을 같은 isFirst로 재귀 탐색한다. 미통과이면 loadList를 undefined로 하고 해당 타일을 표시한 뒤 자식을 정리한다. 두 경우 모두 부모 loadCount를 늘린다.
                 REPLACE 경로는 isFirst=false로 바꾸고 깊이 3의 결과를 재귀 탐색한다. 깊이 판정 실패 시 loadList를 undefined로, complete를 _END로 만든다. 부모 loadCount가 loadList 길이와 같아지면 각 최종 대체 타일 중 _END인 타일을 표시하고, loadList가 undefined인 타일의 자식을 정리하며 parent.parent까지 조상 그룹을 회수한다.
@@ -642,13 +674,14 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
         #isTransform(info: ModelTileTransformInfo) -> boolean
         #transformPoint(vector3: Vector3) -> Vector3Like
         #changeRotation(tile: U3DTileset, rotationQuaternion: THREE.Quaternion) -> void
-        #intersectsSphere(frustum: THREE.Frustum, sphere: THREE.Sphere, geometricError: number) -> boolean
-        #createCheckContext(campos: THREE.Vector3 = this._drawArg.getCameraPosition(), updateId: string | number = this.getUpdateId()) -> TileCheckContext
+        #intersectsSphere(frustum: THREE.Frustum, sphere: THREE.Sphere, geometricError: number, contentOffsetContext: ModelContentOffsetContext | null = null) -> boolean
+            동작:
+        #createCheckContext(campos: THREE.Vector3 = this._drawArg.getCameraPosition(), updateId: string | number = this.getUpdateId(), contentOffsetContext: ModelContentOffsetContext | null = INTERNAL.createContentOffsetContext(this._contentOffsetBounds)) -> TileCheckContext
             의존:
                 U3dLayer — 상속받은 앱·렌더 문맥; 속성 읽기: {_app, _drawArg}
                 UDrawArg — 카메라 위치·프러스텀과 카메라 SSE 분모 조회; 함수: {_drawArg.getCameraPosition(), _camera.getDenominator()}; 속성 읽기: {_drawArg._frustum}
                 U3dApp — renderer draw buffer 높이 조회; 함수: {_app.getDrawBufferHeight()}
-            동작: 새 객체에 updateId, campos와 현재 프러스텀의 같은 참조, draw buffer 높이, 카메라 SSE 분모, _viewSizeOffset과 함수 여부, maximumScreenSpaceError와 그 1/3을 저장한다. 위치·프러스텀을 복제하지 않는다.
+            동작: 새 객체에 updateId, campos와 현재 프러스텀의 같은 참조, draw buffer 높이, 카메라 SSE 분모, _viewSizeOffset과 함수 여부, maximumScreenSpaceError와 그 1/3을 저장한다. 위치·프러스텀을 복제하지 않고 전달받은 contentOffsetContext를 저장한다. 이동 문맥을 생략하면 현재 설정에서 독립 문맥을 생성한다.
 
         #checkTileDetail(tile: U3DTileset, checkContext: TileCheckContext) -> boolean
         #createBox(bondingbox: UGeoBox) -> UBox3
@@ -992,7 +1025,22 @@ viewSizeOffsetFunction 함수 타입 정의
     (tile: import('@U3DTileset').U3DTileset) -> number
         타일별 screen-space error 보정 배수를 반환한다. update()에서는 레이어를 this로 하고 루트를 받으며, INTERNAL.checkTileDetail()에서는 TileCheckContext를 this로 하고 판정 타일을 받는다.
 
+ModelContentOffsetBounds 타입 정의
+    min: Array<number>
+    max: Array<number>
+        0 이동을 포함하는 월드 축별 최소·최대 이동량이다. 두 배열은 각각 길이 3이다.
+
+ModelContentOffsetContext 타입 정의
+    min: THREE.Vector3
+    max: THREE.Vector3
+    center: THREE.Vector3
+    radius: number
+    box: THREE.Box3
+    sphere: THREE.Sphere
+        한 탐색이 소유하는 독립 범위와 재사용 임시 경계이며 원본 경계를 소유하지 않는다.
+
 TileCheckContext 타입 정의
+    contentOffsetContext?: ModelContentOffsetContext | null
     updateId: string | number
     campos: THREE.Vector3
     frustum: UFrustum
@@ -1116,7 +1164,8 @@ U3dModelTilesLayerCO_Content 부분 타입 명세
 
 ```spec
 initialize()와 update() 실행 전에는 setApp()으로 앱, 장면과 draw argument가 연결되어야 한다.
-타일 탐색의 한 updateId 안에서는 #createCheckContext()로 만든 카메라·프러스텀·SSE 문맥을 재귀 탐색 전체가 공유한다.
+타일 탐색의 한 updateId 안에서는 #createCheckContext()로 만든 카메라·프러스텀·SSE·이동 경계 문맥을 재귀 탐색 전체가 공유한다.
+이동 범위는 EPSG:3857 월드 축의 변위이며 절대 좌표가 아니다. 기본 null은 기존 동작이고, 설정은 선택 범위만 확장하여 LRU·ADD/REPLACE·취소 수명을 변경하지 않는다.
 탐색 callback은 updateId로 이전 세대의 장면 연결을 차단하지만, 같은 타일 ID와 sourceUrl의 다운로드·파싱은 _activeTileContentRequests의 기존 상태를 새 세대가 이어받는다.
 아직 WorkProcess 큐에 있는 작업은 최신 세대가 이어받지 않았을 때 제거하고, 시작된 다운로드는 updateId 변경만으로 abort하지 않는다.
 disposeTile(), removeAllTiles(), clear(), refresh()와 dispose()에서 타일이 실제로 불필요해진 경우에만 저장된 최종 requestUrl로 네트워크 취소를 전달한다.

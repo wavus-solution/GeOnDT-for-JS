@@ -21,9 +21,9 @@
             * <mark><strong>BIM</strong></mark> 은 건물을 겉모양만이 아니라 <mark>기둥·벽·배관처럼 건물을 이루는 부품 하나하나 — 이하 <strong>객체</strong> — 의 정보까지 담아 만든 3D 데이터</mark>입니다. (표준 파일 형식 : IFC)<br>
             * IFC 파일은 웹 브라우저가 바로 그리기에는 무겁기 때문에, <mark>서버에 레이어를 등록할 때 웹용 3D 형식인 OBJ 로 미리 변환</mark>됩니다. 이 레이어는 그 <strong>변환 결과(OBJ)와 객체 정보(메타데이터)</strong>를 함께 사용합니다.<br>
             * 그래서 건물을 통째로 보여주는 데서 그치지 않고, <mark><strong>객체 하나하나를 찾아 강조하거나 숨기는 등 개별 제어</strong></mark>할 수 있는 것이 특징입니다.<br>
-            * 레이어는 <mark><strong>app.createModelBIMObjLayer(opt)</strong></mark> 함수로 생성하며, 필수 옵션이 누락되면 레이어가 생성되지 않고 <mark>undefined</mark> 가 반환됩니다.
+            * 레이어는 <mark><strong>app.createBIMObjModelLayer(opt)</strong></mark> 함수로 생성하며, 옵션이 없거나 같은 이름의 레이어가 이미 있으면 <mark>null</mark>을 반환합니다.
             <div class="explane_api">
-                app.<span class="api_name">createModelBIMObjLayer</span>(<span class="param_name">opt</span>);
+                app.<span class="api_name">createBIMObjModelLayer</span>(<span class="param_name">opt</span>);
                 <div class="explane_api_param">
                     <span class="param_name">opt.layername</span>
                     <span class="param_type">string</span> : BIM Object 레이어 고유 이름 <span class="important_tg">*필수 입력</span><br>
@@ -45,7 +45,7 @@
             </div>
         </div>
         <div class="explane1">
-            * 생성한 레이어는 <mark><strong>.ready().then()</strong></mark> 안에서 <mark><strong>app.showLayer(layername, true)</strong></mark> 로 가시화합니다.
+            * 생성한 레이어는 <mark><strong>layer.ready.then(...)</strong></mark> 안에서 <mark><strong>app.showLayer(layername, true)</strong></mark> 로 가시화합니다.
         </div>
         <label class="code-label"> BIM Object 레이어 생성 </label>
         <div class="code" id="text1-code"></div>
@@ -59,7 +59,7 @@
                 autoHeight: true,                     // 지형 고도 자동 맞춤
             };
 
-            const bimLayer = app.createModelBIMObjLayer(opt);
+            const bimLayer = app.createBIMObjModelLayer(opt);
 
             // 로딩이 끝난 후 실행
             bimLayer.ready.then(() => {

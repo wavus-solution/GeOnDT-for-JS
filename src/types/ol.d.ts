@@ -1,12 +1,12 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { KeyValue } from "./global.js";
+import type { Double_Array, KeyValue, Quad_Array, Triple_Array } from "./global.js";
 
 /**
      * OpenLayers Geometry 인터페이스
@@ -30,13 +30,21 @@ import type { KeyValue } from "./global.js";
          */
         getFlatCoordinates: () => Array<number>;
         /**
-         * 1차원 좌표 설정
+         * 레이아웃과 1차원 좌표·링 경계를 설정합니다.
          */
-        setFlatCoordinates: (layout: string, ary: Array<number>, ends?: Array<number>) => void;
+        setFlatCoordinates: (layout: string, ary: Array<number>, ends?: Array<number> | Double_Array<number>) => void;
         /**
          * 레이아웃(`XY`,`XYZ` 등) 반환
          */
         getLayout: () => string;
+        /**
+         * 선 목록 또는 다각형의 링 경계 인덱스입니다.
+         */
+        getEnds?: () => Array<number>;
+        /**
+         * 복합 면의 폴리곤별 링 경계 인덱스입니다.
+         */
+        getEndss?: () => Double_Array<number>;
         /**
          * 좌표 설정 (MultiPolygon은 4중 배열)
          */
@@ -44,7 +52,23 @@ import type { KeyValue } from "./global.js";
         /**
          * 좌표 반환
          */
-        getCoordinates: (...args: Array<any>) => Array<number> | Array<Array<number>> | Array<Array<Array<number>>>;
+        getCoordinates: () => (Array<number> | Double_Array<number> | Triple_Array<number> | Quad_Array<number>);
+        /**
+         * 지도 좌표에서 형상 전체를 이동합니다.
+         */
+        translate: (arg0: number, arg1: number) => void;
+        /**
+         * 기준점을 중심으로 라디안만큼 회전합니다.
+         */
+        rotate: (arg0: number, arg1: Array<number>) => void;
+        /**
+         * 기준점을 중심으로 형상 크기를 변경합니다.
+         */
+        scale: (arg0: number, arg1: number | undefined, arg2: Array<number> | undefined) => void;
+        /**
+         * 현재 형상 변경 번호입니다.
+         */
+        getRevision: () => number;
         /**
          * (LineString) t-위치 좌표
          */
@@ -88,9 +112,21 @@ import type { KeyValue } from "./global.js";
          */
         setStyle: (style: OLStyle | null) => void;
         /**
+         * 현재 피처 스타일입니다.
+         */
+        getStyle: () => (OLStyle | Array<OLStyle> | Function | undefined);
+        /**
          * Feature Geometry 설정
          */
         setGeometry: (geometry: OLGeometry | undefined) => void;
+        /**
+         * 형상 속성 이름입니다.
+         */
+        getGeometryName: () => string;
+        /**
+         * 속성을 제거합니다.
+         */
+        unset: (key: string, silent?: boolean) => void;
         /**
          * Geometry 반환
          */
@@ -158,9 +194,13 @@ import type { KeyValue } from "./global.js";
          */
         _ishighLight?: boolean;
         /**
+         * 전역 기준값과 원본의 명시 스타일 편집을 구분하는 내부 표식입니다. <hidden>
+         */
+        _isSetStyle?: boolean;
+        /**
          * 스타일 백업 <hidden>
          */
-        _style?: OLStyle;
+        _style?: OLStyle | any;
         /**
          * 라벨 POI <hidden>
          */
@@ -217,6 +257,18 @@ import type { KeyValue } from "./global.js";
      * OpenLayers Image 스타일 인터페이스
      */
     type OLImageStyle = {
+        /**
+         * 원형 이미지의 반지름입니다.
+         */
+        getRadius?: () => number;
+        /**
+         * 원형 이미지의 채움입니다.
+         */
+        getFill?: () => (OLFill | null);
+        /**
+         * 원형 이미지의 외곽선입니다.
+         */
+        getStroke?: () => (OLStroke | null);
         getSrc?: () => (string | undefined);
         getScale?: () => (number | undefined);
         getSize?: () => (Array<number> | undefined);
@@ -237,6 +289,22 @@ import type { KeyValue } from "./global.js";
      * OpenLayers Style 인터페이스
      */
     type OLStyle = {
+        /**
+         * 지형 벡터의 표시 여부를 전달하는 확장 속성입니다.
+         */
+        visible?: boolean;
+        /**
+         * 채움 스타일을 설정합니다.
+         */
+        setFill: (arg0: OLFill) => void;
+        /**
+         * 외곽선 스타일을 설정합니다.
+         */
+        setStroke: (arg0: OLStroke) => void;
+        /**
+         * 스타일을 복제합니다.
+         */
+        clone: () => OLStyle;
         /**
          * Fill 반환
          */

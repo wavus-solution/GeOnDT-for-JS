@@ -29,6 +29,37 @@
             </label>
         </section>
 
+        <section class="group-boundary-section" aria-labelledby="group-boundary-banked-heading">
+            <h3 id="group-boundary-banked-heading">10대 알약 경로 추종 · 빨간 경계</h3>
+            <p class="panel-description">직선 1,400m · 선회 반경 600m · 간격 65m · 기준 고도 950m. 기체별 고도 차이와 서비스의 경계 설정으로 직선·선회 전환 시 평면 경계의 안정성을 확인합니다.</p>
+            <button id="group-boundary-banked-focus" class="group-boundary-action" type="button">일렬 대형 가까이 보기</button>
+            <label class="group-boundary-option-row" for="group-boundary-banked-direction">
+                <span>선회 방향</span>
+                <select id="group-boundary-banked-direction">
+                    <option value="clockwise">우선회 (시계 방향)</option>
+                    <option value="counterclockwise">좌선회 (반시계 방향)</option>
+                </select>
+            </label>
+            <label class="group-boundary-option-row" for="group-boundary-banked-roll">
+                <span>기체별 roll 적용 (최대 30°)</span>
+                <input id="group-boundary-banked-roll" type="checkbox" checked>
+            </label>
+            <label class="group-boundary-option-row" for="group-boundary-banked-altitude">
+                <span>기체별 고도 차이 적용 (-4~4m)</span>
+                <input id="group-boundary-banked-altitude" type="checkbox" checked>
+            </label>
+            <dl class="group-boundary-state-list">
+                <div><dt>roll 범위</dt><dd id="group-boundary-banked-roll-value">0~30°</dd></div>
+                <div><dt>직선 / 선회</dt><dd id="group-boundary-banked-segments">5 / 5</dd></div>
+            </dl>
+            <dl class="group-boundary-state-list group-boundary-diagnostics">
+                <div><dt>최근 경계 수직 크기</dt><dd id="group-boundary-banked-span">0m</dd></div>
+                <div><dt>최대 수직 크기</dt><dd id="group-boundary-banked-max-span">0m</dd></div>
+                <div><dt>경계 갱신 오류 횟수</dt><dd id="group-boundary-banked-errors">0</dd></div>
+            </dl>
+            <p class="panel-description" id="group-boundary-banked-last-error">기록된 오류 없음</p>
+        </section>
+
         <section class="group-boundary-section" aria-labelledby="group-boundary-state-heading" data-api-help="group.render-update">
             <h3 id="group-boundary-state-heading">현재 상태</h3>
             <dl class="group-boundary-state-list">

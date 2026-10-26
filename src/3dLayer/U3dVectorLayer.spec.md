@@ -11,7 +11,7 @@
 ## 3. 정규 자연어 수도코드
 
 ```spec
-U3dVectorLayerCO extends U3dLayerCO 부분 타입 명세
+U3dVectorLayerCO_Content 부분 타입 명세
     이 명세에서 사용하는 필드:
         uselight?: boolean = false
             조명 사용 저장값이며 이 단위에서 재질에 직접 적용하지 않는다.
@@ -26,10 +26,16 @@ U3dVectorLayerCO extends U3dLayerCO 부분 타입 명세
         scaleRatio?: number = 1
             도형 높이 축척 비율
 
-U3dVectorLayerEMI extends U3dLayerEMI 부분 타입 명세
+U3dVectorLayerCO 타입 정의
+    U3dLayerCO & U3dVectorLayerCO_Content 별칭
+
+U3dVectorLayerEMI_Content 부분 타입 명세
     이 명세에서 사용하는 필드:
         SAVE, LOAD: string
             저장 결과와 복원 항목 처리 결과의 이벤트 이름
+
+U3dVectorLayerEMI 타입 정의
+    U3dLayerEMI & U3dVectorLayerEMI_Content 별칭
 
 U3dVectorTileIndexState 부분 타입 명세
     이 명세에서 사용하는 필드:
@@ -51,6 +57,12 @@ U3dVectorLayerEMD: U3dVectorLayerEMI
 U3dVectorLayer extends U3dLayer 클래스 정의
     의존: U3dLayer — 장면·그룹·타일 상태와 레이어 수명 관리; 상속: {U3dLayer}
 
+    #geometrySubscriptions: Map<U3dGeometry, {change: EventCallBack | undefined, end: EventCallBack | undefined, dispose: EventCallBack}> = 빈 Map
+        등록마다 새 항목을 만들어 레이어 자체 콜백만 해제하고 이전 갱신 결과를 식별한다.
+    #disposing: boolean = false
+        영구 해제 진입·재진입 차단
+    #updating: boolean = false
+        사용자 콜백의 중첩 update 차단
     static EVENT: U3dVectorLayerEMI = U3dVectorLayerEMD
         이벤트 상수 객체와 같은 참조
     autoHeight: boolean = false
@@ -83,14 +95,15 @@ U3dVectorLayer extends U3dLayer 클래스 정의
             defaultValue — undefined일 때만 기본값 선택; 함수: {defaultValue()}
             UMercator — 동적 색인용 투영 계산기; 생성자: {new UMercator()}
             UCheckTime — 갱신 간격 관리; 생성자: {new UCheckTime()}
-            DeferredResolveFunc — 존재할 때 레이어 생성 완료 전달; 콜백: {resolve()}
+            U3dLayer — 초기화 완료 통지; 함수: {_resolveReady()}
         동작:
             opt로 기반 생성자를 실행하고 _type과 _tileName을 USER로 설정한다.
             uselight와 dynamicUpdate는 undefined일 때 false, scaleRatio는 undefined일 때 1을 저장한다.
             autoHeight와 defaultZoffset은 falsy이면 각각 false와 0을 저장하고 renderOffset은 null 또는 undefined이면 0을 저장한다.
             도형·갱신·양방향 색인·자동 높이 목록을 빈 Map으로, _workBuffer를 빈 Set으로 초기화한다.
             dynamicUpdate가 truthy이면 UMercator를 생성하고 UCheckTime은 조건 없이 생성한다.
-            resolve가 존재하면 현재 인스턴스를 인수로 멤버 호출한다.
+            기반 BEFORE_DISPOSE에 자체 정리 리스너를 먼저 등록한다. 기반 이벤트의 역순 전달에 따라 사용자 알림 뒤 clear를 실행하되 #disposing일 때만 정리한다.
+            _resolveReady를 호출하여 ready를 현재 인스턴스로 완료한다.
 
     getUseLight() -> boolean
         동작: _uselight를 반환한다.
@@ -100,24 +113,28 @@ U3dVectorLayer extends U3dLayer 클래스 정의
 
     addGeometry(geom: U3dGeometry) -> void
         의존:
-            U3dLayer — 렌더 그룹과 그리기 인수; 속성 읽기: {_group, _drawArg}
+            U3dLayer — 그룹·그리기 인수; 속성 읽기: {_group, _drawArg}
             U3dObject — 레이어 이름; 함수: {getName()}
-            U3dGeometry — 종류 판정·변경 이벤트·레이어 연결; 함수: {addEventListener(), setLayer()}
-            U3dPathGeometry — 경로 도형 판정과 완료 이벤트; 함수: {once()}
-            도형 — 지원하는 기능의 동적 연결; 함수: {setScaleRatio(), setRenderOffset(), setLayerName(), initAnimation()}; 속성 읽기: {animation, updateFunction, position, uuid}
+            U3dGeometry — 종류·레이어 소유 판정; 함수: {getLayer(), setLayer()}
+            U3dPathGeometry — 경로 종류 판정과 완료 알림; 함수: {addEventListener(), removeEventListener()}
+            도형 — 선택적 연결; 함수: {setScaleRatio(), setRenderOffset(), setLayerName(), initAnimation()}; 속성 읽기: {animation, updateFunction, position, uuid}
         동작:
-            축척이 1이 아니고 도형이 setScaleRatio를 제공하면 현재 비율을 전달한다.
-            렌더 오프셋이 truthy이고 도형이 setRenderOffset을 제공하면 현재 오프셋을 전달한다.
-            UUID로 _geomList에 보관하고 _group에 추가한다.
-            U3dGeometry이면서 U3dPathGeometry가 아니면 change 이벤트에 현재 인스턴스를 바인딩한 변환 처리를 등록한다.
-            setLayerName이 있으면 레이어 이름을 전달하고 setLayer로 현재 레이어를 연결한다.
-            animation이 truthy이고 _drawArg가 있으면 initAnimation을 선택적으로 실행한다.
+            geom이 없거나 레이어가 해제·해제 중이거나 도형이 영구 해제되었으면 경고하고 종료한다.
+            같은 UUID에 같은 객체가 등록되어 있으면 종료한다.
+            다른 U3dVectorLayer가 소유한 도형이면 이전 레이어의 removeGeometry를 실행한다.
+            이전 제거 알림에서 다른 소유자가 설정되거나 현재 레이어·도형이 해제되었으면 종료한다.
+            기존 축척·렌더 오프셋의 선택적 적용을 수행한다.
+            setter 실행 뒤 레이어가 해제·해제 중이거나 도형이 영구 해제되었으면 등록하지 않고 종료한다.
+            _geomList에 보관하고 setLayer로 소유자를 먼저 연결하며 자체 구독을 만든 뒤 그룹에 추가한다.
+            added 콜백 뒤 현재 등록이 아니면 종료한다.
+            레이어 이름을 연결하고 animation·_drawArg가 있으면 initAnimation을 선택적으로 실행한다.
+            콜백 뒤 현재 등록이 아니면 종료한다.
             동적 갱신이 켜져 있고 투영 계산기가 존재하면:
-                updateFunction이 없으면 경로 도형의 end 이벤트에 색인 처리를 바인딩한다.
-                updateFunction이 없고 x와 y가 모두 0이면 종료하여 아래 자동 높이 등록도 건너뛴다.
-                updateFunction이 없고 원점이 아니면 색인에 등록하고 도형을 숨긴다.
+                updateFunction이 없고 경로 도형이면 end에 자체 콜백을 등록하고 구독 항목에 보관한다. end는 자기 구독을 해제한 뒤 현재 등록일 때만 색인에 연결한다.
+                updateFunction이 없고 x·y가 모두 0이면 종료하여 자동 높이도 건너뛴다.
+                updateFunction이 없고 원점이 아니면 색인을 등록하고 숨긴다.
                 updateFunction이 있으면 _updateGeomList에 보관한다.
-            autoHeight가 truthy이면 자동 높이에 등록한다.
+            autoHeight가 truthy이면 자동 높이를 적용한다.
 
     getGeometries() -> IterableIterator<U3dGeometry>
         동작: _geomList.values()의 실시간 반복자를 반환한다.
@@ -139,48 +156,55 @@ U3dVectorLayer extends U3dLayer 클래스 정의
             UGroup — 도형 배치; 함수: {clear(), add()}
             도형 — 라벨 표시 조건; 함수: {getLabel(), getShowLabel()}; 속성 읽기: {visible}
         동작:
+            레이어가 해제·해제 중이면 종료한다.
             _visible과 show가 같으면 종료한다.
-            _visible을 저장하고 show가 truthy이면 갱신을 실행한다.
-            _visible이 false이면 그룹을 비우고 등록 도형의 라벨을 숨긴다.
-            그 외에는 모든 등록 도형을 그룹에 넣고 visible인 도형의 라벨은 getShowLabel이 있으면 그 결과, 없으면 show로 표시한다.
+            _visible에 show를 저장하고 show가 truthy이면 갱신한다.
+            _visible이 false인 경우:
+                그룹을 비우고 등록 도형의 라벨을 숨긴다.
+            _visible이 false가 아닌 경우:
+                각 도형의 현재 등록을 확인하여 유효하지 않으면 건너뛴다.
+                유효한 도형만 그룹에 넣고 visible인 도형의 라벨은 getShowLabel이 있으면 그 결과, 없으면 show로 표시한다.
 
     removeGeometry(geom: U3dGeometry) -> void
-        의존:
-            U3dLayer — 그룹 접근; 속성 읽기: {_group}
-            UGroup — 도형 분리; 함수: {remove()}
-            도형 — 레이어 연결 해제와 이벤트; 함수: {setLayerName(), setLayer(), dispatchEvent()}
+        의존: U3dGeometry — 등록 해제 알림; 함수: {dispatchEvent()}
         동작:
-            geom이 falsy이면 종료한다.
-            UUID를 등록 목록에서 삭제하고 그룹에서 분리한 뒤 지원하는 레이어 이름·레이어 연결을 undefined로 바꾼다.
-            geom이 truthy이고 _dynamicUpdate가 truthy이면 타일 색인을 제거한다.
-            geom이 truthy이고 autoHeight가 truthy이면 자동 높이 등록을 제거한다.
-            도형에 BEFORE_DISPOSE와 DISPOSE를 순서대로 발생시킨다. 자원 dispose는 하지 않는다.
-            geom이 truthy이면 위 정리 후 갱신한다.
-            _updateGeomList에서는 삭제하지 않는다. [확인 Q-001]
+            geom이 없거나 현재 레이어의 등록이 아니면 종료한다.
+            현재 등록은 갱신·자체 구독·소유 참조·타일·자동 높이·그룹에서 분리한다. 재질·텍스처·형상과 사용자 구독은 보존한다.
+            도형에 BEFORE_DISPOSE와 DISPOSE를 순서대로 알리고 레이어를 갱신한다.
 
     override update() -> void
         의존:
-            U3dLayer — 기반 갱신과 표시 상태; 함수: {update()}; 속성 읽기: {_visible}
-            UEventDispatcher — 갱신 이벤트; 함수: {dispatchEvent()}
-            UCheckTime — 갱신 시점과 다음 간격; 함수: {isUpdate(), updateTime()}
-            도형 — 표시 여부 계산 확장 지점; 콜백: {updateFunction()}
+            U3dLayer — 기반 갱신; 함수: {update()}
+            UCheckTime — 기존 갱신 간격; 함수: {isUpdate(), updateTime()}
+            UEventDispatcher — UPDATE 알림; 함수: {dispatchEvent()}
+            도형 — 사용자 갱신; 콜백: {updateFunction()}
         동작:
-            레이어가 보이지 않거나 _updateGeomList가 비었으면 종료한다.
-            isUpdate가 true이면 UPDATE 이벤트를 발생시키고 상위 update를 인수 없이 호출한다.
-                갱신 목록의 각 도형에 updateFunction이 있으면 현재 레이어를 인수로 도형의 멤버 함수로 호출한다. 제거 후 남은 목록도 순회 대상이다. [확인 Q-001]
-                _visible이 truthy이고 geom.updateFunction이 truthy이면 콜백 결과로 도형·라벨·그룹 표시를 반영한다.
-            위 시간 조건과 무관하게 조기 종료하지 않은 정상 경로의 끝에서 updateTime(20)을 호출한다.
-            이벤트·사용자 콜백 예외는 잡지 않으므로 뒤의 처리와 updateTime도 실행되지 않는다.
+            레이어가 해제·해제 중·갱신 중이거나 비가시이면 종료한다.
+            갱신 목록이 비었으면 종료한다.
+            #updating=true로 설정하고 try를 실행한다.
+            isUpdate가 true인 경우:
+                UPDATE를 전달하고 super.update를 호출한다.
+                _updateGeomList 값의 배열 스냅샷을 순회한다.
+                현재 등록이 아닌 도형은 잔여 등록을 분리하고 다음으로 넘어간다.
+                등록의 구독 항목을 보관한다.
+                geom.updateFunction이 truthy인 경우:
+                    도형을 this로, 현재 레이어를 인수로 updateFunction을 호출한다.
+                    콜백 뒤 구독 항목이 바뀌면 이전 결과를 버린다. 동일 등록일 때만 결과로 표시를 반영한다.
+            isUpdate 결과와 관계없이 정상 경로 마지막에 updateTime(20)을 호출해 기존 시간 판정을 유지한다.
+            finally에서 #updating=false로 복원하며 사용자 예외를 삼키지 않는다.
 
     setDynamicUpdate(val: boolean) -> void
         의존: UMercator — 투영 계산기 초기화; 생성자: {new UMercator()}
         동작:
-            _dynamicUpdate를 저장하고 val이 falsy이면 종료한다. 기존 색인·표시를 초기화하지 않는다.
-            _mercator가 없으면 새 UMercator를 _mercator에 저장한다.
-            기존 도형의 updateFunction이 있으면 갱신 목록에 추가한다.
-            없는 도형은 이미 색인이 있거나 x와 y가 모두 0이면 건너뛴다.
-            val이 truthy이면 위에서 건너뛰지 않은 도형에 색인을 생성한다.
-            이미 등록된 도형을 즉시 숨기지 않는다.
+            _dynamicUpdate에 val을 저장한다.
+            val이 falsy이면 종료한다.
+            val이 truthy인 경우:
+                _mercator가 falsy이면 새 UMercator를 _mercator에 저장한다.
+                각 도형이 현재 유효한 등록인지 확인하고 아니면 건너뛴다.
+                updateFunction이 있으면 갱신 목록에 추가한다.
+                updateFunction이 없는 도형은 이미 색인이 있거나 x·y가 모두 0이면 건너뛴다.
+                위에서 건너뛰지 않은 도형의 타일 색인을 생성한다.
+                등록된 도형을 즉시 숨기거나 기존 색인을 초기화하지 않는다.
 
     override addTileFromScene(tile: U3dQuadTile) -> void
         의존:
@@ -217,21 +241,17 @@ U3dVectorLayer extends U3dLayer 클래스 정의
 
     clear() -> void
         의존:
+            UDEF — 소유 자원 해제; 함수: {disposeObject3D()}
             defined — 라벨 존재 판정; 함수: {defined()}
-            UDEF — 도형 자원 해제 진입점; 정적 함수: {disposeObject3D()}
-            도형 — 연결 해제·라벨 접근·이벤트; 함수: {setLayerName(), setLayer(), getLabel(), dispatchEvent()}
-            라벨 — 자원 해제와 부모 분리; 함수: {dispose()}
-            Object3D — 라벨 분리; 함수: {remove()}
-            U3dLayer — 그룹 접근; 속성 읽기: {_group}
-            UGroup — 그룹 비우기; 함수: {clear()}
+            도형 — 연결 해제와 알림; 함수: {setLayerName(), setLayer(), getLabel(), dispatchEvent()}
         동작:
-            등록된 도형마다 disposeObject3D로 해제하며 전달한 콜백은 처리 대상의 레이어 연결을 해제한다.
-            _dynamicUpdate가 truthy이면 색인을 제거한다.
-            autoHeight가 truthy이면 자동 높이 등록을 해제한다.
-            라벨이 있으면 dispose하고 부모가 있으면 분리한다.
-            도형에 BEFORE_DISPOSE·DISPOSE 이벤트를 이 순서로 발생시킨다.
-            기존 _geomList를 비운 뒤 새 Map으로 교체하고 _updateGeomList·그룹을 비운 다음 갱신한다.
-            _workBuffer를 별도로 비우지 않으며 조건이 꺼진 색인·자동 높이 정리도 실행하지 않는다.
+            호출 시점 도형 배열을 복사하여 모든 등록을 먼저 분리한다.
+            각 도형을 disposeObject3D로 해제한다. 공통 정리 callback은 도형·자식의 레이어 이름과 소유 연결을 끊는다.
+            _dynamicUpdate가 truthy이면 타일 색인 정리를 다시 요청한다.
+            autoHeight가 truthy이면 높이 정리를 다시 요청한다. 이미 분리한 항목은 무동작이다.
+            라벨이 있으면 해제하고 부모에서 분리한다.
+            각 도형에 BEFORE_DISPOSE와 DISPOSE를 알린다.
+            남은 목록·그룹을 일괄 clear하지 않아 사용자 콜백의 새 도형 등록을 보존하고 갱신한다.
 
     override updateDetail(tile: U3dQuadTile, opt?: object) -> void
         동작: 빈 본문으로 아무 처리 없이 종료한다.
@@ -279,17 +299,44 @@ U3dVectorLayer extends U3dLayer 클래스 정의
         동작: 등록 순서대로 이름을 비교하여 첫 일치 도형을 반환하고 없으면 undefined를 반환한다.
 
     removeAllGeometries() -> void
-        의존:
-            도형 — 레이어 연결 해제·이벤트; 함수: {setLayerName(), setLayer(), dispatchEvent()}
-            U3dLayer — 그룹 접근; 속성 읽기: {_group}
-            UGroup — 그룹 비우기; 함수: {clear()}
+        의존: 도형 — 등록 해제 알림; 함수: {dispatchEvent()}
         동작:
-            등록 도형마다 지원하는 레이어 이름·레이어 연결을 해제한다.
-            _dynamicUpdate가 truthy이면 색인을 제거한다.
-            autoHeight가 truthy이면 자동 높이 등록을 해제한다.
-            도형에 BEFORE_DISPOSE·DISPOSE를 순서대로 발생시키되 도형 자원은 직접 해제하지 않는다.
-            _geomList와 그룹을 비운 뒤 갱신한다.
-            _updateGeomList는 비우지 않는다. [확인 Q-001]
+            호출 시점 도형 배열을 복사하고 모든 등록을 먼저 분리한다.
+            각 도형에 BEFORE_DISPOSE·DISPOSE를 알린다. 자원과 사용자 구독은 보존한다.
+            알림에서 새로 등록한 항목을 일괄 clear하지 않고 갱신한다.
+
+    override dispose() -> Promise<boolean>
+        의존: U3dLayer — 기반 해제와 수명 알림; 함수: {dispose()}
+        동작:
+            이미 해제·해제 중이면 true로 완료된 Promise를 반환한다.
+            #disposing=true로 설정하고 super.dispose를 호출하여 결과를 반환한다.
+            기반 BEFORE_DISPOSE에서 사용자 콜백 뒤 자체 리스너가 clear를 실행하고, 그 뒤 부모 Scene이 해제된다.
+            finally에서 #disposing=false로 복원한다. 해제 중 새 도형 등록·갱신·표시는 차단한다.
+
+    #isGeometryDisposed(geom: U3dGeometry) -> boolean
+        동작:
+            geom._disposed가 명시적으로 true일 때만 true를 반환한다. 숨김·sleeping·재질 없음은 영구 해제로 판정하지 않는다.
+
+    #isRegisteredGeometry(mesh: Object3D) -> boolean
+        동작:
+            레이어가 해제·해제 중이 아니고 _geomList[mesh.uuid]가 같은 도형이며 영구 해제가 아닐 때만 true를 반환한다.
+
+    #subscribeGeometry(geom: U3dGeometry) -> void
+        의존:
+            U3dGeometry — 도형 종류와 자체 구독; 함수: {addEventListener()}
+        동작:
+            U3dGeometry이면서 경로 도형이 아니면 #vertexChanged를 현재 레이어에 bind한 change 콜백을 만든다.
+            dispose 콜백은 영구 해제 표식이 true일 때만 등록을 분리한다. 등록 해제 알림만으로 도형을 영구 해제하지 않는다.
+            change·end=undefined·dispose 콜백을 새 항목으로 보관하고 change가 있을 때 change를, dispose는 항상 등록한다.
+
+    #detachGeometry(geom: U3dGeometry) -> boolean
+        의존: 도형 — 자체 구독·소유 연결; 함수: {removeEventListener(), getLayer(), setLayerName(), setLayer()}
+        동작:
+            UUID의 현재 객체가 입력과 다르면 false를 반환한다.
+            _geomList·_updateGeomList·자체 구독 항목을 삭제한다.
+            저장한 change·dispose·end 함수 참조만 해제하여 사용자 리스너를 보존한다.
+            getLayer 결과가 현재 레이어이면 이름과 layer를 undefined로 바꾼다.
+            타일·자동 높이 참조를 정리하고 그룹에서 분리한 뒤 true를 반환한다. 재질·텍스처·형상은 해제하지 않는다.
 
     #setVisibleGeometry(geom: Object3D, isShow: boolean) -> void
         의존:
@@ -297,6 +344,7 @@ U3dVectorLayer extends U3dLayer 클래스 정의
             U3dLayer — 그룹 접근; 속성 읽기: {_group}
             UGroup — 그룹 구성 반영; 함수: {add(), remove()}; 속성 읽기: {children}
         동작:
+            현재 등록이 아니면 종료한다.
             getLabel이 있으면 숨김은 false, 표시 요청은 getShowLabel이 있을 때 그 반환값을 라벨 visible에 반영한다.
             geom이 falsy이거나 도형 visible이 isShow와 같으면 종료한다. 라벨 처리는 이 판정보다 먼저 실행된다.
             도형 visible을 바꾸고 숨김이면 현재 그룹 구성원을 제거하며 표시이면 그룹에 없는 도형을 추가한다.
@@ -315,7 +363,8 @@ U3dVectorLayer extends U3dLayer 클래스 정의
             _drawArg가 truthy인 진행 경로에서 동적 갱신이 켜져 있고 UUID 색인이 없으면 색인을 생성한다.
 
     #vertexChanged(e: Event & {data: Object3D | undefined}) -> void
-        동작: e.data가 truthy이면 해당 도형을 변환한다.
+        동작:
+            e.data가 있고 현재 유효한 등록일 때만 변환한다.
 
     #removeTileIndex(object: Object3D) -> void
     #setTileIndex(object: Object3D | {type: string, data: Object3D}) -> void
@@ -323,10 +372,13 @@ U3dVectorLayer extends U3dLayer 클래스 정의
             defined — 그리기 인수·입력 존재 판정; 함수: {defined()}
             U3dLayer — 그리기 인수; 속성 읽기: {_drawArg}
         동작:
-            투영 계산기가 없거나 그리기 인수가 정의되지 않았으면 종료한다.
-            data가 정의된 이벤트 입력이면 data의 position·uuid, 그 외에는 입력 자체의 position·uuid를 사용한다.
-            위치나 UUID가 정의되지 않았거나 현재 _drawArg가 falsy이면 종료한다.
-            x와 y가 모두 0이면 종료한다.
+            _mercator가 falsy이거나 _drawArg가 정의되지 않았으면 종료한다.
+            _mercator가 truthy이고 _drawArg가 정의된 경우:
+                data가 정의된 이벤트 입력이면 data의 position·uuid, 그 외에는 입력 자체의 position·uuid를 사용한다.
+                position이나 id가 정의되지 않으면 종료한다.
+                현재 _drawArg가 falsy이면 종료한다.
+                _drawArg가 존재하는 경우:
+                    position.x와 position.y가 모두 0이면 종료한다.
     #applyAutoHeight(mesh: Object3D) -> void
         의존:
             U3dLayer — 앱 참조; 속성 읽기: {_app}

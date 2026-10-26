@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -9,6 +9,7 @@ import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/ty
 import type { U3dApp } from "../app/U3dApp.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
 import type { UScene } from "../core/UScene.js";
+import type { UFastTerrainStamp } from "./UFastTerrainStamp.js";
 import type { UFrustumHelperLoadOption, UFrustumHelperSaveOption, UFrustumHelperTerrainStampSnapshot } from "./UFrustumHelper.js";
 import type { UTerrainStamp } from "./UTerrainStamp.js";
 import type { ColorLike } from "../types/global.js";
@@ -29,6 +30,10 @@ import type { ColorLike } from "../types/global.js";
  * 이 정책은 이 Helper가 생성하는 지면 형상에만 적용하며 공용 UTerrainStamp나 load()로 복원한 Stamp에는 적용하지 않습니다.
  * 최초 표시와 재표시는 여러 Helper 사이에서 분산되므로 몇 프레임 뒤에 나타날 수 있습니다.
  * dispose()는 즉시 갱신·출력을 중지하고 소유 렌더 자원의 실제 반납은 나누어 수행합니다.
+ * useFastStamp가 true이어도 기존 지면 접점·대표선·옆면 계산을 유지합니다.
+ * 지면 채움과 외곽선을 전용 도장 한 개에 전달하여 앱의 공유 빠른 도장 매니저를 통해 표시합니다.
+ * Fast는 색상·투명도와 두 색 그라데이션을 지원합니다. 이미지·mask·대상 레이어 요청은 기능별 한 번 경고하고 무시하며 기존 backend로 자동 전환하지 않습니다.
+ * 이 선택은 생성 후 고정되며, load()로 복원한 독립 Stamp는 기존 UTerrainStamp 계약을 유지합니다.
  *
  * @extends {LineSegments2}
  *
@@ -39,14 +44,30 @@ import type { ColorLike } from "../types/global.js";
  *     opacity: 0.6
  * });
  * scene.add(helper);
+ *
+ * @private
  */
 declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
+    /**
+     * 생성 옵션의 대소문자 호환 표기를 정규화합니다.
+     *
+     * @type {Array<string>}
+     *
+     * @ignore
+     */
+    static OPT_KEYS: Array<string>;
     /**
      * @param {import('three').Frustum} frustum
      * @param {UFrustumTerrainProjectionHelperCO} [options={}]
      */
     constructor(frustum?: three.Frustum, options?: UFrustumTerrainProjectionHelperCO);
     _disposed: boolean;
+    /**
+     * 생성 시 선택한 실시간 지면 Stamp backend를 반환합니다. 실행 중에는 변경할 수 없습니다.
+     *
+     * @returns {boolean} 색상·투명도·두 색 그라데이션을 지원하는 빠른 backend 사용 여부
+     */
+    get useFastStamp(): boolean;
     frustum: Frustum;
     color: Color;
     drawArg: UDrawArg;
@@ -350,28 +371,30 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
      */
     setOpacity(opacity: number): this;
     /**
-     * terrain stamp fill의 그라데이션 두 번째 색상을 변경한다.
-     * texture 옵션이 있으면 shader에서는 texture가 우선되어 gradient가 적용되지 않는다.
+     * terrain stamp fill의 그라데이션 두 번째 색상을 변경합니다.
+     * useFastStamp도 지원하며 마지막 지면 형상의 색만 갱신합니다. undefined이면 단색으로 복귀합니다.
+     * 기존 backend에서 texture 옵션이 있으면 texture가 우선되어 gradient가 적용되지 않습니다.
      *
      * @param {import('three').Color|string|number|undefined} color
      * @returns {this}
      */
     setGradientColor(color: three.Color | string | number | undefined): this;
     /**
-     * terrain stamp fill의 그라데이션 두 번째 색상을 반환한다.
+     * terrain stamp fill의 그라데이션 두 번째 색상을 반환합니다.
      *
      * @returns {import('three').Color|string|number|undefined}
      */
     getGradientColor(): three.Color | string | number | undefined;
     /**
-     * terrain stamp fill의 그라데이션 방향을 변경한다.
+     * terrain stamp fill의 그라데이션 방향을 변경합니다.
+     * useFastStamp도 같은 공통 frame의 u/v 축을 사용하며 외곽선·거리 snapshot은 유지합니다.
      *
      * @param {'vertical'|'horizontal'} direction
      * @returns {this}
      */
     setGradientDirection(direction: "vertical" | "horizontal"): this;
     /**
-     * terrain stamp fill의 그라데이션 방향을 반환한다.
+     * terrain stamp fill의 그라데이션 방향을 반환합니다.
      *
      * @returns {'vertical'|'horizontal'|undefined}
      */
@@ -446,8 +469,11 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
      * UFrustumHelper의 save()와 같은 형식이므로 두 helper가 저장한 스냅샷을 서로 불러올 수 있습니다.
      * 지형 투영 모드(생성 옵션 terrain이 true)가 아니거나 지금 지형에 그려진 stamp가 없으면 안내 메시지를 남기고 undefined를 반환합니다.
      * load()로 불러온 스냅샷 stamp는 저장 대상이 아니며 현재 프러스텀이 만든 stamp만 담습니다.
+     * 빠른 backend의 출력도 같은 StampParam 형식으로 저장하며 무시된 표현 옵션은 포함하지 않습니다.
      * 카메라 선택이 켜져 있으면 현재 선택된 영역만 저장합니다. 전체 footprint가 필요하면 cullByMainCamera를 false로 바꾸고 update()한 뒤 저장합니다.
      * 기본 지면 외곽선도 stamp로 저장합니다. 영상 레이어 부재나 stamp 예산 부족으로 선 geometry를 사용하는 구간은 저장되지 않습니다.
+     * Fast도 마지막 표시 갱신에서 확정한 지면 도형을 저장합니다. 이 호출에서 높이를 다시
+     * 조회하지 않으므로 저장 도형과 현재 채움·외곽선은 같은 계산 결과를 사용합니다.
      *
      * @param {UFrustumHelperSaveOption} [options={}] 저장 범위를 정하는 옵션
      * @returns {UFrustumHelperTerrainStampSnapshot|undefined} 현재 지형 투영면 스냅샷이며, 저장할 수 없으면 undefined입니다.
@@ -462,6 +488,7 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
      * 기본은 이전에 불러온 스냅샷을 지우고 교체하며, options.append가 true이면 누적합니다.
      * 지형 투영 모드(생성 옵션 terrain이 true)가 아니거나, drawArg가 없어 stamp를 등록할 app을 알 수 없거나, 스냅샷 형식이 맞지 않으면 오류 메시지를 남기고 false를 반환합니다.
      * 일부 stamp만 값이 올바르지 않으면 그 stamp만 건너뛰고 나머지를 복원합니다.
+     * useFastStamp 설정과 관계없이 복원 결과는 UTerrainStamp이며 빠른 backend의 기능 제한을 적용하지 않습니다.
      *
      * @param {UFrustumHelperTerrainStampSnapshot|string} snapshot save()가 돌려준 스냅샷 객체 또는 그것을 JSON.stringify()한 문자열
      * @param {UFrustumHelperLoadOption} [options={}] 복원 방식을 정하는 옵션
@@ -497,7 +524,7 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
         color?: ColorLike;
         opacity?: number;
         /**
-         * texture가 없을 때 color와 그라데이션할 두 번째 색상.
+         * texture가 없을 때 color와 그라데이션할 두 번째 색상. Fast는 현재 표시 footprint의 공통 frame에서 두 색을 보간하고 선 색과 불투명도는 유지합니다.
          */
         gradientColor?: ColorLike;
         /**
@@ -534,7 +561,7 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
          */
         terrainStamp?: boolean;
         /**
-         * 지형 표면에 밀착한 stamp 외곽선을 그립니다. false이면 접촉 외곽선을 생략합니다. 영상 레이어 부재나 stamp 예산 부족 시 접점을 잇는 선으로 대체합니다.
+         * 지형 표면에 밀착한 stamp 외곽선을 그립니다. false이면 접촉 외곽선을 생략합니다. 기존 backend의 영상 레이어 부재나 stamp 예산 부족 시 접점을 잇는 선으로 대체합니다.
          */
         terrainOutlineStamp?: boolean;
         /**
@@ -647,10 +674,12 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
 
 /**
      * 지면 투영 Helper의 설정 계약입니다.
+     * useFastStamp도 기존 높이 샘플링·지면 경계 필터·UV 격자에서 확정한 접점 형상을 사용합니다.
+     * 채움·외곽선만 하나의 빠른 carrier로 전달하며 대표선·옆면·저장은 같은 지면 결과를 공유합니다.
      */
     type UFrustumTerrainProjectionHelperCO_Content = {
         /**
-         * terrain=true일 때 현재 렌더 지면 높이를 조회할 렌더링 컨텍스트. 조회 API가 없으면 지면 접촉을 확정할 수 없어 OOR로 숨긴다.
+         * terrain=true일 때 앱과 지형을 연결할 렌더링 컨텍스트입니다. 두 backend 모두 높이 조회 API가 없으면 접촉을 확정할 수 없어 숨깁니다.
          */
         drawArg?: UDrawArg;
         /**
@@ -752,11 +781,15 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
         renderOrder?: number;
         projectionLine?: UFrustumTerrainProjectionHelper_ProjectionLine_Content;
         /**
-         * true이면 near→far 광선과 현재 렌더 지면의 교차점으로 실제 지면 footprint를 만든다. 조회 좌표에 고도 데이터가 없으면 기본 평면 높이 0을 사용한다.
+         * true이면 현재 지형과의 교집합을 표시합니다. 기존 backend는 near→far 광선의 최초 접점으로 footprint를 만들며 고도 데이터가 없는 조회 좌표는 높이 0을 사용합니다. Fast도 같은 최초 지면 접점·다각형·4개 대표 접점을 재사용합니다.
          */
         terrain?: boolean;
         /**
-         * 지형 표면에 밀착한 stamp 외곽선을 그립니다. false이면 접촉 외곽선을 생략합니다. 영상 레이어 부재나 stamp 예산 부족 시 접점을 잇는 선으로 대체합니다.
+         * 기존 첫 지면 접점·대표선·옆면을 유지하며 지면 채움·외곽선을 한 Fast carrier에 전달합니다. 한 Helper의 채움 뒤에 외곽선을 합성합니다. 생성 후 변경할 수 없으며 이미지·mask·targetLayer 요청은 기능별 한 번 경고하고 무시합니다. save()는 마지막 표시 footprint를 추가 높이 조회 없이 저장하고 load()는 기존 UTerrainStamp를 복원합니다.
+         */
+        useFastStamp?: boolean;
+        /**
+         * 지형 표면에 밀착한 stamp 외곽선을 그립니다. false이면 접촉 외곽선을 생략합니다. 기존 backend의 영상 레이어 부재나 stamp 예산 부족 시 접점을 잇는 선으로 대체합니다.
          */
         terrainOutlineStamp?: boolean;
         /**
@@ -768,8 +801,15 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
 
 /**
      * 지면 투영 Helper의 설정 계약입니다.
+     * useFastStamp도 기존 높이 샘플링·지면 경계 필터·UV 격자에서 확정한 접점 형상을 사용합니다.
+     * 채움·외곽선만 하나의 빠른 carrier로 전달하며 대표선·옆면·저장은 같은 지면 결과를 공유합니다.
      */
     type UFrustumTerrainProjectionHelperCO = UFrustumTerrainProjectionHelperCO_Content;
+
+/**
+     * Helper의 live 출력과 기존 스냅샷 출력이 공유하는 Stamp 연결 타입입니다.
+     */
+    type UFrustumTerrainProjectionStamp = UTerrainStamp | UFastTerrainStamp;
 
 /**
      * Helper가 렌더에서 분리한 뒤 정리 큐에 소유권을 넘기는 자원입니다.
@@ -810,7 +850,7 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
         /**
          * 공개할 live 채움·외곽선 Stamp
          */
-        stamps: Array<UTerrainStamp>;
+        stamps: Array<UFrustumTerrainProjectionStamp>;
         /**
          * 현재 표시·앱 자격을 확인하고 준비 결과 표시
          */
@@ -899,4 +939,4 @@ declare class UFrustumTerrainProjectionHelper extends LineSegments2 {
         retire: undefined | ((arg0: UFrustumTerrainProjectionRetiredResource) => void);
     };
 
-export type { UFrustumTerrainProjectionHelper, UFrustumTerrainProjectionHelperCO, UFrustumTerrainProjectionHelperCO_Content, UFrustumTerrainProjectionHelper_Fill_Content, UFrustumTerrainProjectionHelper_ProjectionLine_Content, UFrustumTerrainProjectionLifecycleJob, UFrustumTerrainProjectionLifecyclePublication, UFrustumTerrainProjectionLifecycleQueue, UFrustumTerrainProjectionRetiredResource };
+export type { UFrustumTerrainProjectionHelper, UFrustumTerrainProjectionHelperCO, UFrustumTerrainProjectionHelperCO_Content, UFrustumTerrainProjectionHelper_Fill_Content, UFrustumTerrainProjectionHelper_ProjectionLine_Content, UFrustumTerrainProjectionLifecycleJob, UFrustumTerrainProjectionLifecyclePublication, UFrustumTerrainProjectionLifecycleQueue, UFrustumTerrainProjectionRetiredResource, UFrustumTerrainProjectionStamp };

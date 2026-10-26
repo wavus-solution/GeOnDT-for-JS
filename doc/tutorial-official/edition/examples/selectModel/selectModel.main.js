@@ -22,10 +22,20 @@ export async function initialize(context) {
     const selector = new GeOnDT.select.U3dSelect({
         mode: 'point',
         exceptTexture: false,
-        // 하이라이트 방식입니다. outline은 선택 객체의 외곽선을, color는 객체 색상을 바꿔 강조합니다.
+        pickBufferVisible: true,
+        hover: {enabled: true, autoHighlight: false, color: 0xffff00},
+        // 외곽선·객체 색상·회전 링 중 선택 표현을 지정합니다.
         selectType: GeOnDT.select.U3dSelect.TYPE.OUTLINE,
     });
     app.addSelect(selector);
+    /**
+     * hover 표시를 이벤트에서 결정하며 대상 전환·이탈의 복원은 선택기가 관리합니다.
+     * @param {U3dSelectHoverEvent} event 현재 hover 대상과 임시 색상 적용 함수
+     */
+    const handleHoverChange = event => {
+        if (event.current) event.applyColor();
+    };
+    selector.on('hoverchange', handleHoverChange);
     // @example-code:end select.create
     const resultListeners = new Set();
     const layerStateListeners = new Set();
@@ -38,9 +48,15 @@ export async function initialize(context) {
             mode: 'point',
             selectType: GeOnDT.select.U3dSelect.TYPE.OUTLINE,
             exceptTexture: false,
+            pickBufferPx: selector.getPickBufferPx(),
+            pickBufferEnabled: true,
+            pickBufferVisible: selector.getPickBufferVisible(),
+            hover: selector.getHover(),
             selectorColor: '#ff0000',
             selectedColor: '#00ffcc',
             selectedOpacity: 1,
+            /** @type {U3dSelectRingOption} */
+            ringOptions: {pattern: 'solid', dashCount: 24, dashRatio: 0.6, orientation: 'ground', heightOffset: 0, width: 5, height: 0, shape: 'circle', sides: 6, size: 80, animate: true, depthTest: false, headShape: 'round', tailShape: 'taper', headScale: 1, tailScale: 1, speed: 1.5},
             modelVisibility: {u3f: true, wfs: false}
         }
     };
@@ -119,10 +135,13 @@ export async function initialize(context) {
     return {
         /**
          * API Help에서 사용할 현재 객체 선택 설정을 반환합니다.
-         * @returns {{mode: string, selectType: string, exceptTexture: boolean, selectorColor: string, selectedColor: string, selectedOpacity: number, modelVisibility: Record<string, boolean>}} 현재 객체 선택 설정
+         * @returns {typeof state.settings} 현재 객체 선택 설정
          */
         getSettings() {
-            return {...state.settings, modelVisibility: {...state.settings.modelVisibility}};
+            const ringOptions = state.settings.ringOptions;
+            return {...state.settings, hover: {...state.settings.hover}, ringOptions: {...ringOptions,
+                head: ringOptions.head ? {...ringOptions.head} : undefined,
+                tail: ringOptions.tail ? {...ringOptions.tail} : undefined}, modelVisibility: {...state.settings.modelVisibility}};
         },
         /**
          * 해당 선택 모드를 작업 이력으로 다시 그릴 수 있는지 알려 줍니다.
@@ -146,6 +165,7 @@ export async function initialize(context) {
                 balloon: {x: -50, y: 10}
             });
             app.addOverlay(state.overlay);
+            state.overlay.setDraggable(true);
             state.overlay.show();
         },
         setMode(mode) {
@@ -162,9 +182,67 @@ export async function initialize(context) {
             app.removeAllOverlay();
             selector.clear();
             // @example-code:start select.type
-            selector.setSelectType(type, {});
+            selector.setSelectType(type, type === 'ring' ? {...state.settings.ringOptions} : {});
             // @example-code:end select.type
             state.settings.selectType = type;
+        },
+        /**
+         * 점 선택과 hover의 검색 반경을 선택기를 유지한 채 변경합니다. 버퍼 검색이 꺼져 있으면 변경하지 않습니다.
+         * @param {number} radius 원형 검색 반경(CSS 픽셀)
+         * @throws {RangeError} 반경이 유한한 0 이상의 숫자가 아닌 경우
+         */
+        setPickBufferPx(radius) {
+            if (!state.settings.pickBufferEnabled) return;
+            // @example-code:start select.buffer
+            selector.setPickBufferPx(radius);
+            // @example-code:end select.buffer
+            state.settings.pickBufferPx = selector.getPickBufferPx();
+        },
+        /**
+         * 버퍼 검색을 끄면 레이 클릭 검색만 유지하고 다시 켜면 이전 반경·범위·hover 설정을 복원합니다.
+         * @param {boolean} enabled 버퍼 검색 사용 여부
+         * @throws {TypeError} 사용 여부가 불리언이 아닌 경우
+         */
+        setPickBufferEnabled(enabled) {
+            if (typeof enabled !== 'boolean') throw new TypeError('버퍼 검색 사용 여부는 불리언이어야 합니다.');
+            state.settings.pickBufferEnabled = enabled;
+            // @example-code:start select.buffer-enabled
+            selector.setHover({enabled: enabled && state.settings.hover.enabled});
+            selector.setPickBufferVisible(enabled && state.settings.pickBufferVisible);
+            selector.setPickBufferPx(enabled ? state.settings.pickBufferPx : 0);
+            // @example-code:end select.buffer-enabled
+        },
+        /**
+         * 엔진이 관리하는 검색 범위 원의 표시 여부를 변경합니다. 버퍼 검색이 꺼져 있으면 변경하지 않습니다.
+         * @param {boolean} visible 범위 표시 여부
+         */
+        setPickBufferVisible(visible) {
+            if (!state.settings.pickBufferEnabled) return;
+            // @example-code:start select.buffer-visibility
+            selector.setPickBufferVisible(visible);
+            // @example-code:end select.buffer-visibility
+            state.settings.pickBufferVisible = selector.getPickBufferVisible();
+        },
+        /**
+         * 클릭 선택과 범위 표시를 유지하며 hover를 켜거나 끕니다. 버퍼 검색이 꺼져 있으면 변경하지 않습니다.
+         * @param {boolean} enabled hover 사용 여부
+         */
+        setHoverEnabled(enabled) {
+            if (!state.settings.pickBufferEnabled) return;
+            // @example-code:start select.hover
+            selector.setHover({enabled});
+            // @example-code:end select.hover
+            state.settings.hover = selector.getHover();
+        },
+        /**
+         * 링 설정을 저장하고 현재 링으로 강조 중이면 선택을 유지한 채 갱신합니다.
+         * @param {Partial<typeof state.settings.ringOptions>} options 변경할 링 설정
+         */
+        setRingOptions(options) {
+            Object.assign(state.settings.ringOptions, options);
+            if (state.settings.selectType === 'ring') {
+                selector.setSelectType('ring', {...state.settings.ringOptions});
+            }
         },
         setExceptTexture(value) {
             // @example-code:start select.except-texture
@@ -216,6 +294,7 @@ export async function initialize(context) {
             if (typeof selector.off === 'function') {
                 selector.off('change', handleChange);
                 selector.off('end', handleEnd);
+                selector.off('hoverchange', handleHoverChange);
             }
         }
     };
@@ -267,10 +346,10 @@ async function createU3fLayers(app, name) {
     if (!response.ok) throw new Error(`U3F 레이어 목록 요청에 실패했습니다: ${response.status}`);
     const result = await response.json();
     const infos = result?.params?.data || [];
-    const groupLayer = app.createModelGroupLayer({maxlevel: 19, minlevel: 17, name});
+    const groupLayer = app.createGroupLayer({maxlevel: 19, minlevel: 17, name});
     const activeInfos = infos.filter(info => info.state === 'ACTIVE');
     const results = await Promise.allSettled(activeInfos.map(async info => {
-        const layer = await app.create3DFModelLayer({
+        const layer = app.create3DFModelLayer({
             name: info.name,
             basename: info.fileName || info.name,
             baseurl: info.baseUrl,
@@ -281,7 +360,10 @@ async function createU3fLayers(app, name) {
             isShareMaterial: false,
             makeU3FPackage: 1
         });
-        if (layer) groupLayer.addLayer(layer);
+        if (layer) {
+            await layer.ready;
+            groupLayer.addLayer(layer);
+        }
         return layer;
     }));
     const loadedCount = results.filter(result => result.status === 'fulfilled' && result.value).length;

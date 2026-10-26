@@ -6551,7 +6551,7 @@
         })
 
         async function CreateShpExtents() {
-            return new Promise((resolve) => {
+            return new Promise((resolve, reject) => {
                 app.createloadingBar('load');
                 let fillColor = 'rgba(234,221,213, 0.1)';
                 let strokeColor = '#ff5555';
@@ -6568,10 +6568,12 @@
                 }
                 SHP_DATA.forEach(function (option) {
                     //let shpModelOpt = JSON.parse(option);
-                    shpLayer = new GeOnDT.vector.U2dVectorShaderLayer(options);
-                    shpLayer.then( () => {
-                        app.addLayer(shpLayer);
-                        shpLayer.addGeometryAsGeojson(option, 'EPSG:4326', function (geometry, index) {
+                    const layer = new GeOnDT.vector.U2dVectorShaderLayer(options);
+                    shpLayer = layer;
+                    // 콜백이 실행될 때 다음 반복의 레이어로 바뀌지 않도록 이번 객체를 캡처합니다.
+                    layer.ready.then( () => {
+                        app.addLayer(layer);
+                        layer.addGeometryAsGeojson(option, 'EPSG:4326', function (geometry, index) {
                             geometry.setFillColor(fillColor);
                             geometry.setStrokeColor(strokeColor);
                             geometry.setStrokeWidth(strokeWidth);
@@ -6580,7 +6582,7 @@
                         })
                     }).then( () => {
                         app.showLayer(options.name, true);
-                    });
+                    }).catch(reject);
                 })
             })
         }
@@ -6755,6 +6757,9 @@
                 analy.active();
                 toast("Started Wind Simulation");
                 app.endloadingBar();
+            }).catch(error => {
+                // 이벤트에서 시작한 분석의 실패를 이곳에서 확인합니다.
+                console.error(error);
             });
         }
 
@@ -6974,6 +6979,9 @@
                         analy.active();
                         toast("Started Wind Simulation");
                         app.endloadingBar();
+                    }).catch(error => {
+                        // 이벤트에서 시작한 분석의 실패를 이곳에서 확인합니다.
+                        console.error(error);
                     });
                 }
 
@@ -7092,7 +7100,7 @@
 
         function initModelLayers() {
             try {
-                let modelayers = app.createModelGroupLayer({
+                let modelayers = app.createGroupLayer({
                     maxlevel: 17,
                     minlevel: 17,
                     name: 'u3f'
@@ -7131,10 +7139,10 @@
                             };
                             let subLayer = app.create3DFModelLayer(options);
                             promises.push(subLayer);
-                            if (subLayer !== false) {
-                                subLayer.then(function () {
+                            if (subLayer) {
+                                subLayer.ready.then(function () {
                                     modelayers.addLayer(subLayer);
-                                }).fail(function (layer) {
+                                }).catch(function (layer) {
 
                                 });
                             }
@@ -7187,7 +7195,7 @@
                 LodLayer.show(true);
 
                 window.componentLayer = LodLayer;
-                LodLayer.then(() => {
+                LodLayer.ready.then(() => {
                     try{
                         const info = LodLayer.getListModelInfo(); // load된 모델들의 metaData 정보를 반환한다.
                         setLodOptions(LodLayer, info); // 모델 이름 별로 LOD 설정
@@ -7245,6 +7253,8 @@
                     }catch (e){
                         console.log(e);
                     }
+                }).catch(error => {
+                    console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
                 })
             }
         }

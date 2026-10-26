@@ -1,15 +1,18 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dComponentPosition } from "../3dLayer/U3dComponentPosition.js";
+import type { UViewBox } from "../analy/UViewBox.js";
 import type { U3dApp } from "../app/U3dApp.js";
+import type { UGroup } from "../core/UGroup.js";
 import type { UScene } from "../core/UScene.js";
 import type { UMesh } from "../core/mesh/UMesh.js";
+import type { U3dPOI } from "../geometry/U3dPOI.js";
 import type { Degree, WorldPosition } from "../types/global.js";
 import type { DeferredObject } from "../util/deferred.js";
 import type { U3dView } from "./U3dView.js";
@@ -88,8 +91,8 @@ type LightAnalyOption = {
 declare class USpotLight extends three.SpotLight {
     constructor(opt: any);
     _drawArg: any;
-    _scene: any;
-    _id: any;
+    _scene: UScene;
+    _id: string;
     grounGap: any;
     view: U3dView;
     left: any;
@@ -104,7 +107,7 @@ declare class USpotLight extends three.SpotLight {
     visibleHelperObj: any;
     objRadius: any;
     lightHelper: three.SpotLightHelper;
-    _viewBox: any;
+    _viewBox: UViewBox;
     _useBHV: any;
     /**
      * @returns {import('three').Vector3}
@@ -116,8 +119,8 @@ declare class USpotLight extends three.SpotLight {
      */
     setApp(app: U3dApp): void;
     _app: U3dApp;
-    _lightGroup: any;
-    poi: any;
+    _lightGroup: UGroup;
+    poi: U3dPOI;
     /**
      * 광원 분석을 종료하고 분석 Mesh를 제거하는 함수
      */

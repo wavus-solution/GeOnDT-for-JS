@@ -243,8 +243,8 @@ export async function initialize(context) {
                     saveData.components.forEach((data) => {
                         analy.setComponentData(data).then((component) => {
                             console.log(component.name + " : 불러오기 성공!");
-                        }).catch((failName, detail) => {
-                            console.log(failName + ": 불러오기 실패! " + detail);
+                        }).catch((failName) => {
+                            console.log(failName + ": 불러오기 실패!");
                         })
                     });
                     // 또는 saveData.components 배열 통쨰로 추가도 가능
@@ -577,7 +577,10 @@ export async function initialize(context) {
                 return;
             }
             for (let i = 0; i < data.length; i++) {
-                analy.setRoad(data[i]);
+                analy.setRoad(data[i])?.catch(error => {
+                    // 이벤트에서 시작한 분석의 실패를 이곳에서 확인합니다.
+                    console.error(error);
+                });
             }
 
             app.updateData();
@@ -670,7 +673,7 @@ export async function initialize(context) {
         }
 
         function initModelLayer() {
-            let u3fGroupLayer = app.createModelGroupLayer({
+            let u3fGroupLayer = app.createGroupLayer({
                 maxlevel: 19,
                 minlevel: 17,
                 name: 'U3fGroupLayer'
@@ -699,7 +702,7 @@ export async function initialize(context) {
                         maxlevel: infos[i].metaData.maxLevel
                     };
                     let layer = app.create3DFModelLayer(options);
-                    if (layer !== undefined) {
+                    if (layer) {
                         u3fGroupLayer.addLayer(layer);
                     }
                 }
@@ -1000,10 +1003,12 @@ export async function initialize(context) {
                 let componentLayer = app.createMultipleComponentLayer(option);
                 window.componentLayer = componentLayer;
                 componentLayer.setInstanced(true);
-                componentLayer.then(() => {
+                componentLayer.ready.then(() => {
                     app.showLayer(componentLayer.getName(), true);
                     analy.setLayer(componentLayer);
                     app.endloadingBar();
+                }).catch(error => {
+                    console.error('레이어 초기화 후 처리 중 오류가 발생했습니다.', error);
                 });
             }
         }

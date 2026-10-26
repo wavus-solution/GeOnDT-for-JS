@@ -18,9 +18,8 @@
 
     <div class="panel-content vector2d-panel-content">
         <p class="panel-description">
-            도형 종류를 고르고 지도를 클릭해 <code>vectorLayer</code>에 2D 객체를 그립니다.
+            기본 클릭은 도형을 검색합니다. 그리기를 시작하면 선택한 종류의 도형을 만듭니다.
         </p>
-
         <section class="vector2d-section" aria-labelledby="vector2d-type-heading">
             <h3 id="vector2d-type-heading">도형 종류</h3>
             <div class="vector2d-type-grid" data-api-help="geometry.create">
@@ -38,6 +37,39 @@
                 </label>
             </div>
             <p class="vector2d-hint" id="vector2d-type-hint">지도를 한 번 클릭하면 포인트가 완성됩니다.</p>
+        </section>
+
+        <section class="vector2d-section" aria-labelledby="vector2d-search-heading">
+            <h3 id="vector2d-search-heading" data-api-help="geometry.intersects">교차 검색</h3>
+            <label class="vector2d-option-row">
+                <input id="vector2d-select-mode" type="checkbox">
+                <span class="vector2d-option-copy">
+                    <strong>교차검색 모드</strong>
+                    <small>체크한 뒤 그리기 시작을 눌러 검색 도형을 그립니다</small>
+                </span>
+            </label>
+        </section>
+        <div class="vector2d-button-row">
+            <button id="vector2d-start-draw" class="vector2d-action primary" type="button">그리기 시작</button>
+        </div>
+        <p id="vector2d-mode-status" class="vector2d-hint" role="status">클릭 검색 모드</p>
+
+        <section class="vector2d-section" aria-labelledby="vector2d-drawings-heading">
+            <h3 id="vector2d-drawings-heading">도형 목록 <span id="vector2d-drawing-count">0</span>개</h3>
+            <p class="vector2d-hint">도형을 선택하면 위치·회전·크기와 속성을 편집할 수 있습니다.</p>
+            <p id="vector2d-drawing-empty" class="vector2d-hint" hidden>등록된 도형이 없습니다.</p>
+            <ul id="vector2d-drawing-list" class="vector2d-object-list" aria-label="도형 목록"></ul>
+            <label class="vector2d-option-row" data-api-help="feature.update">
+                <input id="vector2d-animation" type="checkbox" checked>
+                <span class="vector2d-option-copy">
+                    <strong>이동·회전 애니메이션</strong>
+                    <small id="vector2d-animation-hint">편집하면 일시정지 · 다시 켜면 변경한 상태로 이어집니다</small>
+                </span>
+            </label>
+            <button id="vector2d-initial-reset" class="vector2d-action" type="button">초기 도형 배치·스타일 복원</button>
+            <button id="vector2d-clear" class="vector2d-action" type="button" data-api-help="layer.clear">
+                도형 모두 삭제
+            </button>
         </section>
 
         <section class="vector2d-section" aria-labelledby="vector2d-style-heading">
@@ -84,46 +116,100 @@
             </button>
         </section>
 
-        <section class="vector2d-section" aria-labelledby="vector2d-search-heading">
-            <h3 id="vector2d-search-heading">교차 검색</h3>
-            <label class="vector2d-option-row" data-api-help="geometry.intersects">
-                <input id="vector2d-select-mode" type="checkbox">
-                <span class="vector2d-option-copy">
-                    <strong>교차검색 모드</strong>
-                    <small>그린 도형과 겹치는 객체를 찾아 강조합니다</small>
-                </span>
-            </label>
-            <button id="vector2d-clear-highlight" class="vector2d-action" type="button" data-api-help="layer.highlight-clear">
-                검색객체 초기화
-            </button>
-        </section>
+    </div>
+</aside>
 
-        <section class="vector2d-section" aria-labelledby="vector2d-animation-heading">
-            <h3 id="vector2d-animation-heading">동적 도형</h3>
-            <label class="vector2d-option-row" data-api-help="feature.update">
-                <input id="vector2d-animation" type="checkbox" checked>
-                <span class="vector2d-option-copy">
-                    <strong>공전하는 원</strong>
-                    <small>홈 위치 주변을 도는 원의 좌표를 매 프레임 갱신합니다</small>
-                </span>
-            </label>
-        </section>
+<div id="vector2d-draw-toast" class="vector2d-draw-toast" role="status" aria-live="polite" hidden></div>
 
-        <section class="vector2d-section vector2d-result-card" data-api-help="layer.feature-query" tabindex="0" aria-labelledby="vector2d-result-heading">
-            <div class="vector2d-result-heading">
-                <h3 id="vector2d-result-heading">조회 결과</h3>
-                <span id="vector2d-result-status">클릭 대기</span>
+<aside id="vector2d-search-panel" class="glass-panel vector2d-floating-panel" hidden aria-label="검색된 도형 목록">
+    <header class="panel-header">
+        <h2 data-api-help="layer.feature-query">검색된 도형 <span id="vector2d-search-count">0</span>개</h2>
+        <button id="vector2d-search-close" class="panel-close" type="button" aria-label="검색 목록 닫기">×</button>
+    </header>
+    <div class="vector2d-panel-content">
+        <p id="vector2d-search-empty" class="vector2d-hint">검색 결과가 없습니다.</p>
+        <ul id="vector2d-search-list" class="vector2d-object-list" aria-label="검색 결과"></ul>
+        <p class="vector2d-hint"><span data-api-help="search.overlay">한 건을 선택하면 지도에 피처 속성을 표시합니다.</span> <span data-api-help="layer.highlight-clear">목록을 닫으면 강조를 해제합니다.</span></p>
+    </div>
+</aside>
+
+<aside id="vector2d-info-panel" class="glass-panel vector2d-floating-panel vector2d-info-panel" hidden aria-label="객체 편집">
+    <header class="panel-header">
+        <div><span class="eyebrow">객체 편집</span><h2 id="vector2d-info-title">편집할 도형 선택</h2></div>
+        <button id="vector2d-info-close" class="panel-close" type="button" aria-label="도형 정보 닫기">×</button>
+    </header>
+    <div class="vector2d-panel-content">
+        <div id="vector2d-edit-content">
+        <p id="vector2d-info-summary" class="vector2d-hint"></p>
+        <div id="vector2d-edit-metrics" class="vector2d-metrics"></div>
+        <section class="vector2d-section" aria-labelledby="vector2d-transform-heading">
+            <h3 id="vector2d-transform-heading" data-api-help="geometry.transform">위치 · 회전 · 크기</h3>
+            <p class="vector2d-hint">도형 중심을 기준으로 조절합니다. 이동량은 지도 좌표 단위(m)입니다.</p>
+            <div class="vector2d-move-controls">
+                <label>이동 간격 <input id="vector2d-move-step" type="number" min="0.1" max="10000" step="1" value="10"> m</label>
+                <div class="vector2d-direction-pad" aria-label="도형 위치 이동">
+                    <button type="button" data-move="0,1" aria-label="북쪽으로 이동">↑</button>
+                    <button type="button" data-move="-1,0" aria-label="서쪽으로 이동">←</button>
+                    <span aria-hidden="true">✥</span>
+                    <button type="button" data-move="1,0" aria-label="동쪽으로 이동">→</button>
+                    <button type="button" data-move="0,-1" aria-label="남쪽으로 이동">↓</button>
+                </div>
             </div>
-            <dl id="vector2d-result-data">
-                <div><dt>경도</dt><dd id="vector2d-result-lon">-</dd></div>
-                <div><dt>위도</dt><dd id="vector2d-result-lat">-</dd></div>
-                <div><dt>조회 객체</dt><dd id="vector2d-result-feature">-</dd></div>
-                <div><dt>교차 객체</dt><dd id="vector2d-result-intersect">-</dd></div>
-            </dl>
-            <button id="vector2d-clear" class="vector2d-action" type="button" data-api-help="layer.clear">
-                지우기
-            </button>
+            <div class="vector2d-coordinate-pair">
+                <label>동서 이동(m)<input id="vector2d-edit-x" type="number" value="0" step="1"></label>
+                <label>남북 이동(m)<input id="vector2d-edit-y" type="number" value="0" step="1"></label>
+            </div>
+            <div class="vector2d-control-row vector2d-range-row"><label for="vector2d-edit-rotation">회전</label><input id="vector2d-edit-rotation" type="range" min="-180" max="180" step="1" value="0"><output id="vector2d-edit-rotation-value">0°</output></div>
+            <div class="vector2d-control-row vector2d-range-row"><label for="vector2d-edit-scale">크기</label><input id="vector2d-edit-scale" type="range" min="0.1" max="5" step="0.1" value="1"><output id="vector2d-edit-scale-value">1×</output></div>
+            <p id="vector2d-point-transform-hint" class="vector2d-hint" hidden>포인트의 표시 크기는 아래 스타일의 반경으로 조절하세요.</p>
+            <button id="vector2d-transform-apply" class="vector2d-action primary" type="button">변형 적용</button>
+            <p id="vector2d-transform-status" class="vector2d-hint" role="status">방향 버튼은 바로 이동하고, 숫자·슬라이더는 적용 버튼으로 반영합니다.</p>
         </section>
+        <details class="vector2d-section vector2d-details" open>
+        <summary>스타일 · 파라미터</summary>
+        <div class="vector2d-control-list">
+            <div class="vector2d-control-row vector2d-text-row"><label for="vector2d-edit-fill">채움색</label><input id="vector2d-edit-fill" type="color"></div>
+            <div class="vector2d-control-row vector2d-text-row"><label for="vector2d-edit-stroke">선색상</label><input id="vector2d-edit-stroke" type="color"></div>
+            <div class="vector2d-control-row vector2d-range-row"><label for="vector2d-edit-fill-opacity">채움 투명도</label><input id="vector2d-edit-fill-opacity" type="range" min="0" max="1" step="0.05"><output id="vector2d-edit-fill-opacity-value"></output></div>
+            <div class="vector2d-control-row vector2d-range-row"><label for="vector2d-edit-stroke-opacity">선 투명도</label><input id="vector2d-edit-stroke-opacity" type="range" min="0" max="1" step="0.05"><output id="vector2d-edit-stroke-opacity-value"></output></div>
+            <div class="vector2d-control-row vector2d-range-row"><label for="vector2d-edit-width">선 두께</label><input id="vector2d-edit-width" type="range" min="0" max="20" step="0.1"><output id="vector2d-edit-width-value"></output></div>
+            <div id="vector2d-edit-radius-row" class="vector2d-control-row vector2d-range-row"><label for="vector2d-edit-radius">포인트 반경</label><input id="vector2d-edit-radius" type="range" min="1" max="500" step="1"><output id="vector2d-edit-radius-value"></output></div>
+        </div>
+        <button id="vector2d-edit-apply" class="vector2d-action primary" type="button">이 도형에 적용</button>
+        <div class="vector2d-button-row">
+            <button id="vector2d-param-save" class="vector2d-action" type="button">파라미터 저장</button>
+            <button id="vector2d-param-restore" class="vector2d-action" type="button" disabled>저장값 복원</button>
+        </div>
+        </details>
+        <details class="vector2d-section vector2d-details">
+            <summary>표시 · 검색 · 레이어</summary>
+            <label class="vector2d-inline-option"><input id="vector2d-edit-visible" type="checkbox" checked> 지도에 표시</label>
+            <label class="vector2d-inline-option"><input id="vector2d-edit-exclude" type="checkbox"> 좌표·교차 검색에서 제외</label>
+            <label class="vector2d-inline-option"><input id="vector2d-edit-attached" type="checkbox" checked> 레이어에 등록</label>
+            <p class="vector2d-hint">숨김과 검색 제외는 별개입니다. 등록을 해제한 뒤 다시 켜면 같은 원본으로 돌아옵니다.</p>
+        </details>
+        <details class="vector2d-section vector2d-details">
+            <summary>사용자 속성</summary>
+            <label class="vector2d-hint" for="vector2d-edit-properties">JSON 객체의 키를 추가·수정·삭제하세요.</label>
+            <textarea id="vector2d-edit-properties" class="vector2d-textarea" rows="5"></textarea>
+            <button id="vector2d-properties-apply" class="vector2d-action" type="button">속성 적용</button>
+        </details>
+        <details class="vector2d-section vector2d-details">
+            <summary>원본 형상 · 좌표 확인</summary>
+            <p id="vector2d-coordinate-hint" class="vector2d-hint"></p>
+            <label class="vector2d-hint" for="vector2d-edit-coordinates">원본 좌표 JSON · EPSG:3857</label>
+            <textarea id="vector2d-edit-coordinates" class="vector2d-textarea" rows="5"></textarea>
+            <button id="vector2d-coordinates-refresh" class="vector2d-action" type="button">현재 좌표·측정값 조회</button>
+            <button id="vector2d-coordinates-apply" class="vector2d-action" type="button">원본 형상 교체</button>
+            <div id="vector2d-append-row">
+                <label class="vector2d-hint" for="vector2d-append-coordinate">덧붙일 좌표 [x, y]</label>
+                <input id="vector2d-append-coordinate" class="vector2d-textarea" type="text" placeholder="[14130650, 4511730]">
+                <button id="vector2d-coordinate-append" class="vector2d-action" type="button">점 하나 추가</button>
+            </div>
+        </details>
+        <button id="vector2d-edit-delete" class="vector2d-action vector2d-danger" type="button">이 도형 삭제</button>
+        <p id="vector2d-edit-status" class="vector2d-hint" role="status"></p>
+        </div>
     </div>
 </aside>
 

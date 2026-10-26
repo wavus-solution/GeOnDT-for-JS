@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -633,6 +633,22 @@ declare class UMapControlBase extends UEventDispatcher {
      * @returns {Promise<void>} 회전이 끝나거나 멈출 때 완료되는 약속
      */
     lookAtNorth(duration?: number): Promise<void>;
+    /**
+     * 지도 영역의 타깃과 위치를 기존 컨트롤러 수명 안에서 적용합니다.
+     * @param {import('three').Vector3} position 목적 위치
+     * @param {import('three').Vector3} target 목적 타깃
+     * @param {number} duration 이동 시간이며 0은 예약 없는 즉시 적용
+     * @param {{complete?: () => void, stop?: () => void, update?: () => void}} [callbacks] 완료·취소 연결
+     * @param {boolean} [silent=false] 내부 동기화 중 외부 알림을 미룰지 여부
+     * @param {number} [azimuth] 수직 시점에서도 보존할 방위각이며 라디안입니다.
+     * @returns {void}
+     * @ignore
+     */
+    _setMapRegionView(position: three.Vector3, target: three.Vector3, duration: number, callbacks?: {
+        complete?: () => void;
+        stop?: () => void;
+        update?: () => void;
+    }, silent?: boolean, azimuth?: number): void;
     /**
      * orthographic camera를 지정한 위치와 target으로 옮기며 화면 크기와 zoom도 함께 보간합니다.<br>
      * 현재 camera가 perspective이면 같은 인자로 flyTo()에 넘깁니다.<br>

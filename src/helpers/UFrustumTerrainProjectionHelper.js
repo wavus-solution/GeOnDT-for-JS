@@ -2,8 +2,9 @@ import {Color, Frustum} from 'three';
 import {LineSegments2} from 'three/examples/jsm/lines/LineSegments2.js';
 import {LineSegmentsGeometry} from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
 import {LineMaterial} from 'three/examples/jsm/lines/LineMaterial.js';
-import {UTerrainStamp} from '@union3d/helpers/UTerrainStamp.js';
+import {UTerrainStamp} from '@union3d/helpers/UTerrainStamp';
 import {__GError__, __GInfo__} from '@U3dMessage';
+import {normalizeOptionKeys} from '@union3d/util/normalizeOptionKeys';
 import {INTERNAL} from '@union3d/helpers/UFrustumTerrainProjectionHelper.internal';
 
 // 계산 함수와 초기화 값은 모듈 로딩 때 한 번 연결해 갱신 중 wrapper나 객체를 추가 생성하지 않는다.
@@ -61,6 +62,10 @@ const pickTerrainStampStyleOverride = INTERNAL.pickTerrainStampStyleOverride;
  * 이 정책은 이 Helper가 생성하는 지면 형상에만 적용하며 공용 UTerrainStamp나 load()로 복원한 Stamp에는 적용하지 않습니다.
  * 최초 표시와 재표시는 여러 Helper 사이에서 분산되므로 몇 프레임 뒤에 나타날 수 있습니다.
  * dispose()는 즉시 갱신·출력을 중지하고 소유 렌더 자원의 실제 반납은 나누어 수행합니다.
+ * useFastStamp가 true이어도 기존 지면 접점·대표선·옆면 계산을 유지합니다.
+ * 지면 채움과 외곽선을 전용 도장 한 개에 전달하여 앱의 공유 빠른 도장 매니저를 통해 표시합니다.
+ * Fast는 색상·투명도와 두 색 그라데이션을 지원합니다. 이미지·mask·대상 레이어 요청은 기능별 한 번 경고하고 무시하며 기존 backend로 자동 전환하지 않습니다.
+ * 이 선택은 생성 후 고정되며, load()로 복원한 독립 Stamp는 기존 UTerrainStamp 계약을 유지합니다.
  *
  * @extends {LineSegments2}
  *
@@ -71,16 +76,45 @@ const pickTerrainStampStyleOverride = INTERNAL.pickTerrainStampStyleOverride;
  *     opacity: 0.6
  * });
  * scene.add(helper);
+ *
+ * @private
  */
 class UFrustumTerrainProjectionHelper extends LineSegments2 {
+    /**
+     * 생성 옵션의 대소문자 호환 표기를 정규화합니다.
+     *
+     * @type {Array<string>}
+     *
+     * @ignore
+     */
+    static OPT_KEYS = [
+        'drawArg', 'name', 'color', 'lineWidth', 'opacity', 'worldUnits', 'depthWrite', 'zOffset',
+        'depthOffset', 'sampleSpacing', 'intersectionSteps', 'updateIntervalMs', 'terrainStampGridSize',
+        'terrainBoundaryRefinementSteps', 'cullByMainCamera', 'smoothing', 'smoothingIterations',
+        'smoothingFactor', 'temporalStabilization', 'temporalHalfLifeMs', 'temporalHysteresisDistance',
+        'temporalFarSmoothingFactor', 'temporalSnapGapMs', 'terrainIntersectionStabilization',
+        'terrainIntersectionMedianWindow', 'terrainIntersectionHalfLifeMs', 'terrainIntersectionMaxLagDistance',
+        'terrainIntersectionHitPersistenceMs', 'renderOrder', 'projectionLine', 'terrain',
+        'terrainOutlineStamp', 'terrainOutlineWidthUnits', 'fill', 'useFastStamp'
+    ];
+
     // 비공개 계산 상태는 본체와 함께 생성·해제하며 외부에서 교체하지 않는다.
     #implementation;
+    #useFastStamp = false;
     _disposed = false;
+
+    /**
+     * 생성 시 선택한 실시간 지면 Stamp backend를 반환합니다. 실행 중에는 변경할 수 없습니다.
+     *
+     * @returns {boolean} 색상·투명도·두 색 그라데이션을 지원하는 빠른 backend 사용 여부
+     */
+    get useFastStamp() { return this.#useFastStamp; }
     /**
      * @param {import('three').Frustum} frustum
      * @param {UFrustumTerrainProjectionHelperCO} [options={}]
      */
     constructor(frustum = new Frustum(), options = {}) {
+        options = normalizeOptionKeys(options, new.target);
         const geometry = new LineSegmentsGeometry();
         initializeLineSegmentsGeometry(geometry, MAX_OUTLINE_SEGMENT_COUNT, true);
         const opacity = options.opacity ?? 1;
@@ -99,6 +133,7 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
 
         super(geometry, material);
 
+        this.#useFastStamp = options.useFastStamp === true;
         // 계산 상태는 helper마다 한 번만 만들고, 공개 API와 렌더 객체의 수명은 본체에서 관리한다.
         this.#implementation = INTERNAL.createImplementation(this);
 
@@ -204,6 +239,8 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
         // 매 프레임 Set/Object/Vector3 생성 비용을 줄이기 위한 인스턴스 cache다.
         this.terrainHeightSampleLayout = undefined;
         this.fillOptions = options.fill;
+        // 렌더·카메라 선택이 같은 유효 옵션을 읽도록 미지원 입력을 최초 생성부터 확인합니다.
+        if (this.useFastStamp) this.#implementation.getTerrainFillOptions();
         this.useTerrainFillStamp = options.fill?.enabled === true
             && this.useTerrain === true
             && options.fill?.terrainStamp !== false;
@@ -217,10 +254,9 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
             ? 'meters'
             : 'pixels';
         if (this.useTerrainFillStamp) {
-            // Helper가 아직 Scene graph에 들어가기 전에는 UTerrainStamp를 app registry에 등록하지 않는다.
+            // Helper가 아직 Scene graph에 들어가기 전에는 선택한 Stamp를 app 출력에 등록하지 않는다.
             // 실제 render heartbeat가 확인된 뒤 update가 실행되면 기존 객체를 그대로 app에 연결한다.
-            const stamp = new UTerrainStamp();
-            this.#implementation.terrainFillStampPool.push(stamp);
+            const stamp = this.#implementation.getTerrainFillStamp(0);
             if (options.fill?.maxStampsPerTile !== undefined) {
                 stamp.setMaxStampsPerTile(options.fill.maxStampsPerTile);
             }
@@ -770,6 +806,7 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
                 return this;
             }
 
+            const fastTerrain = this.useFastStamp && this.useTerrain;
             const terrain = this.#implementation.buildTerrainPositions(corners);
             let positions;
 
@@ -822,8 +859,11 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
             // 같은 지면 접촉 결과로 모든 출력 자원을 갱신해 선·면·이미지의 표시 위치를 맞춘다.
             this.#implementation.updateNonTerrainFillMesh(corners, terrain);
             this.#implementation.updateSideFillMesh(corners, terrain);
-            this.#implementation.updateTerrainOutlineStamps(terrain);
-            this.#implementation.updateTerrainFillStamp(corners, terrain);
+            if (fastTerrain) this.#implementation.updateFastTerrainStamp(terrain);
+            else {
+                this.#implementation.updateTerrainOutlineStamps(terrain);
+                this.#implementation.updateTerrainFillStamp(corners, terrain);
+            }
             if (this.projectionLine) {
                 this.projectionLine.visible = true;
             }
@@ -845,6 +885,7 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
         this.color.set(color);
         this.material.color.set(color);
         for (const stamp of this.#implementation.terrainOutlineStampPool) stamp.setColor(color);
+        if (this.useFastStamp && this.useTerrain) this.#implementation.updateFastTerrainStamp();
         return this;
     }
 
@@ -862,6 +903,7 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
         for (const stamp of this.#implementation.terrainOutlineStampPool) {
             stamp.setStyle({lineWidth: this.terrainOutlineWidth});
         }
+        if (this.useFastStamp && this.useTerrain) this.#implementation.updateFastTerrainStamp();
         return this;
     }
 
@@ -875,12 +917,14 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
         this.material.opacity = opacity;
         this.material.transparent = opacity < 1;
         for (const stamp of this.#implementation.terrainOutlineStampPool) stamp.setOpacity(opacity);
+        if (this.useFastStamp && this.useTerrain) this.#implementation.updateFastTerrainStamp();
         return this;
     }
 
     /**
-     * terrain stamp fill의 그라데이션 두 번째 색상을 변경한다.
-     * texture 옵션이 있으면 shader에서는 texture가 우선되어 gradient가 적용되지 않는다.
+     * terrain stamp fill의 그라데이션 두 번째 색상을 변경합니다.
+     * useFastStamp도 지원하며 마지막 지면 형상의 색만 갱신합니다. undefined이면 단색으로 복귀합니다.
+     * 기존 backend에서 texture 옵션이 있으면 texture가 우선되어 gradient가 적용되지 않습니다.
      *
      * @param {import('three').Color|string|number|undefined} color
      * @returns {this}
@@ -891,6 +935,10 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
         }
 
         this.fillOptions.gradientColor = color;
+        if (this.useFastStamp) {
+            if (this.useTerrain) this.#implementation.updateFastTerrainStamp();
+            return this;
+        }
 
         for (const stamp of this.#implementation.terrainFillStampPool) {
             if (color === undefined) {
@@ -904,7 +952,7 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
     }
 
     /**
-     * terrain stamp fill의 그라데이션 두 번째 색상을 반환한다.
+     * terrain stamp fill의 그라데이션 두 번째 색상을 반환합니다.
      *
      * @returns {import('three').Color|string|number|undefined}
      */
@@ -914,7 +962,8 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
     }
 
     /**
-     * terrain stamp fill의 그라데이션 방향을 변경한다.
+     * terrain stamp fill의 그라데이션 방향을 변경합니다.
+     * useFastStamp도 같은 공통 frame의 u/v 축을 사용하며 외곽선·거리 snapshot은 유지합니다.
      *
      * @param {'vertical'|'horizontal'} direction
      * @returns {this}
@@ -925,6 +974,10 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
         }
 
         this.fillOptions.gradientDirection = direction;
+        if (this.useFastStamp) {
+            if (this.useTerrain) this.#implementation.updateFastTerrainStamp();
+            return this;
+        }
 
         for (const stamp of this.#implementation.terrainFillStampPool) {
             if (this.fillOptions.gradientColor !== undefined) {
@@ -938,7 +991,7 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
     }
 
     /**
-     * terrain stamp fill의 그라데이션 방향을 반환한다.
+     * terrain stamp fill의 그라데이션 방향을 반환합니다.
      *
      * @returns {'vertical'|'horizontal'|undefined}
      */
@@ -1090,22 +1143,26 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
      * UFrustumHelper의 save()와 같은 형식이므로 두 helper가 저장한 스냅샷을 서로 불러올 수 있습니다.
      * 지형 투영 모드(생성 옵션 terrain이 true)가 아니거나 지금 지형에 그려진 stamp가 없으면 안내 메시지를 남기고 undefined를 반환합니다.
      * load()로 불러온 스냅샷 stamp는 저장 대상이 아니며 현재 프러스텀이 만든 stamp만 담습니다.
+     * 빠른 backend의 출력도 같은 StampParam 형식으로 저장하며 무시된 표현 옵션은 포함하지 않습니다.
      * 카메라 선택이 켜져 있으면 현재 선택된 영역만 저장합니다. 전체 footprint가 필요하면 cullByMainCamera를 false로 바꾸고 update()한 뒤 저장합니다.
      * 기본 지면 외곽선도 stamp로 저장합니다. 영상 레이어 부재나 stamp 예산 부족으로 선 geometry를 사용하는 구간은 저장되지 않습니다.
+     * Fast도 마지막 표시 갱신에서 확정한 지면 도형을 저장합니다. 이 호출에서 높이를 다시
+     * 조회하지 않으므로 저장 도형과 현재 채움·외곽선은 같은 계산 결과를 사용합니다.
      *
      * @param {UFrustumHelperSaveOption} [options={}] 저장 범위를 정하는 옵션
      * @returns {UFrustumHelperTerrainStampSnapshot|undefined} 현재 지형 투영면 스냅샷이며, 저장할 수 없으면 undefined입니다.
      */
     save(options = {}) {
         if (this.useTerrain !== true) {
-            __GInfo__(this, 'save()는 지형 투영 모드(terrain: true)에서만 사용할 수 있습니다.', '*code=>');
+            __GInfo__(this, 'save()는 지형 투영 모드(terrain: true)에서만 사용할 수 있습니다.', '2645447');
             return undefined;
         }
 
-        const fill = options.includeFill === false ? [] : collectTerrainStampParams(this.#implementation.terrainFillStampPool);
-        const outline = options.includeOutline === false ? [] : collectTerrainStampParams(this.#implementation.terrainOutlineStampPool);
+        const fastSnapshot = this.useFastStamp ? this.#implementation.buildFastTerrainSnapshot(options) : undefined;
+        const fill = fastSnapshot?.fill ?? (options.includeFill === false ? [] : collectTerrainStampParams(this.#implementation.terrainFillStampPool));
+        const outline = fastSnapshot?.outline ?? (options.includeOutline === false ? [] : collectTerrainStampParams(this.#implementation.terrainOutlineStampPool));
         if (fill.length === 0 && outline.length === 0) {
-            __GInfo__(this, '지금 지형에 그려진 stamp가 없어 저장할 내용이 없습니다.', '*code=>');
+            __GInfo__(this, '지금 지형에 그려진 stamp가 없어 저장할 내용이 없습니다.', '2646064');
             return undefined;
         }
 
@@ -1122,11 +1179,12 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
                 outlineEnabled: this.useTerrainOutlineStamp === true
             }
         };
-        const stampMode = this.fillOptions?.stampMode;
+        const fillOptions = this.#implementation.getTerrainFillOptions();
+        const stampMode = fillOptions?.stampMode;
         if (stampMode === 'fill' || stampMode === 'mask') {
             snapshot.meta.stampMode = stampMode;
         }
-        const targetLayerName = this.fillOptions?.targetLayer?.getName?.();
+        const targetLayerName = fillOptions?.targetLayer?.getName?.();
         if (typeof targetLayerName === 'string' && targetLayerName) {
             snapshot.meta.targetLayer = targetLayerName;
         }
@@ -1145,6 +1203,7 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
      * 기본은 이전에 불러온 스냅샷을 지우고 교체하며, options.append가 true이면 누적합니다.
      * 지형 투영 모드(생성 옵션 terrain이 true)가 아니거나, drawArg가 없어 stamp를 등록할 app을 알 수 없거나, 스냅샷 형식이 맞지 않으면 오류 메시지를 남기고 false를 반환합니다.
      * 일부 stamp만 값이 올바르지 않으면 그 stamp만 건너뛰고 나머지를 복원합니다.
+     * useFastStamp 설정과 관계없이 복원 결과는 UTerrainStamp이며 빠른 backend의 기능 제한을 적용하지 않습니다.
      *
      * @param {UFrustumHelperTerrainStampSnapshot|string} snapshot save()가 돌려준 스냅샷 객체 또는 그것을 JSON.stringify()한 문자열
      * @param {UFrustumHelperLoadOption} [options={}] 복원 방식을 정하는 옵션
@@ -1152,19 +1211,19 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
      */
     load(snapshot, options = {}) {
         if (this.useTerrain !== true) {
-            __GError__(this, 'load()는 지형 투영 모드(terrain: true)에서만 사용할 수 있습니다.', '*code=>');
+            __GError__(this, 'load()는 지형 투영 모드(terrain: true)에서만 사용할 수 있습니다.', '2648572');
             return false;
         }
 
         const app = options.app ?? this.drawArg?._app;
         if (!app) {
-            __GError__(this, 'stamp를 등록할 app을 알 수 없습니다. 생성 옵션 drawArg 또는 options.app이 필요합니다.', '*code=>');
+            __GError__(this, 'stamp를 등록할 app을 알 수 없습니다. 생성 옵션 drawArg 또는 options.app이 필요합니다.', '2648797');
             return false;
         }
 
         const data = parseTerrainStampSnapshot(snapshot);
         if (!data) {
-            __GError__(this, `save()가 만든 '${TERRAIN_STAMP_SNAPSHOT_FORMAT}' 형식(version ${TERRAIN_STAMP_SNAPSHOT_VERSION})의 스냅샷이 아닙니다.`, '*code=>');
+            __GError__(this, `save()가 만든 '${TERRAIN_STAMP_SNAPSHOT_FORMAT}' 형식(version ${TERRAIN_STAMP_SNAPSHOT_VERSION})의 스냅샷이 아닙니다.`, '2649067');
             return false;
         }
 
@@ -1204,7 +1263,7 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
         restore(data.outline, false);
 
         if (failed > 0) {
-            __GInfo__(this, `스냅샷 stamp ${failed}개는 값이 올바르지 않아 건너뛰었습니다.`, '*code=>');
+            __GInfo__(this, `스냅샷 stamp ${failed}개는 값이 올바르지 않아 건너뛰었습니다.`, '2650763');
         }
         return loaded > 0;
     }
@@ -1236,6 +1295,7 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
     /**
      * Helper의 갱신·출력을 즉시 중지하고 소유 geometry, material, 투영선과 cache를 해제합니다.
      * 렌더 자원의 실제 반납은 여러 프레임에 나누며, Scene·앱 종료 중에는 즉시 정리합니다.
+     * 해제 이벤트의 리스너가 실패해도 소유 자원을 정리한 뒤 해당 오류를 호출자에게 전달합니다.
      *
      * @override
      */
@@ -1244,40 +1304,46 @@ class UFrustumTerrainProjectionHelper extends LineSegments2 {
 
         // timer callback이 해제 중인 geometry나 stamp에 접근하지 않도록 자원 정리보다 먼저 차단한다.
         this._disposed = true;
-        super.dispose();
-        this.removeEventListener('removed', this.#implementation.onRemoved);
-        this.#implementation.stopUpdateTimer(true);
-        this.removeFromParent?.();
-        this.visible = false;
-        // 예약 취소와 Scene 분리가 끝난 자원만 넘겨 지연 반납 중 다시 그려지지 않게 합니다.
-        this.#implementation.retireResource(this.geometry);
-        this.#implementation.retireResource(this.material);
-        if (this.#implementation.renderHeartbeatMesh) {
-            // WebGLRenderer는 onBeforeRender를 함수로 호출하므로 dispose 후에도 안전한 no-op을 남긴다.
-            this.#implementation.renderHeartbeatMesh.onBeforeRender = () => {};
+        try {
+            // 기존 해제 알림 순서는 보존하되 사용자 리스너의 실패가 등록·자원 정리를 건너뛰지 않게 한다.
+            super.dispose();
+        } finally {
+            this.removeEventListener('removed', this.#implementation.onRemoved);
+            this.#implementation.stopUpdateTimer(true);
+            this.removeFromParent?.();
+            this.visible = false;
+            // 예약 취소와 Scene 분리가 끝난 자원만 넘겨 지연 반납 중 다시 그려지지 않게 합니다.
+            this.#implementation.retireResource(this.geometry);
+            this.#implementation.retireResource(this.material);
+            if (this.#implementation.renderHeartbeatMesh) {
+                // WebGLRenderer는 onBeforeRender를 함수로 호출하므로 dispose 후에도 안전한 no-op을 남긴다.
+                this.#implementation.renderHeartbeatMesh.onBeforeRender = () => {};
+            }
+            // 참조 필드와 children에 함께 있는 메시도 한 번만 정리하며, 분리된 소유 메시도 포함한다.
+            for (const child of new Set([this.projectionLine, this.nonTerrainFillMesh, this.sideFillMesh, this.#implementation.renderHeartbeatMesh, ...this.children])) {
+                if (!child) continue;
+                child.removeFromParent();
+                this.#implementation.retireResource(child);
+            }
+            this.clear();
+            // Stamp 등록 해제는 지금 확정하고, 마지막 공유 텍스처의 반납만 Helper 큐가 맡습니다.
+            this.#implementation.withTerrainStampBatch(() => {
+                for (const stamp of this.#implementation.terrainFillStampPool) stamp.dispose?.();
+                this.#implementation.terrainFillStampPool.length = 0;
+                for (const stamp of this.#implementation.terrainOutlineStampPool) stamp.dispose?.();
+                this.#implementation.terrainOutlineStampPool.length = 0;
+                this.clearLoadedTerrainStamps();
+            });
+            this.#implementation.terrainStampApp = undefined;
+            this.#implementation.fastTerrainFootprint = undefined;
+            this.#implementation.fastTerrainStyle = undefined;
+            this.terrainHeightSampleLayout = undefined;
+            this.#implementation.terrainIntersectionState.resolvedHeights.length = 0;
+            // 공유 지형 조회 자원의 사용분도 함께 반납합니다.
+            this.#implementation.releaseTerrainHeightResources();
+            this.#implementation.resetTemporalPose();
+            this.#implementation.resetTerrainIntersectionState();
         }
-        // 참조 필드와 children에 함께 있는 메시도 한 번만 정리하며, 분리된 소유 메시도 포함한다.
-        for (const child of new Set([this.projectionLine, this.nonTerrainFillMesh, this.sideFillMesh, this.#implementation.renderHeartbeatMesh, ...this.children])) {
-            if (!child) continue;
-            child.removeFromParent();
-            this.#implementation.retireResource(child);
-        }
-        this.clear();
-        // Stamp 등록 해제는 지금 확정하고, 마지막 공유 텍스처의 반납만 Helper 큐가 맡습니다.
-        this.#implementation.withTerrainStampBatch(() => {
-            for (const stamp of this.#implementation.terrainFillStampPool) stamp.dispose?.();
-            this.#implementation.terrainFillStampPool.length = 0;
-            for (const stamp of this.#implementation.terrainOutlineStampPool) stamp.dispose?.();
-            this.#implementation.terrainOutlineStampPool.length = 0;
-            this.clearLoadedTerrainStamps();
-        });
-        this.#implementation.terrainStampApp = undefined;
-        this.terrainHeightSampleLayout = undefined;
-        this.#implementation.terrainIntersectionState.resolvedHeights.length = 0;
-        // 공유 지형 조회 자원의 사용분도 함께 반납합니다.
-        this.#implementation.releaseTerrainHeightResources();
-        this.#implementation.resetTemporalPose();
-        this.#implementation.resetTerrainIntersectionState();
     }
 }
 

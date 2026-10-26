@@ -109,7 +109,7 @@ class U3dImageWMTSLayer extends U3dOpenLayer {
 
     /**
      * Capabilities 자동 구성을 사용하는지 여부입니다. <br>
-     * `xmlUrl` 또는 `capabilities`를 지정하면 생성자에서 true가 되며, 그동안 부모가 `ready()`를 자동으로 완료하지 않습니다.
+     * `xmlUrl` 또는 `capabilities`를 지정하면 생성자에서 true가 되며, 그동안 부모가 `ready`를 자동으로 완료하지 않습니다.
      *
      * @type {boolean}
      */
@@ -223,7 +223,7 @@ class U3dImageWMTSLayer extends U3dOpenLayer {
 
     /**
      * U3dImageWMTSLayer 클래스 생성자입니다. <br>
-     * 자동 구성은 앱에 추가한 뒤 ready()로 성공·실패를 확인하십시오. <br>
+     * 자동 구성은 앱에 추가한 뒤 ready로 성공·실패를 확인하십시오. <br>
      * xmlUrl·capabilities를 사용하지 않으면 부모의 layers callback으로 직접 구성합니다.
      *
      * @param {U3dImageWMTSLayerCO} [opt={}] WMTS 문서·요청 옵션과 부모 이미지 레이어 설정
@@ -615,7 +615,7 @@ class U3dImageWMTSLayer extends U3dOpenLayer {
     /**
      * Capabilities를 확보해 source 옵션과 레이어 메타데이터를 구성하고 타일 요청을 시작합니다. <br>
      * `capabilities` 옵션이 있으면 그 객체(또는 Promise 결과)를 사용하고, 없으면 `xmlUrl`을 요청합니다. <br>
-     * 성공하면 `ready()`를 완료하고, 실패하면 오류 로그를 남긴 뒤 `ready()`를 reject 합니다.
+     * 성공하면 `ready`를 완료하고, 실패하면 오류 로그를 남긴 뒤 `ready`를 reject 합니다.
      *
      * @ignore
      */
@@ -624,10 +624,10 @@ class U3dImageWMTSLayer extends U3dOpenLayer {
         const xmlUrl = this._xmlUrl;
         const input = this.#capabilitiesInput;
         if (!service || (!xmlUrl && input === undefined)) {
-            // 정상 생성 경로에서는 도달하지 않지만, 여기서 조용히 끝내면 ready()가 영원히 완료되지 않으므로 실패로 종료합니다.
+            // 정상 생성 경로에서는 도달하지 않지만, 여기서 조용히 끝내면 ready가 영원히 완료되지 않으므로 실패로 종료합니다.
             const error = new Error('WMTS Capabilities 구성 정보(xmlUrl 또는 capabilities, layer)가 없습니다.');
             __GError__(this, `${this.getName()} : ${error.message}`, '5192050');
-            /** @type {*} */(this).reject?.(error);
+            this._rejectReady(error);
             return;
         }
         this.#loading = true;
@@ -643,14 +643,14 @@ class U3dImageWMTSLayer extends U3dOpenLayer {
 
             this.#applyCapabilities(capabilities, service);
             this.#ready = true;
-            /** @type {*} */(this).resolve?.(this);
+            this._resolveReady();
             if (this._drawArg) this.refresh();
         } catch (error) {
             if (this._disposed) return;
             const message = error instanceof Error ? error.message : String(error);
             const sourceText = xmlUrl ?? 'capabilities 옵션';
             __GError__(this, `${this.getName()} : WMTS Capabilities를 불러오지 못했습니다. ${sourceText} => ${message}`, '5192037');
-            /** @type {*} */(this).reject?.(error);
+            this._rejectReady(error);
         } finally {
             if (this.#abortController === controller) this.#abortController = undefined;
             this.#loading = false;

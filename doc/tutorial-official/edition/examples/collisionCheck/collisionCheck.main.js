@@ -37,9 +37,9 @@ const DEMO_LONGITUDE_OFFSET = 0.006;
 
 /**
  * 모델 레이어의 자원 로딩 완료를 제한 시간 안에서 기다립니다.
- * 레이어 thenable은 모델 요청이 실패(CORS 차단, 404 등)해도 reject되지 않으므로 시간 초과로 실패를 감지합니다.
+ * ready Promise의 성공·실패를 전달하며, 제한 시간 안에 완료되지 않으면 시간 초과로 처리합니다.
  *
- * @param {{then: function(function(): void, function(unknown): void): unknown}} modelLayer 모델 레이어
+ * @param {{ready: Promise<unknown>}} modelLayer 초기화 완료 Promise를 제공하는 모델 레이어
  * @param {string} name 오류 메시지에 쓸 레이어 이름
  * @returns {Promise<void>} 로딩 완료
  */
@@ -48,7 +48,7 @@ function waitForModelLayer(modelLayer, name) {
         const timer = setTimeout(() => {
             reject(new Error(`${name} 모델 로딩이 ${MODEL_LOAD_TIMEOUT_MS / 1000}초 안에 끝나지 않았습니다. 모델 URL 접근(CORS)을 확인하세요.`));
         }, MODEL_LOAD_TIMEOUT_MS);
-        modelLayer.then(() => {
+        modelLayer.ready.then(() => {
             clearTimeout(timer);
             resolve();
         }, (error) => {

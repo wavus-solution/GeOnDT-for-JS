@@ -198,6 +198,7 @@ console<span class="token punctuation">.</span><span class="token function">log<
 <hr>
 <h2 id="4-외곽선-표시하기">4. 외곽선 표시하기</h2>
 <p>입체 형상의 경계를 뚜렷하게 보이려면 외곽선을 함께 표시합니다. 생성 옵션 <code>useLine</code>으로 초기 상태를 정하고, 생성 후에는 <code>setUseLine</code>으로 켜거나 끕니다.</p>
+<p>윗면·아랫면 테두리는 완만하게 만나는 면에서도 항상 표시합니다. 측면은 단면 대응점으로 구성한 패널의 경계를 표시하며, 패널이 비평면이어도 내부 삼각분할 대각선은 제외합니다. 외곽선을 다시 생성하거나 꺼도 사용자가 추가한 다른 자식 선은 유지됩니다.</p>
 <p>외곽선 색상은 생성 옵션 <code>lineColor</code> 또는 <code>setLineColor</code>로 지정합니다. 외곽선이 꺼져 있는 상태에서는 색상만 바꿔도 화면에 나타나지 않으므로, <code>setUseLine(true)</code>로 함께 켜야 합니다.</p>
 <h4 class="api-heading" id="api-7">API</h4>
 <p>U3dPolygonLoftGeometry.setUseLine(<code>useLine</code>) : 외곽선 표시 여부를 설정하는 함수</p>

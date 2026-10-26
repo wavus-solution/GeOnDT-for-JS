@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -10,10 +10,9 @@ import type { U3dComponentPosition } from "../3dLayer/U3dComponentPosition.js";
 import type { U3dGridTileLayer, U3dGridTileLayerCO } from "../3dLayer/U3dGridTileLayer.js";
 import type { U3dGroupLayer } from "../3dLayer/U3dGroupLayer.js";
 import type { U3dHeightXYZLayer, U3dHeightXYZLayerCO } from "../3dLayer/U3dHeightXYZLayer.js";
-import type { U3dImageLayerCO } from "../3dLayer/U3dImageLayer.js";
 import type { U3dImageWMSLayer } from "../3dLayer/U3dImageWMSLayer.js";
 import type { U3dImageWMTSLayer, U3dImageWMTSLayerCO } from "../3dLayer/U3dImageWMTSLayer.js";
-import type { U3dImageXYZLayer } from "../3dLayer/U3dImageXYZLayer.js";
+import type { U3dImageXYZLayer, U3dImageXYZLayerCO } from "../3dLayer/U3dImageXYZLayer.js";
 import type { U3dLayer } from "../3dLayer/U3dLayer.js";
 import type { U3dLayerList, U3dLayerListClassifiedLayersOption } from "../3dLayer/U3dLayerList.js";
 import type { U3dModelBIMObjLayer, U3dModelBIMObjLayerCO } from "../3dLayer/U3dModelBIMObjLayer.js";
@@ -42,7 +41,6 @@ import type { UAnalyHeight } from "../analy/UAnalyHeight.js";
 import type { UAnalyHeightLimit } from "../analy/UAnalyHeightLimit.js";
 import type { UAnalyLandScape } from "../analy/UAnalyLandScape.js";
 import type { UAnalyMultipleComponent } from "../analy/UAnalyMultipleComponent.js";
-import type { UAnalyObjectInfo } from "../analy/UAnalyObjectInfo.js";
 import type { UAnalyParticle } from "../analy/UAnalyParticle.js";
 import type { UAnalyPhysicalFlow } from "../analy/UAnalyPhysicalFlow.js";
 import type { UAnalyRoad } from "../analy/UAnalyRoad.js";
@@ -65,6 +63,7 @@ import type { UBox3 } from "../core/UBox3.js";
 import type { UCamera } from "../core/UCamera.js";
 import type { UCameraState, UCameraStateJSON } from "../core/UCameraState.js";
 import type { UCollapse } from "../core/UCollapse.js";
+import type { UDEF } from "../core/UDEF.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
 import type { UGroup } from "../core/UGroup.js";
 import type { UOrthographicCamera } from "../core/UOrthographicCamera.js";
@@ -105,7 +104,7 @@ import type { U3dQuadSet } from "../quadtree/U3dQuadSet.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 import type { U3dSelect } from "../select/U3dSelect.js";
 import type { ColorLike, Degree, GeoPosition, GeoPositionVector3, GooglePosition, KeyValue, Radian, WorldPosition, WorldPositionVector3 } from "../types/global.js";
-import type { DeferredObject } from "../util/deferred.js";
+import type { DeferredPromise } from "../util/deferredPromise.js";
 import type { U3dView, U3dViewCO } from "../view/U3dView.js";
 import type { U3dViewLight } from "../view/U3dViewLight.js";
 import type { USpotLight } from "../view/USpotLight.js";
@@ -123,9 +122,13 @@ type TargetRectOption = {
      */
     y: number;
     /**
-     * 특정지역 구글맵 인덱스 level 값
+     * 타일 확대·분할 단계
      */
-    z: number;
+    level?: number;
+    /**
+     * 기존 타일 레벨 입력의 별칭. level을 함께 지정하면 level이 우선합니다.
+     */
+    z?: number;
 };
 
 /**
@@ -247,90 +250,9 @@ type U3dEmapSatLayerCO_Content = {
 type U3dEmapSatLayerCO = Omit<Omit<U3dEmapLayerCO, never> & U3dEmapSatLayerCO_Content, never>;
 
 /**
- * WMTS 레이어 생성용 공통 옵션
- */
-type U3dWMTSLayerCO_Content = {
-    /**
-     * 레이어 이름
-     */
-    name?: string;
-    /**
-     * WMTS 서비스 URL
-     */
-    url?: string;
-    /**
-     * WMTS 기본 URL
-     */
-    baseurl?: string;
-    /**
-     * WMTS 레이어 이름
-     */
-    layername?: string;
-    /**
-     * 응답 포맷
-     */
-    ext?: string;
-    /**
-     * 좌표계
-     */
-    srs?: string;
-    /**
-     * 서비스 경계 박스
-     */
-    boundingbox?: object;
-    /**
-     * 지리 범위
-     */
-    geoextent?: Array<number>;
-    /**
-     * WMTS matrixSet 이름
-     */
-    matrixsetname?: string;
-    /**
-     * WMTS 스타일 이름
-     */
-    stylename?: string;
-    /**
-     * 프록시 사용 여부
-     */
-    useProxy?: boolean;
-    /**
-     * 프록시 주소
-     */
-    proxy?: string;
-    /**
-     * 드로잉 인자
-     */
-    drawarg?: UDrawArg;
-    /**
-     * 최대 줌 레벨
-     */
-    maxlevel?: number;
-    /**
-     * WMTS 해상도 배열
-     */
-    resolutions?: Array<number>;
-    /**
-     * capabilities XML 조회 여부
-     */
-    needXml?: boolean;
-    /**
-     * WMTS matrixSet 별칭 입력값
-     */
-    matrixSet?: string;
-    /**
-     * 내부 보정용 문자열
-     */
-    re?: string;
-};
-
-/**
- * WMTS 레이어 생성용 공통 옵션
- */
-type U3dWMTSLayerCO = Omit<Omit<U3dOpenLayerCO, never> & U3dWMTSLayerCO_Content, never>;
-
-/**
- * TMS 레이어 생성용 옵션
+ * ~extends U3dOpenLayerCO <br>
+ *
+ * TMS 레이어 생성용 옵션입니다.
  */
 type U3dTMSImageLayerCO_Content = {
     /**
@@ -354,11 +276,11 @@ type U3dTMSImageLayerCO_Content = {
      */
     proxyurl?: string;
     /**
-     * 최소 줌 레벨
+     * TMS 원본 타일 격자의 포함형 최소 줌 레벨
      */
     minlevel?: number;
     /**
-     * 최대 줌 레벨
+     * TMS 원본 타일 격자의 최대 줌(0~32). mercator는 포함형이고, raster는 1~32의 배타형 값으로 마지막 줌이 maxlevel-1입니다
      */
     maxlevel?: number;
     /**
@@ -368,7 +290,9 @@ type U3dTMSImageLayerCO_Content = {
 };
 
 /**
- * TMS 레이어 생성용 옵션
+ * ~extends U3dOpenLayerCO <br>
+ *
+ * TMS 레이어 생성용 옵션입니다.
  */
 type U3dTMSImageLayerCO = Omit<Omit<U3dOpenLayerCO, never> & U3dTMSImageLayerCO_Content, never>;
 
@@ -662,9 +586,9 @@ type U3dAppCO = {
      */
     containername: string;
     /**
-     * 출력 지도의 타입. 입력하지 않으면 한반도 범위 지도만 출력하고, 'world'를 입력하면,전세계 범위로 확장하여 지도를 출력합니다.
+     * 지도 영역. world는 전세계, korea는 한반도, custom은 targetrectopt 범위이며 타일 옵션을 지정하면 custom으로 처리합니다.
      */
-    type?: string | undefined;
+    type?: MapRegion;
     /**
      * 여러 U3dApp을 구분하기 위한 이름입니다.<br>
      * 생략하면 'U3dApp_'에 생성 순번을 붙인 이름이 자동으로 지정됩니다.
@@ -793,7 +717,7 @@ type U3dAppCO = {
      */
     postOption?: PostProcessParam;
     /**
-     * 지형을 나누는 쿼드타일의 최대 분할 레벨이며 값이 클수록 가까이에서 더 세밀하게 표현됨
+     * 지형을 나누는 쿼드타일의 최대 분할 레벨이며 지도 영역의 시작 레벨 이상이어야 합니다. 값이 클수록 가까이에서 더 세밀하게 표현됩니다.
      */
     maxlevel?: number;
     /**
@@ -805,7 +729,7 @@ type U3dAppCO = {
      */
     far?: number;
     /**
-     * 앱이 다룰 영역을 특정 타일 하나로 한정할 때 사용하는 타일 인덱스 옵션이며 생략하면 전체 영역 사용
+     * custom 영역의 타일 인덱스이며 지정하면 custom으로 처리합니다. 생략 시 type별 기본 타일을 사용합니다.
      */
     targetrectopt?: TargetRectOption;
     /**
@@ -852,7 +776,7 @@ type U3dAppCO = {
      */
     zoomLevel?: number;
     /**
-     * zoomOut()으로 내려갈 수 있는 Zoom 레벨의 하한
+     * 원근 버튼의 최소 줌과 지역 기본 최대 거리 계산 기준. 직교 축소는 현재 영역의 최대 거리 제한을 사용
      */
     minZoomLevel?: number;
     /**
@@ -921,6 +845,29 @@ declare class U3dApp extends U3dObject {
      */
     constructor(opt: U3dAppCO);
     /** @type {import('@union3d/core/UCamera').UCamera | undefined} */ _camera: UCamera | undefined;
+    /**
+     * 앱별 모델 탐색 상한입니다. 미지정 시 모델 타일의 공용 기본값을 사용합니다.
+     * @type {number | undefined}
+     *
+     * @ignore
+     */
+    _modelMaxLevel: number | undefined;
+    /**
+     * 영역 적용 중 재진입한 그리기와 갱신을 차단합니다.
+     *
+     * @type {boolean}
+     *
+     * @ignore
+     */
+    _mapRegionApplying: boolean;
+    /**
+     * 트리 교체 중 재진입한 그리기·갱신·재시작을 차단합니다.
+     *
+     * @type {boolean}
+     *
+     * @ignore
+     */
+    _quadTreeChanging: boolean;
     /** @type {string} */
     _classtype: string;
     /** @type {boolean} */
@@ -949,7 +896,7 @@ declare class U3dApp extends U3dObject {
     /** @type {import('@union3d/mode/UFlyControls').UFlyControls | undefined} */ _flyControl: UFlyControls | undefined;
     /** @type {import('@UScene').UScene} */
     _scene: UScene;
-    _terrainLayer: any;
+    _terrainLayer: U3dTerrainLayer;
     _measureLayer: any;
     /** @type {import('@UScene').UScene} */
     _sceneComment: UScene;
@@ -1158,6 +1105,26 @@ declare class U3dApp extends U3dObject {
     _viewRR: U3dAppRoundRobinState;
     /** @type {import('@union3d/overlay/U3dOverlayManager').U3dOverlayManager | null} */
     _overlayManager: U3dOverlayManager | null;
+    /**
+     * 동일 앱에서 지도 영역을 전환하고 관련 상태와 시점 적용까지 완료합니다.
+     * korea는 한반도 기본 범위, world는 전세계, custom은 사용자 타일 범위입니다.
+     * custom 범위를 생략하면 마지막 성공 범위를 사용하며 저장된 범위가 없으면 기본 타일을 사용합니다.
+     * 범위가 바뀌면 목적 영역의 기본 줌·최대 거리·far를 계산하고 현재 최소 거리를 유지합니다. 동일 범위는 현재 제한을 유지합니다.
+     * 시점은 WGS84 도, 거리는 EPSG:3857 미터입니다. 위도는 약 ±85.05112878도까지 허용합니다.
+     * 방위 0은 북쪽, 양수는 서쪽이며 기울기 0은 수직 하향, 90은 수평입니다.
+     * 기본 이동 시간은 100ms이고 0은 즉시 적용합니다. 투영·2D/3D 모드와 홈은 유지합니다.
+     * @param {MapRegion} region 목적 영역
+     * @param {MapRegionTransitionOptions} [options={}] 등록 배경과 시점·시간
+     * @returns {Promise<boolean>} 적용과 이동 완료는 true, 대체·사용자 조작·해제 취소는 false. 타일 다운로드는 기다리지 않습니다.
+     * @throws {Error} 미준비·해제·입력·적용 오류. 적용 후 이동 실패에서는 적용 영역을 유지합니다.
+     */
+    setMapRegion(region: MapRegion, options?: MapRegionTransitionOptions): Promise<boolean>;
+    /**
+     * 실제 적용된 지도 영역을 반환합니다. 취소 결과 false는 이전 영역 복원을 뜻하지 않습니다.
+     * @returns {MapRegion} korea, world 또는 custom
+     * @throws {Error} 준비되지 않았거나 해제된 앱에서 조회한 경우
+     */
+    getMapRegion(): MapRegion;
     getParam(): {
         name: string;
         containername: string;
@@ -1227,6 +1194,9 @@ declare class U3dApp extends U3dObject {
     /**
      * 작업 처리기와 측정을 먼저 종료한 뒤 앱이 소유한 자원을 정리합니다.
      * 종료 콜백에서 다시 호출하거나 이미 종료된 경우에는 중복 정리를 하지 않습니다.
+     * 동기 해제 오류가 발생해도 다음 자원의 정리를 시도한 뒤 수집한 오류를 전달합니다.
+     *
+     * @throws {unknown} 단일 실패의 원래 사유 또는 복수 실패를 호출 순서대로 errors에 담은 Error
      */
     dispose(): void;
     getMetaData(): any;
@@ -1602,13 +1572,17 @@ declare class U3dApp extends U3dObject {
      */
     removeAutoHeightUpdate(x: number, y: number, object: three.Object3D): void;
     /**
-     * @description 고도가 로드되었을때 addAutoHeightUpdate로 등록된 업데이트 함수를 실행시켜주는 함수, 고도가 로드되었을때 실행된다.
+     * 기존 고도 갱신 호출을 현재 쿼드셋에 전달합니다.
      *
-     * @param {event} event  U3dQuadSet이 initialize 할때 tile loaded 이벤트에 등록 시킨다
+     * @param {{data: import('@U3dQuadTile').U3dQuadTile}} event 지형 타일 로드 알림
+     * @returns {void}
+     * @throws {Error} 고도 조회 또는 등록 콜백 실행에 실패한 경우
      *
      * @ignore
      */
-    execAutoHeightUpdate(event: Event): void;
+    execAutoHeightUpdate(event: {
+        data: U3dQuadTile;
+    }): void;
     /**
      * app의 렌더링 대상 컨테이너를 반환하는 함수
      * @returns {HTMLElement | null} 렌더링 대상 컨테이너 DOM 요소. 컨테이너를 찾지 못하면 `null`
@@ -1754,13 +1728,31 @@ declare class U3dApp extends U3dObject {
      * app.getMapControl().getFactor().maxDistance = 10200000;
      */
     getMapControl(): UMapControls | undefined;
-    getLodingDom(): HTMLElement;
     /**
-     * GeOnDT for JS 의 메모리 및 작업 상태, 프레임 상태 등을 화면에 출력합니다.
-     * @param {string} [id='loading-canvas'] 출력할 캔버스의 DOM ID 입니다.
+     * CSS 스타일을 지정할 수 있는 로딩 바 컨테이너를 반환합니다.
+     *
+     * @returns {HTMLDivElement | undefined} 로딩 바 컨테이너. 생성 전이나 제거 후에는 undefined
+     */
+    getLodingDom(): HTMLDivElement | undefined;
+    /**
+     * 엔진 작업과 사용자 작업의 진행률을 표시하는 DOM 로딩 바를 생성합니다.
+     * `.u3d-loading-bar`로 위치와 크기, `.u3d-loading-bar__fill`로 색상과 모양을 지정할 수 있습니다.
+     * 이미 생성된 로딩 바는 재사용하며 ID와 표시 상태를 갱신합니다.
+     *
+     * @param {string} [id='loading-canvas'] 로딩 바 컨테이너의 DOM ID
      */
     createLoadingCanvas(id?: string): void;
+    /**
+     * 로딩 바 DOM과 로딩 완료 이벤트의 등록을 해제합니다.
+     * 다시 표시하려면 createLoadingCanvas()를 호출하십시오.
+     */
     removeLoadingCanvas(): void;
+    /**
+     * 엔진 작업의 진행률 표시 여부를 설정합니다.
+     * false이면 현재 채움 영역을 지우며, 등록된 사용자 작업은 다음 갱신에서 계속 표시합니다.
+     *
+     * @param {boolean} [visible=true] 엔진 작업 진행률 표시 여부
+     */
     setVisibleLoading(visible?: boolean): void;
     addTotalProcessLoading(total?: number): void;
     addNowProcessLoading(now?: number): void;
@@ -1829,21 +1821,28 @@ declare class U3dApp extends U3dObject {
     getDrawBufferWidth(): number;
     /**
      * QuadTree의 업데이트 min level을 설정하는 함수
-     * QuadTree의 업데이트 대상 최소 레벨을 설정합니다.
+     * 지형 최소 레벨은 앱 설정으로 보관하여 트리가 없어도 적용하고 재생성 후에도 유지합니다.
+     * 실제 타일 레벨이 설정 최소 레벨 미만이면 해당 타일의 하위 탐색을 중단합니다.
      * @param {number} level min level 값
      * @param {string} type 대상 quadTree ( U3dQuadTile : 'terrain', U3dQuadModelTile : 'model')
-     * @returns {boolean} 적용 여부
+     * @returns {boolean} 적용 여부. 0 이상의 정수가 아니거나 지형 상한을 넘으면 기존 설정을 유지하고 false를 반환합니다.
      */
     setMinQuadTreeLevel(level: number, type?: string): boolean;
     /**
      * QuadTree의 업데이트 max level을 설정하는 함수
      * QuadTree의 업데이트 대상 최대 레벨을 설정합니다.
-     * model type의 레이어 생성시 maxlevel이 기본 설정된 (기본값 17) 보다 높을 경우 해당 함수를 호출하여 maxLevel을 높여서 사용을 권장합니다.
+     * 지형·모델 상한은 앱 설정으로 보관하며 트리 생성 전·해제 후에도 설정할 수 있습니다.
+     * 생성 옵션이 없을 때 지형 기본값은 19이며, 모델은 공용 초기 기본값 17을 따릅니다.
      * @param {number} level max level 값
      * @param {string} type 대상 quadTree ( U3dQuadTile : 'terrain', U3dQuadModelTile : 'model')
-     * @returns {boolean} 적용 여부
+     * @returns {boolean} 적용 여부. 0 이상의 정수가 아니거나 해당 최소·시작 레벨보다 낮으면 기존 설정을 유지하고 false를 반환합니다.
      */
     setMaxQuadTreeLevel(level: number, type?: string): boolean;
+    /**
+     * 앱별 탐색 상한을 반환하며 미지정 시 모델 타일의 공용 기본값을 사용합니다.
+     * @returns {number} 모델 탐색 최대 레벨
+     */
+    getModelMaxLevel(): number;
     /**
      * 앱 설정을 실행 중에 확인하고 바꿀 수 있는 개발 도구(DevTool) 창(View)을 만들어 반환하는 메서드입니다. <br>
      * 창은 앱의 컨테이너 Element 안에 만들어지며 만든 즉시 화면에 표시됩니다. <br>
@@ -1938,21 +1937,21 @@ declare class U3dApp extends U3dObject {
      * 기본적으로 WebGL 화면 위에 겹쳐진 DOM 레이어(U3dPOI의 라벨·마커, U3dOverlay 등)도 함께 합성됩니다. <br>
      * DOM 합성에 실패하면 WebGL 화면만 반환합니다. (리소스 제약은 captureDomLayer 참고)
      * @param {Partial<{dom: boolean}>} [opt={}] 캡처 옵션. dom: DOM 레이어 합성 여부, defaultValue(opt.dom, true)
-     * @returns {Promise} then의 파라메터로 스크린샷 이미지의 dataURL 문자열 반한
+     * @returns {Promise<string>} 스크린샷 이미지의 dataURL 문자열
      */
     capture(opt?: Partial<{
         dom: boolean;
-    }>): Promise<any>;
+    }>): Promise<string>;
     /**
      * canvas 화면을 캡쳐하여 스크린샷 이미지를 반환합니다. <br>
      * 기본적으로 WebGL 화면 위에 겹쳐진 DOM 레이어(U3dPOI의 라벨·마커, U3dOverlay 등)도 함께 합성됩니다. <br>
      * DOM 합성에 실패하면 WebGL 화면만 반환합니다. (리소스 제약은 captureDomLayer 참고)
      * @param {Partial<{dom: boolean}>} [opt={}] 캡처 옵션. dom: DOM 레이어 합성 여부, defaultValue(opt.dom, true)
-     * @returns {Promise} then의 파라메터로 스크린샷 이미지의 Blob 반환
+     * @returns {Promise<Blob | null>} 스크린샷 Blob. 브라우저가 이미지를 만들지 못하면 null
      */
     captureToBlob(opt?: Partial<{
         dom: boolean;
-    }>): Promise<any>;
+    }>): Promise<Blob | null>;
     getSearchType(): string;
     /**
      * U3dApp의 작동이 중지된 상태인지 반환합니다.
@@ -2043,7 +2042,6 @@ declare class U3dApp extends U3dObject {
     getOpacity(name: any): number | null;
     getBox(): UBox3;
     createBox(): three.Box3;
-    create2DShapeLayer(opt: any, featureCollection: any): any;
     /**
      * 해당 레이어 범위로 지도 화면을 위치시키는 함수
      * @param {string} layername 레이어 이름
@@ -2051,10 +2049,10 @@ declare class U3dApp extends U3dObject {
      * @param {number} [offsetZ=0] 이동 시 카메라 타겟과 카메라와의 거리
      * @param {number} [leftrotate=0] 이동 시 카메라 좌우 각도
      * @param {number} [downrotate=0] 이동 시 카메라 상하 각도
-     * @returns {Promise<boolean>} 수행여부
+     * @returns {Promise<boolean | void>} 수행여부
      */
-    fitLayerExtent(layername: string, useFly?: boolean, offsetZ?: number, leftrotate?: number, downrotate?: number): Promise<boolean>;
-    drawLayerExtent(layername: any, color: any): DeferredObject<unknown>;
+    fitLayerExtent(layername: string, useFly?: boolean, offsetZ?: number, leftrotate?: number, downrotate?: number): Promise<boolean | void>;
+    drawLayerExtent(layername: any, color: any): DeferredPromise<void>;
     getEditHeightBoxList(): Map<string, any>;
     updateHeightLayers(box: any, minlevel: any, maxlevel: any): void;
     defined(value: any): boolean;
@@ -2106,7 +2104,7 @@ declare class U3dApp extends U3dObject {
      * @param {string} [opt.label] POI 출력 라벨
      * @param {import('three').Vector3} [opt.heightOffset] 텍스트 높이 보정 값
      * @param {boolean} [opt.select=false] POI 츌력 박스 여부
-     * @param {boolean} [opt.depthTest=fals]e POI 출력시, 다른 객체에 의해 가려지는지 깊이 계산 실행 여부
+     * @param {boolean} [opt.depthTest=false] POI 출력시, 다른 객체에 의해 가려지는지 깊이 계산 실행 여부
      * @returns {Promise<import('@U3dPOI').U3dPOI> | null} 실행 완료 여부
      */
     createPOI(opt: U3dPOICO): Promise<U3dPOI> | null;
@@ -2371,9 +2369,9 @@ declare class U3dApp extends U3dObject {
      * @param {WorldPosition} position 이동할 3D 월드 좌표
      * @param {WorldPosition} [target] 바라볼 3D 월드 좌표 (생략 시 현재 타겟 유지)
      * @param {number} [duration] 이동에 걸리는 시간 (밀리초)
-     * @returns {Promise<boolean>} 이동 완료 시점의 Promise
+     * @returns {Promise<void>} 이동 완료 시점의 Promise
      */
-    flyToPosition(position: WorldPosition, target?: WorldPosition, duration?: number): Promise<boolean>;
+    flyToPosition(position: WorldPosition, target?: WorldPosition, duration?: number): Promise<void>;
     /**
      * 입력받은 지리좌표(GeoPosition)로 카메라를 이동시키는 함수
      * @param {GeoPosition} position 이동할 위경도 좌표
@@ -2423,9 +2421,8 @@ declare class U3dApp extends U3dObject {
      * @param {number} height 고도값
      * @param {number} [rotateleft] 방위각
      * @param {number} [rotatedown] 고도각
-     * @returns {Promise<boolean>} 이동 완료 promise 반환
      */
-    setHomePosition(geox: number, geoy: number, height: number, rotateleft?: number, rotatedown?: number): Promise<boolean>;
+    setHomePosition(geox: number, geoy: number, height: number, rotateleft?: number, rotatedown?: number): void;
     _homePosition: three.Vector3;
     /**
      * 설정된 homePosition 의 위치로 이동하는 함수
@@ -2434,66 +2431,80 @@ declare class U3dApp extends U3dObject {
      */
     updateHomePosition(duration?: number): Promise<boolean>;
     /**
-     * OpenLayers 기반 이미지 타일 레이어 생성 함수
+     * OpenLayers 기반 이미지 타일 레이어를 생성하여 앱에 추가합니다.
+     * 같은 이름의 레이어가 이미 등록되어 있으면 새로 생성하지 않고 null을 반환합니다.
+     *
      * @param {U3dOpenLayerCO} opt U3dOpenLayer 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | undefined} U3dOpenLayer 레이어 객체
+     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | null} 생성한 레이어 또는 이름 중복 시 null
      */
-    create3dOpenLayer(opt: U3dOpenLayerCO): U3dOpenLayer | undefined;
+    createOpenLayer(opt: U3dOpenLayerCO): U3dOpenLayer | null;
     /**
-     * `OGC WMTS`를 이용한 이미지 레이어로를 생성합니다.
+     * OGC WMTS 이미지 레이어를 생성하여 앱에 추가합니다.
+     * 같은 이름의 레이어가 이미 등록되어 있으면 새로 생성하지 않고 null을 반환합니다.
+     *
      * @param {U3dImageWMTSLayerCO} opt U3dImageWMTSLayer 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dImageWMTSLayer').U3dImageWMTSLayer | undefined} U3dImageWMTSLayer 레이어 객체 반환
+     * @returns {import('@union3d/3dLayer/U3dImageWMTSLayer').U3dImageWMTSLayer | null} 생성한 레이어 또는 이름 중복 시 null
      */
-    create3dImageWMTSLayer(opt: U3dImageWMTSLayerCO): U3dImageWMTSLayer | undefined;
+    createWMTSImageLayer(opt: U3dImageWMTSLayerCO): U3dImageWMTSLayer | null;
     /**
-     * 데칼 영역 및 데칼 표현 레이어 생성 함수입니다.
+     * 데칼 영역 및 데칼 표현 레이어를 생성합니다.
+     * 같은 이름의 레이어가 이미 등록되어 있으면 오류를 안내하고 null을 반환합니다.
+     *
      * @param {U3dPatternXYZLayerCO} opt U3dPatternXYZLayer 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dPatternXYZLayer').U3dPatternXYZLayer | undefined} U3dPatternXYZLayer 레이어 객체 반환
+     * @returns {import('@union3d/3dLayer/U3dPatternXYZLayer').U3dPatternXYZLayer | null} 생성한 레이어 또는 이름 중복 시 null
      */
-    createPatternLayer(opt: U3dPatternXYZLayerCO): U3dPatternXYZLayer | undefined;
+    createPatternLayer(opt: U3dPatternXYZLayerCO): U3dPatternXYZLayer | null;
     /**
-     * Emap 기본 지도를 생성하는 레이어 함수입니다.
-     * @param {U3dEmapLayerCO} opt Emap 기본 지도 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | undefined} 생성된 U3dOpenLayer 레이어
+     * Emap 기본 지도 레이어를 생성하여 앱에 추가합니다.
+     * 같은 이름의 레이어가 이미 등록되어 있으면 새로 생성하지 않고 null을 반환합니다.
+     *
+     * @param {import('@U3dApp').U3dEmapLayerCO} opt Emap 기본 지도 생성 옵션
+     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | null} 생성한 레이어 또는 이름 중복 시 null
      */
-    createEmapBaseLayer(opt: U3dEmapLayerCO): U3dOpenLayer | undefined;
+    createEmapBaseLayer(opt: U3dEmapLayerCO): U3dOpenLayer | null;
     /**
-     * Emap 위성 지도를 생성하는 레이어 함수입니다.
-     * @param {U3dEmapSatLayerCO} opt Emap 위성 지도 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | undefined} 생성된 U3dOpenLayer 레이어
+     * Emap 위성 지도 레이어를 생성하여 앱에 추가합니다.
+     * 같은 이름의 레이어가 이미 등록되어 있으면 새로 생성하지 않고 null을 반환합니다.
+     *
+     * @param {import('@U3dApp').U3dEmapSatLayerCO} opt Emap 위성 지도 생성 옵션
+     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | null} 생성한 레이어 또는 이름 중복 시 null
      */
-    createEmapSatLayer(opt: U3dEmapSatLayerCO): U3dOpenLayer | undefined;
+    createEmapSatLayer(opt: U3dEmapSatLayerCO): U3dOpenLayer | null;
     /**
-     * Emap 공통 WMTS 템플릿 레이어를 생성하는 함수입니다.
-     * @param {U3dEmapLayerCO} opt Emap 템플릿 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | undefined} 생성된 U3dOpenLayer 레이어
+     * Emap 공통 WMTS 템플릿 레이어를 생성하여 앱에 추가합니다.
+     * 같은 이름의 레이어가 이미 등록되어 있으면 새로 생성하지 않고 null을 반환합니다.
+     *
+     * @param {import('@U3dApp').U3dEmapLayerCO} opt Emap 공통 WMTS 템플릿 생성 옵션
+     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | null} 생성한 레이어 또는 이름 중복 시 null
      */
-    createEmapTemplateLayer(opt: U3dEmapLayerCO): U3dOpenLayer | undefined;
-    /**
-     * XML capabilities 조회가 필요한 WMTS 레이어를 생성하는 함수입니다.
-     * @param {U3dWMTSLayerCO} opt WMTS 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | undefined} 생성된 U3dOpenLayer 레이어
-     */
-    createWMTSLayer(opt: U3dWMTSLayerCO): U3dOpenLayer | undefined;
-    /**
-     * WMTS 공통 템플릿 레이어를 생성하는 함수입니다.
-     * @param {U3dWMTSLayerCO} opt WMTS 템플릿 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | undefined} 생성된 U3dOpenLayer 레이어
-     */
-    createWMTSTemplateLayer(opt: U3dWMTSLayerCO): U3dOpenLayer | undefined;
+    createEmapTemplateLayer(opt: U3dEmapLayerCO): U3dOpenLayer | null;
     /**
      * TMS 이미지 레이어를 생성하는 함수입니다.
-     * @param {U3dTMSImageLayerCO} opt TMS 이미지 레이어 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | undefined} 생성된 U3dOpenLayer 레이어
+     * `minlevel`과 `maxlevel`은 TMS 원본 타일의 줌 범위입니다. `mercator` 프로필에서는 줌 번호 체계가
+     * 엔진 쿼드타일 레벨과 같으므로 계산된 값을 레이어의 `minLevel`, `maxLevel`에도 그대로 적용합니다.
+     * raster 프로필에서는 `maxlevel`을 배타 상한으로 사용해 `0..maxlevel-1` 해상도를 만들고, 원본의
+     * `minlevel` 해상도를 월드 좌표(EPSG:3857) 엔진 레벨로 환산해 안전한 `minLevel` 하한을 자동 적용합니다.
+     * 비-Mercator에서 camelCase `minLevel`은 자동 하한보다 더 높은 범위를 요청할 때만 반영합니다.
+     * 비-Mercator의 `maxLevel`은 엔진의 포함형 상한이며 앱의 최대 레벨과 지원 상한 32를 넘지 않습니다.
+     * 이때 요청한 `maxLevel`이 자동 하한보다 낮으면 안전한 최초 레벨까지 올립니다.
+     * 비-Mercator를 안전하게 환산할 레벨이 앱 상한 안에 없으면 타일을 요청하지 않습니다.
+     * Mercator는 월드 좌표(EPSG:3857)와 동등한 좌표계만 허용하고 실제 타일 너비를 OpenLayers 격자에 반영합니다.
+     * `metadata.tileFormat.reverseY`는 boolean 또는 `"true"`·`"false"` 문자열을 허용하며 생략하면 false입니다.
+     * 좌표계·프로필·경계·타일 크기·격자 입력을 검증할 수 없으면 오류를 출력하고 레이어를 생성하지 않습니다.
+     *
+     * @param {import('@U3dApp').U3dTMSImageLayerCO} opt TMS 이미지 레이어 생성 옵션
+     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | null} 생성한 레이어 또는 생성하지 못한 경우 null
      */
-    createTMSImageLayer(opt: U3dTMSImageLayerCO): U3dOpenLayer | undefined;
+    createTMSImageLayer(opt: U3dTMSImageLayerCO): U3dOpenLayer | null;
     /**
-     * 입력받은 값으로 TMS 이미지 레이어를 생성하는 함수
+     * 입력받은 값으로 TMS 이미지 레이어를 생성합니다.
+     *
      * @param {string} name 레이어 이름
+     *
      * @param {string} baseurl 레이어 데이터 주소
      * @param {string} srs 데이터 소스 좌표계
      * @param {object} boundingBox 타일 경계 박스
-     * @param {'raster' | 'mercator' | undefined} profile 타일 프로필. 기본값 'raster'
+     * @param {'raster' | 'mercator'} profile 타일 프로필
      * @param {string} ext 데이터 포맷 확장자
      * @param {number} minlevel 최소 줌 레벨
      * @param {number} maxlevel 최대 줌 레벨
@@ -2505,12 +2516,12 @@ declare class U3dApp extends U3dObject {
      * @param {boolean | undefined} reverseY Y 반전 여부. 기본값 false
      * @param {string | undefined} majorFolder 폴더 구조 방식 (ColumFirst:z/x/y ,RowFirst:z/y/x). 기본값 'ColumFirst'
      * @param {{ x: number, y: number } | undefined} origin 원점 좌표
-     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | undefined} 생성된 U3dOpenLayer 레이어
+     * @returns {import('@union3d/3dLayer/U3dOpenLayer').U3dOpenLayer | null} 생성한 레이어 또는 생성하지 못한 경우 null
      */
-    createTMSImageLayerAsXML(name: string, baseurl: string, srs: string, boundingBox: object, profile: "raster" | "mercator" | undefined, ext: string, minlevel: number, maxlevel: number, tileWidth: number | undefined, maxresolution: number, proj: string | undefined, proxyurl: string, useproxy: boolean, reverseY: boolean | undefined, majorFolder: string | undefined, origin: {
+    createTMSImageLayerAsXML(name: string, baseurl: string, srs: string, boundingBox: object, profile: "raster" | "mercator", ext: string, minlevel: number, maxlevel: number, tileWidth: number | undefined, maxresolution: number, proj: string | undefined, proxyurl: string, useproxy: boolean, reverseY: boolean | undefined, majorFolder: string | undefined, origin: {
         x: number;
         y: number;
-    } | undefined): U3dOpenLayer | undefined;
+    } | undefined): U3dOpenLayer | null;
     /**
      * TMS 템플릿 레이어를 생성하는 함수
      * @param {string} baseurl 타일 서비스 주소
@@ -2531,7 +2542,7 @@ declare class U3dApp extends U3dObject {
      * @param {object} [sharedSource] U3dOpenLayer가 등록 레이어 단위로 재사용하는 기존 OL source
      * @returns {object} 생성된 타일 레이어 {ol.layer.Tile}
      */
-    createTempleteTMSImageLayer(baseurl: string, srs: string, profile: "raster" | "mercator", extent: Array<number>, tileSize: number, matrixIds: Array<number>, resolutions: Array<number>, ext: string, proj: string | undefined, minZoom: number, proxyurl: string, useproxy: boolean, reverseY: boolean, majorFolder: string | undefined, origin: {
+    createTemplateTMSImageLayer(baseurl: string, srs: string, profile: "raster" | "mercator", extent: Array<number>, tileSize: number, matrixIds: Array<number>, resolutions: Array<number>, ext: string, proj: string | undefined, minZoom: number, proxyurl: string, useproxy: boolean, reverseY: boolean, majorFolder: string | undefined, origin: {
         x: number;
         y: number;
     } | undefined, sharedSource?: object): object;
@@ -2541,28 +2552,32 @@ declare class U3dApp extends U3dObject {
      */
     getTerrainLayer(): U3dTerrainLayer | undefined;
     /**
-     * 지형을 표시하는 레이어를 생성해 앱에 추가합니다.
-     * 이미 지형 레이어가 있으면 새로 만들지 않습니다.
+     * 앱 초기화에 사용할 지형 레이어를 생성·등록하고 보관합니다.
+     * 지형 레이어 또는 같은 이름의 레이어가 이미 있으면 null을 반환합니다.
      *
      * @param {U3dModelLayerCO} [opt={}] 지형 레이어 생성 옵션
+     * @returns {import('@union3d/3dLayer/U3dTerrainLayer').U3dTerrainLayer | null} 생성한 지형 레이어 또는 생성하지 못한 경우 null
      *
-     * @example
-     * app.createTerrainLayer({
-     *     name: 'terrain'
-     * });
+     * @ignore
      */
-    createTerrainLayer(opt?: U3dModelLayerCO): void;
+    _createTerrainLayer(opt?: U3dModelLayerCO): U3dTerrainLayer | null;
     /**
      * 현재 U3dApp에 등록된 측정(Measure) 레이어를 반환하는 함수
-     * @returns {import('@union3d/3dLayer/U3dShaderMeasureLayer').U3dShaderMeasureLayer | undefined} 측정 레이어
+     *
+     * @returns {import('@union3d/3dLayer/U3dShaderMeasureLayer').U3dShaderMeasureLayer | null | undefined} 측정 레이어. 생성 실패 시 null이며 초기화 전이나 해제 후에는 undefined입니다.
      */
-    getMeasureLayer(): U3dShaderMeasureLayer | undefined;
+    getMeasureLayer(): U3dShaderMeasureLayer | null | undefined;
     /**
-     * U3dApp에 측정(Measure) 레이어를 생성하고 등록하는 함수
-     * @param {object} opt 측정 레이어 생성 옵션
-     * @returns {boolean} 생성 성공 여부
+     * 앱 초기화에 사용할 측정 레이어를 생성하여 등록합니다.
+     * 반환한 레이어의 _measureLayer 저장과 데이터 갱신은 호출자가 수행합니다.
+     * 같은 이름의 레이어가 이미 있으면 null을 반환합니다.
+     *
+     * @param {object} opt 측정 레이어 생성 옵션. null·undefined이면 빈 옵션을 사용합니다.
+     * @returns {import('@union3d/3dLayer/U3dShaderMeasureLayer').U3dShaderMeasureLayer | null} 생성한 측정 레이어 또는 생성하지 못한 경우 null
+     *
+     * @ignore
      */
-    createMeasureLayer(opt: object): boolean;
+    _createMeasureLayer(opt: object): U3dShaderMeasureLayer | null;
     /**
      * 입력 받은 위경도 좌표를 3D 월드 좌표로 변환하는 함수
      * @param {number} geoX 위경도 X좌표
@@ -2624,7 +2639,7 @@ declare class U3dApp extends U3dObject {
     /**
      * 지도를 한 단계 축소합니다.<br>
      * 카메라와 화면 중심 사이의 거리를 두 배로 늘려 줌 레벨 1칸에 해당하는 만큼 멀어집니다.<br>
-     * 현재 레벨이 이미 최소 줌 레벨 이하이면 아무것도 하지 않으며, 그 밖의 동작 방식은 zoomIn()과 같습니다.
+     * 원근에서는 최소 줌 레벨, 직교에서는 현재 영역의 최대 거리까지 축소하며, 그 밖의 동작 방식은 zoomIn()과 같습니다.
      *
      * @see {@link U3dApp#zoomIn}
      */
@@ -2680,12 +2695,13 @@ declare class U3dApp extends U3dObject {
      */
     getRectangle(): UGeoRect;
     /**
-     * 고도 레이어를 생성하는 함수
-     * @param {string} name 고도 레이어 이름
-     * @param {U3dHeightXYZLayerCO} opt  U3dHeightXYZLayer 레이어를 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dHeightXYZLayer').U3dHeightXYZLayer} U3dHeightXYZLayer 레이어 객체 반환
+     * 옵션 객체로 고도 레이어를 생성하여 앱에 추가합니다.
+     * 장면이나 옵션이 없거나 같은 이름의 레이어가 이미 있으면 null을 반환합니다.
+     *
+     * @param {U3dHeightXYZLayerCO} opt 이름을 포함한 고도 레이어 생성 옵션
+     * @returns {import('@union3d/3dLayer/U3dHeightXYZLayer').U3dHeightXYZLayer | null} 생성한 고도 레이어 또는 생성하지 못한 경우 null
      */
-    createHeightXYZLayer(name: string, opt: U3dHeightXYZLayerCO): U3dHeightXYZLayer;
+    createHeightXYZLayer(opt: U3dHeightXYZLayerCO): U3dHeightXYZLayer | null;
     /**
      * 타일 레벨에 따른 화면 해상도(Resolution)을 반환하는 함수
      * @param {number} level 타일 레벨
@@ -2717,8 +2733,8 @@ declare class U3dApp extends U3dObject {
      * @returns {number} 동작 중인 프로세스 수
      */
     getWorkingCount(): number;
-    getWorkingLevel2(): any;
-    getWorkingLevel3(): any;
+    getWorkingLevel2(): number;
+    getWorkingLevel3(): number;
     getWorkingImage(): number;
     getWorkingHeight(name: any): number;
     getWorkingModel(): number;
@@ -2755,11 +2771,48 @@ declare class U3dApp extends U3dObject {
     redraw(layername: any): void;
     forceOuterDeleteModel(layername: any, limit?: any): void;
     /**
-     * 쿼드타일(QuadTile)울 새로고침합니다. <br>
-     * 타일 출력을 초기화하고 현제 카메라 상태에 따른 타일을 다시 출력합니다.
+     * 현재 영역과 표시를 유지하며 지형·모델 트리를 모두 재시작합니다.
+     *
+     * @returns {void}
+     * @throws {Error} 트리 해제 또는 생성에 실패한 경우
      */
     restartQuadTree(): void;
+    /**
+     * 모델 타일과 진행 작업을 유지하며 지형·영상 트리만 재시작합니다.
+     *
+     * @returns {void}
+     * @throws {Error} 트리 해제 또는 생성에 실패한 경우
+     */
+    restartTerrainQuadTree(): void;
+    /**
+     * 지형 타일과 고도 캐시를 유지하며 모델 트리만 재시작합니다.
+     *
+     * @returns {void}
+     * @throws {Error} 트리 해제 또는 생성에 실패한 경우
+     */
+    restartModelQuadTree(): void;
+    /**
+     * 두 종류의 타일과 소유 작업을 해제합니다.
+     *
+     * @returns {void}
+     * @throws {Error} 자원 정리에 실패한 경우
+     */
     disposeQuadTree(): void;
+    /**
+     * 모델을 유지하며 지형·영상 타일과 해당 완료 대기를 해제합니다.
+     *
+     * @returns {void}
+     * @throws {Error} 자원 정리에 실패한 경우
+     */
+    disposeTerrainQuadTree(): void;
+    /**
+     * 지형을 유지하며 모델 타일과 소유 작업을 해제합니다.
+     *
+     * @returns {void}
+     * @throws {Error} 자원 정리에 실패한 경우
+     */
+    disposeModelQuadTree(): void;
+    _quadtreeSet: U3dQuadSet;
     /**
      * U3dApp의 레이어를 삭제하는 함수
      * @param {string | import('@U3dLayer').U3dLayer} name 레이어 이름 또는 레이어 객체
@@ -2906,11 +2959,23 @@ declare class U3dApp extends U3dObject {
      * @returns {Array<import('@U3dLayer').U3dLayer> | undefined} 이미지 레이어 목록. 레이어 목록이 준비되지 않았으면 `undefined`
      */
     getInstanceImageLayers(): Array<U3dLayer> | undefined;
-    getImageLayer(layername: any): U3dLayer;
+    /**
+     * 이름이 일치하는 첫 번째 이미지 레이어를 반환합니다.
+     *
+     * @param {string} layername 등록된 레이어 이름
+     * @returns {import('@U3dLayer').U3dLayer | null} 일치하는 이미지 레이어. 없으면 `null`
+     */
+    getImageLayer(layername: string): U3dLayer | null;
     getInstanceClassifiedLayers(opt: any): U3dLayerListClassifiedLayersOption;
     getInstanceLoadingLayers(): U3dLayer[];
     getInstanceTypeLayers(array: any): U3dLayer[];
-    getHeightLayer(layername: any): U3dLayer;
+    /**
+     * 이름이 일치하는 첫 번째 높이 레이어를 반환합니다.
+     *
+     * @param {string} layername 등록된 레이어 이름
+     * @returns {import('@U3dLayer').U3dLayer | null} 일치하는 높이 레이어. 없으면 `null`
+     */
+    getHeightLayer(layername: string): U3dLayer | null;
     /**
      * 등록된 높이(Height) 레이어 배열을 반환합니다.
      *
@@ -2920,7 +2985,12 @@ declare class U3dApp extends U3dObject {
      * const heightLayers = app.getHeightLayers();
      */
     getHeightLayers(): Array<U3dLayer>;
-    getImageLayers(layername: any): U3dLayer[];
+    /**
+     * 등록된 전체 이미지 레이어 배열을 반환합니다.
+     *
+     * @returns {Array<import('@U3dLayer').U3dLayer>} 이미지 레이어 배열. 등록된 이미지 레이어가 없으면 빈 배열
+     */
+    getImageLayers(): Array<U3dLayer>;
     getImageLayerLength(): number;
     getHeightLayerLength(): number;
     getModelLayerLength(): number;
@@ -2950,116 +3020,86 @@ declare class U3dApp extends U3dObject {
     getMeasureLength(): any;
     getMeasureExtent(): any;
     /**
-     * 3D 그룹 모델 레이어를 생성하는 함수입니다.
-     * @param {U3dModelGroupLayerCO} opt 그룹 레이어 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dGroupLayer').U3dGroupLayer | false} 생성된 그룹 레이어
+     * 그룹 레이어를 생성하여 앱에 추가합니다.
+     * 옵션이 없거나 같은 이름의 레이어가 이미 등록되어 있으면 null을 반환합니다.
+     *
+     * @param {import('@U3dApp').U3dModelGroupLayerCO} opt 그룹 레이어 생성 옵션
+     * @returns {import('@union3d/3dLayer/U3dGroupLayer').U3dGroupLayer | null} 생성한 그룹 레이어 또는 생성하지 못한 경우 null
      */
-    createModelGroupLayer(opt: U3dModelGroupLayerCO): U3dGroupLayer | false;
+    createGroupLayer(opt: U3dModelGroupLayerCO): U3dGroupLayer | null;
     /**
      * 격자 타일 레이어를 생성해 앱에 추가합니다. <br>
-     * 옵션이 없거나 같은 이름의 레이어가 이미 있으면 생성하지 않고 `false`를 반환하므로, 반환값을 확인한 뒤 사용합니다.
+     * 옵션이 없거나 같은 이름의 레이어가 이미 있으면 null을 반환하므로, 반환값을 확인한 뒤 사용합니다.
      *
      * @param {U3dGridTileLayerCO} opt 레이어 생성 옵션. `name`이 이미 등록된 이름이면 생성하지 않습니다
-     * @returns {import('@union3d/3dLayer/U3dGridTileLayer').U3dGridTileLayer | boolean} 생성된 레이어. 생성하지 못하면 `false`
+     * @returns {import('@union3d/3dLayer/U3dGridTileLayer').U3dGridTileLayer | null} 생성한 격자 타일 레이어 또는 생성하지 못한 경우 null
      *
      * @example
      * const gridLayer = app.createGridTileLayer(opt);
      * if (gridLayer) app.showLayer(opt.name);
      */
-    createGridTileLayer(opt: U3dGridTileLayerCO): U3dGridTileLayer | boolean;
+    createGridTileLayer(opt: U3dGridTileLayerCO): U3dGridTileLayer | null;
     /**
-     * U3F 포맷의 건물 레이어를 생성하는 함수
-     * @param opt
-     * @param {string} opt.name U3F 3D 모델 레이어 이름
-     * @param {string} opt.layername U3F 레이어의 이름
-     * @param {string} opt.baseurl U3F 모델 데이터 기본 URL 경로
-     * @param {string} opt.basename U3F 데이터 dml 정보가 있는 U3G 파일 이름
-     * @param {string} opt.ext U3F 데이터 형식(format)
-     * @param {string} opt.grouplayer 그룹레이어 객체
-     * @param {string} opt.renderorder U3F 모델 레이어 랜더 우선순위 (클수록 우선적으로 랜더링)
-     * @param {number} [opt.minlevel] 가시화 최소레벨
-     * @param {number} [opt.maxlevel] 가시화 최대레벨
-     * @param {boolean} [opt.useproxy] 프록시 사용 여부
-     * @param {boolean} [opt.reverseY] Y축 반전(reverse) 여부
-     * @param {boolean} [opt.usetexture] 텍스쳐 사용 여부
-     * @param {string} [opt.proxyurl] 프록시 URL
-     * @param {number} [opt.opacity] 모델의 투명도 값
-     * @param {Number} [opt.makeU3FPackage=1] 병합된 u3f.package 파일을 사용할 건지의 여부 (1 사용, 0 미사용)
-     * @param {Number} [opt.isShareMaterial=0] 텍스쳐가 없은 u3f일경우 머터리얼을 공유할건지의 여부 (1 사용, 0 미사용)
-     * @param {Boolean} [opt.isTextureUpdate=true] 텍스쳐가 있는 u3f일경우 텍스쳐 업데이트를 사용하는지의 여부
-     * @param {Number} [opt.textureDistance] 텍스터 업데이트 시 업데이트 거리 강제 설정
-     * @returns {import('@union3d/3dLayer/U3dModelU3FLayer').U3dModelU3FLayer} U3dModelU3FLayer
+     * U3F 3D 모델 레이어를 생성하여 앱에 추가합니다.
+     * 옵션이 없거나 같은 이름의 레이어가 이미 등록되어 있으면 null을 반환합니다.
+     *
+     * @param {import('@U3dApp').U3d3DFModelLayerCO} opt U3F 3D 모델 생성 옵션
+     * @returns {import('@union3d/3dLayer/U3dModelU3FLayer').U3dModelU3FLayer | null} 생성한 U3F 모델 레이어 또는 생성하지 못한 경우 null
      */
+    create3DFModelLayer(opt: U3d3DFModelLayerCO): U3dModelU3FLayer | null;
     /**
-     * U3F 3D 모델 레이어를 생성하는 함수입니다.
-     * @param {U3d3DFModelLayerCO} opt U3F 3D 모델 생성 옵션
-     * @returns {import('@union3d/3dLayer/U3dModelU3FLayer').U3dModelU3FLayer | false} 생성된 U3F 모델 레이어
-     */
-    create3DFModelLayer(opt: U3d3DFModelLayerCO): U3dModelU3FLayer | false;
-    /**
-     * 여러 컴포넌트로 구성된 모델 레이어를 생성하는 함수입니다.
+     * 여러 컴포넌트로 구성된 모델 레이어를 생성하여 앱에 추가합니다.
+     * 옵션이 없거나 같은 이름의 레이어가 이미 등록되어 있으면 null을 반환합니다.
+     *
      * @param {import('@union3d/3dLayer/U3dMultipleComponentLayer').U3dMultipleComponentLayerCO} opt 다중 컴포넌트 레이어 옵션
-     * @returns {import('@union3d/3dLayer/U3dMultipleComponentLayer').U3dMultipleComponentLayer | false} 생성된 레이어
+     * @returns {import('@union3d/3dLayer/U3dMultipleComponentLayer').U3dMultipleComponentLayer | null} 생성한 다중 컴포넌트 레이어 또는 생성하지 못한 경우 null
      */
-    createMultipleComponentLayer(opt: U3dMultipleComponentLayerCO): U3dMultipleComponentLayer | false;
+    createMultipleComponentLayer(opt: U3dMultipleComponentLayerCO): U3dMultipleComponentLayer | null;
     /**
-     * BIM 객체 모델 레이어를 생성하는 함수입니다.
+     * BIM 객체 모델 레이어를 생성하여 앱에 추가합니다.
+     * 옵션이 없거나 같은 이름의 레이어가 이미 등록되어 있으면 null을 반환합니다.
+     *
      * @param {U3dModelBIMObjLayerCO} opt BIM 객체 모델 레이어 옵션
-     * @returns {import('@union3d/3dLayer/U3dModelBIMObjLayer').U3dModelBIMObjLayer | undefined} 생성된 레이어
+     * @returns {import('@union3d/3dLayer/U3dModelBIMObjLayer').U3dModelBIMObjLayer | null} 생성한 BIM 객체 모델 레이어 또는 생성하지 못한 경우 null
      */
-    createModelBIMObjLayer(opt: U3dModelBIMObjLayerCO): U3dModelBIMObjLayer | undefined;
+    createBIMObjModelLayer(opt: U3dModelBIMObjLayerCO): U3dModelBIMObjLayer | null;
     /**
-     * 3D 모델 레이어를 생성하는 함수
-     * @param option
-     * @param {string} option.name 레이어 이름
-     * @param {string} option.baseurl 모델 데이터의 기본경로
-     * @param {string} [option.type] 레이어 타입
-     * @param {string} option.ext 모델 데이터 확장자
-     * @param {boolean} [option.drawline] 모델의 테두리 가시화 유무
-     * @param {boolean} [option.needtexture] 모델의 텍스쳐 가시화 유무
-     * @param {boolean} [option.needxml] 모델의 메타데이터(XML) 유무
-     * @param {boolean} [option.xmlurl] 모델의 메타데이터(XML) 경로
-     * @param {boolean} [option.useu3f] U3F 모델 사용 유무
-     * @param {string} [option.u3furl] U3F 모델의 경로
-     * @param {object[]} option.listmodel 모델 레이어를 구성할 모델 데이터 리스트
-     * @param {object[]} [option.listmodel.name] 모델의 이름
-     * @param {object[]} option.listmodel.baseurl 모델 데이터의 기본경로
-     * @param {object[]} option.listmodel.fileName 모델 데이터의 이름
-     * @param {import('three').Vector3Like} [option.position] 3D 모델의 위치
-     * @param {import('three').Vector3Like} [option.scale] 3D 모델의 스케일(크기)
-     * @param {import('three').Vector3Like} [option.rotation] 3D 모델의 회전
-     * @returns {*}
+     * TDS 모델 레이어를 생성하여 앱에 추가합니다.
+     * 옵션이 없거나 같은 이름의 레이어가 이미 등록되어 있으면 null을 반환합니다.
+     *
+     * @param {import('@U3dApp').U3dTdsModelLayerCO} option TDS 모델 레이어 옵션
+     * @returns {import('@union3d/3dLayer/U3dModelTdsLayer').U3dModelTdsLayer | null} 생성한 TDS 모델 레이어 또는 생성하지 못한 경우 null
      */
-    /**
-     * TDS 모델 레이어를 생성하는 함수입니다.
-     * @param {U3dTdsModelLayerCO} option TDS 모델 레이어 옵션
-     * @returns {import('@union3d/3dLayer/U3dModelTdsLayer').U3dModelTdsLayer | false} 생성된 레이어
-     */
-    createTdsModelLayer(option: U3dTdsModelLayerCO): U3dModelTdsLayer | false;
+    createTdsModelLayer(option: U3dTdsModelLayerCO): U3dModelTdsLayer | null;
     /**
      * 일반 XYZ 이미지 레이어를 생성하는 함수입니다.
-     * @param {U3dImageLayerCO} opt XYZ 이미지 레이어 옵션
-     * @returns {import('@union3d/3dLayer/U3dImageXYZLayer').U3dImageXYZLayer | false | undefined} 생성된 레이어
+     *
+     * @param {U3dImageXYZLayerCO} opt XYZ 이미지 레이어 옵션
+     * @returns {import('@union3d/3dLayer/U3dImageXYZLayer').U3dImageXYZLayer | null} 생성한 레이어 또는 생성하지 못한 경우 null
      */
-    createXYZImageLayer(opt: U3dImageLayerCO): U3dImageXYZLayer | false | undefined;
+    createXYZImageLayer(opt: U3dImageXYZLayerCO): U3dImageXYZLayer | null;
     /**
-     * 단순 이미지 레이어를 생성하는 함수
-     * @param {U3dImageLayerCO} opt 이미지 레이어 옵션
-     * @returns {import('@union3d/3dLayer/U3dImageXYZLayer').U3dImageXYZLayer | false | undefined} 생성된 레이어
+     * XYZ 이미지 레이어를 생성하여 앱에 추가합니다.
+     *
+     * @param {U3dImageXYZLayerCO} opt 이미지 레이어 옵션
+     * @returns {import('@union3d/3dLayer/U3dImageXYZLayer').U3dImageXYZLayer | null} 생성한 레이어 또는 생성하지 못한 경우 null
      */
-    createImageLayer(opt: U3dImageLayerCO): U3dImageXYZLayer | false | undefined;
+    createImageLayer(opt: U3dImageXYZLayerCO): U3dImageXYZLayer | null;
     /**
      * WMS 이미지 레이어를 생성하는 함수입니다.
-     * @param {U3dWMSImageLayerCO} opt WMS 이미지 레이어 옵션
-     * @returns {import('@union3d/3dLayer/U3dImageWMSLayer').U3dImageWMSLayer | false} 생성된 레이어
+     *
+     * @param {import('@U3dApp').U3dWMSImageLayerCO} opt WMS 이미지 레이어 옵션
+     * @returns {import('@union3d/3dLayer/U3dImageWMSLayer').U3dImageWMSLayer | null} 생성한 레이어 또는 생성하지 못한 경우 null
      */
-    createWMSImageLayer(opt: U3dWMSImageLayerCO): U3dImageWMSLayer | false;
+    createWMSImageLayer(opt: U3dWMSImageLayerCO): U3dImageWMSLayer | null;
     /**
-     * WFS 모델 레이어를 생성하는 함수입니다.
-     * @param {U3dWFSModelLayerCO} opt WFS 모델 레이어 옵션
-     * @returns {import('@union3d/3dLayer/U3dModelWFSLayer').U3dModelWFSLayer | false} 생성된 레이어
+     * WFS 모델 레이어를 생성하여 앱에 추가합니다.
+     * 옵션이 없거나 같은 이름의 레이어가 이미 등록되어 있으면 null을 반환합니다.
+     *
+     * @param {import('@U3dApp').U3dWFSModelLayerCO} opt WFS 모델 레이어 옵션
+     * @returns {import('@union3d/3dLayer/U3dModelWFSLayer').U3dModelWFSLayer | null} 생성한 WFS 모델 레이어 또는 생성하지 못한 경우 null
      */
-    createWFSModelLayer(opt: U3dWFSModelLayerCO): U3dModelWFSLayer | false;
+    createWFSModelLayer(opt: U3dWFSModelLayerCO): U3dModelWFSLayer | null;
     /**
      * 지도화면의 컨테이너(div)를 반환하는 함수
      * @returns {HTMLElement} 지도화면의 div Element
@@ -3204,7 +3244,7 @@ declare class U3dApp extends U3dObject {
     createCamera(near: any, far: any, fov: any): UCamera;
     /**
      * 요청한 유형으로 카메라를 교체합니다.<br>
-     * 전환한 카메라는 위치와 방향을 유지하고, 화면상 시야 크기를 맞춥니다.<br>
+     * 전환한 카메라는 타깃과 방향을 유지하고, 화각·배율에 맞는 거리로 화면상 시야 크기를 맞춥니다.<br>
      * 카메라 또는 지도 제어기가 준비되지 않았으면 카메라를 교체하지 않고 현재 값을 반환합니다.
      *
      * @param {'perspective' | 'orthographic'} type 교체할 카메라 유형. perspective(원근) 또는 orthographic(직교)
@@ -3597,14 +3637,32 @@ declare class U3dApp extends U3dObject {
      */
     setTileUpdateSensitivity(sensitivity: number): U3dApp;
     /**
-     * Quad Tile Tree Set을 생성하는 함수
-     * @param {import('@UGeoRect').UGeoRect} [rectangle] 실제 화면에 가시화할 3차원 영역 나타내는 Rectangle
-     * @param {number} [minlevel=5] 타일 서버에서 받아 올 타일의 최소 레벨. (데이터 가시화 레벨)
-     * @return {null|import('@U3dQuadSet').U3dQuadSet} 생성된 Quad Tile Tree Set
-     * @ignore
+     * 누락된 지형·모델 트리를 생성하고 컨테이너를 반환합니다.
+     *
+     * @param {import('@UGeoRect').UGeoRect} [rectangle=this._rectangle] 생성 영역
+     * @param {number} [minlevel=this._datalevel] 시작 레벨
+     * @returns {import('@U3dQuadSet').U3dQuadSet | null} 활성 쿼드셋 또는 생성 불가
+     * @throws {Error} 트리 생성에 실패한 경우
      */
-    createQuadTreeSet(rectangle?: UGeoRect, minlevel?: number): null | U3dQuadSet;
-    _quadtreeSet: U3dQuadSet;
+    createQuadTreeSet(rectangle?: UGeoRect, minlevel?: number): U3dQuadSet | null;
+    /**
+     * 모델을 유지하며 누락된 지형·영상 트리를 생성합니다.
+     *
+     * @param {import('@UGeoRect').UGeoRect} [rectangle=this._rectangle] 생성 영역
+     * @param {number} [minlevel=this._datalevel] 시작 레벨
+     * @returns {import('@U3dQuadSet').U3dQuadSet | null} 활성 쿼드셋 또는 생성 불가
+     * @throws {Error} 트리 생성에 실패한 경우
+     */
+    createTerrainQuadTreeSet(rectangle?: UGeoRect, minlevel?: number): U3dQuadSet | null;
+    /**
+     * 지형을 유지하며 누락된 모델 트리를 생성합니다.
+     *
+     * @param {import('@UGeoRect').UGeoRect} [rectangle=this._rectangle] 생성 영역
+     * @param {number} [minlevel=this._datalevel] 시작 레벨
+     * @returns {import('@U3dQuadSet').U3dQuadSet | null} 활성 쿼드셋 또는 생성 불가
+     * @throws {Error} 트리 생성에 실패한 경우
+     */
+    createModelQuadTreeSet(rectangle?: UGeoRect, minlevel?: number): U3dQuadSet | null;
     /**
      * 지도 위에 타일 경계 이미지를 출력할지 설정하는 함수
      * @param {boolean} val 이미지 디버그 모드 활성화 여부 [true : 활성, false : 비활성]
@@ -3630,32 +3688,6 @@ declare class U3dApp extends U3dObject {
     getCollapsePosition(vec: any, scenes: any): any;
     getWalkCollapsePosition(vec: any, scenes: any): any;
     isUpdateFrame(): boolean;
-    /**
-     * 3D 애니메이션 모델 레이어를 생성해 앱에 추가합니다. <br>
-     * 3ds 파일 시퀀스를 불러와 애니메이션으로 재생하는 레이어입니다. <br>
-     * 옵션이 없거나 같은 이름의 레이어가 이미 있으면 생성하지 않고 `false`를 반환하므로, 반환값을 확인한 뒤 사용합니다.
-     *
-     * @param {object} opt 레이어 생성 옵션
-     * @param {string} opt.name 레이어 이름. 이미 등록된 이름이면 생성하지 않습니다
-     * @param {string} opt.baseurl 애니메이션 모델 URL
-     * @param {import('three').Vector3Like} [opt.position] 모델의 위치
-     * @param {import('three').Vector3Like} [opt.scale] 모델의 크기
-     * @param {import('three').Vector3Like} [opt.rotation] 모델의 회전
-     * @param {number} [opt.animationspeed=1] 애니메이션 속도
-     * @returns {import('@union3d/3dLayer/U3dModelTdsLayer').U3dModelTdsLayer | boolean} 생성된 레이어. 생성하지 못하면 `false`
-     *
-     * @example
-     * const layer = app.createModelTdsLayer(opt);
-     * if (layer) app.showLayer(opt.name);
-     */
-    createModelTdsLayer(opt: {
-        name: string;
-        baseurl: string;
-        position?: three.Vector3Like;
-        scale?: three.Vector3Like;
-        rotation?: three.Vector3Like;
-        animationspeed?: number;
-    }): U3dModelTdsLayer | boolean;
     update(list: any, event: any, force: any, change: any): void;
     particleUpdate(): void;
     /**
@@ -3669,15 +3701,18 @@ declare class U3dApp extends U3dObject {
     changeUpdate(): void;
     /**
      * 생성된 모델 레이어들에게서 입력된 박스 영역의 모델 객체를 타일단위로 강제 로드 하는 함수
+     * 표시 자원 정리 실패도 수집하여 갱신 중지를 복원한 뒤 Promise를 거절합니다.
+     *
      * @param {boolean} visible 검색 영역 표시 여부
      * @param {number} minx box 영역의 min X 좌표 값 (월드 좌표)
      * @param {number} maxx box 영역의 max X 좌표 값 (월드 좌표)
      * @param {number} miny box 영역의 min Y 좌표 값 (월드 좌표)
      * @param {number} maxy box 영역의 max Y 좌표 값 (월드 좌표)
-     * @return {Promise} 업데이트 수행 Promise
+     * @returns {Promise<void> | undefined} 완료 또는 취소·정리 오류. 기존 작업 중에는 undefined
+     * @throws {Error} 범위 오류, 내부 오류 또는 트리 교체·해제에 따른 취소
      * @ignore
      */
-    forceLoadModel(visible?: boolean, minx?: number, maxx?: number, miny?: number, maxy?: number): Promise<any>;
+    forceLoadModel(visible?: boolean, minx?: number, maxx?: number, miny?: number, maxy?: number): Promise<void> | undefined;
     /**
      * 실내, 객체 내부 또는 자세한 카메라 조작을 지원하는 1인칭 컨트롤 변경 함수
      * @param {boolean} set 1인칭 컨트롤 활성 여부 [ true : 활성 / false : 비활성 ]
@@ -3761,7 +3796,7 @@ declare class U3dApp extends U3dObject {
     fitExtentToBoundingBox(boundingBox: {
         min: object;
         max: object;
-    }, useFly: boolean, offsetZ: number, leftrotate?: number, downrotate?: number): DeferredObject<unknown>;
+    }, useFly: boolean, offsetZ: number, leftrotate?: number, downrotate?: number): DeferredPromise<boolean | void>;
     /**
      * 입력한 오브젝트 범위로 카메라를 조정하는 함수
      * @param {import('three').Object3D} object 이동할 오브젝트
@@ -3775,6 +3810,8 @@ declare class U3dApp extends U3dObject {
     /**
      * 지도화면 이동 애니매이션 정지 함수
      */
+    /** 영역 이동이 자체 요청을 취소하지 않고 기존 비행·모드 전환을 중단합니다. @ignore */
+    _stopMapRegionMotion(): void;
     stopFly(): void;
     /**
      * 휠 줌 감도를 설정합니다.<br>
@@ -3866,11 +3903,11 @@ declare class U3dApp extends U3dObject {
      *
      * @param {null|WorldPositionVector3} [target=null] 카메라가 바라볼 목표 좌표이며 월드 좌표(EPSG:3857)로 입력합니다.<br>
      * null을 입력하면 목표 좌표를 바꾸지 않고 카메라 각도만 3D 시점으로 되돌립니다.
-     * @returns {Promise<void|boolean>} 전환 결과를 알리는 promise 객체입니다.<br>
-     * 전환이 끝나면 resolve()되며, target을 입력한 경우에는 resolve() 값으로 true가 전달됩니다.<br>
+     * @returns {Promise<void>} 전환 결과를 알리는 promise 객체입니다.<br>
+     * 전환이 끝나면 target 지정 여부와 관계없이 값 없이 resolve()됩니다.<br>
      * 지도 조작 컨트롤이 준비되지 않았거나 전환이 취소되면 reject()됩니다.
      */
-    set3DMode(target?: null | WorldPositionVector3): Promise<void | boolean>;
+    set3DMode(target?: null | WorldPositionVector3): Promise<void>;
     /**
      * U3dApp에 레이어를 추가하는 함수
      * @param {import('@union3d/3dLayer/U3dLayer').U3dLayer} layer 추가할 레이어 객체 (예: U3dImageXYZLayer, U3dHeightXYZLayer 등)
@@ -4030,7 +4067,8 @@ declare class U3dApp extends U3dObject {
      */
     removeAllOverlay(): void;
     /**
-     * 설정된 홈 위치로 이동하는 함수
+     * 설정된 홈 위치로 이동합니다. 이동 Promise를 반환하지 않으며 비동기 실패는 오류 로그에 기록합니다.
+     *
      * @param {number} [duration] 홈 위치로 이동 시 애니메이션 시간(ms)
      */
     goToHome(duration?: number): void;
@@ -4417,6 +4455,10 @@ declare class U3dApp extends U3dObject {
      * @param {Number} max 카메라의 출력 최대거리
      */
     setCameraLimitDistance(min: number, max: number): void;
+    /**
+     * 현재 지도 영역의 기본 카메라 거리 제한으로 복원합니다.
+     * @returns {void}
+     */
     resetCameraLimitDistance(): void;
     /**
      * UMapcontrol의 충돌계수(collisionFactor)를 설정하는 함수
@@ -4511,6 +4553,59 @@ declare class U3dApp extends U3dObject {
 }
 
 /**
+     * UDEF.MAP_REGION의 문자열 값으로 정의한 지도 영역입니다. CUSTOM은 사용자 타일 범위입니다.
+     */
+    type MapRegion = typeof UDEF.MAP_REGION[keyof typeof UDEF.MAP_REGION];
+
+/**
+     * 런타임 지도 영역의 시점입니다. WGS84 도와 EPSG:3857 거리입니다. 생략한 항목은 현재 시점을 사용하며 좌표를 지정하면 타깃 Z는 0입니다.
+     */
+    type MapRegionView = {
+        /**
+         * 경도(-180~180도)
+         */
+        longitude?: number;
+        /**
+         * 위도(약 -85.05112878~85.05112878도)
+         */
+        latitude?: number;
+        /**
+         * 타깃과 카메라 거리(양의 월드 미터)
+         */
+        distance?: number;
+        /**
+         * 북쪽 0도, 양수는 서쪽 회전. 수직 시점에서도 화면 방향을 유지하며 생략하면 현재 방위각을 사용
+         */
+        heading?: number;
+        /**
+         * 수직 하향 0도, 수평 90도(0~180도). 현재 모드의 회전 제한이 우선하며 0이 허용되면 수직을 유지
+         */
+        pitch?: number;
+    };
+
+/**
+     * 런타임 지도 영역 전환 옵션입니다.
+     */
+    type MapRegionTransitionOptions = {
+        /**
+         * custom 타일 범위. 생략하면 마지막 custom 범위, 저장된 범위가 없으면 기본 타일(27,19,5)을 사용
+         */
+        targetrectopt?: TargetRectOption;
+        /**
+         * 사전 등록된 배경 이미지 레이어. 생략하면 현재 배경 유지
+         */
+        baseLayerName?: string;
+        /**
+         * 명시 시점. 전체 또는 일부 생략하면 현재 시점에서 목적 범위와 거리를 보정
+         */
+        view?: MapRegionView;
+        /**
+         * 이동 밀리초. 0은 애니메이션 없이 즉시 적용
+         */
+        duration?: number;
+    };
+
+/**
      * 화면 해상도 옵션
      */
     type PIXELRE_SOLUTION_OPTION = "SD" | "HD" | "FHD" | "QHD" | "UHD" | "CUSTOM";
@@ -4557,10 +4652,6 @@ declare class U3dApp extends U3dObject {
          * 경사 분석
          */
         SLOPE: "Slope";
-        /**
-         * 객체 정보 분석
-         */
-        OBJECT_INFO: "ObjectInfo";
         /**
          * 모델 기즈모 분석
          */
@@ -4923,21 +5014,21 @@ declare class U3dApp extends U3dObject {
      */
     type U3dAppDebugState = {
         /**
-         * 로딩 캔버스
+         * 로딩 바 컨테이너
          */
-        canvasLoading: HTMLCanvasElement | undefined;
+        loadingBar: HTMLDivElement | undefined;
         /**
-         * 로딩 캔버스 컨텍스트
+         * 진행률을 표시하는 채움 요소
          */
-        canvasLoadingContext: CanvasRenderingContext2D | undefined;
+        loadingBarFill: HTMLDivElement | undefined;
         /**
-         * 로딩 표시 여부
+         * 로딩 완료 이벤트 등록 키
          */
-        canvasLoadingVisible: boolean;
+        loadingBarEventKey: string | null | undefined;
         /**
-         * 로딩 색상
+         * 엔진 작업 진행률 표시 여부
          */
-        canvasLoadingColor: string;
+        loadingVisible: boolean;
         /**
          * 로딩 프레임 카운트
          */
@@ -5009,7 +5100,6 @@ declare class U3dApp extends U3dObject {
         LandScape: UAnalyLandScape;
         SurfaceVolume: UAnalySurfaceVolume;
         Slope: UAnalySlope;
-        ObjectInfo: UAnalyObjectInfo;
         GizmoModel: UAnalyGizmoModel;
         AlignModel: UAnalyAlignModel;
         multipleComponent: UAnalyMultipleComponent;
@@ -5088,4 +5178,4 @@ declare class U3dApp extends U3dObject {
         };
     };
 
-export type { PIXELRE_SOLUTION_OPTION, TargetRectOption, U3d3DFModelLayerCO, U3dAnalysisTypeMap, U3dApp, U3dAppCO, U3dAppCallbackCopyOption, U3dAppCallbackMap, U3dAppCameraStateStore, U3dAppClippingPlaneSource, U3dAppCommandQueue, U3dAppDebugState, U3dAppDrawReadySource, U3dAppDrawState, U3dAppEMI, U3dAppEnvState, U3dAppFrameState, U3dAppManagerState, U3dAppOverviewState, U3dAppPostProcessState, U3dAppProcessState, U3dAppPropertyMap, U3dAppRoundRobinState, U3dAppShadowLayer, U3dAppTweenHandle, U3dAppUpdateState, U3dAppWindowRect, U3dApp_Analysis, U3dEmapLayerCO, U3dEmapLayerCO_Content, U3dEmapSatLayerCO, U3dEmapSatLayerCO_Content, U3dLayerCommonCO, U3dModelGroupLayerCO, U3dRemovedModelInfo, U3dTMSImageLayerCO, U3dTMSImageLayerCO_Content, U3dTdsModelLayerCO, U3dWFSModelLayerCO, U3dWMSImageLayerCO, U3dWMTSLayerCO, U3dWMTSLayerCO_Content, executeCommandParam };
+export type { MapRegion, MapRegionTransitionOptions, MapRegionView, PIXELRE_SOLUTION_OPTION, TargetRectOption, U3d3DFModelLayerCO, U3dAnalysisTypeMap, U3dApp, U3dAppCO, U3dAppCallbackCopyOption, U3dAppCallbackMap, U3dAppCameraStateStore, U3dAppClippingPlaneSource, U3dAppCommandQueue, U3dAppDebugState, U3dAppDrawReadySource, U3dAppDrawState, U3dAppEMI, U3dAppEnvState, U3dAppFrameState, U3dAppManagerState, U3dAppOverviewState, U3dAppPostProcessState, U3dAppProcessState, U3dAppPropertyMap, U3dAppRoundRobinState, U3dAppShadowLayer, U3dAppTweenHandle, U3dAppUpdateState, U3dAppWindowRect, U3dApp_Analysis, U3dEmapLayerCO, U3dEmapLayerCO_Content, U3dEmapSatLayerCO, U3dEmapSatLayerCO_Content, U3dLayerCommonCO, U3dModelGroupLayerCO, U3dRemovedModelInfo, U3dTMSImageLayerCO, U3dTMSImageLayerCO_Content, U3dTdsModelLayerCO, U3dWFSModelLayerCO, U3dWMSImageLayerCO, executeCommandParam };

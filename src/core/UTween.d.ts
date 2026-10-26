@@ -1,13 +1,15 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
+import type { UFrameCheck } from "./UFrameCheck.js";
+import type { TWEEN } from "../lib/Tween.js";
 
-declare class UTween {
+declare class UTween extends TWEEN.Tween {
     constructor(opt: any);
     _param: any;
     _updateDistance: any;
@@ -16,19 +18,11 @@ declare class UTween {
     _fps: any;
     _useGround: any;
     _needUpdateData: any;
-    _frameCheck: any;
+    _frameCheck: UFrameCheck;
     _curPos: any;
     _prevPos: any;
     _logPos: any;
-    onStart: (callback: any) => this;
     callbackUpdate: any;
-    /**
-     * @param {(this: any) => void} callback 매 프레임마다 호출되는 업데이트 콜백
-     * @returns {UTween}
-     */
-    onUpdate: (callback: (this: any) => void) => UTween;
-    onComplete: (callback: any) => this;
-    onStop: (callback: any) => this;
     getUseGround(): any;
     setUseGround(val: any): void;
     /** @returns {UTween} */

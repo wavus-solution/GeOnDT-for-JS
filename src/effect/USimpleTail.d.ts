@@ -1,11 +1,12 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
+import type { U3dApp } from "../app/U3dApp.js";
 import type { USimpleTailShader } from "./material/USimpleTailMaterial.js";
 
 /**
@@ -14,18 +15,8 @@ import type { USimpleTailShader } from "./material/USimpleTailMaterial.js";
  * 이동 지점을 연결해 화면을 향하는 리본 궤적을 그립니다.
  */
 declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
-    static "__#32@#normalizeDrawResult"(result: any): {
-        red: number;
-        green: number;
-        blue: number;
-        opacity: any;
-        action: any;
-        width: any;
-        alpha: any;
-        from: any;
-        to: any;
-    };
-    static "__#32@#interpolateDrawNode"(a: any, b: any, t: any): Pick<USimpleTailNode, "x" | "y" | "time" | "z" | "colorFactor" | "pathDistance">;
+    static "__#11381@#normalizeDrawResult"(result: any, previous: any): any;
+    static "__#11381@#interpolateDrawNode"(a: any, b: any, t: any): Pick<USimpleTailNode, "x" | "y" | "z" | "time" | "colorFactor" | "pathDistance">;
     /**
      * 삼각형 한 면을 구성하는 인덱스 개수를 반환합니다.
      *
@@ -77,35 +68,108 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      * @type {boolean}
      */
     _disposed: boolean;
+    /** @ignore 콜백 표시 버퍼의 변경을 프레임 요청에 전달합니다. */
+    _drawStyleVersion: number;
     /** @type {USimpleTailDrawEvaluator | undefined} */
     drawFunc: USimpleTailDrawEvaluator | undefined;
     set nodeCenters(nodes: USimpleTailNode[]);
-    /** Retained nodes only. Materialize the CPU list on public access, without rewriting GPU data. */
+    /** 보관 중인 노드만 반환합니다. 외부에서 접근할 때 CPU 목록을 정리하며 GPU 데이터는 다시 쓰지 않습니다. */
     get nodeCenters(): USimpleTailNode[];
-    scene: any;
-    name: any;
+    /**
+     * 현재 경로에 적용한 메모리 설정의 복사본을 반환합니다.
+     * @ignore
+     */
+    getMemoryPolicy(): {
+        /**
+         * 선택적으로 지정하는 경로당 최대 노드 수
+         */
+        maxNodes?: number;
+        /**
+         * 전체 경로가 공유하는 추정 메모리 예산(바이트)
+         */
+        maxTotalBytes?: number;
+        /**
+         * 메모리 회수를 시작하는 공유 힙 사용률
+         */
+        maxHeap?: number;
+        /**
+         * 회수 시 각 경로에서 오래된 노드부터 제거할 비율
+         */
+        discardRatio?: number;
+    };
+    /**
+     * CPU 노드, 콜백 구간, CPU·GPU 속성 버퍼를 포함한 예상 메모리 사용량을 반환합니다.
+     * 콜백 평가 중 회수하지 않도록 필요한 구간 버퍼의 여유 공간도 미리 계산합니다.
+     * @ignore
+     */
+    getMemoryUsage(): {
+        capacity: any;
+        nodes: any;
+        bytes: number;
+    };
+    /**
+     * 노드 추가 또는 콜백 버퍼 재구성 후의 예상 메모리 사용량을 계산합니다.
+     * @ignore
+     * @param {boolean} [forAppend=true] true이면 새 노드 한 개를 추가하는 비용도 포함합니다.
+     */
+    getAppendMemoryUsage(forAppend?: boolean): number;
+    /**
+     * 콜백의 양 끝점 슬롯과 여유 공간을 포함한 다음 기록의 버퍼 용량입니다.
+     * @ignore
+     * @param {boolean} [forAppend=true] 다음 노드를 포함할지 여부.
+     */
+    getRequiredMemoryCapacity(forAppend?: boolean): any;
+    /** @ignore 자동 축소를 실행할 draw의 소유 app을 반환합니다. */
+    getMemoryApp(): any;
+    /** @ignore 자동 축소가 현재 경로의 기록·표시를 보존할 수 있는지 확인합니다. */
+    canShrinkMemory(): boolean;
+    /**
+     * 새 버퍼가 완성된 뒤에만 교체합니다. 실패해도 현재 노드·표시·기록 상태는 유지합니다.
+     * @ignore
+     * @param {number} capacity 축소할 지점 용량.
+     * @returns {boolean} geometry를 실제로 축소했으면 true.
+     */
+    tryShrinkMemory(capacity: number): boolean;
     geometry: any;
-    mesh: any;
+    length: any;
+    vertexCount: any;
+    faceCount: any;
+    expandStepLength: number;
+    /**
+     * 다음 기록을 기존 경로와 연결하지 않도록 표시합니다.
+     * @ignore
+     */
+    pauseRecording(): void;
+    /**
+     * 설정한 비율만큼 오래된 노드부터 제거하고 남은 경로의 버퍼와 표시 정보를 정리합니다.
+     * @ignore
+     * @param {number} [discardRatio] 제거할 노드 비율입니다. 생략하면 현재 설정 또는 기본값 0.5를 사용합니다.
+     * @param {boolean} [shrinkBuffer=true] true이면 남은 노드 수에 맞춰 버퍼 용량도 줄입니다.
+     */
+    releaseOldestNodes(discardRatio?: number, shrinkBuffer?: boolean): void;
+    currentLength: any;
+    currentEnd: any;
+    currentNodeID: any;
     lastNodeCenter: any;
     currentNodeCenter: any;
+    lastSimplifyIndex: number;
+    visibleStartNode: number;
+    _drawStartNode: number;
+    drawSegments: any[];
     nodeIDs: any;
-    currentNodeID: any;
+    scene: any;
+    name: any;
+    mesh: any;
     /** @type {number} */ maxLength: number;
-    /** @type {number} */ expandStepLength: number;
-    limitMode: "time" | "distance" | "none" | "age";
+    limitMode: "none" | "time" | "distance" | "age";
     limitValue: number;
     limitAction: "dispose" | "hide";
     /** @type {number} */ pathDistance: number;
-    /** @type {number} */ visibleStartNode: number;
-    _drawStartNode: number;
     /** @type {USimpleTailFadeOutCallback | undefined} */ onFadeOut: USimpleTailFadeOutCallback | undefined;
-    currentLength: any;
-    currentEnd: any;
     tempMatrix4: any;
     tempPosition: three.Vector3;
     tempOffset: three.Vector3;
     tempQuaternion: three.Quaternion;
-    lastSimplifyIndex: number;
     lastCapacityWarning: number;
     colorFactor: number;
     precision: any;
@@ -118,6 +182,7 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      * 궤적을 그릴 저장 공간과 메시를 준비하고 기존 지점 이력을 비웁니다. <br>
      * 전달한 재질은 이 궤적이 소유하며 dispose 시 함께 해제합니다. <br>
      * 재초기화하면 기존 geometry와 교체되는 재질을 해제합니다. 같은 재질을 다시 전달하면 유지합니다. <br>
+     * 초기화에 실패하면 전달한 재질과 부분 생성 자원을 해제하며 이 궤적은 다시 사용할 수 없습니다. <br>
      * dispose 이후에는 다시 초기화할 수 없습니다. <br>
      * 장면 추가는 호출자가 getMesh로 얻은 메시를 사용해 수행하십시오.
      *
@@ -128,14 +193,9 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      * @returns {Promise<void>} 초기화가 끝나면 완료되는 객체
      */
     initialize(material: three.ShaderMaterial, length: number, targetObject: three.Object3D, perMaxNode: number): Promise<void>;
-    length: any;
+    material: three.ShaderMaterial;
     perMaxNode: number;
     targetObject: three.Object3D<three.Object3DEventMap>;
-    drawSegments: any[] | {
-        a: any;
-        b: any;
-    }[];
-    material: any;
     /**
      * 화면을 향하는 리본 궤적의 지점당 정점 수와 면 수를 설정합니다. <br>
      * initializeGeometry 전에 호출하십시오.
@@ -149,8 +209,6 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      * initializeBillboardGeometryLayout으로 지점 구성을 정한 뒤 호출하십시오.
      */
     initializeGeometry(): void;
-    vertexCount: number;
-    faceCount: number;
     /**
      * 모든 삼각형의 인덱스를 0으로 설정해 면이 그려지지 않도록 합니다. <br>
      * 지점 이력과 저장 공간은 유지합니다.
@@ -175,10 +233,10 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
     lastMemoryCheck: number;
     _positionPool: Float32Array<ArrayBuffer>;
     _indexPool: Uint32Array<ArrayBuffer>;
-    _colorPool: Float32Array<ArrayBuffer>;
-    _sidePool: Int8Array<ArrayBuffer>;
-    _startCapPool: Uint8Array<ArrayBuffer>;
-    _endCapPool: Uint8Array<ArrayBuffer>;
+    _colorPool: Float32Array<any>;
+    _sidePool: Int8Array<any>;
+    _startCapPool: Uint8Array<any>;
+    _endCapPool: Uint8Array<any>;
     _previousPool: Float32Array<ArrayBuffer>;
     _nextPool: Float32Array<ArrayBuffer>;
     /**
@@ -187,8 +245,9 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      * 기존 geometry는 해제하고 새 geometry를 메시와 연결합니다.
      *
      * @param {number} newLength 새로 확보할 전체 지점 수
+     * @param {boolean} [forAppend=false] 내부 추가 동작은 회수로 생긴 빈 공간을 우선 재사용합니다.
      */
-    expandGeometryBuffer(newLength: number): void;
+    expandGeometryBuffer(newLength: number, forAppend?: boolean): void;
     /**
      * 보관된 중심점 목록을 기준으로 궤적의 정점 위치와 출력 범위를 다시 계산합니다. <br>
      * 단순화하거나 중심점을 수정한 뒤 화면에 반영할 때 사용합니다.
@@ -197,6 +256,8 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
     /**
      * 변환 행렬의 위치를 궤적 끝에 추가하고 GPU 기준값을 갱신합니다. <br>
      * 용량이 부족하면 정책에 따라 단순화·오래된 지점 제거·용량 확장을 수행합니다.
+     * 동일 좌표·색상의 연속 정지 입력은 도착점과 최신 끝점으로 압축합니다.
+     * drawFunc 사용, 시간 역전, 단절된 구간에는 이 압축을 적용하지 않습니다.
      *
      * @param {import('three').Matrix4} transformMatrix 월드 좌표(EPSG:3857) 위치를 담은 행렬
      * @param {number} fps 현재 초당 프레임 수이며 단순화 강도 계산에 사용
@@ -270,6 +331,10 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      * @param {boolean} enabled true면 colorFactor를 반영
      */
     setGradation(enabled: boolean): void;
+    /** @ignore time 모드의 마지막 입력 간격을 표시 중인지 반환합니다. */
+    _isTimeFadeAnimating(now?: number): boolean;
+    /** @ignore age 이력이 모두 만료되면 자동 갱신을 종료합니다. */
+    _isAgeFadeAnimating(now?: number): boolean;
     /**
      * 궤적(trail)의 기본 너비를 변경합니다. <br>
      * fade가 적용되면 실제 표시 너비는 달라질 수 있습니다.
@@ -280,8 +345,10 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
     /**
      * 노드별 콜백을 정책과 독립적으로 등록하거나 해제합니다.
      * @param {USimpleTailDrawEvaluator | null | undefined} drawFunc
+     * @param {boolean} [copyNodeInputs=true] 내부 경로 어댑터만 false로 지정합니다. 어댑터는 원본을 수정하거나 사용자에게 노출하지 않고 공개 info 복사본을 생성해야 합니다.
+     * @param {boolean} [deferUpdates=false] 내부 경로 프레임 루프가 있을 때 추가에 따른 자동 평가를 해당 루프로 모읍니다. 명시적 updateDraw는 즉시 실행합니다.
      */
-    setDrawFunc(drawFunc: USimpleTailDrawEvaluator | null | undefined): void;
+    setDrawFunc(drawFunc: USimpleTailDrawEvaluator | null | undefined, copyNodeInputs?: boolean, deferUpdates?: boolean): void;
     /**
      * 궤적(tail)의 단순화·제한·fade 정책을 설정합니다. <br>
      * 생략한 항목은 유지합니다. 스타일과 독립적으로 제한 범위·숨김 또는 제거·fade를 적용합니다. <br>
@@ -303,6 +370,9 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
     appendPoint(worldPosition: three.Vector3Like, colorFactor: number, fps: number, maxFps?: number, metadata?: USimpleTailPointMetadata): void;
     /**
      * 장면에 추가할 궤적 메시를 반환합니다.
+     * 경로 길이와 fade 정책에 관계없이 this.geometry를 사용하는 단일 메시를 유지합니다.
+     * 지점 갱신 시 변경된 속성 범위만 GPU에 업로드합니다.
+     * U3dSelect의 양수 pickBufferPx 검색은 이 메시에서 현재 표시 중인 월드 선분을 직접 조회합니다.
      *
      * @returns {import('three').Mesh | null} 내부 메시 참조이며 초기화 전이나 해제 후에는 null
      */
@@ -358,27 +428,12 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      */
     simplifyTrailToTarget(targetCount: number, epsilonStart?: number, epsilonStep?: number): void;
     /**
-     * 시야 영역(프러스텀, frustum) 안에 있는 중심점 범위만 그리도록 제한합니다. <br>
-     * 보관된 연속 경로의 정점 데이터를 이동합니다. <br>
-     * 시야 절단은 GPU에 맡겨 양 끝점이 시야 밖인 교차 선분도 보존합니다.
-     *
-     * @param {import('three').Frustum} frustum 월드 좌표(EPSG:3857)에서 검사할 시야 영역
-     */
-    updateTrailDrawRangeInFrustum(frustum: three.Frustum): void;
-    /**
      * 가장 오래된 지점을 제거하고 남은 궤적을 앞으로 당겨 저장 공간을 재사용합니다. <br>
      * 제거 개수가 현재 지점 수 이상이면 reset과 같이 이력을 비웁니다.
      *
      * @param {number} dropNodes 제거할 지점 수이며 양의 유한한 값을 정수로 내림
      */
     dropOldestNodes(dropNodes: number): void;
-    /**
-     * 궤적 본체의 광선 교차 검사(raycast)는 수행하지 않습니다. <br>
-     * 선택 기능은 별도의 경로 선택용 메시를 사용하십시오.
-     *
-     * @override
-     */
-    override raycast(): void;
     #private;
 }
 
@@ -464,6 +519,166 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
     };
 
 /**
+     * 누적 경로의 메모리 안전 기준입니다. 유효한 performance.memory가 있으면 생략한 고정 상한을 적용하지 않습니다. 힙 측정이 없으면 경고와 함께 미설정 maxTotalBytes에 전체 활성 궤적의 합산 공유 예산 2500 MiB를 적용합니다. maxNodes는 명시한 경우에만 적용합니다.
+     * 부분 변경에서 생략한 항목은 현재 값을 유지하며, memory:null은 명시적 고정 상한을 해제하고 기본 힙 기준으로 돌아갑니다. 대체 기본값은 명시적 정책에 저장하지 않으며 유효한 힙 측정이 복구되면 해제합니다.
+     * 공유 예산·힙 기준은 활성 궤적에 적용되는 값 중 가장 작은 값을 사용합니다.
+     * 메모리 회수 시 경로별 discardRatio만큼 오래된 노드부터 제거하고 빈 버퍼 공간을 재사용합니다. 충분한 여유가 있는 과대 버퍼는 소유 app의 draw가 3회 완료될 때마다 한 경로씩 자동 축소합니다.
+     */
+    type USimpleTailMemoryPolicy = {
+        /**
+         * 선택적인 전체 활성 궤적 추정 메모리 예산(byte). 미설정 시 유효한 힙 측정이 있으면 고정 예산 없음, 없으면 2500 * 1024 * 1024. 양의 안전 정수이며 null/Infinity는 이 경로의 명시적 공유 예산 설정을 해제합니다.
+         */
+        maxTotalBytes?: number | null;
+        /**
+         * 선택적인 경로별 노드 수 상한. 미설정 시 힙 측정 유무와 관계없이 노드·파생 버퍼 상한 없음. 양의 안전 정수이며 null/Infinity는 명시적 상한 해제. 적용되는 버퍼 용량 상한은 이 값의 2.5배를 올림해 계산합니다.
+         */
+        maxNodes?: number | null;
+        /**
+         * 메모리 회수 시 오래된 노드부터 제거할 경로별 비율(0 < 값 <= 1). 제거 수는 노드 수 × 비율을 올림합니다. 1은 최신 노드까지 모두 제거하며 null은 기본값 0.5로 복원합니다.
+         */
+        discardRatio?: number | null;
+        /**
+         * 공유 브라우저 힙 사용률 상한(0 < 값 <= 1). 기본값 0.8. 상한에서 노드를 회수하고 버퍼 확장을 보류합니다. 상한의 87.5% 미만이 500ms 유지되면 확장을 재개하며 null은 이 경로의 공유 설정을 해제합니다.
+         */
+        maxHeap?: number | null;
+    };
+
+/**
+     * 메모리 관리기가 사용하는 정규화된 정책입니다. null로 해제한 설정은 포함하지 않습니다.
+     * 명시적 정책에는 대체 기본값을 저장하지 않습니다. 유효한 힙 측정이 없으면 관리기가 미설정 maxTotalBytes에만 합산 공유 예산 2500 MiB를 적용하고, 측정이 복구되면 원래 정책으로 돌아갑니다. 자동 노드 상한은 적용하지 않습니다.
+     * 유효한 힙 측정이 있을 때 제한이 없는 경로는 힙 사용률만 확인하며, 다른 경로의 공유 예산을 낮추지 않습니다.
+     */
+    type TrailMemoryPolicy = {
+        /**
+         * 선택적으로 지정하는 경로당 최대 노드 수
+         */
+        maxNodes?: number;
+        /**
+         * 전체 경로가 공유하는 추정 메모리 예산(바이트)
+         */
+        maxTotalBytes?: number;
+        /**
+         * 메모리 회수를 시작하는 공유 힙 사용률
+         */
+        maxHeap?: number;
+        /**
+         * 회수 시 각 경로에서 오래된 노드부터 제거할 비율
+         */
+        discardRatio?: number;
+    };
+
+/**
+     * 메모리 정책의 부분 변경에 사용하는 입력 타입입니다. null로 명시한 설정을 해제할 수 있습니다.
+     */
+    type TrailMemoryPolicyPatch = USimpleTailMemoryPolicy;
+
+/**
+     * 경로의 버퍼 용량, 노드 수, 추정 메모리 사용량을 함께 보관합니다.
+     */
+    type TrailMemoryUsage = {
+        /**
+         * 버퍼에 확보한 지점 수
+         */
+        capacity: number;
+        /**
+         * 현재 보관 중인 노드 수
+         */
+        nodes: number;
+        /**
+         * 경로의 추정 메모리 사용량(바이트)
+         */
+        bytes: number;
+    };
+
+/**
+     * 메모리 관리기가 각 경로의 사용량을 조회하고 기록 및 회수를 제어하는 인터페이스입니다.
+     */
+    type TrailMemoryClient = {
+        /**
+         * 메모리 경고에 표시할 대상 이름
+         */
+        name?: string;
+        /**
+         * 현재 경로의 메모리 사용량을 반환합니다.
+         */
+        getMemoryUsage: () => TrailMemoryUsage;
+        /**
+         * 현재 경로의 메모리 정책을 반환합니다.
+         */
+        getMemoryPolicy?: () => TrailMemoryPolicyPatch | null | undefined;
+        /**
+         * 콜백 지오메트리와 필요한 경우 다음 입력까지 포함한 추정 사용량(바이트)
+         */
+        getAppendMemoryUsage?: (forAppend?: boolean) => number;
+        /**
+         * 콜백 슬롯과 필요한 경우 다음 입력까지 포함한 버퍼 용량
+         */
+        getRequiredMemoryCapacity?: (forAppend?: boolean) => number;
+        /**
+         * 지정한 비율만큼 오래된 노드를 제거하고 필요한 경우 버퍼도 줄입니다.
+         */
+        releaseOldestNodes: (discardRatio?: number, shrinkBuffer?: boolean) => void;
+        /**
+         * 다음에 기록할 노드에서 새로운 구간을 시작하도록 표시합니다.
+         */
+        pauseRecording: () => void;
+        /**
+         * 자동 축소를 실행할 draw의 소유 app을 반환합니다.
+         */
+        getMemoryApp?: () => object | undefined;
+        /**
+         * 현재 경로의 기록·표시를 보존하며 자동 축소할 수 있는지 확인합니다.
+         */
+        canShrinkMemory?: () => boolean;
+        /**
+         * 노드를 보존하며 버퍼를 축소하고 성공 여부를 반환합니다.
+         */
+        tryShrinkMemory?: (capacity: number) => boolean;
+    };
+
+/**
+     * 등록된 경로의 사용량, 정책, 기록 보류 여부와 자동 축소 상태를 보관합니다.
+     */
+    type TrailMemoryClientRecord = {
+        /**
+         * 마지막으로 반영한 경로의 메모리 사용량
+         */
+        usage: TrailMemoryUsage;
+        /**
+         * 경로에 적용한 정규화된 메모리 정책
+         */
+        policy: TrailMemoryPolicy;
+        /**
+         * 기록 보류 상태인지 여부
+         */
+        paused: boolean;
+        /**
+         * 마지막으로 출력한 메모리 경고 사유
+         */
+        warnedReason?: string;
+        /**
+         * 자동 축소 후보로 등록된 힙 압박 회차
+         */
+        shrinkEpisode?: number;
+        /**
+         * 자동 축소를 마지막으로 시도한 힙 압박 회차
+         */
+        shrinkAttemptedEpisode?: number;
+        /**
+         * 최근 측정한 초당 추가 노드 수
+         */
+        appendRate?: number;
+        /**
+         * 추가 속도 측정을 시작한 epoch 시각(ms)
+         */
+        appendWindowStart?: number;
+        /**
+         * 측정 구간에서 추가한 노드 수
+         */
+        appendWindowNodes?: number;
+    };
+
+/**
      * ~extends SimplifyPolicy_Option <br>
      *
      * 생성 옵션과 정책 변경에서 공유하는 단순화·제한·fade 설정입니다.
@@ -497,6 +712,10 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
          * 보관 범위의 오래된 끝부분에서 불투명도를 줄일 비율(0~1). 0은 fade 해제. 스타일 불투명도와 곱합니다.
          */
         alphaFade?: number;
+        /**
+         * 선택적 노드 수·공유 예산 상한과 브라우저 힙 기준. null은 명시적 고정 상한을 해제하고 기본 힙 기준으로 초기화합니다. 힙 측정이 없으면 미설정 maxTotalBytes에 대체 공유 예산을 적용합니다.
+         */
+        memory?: USimpleTailMemoryPolicy | null;
     };
 
 /**
@@ -640,6 +859,10 @@ type USimpleTailFadeOutEvent = {
      */
     type USimpleTailCO_Content = {
         /**
+         * 자동 축소를 app.draw에 연결할 소유 app
+         */
+        app?: U3dApp | null;
+        /**
          * 궤적 메시를 제거할 때 사용할 장면
          */
         scene?: three.Scene | null;
@@ -696,4 +919,4 @@ type USimpleTailFadeOutEvent = {
      */
     type USimpleTailCO = Omit<Omit<USimpleTailCommonPolicy, never> & USimpleTailCO_Content, never>;
 
-export type { SimplifyPolicy_Option, USimpleTail, USimpleTailCO, USimpleTailCO_Content, USimpleTailCommonPolicy, USimpleTailCommonPolicy_Content, USimpleTailDrawEvaluator, USimpleTailDrawNode, USimpleTailDrawResult, USimpleTailFadeOutCallback, USimpleTailFadeOutEvent, USimpleTailNode, USimpleTailPointMetadata, USimpleTail_Policy, USimpleTail_Policy_Content };
+export type { SimplifyPolicy_Option, TrailMemoryClient, TrailMemoryClientRecord, TrailMemoryPolicy, TrailMemoryPolicyPatch, TrailMemoryUsage, USimpleTail, USimpleTailCO, USimpleTailCO_Content, USimpleTailCommonPolicy, USimpleTailCommonPolicy_Content, USimpleTailDrawEvaluator, USimpleTailDrawNode, USimpleTailDrawResult, USimpleTailFadeOutCallback, USimpleTailFadeOutEvent, USimpleTailMemoryPolicy, USimpleTailNode, USimpleTailPointMetadata, USimpleTail_Policy, USimpleTail_Policy_Content };

@@ -255,7 +255,7 @@ UAnalyCustomLand extends UAnaly 클래스 정의
     getFeatures() -> Array<OLFeature>
         동작: _features 원본 참조를 반환한다.
 
-    addEditLand(options: DataOPT_Input) -> DeferredObject<void>
+    addEditLand(options: DataOPT_Input) -> Promise<void>
         의존: Web API — 폐기 예정 경고; 함수: {console.warn()}
         동작: addCustomLand 사용을 안내하는 경고를 출력한 뒤 입력을 전달하고 결과를 그대로 반환한다.
 
@@ -263,33 +263,33 @@ UAnalyCustomLand extends UAnaly 클래스 정의
         의존: Web API — 폐기 예정 경고; 함수: {console.warn()}
         동작: getCustomLandList 사용을 안내하는 경고를 출력한 뒤 해당 반환값을 전달한다.
 
-    addCustomLand(options: DataOPT_Input) -> DeferredObject<void>
+    addCustomLand(options: DataOPT_Input) -> Promise<void>
         인터페이스: 공개 선언은 단일 옵션이다. 런타임은 Array 입력도 처리한다. [확인 Q-003]
         의존:
             UAnaly — 연결 앱; 속성 읽기: {_app}
-            deferred — 완료 객체; 함수: {deferred(), then(), catch(), resolve(), reject()}
+            deferredPromise — 완료 객체; 함수: {deferredPromise(), then(), catch(), resolve(), reject()}
             UDraw — 도형 생성기 준비; 생성자: {new UDraw()}; 함수: {setApp()}
             U3dMessage — 동기 예외 기록; 정적 함수: {error()}
         동작:
-            새 deferred를 만들고 _draw가 falsy이면서 앱이 truthy이면 현재 스타일로 UDraw를 생성해 앱을 연결한다.
+            새 deferredPromise를 만들고 _draw가 falsy이면서 앱이 truthy이면 현재 스타일로 UDraw를 생성해 앱을 연결한다.
             options가 Array이면 항목별 추가 함수를 현재 this와 입력에 묶고 Promise 체인으로 순차 실행한다. 앞 항목이 거절되면 뒤 항목은 실행하지 않으며 전체 결과를 resolve 또는 reject한다.
 
             Array가 아니면서 Object이면 한 항목을 즉시 추가하고 그 완료·실패를 전달한다.
-            두 종류에 속하지 않는 입력은 deferred를 종결하지 않는다. try 안의 동기 예외도 '2613781' 오류만 기록하고 종결하지 않는다. [확인 Q-001]
-            deferred를 반환한다. 이미 추가한 항목은 후속 실패 시 되돌리지 않는다.
+            두 종류에 속하지 않는 입력은 TypeError로 거절한다. try 안의 동기 예외는 반환 Promise로 전달하고 '2613781' 오류를 기록한다.
+            deferredPromise를 반환한다. 이미 추가한 항목은 후속 실패 시 되돌리지 않는다.
 
-    editCustomLand(id: string, option: DataOPT_Input) -> DeferredObject<void> | undefined
+    editCustomLand(id: string, option: DataOPT_Input) -> Promise<void> | undefined
         의존:
             defined — 인수·단계 결과 검사; 함수: {defined()}
             UAnaly — 연결 앱; 속성 읽기: {_app}
             CustomLand — 이전 중심 조회; 함수: {getCenter()}
-            deferred — 완료 객체; 함수: {deferred(), resolve(), reject()}
+            deferredPromise — 완료 객체; 함수: {deferredPromise(), resolve(), reject()}
             UDraw — 도형 생성기 준비; 생성자: {new UDraw()}; 함수: {setApp()}
             __GInfo__ — 레이어 선택 실패 안내; 함수: {__GInfo__()}
             Web API — 필수 인수 누락 안내; 함수: {console.error()}
         동작:
             id 또는 option이 null·undefined이면 로그 후 undefined를 반환한다. 해당 객체가 없을 때도 undefined다.
-            기존 중심 참조를 보관하고 deferred를 만든 뒤 기존 객체를 먼저 제거한다. 실패 시 기존 객체를 자동 복원하지 않는다. [확인 Q-004]
+            기존 중심 참조를 보관하고 deferredPromise를 만든 뒤 기존 객체를 먼저 제거한다. 실패 시 기존 객체를 자동 복원하지 않는다. [확인 Q-004]
             draw가 없고 앱이 있으면 생성·연결한다. 전달받은 option을 기존 파라미터와 병합하지 않고 기본 편집 옵션으로 계산하며 결과가 없으면 reject한다.
             새 중심이 존재하고 X·Y 각각의 floor 값 차이의 절댓값이 모두 4 미만이면 새 중심의 Z만 기존 Z로 덮는다.
             inclineEdit가 truthy이면 경사 옵션을 계산하고 결과가 없으면 reject한다.
@@ -462,21 +462,21 @@ UAnalyCustomLand extends UAnaly 클래스 정의
             inclineBox가 truthy이면 그것을, 아니면 box를 사용해 지형을 갱신한다.
             try 내부 예외는 '2639384' 오류만 기록한다. 생성 전 실패이면 undefined, 객체 생성 후 실패이면 만들어진 객체를 반환하며 이미 한 등록은 되돌리지 않는다. [확인 Q-002]
 
-    #addCustomLand_(options: DataOPT) -> DeferredObject<void>
+    #addCustomLand_(options: DataOPT) -> Promise<void>
         의존:
             UAnaly — draw 인자; 속성 읽기: {_drawArg}
             UDrawArg — 앱; 속성 읽기: {_app}
             U3dApp — 고도 레이어; 함수: {getHeightLayers()}
             defined — 목록 존재 판정; 함수: {defined()}
-            deferred — 완료 객체; 함수: {deferred(), resolve(), reject()}
+            deferredPromise — 완료 객체; 함수: {deferredPromise(), resolve(), reject()}
             __GInfo__ — 레이어 부재 안내; 함수: {__GInfo__()}
         동작:
-            deferred를 만들고 연결 앱의 고도 목록을 한 번 얻는다. 없거나 비었으면 '5123164' 안내 후 reject한다.
+            deferredPromise를 만들고 연결 앱의 고도 목록을 한 번 얻는다. 없거나 비었으면 '5123164' 안내 후 reject한다.
             기본 편집 옵션을 계산하고 falsy이면 reject한다.
             계산된 inclineEdit가 truthy이면 경사 옵션을 계산하고 falsy이면 reject한다.
             처음 전달한 옵션과 앞서 얻은 레이어 목록으로 데이터 옵션을 완성한다. 앞 단계는 같은 옵션을 변경하므로 그 결과가 이어진다. falsy이면 '5136956' 안내 후 reject한다.
             편집 객체를 생성하고 반환값이 truthy일 때만 입력 상태를 정리한다.
-            생성 결과가 undefined여도 resolve한다. 바깥 try로 전달된 예외만 reject하며 deferred를 반환한다. [확인 Q-002]
+            생성 결과가 undefined여도 resolve한다. 바깥 try로 전달된 예외만 reject하며 deferredPromise를 반환한다. [확인 Q-002]
 
     #clearDrawFeature() -> void
         의존:

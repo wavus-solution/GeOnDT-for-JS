@@ -1,11 +1,12 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
+import type { UFileLoader } from "./UFileLoader.js";
 import type { UCanvasTexture } from "../texture/UCanvasTexture.js";
 import type { UTexture } from "../texture/UTexture.js";
 
@@ -80,19 +81,25 @@ declare class UTextureLoader extends three.Loader<UTexture | UCanvasTexture, str
     _flipY: boolean;
     _loader: three.ImageLoader;
     _bitmapLoader: three.ImageBitmapLoader;
-    _fileLoader: any;
+    _fileLoader: UFileLoader;
     setName(name: any): void;
     /**
+     * 이미지를 읽고 완료 콜백에 텍스처를 전달합니다.
+     * Blob 입력은 Promise도 반환하며, 오류 콜백을 함께 지정해도 반환 Promise는 같은 사유로 거부됩니다.
+     * 오류 콜백 자체의 예외는 로그에 기록합니다.
+     *
+     * @override
+     *
      * @param {string | Blob | ArrayBuffer} url 이미지 URL 또는 호출부가 전달하는 원본 이미지 데이터
      * @param {function( (import('@UTexture').UTexture | import('@UCanvasTexture').UCanvasTexture) ):void} [onLoad]
      * @param {(function(ProgressEvent):void) | null} [onProgress] 로딩 진행 callback. 전용 fetch/AbortController 경로에서는 현재 지원하지 않음
      * @param {(function(unknown):void) | null} [onError] 네트워크, 디코딩 또는 PBF/MVT 파싱 실패 callback
      * @param {(function(unknown):void) | null} [onAbort] 요청 취소 callback
-     * @param {(function(ArrayBuffer):(HTMLCanvasElement | Promise<HTMLCanvasElement | undefined> | undefined)) | null} [onParse] PBF/MVT 버퍼를 Canvas로 변환하는 함수
+     * @param {undefined | null | function(ArrayBuffer): (HTMLCanvasElement | Promise<HTMLCanvasElement | undefined> | undefined)} [onParse] PBF/MVT 버퍼를 Canvas로 변환하는 함수
      * @param {TextureLoadRequestOptions} [requestOptions] 요청별 취소 등 선택 기능
-     * @return {Promise<import('@UCanvasTexture').UCanvasTexture> | CancelableTextureRequest | HTMLImageElement | undefined}
+     * @returns {Promise<import('@UCanvasTexture').UCanvasTexture> | CancelableTextureRequest | HTMLImageElement | undefined} Blob 완료 Promise 또는 입력 형식과 옵션에 따른 이미지 요청 객체
      */
-    load(url: string | Blob | ArrayBuffer, onLoad?: (arg0: (UTexture | UCanvasTexture)) => void, onProgress?: ((arg0: ProgressEvent) => void) | null, onError?: ((arg0: unknown) => void) | null, onAbort?: ((arg0: unknown) => void) | null, onParse?: ((arg0: ArrayBuffer) => (HTMLCanvasElement | Promise<HTMLCanvasElement | undefined> | undefined)) | null, requestOptions?: TextureLoadRequestOptions): Promise<UCanvasTexture> | CancelableTextureRequest | HTMLImageElement | undefined;
+    override load(url: string | Blob | ArrayBuffer, onLoad?: (arg0: (UTexture | UCanvasTexture)) => void, onProgress?: ((arg0: ProgressEvent) => void) | null, onError?: ((arg0: unknown) => void) | null, onAbort?: ((arg0: unknown) => void) | null, onParse?: undefined | null | ((arg0: ArrayBuffer) => (HTMLCanvasElement | Promise<HTMLCanvasElement | undefined> | undefined)), requestOptions?: TextureLoadRequestOptions): Promise<UCanvasTexture> | CancelableTextureRequest | HTMLImageElement | undefined;
     /**
      * 일반 이미지 한 건을 URL 공유 캐시 없이 fetch하고, 그 요청만 중단할 수 있는 제어 객체를 반환합니다.
      *

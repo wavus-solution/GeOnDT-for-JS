@@ -390,10 +390,10 @@ async function createU3fModelLayers(app) {
     const activeInfos = (result?.params?.data || []).filter(info => info.state === 'ACTIVE');
     if (activeInfos.length === 0) return;
 
-    const groupLayer = app.createModelGroupLayer({maxlevel: 19, minlevel: 17, name: U3F_GROUP_LAYER_NAME});
+    const groupLayer = app.createGroupLayer({maxlevel: 19, minlevel: 17, name: U3F_GROUP_LAYER_NAME});
     const results = await Promise.allSettled(activeInfos.map(async info => {
         /* 레이어 목록 중 발행중인 레이어만 요청한다. */
-        const layer = await app.create3DFModelLayer({
+        const layer = app.create3DFModelLayer({
             name: info.name,
             basename: info.fileName || info.name,
             baseurl: info.baseUrl,
@@ -404,7 +404,10 @@ async function createU3fModelLayers(app) {
             isShareMaterial: false,
             makeU3FPackage: 1
         });
-        if (layer) groupLayer.addLayer(layer);
+        if (layer) {
+            await layer.ready;
+            groupLayer.addLayer(layer);
+        }
         return layer;
     }));
 

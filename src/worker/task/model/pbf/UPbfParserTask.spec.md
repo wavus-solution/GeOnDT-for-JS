@@ -138,12 +138,14 @@ UPbfParserTask 클래스 정의
             버퍼가 없거나 길이 0 이면 빈 layers 를 반환한다.
             type 0(UNKNOWN) 피처는 제외한다.
             레이어 extent 가 없으면 4096 을 사용한다.
-            좌표는 Float64Array 로 복사하고 그 buffer 를 `_transferables` 에 모아 UWorker 가 postMessage 시 이전한다.
+            레이어마다 좌표 버퍼를 하나 만들고 피처별 비중첩 Float64Array 뷰로 나눈다. ends는 각 피처 뷰 기준으로 유지한다.
+            피처가 있는 레이어의 공용 buffer만 `_transferables`에 한 번씩 넣어 UWorker가 postMessage 시 소유권을 이전한다. 알려진 타입의 빈 형상은 길이 0인 뷰로 보존하며 피처 없는 레이어는 전송 목록에 버퍼를 추가하지 않는다.
 
         동작:
             리더를 만들고 레이어 컬렉션을 읽는다.
             레이어마다 피처를 순서대로 읽어 피처 객체로 만든다.
-            피처마다 id, 타입, 속성, Float64Array 좌표, ends 를 담고 좌표 buffer 를 transferable 목록에 추가한다.
+            피처마다 id·타입·속성·원본 좌표·ends를 담고 레이어의 좌표 길이를 합산한다.
+            합산 길이의 공용 Float64Array에 좌표를 한 번씩 복사하고 피처의 좌표를 해당 구간 뷰로 교체한 뒤 공용 buffer를 전송 목록에 추가한다.
             레이어 이름·extent·피처 목록을 layers 에 추가해 반환한다.
 
     static loadPbf(params: {url: string, realUrl: string, requestId?: string, canvas: OffscreenCanvas, styleFunctionString: string, imageSize: number, curTile: {x, y, level}, orderTile: {x, y, level}, resolutionByLevel: number}) -> Promise<ImageBitmap | undefined>

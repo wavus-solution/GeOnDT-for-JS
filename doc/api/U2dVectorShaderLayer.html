@@ -15,7 +15,7 @@
     <!-- 한글 본문용 가변 서체입니다. 내려받지 못해도 styles/jaguar.css의 대체 서체로 그대로 표시됩니다. -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-    <link type="text/css" rel="stylesheet" href="styles/jaguar.css?v=muz1hdly">
+    <link type="text/css" rel="stylesheet" href="styles/jaguar.css?v=mvon8gzc">
     <script>
         // 화면이 그려지기 전에 테마를 정해 화면이 한 번 번쩍이는 것을 막습니다.
         // 상단 전환 버튼으로 직접 고른 적이 없으면 운영체제 설정을 따릅니다.
@@ -137,6 +137,10 @@
             <h3>Methods</h3>
             <ul>
             
+                <li data-name="_stopmapregionmotion">
+                    <a href="U3dApp.html#_stopMapRegionMotion">_stopMapRegionMotion</a>
+                </li>
+            
                 <li data-name="activeanalysis">
                     <a href="U3dApp.html#activeAnalysis">activeAnalysis</a>
                 </li>
@@ -253,16 +257,12 @@
                     <a href="U3dApp.html#create3DFModelLayer">create3DFModelLayer</a>
                 </li>
             
-                <li data-name="create3dimagewmtslayer">
-                    <a href="U3dApp.html#create3dImageWMTSLayer">create3dImageWMTSLayer</a>
-                </li>
-            
-                <li data-name="create3dopenlayer">
-                    <a href="U3dApp.html#create3dOpenLayer">create3dOpenLayer</a>
-                </li>
-            
                 <li data-name="createanalysisbytypeandname">
                     <a href="U3dApp.html#createAnalysisByTypeAndName">createAnalysisByTypeAndName</a>
+                </li>
+            
+                <li data-name="createbimobjmodellayer">
+                    <a href="U3dApp.html#createBIMObjModelLayer">createBIMObjModelLayer</a>
                 </li>
             
                 <li data-name="createdebugcanvas">
@@ -289,6 +289,10 @@
                     <a href="U3dApp.html#createGridTileLayer">createGridTileLayer</a>
                 </li>
             
+                <li data-name="creategrouplayer">
+                    <a href="U3dApp.html#createGroupLayer">createGroupLayer</a>
+                </li>
+            
                 <li data-name="createheightxyzlayer">
                     <a href="U3dApp.html#createHeightXYZLayer">createHeightXYZLayer</a>
                 </li>
@@ -301,24 +305,16 @@
                     <a href="U3dApp.html#createLoadingCanvas">createLoadingCanvas</a>
                 </li>
             
-                <li data-name="createmeasurelayer">
-                    <a href="U3dApp.html#createMeasureLayer">createMeasureLayer</a>
-                </li>
-            
-                <li data-name="createmodelbimobjlayer">
-                    <a href="U3dApp.html#createModelBIMObjLayer">createModelBIMObjLayer</a>
-                </li>
-            
-                <li data-name="createmodelgrouplayer">
-                    <a href="U3dApp.html#createModelGroupLayer">createModelGroupLayer</a>
-                </li>
-            
-                <li data-name="createmodeltdslayer">
-                    <a href="U3dApp.html#createModelTdsLayer">createModelTdsLayer</a>
+                <li data-name="createmodelquadtreeset">
+                    <a href="U3dApp.html#createModelQuadTreeSet">createModelQuadTreeSet</a>
                 </li>
             
                 <li data-name="createmultiplecomponentlayer">
                     <a href="U3dApp.html#createMultipleComponentLayer">createMultipleComponentLayer</a>
+                </li>
+            
+                <li data-name="createopenlayer">
+                    <a href="U3dApp.html#createOpenLayer">createOpenLayer</a>
                 </li>
             
                 <li data-name="createoverlay">
@@ -341,6 +337,10 @@
                     <a href="U3dApp.html#createPointerLockFlyControls">createPointerLockFlyControls</a>
                 </li>
             
+                <li data-name="createquadtreeset">
+                    <a href="U3dApp.html#createQuadTreeSet">createQuadTreeSet</a>
+                </li>
+            
                 <li data-name="createsky">
                     <a href="U3dApp.html#createSky">createSky</a>
                 </li>
@@ -357,12 +357,12 @@
                     <a href="U3dApp.html#createTdsModelLayer">createTdsModelLayer</a>
                 </li>
             
-                <li data-name="createtempletetmsimagelayer">
-                    <a href="U3dApp.html#createTempleteTMSImageLayer">createTempleteTMSImageLayer</a>
+                <li data-name="createtemplatetmsimagelayer">
+                    <a href="U3dApp.html#createTemplateTMSImageLayer">createTemplateTMSImageLayer</a>
                 </li>
             
-                <li data-name="createterrainlayer">
-                    <a href="U3dApp.html#createTerrainLayer">createTerrainLayer</a>
+                <li data-name="createterrainquadtreeset">
+                    <a href="U3dApp.html#createTerrainQuadTreeSet">createTerrainQuadTreeSet</a>
                 </li>
             
                 <li data-name="createview">
@@ -377,12 +377,8 @@
                     <a href="U3dApp.html#createWMSImageLayer">createWMSImageLayer</a>
                 </li>
             
-                <li data-name="createwmtslayer">
-                    <a href="U3dApp.html#createWMTSLayer">createWMTSLayer</a>
-                </li>
-            
-                <li data-name="createwmtstemplatelayer">
-                    <a href="U3dApp.html#createWMTSTemplateLayer">createWMTSTemplateLayer</a>
+                <li data-name="createwmtsimagelayer">
+                    <a href="U3dApp.html#createWMTSImageLayer">createWMTSImageLayer</a>
                 </li>
             
                 <li data-name="createxyzimagelayer">
@@ -435,6 +431,18 @@
             
                 <li data-name="dispose">
                     <a href="U3dApp.html#dispose">dispose</a>
+                </li>
+            
+                <li data-name="disposemodelquadtree">
+                    <a href="U3dApp.html#disposeModelQuadTree">disposeModelQuadTree</a>
+                </li>
+            
+                <li data-name="disposequadtree">
+                    <a href="U3dApp.html#disposeQuadTree">disposeQuadTree</a>
+                </li>
+            
+                <li data-name="disposeterrainquadtree">
+                    <a href="U3dApp.html#disposeTerrainQuadTree">disposeTerrainQuadTree</a>
                 </li>
             
                 <li data-name="disposetilemodelall">
@@ -649,12 +657,24 @@
                     <a href="U3dApp.html#getHeightAtPoint">getHeightAtPoint</a>
                 </li>
             
+                <li data-name="getheightlayer">
+                    <a href="U3dApp.html#getHeightLayer">getHeightLayer</a>
+                </li>
+            
                 <li data-name="getheightlayers">
                     <a href="U3dApp.html#getHeightLayers">getHeightLayers</a>
                 </li>
             
                 <li data-name="gethomeposition">
                     <a href="U3dApp.html#getHomePosition">getHomePosition</a>
+                </li>
+            
+                <li data-name="getimagelayer">
+                    <a href="U3dApp.html#getImageLayer">getImageLayer</a>
+                </li>
+            
+                <li data-name="getimagelayers">
+                    <a href="U3dApp.html#getImageLayers">getImageLayers</a>
                 </li>
             
                 <li data-name="getimprovelevel">
@@ -745,8 +765,16 @@
                     <a href="U3dApp.html#getLoadingTotal">getLoadingTotal</a>
                 </li>
             
+                <li data-name="getlodingdom">
+                    <a href="U3dApp.html#getLodingDom">getLodingDom</a>
+                </li>
+            
                 <li data-name="getmapcontrol">
                     <a href="U3dApp.html#getMapControl">getMapControl</a>
+                </li>
+            
+                <li data-name="getmapregion">
+                    <a href="U3dApp.html#getMapRegion">getMapRegion</a>
                 </li>
             
                 <li data-name="getmaxprocess">
@@ -763,6 +791,10 @@
             
                 <li data-name="getmodelimagedistance">
                     <a href="U3dApp.html#getModelImageDistance">getModelImageDistance</a>
+                </li>
+            
+                <li data-name="getmodelmaxlevel">
+                    <a href="U3dApp.html#getModelMaxLevel">getModelMaxLevel</a>
                 </li>
             
                 <li data-name="getmodelupdateoffset">
@@ -1133,6 +1165,10 @@
                     <a href="U3dApp.html#removeLight">removeLight</a>
                 </li>
             
+                <li data-name="removeloadingcanvas">
+                    <a href="U3dApp.html#removeLoadingCanvas">removeLoadingCanvas</a>
+                </li>
+            
                 <li data-name="removemodel">
                     <a href="U3dApp.html#removeModel">removeModel</a>
                 </li>
@@ -1169,6 +1205,10 @@
                     <a href="U3dApp.html#renderFrame">renderFrame</a>
                 </li>
             
+                <li data-name="resetcameralimitdistance">
+                    <a href="U3dApp.html#resetCameraLimitDistance">resetCameraLimitDistance</a>
+                </li>
+            
                 <li data-name="resetfog">
                     <a href="U3dApp.html#resetFog">resetFog</a>
                 </li>
@@ -1177,8 +1217,16 @@
                     <a href="U3dApp.html#resize">resize</a>
                 </li>
             
+                <li data-name="restartmodelquadtree">
+                    <a href="U3dApp.html#restartModelQuadTree">restartModelQuadTree</a>
+                </li>
+            
                 <li data-name="restartquadtree">
                     <a href="U3dApp.html#restartQuadTree">restartQuadTree</a>
+                </li>
+            
+                <li data-name="restartterrainquadtree">
+                    <a href="U3dApp.html#restartTerrainQuadTree">restartTerrainQuadTree</a>
                 </li>
             
                 <li data-name="savecamerastate">
@@ -1349,6 +1397,10 @@
                     <a href="U3dApp.html#setInteriorPanControl">setInteriorPanControl</a>
                 </li>
             
+                <li data-name="setmapregion">
+                    <a href="U3dApp.html#setMapRegion">setMapRegion</a>
+                </li>
+            
                 <li data-name="setmaxprocess">
                     <a href="U3dApp.html#setMaxProcess">setMaxProcess</a>
                 </li>
@@ -1497,6 +1549,10 @@
                     <a href="U3dApp.html#setUndergroundFogStartHeight">setUndergroundFogStartHeight</a>
                 </li>
             
+                <li data-name="setvisibleloading">
+                    <a href="U3dApp.html#setVisibleLoading">setVisibleLoading</a>
+                </li>
+            
                 <li data-name="setzoom">
                     <a href="U3dApp.html#setZoom">setZoom</a>
                 </li>
@@ -1535,10 +1591,6 @@
             
                 <li data-name="showundergroundgrid">
                     <a href="U3dApp.html#showUnderGroundGrid">showUnderGroundGrid</a>
-                </li>
-            
-                <li data-name="stopfly">
-                    <a href="U3dApp.html#stopFly">stopFly</a>
                 </li>
             
                 <li data-name="synccamera">
@@ -1604,10 +1656,6 @@
                     <a href="U3dApp.html#~U3dTMSImageLayerCO">U3dTMSImageLayerCO</a>
                 </li>
             
-                <li data-name="u3dwmtslayerco">
-                    <a href="U3dApp.html#~U3dWMTSLayerCO">U3dWMTSLayerCO</a>
-                </li>
-            
             </ul>
         </section>
 </div>
@@ -1624,7 +1672,7 @@
             <details class="navigation-group" id="nav-group-analysis-r169g7">
                 <summary class="navigation-group-summary">
                     <span class="navigation-group-label">Analysis</span>
-                    <span class="navigation-badge" data-total-count="35">35</span>
+                    <span class="navigation-badge" data-total-count="34">34</span>
                 </summary>
                 <ul class="navigation-group-items">
                 
@@ -1860,10 +1908,6 @@
             <h3>Members</h3>
             <ul>
             
-                <li data-name="setapp">
-                    <a href="UAnaly.html#setApp">setApp</a>
-                </li>
-            
                 <li data-name="event">
                     <a href="UAnaly.html#.Event">Event</a>
                 </li>
@@ -1887,12 +1931,36 @@
                     <a href="UAnaly.html#clear">clear</a>
                 </li>
             
+                <li data-name="clearmeasurefeatureselection">
+                    <a href="UAnaly.html#clearMeasureFeatureSelection">clearMeasureFeatureSelection</a>
+                </li>
+            
                 <li data-name="deactive">
                     <a href="UAnaly.html#deactive">deactive</a>
                 </li>
             
                 <li data-name="getanalysisoption">
                     <a href="UAnaly.html#getAnalysisOption">getAnalysisOption</a>
+                </li>
+            
+                <li data-name="getfeaturecoordinates">
+                    <a href="UAnaly.html#getFeatureCoordinates">getFeatureCoordinates</a>
+                </li>
+            
+                <li data-name="getfeatureresult">
+                    <a href="UAnaly.html#getFeatureResult">getFeatureResult</a>
+                </li>
+            
+                <li data-name="getfeatureresults">
+                    <a href="UAnaly.html#getFeatureResults">getFeatureResults</a>
+                </li>
+            
+                <li data-name="getfeaturestyle">
+                    <a href="UAnaly.html#getFeatureStyle">getFeatureStyle</a>
+                </li>
+            
+                <li data-name="getfeatures">
+                    <a href="UAnaly.html#getFeatures">getFeatures</a>
                 </li>
             
                 <li data-name="getscene">
@@ -1927,12 +1995,28 @@
                     <a href="UAnaly.html#on">on</a>
                 </li>
             
+                <li data-name="pickmeasurefeature">
+                    <a href="UAnaly.html#pickMeasureFeature">pickMeasureFeature</a>
+                </li>
+            
+                <li data-name="removefeature">
+                    <a href="UAnaly.html#removeFeature">removeFeature</a>
+                </li>
+            
+                <li data-name="resetfeaturestyle">
+                    <a href="UAnaly.html#resetFeatureStyle">resetFeatureStyle</a>
+                </li>
+            
                 <li data-name="setanalysisoption">
                     <a href="UAnaly.html#setAnalysisOption">setAnalysisOption</a>
                 </li>
             
                 <li data-name="setapp">
                     <a href="UAnaly.html#setApp">setApp</a>
+                </li>
+            
+                <li data-name="setfeaturestyle">
+                    <a href="UAnaly.html#setFeatureStyle">setFeatureStyle</a>
                 </li>
             
                 <li data-name="settargetlayername">
@@ -2281,6 +2365,14 @@
             
                 <li data-name="drawarea">
                     <a href="UAnalyArea.html#drawArea">drawArea</a>
+                </li>
+            
+                <li data-name="drawstop">
+                    <a href="UAnalyArea.html#drawStop">drawStop</a>
+                </li>
+            
+                <li data-name="getfeatures">
+                    <a href="UAnalyArea.html#getFeatures">getFeatures</a>
                 </li>
             
             </ul>
@@ -2936,8 +3028,16 @@
                     <a href="UAnalyDepth.html#~UAnalyDepthCO">UAnalyDepthCO</a>
                 </li>
             
+                <li data-name="uanalydepthlinestate">
+                    <a href="UAnalyDepth.html#~UAnalyDepthLineState">UAnalyDepthLineState</a>
+                </li>
+            
                 <li data-name="uanalydepthpointdata">
                     <a href="UAnalyDepth.html#~UAnalyDepthPointData">UAnalyDepthPointData</a>
+                </li>
+            
+                <li data-name="uanalydepthpointstate">
+                    <a href="UAnalyDepth.html#~UAnalyDepthPointState">UAnalyDepthPointState</a>
                 </li>
             
                 <li data-name="uanalydepthresult">
@@ -2961,6 +3061,21 @@
             <span class="navigation-primary-link"><a href="UAnalyDistance.html">UAnalyDistance</a></span>
         </summary>
         <div class="navigation-symbol-details">
+        <section class="navigation-member-list" data-type="members">
+            <h3>Members</h3>
+            <ul>
+            
+                <li data-name="helperpoi">
+                    <a href="UAnalyDistance.html#helperPoi">helperPoi</a>
+                </li>
+            
+                <li data-name="name">
+                    <a href="UAnalyDistance.html#name">name</a>
+                </li>
+            
+            </ul>
+        </section>
+
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -2981,8 +3096,28 @@
                     <a href="UAnalyDistance.html#drawDistance">drawDistance</a>
                 </li>
             
+                <li data-name="drawstop">
+                    <a href="UAnalyDistance.html#drawStop">drawStop</a>
+                </li>
+            
+                <li data-name="drawtextlabel">
+                    <a href="UAnalyDistance.html#drawTextLabel">drawTextLabel</a>
+                </li>
+            
                 <li data-name="getdistancefromcoordinate">
                     <a href="UAnalyDistance.html#getDistanceFromCoordinate">getDistanceFromCoordinate</a>
+                </li>
+            
+                <li data-name="getfeatures">
+                    <a href="UAnalyDistance.html#getFeatures">getFeatures</a>
+                </li>
+            
+                <li data-name="onclick">
+                    <a href="UAnalyDistance.html#onClick">onClick</a>
+                </li>
+            
+                <li data-name="ondblclick">
+                    <a href="UAnalyDistance.html#onDblClick">onDblClick</a>
                 </li>
             
             </ul>
@@ -3017,6 +3152,10 @@
             <h3>Members</h3>
             <ul>
             
+                <li data-name="event">
+                    <a href="UAnalyGizmoModel.html#EVENT">EVENT</a>
+                </li>
+            
                 <li data-name="isdrag">
                     <a href="UAnalyGizmoModel.html#isDrag">isDrag</a>
                 </li>
@@ -3038,6 +3177,10 @@
             
                 <li data-name="clear">
                     <a href="UAnalyGizmoModel.html#clear">clear</a>
+                </li>
+            
+                <li data-name="creategizmo">
+                    <a href="UAnalyGizmoModel.html#createGizmo">createGizmo</a>
                 </li>
             
                 <li data-name="deactive">
@@ -3082,6 +3225,14 @@
             
                 <li data-name="objectchange">
                     <a href="UAnalyGizmoModel.html#objectChange">objectChange</a>
+                </li>
+            
+                <li data-name="onend">
+                    <a href="UAnalyGizmoModel.html#onEnd">onEnd</a>
+                </li>
+            
+                <li data-name="removegizmo">
+                    <a href="UAnalyGizmoModel.html#removeGizmo">removeGizmo</a>
                 </li>
             
                 <li data-name="removelasers">
@@ -3143,8 +3294,24 @@
             <h3>Type Definitions</h3>
             <ul>
             
+                <li data-name="gizmocontrolobject">
+                    <a href="UAnalyGizmoModel.html#~GizmoControlObject">GizmoControlObject</a>
+                </li>
+            
                 <li data-name="uanalygizmomodelco">
                     <a href="UAnalyGizmoModel.html#~UAnalyGizmoModelCO">UAnalyGizmoModelCO</a>
+                </li>
+            
+                <li data-name="uanalygizmomodelcallback">
+                    <a href="UAnalyGizmoModel.html#~UAnalyGizmoModelCallback">UAnalyGizmoModelCallback</a>
+                </li>
+            
+                <li data-name="uanalygizmomodelintersection">
+                    <a href="UAnalyGizmoModel.html#~UAnalyGizmoModelIntersection">UAnalyGizmoModelIntersection</a>
+                </li>
+            
+                <li data-name="uanalygizmomodellaserstyle">
+                    <a href="UAnalyGizmoModel.html#~UAnalyGizmoModelLaserStyle">UAnalyGizmoModelLaserStyle</a>
                 </li>
             
             </ul>
@@ -3170,6 +3337,10 @@
             
                 <li data-name="max_style_entries">
                     <a href="UAnalyHeight.html#MAX_STYLE_ENTRIES">MAX_STYLE_ENTRIES</a>
+                </li>
+            
+                <li data-name="name">
+                    <a href="UAnalyHeight.html#name">name</a>
                 </li>
             
             </ul>
@@ -3259,6 +3430,37 @@
             <span class="navigation-primary-link"><a href="UAnalyHeightLimit.html">UAnalyHeightLimit</a></span>
         </summary>
         <div class="navigation-symbol-details">
+        <section class="navigation-member-list" data-type="members">
+            <h3>Members</h3>
+            <ul>
+            
+                <li data-name="depth">
+                    <a href="UAnalyHeightLimit.html#depth">depth</a>
+                </li>
+            
+                <li data-name="extrudeoption">
+                    <a href="UAnalyHeightLimit.html#extrudeOption">extrudeOption</a>
+                </li>
+            
+                <li data-name="filters">
+                    <a href="UAnalyHeightLimit.html#filters">filters</a>
+                </li>
+            
+                <li data-name="geometry">
+                    <a href="UAnalyHeightLimit.html#geometry">geometry</a>
+                </li>
+            
+                <li data-name="materialoption">
+                    <a href="UAnalyHeightLimit.html#materialOption">materialOption</a>
+                </li>
+            
+                <li data-name="selected">
+                    <a href="UAnalyHeightLimit.html#selected">selected</a>
+                </li>
+            
+            </ul>
+        </section>
+
         <section class="navigation-member-list" data-type="methods">
             <h3>Methods</h3>
             <ul>
@@ -3339,6 +3541,10 @@
             <h3>Members</h3>
             <ul>
             
+                <li data-name="event">
+                    <a href="UAnalyLandScape.html#EVENT">EVENT</a>
+                </li>
+            
                 <li data-name="floorheight">
                     <a href="UAnalyLandScape.html#floorHeight">floorHeight</a>
                 </li>
@@ -3414,6 +3620,10 @@
                     <a href="UAnalyLandScape.html#addViewPoint">addViewPoint</a>
                 </li>
             
+                <li data-name="addviewpoint_">
+                    <a href="UAnalyLandScape.html#addViewPoint_">addViewPoint_</a>
+                </li>
+            
                 <li data-name="addviewtarget">
                     <a href="UAnalyLandScape.html#addViewTarget">addViewTarget</a>
                 </li>
@@ -3444,6 +3654,10 @@
             
                 <li data-name="deactive">
                     <a href="UAnalyLandScape.html#deactive">deactive</a>
+                </li>
+            
+                <li data-name="detectcollision">
+                    <a href="UAnalyLandScape.html#detectCollision">detectCollision</a>
                 </li>
             
                 <li data-name="drawline">
@@ -3605,6 +3819,10 @@
                     <a href="UAnalyLandScape.html#~UAnalyLandScapeCO">UAnalyLandScapeCO</a>
                 </li>
             
+                <li data-name="uanalylandscapelineoptions">
+                    <a href="UAnalyLandScape.html#~UAnalyLandScapeLineOptions">UAnalyLandScapeLineOptions</a>
+                </li>
+            
                 <li data-name="ucomputefloorco">
                     <a href="UAnalyLandScape.html#~UComputeFloorCO">UComputeFloorCO</a>
                 </li>
@@ -3642,6 +3860,10 @@
                     <a href="UAnalyMultipleComponent.html#additionalOpt">additionalOpt</a>
                 </li>
             
+                <li data-name="color">
+                    <a href="UAnalyMultipleComponent.html#color">color</a>
+                </li>
+            
             </ul>
         </section>
 
@@ -3657,6 +3879,10 @@
                     <a href="UAnalyMultipleComponent.html#addArea">addArea</a>
                 </li>
             
+                <li data-name="addcomponent">
+                    <a href="UAnalyMultipleComponent.html#addComponent">addComponent</a>
+                </li>
+            
                 <li data-name="addinterval">
                     <a href="UAnalyMultipleComponent.html#addInterval">addInterval</a>
                 </li>
@@ -3667,6 +3893,10 @@
             
                 <li data-name="addsingle">
                     <a href="UAnalyMultipleComponent.html#addSingle">addSingle</a>
+                </li>
+            
+                <li data-name="areaclick">
+                    <a href="UAnalyMultipleComponent.html#areaClick">areaClick</a>
                 </li>
             
                 <li data-name="cameraanalysis">
@@ -3685,12 +3915,24 @@
                     <a href="UAnalyMultipleComponent.html#clearComponent">clearComponent</a>
                 </li>
             
+                <li data-name="clearline">
+                    <a href="UAnalyMultipleComponent.html#clearLine">clearLine</a>
+                </li>
+            
+                <li data-name="clearpoi">
+                    <a href="UAnalyMultipleComponent.html#clearPOI">clearPOI</a>
+                </li>
+            
                 <li data-name="clearroad">
                     <a href="UAnalyMultipleComponent.html#clearRoad">clearRoad</a>
                 </li>
             
                 <li data-name="clearselect">
                     <a href="UAnalyMultipleComponent.html#clearSelect">clearSelect</a>
+                </li>
+            
+                <li data-name="creategizmo">
+                    <a href="UAnalyMultipleComponent.html#createGizmo">createGizmo</a>
                 </li>
             
                 <li data-name="deactive">
@@ -3703,6 +3945,18 @@
             
                 <li data-name="endlightanaly">
                     <a href="UAnalyMultipleComponent.html#endLightAnaly">endLightAnaly</a>
+                </li>
+            
+                <li data-name="endpoi">
+                    <a href="UAnalyMultipleComponent.html#endPoi">endPoi</a>
+                </li>
+            
+                <li data-name="finishroad">
+                    <a href="UAnalyMultipleComponent.html#finishRoad">finishRoad</a>
+                </li>
+            
+                <li data-name="finishsingle">
+                    <a href="UAnalyMultipleComponent.html#finishSingle">finishSingle</a>
                 </li>
             
                 <li data-name="finishwork">
@@ -3725,6 +3979,10 @@
                     <a href="UAnalyMultipleComponent.html#getMapTime">getMapTime</a>
                 </li>
             
+                <li data-name="getpointsbyarea">
+                    <a href="UAnalyMultipleComponent.html#getPointsByArea">getPointsByArea</a>
+                </li>
+            
                 <li data-name="getroads">
                     <a href="UAnalyMultipleComponent.html#getRoads">getRoads</a>
                 </li>
@@ -3733,12 +3991,20 @@
                     <a href="UAnalyMultipleComponent.html#getScene">getScene</a>
                 </li>
             
+                <li data-name="getselectobject">
+                    <a href="UAnalyMultipleComponent.html#getSelectObject">getSelectObject</a>
+                </li>
+            
                 <li data-name="getselected">
                     <a href="UAnalyMultipleComponent.html#getSelected">getSelected</a>
                 </li>
             
                 <li data-name="hidelabel">
                     <a href="UAnalyMultipleComponent.html#hideLabel">hideLabel</a>
+                </li>
+            
+                <li data-name="highlightcolor">
+                    <a href="UAnalyMultipleComponent.html#highLightColor">highLightColor</a>
                 </li>
             
                 <li data-name="isloadmodel">
@@ -3769,6 +4035,18 @@
                     <a href="UAnalyMultipleComponent.html#removeEventListener">removeEventListener</a>
                 </li>
             
+                <li data-name="removegizmo">
+                    <a href="UAnalyMultipleComponent.html#removeGizmo">removeGizmo</a>
+                </li>
+            
+                <li data-name="removelisteners">
+                    <a href="UAnalyMultipleComponent.html#removeListeners">removeListeners</a>
+                </li>
+            
+                <li data-name="removeroad">
+                    <a href="UAnalyMultipleComponent.html#removeRoad">removeRoad</a>
+                </li>
+            
                 <li data-name="removeselected">
                     <a href="UAnalyMultipleComponent.html#removeSelected">removeSelected</a>
                 </li>
@@ -3785,8 +4063,16 @@
                     <a href="UAnalyMultipleComponent.html#saveRoad">saveRoad</a>
                 </li>
             
+                <li data-name="selectobject">
+                    <a href="UAnalyMultipleComponent.html#selectObject">selectObject</a>
+                </li>
+            
                 <li data-name="setadditionalopt">
                     <a href="UAnalyMultipleComponent.html#setAdditionalOpt">setAdditionalOpt</a>
+                </li>
+            
+                <li data-name="setapp">
+                    <a href="UAnalyMultipleComponent.html#setApp">setApp</a>
                 </li>
             
                 <li data-name="setcomponentdata">
@@ -3857,6 +4143,10 @@
                     <a href="UAnalyMultipleComponent.html#showLabel">showLabel</a>
                 </li>
             
+                <li data-name="startpoi">
+                    <a href="UAnalyMultipleComponent.html#startPoi">startPoi</a>
+                </li>
+            
             </ul>
         </section>
 
@@ -3870,73 +4160,6 @@
             
                 <li data-name="uanalymultiplecomponentco">
                     <a href="UAnalyMultipleComponent.html#~UAnalyMultipleComponentCO">UAnalyMultipleComponentCO</a>
-                </li>
-            
-            </ul>
-        </section>
-</div>
-    </details>
-    
-</li>
-
-                
-                    
-<li class="navigation-item item-class" data-longname="UAnalyObjectInfo" data-name="UAnalyObjectInfo" data-group-key="analysis">
-    
-    <details class="navigation-symbol">
-        <summary class="navigation-symbol-summary">
-            <span class="navigation-kind" aria-hidden="true">C</span>
-            <span class="navigation-primary-link"><a href="UAnalyObjectInfo.html">UAnalyObjectInfo</a></span>
-        </summary>
-        <div class="navigation-symbol-details">
-        <section class="navigation-member-list" data-type="members">
-            <h3>Members</h3>
-            <ul>
-            
-                <li data-name="off">
-                    <a href="UAnalyObjectInfo.html#off">off</a>
-                </li>
-            
-            </ul>
-        </section>
-
-        <section class="navigation-member-list" data-type="methods">
-            <h3>Methods</h3>
-            <ul>
-            
-                <li data-name="active">
-                    <a href="UAnalyObjectInfo.html#active">active</a>
-                </li>
-            
-                <li data-name="clear">
-                    <a href="UAnalyObjectInfo.html#clear">clear</a>
-                </li>
-            
-                <li data-name="deactive">
-                    <a href="UAnalyObjectInfo.html#deactive">deactive</a>
-                </li>
-            
-                <li data-name="getselectedobject">
-                    <a href="UAnalyObjectInfo.html#getSelectedObject">getSelectedObject</a>
-                </li>
-            
-                <li data-name="removeselect">
-                    <a href="UAnalyObjectInfo.html#removeSelect">removeSelect</a>
-                </li>
-            
-                <li data-name="setapp">
-                    <a href="UAnalyObjectInfo.html#setApp">setApp</a>
-                </li>
-            
-            </ul>
-        </section>
-
-        <section class="navigation-member-list" data-type="typedefs">
-            <h3>Type Definitions</h3>
-            <ul>
-            
-                <li data-name="uanalyobjectinfoco">
-                    <a href="UAnalyObjectInfo.html#~UAnalyObjectInfoCO">UAnalyObjectInfoCO</a>
                 </li>
             
             </ul>
@@ -4066,16 +4289,16 @@
             <h3>Type Definitions</h3>
             <ul>
             
-                <li data-name="extstring">
-                    <a href="UAnalyParticle.html#~ExtString">ExtString</a>
-                </li>
-            
                 <li data-name="uanalyparticleco">
                     <a href="UAnalyParticle.html#~UAnalyParticleCO">UAnalyParticleCO</a>
                 </li>
             
                 <li data-name="uanalyparticlemaskoption">
                     <a href="UAnalyParticle.html#~UAnalyParticleMaskOption">UAnalyParticleMaskOption</a>
+                </li>
+            
+                <li data-name="uanalyparticlemodelextents">
+                    <a href="UAnalyParticle.html#~UAnalyParticleModelExtents">UAnalyParticleModelExtents</a>
                 </li>
             
             </ul>
@@ -6336,6 +6559,10 @@
                     <a href="U3dComponentInstancedPosition.html#createPathTextures">createPathTextures</a>
                 </li>
             
+                <li data-name="dispose">
+                    <a href="U3dComponentInstancedPosition.html#dispose">dispose</a>
+                </li>
+            
                 <li data-name="excepttexture">
                     <a href="U3dComponentInstancedPosition.html#exceptTexture">exceptTexture</a>
                 </li>
@@ -6410,6 +6637,14 @@
             
                 <li data-name="multiplyscale">
                     <a href="U3dComponentInstancedPosition.html#multiplyScale">multiplyScale</a>
+                </li>
+            
+                <li data-name="pickmaterial">
+                    <a href="U3dComponentInstancedPosition.html#pickMaterial">pickMaterial</a>
+                </li>
+            
+                <li data-name="restorematerial">
+                    <a href="U3dComponentInstancedPosition.html#restoreMaterial">restoreMaterial</a>
                 </li>
             
                 <li data-name="rotatebyangle">
@@ -6911,6 +7146,10 @@
                     <a href="U3dComponentPosition.html#getModelName">getModelName</a>
                 </li>
             
+                <li data-name="getmodeloffset">
+                    <a href="U3dComponentPosition.html#getModelOffset">getModelOffset</a>
+                </li>
+            
                 <li data-name="getname">
                     <a href="U3dComponentPosition.html#getName">getName</a>
                 </li>
@@ -7055,14 +7294,6 @@
                     <a href="U3dComponentPosition.html#multiplyScale">multiplyScale</a>
                 </li>
             
-                <li data-name="offselecthelpermesh">
-                    <a href="U3dComponentPosition.html#offSelectHelperMesh">offSelectHelperMesh</a>
-                </li>
-            
-                <li data-name="onselecthelpermesh">
-                    <a href="U3dComponentPosition.html#onSelectHelperMesh">onSelectHelperMesh</a>
-                </li>
-            
                 <li data-name="pickmaterial">
                     <a href="U3dComponentPosition.html#pickMaterial">pickMaterial</a>
                 </li>
@@ -7197,6 +7428,10 @@
             
                 <li data-name="setmixers">
                     <a href="U3dComponentPosition.html#setMixers">setMixers</a>
+                </li>
+            
+                <li data-name="setmodeloffset">
+                    <a href="U3dComponentPosition.html#setModelOffset">setModelOffset</a>
                 </li>
             
                 <li data-name="setopacity">
@@ -8579,6 +8814,10 @@
                     <a href="U3dLayer.html#isDeBug">isDeBug</a>
                 </li>
             
+                <li data-name="ready">
+                    <a href="U3dLayer.html#ready">ready</a>
+                </li>
+            
             </ul>
         </section>
 
@@ -8756,6 +8995,10 @@
             
                 <li data-name="isloadingtile">
                     <a href="U3dLayer.html#isLoadingTile">isLoadingTile</a>
+                </li>
+            
+                <li data-name="isready">
+                    <a href="U3dLayer.html#isReady">isReady</a>
                 </li>
             
                 <li data-name="isuseshadowupdate">
@@ -9392,6 +9635,10 @@
             
                 <li data-name="reload">
                     <a href="U3dModelKmlLayer.html#reload">reload</a>
+                </li>
+            
+                <li data-name="setrenderorder">
+                    <a href="U3dModelKmlLayer.html#setRenderOrder">setRenderOrder</a>
                 </li>
             
             </ul>
@@ -11002,14 +11249,6 @@
                     <a href="U3dMultipleComponentLayer.html#loadWork">loadWork</a>
                 </li>
             
-                <li data-name="offselecthelpermeshes">
-                    <a href="U3dMultipleComponentLayer.html#offSelectHelperMeshes">offSelectHelperMeshes</a>
-                </li>
-            
-                <li data-name="onselecthelpermeshes">
-                    <a href="U3dMultipleComponentLayer.html#onSelectHelperMeshes">onSelectHelperMeshes</a>
-                </li>
-            
                 <li data-name="pauseanimation">
                     <a href="U3dMultipleComponentLayer.html#pauseAnimation">pauseAnimation</a>
                 </li>
@@ -11060,10 +11299,6 @@
             
                 <li data-name="savework">
                     <a href="U3dMultipleComponentLayer.html#saveWork">saveWork</a>
-                </li>
-            
-                <li data-name="selectcomponentbytrails">
-                    <a href="U3dMultipleComponentLayer.html#selectComponentByTrails">selectComponentByTrails</a>
                 </li>
             
                 <li data-name="setbbox">
@@ -11394,6 +11629,10 @@
                     <a href="U3dShaderMeasureLayer.html#cancelAllTile">cancelAllTile</a>
                 </li>
             
+                <li data-name="cancellastposition">
+                    <a href="U3dShaderMeasureLayer.html#cancelLastPosition">cancelLastPosition</a>
+                </li>
+            
                 <li data-name="cleardrawfeature">
                     <a href="U3dShaderMeasureLayer.html#clearDrawFeature">clearDrawFeature</a>
                 </li>
@@ -11432,6 +11671,10 @@
             
                 <li data-name="getextent">
                     <a href="U3dShaderMeasureLayer.html#getExtent">getExtent</a>
+                </li>
+            
+                <li data-name="getfeaturearea">
+                    <a href="U3dShaderMeasureLayer.html#getFeatureArea">getFeatureArea</a>
                 </li>
             
                 <li data-name="getfeaturebyid">
@@ -11538,12 +11781,24 @@
                     <a href="U3dShaderMeasureLayer.html#initialize">initialize</a>
                 </li>
             
+                <li data-name="istilepresentationattached">
+                    <a href="U3dShaderMeasureLayer.html#isTilePresentationAttached">isTilePresentationAttached</a>
+                </li>
+            
+                <li data-name="istilepresentationparticipant">
+                    <a href="U3dShaderMeasureLayer.html#isTilePresentationParticipant">isTilePresentationParticipant</a>
+                </li>
+            
                 <li data-name="istilepresentationvisible">
                     <a href="U3dShaderMeasureLayer.html#isTilePresentationVisible">isTilePresentationVisible</a>
                 </li>
             
                 <li data-name="istilerenderableready">
                     <a href="U3dShaderMeasureLayer.html#isTileRenderableReady">isTileRenderableReady</a>
+                </li>
+            
+                <li data-name="istileretainedpresentationsafe">
+                    <a href="U3dShaderMeasureLayer.html#isTileRetainedPresentationSafe">isTileRetainedPresentationSafe</a>
                 </li>
             
                 <li data-name="istilesceneremovaldeferred">
@@ -11562,12 +11817,20 @@
                     <a href="U3dShaderMeasureLayer.html#removeTileFromScene">removeTileFromScene</a>
                 </li>
             
+                <li data-name="resetfeaturestyle">
+                    <a href="U3dShaderMeasureLayer.html#resetFeatureStyle">resetFeatureStyle</a>
+                </li>
+            
                 <li data-name="resetstyle">
                     <a href="U3dShaderMeasureLayer.html#resetStyle">resetStyle</a>
                 </li>
             
                 <li data-name="setfeaturepoints">
                     <a href="U3dShaderMeasureLayer.html#setFeaturePoints">setFeaturePoints</a>
+                </li>
+            
+                <li data-name="setfeatureselected">
+                    <a href="U3dShaderMeasureLayer.html#setFeatureSelected">setFeatureSelected</a>
                 </li>
             
                 <li data-name="setfeaturestyle">
@@ -11709,10 +11972,6 @@
                     <a href="U3dShaderMeasureLayer.html#~U3dShaderMeasureOLFeature">U3dShaderMeasureOLFeature</a>
                 </li>
             
-                <li data-name="u3dshadermeasuresourcerevisionstate">
-                    <a href="U3dShaderMeasureLayer.html#~U3dShaderMeasureSourceRevisionState">U3dShaderMeasureSourceRevisionState</a>
-                </li>
-            
                 <li data-name="u3dshadermeasurestrokestyle">
                     <a href="U3dShaderMeasureLayer.html#~U3dShaderMeasureStrokeStyle">U3dShaderMeasureStrokeStyle</a>
                 </li>
@@ -11775,6 +12034,10 @@
             
                 <li data-name="clear">
                     <a href="U3dVectorLayer.html#clear">clear</a>
+                </li>
+            
+                <li data-name="dispose">
+                    <a href="U3dVectorLayer.html#dispose">dispose</a>
                 </li>
             
                 <li data-name="getautoheight">
@@ -12189,6 +12452,10 @@
             <h3>Methods</h3>
             <ul>
             
+                <li data-name="_getterraintilefacts">
+                    <a href="U2dVectorShaderLayer.html#_getTerrainTileFacts">_getTerrainTileFacts</a>
+                </li>
+            
                 <li data-name="addgeometry">
                     <a href="U2dVectorShaderLayer.html#addGeometry">addGeometry</a>
                 </li>
@@ -12349,6 +12616,18 @@
                     <a href="U2dVectorShaderLayer.html#isDataExist">isDataExist</a>
                 </li>
             
+                <li data-name="istilepresentationattached">
+                    <a href="U2dVectorShaderLayer.html#isTilePresentationAttached">isTilePresentationAttached</a>
+                </li>
+            
+                <li data-name="istilepresentationconfirmedempty">
+                    <a href="U2dVectorShaderLayer.html#isTilePresentationConfirmedEmpty">isTilePresentationConfirmedEmpty</a>
+                </li>
+            
+                <li data-name="istilepresentationparticipant">
+                    <a href="U2dVectorShaderLayer.html#isTilePresentationParticipant">isTilePresentationParticipant</a>
+                </li>
+            
                 <li data-name="istilepresentationvisible">
                     <a href="U2dVectorShaderLayer.html#isTilePresentationVisible">isTilePresentationVisible</a>
                 </li>
@@ -12357,8 +12636,24 @@
                     <a href="U2dVectorShaderLayer.html#isTileRenderableReady">isTileRenderableReady</a>
                 </li>
             
+                <li data-name="istileretainedpresentationsafe">
+                    <a href="U2dVectorShaderLayer.html#isTileRetainedPresentationSafe">isTileRetainedPresentationSafe</a>
+                </li>
+            
+                <li data-name="istilesceneprovider">
+                    <a href="U2dVectorShaderLayer.html#isTileSceneProvider">isTileSceneProvider</a>
+                </li>
+            
                 <li data-name="istilesceneremovaldeferred">
                     <a href="U2dVectorShaderLayer.html#isTileSceneRemovalDeferred">isTileSceneRemovalDeferred</a>
+                </li>
+            
+                <li data-name="istileworkcomplete">
+                    <a href="U2dVectorShaderLayer.html#isTileWorkComplete">isTileWorkComplete</a>
+                </li>
+            
+                <li data-name="loadsourcegeometry">
+                    <a href="U2dVectorShaderLayer.html#loadSourceGeometry">loadSourceGeometry</a>
                 </li>
             
                 <li data-name="logdebugtilestate">
@@ -12433,6 +12728,10 @@
                     <a href="U2dVectorShaderLayer.html#setSimplifyValue">setSimplifyValue</a>
                 </li>
             
+                <li data-name="setsourcegeometry">
+                    <a href="U2dVectorShaderLayer.html#setSourceGeometry">setSourceGeometry</a>
+                </li>
+            
                 <li data-name="setstyle">
                     <a href="U2dVectorShaderLayer.html#setStyle">setStyle</a>
                 </li>
@@ -12467,6 +12766,10 @@
             
                 <li data-name="showlabel">
                     <a href="U2dVectorShaderLayer.html#showLabel">showLabel</a>
+                </li>
+            
+                <li data-name="suspendtilepresentation">
+                    <a href="U2dVectorShaderLayer.html#suspendTilePresentation">suspendTilePresentation</a>
                 </li>
             
                 <li data-name="update">
@@ -12572,8 +12875,16 @@
                     <a href="U2dGeometry.html#addPosition">addPosition</a>
                 </li>
             
+                <li data-name="addproperties">
+                    <a href="U2dGeometry.html#addProperties">addProperties</a>
+                </li>
+            
                 <li data-name="buildcoordinates">
                     <a href="U2dGeometry.html#buildCoordinates">buildCoordinates</a>
+                </li>
+            
+                <li data-name="changeproperties">
+                    <a href="U2dGeometry.html#changeProperties">changeProperties</a>
                 </li>
             
                 <li data-name="dispose">
@@ -12590,6 +12901,14 @@
             
                 <li data-name="getfeature">
                     <a href="U2dGeometry.html#getFeature">getFeature</a>
+                </li>
+            
+                <li data-name="getfillcolor">
+                    <a href="U2dGeometry.html#getFillColor">getFillColor</a>
+                </li>
+            
+                <li data-name="getfillopacity">
+                    <a href="U2dGeometry.html#getFillOpacity">getFillOpacity</a>
                 </li>
             
                 <li data-name="getgeometry">
@@ -12612,8 +12931,32 @@
                     <a href="U2dGeometry.html#getNonChanged">getNonChanged</a>
                 </li>
             
+                <li data-name="getparam">
+                    <a href="U2dGeometry.html#getParam">getParam</a>
+                </li>
+            
                 <li data-name="getposition">
                     <a href="U2dGeometry.html#getPosition">getPosition</a>
+                </li>
+            
+                <li data-name="getproperties">
+                    <a href="U2dGeometry.html#getProperties">getProperties</a>
+                </li>
+            
+                <li data-name="getshowlabel">
+                    <a href="U2dGeometry.html#getShowLabel">getShowLabel</a>
+                </li>
+            
+                <li data-name="getstrokecolor">
+                    <a href="U2dGeometry.html#getStrokeColor">getStrokeColor</a>
+                </li>
+            
+                <li data-name="getstrokeopacity">
+                    <a href="U2dGeometry.html#getStrokeOpacity">getStrokeOpacity</a>
+                </li>
+            
+                <li data-name="getstrokewidth">
+                    <a href="U2dGeometry.html#getStrokeWidth">getStrokeWidth</a>
                 </li>
             
                 <li data-name="getstyle">
@@ -12632,6 +12975,18 @@
                     <a href="U2dGeometry.html#removeLabel">removeLabel</a>
                 </li>
             
+                <li data-name="removeproperties">
+                    <a href="U2dGeometry.html#removeProperties">removeProperties</a>
+                </li>
+            
+                <li data-name="rotate">
+                    <a href="U2dGeometry.html#rotate">rotate</a>
+                </li>
+            
+                <li data-name="scale">
+                    <a href="U2dGeometry.html#scale">scale</a>
+                </li>
+            
                 <li data-name="setexcludesearch">
                     <a href="U2dGeometry.html#setExcludeSearch">setExcludeSearch</a>
                 </li>
@@ -12642,6 +12997,10 @@
             
                 <li data-name="setfillcolor">
                     <a href="U2dGeometry.html#setFillColor">setFillColor</a>
+                </li>
+            
+                <li data-name="setfillopacity">
+                    <a href="U2dGeometry.html#setFillOpacity">setFillOpacity</a>
                 </li>
             
                 <li data-name="setgeometryname">
@@ -12664,12 +13023,28 @@
                     <a href="U2dGeometry.html#setNonChanged">setNonChanged</a>
                 </li>
             
+                <li data-name="setparam">
+                    <a href="U2dGeometry.html#setParam">setParam</a>
+                </li>
+            
                 <li data-name="setposition">
                     <a href="U2dGeometry.html#setPosition">setPosition</a>
                 </li>
             
+                <li data-name="setproperties">
+                    <a href="U2dGeometry.html#setProperties">setProperties</a>
+                </li>
+            
+                <li data-name="setshowlabel">
+                    <a href="U2dGeometry.html#setShowLabel">setShowLabel</a>
+                </li>
+            
                 <li data-name="setstrokecolor">
                     <a href="U2dGeometry.html#setStrokeColor">setStrokeColor</a>
+                </li>
+            
+                <li data-name="setstrokeopacity">
+                    <a href="U2dGeometry.html#setStrokeOpacity">setStrokeOpacity</a>
                 </li>
             
                 <li data-name="setstrokewidth">
@@ -12692,6 +13067,10 @@
                     <a href="U2dGeometry.html#transformPoint">transformPoint</a>
                 </li>
             
+                <li data-name="translate">
+                    <a href="U2dGeometry.html#translate">translate</a>
+                </li>
+            
             </ul>
         </section>
 
@@ -12705,6 +13084,10 @@
             
                 <li data-name="u2dgeometryco">
                     <a href="U2dGeometry.html#~U2dGeometryCO">U2dGeometryCO</a>
+                </li>
+            
+                <li data-name="u2dgeometryparam">
+                    <a href="U2dGeometry.html#~U2dGeometryParam">U2dGeometryParam</a>
                 </li>
             
                 <li data-name="u2dlabel">
@@ -12790,8 +13173,28 @@
             <h3>Methods</h3>
             <ul>
             
+                <li data-name="getparam">
+                    <a href="U2dPoint.html#getParam">getParam</a>
+                </li>
+            
+                <li data-name="getradius">
+                    <a href="U2dPoint.html#getRadius">getRadius</a>
+                </li>
+            
+                <li data-name="getstyle">
+                    <a href="U2dPoint.html#getStyle">getStyle</a>
+                </li>
+            
+                <li data-name="setfeature">
+                    <a href="U2dPoint.html#setFeature">setFeature</a>
+                </li>
+            
                 <li data-name="setfillcolor">
                     <a href="U2dPoint.html#setFillColor">setFillColor</a>
+                </li>
+            
+                <li data-name="setparam">
+                    <a href="U2dPoint.html#setParam">setParam</a>
                 </li>
             
                 <li data-name="setposition">
@@ -12827,6 +13230,10 @@
             
                 <li data-name="u2dpointco">
                     <a href="U2dPoint.html#~U2dPointCO">U2dPointCO</a>
+                </li>
+            
+                <li data-name="u2dpointparam">
+                    <a href="U2dPoint.html#~U2dPointParam">U2dPointParam</a>
                 </li>
             
             </ul>
@@ -12867,6 +13274,10 @@
             
                 <li data-name="getcenter">
                     <a href="U2dPolygon.html#getCenter">getCenter</a>
+                </li>
+            
+                <li data-name="getposition">
+                    <a href="U2dPolygon.html#getPosition">getPosition</a>
                 </li>
             
                 <li data-name="setposition">
@@ -13305,16 +13716,8 @@
                     <a href="U3dCumulativePath.html#dispose">dispose</a>
                 </li>
             
-                <li data-name="gethelpermesh">
-                    <a href="U3dCumulativePath.html#getHelperMesh">getHelperMesh</a>
-                </li>
-            
                 <li data-name="getnodes">
                     <a href="U3dCumulativePath.html#getNodes">getNodes</a>
-                </li>
-            
-                <li data-name="getpath">
-                    <a href="U3dCumulativePath.html#getPath">getPath</a>
                 </li>
             
                 <li data-name="gettail">
@@ -16539,6 +16942,10 @@
                     <a href="U3dSelect.html#clearHighlights">clearHighlights</a>
                 </li>
             
+                <li data-name="clearhover">
+                    <a href="U3dSelect.html#clearHover">clearHover</a>
+                </li>
+            
                 <li data-name="clearselect">
                     <a href="U3dSelect.html#clearSelect">clearSelect</a>
                 </li>
@@ -16563,6 +16970,10 @@
                     <a href="U3dSelect.html#getDbClickId">getDbClickId</a>
                 </li>
             
+                <li data-name="gethover">
+                    <a href="U3dSelect.html#getHover">getHover</a>
+                </li>
+            
                 <li data-name="getmeasurepointlist">
                     <a href="U3dSelect.html#getMeasurePointList">getMeasurePointList</a>
                 </li>
@@ -16573,6 +16984,14 @@
             
                 <li data-name="getobjectkey">
                     <a href="U3dSelect.html#getObjectKey">getObjectKey</a>
+                </li>
+            
+                <li data-name="getpickbufferpx">
+                    <a href="U3dSelect.html#getPickBufferPx">getPickBufferPx</a>
+                </li>
+            
+                <li data-name="getpickbuffervisible">
+                    <a href="U3dSelect.html#getPickBufferVisible">getPickBufferVisible</a>
                 </li>
             
                 <li data-name="getselectbox">
@@ -16659,12 +17078,28 @@
                     <a href="U3dSelect.html#setExceptTexture">setExceptTexture</a>
                 </li>
             
+                <li data-name="sethover">
+                    <a href="U3dSelect.html#setHover">setHover</a>
+                </li>
+            
                 <li data-name="setmode">
                     <a href="U3dSelect.html#setMode">setMode</a>
                 </li>
             
                 <li data-name="setoutline">
                     <a href="U3dSelect.html#setOutline">setOutline</a>
+                </li>
+            
+                <li data-name="setpickbufferpx">
+                    <a href="U3dSelect.html#setPickBufferPx">setPickBufferPx</a>
+                </li>
+            
+                <li data-name="setpickbuffervisible">
+                    <a href="U3dSelect.html#setPickBufferVisible">setPickBufferVisible</a>
+                </li>
+            
+                <li data-name="setring">
+                    <a href="U3dSelect.html#setRing">setRing</a>
                 </li>
             
                 <li data-name="setselecttype">
@@ -17702,6 +18137,10 @@
                     <a href="UPolygonCollider.html#getAABB">getAABB</a>
                 </li>
             
+                <li data-name="getquaternion">
+                    <a href="UPolygonCollider.html#getQuaternion">getQuaternion</a>
+                </li>
+            
                 <li data-name="getrotation">
                     <a href="UPolygonCollider.html#getRotation">getRotation</a>
                 </li>
@@ -18340,9 +18779,61 @@
             <details class="navigation-group" id="nav-group-util-yj4hoh">
                 <summary class="navigation-group-summary">
                     <span class="navigation-group-label">Util</span>
-                    <span class="navigation-badge" data-total-count="2">2</span>
+                    <span class="navigation-badge" data-total-count="5">5</span>
                 </summary>
                 <ul class="navigation-group-items">
+                
+                    
+<li class="navigation-item item-function" data-longname="deferredPromise" data-name="deferredPromise" data-group-key="util">
+    
+    <details class="navigation-symbol">
+        <summary class="navigation-symbol-summary">
+            <span class="navigation-kind" aria-hidden="true">F</span>
+            <span class="navigation-primary-link"><a href="global.html#deferredPromise">deferredPromise</a></span>
+        </summary>
+        <div class="navigation-symbol-details">
+        <section class="navigation-member-list" data-type="members">
+            <h3>Members</h3>
+            <ul>
+            
+                <li data-name="promise">
+                    <a href="global.html#deferredPromise#~promise">promise</a>
+                </li>
+            
+                <li data-name="rejectpromise">
+                    <a href="global.html#deferredPromise#~rejectPromise">rejectPromise</a>
+                </li>
+            
+                <li data-name="resolvepromise">
+                    <a href="global.html#deferredPromise#~resolvePromise">resolvePromise</a>
+                </li>
+            
+            </ul>
+        </section>
+
+        <section class="navigation-member-list" data-type="methods">
+            <h3>Methods</h3>
+            <ul>
+            
+                <li data-name="isready">
+                    <a href="global.html#deferredPromise#~isReady">isReady</a>
+                </li>
+            
+                <li data-name="reject">
+                    <a href="global.html#deferredPromise#~reject">reject</a>
+                </li>
+            
+                <li data-name="resolve">
+                    <a href="global.html#deferredPromise#~resolve">resolve</a>
+                </li>
+            
+            </ul>
+        </section>
+</div>
+    </details>
+    
+</li>
+
                 
                     
 <li class="navigation-item item-class" data-longname="U3dGeometryUtil" data-name="U3dGeometryUtil" data-group-key="util">
@@ -18367,6 +18858,118 @@
             
                 <li data-name="mergevertices">
                     <a href="U3dGeometryUtil.html#mergeVertices">mergeVertices</a>
+                </li>
+            
+            </ul>
+        </section>
+</div>
+    </details>
+    
+</li>
+
+                
+                    
+<li class="navigation-item item-class" data-longname="UAsyncOperation" data-name="UAsyncOperation" data-group-key="util">
+    
+    <details class="navigation-symbol">
+        <summary class="navigation-symbol-summary">
+            <span class="navigation-kind" aria-hidden="true">C</span>
+            <span class="navigation-primary-link"><a href="UAsyncOperation.html">UAsyncOperation</a></span>
+        </summary>
+        <div class="navigation-symbol-details">
+        <section class="navigation-member-list" data-type="members">
+            <h3>Members</h3>
+            <ul>
+            
+                <li data-name="hasrequest">
+                    <a href="UAsyncOperation.html#hasRequest">hasRequest</a>
+                </li>
+            
+                <li data-name="isuasyncoperation">
+                    <a href="UAsyncOperation.html#isUAsyncOperation">isUAsyncOperation</a>
+                </li>
+            
+                <li data-name="pending">
+                    <a href="UAsyncOperation.html#pending">pending</a>
+                </li>
+            
+            </ul>
+        </section>
+
+        <section class="navigation-member-list" data-type="methods">
+            <h3>Methods</h3>
+            <ul>
+            
+                <li data-name="capture">
+                    <a href="UAsyncOperation.html#capture">capture</a>
+                </li>
+            
+                <li data-name="invalidate">
+                    <a href="UAsyncOperation.html#invalidate">invalidate</a>
+                </li>
+            
+                <li data-name="runlatest">
+                    <a href="UAsyncOperation.html#runLatest">runLatest</a>
+                </li>
+            
+                <li data-name="runonce">
+                    <a href="UAsyncOperation.html#runOnce">runOnce</a>
+                </li>
+            
+            </ul>
+        </section>
+</div>
+    </details>
+    
+</li>
+
+                
+                    
+<li class="navigation-item item-class" data-longname="UErrorCollector" data-name="UErrorCollector" data-group-key="util">
+    
+    <details class="navigation-symbol">
+        <summary class="navigation-symbol-summary">
+            <span class="navigation-kind" aria-hidden="true">C</span>
+            <span class="navigation-primary-link"><a href="UErrorCollector.html">UErrorCollector</a></span>
+        </summary>
+        <div class="navigation-symbol-details">
+        <section class="navigation-member-list" data-type="members">
+            <h3>Members</h3>
+            <ul>
+            
+                <li data-name="haserrors">
+                    <a href="UErrorCollector.html#hasErrors">hasErrors</a>
+                </li>
+            
+                <li data-name="isuerrorcollector">
+                    <a href="UErrorCollector.html#isUErrorCollector">isUErrorCollector</a>
+                </li>
+            
+            </ul>
+        </section>
+
+        <section class="navigation-member-list" data-type="methods">
+            <h3>Methods</h3>
+            <ul>
+            
+                <li data-name="add">
+                    <a href="UErrorCollector.html#add">add</a>
+                </li>
+            
+                <li data-name="attempt">
+                    <a href="UErrorCollector.html#attempt">attempt</a>
+                </li>
+            
+                <li data-name="attemptasync">
+                    <a href="UErrorCollector.html#attemptAsync">attemptAsync</a>
+                </li>
+            
+                <li data-name="finish">
+                    <a href="UErrorCollector.html#finish">finish</a>
+                </li>
+            
+                <li data-name="finishasync">
+                    <a href="UErrorCollector.html#finishAsync">finishAsync</a>
                 </li>
             
             </ul>
@@ -18637,6 +19240,193 @@
         <h3 class="subsection-title">Methods</h3>
         
         <dl>
+        
+            
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="_getTerrainTileFacts">
+            
+             _getTerrainTileFacts<span class="signature">(tile, <span class="optional">query</span>)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">TerrainLayerTilePresentationOption</span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>레이어가 소유한 입력 연결과 장면 표시 의도만 읽습니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
+        
+
+<table class="params">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		<th>Default</th>
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>tile</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">TerrainRuntimeTile</span>
+
+
+            
+            </td>
+            
+            
+                <td class="default">
+                
+                </td>
+            
+            
+            <td class="description last">
+                
+                    
+                    
+                        
+                    
+                
+                <p>입력을 조회할 지형 타일입니다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>query</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">TerrainLayerTilePresentationQuery</span>
+
+
+            
+            </td>
+            
+            
+                <td class="default">
+                
+                    'all'
+                
+                </td>
+            
+            
+            <td class="description last">
+                
+                    
+                        <span class="optional">optional</span>
+                    
+                    
+                        
+                    
+                
+                <p>필요한 표시 판정입니다.</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table>
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    <h5>Returns:</h5>
+    
+
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Type</th>
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+        <tr>
+            
+            <td class="type">
+            
+                        TerrainLayerTilePresentationOption
+                        
+                    
+            </td>
+            <td class="description last">manager에 전달할 입력 사실입니다.</td>
+        </tr>
+    
+    </tbody>
+</table>
+
+    
+    
+    
+</dd>
+
         
             
 <dt>
@@ -19454,7 +20244,8 @@ wkt이 없거나 레이어가 이미 해제되었거나 데이터를 해석하�
     
     <div class="description">
         <p>입력받은 타일의 벡터 도형 표시를 켭니다. <br>
-이 레이어가 그린 도형이 있으면 지형 합성 관리자에 표시 의도를 기록하고, 아직 합성 결과가 준비되지 않았으면 준비 통지를 기다린 뒤 다시 시도합니다.</p>
+이 레이어가 그린 도형이 있으면 지형 합성 관리자에 표시 의도를 기록하고, 아직 합성 결과가 준비되지 않았으면 준비 통지를 기다린 뒤 다시 시도합니다.
+확대 전환 중 최소 레벨 아래의 부모가 대신 표시되면 그 부모에도 도형을 연결합니다. 축소 전환에서는 벡터 표시만 정리하고 지형은 유지합니다.</p>
     </div>
     
 
@@ -19595,8 +20386,8 @@ wkt이 없거나 레이어가 이미 해제되었거나 데이터를 해석하�
     
     
     <div class="description">
-        <p>이어지는 Feature 스타일·형상 변경을 외부 commit까지 보류합니다. <br>
-중첩 호출한 경우 가장 바깥쪽 commit에서 Feature별 최종 상태만 terrain payload에 반영합니다.</p>
+        <p>편집 시작 호출을 호환용으로 유지합니다. <br>
+도형 변경은 자동 반영하므로 이 호출은 갱신을 보류하거나 편집 구간을 시작하지 않습니다.</p>
     </div>
     
 
@@ -19650,7 +20441,7 @@ wkt이 없거나 레이어가 이미 해제되었거나 데이터를 해석하�
                         
                     
                 
-                <p>변경 이벤트와 관계없이 커밋 대상에 포함할 2D Geometry 객체입니다.</p></td>
+                <p>자동 갱신 대상에 포함할 등록된 도형입니다.</p></td>
         </tr>
 	
 	
@@ -19666,6 +20457,8 @@ wkt이 없거나 레이어가 이미 해제되었거나 데이터를 해석하�
     
     
 
+    
+        <dt class="important tag-deprecated">Deprecated</dt><dd><ul class="dummy"><li>호출을 제거하고 도형을 직접 편집하십시오. 변경 이벤트가 없는 수정은 `updateFeature(geom)`로 예약합니다.</li><ul></dd>
     
     
     
@@ -20123,8 +20916,8 @@ wkt이 없거나 레이어가 이미 해제되었거나 데이터를 해석하�
     
     
     <div class="description">
-        <p>보류 중인 Feature 변경을 영향받은 terrain tile의 하나의 atomic presentation으로 커밋합니다. <br>
-반환 Promise는 새 composite가 실제 material에 반영되거나 줌 전환으로 이전 대상 tile이 폐기된 뒤 끝납니다.</p>
+        <p>편집 완료 호출을 호환용으로 유지하고 현재 표시 대상의 적용을 기다립니다. <br>
+진행 중인 자동 갱신과 이미 대기 중인 다음 변경 묶음을 처리하며, 이후 계속되는 편집 전체를 기다리지는 않습니다.</p>
     </div>
     
 
@@ -20178,7 +20971,7 @@ wkt이 없거나 레이어가 이미 해제되었거나 데이터를 해석하�
                         
                     
                 
-                <p>변경 이벤트와 관계없이 즉시 커밋 대상에 포함할 2D Geometry 객체입니다.</p></td>
+                <p>자동 갱신 대상에 포함할 등록된 도형입니다.</p></td>
         </tr>
 	
 	
@@ -20194,6 +20987,8 @@ wkt이 없거나 레이어가 이미 해제되었거나 데이터를 해석하�
     
     
 
+    
+        <dt class="important tag-deprecated">Deprecated</dt><dd><ul class="dummy"><li>일반 편집은 시작·종료 호출을 제거하고 자동 반영을 사용하십시오. 변경 이벤트가 없는 수정은 `updateFeature(geom)`로 예약합니다.</li><ul></dd>
     
     
     
@@ -20226,7 +21021,7 @@ wkt이 없거나 레이어가 이미 해제되었거나 데이터를 해석하�
 <dl>
     <dt>
         <div class="param-desc">
-        <p>최신 표시 그룹의 material 반영 자체가 실패한 경우 발생합니다.</p>
+        <p>합성 또는 재질 적용에 실패하면 반환 Promise가 거절됩니다.</p>
         </div>
     </dt>
     <dt>
@@ -20270,8 +21065,7 @@ wkt이 없거나 레이어가 이미 해제되었거나 데이터를 해석하�
                         
                     
             </td>
-            <td class="description last">영향받은 tile별 composite build 성공 여부 목록이며 순서는 보장하지 않습니다. <br>
-중첩된 <code>beginFeatureUpdate()</code> 가 아직 닫히지 않았거나 레이어가 해제되었으면 빈 배열로 이행됩니다.</td>
+            <td class="description last">현재 표시 대상 타일별 적용 결과입니다. 교체·대상 해제는 false이고, 변경 대상이 없거나 clear·dispose로 취소되면 빈 배열입니다. 중첩 배치는 제공하지 않습니다.</td>
         </tr>
     
     </tbody>
@@ -20299,8 +21093,10 @@ wkt이 없거나 레이어가 이미 해제되었거나 데이터를 해석하�
     
     
     <div class="description">
-        <p>WFS tile 응답 또는 기존 cache를 terrain decal payload로 변환합니다. <br>
-base texture가 없는 runtime tile은 표시 전 payload를 prewarm합니다.</p>
+        <p>타일 입력의 준비 이력·runtime·캐시를 확인하고 필요한 원격 요청을 연결합니다. <br>
+base texture가 없는 runtime tile은 표시 전 payload를 prewarm합니다.
+이미 적용한 빈 source는 같은 준비 서명에서 외부 host의 표시를 다시 기다리지 않습니다.
+준비된 payload의 재적용은 예약 후 종료하고, 실제 표시 준비는 LOD 표시 훅에서 확인합니다.</p>
     </div>
     
 
@@ -20441,8 +21237,9 @@ base texture가 없는 runtime tile은 표시 전 payload를 prewarm합니다.</
     
     <div class="description">
         <p>타일 하나의 소스 요청을 실행·취소하는 방법을 만듭니다. <br>
-기본 구현은 WFS GetFeature(BBOX) 요청이며, request queue 등록과 취소 핸들, source pending 부기, <br>
-재시도 판정은 모두 호출자(<code>createTexture</code>)가 담당합니다.</p>
+기본 WFS는 전체 형상을 반환하며 <code>completeGeometry</code>로 이를 알립니다. PBF·부분 형상 어댑터는 이 값을 설정하지 않습니다. <br>
+request queue 등록과 취소 핸들, source pending 부기, <br>
+재시도 판정은 내부 요청 준비 메서드가 담당합니다.</p>
 <p>다른 소스(PBF 등)를 쓰는 하위 레이어는 이 메서드만 override 해 <code>{features}</code> 를 월드 좌표(EPSG:3857)의 GeoJSON 형태(<code>{id, geometry: {type, coordinates}, properties}</code>)로 돌려주면 이후 스타일 적용·ring 분할·캐시·terrain payload 생성 흐름을 그대로 재사용합니다.</p>
     </div>
     
@@ -20679,6 +21476,33 @@ base texture가 없는 runtime tile은 표시 전 payload를 prewarm합니다.</
     
     
     
+    <h5>Throws:</h5>
+    
+            
+
+<dl>
+    <dt>
+        <div class="param-desc">
+        <p>원본 해제에 실패해도 남은 등록·구독·동적 원과 부모 자원을 정리한 뒤 원래 오류 또는 모은 오류를 전달합니다.</p>
+        </div>
+    </dt>
+    <dt>
+        <dl>
+            <dt>
+                Type
+            </dt>
+            <dd>
+                
+<span class="param-type">Error</span>
+
+
+            </dd>
+        </dl>
+    </dt>
+</dl>
+
+
+        
     
     
     <h5>Returns:</h5>
@@ -21129,7 +21953,7 @@ base texture가 없는 runtime tile은 표시 전 payload를 prewarm합니다.</
                         
                     
             </td>
-            <td class="description last">도형 전체를 감싸는 경계 상자이며, 레이어가 해제되었으면 빈 상자입니다.</td>
+            <td class="description last">도형 전체를 감싸는 경계 상자이며, 도형이 없거나 레이어가 해제되었으면 빈 상자입니다.</td>
         </tr>
     
     </tbody>
@@ -21738,7 +22562,7 @@ base texture가 없는 runtime tile은 표시 전 payload를 prewarm합니다.</
     <div class="nameContainer">
         <h4 class="name" id="getFeatureByXY">
             
-             getFeatureByXY<span class="signature">(x, y)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">Array.&lt;<a href="UMeasureFeature.html#~UMeasureFeature">UMeasureFeature</a>><span class="returns-or">|</span>undefined</span>
+             getFeatureByXY<span class="signature">(x, y, <span class="optional">tolerance</span>)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">Array.&lt;<a href="UMeasureFeature.html#~UMeasureFeature">UMeasureFeature</a>></span>
         </h4>
     
     </div>
@@ -21750,7 +22574,8 @@ base texture가 없는 runtime tile은 표시 전 payload를 prewarm합니다.</
     
     <div class="description">
         <p>위경도 좌표계(EPSG:4326) 위치를 받아 그 지점에 걸치는 Feature 를 모두 찾아 목록으로 반환합니다. <br>
-최소·최대 타일 레벨 사이의 타일 캐시에서 찾으므로 아직 그려지지 않은 영역의 Feature 는 나오지 않습니다.</p>
+WFS 타일 캐시와 직접 추가한 도형에서 검색하며 <code>excludeSearch</code> 도형은 제외합니다. <br>
+WFS 검색 범위가 아직 로드되지 않았으면 &quot;아직 데이터가 로드되지 않았습니다.&quot; 경고와 빈 배열을 반환합니다.</p>
     </div>
     
 
@@ -21770,6 +22595,8 @@ base texture가 없는 runtime tile은 표시 전 payload를 prewarm합니다.</
 		
 		<th>Type</th>
 		
+		
+		<th>Default</th>
 		
 		
 		<th class="last">Description</th>
@@ -21794,8 +22621,17 @@ base texture가 없는 runtime tile은 표시 전 payload를 prewarm합니다.</
             </td>
             
             
+                <td class="default">
+                
+                </td>
+            
             
             <td class="description last">
+                
+                    
+                    
+                        
+                    
                 
                 <p>경도</p></td>
         </tr>
@@ -21817,10 +22653,56 @@ base texture가 없는 runtime tile은 표시 전 payload를 prewarm합니다.</
             </td>
             
             
+                <td class="default">
+                
+                </td>
+            
             
             <td class="description last">
                 
+                    
+                    
+                        
+                    
+                
                 <p>위도</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>tolerance</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+            
+            
+                <td class="default">
+                
+                    0
+                
+                </td>
+            
+            
+            <td class="description last">
+                
+                    
+                        <span class="optional">optional</span>
+                    
+                    
+                        
+                    
+                
+                <p>월드 좌표(EPSG:3857)에서 검색 위치 주위에 허용할 거리입니다. <br>
+선은 현재 표시 반폭에 이 거리를 더해 검사하며 화면 픽셀로 자동 환산하지 않습니다.</p></td>
         </tr>
 	
 	
@@ -21882,14 +22764,11 @@ base texture가 없는 runtime tile은 표시 전 payload를 prewarm합니다.</
             <td class="type">
             
                         Array.&lt;<a href="UMeasureFeature.html#~UMeasureFeature">UMeasureFeature</a>>
-                         | 
-                    
-                        undefined
                         
                     
             </td>
-            <td class="description last">그 지점에 걸치는 Feature 목록이며 하나도 없으면 빈 배열입니다. <br>
-좌표가 0 이거나 없거나 레이어가 아직 화면에 연결되지 않았으면 <code>undefined</code> 입니다.</td>
+            <td class="description last">그 지점에 걸치는 Feature 목록입니다. <br>
+좌표·허용 거리가 유효하지 않거나 레이어가 해제되었으면 빈 배열입니다. 경도·위도 0도 유효합니다.</td>
         </tr>
     
     </tbody>
@@ -22110,7 +22989,10 @@ WFS tile 응답으로 만들어진 Feature 는 포함하지 않으며, 둘 다 �
     
     <div class="description">
         <p>입력한 2D Geometry 와 겹치는 이 레이어의 도형을 찾아 목록으로 반환합니다. <br>
-<code>excludeSearch</code> 스타일을 지정한 도형은 검색 대상에서 제외합니다.</p>
+<code>excludeSearch</code> 스타일을 지정한 도형과 검색 기준 도형 자신은 검색 대상에서 제외합니다. <br>
+포인트는 반경을 포함한 원으로, 선은 열린 경로로, 폴리곤은 내부 구멍을 제외한 영역으로 검사합니다. <br>
+WFS 검색 범위가 완전히 로드되지 않으면 경고하고 타일 조각을 제외합니다. 연결된 전체 원본 도형은 최신 상태로 검색합니다. <br>
+반환 도형의 <code>getFeature().getProperties()</code>로 피처 속성을 읽을 수 있습니다.</p>
     </div>
     
 
@@ -23166,7 +24048,7 @@ TERRAIN_PERFORMANCE_TRACE_ENABLED를 true로 설정한 경우에만 시간이 �
     <div class="nameContainer">
         <h4 class="name" id="getVectorExtent">
             
-             getVectorExtent<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="global.html#Box3">Box3</a><span class="returns-or">|</span>undefined</span>
+             getVectorExtent<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="global.html#Box3">Box3</a></span>
         </h4>
     
     </div>
@@ -23177,8 +24059,9 @@ TERRAIN_PERFORMANCE_TRACE_ENABLED를 true로 설정한 경우에만 시간이 �
     
     
     <div class="description">
-        <p>이 레이어의 도형 전체를 감싸는 범위를 최신 상태로 다시 계산해 반환합니다. <br>
-three.js 의 <code>Box3</code> 이며 좌표는 월드 좌표(EPSG:3857)입니다.</p>
+        <p>현재 등록된 피처의 범위를 조회 시 합산해 반환합니다. <br>
+도형 변경은 자동 갱신으로 반영된 형상을 기준으로 하며 WFS는 현재 로드된 피처만 포함합니다. <br>
+좌표는 월드 좌표(EPSG:3857)이며 같은 범위 객체를 갱신해 반환합니다.</p>
     </div>
     
 
@@ -23242,13 +24125,10 @@ three.js 의 <code>Box3</code> 이며 좌표는 월드 좌표(EPSG:3857)입니�
             <td class="type">
             
                         <a href="global.html#Box3">Box3</a>
-                         | 
-                    
-                        undefined
                         
                     
             </td>
-            <td class="description last">도형 전체 범위이며, 도형을 한 번도 추가하지 않아 계산된 범위가 없으면 <code>undefined</code> 입니다.</td>
+            <td class="description last">레이어가 보관하는 전체 범위 객체이며, 유효한 피처가 없으면 빈 범위입니다.</td>
         </tr>
     
     </tbody>
@@ -23464,7 +24344,7 @@ three.js 의 <code>Box3</code> 이며 좌표는 월드 좌표(EPSG:3857)입니�
     
     
     <div class="description">
-        <p>앱 공유 terrain manager와 이 레이어가 소유한 shader cache manager를 연결합니다.</p>
+        <p>앱 공유 terrain manager에 이 레이어의 합성 순서를 등록합니다.</p>
     </div>
     
 
@@ -23642,6 +24522,429 @@ three.js 의 <code>Box3</code> 이며 좌표는 월드 좌표(EPSG:3857)입니�
             
 <dt>
     <div class="nameContainer">
+        <h4 class="name" id="isTilePresentationAttached">
+            
+             isTilePresentationAttached<span class="signature">(tile)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">boolean</span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>최신 source revision의 준비 여부와 무관하게 기존 Vector presentation이 실제 화면에 붙어 있는지 반환합니다.</p>
+<p>LOD가 이미 commit된 자식은 새 합성본을 준비하는 동안에도 직전 material을 계속 표시합니다.
+이 메서드는 그 기존 Coverage만 확인하며, 최신 합성본으로 전환 가능한지는
+<code>isTileRenderableReady</code>와 <code>isTilePresentationVisible</code>이 source별 적용 상태를 판정합니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
+        
+
+<table class="params">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>tile</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="U3dQuadTile.html#~U3dQuadTile">U3dQuadTile</a></span>
+
+
+            
+            </td>
+            
+            
+            
+            <td class="description last">
+                
+                <p>기존 표시 부착 상태를 확인할 terrain tile입니다.</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table>
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    <h5>Returns:</h5>
+    
+
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Type</th>
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+        <tr>
+            
+            <td class="type">
+            
+                        boolean
+                        
+                    
+            </td>
+            <td class="description last">기존 Vector presentation과 실제 이미지 host가 모두 표시 중이면 <code>true</code>입니다.</td>
+        </tr>
+    
+    </tbody>
+</table>
+
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="isTilePresentationConfirmedEmpty">
+            
+             isTilePresentationConfirmedEmpty<span class="signature">(tile)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">boolean</span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>현재 Vector source가 feature 없는 중립 완료 상태인지 반환합니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
+        
+
+<table class="params">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>tile</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="U3dQuadTile.html#~U3dQuadTile">U3dQuadTile</a></span>
+
+
+            
+            </td>
+            
+            
+            
+            <td class="description last">
+                
+                <p>빈 표시 완료 상태를 확인할 terrain tile입니다.</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table>
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    <h5>Returns:</h5>
+    
+
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Type</th>
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+        <tr>
+            
+            <td class="type">
+            
+                        boolean
+                        
+                    
+            </td>
+            <td class="description last">참여 source가 모두 <code>confirmed-empty</code>로 정착했으면 <code>true</code>입니다.</td>
+        </tr>
+    
+    </tbody>
+</table>
+
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="isTilePresentationParticipant">
+            
+             isTilePresentationParticipant<span class="signature">(tile)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">boolean</span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>일반 타일과 확대 전환 중 도형을 대신 표시하는 부모의 참여 여부를 반환합니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
+        
+
+<table class="params">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>tile</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="U3dQuadTile.html#~U3dQuadTile">U3dQuadTile</a></span>
+
+
+            
+            </td>
+            
+            
+            
+            <td class="description last">
+                
+                <p>확인할 타일</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table>
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    <h5>Returns:</h5>
+    
+
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Type</th>
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+        <tr>
+            
+            <td class="type">
+            
+                        boolean
+                        
+                    
+            </td>
+            <td class="description last">표시 준비 또는 기존 부모 표시 정리에 참여하면 <code>true</code></td>
+        </tr>
+    
+    </tbody>
+</table>
+
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
         <h4 class="name" id="isTilePresentationVisible">
             
              isTilePresentationVisible<span class="signature">(tile)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">boolean</span>
@@ -23795,10 +25098,11 @@ three.js 의 <code>Box3</code> 이며 좌표는 월드 좌표(EPSG:3857)입니�
     
     
     <div class="description">
-        <p>terrain decal source와 이를 표시할 이미지 host가 child handoff를 완료했는지 확인합니다.</p>
+        <p>terrain decal source와 이를 표시할 이미지 host의 자원이 준비되었는지 확인합니다.</p>
 <p>직접 소유한 binding은 해당 material/mesh 범위의 manager 상태를 검사합니다. <br>
-source-only Vector는 manager의 source revision뿐 아니라 외부 이미지 owner의 실제 Presentation까지 <br>
-확인하여, Group에 아직 붙지 않은 자식 때문에 부모가 먼저 숨는 공백을 방지합니다.</p>
+source-only Vector는 외부 이미지 host의 texture와 적용된 material 자원까지 확인합니다. <br>
+실제 장면 부착은 <code>isTilePresentationAttached()</code>에서 별도로 확인하여, 숨은 자식의 준비 판정이
+부착을 먼저 기다리는 순환 대기를 방지합니다.</p>
     </div>
     
 
@@ -23911,6 +25215,292 @@ source-only Vector는 manager의 source revision뿐 아니라 외부 이미지 o
                     
             </td>
             <td class="description last">child tile을 표시 단계로 진행할 수 있으면 true입니다.</td>
+        </tr>
+    
+    </tbody>
+</table>
+
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="isTileRetainedPresentationSafe">
+            
+             isTileRetainedPresentationSafe<span class="signature">(tile)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">boolean</span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>최신 Vector revision을 합성하는 동안 직전 source 적용본으로 자식 Coverage를 제공할 수 있는지 반환합니다.</p>
+<p>같은 material의 다른 decal만 활성화된 경우를 제외하기 위해 현재 참여 source마다 적용 이력을
+확인합니다. source별 실패·빈 결과 clear·성공 적용은 Manager의 공통 조회를 사용하고,
+부모·자식의 새 전환 준비와 무관하게 이미 붙은 Coverage의 유지 가능 여부를 확인합니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
+        
+
+<table class="params">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>tile</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="U3dQuadTile.html#~U3dQuadTile">U3dQuadTile</a></span>
+
+
+            
+            </td>
+            
+            
+            
+            <td class="description last">
+                
+                <p>기존 적용본을 확인할 terrain tile입니다.</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table>
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    <h5>Returns:</h5>
+    
+
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Type</th>
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+        <tr>
+            
+            <td class="type">
+            
+                        boolean
+                        
+                    
+            </td>
+            <td class="description last">현재 Vector source의 직전 적용본이 실제 host에 붙어 있으면 <code>true</code>입니다.</td>
+        </tr>
+    
+    </tbody>
+</table>
+
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="isTileSceneProvider">
+            
+             isTileSceneProvider<span class="signature">(tile)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">boolean</span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>이 레이어가 타일 표시 준비 판정에 참여할 scene presentation을 제공하는지 반환합니다.</p>
+<p>직접 소유한 cache, WFS tile source 또는 외부 image owner의 실제 material binding이 있을
+때만 전환 판정에 참여합니다. 외부 host가 없는 순수 runtime decal은 기존 image tile의
+표시를 차단하지 않습니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
+        
+
+<table class="params">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>tile</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="U3dQuadTile.html#~U3dQuadTile">U3dQuadTile</a></span>
+
+
+            
+            </td>
+            
+            
+            
+            <td class="description last">
+                
+                <p>확인할 타일입니다.</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table>
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    <h5>Returns:</h5>
+    
+
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Type</th>
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+        <tr>
+            
+            <td class="type">
+            
+                        boolean
+                        
+                    
+            </td>
+            <td class="description last">타일 전환 준비 판정에 참여하면 <code>true</code>입니다.</td>
         </tr>
     
     </tbody>
@@ -24051,6 +25641,290 @@ source-only Vector는 manager의 source revision뿐 아니라 외부 이미지 o
                     
             </td>
             <td class="description last">Parent fallback 유지가 필요하면 <code>true</code>입니다.</td>
+        </tr>
+    
+    </tbody>
+</table>
+
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="isTileWorkComplete">
+            
+             isTileWorkComplete<span class="signature">(tile)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">boolean</span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>벡터 입력을 현재 mesh의 Source로 승인한 작업이 끝났는지 반환합니다.</p>
+<p>준비한 입력과 승인된 revision이 같으면 GPU 적용을 기다리며 같은 작업을 다시 등록하지 않습니다.
+실제 GPU 준비와 장면 부착은 기존 표시 전환 훅에서 확인하며, 현재 GPU 실패와 무효화된 입력은 다시 평가합니다.
+원격 입력의 반복 완료 확인은 준비 시 저장한 원본 목록·설정·세대와 승인된 Source 상태만 비교합니다.
+준비 이력이 없는 기존 경로와 원격 요청 실패 대체는 종전 표시 준비 판정을 유지합니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
+        
+
+<table class="params">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>tile</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="U3dQuadTile.html#~U3dQuadTile">U3dQuadTile</a></span>
+
+
+            
+            </td>
+            
+            
+            
+            <td class="description last">
+                
+                <p>확인할 타일입니다.</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table>
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    <h5>Returns:</h5>
+    
+
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Type</th>
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+        <tr>
+            
+            <td class="type">
+            
+                        boolean
+                        
+                    
+            </td>
+            <td class="description last">현재 입력의 Source 승인이 끝났거나 기존 완료 조건을 만족하면 <code>true</code>입니다.</td>
+        </tr>
+    
+    </tbody>
+</table>
+
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="loadSourceGeometry">
+            
+             loadSourceGeometry<span class="signature">(feature)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">Promise.&lt;(<a href="U2dGeometry.html#~U2dGeometry">U2dGeometry</a>|undefined)></span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>동일 피처의 전체 원본 요청을 공유하고 해제된 레이어의 늦은 응답을 버립니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
+        
+
+<table class="params">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>feature</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="UMeasureFeature.html#~UMeasureFeature">UMeasureFeature</a></span>
+
+
+            
+            </td>
+            
+            
+            
+            <td class="description last">
+                
+                <p>대상 매개체입니다.</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table>
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    <h5>Returns:</h5>
+    
+
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Type</th>
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+        <tr>
+            
+            <td class="type">
+            
+                        Promise.&lt;(<a href="U2dGeometry.html#~U2dGeometry">U2dGeometry</a>|undefined)>
+                        
+                    
+            </td>
+            <td class="description last">준비된 원본 도형입니다.</td>
         </tr>
     
     </tbody>
@@ -24211,7 +26085,7 @@ source-only Vector는 manager의 source revision뿐 아니라 외부 이미지 o
     <div class="nameContainer">
         <h4 class="name" id="processMaterial">
             
-             processMaterial<span class="signature">(tile, features, <span class="optional">index</span>)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">Array.&lt;<a href="UMeasureFeature.html#~UMeasureFeature">UMeasureFeature</a>></span>
+             processMaterial<span class="signature">(tile, features, <span class="optional">index</span>)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">Array.&lt;<a href="UMeasureFeature.js.html#~UMeasureFeature">UMeasureFeature.js~UMeasureFeature</a>></span>
         </h4>
     
     </div>
@@ -24396,7 +26270,7 @@ source-only Vector는 manager의 source revision뿐 아니라 외부 이미지 o
             
             <td class="type">
             
-                        Array.&lt;<a href="UMeasureFeature.html#~UMeasureFeature">UMeasureFeature</a>>
+                        Array.&lt;<a href="UMeasureFeature.js.html#~UMeasureFeature">UMeasureFeature.js~UMeasureFeature</a>>
                         
                     
             </td>
@@ -24614,7 +26488,7 @@ source-only Vector는 manager의 source revision뿐 아니라 외부 이미지 o
                         
                     
                 
-                <p>tile rebuild를 다음 flush까지 미룰지 여부입니다.</p></td>
+                <p>자동 갱신 시점까지 반영을 미룰지 여부입니다. <code>false</code>여도 진행 중인 갱신은 먼저 완료합니다.</p></td>
         </tr>
 	
 	
@@ -24685,7 +26559,7 @@ source-only Vector는 manager의 source revision뿐 아니라 외부 이미지 o
                         
                     
             </td>
-            <td class="description last">하나 이상의 tile payload가 변경되었으면 <code>true</code>입니다.</td>
+            <td class="description last">하나 이상의 원형 도형 갱신을 예약했으면 <code>true</code>입니다.</td>
         </tr>
     
     </tbody>
@@ -24864,6 +26738,9 @@ source-only Vector는 manager의 source revision뿐 아니라 외부 이미지 o
             
                 
 <span class="param-type"><a href="U2dGeometry.html#~U2dGeometry">U2dGeometry</a></span>
+|
+
+<span class="param-type">UMeasureFeature</span>
 
 
             
@@ -24873,7 +26750,7 @@ source-only Vector는 manager의 source revision뿐 아니라 외부 이미지 o
             
             <td class="description last">
                 
-                <p>강조를 해제할 2D Geometry 객체</p></td>
+                <p>강조를 해제할 도형 또는 피처 매개체입니다.</p></td>
         </tr>
 	
 	
@@ -25573,7 +27450,7 @@ LOD 전환을 되돌리는 롤백처럼 부모 표시를 유지할 필요가 없
     
     
     <div class="description">
-        <p>점(circle) 도형의 반경을 카메라 거리에 따라 자동으로 바꿀지 설정합니다.</p>
+        <p>점(circle) 도형의 반경과 테두리를 화면 픽셀 크기로 유지할지 설정합니다.</p>
     </div>
     
 
@@ -25667,7 +27544,7 @@ LOD 전환을 되돌리는 롤백처럼 부모 표시를 유지할 필요가 없
                         
                     
                 
-                <p>원이 화면에서 차지할 반경(픽셀)이며 유한수가 아니면 8 을 사용합니다.</p></td>
+                <p>렌더 버퍼 픽셀 기준 반경이며 유한수가 아니면 8을 사용합니다. 동적 원의 <code>strokeWidth</code>도 같은 픽셀 기준입니다.</p></td>
         </tr>
 	
 	
@@ -25941,6 +27818,9 @@ LOD 전환을 되돌리는 롤백처럼 부모 표시를 유지할 필요가 없
             
                 
 <span class="param-type"><a href="U2dGeometry.html#~U2dGeometry">U2dGeometry</a></span>
+|
+
+<span class="param-type">UMeasureFeature</span>
 
 
             
@@ -25955,7 +27835,7 @@ LOD 전환을 되돌리는 롤백처럼 부모 표시를 유지할 필요가 없
                         
                     
                 
-                <p>강조할 2D Geometry 객체</p></td>
+                <p>강조할 도형 또는 피처 매개체입니다.</p></td>
         </tr>
 	
 	
@@ -26443,7 +28323,7 @@ LOD 전환을 되돌리는 롤백처럼 부모 표시를 유지할 필요가 없
     
     <div class="description">
         <p>레이어의 모든 도형에 같은 채움·외곽선 불투명도를 적용하고 영향받은 타일의 지형 합성을 다시 만듭니다. <br>
-도형마다 지정한 색은 그대로 두고 불투명도만 바꾸며, 레이어가 숨김 상태이면 아무것도 바꾸지 않습니다.</p>
+개별 색·잠금·선택 상태를 보존하며, 스타일 함수의 색 계산에는 불투명도만 덮습니다. 레이어가 숨김 상태이면 아무것도 바꾸지 않습니다.</p>
     </div>
     
 
@@ -26835,6 +28715,199 @@ LOD 전환을 되돌리는 롤백처럼 부모 표시를 유지할 필요가 없
     
     
     
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="setSourceGeometry">
+            
+             setSourceGeometry<span class="signature">(feature, source)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType"><a href="U2dGeometry.html#~U2dGeometry">U2dGeometry</a></span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>앱이 제공한 전체 원본을 연결합니다. GeoJSON 좌표계는 EPSG:3857이어야 합니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
+        
+
+<table class="params">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>feature</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">UMeasureFeature</span>
+
+
+            
+            </td>
+            
+            
+            
+            <td class="description last">
+                
+                <p>대상 매개체입니다.</p></td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>source</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="object_.html">object</a></span>
+|
+
+<span class="param-type"><a href="U2dGeometry.html#~U2dGeometry">U2dGeometry</a></span>
+
+
+            
+            </td>
+            
+            
+            
+            <td class="description last">
+                
+                <p>전체 원본 피처 또는 도형입니다.</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table>
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    <h5>Throws:</h5>
+    
+            
+
+<dl>
+    <dt>
+        <div class="param-desc">
+        <p>식별할 수 없거나 지원하지 않는 원본이면 발생합니다.</p>
+        </div>
+    </dt>
+    <dt>
+        <dl>
+            <dt>
+                Type
+            </dt>
+            <dd>
+                
+<span class="param-type">TypeError</span>
+
+
+            </dd>
+        </dl>
+    </dt>
+</dl>
+
+
+        
+    
+    
+    <h5>Returns:</h5>
+    
+
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Type</th>
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+        <tr>
+            
+            <td class="type">
+            
+                        <a href="U2dGeometry.html#~U2dGeometry">U2dGeometry</a>
+                        
+                    
+            </td>
+            <td class="description last">연결된 도형입니다.</td>
+        </tr>
+    
+    </tbody>
+</table>
+
     
     
     
@@ -27698,7 +29771,7 @@ LOD 전환을 되돌리는 롤백처럼 부모 표시를 유지할 필요가 없
     <div class="nameContainer">
         <h4 class="name" id="setVectorExtent">
             
-             setVectorExtent<span class="signature">()</span>
+             setVectorExtent<span class="signature">()</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">undefined</span>
         </h4>
     
     </div>
@@ -27709,8 +29782,7 @@ LOD 전환을 되돌리는 롤백처럼 부모 표시를 유지할 필요가 없
     
     
     <div class="description">
-        <p>도형을 추가·제거한 뒤 레이어가 보관하는 전체 범위를 현재 도형 기준으로 다시 맞춥니다. <br>
-매개변수 없이 호출하며, 계산된 범위가 아직 없으면 기존 값을 그대로 둡니다.</p>
+        <p>기존 공개 호출의 호환성을 위해 유지하며 별도 처리를 수행하지 않습니다.</p>
     </div>
     
 
@@ -27728,6 +29800,8 @@ LOD 전환을 되돌리는 롤백처럼 부모 표시를 유지할 필요가 없
     
     
 
+    
+        <dt class="important tag-deprecated">Deprecated</dt><dd><ul class="dummy"><li>범위 갱신은 getVectorExtent()가 수행하므로 직접 호출할 필요가 없습니다.</li><ul></dd>
     
     
     
@@ -27754,6 +29828,35 @@ LOD 전환을 되돌리는 롤백처럼 부모 표시를 유지할 필요가 없
     
     
     
+    
+    <h5>Returns:</h5>
+    
+
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Type</th>
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+        <tr>
+            
+            <td class="type">
+            
+                        undefined
+                        
+                    
+            </td>
+            <td class="description last">반환값이 없습니다.</td>
+        </tr>
+    
+    </tbody>
+</table>
+
     
     
     
@@ -27992,6 +30095,149 @@ LOD 전환을 되돌리는 롤백처럼 부모 표시를 유지할 필요가 없
             
 <dt>
     <div class="nameContainer">
+        <h4 class="name" id="suspendTilePresentation">
+            
+             suspendTilePresentation<span class="signature">(tile)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">boolean</span>
+        </h4>
+    
+    </div>
+
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        <p>준비가 끝나지 않은 tile의 화면 노출만 보류하고 terrain 준비 상태는 유지합니다.</p>
+<p><code>removeTileFromScene</code>은 handoff 해제와 <code>resetStateTileByKey</code>까지 수행하므로, 준비 중인
+자식을 원복할 때 사용하면 진행 중이던 합성이 폐기되고 다음 frame에 같은 attach를 반복하는
+경쟁이 생깁니다. 이 경로는 논리 표시 상태와 Group 부착만 되돌려 부모 fallback을 유지합니다.</p>
+    </div>
+    
+
+    
+    
+    
+    
+    
+        
+
+<table class="params">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>tile</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type"><a href="U3dQuadTile.html#~U3dQuadTile">U3dQuadTile</a></span>
+
+
+            
+            </td>
+            
+            
+            
+            <td class="description last">
+                
+                <p>노출을 보류할 tile입니다.</p></td>
+        </tr>
+	
+	
+	</tbody>
+</table>
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    <h5>Returns:</h5>
+    
+
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Type</th>
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+        <tr>
+            
+            <td class="type">
+            
+                        boolean
+                        
+                    
+            </td>
+            <td class="description last">준비 상태를 유지한 채 노출만 보류했으면 <code>true</code>입니다.</td>
+        </tr>
+    
+    </tbody>
+</table>
+
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
         <h4 class="name" id="update">
             
              update<span class="signature">(drawArg, <span class="optional">curTime</span>)</span><span class="returns-arrow" aria-hidden="true"></span><span class="type-signature returnType">undefined</span>
@@ -28180,9 +30426,9 @@ LOD 전환을 되돌리는 롤백처럼 부모 표시를 유지할 필요가 없
     
     
     <div class="description">
-        <p>등록된 2D Geometry의 현재 상태를 다음 Feature commit 대상에 포함합니다. <br>
+        <p>등록된 2D Geometry의 현재 상태를 자동 갱신 대상에 포함합니다. <br>
 변경 이벤트를 발생시키지 않는 사용자 정의 스타일·형상 변경도 이 메서드로 명시적으로 갱신할 수 있습니다. <br>
-<code>beginFeatureUpdate()</code> 없이 단독으로 호출하면 다음 프레임에 자동으로 반영되고, 이 레이어에 등록되지 않은 도형은 무시합니다.</p>
+다음 자동 갱신에 반영하며, 원본 객체와 도형의 등록 연결이 일치하지 않으면 무시합니다.</p>
     </div>
     
 
@@ -28583,29 +30829,6 @@ Feature 를 지우지는 않으므로 도형을 모두 없애려면 <code>clear(
             
             
             <td class="description last"><p>feature style revision입니다.</p></td>
-        </tr>
-	
-	
-	
-        <tr>
-            
-                <td class="name"><code>layerStyleRevision</code></td>
-            
-            
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-            
-            
-            
-            
-            
-            <td class="description last"><p>layer style revision입니다.</p></td>
         </tr>
 	
 	
@@ -29252,7 +31475,7 @@ Feature 를 지우지는 않으므로 도형을 모두 없애려면 <code>clear(
 
     </div>
 </div>
-<script src="scripts/prism.js?v=muz1hdly"></script>
-<script src="scripts/main.js?v=muz1hdly"></script>
+<script src="scripts/prism.js?v=mvon8gzc"></script>
+<script src="scripts/main.js?v=mvon8gzc"></script>
 </body>
 </html>

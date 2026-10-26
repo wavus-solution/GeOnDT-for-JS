@@ -81,8 +81,8 @@ class U3dModelDxfLayer extends U3dModelLayer {
         });
         /** @type {U3dDxfStyleFunction | undefined} */
         this._styleFunction = defaultValue(opt.styleFunction, undefined);
-        if (defined(this.resolve))
-            this.resolve(this);
+        if (defined(this._resolveReady))
+            this._resolveReady();
     }
 
     /**

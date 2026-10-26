@@ -277,6 +277,7 @@ GDecalTerrainShader.setVertexShader(vertexShader: string) -> string
         `#include <worldpos_vertex>` 뒤에 조건부 대입을 덧붙여, USE_ENVMAP·DISTANCE·USE_SHADOWMAP·USE_TRANSMISSION 중 하나가 정의되었거나 spot light 좌표 수가 0보다 크면 계산된 world position의 xyz를 vDecalWorldPosition에 넣고, 그 밖에는 영 벡터를 넣는다.
 
 GDecalTerrainShader.setFragmentShader(fragmentShader: string) -> string
+    벡터만의 straight alpha 합성색을 terrainDecalOverlayColor에 보관한 뒤 기본 영상에 한 번 합성한다. 영상 마스크는 이 값을 사용해 배경만 제거하고 벡터 색·투명도를 유지한다. direct·composite·hybrid 모두 같은 규칙을 사용하며 벡터가 없는 픽셀은 완전 투명이다.
     역할: three.js가 만든 지형 fragment 셰이더 원문에 decal 평가 함수와 기본 색 위 합성 호출을 주입한다.
 
     인터페이스:

@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -8,7 +8,6 @@ import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/e
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dLayer, U3dLayerCO } from "./U3dLayer.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
-import type { DeferredCatchFunc, DeferredReadyFunc } from "../util/deferred.js";
 
 /**
  * ~extends import('@U3dLayer').U3dLayer <br>
@@ -58,13 +57,14 @@ declare class U3dGroupLayer extends U3dLayer {
      */
     getChildren(): Array<U3dGroupLayerChild>;
     /**
-     * 자식 레이어를 그룹에 연결하고 경계를 누적한 뒤 목록에 추가한다. <br>
-     * 같은 객체가 이미 있거나 자식 이름과 그룹 자신의 이름이 느슨한 비교로 같으면 거절한다.
-     * 다른 자식끼리 이름이 같은지는 검사하지 않는다. <br>
-     * ready가 있으면 우선 사용하고, 없으면 then, 둘 다 없으면 즉시 표시 상태를 전달한다.
-     * 준비 성공 콜백은 실행 당시의 그룹 표시 상태를 읽는다. 준비 완료를 기다리지 않고 등록 결과를 반환한다.
-     * 준비 실패는 경로별 오류 로그로 알리며, 동기 예외는 앞선 변경을 되돌리지 않고 전달한다. <br>
-     * 최초 경계는 자식의 min·max 벡터를 공유하므로 이후 누적이 해당 자식 경계에도 반영될 수 있다.
+     * 자식 레이어를 그룹에 연결하고 경계를 누적한 뒤 목록에 추가합니다. <br>
+     * 같은 객체가 이미 있거나 자식 이름과 그룹 자신의 이름이 느슨한 비교로 같으면 거절합니다.
+     * 다른 자식끼리 이름이 같은지는 검사하지 않습니다. <br>
+     * ready Promise가 있으면 완료 후 표시 상태를 전달하고, 없으면 즉시 전달합니다.
+     * 준비 성공 콜백은 실행 당시의 그룹 표시 상태를 읽습니다. 준비 완료를 기다리지 않고 등록 결과를 반환합니다.
+     * 콜백 실행 전에 그룹·자식이 해제되거나 자식이 목록에서 제거되면 표시를 적용하지 않습니다.
+     * 준비 실패는 경로별 오류 로그로 알리며, 동기 예외는 앞선 변경을 되돌리지 않고 전달합니다. <br>
+     * 최초 경계는 자식의 min·max 벡터를 공유하므로 이후 누적이 해당 자식 경계에도 반영될 수 있습니다.
      *
      * @param {U3dGroupLayerChild} layer 추가할 자식 레이어
      * @returns {boolean} 목록에 추가하면 true. 이미 같은 객체가 있거나 그룹 이름과 충돌하면 false
@@ -137,36 +137,26 @@ declare class U3dGroupLayer extends U3dLayer {
 
 /**
      * ~extends import('@U3dLayer').U3dLayer <br>
-     * 그룹에서 호출하는 자식 레이어의 추가 계약.
-     * ready가 존재하면 then보다 우선 사용하며, 반환 객체의 catch에 실패 처리를 연결한다.
+     *
+     * 그룹에서 호출하는 자식 레이어의 추가 계약입니다.
+     * 초기화 완료 대기는 기반 레이어의 ready Promise를 사용합니다.
      */
     type U3dGroupLayerChild_Content = {
         /**
-         * 추가 시 그룹 경계에 누적할 원본 경계를 반환한다
+         * 추가 시 그룹 경계에 누적할 원본 경계를 반환합니다
          */
         getBoundingBox: () => U3dGroupLayerBoundingBox;
         /**
-         * 자체 발광색을 설정한다. 그룹은 반환값을 합산하지 않는다
+         * 자체 발광색을 설정합니다. 그룹은 반환값을 합산하지 않습니다
          */
         setEmissiveColor: (arg0: number, arg1: number, arg2: number) => boolean;
-        /**
-         * 준비 성공 콜백을 등록할 우선 진입점
-         */
-        ready?: DeferredReadyFunc;
-        /**
-         * ready가 없을 때 사용할 준비 진입점
-         */
-        then?: DeferredReadyFunc;
-        /**
-         * 자식의 실패 콜백 등록 함수
-         */
-        catch?: DeferredCatchFunc;
     };
 
 /**
      * ~extends import('@U3dLayer').U3dLayer <br>
-     * 그룹에서 호출하는 자식 레이어의 추가 계약.
-     * ready가 존재하면 then보다 우선 사용하며, 반환 객체의 catch에 실패 처리를 연결한다.
+     *
+     * 그룹에서 호출하는 자식 레이어의 추가 계약입니다.
+     * 초기화 완료 대기는 기반 레이어의 ready Promise를 사용합니다.
      */
     type U3dGroupLayerChild = U3dLayer & U3dGroupLayerChild_Content;
 

@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { MeshPhongMaterial, BufferGeometry, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, WebGLUtils, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Scene, LineSegments, Points } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -123,36 +123,40 @@ declare class UAnalyPhysicalFlow extends UAnaly {
         maxHeight: number | undefined;
     };
     /**
-     * 분석 데이터를 초기화하는 함수.
+     * 진행 중인 영역 요청을 취소하고 분석 데이터를 초기화합니다.
      *
      * @override
      *
-     * @return {Promise<void>}
+     * @returns {Promise<void>} 데이터 정리 완료
      */
     override clear(): Promise<void>;
     /**
-     * 마우스 이벤트 및 클릭 이벤트를 해제하고 그리기를 종료하는 함수.
+     * 마우스 입력을 종료하고 진행 중인 영역 요청을 AbortError로 취소합니다.
+     * 더블클릭 직후 아직 결과를 반영하지 않은 요청도 취소됩니다.
      *
-     * @return {import('@UMeasureFeature').UMeasureFeature | undefined}
+     * @returns {import('@UMeasureFeature').UMeasureFeature | undefined} 입력된 피처 또는 입력이 없으면 undefined
      */
     stopDraw(): UMeasureFeature | undefined;
     /**
-     * 물리 분석 영역을 마우스로 그리는 함수.
+     * 물리 분석 영역을 마우스로 그리고 워커 초기화까지 기다립니다.
+     * 초기화 실패는 원래 오류로, 중단·초기화·비활성화는 AbortError로 거절됩니다.
      *
-     * @return {Promise<void>}
+     * @returns {Promise<void>} 물리 분석 영역 준비 완료
      */
     drawPhysicalArea(): Promise<void>;
     /**
-     * 목표 영역을 마우스로 그리는 함수.
+     * 목표 영역을 마우스로 그리고 분석에 반영합니다.
+     * 중단·초기화·비활성화된 요청은 AbortError로 거절되며 뒤늦게 영역을 반영하지 않습니다.
      *
-     * @return {Promise<void>}
+     * @returns {Promise<void>} 목표 영역 반영 완료
      */
     drawTargetArea(): Promise<void>;
     /**
-     * 그려진 영역으로 물리 분석을 초기화하는 함수.
+     * 그려진 영역으로 물리 분석을 초기화합니다.
+     * 워커 초기화·고도 조회에 실패하면 거절되며, 이전 요청의 늦은 응답은 반영하지 않습니다.
      *
-     * @param {import('@UMeasureFeature').UMeasureFeature | undefined} feature
-     * @return {Promise<boolean>}
+     * @param {import('@UMeasureFeature').UMeasureFeature | undefined} feature 분석에 사용할 측정 피처
+     * @returns {Promise<boolean>} 준비 완료 시 true, 실패 시 원래 오류로 거절
      */
     createPhysicalArea(feature: UMeasureFeature | undefined): Promise<boolean>;
     /**
